@@ -7,6 +7,7 @@ ARBLK_t *array_new(int lo, int hi) {
     a->lo   = lo;
     a->hi   = hi;
     a->ndim = 1;
+    a->proto = (const char *)0;
     int sz  = hi - lo + 1;
     if (sz < 1) sz = 1;
     a->data = GC_malloc(sz * sizeof(DESCR_t));
@@ -21,6 +22,7 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     a->lo2  = lo2;
     a->hi2  = hi2;
     a->ndim = 2;
+    a->proto = (const char *)0;
     int rows = hi1 - lo1 + 1;
     int cols = hi2 - lo2 + 1;
     if (rows < 1) rows = 1;

@@ -25,6 +25,8 @@ typedef struct ProcEntry {
     Scope            lower_sc;
     int                 bb_idx;
     int                 is_generator;
+    int                 dyn_scope;
+    const char         *result_name;
     uint64_t            byref_mask;
     int                 decl_level;
     IR_t *              proc_entry_node;

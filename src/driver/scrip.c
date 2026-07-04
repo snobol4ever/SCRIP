@@ -459,16 +459,22 @@ int main(int argc, char **argv)
         if (strcmp(argv[argi], "--") == 0) { argi++; g_prog_argv = &argv[argi]; g_prog_argc = argc - argi; break; }
         const char *input_path = argv[argi];
         {
+            char rp[4096];
+            const char *abs_path = realpath(input_path, rp) ? rp : input_path;
             char dirbuf[4096];
-            strncpy(dirbuf, input_path, sizeof dirbuf - 1);
+            strncpy(dirbuf, abs_path, sizeof dirbuf - 1);
             dirbuf[sizeof dirbuf - 1] = '\0';
             char *sl = strrchr(dirbuf, '/');
-            if (sl) { *sl = '\0'; sno_add_include_dir(dirbuf); }
+            if (sl) { *sl = '\0'; sno_add_include_dir(strdup(dirbuf)); }
             else     { sno_add_include_dir("."); }
             const char *core_lib = getenv("SNO_LIB");
-            if (core_lib && *core_lib) sno_add_include_dir(core_lib);
+            if (core_lib && *core_lib) {
+                char envb[4096]; strncpy(envb, core_lib, sizeof envb - 1); envb[sizeof envb - 1] = '\0';
+                char *sp = envb; char *tk;
+                while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) sno_add_include_dir(strdup(tk));
+            }
             char walk[4096];
-            strncpy(walk, input_path, sizeof walk - 1);
+            strncpy(walk, abs_path, sizeof walk - 1);
             walk[sizeof walk - 1] = '\0';
             char *p = strrchr(walk, '/');
             while (p) {
@@ -477,7 +483,7 @@ int main(int argc, char **argv)
                 snprintf(probe, sizeof probe, "%s/lib", walk);
                 struct stat st;
                 if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) {
-                    sno_add_include_dir(walk);
+                    sno_add_include_dir(strdup(walk));
                     break;
                 }
                 p = strrchr(walk, '/');
@@ -662,6 +668,8 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
+                { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
+                { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
                 fprintf(stderr, "[IBB] FATAL: mode-4 driver: main BB graph not found\n");
@@ -681,6 +689,7 @@ int main(int argc, char **argv)
             int _pnbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             const char **proc_names_buf = (const char **)malloc((size_t)_pnbcap * sizeof(const char *));
             int *proc_nparams_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
+            int *proc_pidx_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -698,6 +707,7 @@ int main(int argc, char **argv)
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", pname); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 proc_nparams_buf[n_procs] = np;
+                proc_pidx_buf[n_procs] = _pi;
                 proc_names_buf[n_procs++] = pname;
                 free(pn);
             }
@@ -922,10 +932,33 @@ int main(int argc, char **argv)
                       printf("  call rt_grammar_register@PLT\n");
                   } }
                 for (int i = 0; i < n_procs; i++) {
+                    ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
                     printf("  .section .rodata\n");
                     printf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
+                    if (pe->dyn_scope) {
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
+                            printf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                        printf("  .align 8\n  .Lstartup_pnames%d:\n", i);
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) printf("  .quad .Lstartup_pp%d_%d\n", i, k);
+                        printf("  .quad 0\n");
+                    }
                     printf("  .section .text\n");
                     printf("  .intel_syntax noprefix\n");
+                    if (pe->dyn_scope) {
+                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        printf("  lea rsi, [rip + .Lstartup_pnames%d]\n", i);
+                        printf("  mov edx, %d\n", proc_nparams_buf[i]);
+                        printf("  call rt_proc_register@PLT\n");
+                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        printf("  mov esi, 1\n");
+                        printf("  call rt_proc_set_dyn_scope@PLT\n");
+                        if (pe->result_name && strcmp(pe->result_name, pe->name)) {
+                            printf("  .section .rodata\n  .Lstartup_prn%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, pe->result_name);
+                            printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                            printf("  lea rsi, [rip + .Lstartup_prn%d]\n", i);
+                            printf("  call rt_proc_set_result_name@PLT\n");
+                        }
+                    }
                     printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                     printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", proc_names_buf[i]);
                     printf("  call rt_proc_set_fn@PLT\n");
@@ -936,7 +969,7 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n");
                 printf("  ret\n");
             }
-            free(proc_names_buf); free(proc_nparams_buf);
+            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf);
             if (n_gva_icn > 0) {
                 printf("  .section .rodata\n");
                 for (int k = 0; k < n_gva_icn; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1196,6 +1229,8 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
+                { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
+                { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (is_icon || is_sno_bb) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             if (is_icon || is_sno_bb) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
@@ -1218,6 +1253,8 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
+                { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
+                { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 bb_box_fn pfn = emit_chain(s2->bbp.table[idx]->entry, NULL, "proc_flat");
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }

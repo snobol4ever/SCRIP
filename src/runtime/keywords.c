@@ -12,6 +12,9 @@ long g_error  = 0;
 long g_trace  = 0;
 long g_dump   = 0;
 long g_random = 0;
+long g_anchor = 0;
+long g_trim   = 0;
+long g_maxlngth = 5000000;
 int  g_jcon   = 0;
 #define KW_CSET_MAX 16
 static struct { const char *ptr; const char *name; int len; } g_kw_cset_names[KW_CSET_MAX];
@@ -110,6 +113,13 @@ DESCR_t kw_read(const char *kw) {
       if (!strcmp(kw,"trace"))  return INTVAL(g_trace);
       if (!strcmp(kw,"dump"))   return INTVAL(g_dump);
       if (!strcmp(kw,"random")) return INTVAL(g_random);
+    }
+    { extern long g_anchor, g_trim, g_maxlngth;
+      if (!strcmp(kw,"anchor"))   return INTVAL(g_anchor);
+      if (!strcmp(kw,"trim"))     return INTVAL(g_trim);
+      if (!strcmp(kw,"maxlngth")) return INTVAL(g_maxlngth);
+      if (!strcmp(kw,"fullscan")) return INTVAL(0);
+      if (!strcmp(kw,"stlimit"))  return INTVAL(-1);
     }
     if (!strcmp(kw,"col"))     return INTVAL(0);
     if (!strcmp(kw,"row"))     return INTVAL(0);
@@ -211,4 +221,26 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
         return FAILDESCR;
     }
     return FAILDESCR;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
+    if (!sval) return;
+    const char *kw = sval[0] == '&' ? sval + 1 : sval;
+    char lk[64]; size_t li = 0;
+    for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
+    lk[li] = '\0';
+    long iv = 0;
+    if (IS_INT(v)) iv = (long)v.i;
+    else if (IS_REAL(v)) iv = (long)v.r;
+    else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
+    if (!strcmp(lk,"anchor"))   { g_anchor = iv; return; }
+    if (!strcmp(lk,"trim"))     { g_trim = iv; return; }
+    if (!strcmp(lk,"maxlngth")) { g_maxlngth = iv; return; }
+    if (!strcmp(lk,"error"))    { g_error = iv; return; }
+    if (!strcmp(lk,"trace"))    { g_trace = iv; return; }
+    if (!strcmp(lk,"dump"))     { g_dump = iv; return; }
+    if (!strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return; }
+    if (!strcmp(lk,"fullscan") || !strcmp(lk,"stlimit") || !strcmp(lk,"abend") || !strcmp(lk,"code")) return;
+    NV_SET_fn(sval, v);
 }

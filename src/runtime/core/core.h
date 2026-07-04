@@ -73,6 +73,7 @@ typedef struct _ARBLK_t {
     int     ndim;
     int     lo2, hi2;
     int     proto_bare;
+    const char *proto;
     DESCR_t *data;
 } ARBLK_t;
 ARBLK_t *array_new(int lo, int hi);

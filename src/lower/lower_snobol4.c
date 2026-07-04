@@ -7,6 +7,9 @@
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { IR_graph_t * g; } scx_t;
+#define SNO_DEF_MAX 128
+#define SNO_DEF_NAMES_MAX 64
+typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fatal(const char * what, const char * detail) {
     fprintf(stderr, "FATAL lower_snobol4 (GZ#5 subset): %s%s%s. Pattern matching, EVAL and CODE are outside the landed subset (IR_MATCH_* family pending); see GOAL-SNOBOL4-BB.md.\n",
@@ -32,6 +35,7 @@ static int sno_binop_code(tree_e tt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * op = lc_build(cx->g, IR_BINOP, γ, ω); IR_LIT(op).ival = code;
@@ -73,6 +77,23 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_NUL:  { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
     case TT_VAR:  { sno_reg_var(t->v.sval); IR_t * nd = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; if (res) *res = nd; return nd; }
     case TT_KEYWORD: { IR_t * nd = lc_build(cx->g, IR_KEYWORD_SNOBOL4, γ, ω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : (char *) ""; if (res) *res = nd; return nd; }
+    case TT_NAME: {
+        if (t->n < 1 || !t->c[0]) sno_fatal("name operator with no operand", NULL);
+        if (t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
+            sno_reg_var(t->c[0]->v.sval);
+            IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$NAME";
+            IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = t->c[0]->v.sval;
+            ir_operand_push(mk, nl);
+            if (res) *res = mk; return nl;
+        }
+        if (t->c[0]->t == TT_IDX && t->c[0]->n >= 2) {
+            const tree_t * ix = t->c[0];
+            IR_t * vr = NULL; IR_t * entry = sx_subscript_lv(cx, ix->c[0], (const tree_t * const *) &ix->c[1], ix->n - 1, ω, &vr);
+            if (γ) lc_γ_to(vr, γ);
+            if (res) *res = vr; return entry;
+        }
+        sno_fatal("name operator over this form is outside the landed subset", NULL);
+    }
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_POW: case TT_SEQ:
         if (t->n < 2) sno_fatal("binary operator with missing operand", NULL);
         return sx_binop(cx, t, sno_binop_code(t->t), γ, ω, res);
@@ -85,16 +106,40 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_INDIRECT: {
         if (t->n < 1) sno_fatal("indirect reference with no operand", NULL);
+        if (t->c[0] && t->c[0]->t == TT_NAME) {
+            IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
+            IR_t * nr = NULL; IR_t * ne = sx_lower(cx, t->c[0], NULL, ω, &nr);
+            lc_γ_to(nr, dr);
+            ir_operand_push(dr, nr);
+            if (res) *res = dr; return ne;
+        }
         IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
         IR_t * vr = NULL; IR_t * ve = sx_nameval(cx, t->c[0], dr, ω, &vr);
         ir_operand_push(dr, vr);
         if (res) *res = dr; return ve;
     }
+    case TT_IDX: {
+        if (t->n < 2) sno_fatal("subscript with no index", NULL);
+        IR_t * br = NULL; IR_t * entry = sx_lower(cx, t->c[0], NULL, ω, &br);
+        IR_t * cur = br;
+        for (int k = 1; k < t->n; k++) {
+            IR_t * ir = NULL; IR_t * ie = sx_lower(cx, t->c[k], NULL, ω, &ir);
+            lc_γ_to(cur, ie);
+            IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+            lc_γ_to(ir, sub);
+            ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+            cur = sub;
+        }
+        IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
+        lc_γ_to(cur, dr);
+        ir_operand_push(dr, cur);
+        if (res) *res = dr; return entry;
+    }
     case TT_FNC: {
         const char * name = t->v.sval; int argbase = 0;
         if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
         if (!name) sno_fatal("call with no resolvable name", NULL);
-        if (!strcmp(name, "DEFINE")) sno_fatal("DEFINE is not yet in the landed subset (next rung: statement-graph call/return protocol)", NULL);
+        if (!strcmp(name, "DEFINE")) sno_fatal("DEFINE in expression position is outside the landed subset (statement-level literal DEFINE only)", NULL);
         if (!strcmp(name, "EVAL") || !strcmp(name, "CODE")) sno_fatal("outside subset", name);
         return sx_call_named(cx, name, t, argbase, γ, ω, res);
     }
@@ -118,37 +163,70 @@ static const char * sgoto(const tree_t * s, tree_e kind) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_resolve_label(const char * nm) {
     IR_t * l = nm ? bb_label_landing(nm) : NULL;
-    if (!l) sno_fatal("goto to unknown label (RETURN/FRETURN/NRETURN arrive with the DEFINE rung)", nm ? nm : "?");
+    if (!l) sno_fatal("goto to unknown label", nm ? nm : "?");
     return l;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_register_program(stage2_t * s2, const tree_t * prog) {
-    extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
-    extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
-    int mod_idx = -1;
-    for (int _ci = 0; _ci < prog->n; _ci++) {
-        const tree_t * s = prog->c[_ci];
-        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
-        if (mod_idx < 0) mod_idx = polyglot_module_open(s2, s);
-        polyglot_module_extend(s2, mod_idx, s);
-        const tree_t * subj = stmt_attr_expr(stmt_attr_find(s, ":subj"));
-        if (!subj) continue;
-        const char * lbl = stmt_attr_str(stmt_attr_find(s, ":lbl"));
-        if (mod_idx >= 0 && lbl && *lbl) s2->module_registry.mods[mod_idx].core_label_count++;
-    }
+static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
+    const tree_t * subj = lc_stmt_subj(s);
+    if (!subj || subj->t != TT_FNC) return NULL;
+    const char * name = subj->v.sval; int argbase = 0;
+    if (!name && subj->n > 0 && subj->c[0] && subj->c[0]->t == TT_VAR) { name = subj->c[0]->v.sval; argbase = 1; }
+    if (!name || strcmp(name, "DEFINE")) return NULL;
+    if (sfind(s, ":eq") || sfind_expr(s, ":pat")) sno_fatal("DEFINE with a pattern or replacement field is outside the landed subset", NULL);
+    if (subj->n <= argbase || !subj->c[argbase] || subj->c[argbase]->t != TT_QLIT || !subj->c[argbase]->v.sval)
+        sno_fatal("DEFINE with a non-literal prototype string is outside the landed subset (runtime DEFINE pending)", NULL);
+    if (out_argbase) *out_argbase = argbase;
+    return subj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-stage2_t * lower_sno_stage2(const tree_t * prog) {
-    if (!prog || prog->t != TT_PROGRAM) return NULL;
-    sno_register_program(&g_stage2, prog);
-    int nst = 0;
-    for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
-    if (nst == 0) return &g_stage2;
-    const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
-    { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
+static void sno_parse_define(const char * spec, const char * entry_opt, sno_def_t * d) {
+    char buf[512]; int bn = 0;
+    for (const char * p = spec; *p && bn < (int) sizeof buf - 1; p++) if (*p != ' ' && *p != '\t') buf[bn++] = *p;
+    buf[bn] = 0;
+    char * par = strchr(buf, '(');
+    char * cls = par ? strchr(par, ')') : NULL;
+    if (!par || !cls) sno_fatal("DEFINE prototype missing parameter parentheses", spec);
+    *par = 0; *cls = 0;
+    if (!buf[0]) sno_fatal("DEFINE prototype missing function name", spec);
+    d->fname = lp_strdup(buf);
+    d->entry = (entry_opt && entry_opt[0]) ? lp_strdup(entry_opt) : d->fname;
+    d->result_name = NULL;
+    d->nnames = 0;
+    for (char * seg = par + 1; seg && *seg; ) {
+        char * cm = strchr(seg, ','); if (cm) *cm = 0;
+        if (*seg && d->nnames < SNO_DEF_NAMES_MAX) d->names[d->nnames++] = lp_strdup(seg);
+        seg = cm ? cm + 1 : NULL;
+    }
+    for (char * seg = cls + 1; seg && *seg; ) {
+        char * cm = strchr(seg, ','); if (cm) *cm = 0;
+        if (*seg && d->nnames < SNO_DEF_NAMES_MAX) d->names[d->nnames++] = lp_strdup(seg);
+        seg = cm ? cm + 1 : NULL;
+    }
+    sno_reg_var(d->fname);
+    for (int k = 0; k < d->nnames; k++) sno_reg_var(d->names[k]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res) {
+    IR_t * br = NULL; IR_t * entry = sx_lower(cx, base, NULL, ω, &br);
+    IR_t * cur = br;
+    for (int k = 0; k < nidx; k++) {
+        IR_t * ir = NULL; IR_t * ie = sx_lower(cx, idxs[k], NULL, ω, &ir);
+        lc_γ_to(cur, ie);
+        IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+        lc_γ_to(ir, sub);
+        ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+        cur = sub;
+    }
+    if (var_res) *var_res = cur;
+    return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx; cx.g = g;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
+    IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
     bb_label_registry_reset();
     for (int i = 0; i < nst; i++) {
@@ -157,7 +235,10 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         if (lbl && lbl[0]) bb_label_registry_add(lp_strdup(lbl), anchor[i]);
     }
     bb_label_registry_add(lp_strdup("END"), exitnd);
-    g->entry = anchor[0];
+    if (!bb_label_landing("RETURN"))  bb_label_registry_add(lp_strdup("RETURN"),  exitnd);
+    if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), failnd);
+    if (!bb_label_landing("NRETURN")) bb_label_registry_add(lp_strdup("NRETURN"), exitnd);
+    g->entry = anchor[entry_idx];
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i];
         IR_t * next = (i + 1 < nst) ? anchor[i + 1] : exitnd;
@@ -169,6 +250,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         IR_t * fT = goF ? sno_resolve_label(goF) : (goU ? sno_resolve_label(goU) : next);
         IR_t * sJ = lc_build(g, IR_GOTO, sT, NULL);
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);
+        if (is_def && is_def[i]) { lc_γ_to(anchor[i], sJ); continue; }
         const tree_t * subj = lc_stmt_subj(s);
         const tree_t * pat  = sfind_expr(s, ":pat");
         int has_eq = sfind(s, ":eq") != NULL;
@@ -198,16 +280,166 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             lc_γ_to(anchor[i], e1);
             continue;
         }
-        sno_fatal("assignment subject form not in the landed subset (only NAME = and $expr = )", NULL);
+        if (subj->t == TT_IDX && subj->n >= 2) {
+            IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(&cx, subj->c[0], (const tree_t * const *) &subj->c[1], subj->n - 1, fJ, &vr);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+            lc_γ_to(vr, e2);
+            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+            lc_γ_to(anchor[i], e1);
+            continue;
+        }
+        if (subj->t == TT_FNC) {
+            const char * fname = subj->v.sval; int argbase = 0;
+            if (!fname && subj->n > 0 && subj->c[0] && subj->c[0]->t == TT_VAR) { fname = subj->c[0]->v.sval; argbase = 1; }
+            int fnargs = subj->n - argbase;
+            if (fname && !strcmp(fname, "ITEM") && fnargs >= 2) {
+                IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(&cx, subj->c[argbase], (const tree_t * const *) &subj->c[argbase + 1], fnargs - 1, fJ, &vr);
+                IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+                lc_γ_to(vr, e2);
+                IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+                lc_γ_to(anchor[i], e1);
+                continue;
+            }
+            { extern int rt_dat_field_of_any(const char *);
+              if (fname && fnargs == 1 && rt_dat_field_of_any(fname)) {
+                  IR_t * br = NULL; IR_t * e1 = sx_lower(&cx, subj->c[argbase], NULL, fJ, &br);
+                  IR_t * fv = lc_build(g, IR_FIELD_VAR, NULL, fJ); IR_LIT(fv).sval = (char *) lp_strdup(fname);
+                  lc_γ_to(br, fv);
+                  ir_operand_push(fv, br);
+                  IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+                  lc_γ_to(fv, e2);
+                  IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+                  lc_γ_to(vv, asn);
+                  ir_operand_push(asn, fv); ir_operand_push(asn, vv);
+                  lc_γ_to(anchor[i], e1);
+                  continue;
+              } }
+        }
+        if (subj->t == TT_KEYWORD && subj->v.sval) {
+            IR_t * mk = lc_build(g, IR_CALL, sJ, fJ); IR_LIT(mk).sval = (char *) "SNO$KWSET";
+            IR_t * nl = lc_build(g, IR_LIT_STRING, NULL, fJ); IR_LIT(nl).sval = subj->v.sval;
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+            lc_γ_to(nl, e2);
+            lc_γ_to(vv, mk);
+            ir_operand_push(mk, nl); ir_operand_push(mk, vv);
+            lc_γ_to(anchor[i], nl);
+            continue;
+        }
+        sno_fatal("assignment subject form not in the landed subset", NULL);
     }
-    free((void *) st); free(anchor);
+    free(anchor);
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_register_program(stage2_t * s2, const tree_t * prog) {
+    extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
+    extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
+    int mod_idx = -1;
+    for (int _ci = 0; _ci < prog->n; _ci++) {
+        const tree_t * s = prog->c[_ci];
+        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
+        if (mod_idx < 0) mod_idx = polyglot_module_open(s2, s);
+        polyglot_module_extend(s2, mod_idx, s);
+        const tree_t * subj = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        if (!subj) continue;
+        const char * lbl = stmt_attr_str(stmt_attr_find(s, ":lbl"));
+        if (mod_idx >= 0 && lbl && *lbl) s2->module_registry.mods[mod_idx].core_label_count++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_litname(const tree_t * a) {
+    if (!a) return NULL;
+    if (a->t == TT_QLIT && a->v.sval) return a->v.sval;
+    if (a->t == TT_NAME && a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval) return a->c[0]->v.sval;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs) {
+    if (!t) return;
+    if (t->t == TT_FNC) {
+        const char * name = t->v.sval; int argbase = 0;
+        if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
+        if (name && !strcmp(name, "DATA") && t->n > argbase && t->c[argbase] && t->c[argbase]->t == TT_QLIT && t->c[argbase]->v.sval) {
+            extern void * dat_register(const char * spec); extern void * dat_find_type(const char * name);
+            const char * sp = t->c[argbase]->v.sval;
+            char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
+            if (nb[0] && !dat_find_type(nb)) dat_register(sp);
+        }
+        if (name && !strcmp(name, "OPSYN") && t->n - argbase == 2) {
+            const char * an = sno_litname(t->c[argbase]);
+            const char * on = sno_litname(t->c[argbase + 1]);
+            if (an && on) {
+                int fo = -1;
+                for (int k = 0; k < *ndefs; k++) if (!strcmp(defs[k].fname, on)) { fo = k; break; }
+                if (fo >= 0 && *ndefs < SNO_DEF_MAX) { sno_def_t d = defs[fo]; d.result_name = d.result_name ? d.result_name : d.fname; d.fname = lp_strdup(an); sno_reg_var(d.fname); defs[(*ndefs)++] = d; }
+                else { extern void rt_builtin_synonym_add(const char *, const char *); rt_builtin_synonym_add(lp_strdup(an), lp_strdup(on)); }
+            }
+        }
+    }
+    for (int i = 0; i < t->n; i++) sno_prescan_expr(t->c[i], defs, ndefs);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+stage2_t * lower_sno_stage2(const tree_t * prog) {
+    if (!prog || prog->t != TT_PROGRAM) return NULL;
+    sno_register_program(&g_stage2, prog);
+    int nst = 0;
+    for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
+    if (nst == 0) return &g_stage2;
+    const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
+    { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
+    sno_def_t defs[SNO_DEF_MAX]; int ndefs = 0;
+    int * is_def = (int *) calloc((size_t) nst, sizeof(int));
+    for (int i = 0; i < nst; i++) {
+        sno_prescan_expr(lc_stmt_subj(st[i]), defs, &ndefs);
+        int argbase = 0;
+        const tree_t * dsub = sno_stmt_define(st[i], &argbase);
+        if (!dsub) continue;
+        is_def[i] = 1;
+        const char * entry_opt = NULL;
+        if (dsub->n > argbase + 1 && dsub->c[argbase + 1]) {
+            const tree_t * ea = dsub->c[argbase + 1];
+            if (ea->t == TT_QLIT && ea->v.sval) entry_opt = ea->v.sval;
+            else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
+        }
+        sno_def_t d; sno_parse_define(dsub->c[argbase]->v.sval, entry_opt, &d);
+        int found = -1;
+        for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
+        if (found >= 0) defs[found] = d;
+        else if (ndefs < SNO_DEF_MAX) defs[ndefs++] = d;
+        else sno_fatal("too many DEFINEs in one program", d.fname);
+    }
+    IR_graph_t * g = sno_build_graph(st, nst, 0, is_def);
     int pi = stage2_proc_grow(&g_stage2);
     g_stage2.proc_table[pi].name = "main";
     g_stage2.proc_table[pi].proc = NULL;
     g_stage2.proc_table[pi].entry_pc = -1;
     g_stage2.proc_table[pi].nparams = 0;
     g_stage2.proc_table[pi].is_generator = 0;
+    g_stage2.proc_table[pi].dyn_scope = 0;
+    g_stage2.proc_table[pi].result_name = NULL;
     g_stage2.proc_table[pi].bb_idx = bb_program_add(&g_stage2.bbp, g);
+    for (int di = 0; di < ndefs; di++) {
+        int eidx = -1;
+        for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
+        if (eidx < 0) sno_fatal("DEFINE entry label not found among statement labels", defs[di].entry);
+        IR_graph_t * gf = sno_build_graph(st, nst, eidx, is_def);
+        int fpi = stage2_proc_grow(&g_stage2);
+        g_stage2.proc_table[fpi].name = defs[di].fname;
+        g_stage2.proc_table[fpi].proc = NULL;
+        g_stage2.proc_table[fpi].entry_pc = -1;
+        g_stage2.proc_table[fpi].nparams = defs[di].nnames;
+        for (int k = 0; k < defs[di].nnames && k < STAGE2_FRAME_SLOT_MAX; k++) g_stage2.proc_table[fpi].lower_sc.e[k].name = defs[di].names[k];
+        g_stage2.proc_table[fpi].lower_sc.n = defs[di].nnames < STAGE2_FRAME_SLOT_MAX ? defs[di].nnames : STAGE2_FRAME_SLOT_MAX;
+        g_stage2.proc_table[fpi].is_generator = 0;
+        g_stage2.proc_table[fpi].dyn_scope = 1;
+        g_stage2.proc_table[fpi].result_name = defs[di].result_name;
+        g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
+    }
+    free((void *) st); free(is_def);
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
