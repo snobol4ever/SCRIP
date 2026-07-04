@@ -1157,54 +1157,77 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     case IR_SCAN_MOVE: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_sa = 1;
-        g_emit.op_sb = (a0 && a0->op == IR_LIT_INTEGER) ? (int)IR_LIT(a0).ival : 1;
+        if (!a0) { drive_unowned(nd); break; }
+        if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_POS: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_sb = (a0 && a0->op == IR_LIT_INTEGER) ? (int)IR_LIT(a0).ival : 1;
+        if (!a0) { drive_unowned(nd); break; }
+        if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_UPTO: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
+            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
+        } else if (a0) {
+            int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+        } else { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_ANY: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
         if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
-            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1; g_emit.op_name2 = NULL;
+            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
         } else if (a0) {
-            int sl = bb_slot_get(a0); g_emit.op_sa = sl; g_emit.op_name1 = NULL; g_emit.op_name2 = "?";
-        } else { g_emit.op_name1 = NULL; g_emit.op_sa = -1; g_emit.op_name2 = NULL; }
+            int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+        } else { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_MANY: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
+            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
+        } else if (a0) {
+            int sl = bb_slot_get(a0); g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+        } else { g_emit.op_name1 = NULL; g_emit.op_sa = -1; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_FIND: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_name1 = (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        if (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) {
+            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
+        } else if (a0) {
+            int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+        } else { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_MATCH: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_name1 = (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        if (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) {
+            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
+        } else if (a0) {
+            int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+        } else { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_BAL: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_name1 = (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) ? IR_LIT(a0).sval : NULL;
+        if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
+            g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
+        } else if (a0) {
+            int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+        } else { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REPALT: {
@@ -1257,7 +1280,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE) && c->ω.node && qt < CH_MAX)
             queue[qt++] = c->ω.node;
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
@@ -1280,7 +1303,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
         if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE) && c->ω.node && qt < CH_MAX)
             queue[qt++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
@@ -1450,7 +1473,7 @@ static void emit_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE) && c->ω.node && sv < 512)
             stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
@@ -1466,7 +1489,7 @@ static void emit_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE) && c->ω.node && sv < 512)
             stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;

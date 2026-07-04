@@ -10,11 +10,13 @@ DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_move() {
     x86_begin();
-    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_sa == 1)) return x86_bomb("bb_scan_move: unhandled (needs literal integer arg + descr flat-chain slot)");
-    return x86("comment", "IR_SCAN_MOVE")
+    if (!PLATFORM_X86 || !(_.op_off >= 0)) return x86_bomb("bb_scan_move: no result slot (op_off)");
+    return x86("comment", "IR_SCAN_MOVE [fscan.r move: j=&pos+i; fail unless 1<=j<=Delta+1; result substr; data-backtrack restores r14 on beta]")
          + x86("label",   _.lbl_α)
-         + x86("mov",     "rax", "r14")
-         + x86("add",     "rax", (long)(1 + (long)_.op_sb))
+         + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))
+         + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
+         + x86("add",     "rax", "r14")
+         + x86("add",     "rax", (long)1)
          + x86("cmp64",   "rax", (long)1)
          + x86("jl",      "ω")
          + x86("mov",     "rcx", "r15")

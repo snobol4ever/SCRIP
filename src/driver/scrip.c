@@ -361,6 +361,9 @@ static void m3_enter_with_rbx(bb_box_fn fn, void *frame, int entry, void *gva_ba
     __asm__ volatile("call *%[f]" : : [f]"r"(fn), "r"(r_di), "r"(r_si), "r"(r_bx) : "rax","rcx","rdx","r8","r9","r10","r11","memory","cc");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int    g_prog_argc = 0;
+static char **g_prog_argv = NULL;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -426,6 +429,7 @@ int main(int argc, char **argv)
     int is_pascal = 0;
     int saw_sno = 0;
     for (int fi = argi; fi < argc; fi++) {
+        if (strcmp(argv[fi], "--") == 0) break;
         const char *d = strrchr(argv[fi], '.');
         if (d && (strcmp(d,".pl")==0 || strcmp(d,".icn")==0 ||
                   strcmp(d,".raku")==0 || strcmp(d,".reb")==0 ||
@@ -455,6 +459,7 @@ int main(int argc, char **argv)
         } \
     } while(0)
     for (; argi < argc; argi++) {
+        if (strcmp(argv[argi], "--") == 0) { argi++; g_prog_argv = &argv[argi]; g_prog_argc = argc - argi; break; }
         const char *input_path = argv[argi];
         {
             char dirbuf[4096];
@@ -939,17 +944,20 @@ int main(int argc, char **argv)
             printf("main:\n");
             printf("  push rbp\n");
             printf("  mov rbp, rsp\n");
+            printf("  push rdi\n");
+            printf("  push rsi\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 printf("  call proc_startup\n");
             if (n_gva_icn > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn);
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
             if (bbg->nparams >= 1)
-                printf("  push rdi\n  sub rsp, 8\n  xor edi, edi\n  xor esi, esi\n  call rt_make_list@PLT\n  add rsp, 8\n  pop rdi\n"
+                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rbp - 16]\n  add rdi, 8\n  mov esi, dword ptr [rbp - 8]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             printf("  xor esi, esi\n");
             printf("  call main_\xce\xb1\n");
             printf("  xor eax, eax\n");
+            printf("  mov rsp, rbp\n");
             printf("  pop rbp\n");
             printf("  ret\n");
             int rc;
@@ -1110,18 +1118,18 @@ int main(int argc, char **argv)
                 printf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", n_proc_slot * 8);
                 printf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n");
+            printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n  push rdi\n  push rsi\n");
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva);
             printf("  call rt_frame@PLT\n  mov rdi, rax\n");
             if (sbbg->nparams >= 1)
-                printf("  push rdi\n  sub rsp, 8\n  xor edi, edi\n  xor esi, esi\n  call rt_make_list@PLT\n  add rsp, 8\n  pop rdi\n"
+                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rbp - 16]\n  add rdi, 8\n  mov esi, dword ptr [rbp - 8]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             printf("  xor esi, esi\n");
             printf("  call flat_\xce\xb1\n");
-            printf("  xor eax, eax\n  pop rbp\n  ret\n");
+            printf("  xor eax, eax\n  mov rsp, rbp\n  pop rbp\n  ret\n");
             g_gva_active = (n_gva > 0) ? 1 : 0;
             int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
             g_gva_active = 0;
@@ -1242,7 +1250,7 @@ int main(int argc, char **argv)
                 abort();
             }
             ir_delete_all(s2);
-            if (bbg->nparams >= 1) { extern DESCR_t rt_make_list(DESCR_t * a, int n); *(DESCR_t *)((char *)rt_frame() + 16) = rt_make_list((DESCR_t *)0, 0); }
+            if (bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)rt_frame() + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             { extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, rt_frame(), 0, m3_gva_arena); else (void)fn(rt_frame(), 0); }
             goto run_done;
         }

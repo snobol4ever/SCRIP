@@ -81,5 +81,15 @@ DESCR_t rt_keyword_pos_set(DESCR_t v) {
     if (!ok) return FAILDESCR;
     scan_pos = (int)p; return INTVAL((int64_t)p);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_random_set(DESCR_t v) {
+    extern long g_random;
+    long i;
+    if (v.v == DT_I) i = (long)v.i;
+    else if (v.v == DT_R) i = (long)v.r;
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
+    else return FAILDESCR;
+    g_random = i; return INTVAL((int64_t)i);
+}
 #include "../../driver/driver_private.h"
 #include <time.h>

@@ -214,6 +214,13 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         if (nd->op == IR_TO || nd->op == IR_TO_BY) { nd->tmp = base + k * 16; k += 2; continue; }
         if (nd->op == IR_MAKE_LIST) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
         if (nd->op == IR_SCAN_ENTER) { nd->tmp = base + k * 16; k += 2; continue; }
+        /* SCAN SCRATCH GRANT: tab/move save r14 at +16 (data backtrack); upto/find/bal keep a
+         * cursor at +16 (find also needle-len, bal also counter, at +24); match(var) keeps len
+         * at +16. One slot (16B) covers only the value at +0/+8 — these boxes were writing into
+         * the NEXT node's slot (harmless only when that neighbor was a dead baked-literal operand;
+         * live-operand var arms corrupt their own operand). Grant 32B like IR_TO/IR_KEYWORD. */
+        if (nd->op == IR_SCAN_TAB || nd->op == IR_SCAN_MOVE || nd->op == IR_SCAN_UPTO
+         || nd->op == IR_SCAN_FIND || nd->op == IR_SCAN_MATCH || nd->op == IR_SCAN_BAL) { nd->tmp = base + k * 16; k += 2; continue; }
         if (nd->op == IR_INITIAL) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_ITERATE) { nd->tmp = base + k * 16; k += 2; continue; }
         if (nd->op == IR_LIMIT) { nd->tmp = base + k * 16; k += 2; continue; }

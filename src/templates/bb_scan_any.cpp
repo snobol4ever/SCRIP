@@ -11,7 +11,7 @@ const char * rt_nv_cstr(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_any() {
     x86_begin();
-    if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_name2 && _.op_sa >= 0) {
+    if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) {
         return x86("comment", "IR_SCAN_ANY (var cset)")
              + x86("label",   _.lbl_α)
              + x86("mov",     "eax", "r14d")
