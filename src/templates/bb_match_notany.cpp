@@ -21,7 +21,7 @@ std::string bb_match_notany() {
          + x86("movsxd", "rcx", "r14d")
          + x86("movzx",  "esi", "[r13+rcx]")
          + ((strlen(_.op_sval ? _.op_sval : "") == 1)
-              ? ( x86("cmp",  "sil", (long)(unsigned char)(_.op_sval ? _.op_sval : "")[0])
+              ? ( x86("cmp",  "esi", (long)(unsigned char)(_.op_sval ? _.op_sval : "")[0])
                 + x86("je",   "ω") )
               : ( x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
                 + x86("sub",  "rsp", (long)8)

@@ -110,6 +110,17 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_every.cpp \
     $(SRC)/templates/bb_to.cpp \
     $(SRC)/templates/bb_match_len.cpp \
+    $(SRC)/templates/bb_match_lit.cpp \
+    $(SRC)/templates/bb_match_any.cpp \
+    $(SRC)/templates/bb_match_notany.cpp \
+    $(SRC)/templates/bb_match_span.cpp \
+    $(SRC)/templates/bb_match_break.cpp \
+    $(SRC)/templates/bb_match_breakx.cpp \
+    $(SRC)/templates/bb_match_tab.cpp \
+    $(SRC)/templates/bb_match_rtab.cpp \
+    $(SRC)/templates/bb_match_pos.cpp \
+    $(SRC)/templates/bb_match_rem.cpp \
+    $(SRC)/templates/bb_match_arb.cpp \
     $(SRC)/templates/bb_match_head.cpp \
     $(SRC)/templates/bb_match_capture.cpp \
     $(SRC)/templates/bb_to_by.cpp \
@@ -308,6 +319,17 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_every.cpp        -o $(OBJ)/bb_every.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to.cpp           -o $(OBJ)/bb_to.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_len.cpp    -o $(OBJ)/bb_match_len.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_lit.cpp    -o $(OBJ)/bb_match_lit.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_any.cpp    -o $(OBJ)/bb_match_any.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_notany.cpp -o $(OBJ)/bb_match_notany.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_span.cpp   -o $(OBJ)/bb_match_span.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_break.cpp  -o $(OBJ)/bb_match_break.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_breakx.cpp -o $(OBJ)/bb_match_breakx.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_tab.cpp     -o $(OBJ)/bb_match_tab.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rtab.cpp    -o $(OBJ)/bb_match_rtab.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_pos.cpp     -o $(OBJ)/bb_match_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rem.cpp     -o $(OBJ)/bb_match_rem.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_arb.cpp     -o $(OBJ)/bb_match_arb.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_head.cpp   -o $(OBJ)/bb_match_head.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to_by.cpp        -o $(OBJ)/bb_to_by.o

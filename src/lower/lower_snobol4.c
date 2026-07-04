@@ -225,9 +225,73 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
 extern int ir_is_generator_kind(IR_e t);
 static void sno_ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_pat_node(IR_graph_t * g, const tree_t * t, IR_t * succ, IR_t * fail) {
+static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
+    IR_graph_t * g = cx->g;
     if (!t) return succ;
     switch (t->t) {
+    case TT_QLIT: {
+        IR_t * nd = lc_build(g, IR_MATCH_LIT, succ, NULL);
+        sno_ω_to(nd, fail);
+        IR_LIT(nd).sval = t->v.sval ? t->v.sval : (char *) "";
+        return nd;
+    }
+    case TT_ANY: case TT_NOTANY: {
+        IR_t * nd = lc_build(g, (t->t == TT_ANY) ? IR_MATCH_ANY : IR_MATCH_NOTANY, succ, NULL);
+        sno_ω_to(nd, fail);
+        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT) IR_LIT(nd).sval = t->c[0]->v.sval ? t->c[0]->v.sval : (char *) "";
+        else sno_fatal("ANY/NOTANY with a non-literal charset is outside the SN4-PAT subset", NULL);
+        return nd;
+    }
+    case TT_SPAN: {
+        IR_t * nd = lc_build(g, IR_MATCH_SPAN, succ, NULL);
+        sno_ω_to(nd, fail);
+        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT) IR_LIT(nd).sval = t->c[0]->v.sval ? t->c[0]->v.sval : (char *) "";
+        else sno_fatal("SPAN with a non-literal charset is outside the SN4-PAT subset", NULL);
+        return nd;
+    }
+    case TT_BREAK: case TT_BREAKX: {
+        IR_t * nd = lc_build(g, (t->t == TT_BREAK) ? IR_MATCH_BREAK : IR_MATCH_BREAKX, succ, NULL);
+        sno_ω_to(nd, fail);
+        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT) IR_LIT(nd).sval = t->c[0]->v.sval ? t->c[0]->v.sval : (char *) "";
+        else sno_fatal("BREAK/BREAKX with a non-literal charset is outside the SN4-PAT subset", NULL);
+        return nd;
+    }
+    case TT_TAB: case TT_RTAB: {
+        IR_t * nd = lc_build(g, (t->t == TT_TAB) ? IR_MATCH_TAB : IR_MATCH_RTAB, succ, NULL);
+        sno_ω_to(nd, fail);
+        if (t->n <= 0 || !t->c[0]) sno_fatal("TAB/RTAB requires a count argument", NULL);
+        IR_t * argval = NULL;
+        IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval);
+        ir_operand_push(nd, argval);
+        return arg_entry;
+    }
+    case TT_POS: case TT_RPOS: {
+        IR_t * nd = lc_build(g, IR_MATCH_POS, succ, NULL);
+        sno_ω_to(nd, fail);
+        if (t->t == TT_RPOS) IR_LIT(nd).sval = (char *) "r";
+        if (t->n <= 0 || !t->c[0]) sno_fatal("POS/RPOS requires a position argument", NULL);
+        IR_t * argval = NULL;
+        IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval);
+        ir_operand_push(nd, argval);
+        return arg_entry;
+    }
+    case TT_VAR: {
+        const char * nm = t->v.sval;
+        if (nm && !strcmp(nm, "REM")) { IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL); sno_ω_to(nd, fail); return nd; }
+        if (nm && !strcmp(nm, "ARB")) { IR_t * nd = lc_build(g, IR_MATCH_ARB, succ, NULL); sno_ω_to(nd, fail); return nd; }
+        sno_fatal("bare-identifier pattern outside the SN4-PAT subset (REM, ARB only; FENCE/ABORT/BAL/deferred-var pending)", NULL);
+        return succ;
+    }
+    case TT_REM: {
+        IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL);
+        sno_ω_to(nd, fail);
+        return nd;
+    }
+    case TT_ARB: {
+        IR_t * nd = lc_build(g, IR_MATCH_ARB, succ, NULL);
+        sno_ω_to(nd, fail);
+        return nd;
+    }
     case TT_LEN: {
         IR_t * nd = lc_build(g, IR_MATCH_LEN, succ, NULL);
         sno_ω_to(nd, fail);
@@ -244,19 +308,27 @@ static IR_t * sno_pat_node(IR_graph_t * g, const tree_t * t, IR_t * succ, IR_t *
         IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);
         sno_ω_to(nd, fail);
         IR_LIT(nd).sval = (char *) vn;
-        IR_t * pe = sno_pat_node(g, t->c[0], nd, fail);
+        IR_t * pe = sno_pat_node(cx, t->c[0], nd, fail);
         ir_operand_push(nd, pe);
         ir_operand_push(nd, fail);
         return pe;
     }
     default:
-        sno_fatal("pattern element not in the SN4-PAT-2 subset (LEN(n) only)", NULL);
+        sno_fatal("pattern element not in the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
     }
     return succ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_supported(const tree_t * t) {
     if (!t) return 0;
+    if (t->t == TT_QLIT) return 1;
+    if (t->t == TT_ANY || t->t == TT_NOTANY) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
+    if (t->t == TT_SPAN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
+    if (t->t == TT_BREAK || t->t == TT_BREAKX) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
+    if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
+    if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
+    if (t->t == TT_REM || t->t == TT_ARB) return 1;
+    if (t->t == TT_VAR) return t->v.sval && (!strcmp(t->v.sval, "REM") || !strcmp(t->v.sval, "ARB"));
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
     if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
     return 0;
@@ -267,7 +339,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t *
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
     IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
-    IR_t * pat_entry = sno_pat_node(g, ptt, sJ, head);
+    IR_t * pat_entry = sno_pat_node(cx, ptt, sJ, head);
     lc_γ_to(head, pat_entry);
     IR_t * subjval = NULL;
     IR_t * subj_entry = sx_lower(cx, svt, head, fJ, &subjval);
@@ -311,7 +383,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (subj && subj->t == TT_SCAN) {
             if (has_eq) sno_fatal("SUBJECT PATTERN = REPL splice is outside the SN4-PAT-2 subset (match-only for now)", NULL);
             const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
-            if (!sno_pat_supported(ptt)) sno_fatal("pattern shape outside the SN4-PAT-2 subset (LEN(n) only)", NULL);
+            if (!sno_pat_supported(ptt)) sno_fatal("pattern shape outside the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
             IR_t * e = sno_lower_match(&cx, subj, sJ, fJ);
             lc_γ_to(anchor[i], e);
             continue;

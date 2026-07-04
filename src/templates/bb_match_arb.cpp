@@ -7,6 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_arb() {
+    x86_begin();
     if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_MATCH_ARB")
          + x86("label",   _.lbl_α)
@@ -19,7 +20,10 @@ std::string bb_match_arb() {
          + x86("mov",    "eax", FR(_.x86_scratch_off + 4))
          + x86("add",    "eax", FR(_.x86_scratch_off))
          + x86("cmp",    "eax", "r15d")
-         + x86("jg",     "ω")
+         + x86("jg",     L(0))
          + x86("mov",    "r14d", "eax")
-         + x86("jmp",    "γ");
+         + x86("jmp",    "γ")
+         + x86("def",    L(0))
+         + x86("mov",    "r14d", FR(_.x86_scratch_off + 4))
+         + x86("jmp",    "ω");
 }
