@@ -2137,6 +2137,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "write") || !strcmp(fn, "writes")) {
+        { DESCR_t _wv = NV_GET_fn(fn);
+          int _is_self_default = (_wv.v == DT_E && _wv.slen == 0xFFFFFFFEu && _wv.s && !strcmp(_wv.s, fn));
+          if (!_is_self_default) { *out = rt_call_value(_wv, args, nargs); return 1; } }
         int nl = (fn[5] == '\0');
         int start = 0;
         FILE *dest = stdout;

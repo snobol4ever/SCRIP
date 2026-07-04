@@ -1032,10 +1032,29 @@ static int icn_callable_proc_index(const char * fn) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int g_icon_write_reassignable = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_scan_write_reassignable(void) {
+    g_icon_write_reassignable = 0;
+    for (int gi = 0; gi < g_stage2.bbp.count && !g_icon_write_reassignable; gi++) {
+        IR_graph_t * g = g_stage2.bbp.table[gi];
+        if (!g) continue;
+        for (int i = 0; i < g->n; i++) {
+            IR_t * nd = g->all[i];
+            if (!nd) continue;
+            const char * tgt = 0;
+            if (nd->op == IR_ASSIGN) tgt = IR_LIT(nd).sval;
+            else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) tgt = IR_LIT(nd->operands[1]).sval;
+            if (tgt && (!strcmp(tgt, "write") || !strcmp(tgt, "writes"))) { g_icon_write_reassignable = 1; break; }
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_icon_resolve_call_kinds(void) {
     extern int rt_builtin_is_generator(const char *);
     extern int rt_builtin_is_known(const char *);
     extern int is_global(const char *);
+    icn_scan_write_reassignable();
     for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         IR_graph_t * g = g_stage2.bbp.table[gi];
         if (!g) continue;
