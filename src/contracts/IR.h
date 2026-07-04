@@ -32,6 +32,7 @@ typedef enum {
     IR_CORET,
     IR_CREATE,
     IR_DEREF,
+    IR_DISJUNCTION,
     IR_INITIAL,
     IR_FAIL,
     IR_FIELD_GET,

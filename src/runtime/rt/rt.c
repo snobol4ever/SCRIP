@@ -368,6 +368,8 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     *(DESCR_t *)(fb + 0) = NULVCL;
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
+    { int npc = p->nparams; if (npc > CALL_ARGS_MAX) npc = CALL_ARGS_MAX;
+      for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL; }
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
     g_proc_depth--;

@@ -746,7 +746,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
-    case IR_INDIRECT_GOTO:         bb_emit_x86(bb_indirect_goto()); return 0;
+    case IR_INDIRECT_GOTO: case IR_DISJUNCTION: bb_emit_x86(bb_indirect_goto()); return 0;
     case IR_SCAN:                 { g_emit.op_sb = 0; bb_emit_x86(bb_gen_scan()); }   return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
@@ -1111,7 +1111,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.lbl_t0_p = g_move_label_tgt;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_INDIRECT_GOTO: {
+    case IR_INDIRECT_GOTO: case IR_DISJUNCTION: {
         int off = drive_value_slot(nd);
         g_emit.op_off = off;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
