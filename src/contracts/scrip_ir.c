@@ -30,6 +30,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_RANDOM] = "IR_RANDOM",
     [IR_KEYWORD_ICON] = "IR_KEYWORD_ICON",
     [IR_KEYWORD_SNOBOL4] = "IR_KEYWORD_SNOBOL4",
+    [IR_KEYWORD_ASSIGN] = "IR_KEYWORD_ASSIGN",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD_GET] = "IR_FIELD_GET",
     [IR_FIELD_VAR] = "IR_FIELD_VAR",
@@ -169,7 +170,7 @@ int ir_node_produces_value(IR_e op) {
         || op == IR_SWAP || op == IR_SWAP_VAR || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_PROC_VALUE
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
         || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL
-        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR;
+        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_KEYWORD_ASSIGN;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_tmp_slot_assign(IR_graph_t * g) {
@@ -222,6 +223,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         if (nd->op == IR_KEYWORD_ICON) { nd->tmp = base + k * 16; k += 2; continue; }
         if (nd->op == IR_KEYWORD_SNOBOL4) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_RANDOM || nd->op == IR_SWAP_VAR) { nd->tmp = base + k * 16; k += 1; continue; }
+        if (nd->op == IR_KEYWORD_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }
         if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_INDIRECT_GOTO) { nd->tmp = base + k * 16; k += 2; continue; }

@@ -82,6 +82,7 @@ std::string bb_ref_invariant();
 std::string bb_pattern_lit();
 std::string bb_keyword_icon();
 std::string bb_keyword_snobol4();
+std::string bb_keyword_assign();
 std::string bb_goto_dyn();
 std::string bb_scan_stmt();
 std::string bb_scan_splice_empty();
