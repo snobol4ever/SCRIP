@@ -35,6 +35,21 @@ static int sno_binop_code(tree_e tt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
+    if (!pg) return γ;
+    if (pg->t != TT_PROGRAM) { IR_t * r = NULL; return sx_lower(cx, pg, γ, ω, &r); }
+    IR_t * entry = γ;
+    for (int i = pg->n - 1; i >= 0; i--) {
+        const tree_t * s = pg->c[i];
+        if (!s || s->t != TT_STMT) continue;
+        const tree_t * subj = lc_stmt_subj(s);
+        if (!subj) continue;
+        IR_t * r = NULL;
+        entry = sx_lower(cx, subj, entry, entry, &r);
+    }
+    return entry;
+}
 static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -142,6 +157,26 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!strcmp(name, "DEFINE")) sno_fatal("DEFINE in expression position is outside the landed subset (statement-level literal DEFINE only)", NULL);
         if (!strcmp(name, "EVAL") || !strcmp(name, "CODE")) sno_fatal("outside subset", name);
         return sx_call_named(cx, name, t, argbase, γ, ω, res);
+    }
+    case TT_ASSIGN: {
+        const tree_t * L = (t->n > 0) ? t->c[0] : NULL; const tree_t * R = (t->n > 1) ? t->c[1] : NULL;
+        if (!L || L->t != TT_VAR || !L->v.sval) sno_fatal("TT_ASSIGN lhs form outside the SCO-CF-2 subset (TT_VAR only)", NULL);
+        if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
+        sno_reg_var(L->v.sval);
+        IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = L->v.sval;
+        IR_t * vr = NULL; IR_t * e = sx_lower(cx, R, asn, ω, &vr);
+        ir_operand_push(asn, vr);
+        if (res) *res = asn;
+        return e;
+    }
+    case TT_IF: {
+        const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
+        if (!C) sno_fatal("TT_IF with no condition", NULL);
+        IR_t * th_entry = TH ? sco_branch(cx, TH, γ, ω) : γ;
+        IR_t * el_entry = EL ? sco_branch(cx, EL, γ, ω) : γ;
+        IR_t * cr = NULL; IR_t * ce = sx_lower(cx, C, th_entry, el_entry, &cr);
+        if (res) *res = NULL;
+        return ce;
     }
     default: {
         char buf[64]; snprintf(buf, sizeof buf, "tree kind %d", (int) t->t);
