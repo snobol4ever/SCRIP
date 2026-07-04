@@ -62,7 +62,7 @@ int rt_builtin_is_known(const char *name)
         "callsame", "nextsame", "callwith",
         "__multi_call", "__param_check",
         "TIME", "DATE",
-        "IDENTICAL", "getenv", "open", "where", "close",
+        "IDENTICAL", "getenv", "open", "where", "close", "collect",
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         NULL
@@ -2477,6 +2477,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         size_t vl = strlen(val); char *buf = GC_malloc(vl+1); memcpy(buf, val, vl); buf[vl] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    if (!strcmp(fn,"collect") && nargs <= 2) { GC_gcollect(); *out = NULVCL; return 1; }
     if (!strcmp(fn,"left") && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int sl=(int)strlen(s);
