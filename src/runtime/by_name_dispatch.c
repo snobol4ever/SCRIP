@@ -2201,6 +2201,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (!strcmp(fn,"string") && nargs == 1) {
         DESCR_t av = args[0];
+        if (IS_CSET_fn(av)) { const char *cp; int cl; if (!cset_resolve(av,&cp,&cl)||cl<0) { *out=FAILDESCR; return 1; } char *b=GC_malloc((size_t)cl+1); memcpy(b,cp,(size_t)cl); b[cl]=0; for(int i=1;i<cl;i++){char t=b[i];int j=i-1;while(j>=0&&(unsigned char)b[j]>(unsigned char)t){b[j+1]=b[j];j--;}b[j+1]=t;} *out=STRVAL(b); return 1; }
         if (IS_STR_fn(av)) { *out = av; return 1; }
         char *buf = GC_malloc(64);
         if (IS_INT_fn(av))       snprintf(buf,64,"%lld",(long long)av.i);

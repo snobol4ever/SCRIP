@@ -294,10 +294,10 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     }
     if (arr.v == DT_S || arr.v == DT_SNUL) {
         const char *s = arr.s ? arr.s : "";
-        int slen = (int)strlen(s);
+        int slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
         int ii = (int)to_int(i), jj = (int)to_int(j);
-        if (ii < 0) ii = slen + 1 + ii + 1;
-        if (jj < 0) jj = slen + 1 + jj + 1;
+        if (ii == 0) ii = slen + 1; else if (ii < 0) ii = slen + ii + 1;
+        if (jj == 0) jj = slen + 1; else if (jj < 0) jj = slen + jj + 1;
         if (ii < 1) ii = 1; if (jj > slen+1) jj = slen+1;
         if (ii > jj) { int t = ii; ii = jj; jj = t; }
         int len = jj - ii;

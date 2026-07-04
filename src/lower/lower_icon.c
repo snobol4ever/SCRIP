@@ -481,18 +481,22 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
         IR_t * sec = build(cx, IR_SUBSCRIPT, γ, ω);
         IR_LIT(sec).ival = 0;
-        IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar);
-        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ω, &br); γ_to(ar, be);
-        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ω, &cr); γ_to(br, ce);
+        IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar); IR_t * aβ = cx->beta;
+        IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
+        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ωa, &br); γ_to(ar, be); IR_t * bβ = cx->beta;
+        IR_t * ωb = (bβ && bβ != ωa && bβ != sec) ? bβ : ωa;
+        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr); γ_to(br, ce); IR_t * cβ = cx->beta;
+        IR_t * ωc = (cβ && cβ != ωb && cβ != sec) ? cβ : ωb;
         if (sec_variant) {
-            IR_t * op = build(cx, IR_BINOP, sec, ω); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
+            IR_t * op = build(cx, IR_BINOP, sec, ωc); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
             ir_operand_push(op, br); ir_operand_push(op, cr);
             γ_to(cr, op); cr = op;
         }
         ir_operand_push(sec, ar);
         ir_operand_push(sec, br);
         ir_operand_push(sec, cr);
-        cx->beta = ω; *res = sec; return ae; }
+        if (ωc != ω) ω_to(sec, ωc);
+        cx->beta = ωc; *res = sec; return ae; }
     case TT_NOT: return lower_not(cx, t, γ, ω, res);
     case TT_ALTERNATE: return lower_alt(cx, t, γ, ω, res);
     case TT_ITERATE: {

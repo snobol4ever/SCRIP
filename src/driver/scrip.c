@@ -1213,7 +1213,7 @@ int main(int argc, char **argv)
                 gva_collect_icon_globals();
                 int n_gva_m3 = gva_count();
                 if (n_gva_m3 > 0) {
-                    m3_gva_arena = calloc((size_t)n_gva_m3, sizeof(DESCR_t));
+                    m3_gva_arena = GC_MALLOC_UNCOLLECTABLE((size_t)n_gva_m3 * sizeof(DESCR_t));
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
                     for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
@@ -1319,7 +1319,7 @@ int main(int argc, char **argv)
                 if (_mg) gva_collect_graph(_mg);
                 int n_gva_m3 = gva_count();
                 if (n_gva_m3 > 0) {
-                    m3_gva_arena = calloc((size_t)n_gva_m3, sizeof(DESCR_t));
+                    m3_gva_arena = GC_MALLOC_UNCOLLECTABLE((size_t)n_gva_m3 * sizeof(DESCR_t));
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
                     for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
