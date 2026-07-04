@@ -45,6 +45,7 @@ int rt_builtin_is_known(const char *name)
         "integer", "real", "string", "numeric", "char", "ord", "cset",
         "type", "image", "proc", "args", "copy",
         "abs", "sqrt", "sin", "cos", "tan", "exp", "log",
+        "asin", "acos", "atan", "dtor", "rtod",
         "max", "min",
         "trim", "reverse", "repl", "map", "left", "center", "right",
         "detab", "entab", "read", "reads",
@@ -62,7 +63,7 @@ int rt_builtin_is_known(const char *name)
         "callsame", "nextsame", "callwith",
         "__multi_call", "__param_check",
         "TIME", "DATE",
-        "IDENTICAL", "getenv", "open", "where", "close", "collect",
+        "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek",
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         NULL
@@ -1167,6 +1168,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (pos < 0) { *out = FAILDESCR; return 1; }
         *out = INTVAL(pos + 1);
         return 1;
+    }
+    if (!strcmp(fn, "seek") && (nargs == 1 || nargs == 2)) {
+        extern void  fh_ensure_init(void);
+        extern FILE *fh_get(int);
+        if (!IS_INT_fn(args[0]) && !IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
+        fh_ensure_init();
+        FILE *fp = fh_get((int)args[0].i);
+        if (!fp) { *out = FAILDESCR; return 1; }
+        long o = (nargs == 2 && IS_INT_fn(args[1])) ? (long)args[1].i : 1L;
+        int rc = (o > 0) ? fseek(fp, o - 1, SEEK_SET) : fseek(fp, o, SEEK_END);
+        if (rc != 0) { *out = FAILDESCR; return 1; }
+        *out = args[0]; return 1;
     }
     if (!strcmp(fn, "slurp") && nargs == 1) {
         extern void  fh_ensure_init(void);

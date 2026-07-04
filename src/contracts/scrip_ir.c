@@ -233,7 +233,8 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         const char * vn = (const char *)0;
         if (nd->op == IR_ASSIGN) vn = IR_LIT(nd).sval;
         else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vn = IR_LIT(nd->operands[1]).sval;
-        if (!vn || is_global(vn)) continue;
+        else if (nd->op == IR_VAR || nd->op == IR_VAR_REF) vn = IR_LIT(nd).sval;
+        if (!vn || vn[0] == '&' || is_global(vn)) continue;
         if (ir_varslot_of(g, vn) >= 0) continue;
         drv_vslot_push(g, vn, base + k * 16);
         k++;
