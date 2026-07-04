@@ -102,7 +102,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_var_global.cpp \
     $(SRC)/templates/bb_return.cpp \
     $(SRC)/templates/bb_gvar_assign.cpp \
-    $(SRC)/templates/bb_keyword.cpp \
+    $(SRC)/templates/bb_keyword_icon.cpp \
+    $(SRC)/templates/bb_keyword_snobol4.cpp \
     $(SRC)/templates/bb_unop.cpp \
     $(SRC)/templates/bb_succeed.cpp \
     $(SRC)/templates/bb_every.cpp \
@@ -291,7 +292,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_frame_ref.cpp      -o $(OBJ)/bb_var_frame_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_frame_ref.cpp   -o $(OBJ)/bb_assign_frame_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_keyword.cpp           -o $(OBJ)/bb_keyword.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_keyword_icon.cpp -o $(OBJ)/bb_keyword_icon.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_keyword_snobol4.cpp -o $(OBJ)/bb_keyword_snobol4.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_goto_dyn.cpp          -o $(OBJ)/bb_goto_dyn.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_unop.cpp              -o $(OBJ)/bb_unop.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_succeed.cpp           -o $(OBJ)/bb_succeed.o
