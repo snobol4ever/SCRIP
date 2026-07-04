@@ -159,20 +159,6 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_native_emittable(stage2_t *s2) { return graph_native_emittable_mode(s2, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_register_record_types(stage2_t *s2) {
-    extern void *dat_register(const char *spec);
-    extern void *dat_find_type(const char *name);
-    if (!s2) return;
-    for (int gi = 0; gi < s2->bbp.count; gi++) {
-        IR_graph_t *g = s2->bbp.table[gi];
-        if (!g || !g->all) continue;
-        for (int ni = 0; ni < g->n; ni++) {
-            IR_t *nd = g->all[ni];
-            if (nd && nd->op == IR_OP_COUNT && IR_LIT(nd).sval && !dat_find_type(IR_LIT(nd).sval)) dat_register(IR_LIT(nd).sval);
-        }
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_scan_body_slotful(IR_t *r) {
     if (!r || r->op != IR_OP_COUNT || IR_LIT(r).dval != 1.0) return 0;
     IR_graph_t *bsg = (IR_graph_t *) 0;
@@ -428,6 +414,7 @@ int main(int argc, char **argv)
     int is_raku = 0;
     int is_pascal = 0;
     int saw_sno = 0;
+    int is_scrip = 0;
     for (int fi = argi; fi < argc; fi++) {
         if (strcmp(argv[fi], "--") == 0) break;
         const char *d = strrchr(argv[fi], '.');
@@ -435,14 +422,24 @@ int main(int argc, char **argv)
                   strcmp(d,".raku")==0 || strcmp(d,".reb")==0 ||
                   strcmp(d,".sc")==0 || strcmp(d,".scrip")==0 || strcmp(d,".md")==0))
             has_non_sno = 1;
+        if (d && (strcmp(d,".scrip")==0 || strcmp(d,".md")==0)) is_scrip = 1;
         if (d && strcmp(d,".pl")==0) is_prolog = 1;
         if (d && strcmp(d,".icn")==0) is_icon = 1;
         if (d && strcmp(d,".raku")==0) is_raku = 1;
         if (d && strcmp(d,".pas")==0) is_pascal = 1;
         if (!d || strcmp(d,".sno")==0) saw_sno = 1;
     }
-    int is_sno_bb = saw_sno && !has_non_sno && !is_pascal;
+    int is_sno_bb = (saw_sno || is_scrip) && !is_pascal;
+    lower_seg_t segs[64];
+    int nsegs = 0;
     tree_t  *ast_prog = NULL;
+    #define RECORD_SEG(sub_ast, seg_fn) do { \
+        if ((sub_ast) && nsegs < 64) { \
+            tree_t *_sp = calloc(1, sizeof(tree_t)); \
+            if (_sp) { _sp->t = TT_PROGRAM; \
+                for (int _si = 0; _si < (sub_ast)->n; _si++) if ((sub_ast)->c[_si]) ast_push(_sp, (sub_ast)->c[_si]); \
+                segs[nsegs].prog = _sp; segs[nsegs].fn = (seg_fn); nsegs++; } } \
+    } while(0)
     #define MERGE_AST(sub_ast) do { \
         if (sub_ast) { \
             if (!ast_prog) { ast_prog = sub_ast; } \
@@ -503,7 +500,7 @@ int main(int argc, char **argv)
             char *src = malloc(flen + 1);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
             fread(src, 1, flen, f); src[flen] = '\0'; fclose(f);
-            tree_t *sub_ast = parse_scrip_polyglot(src, input_path);
+            tree_t *sub_ast = parse_scrip_polyglot(src, input_path, segs, &nsegs, 64);
             free(src);
             MERGE_AST(sub_ast);
         } else if (lang_snocone || lang_prolog || lang_icon || lang_raku || lang_rebus || lang_pascal) {
@@ -524,6 +521,12 @@ int main(int argc, char **argv)
             if (dump_ast && sub_ast) {
                 ir_dump_program(sub_ast, stdout); return 0;
             }
+            lower_entry_fn seg_fn = lower_sno_stage2;
+            if      (lang_pascal) seg_fn = lower_pascal_stage2;
+            else if (lang_icon)   seg_fn = lower_icon_stage2;
+            else if (lang_prolog) seg_fn = lower_pl_stage2;
+            else if (lang_raku)   seg_fn = lower_raku_stage2;
+            RECORD_SEG(sub_ast, seg_fn);
             MERGE_AST(sub_ast);
         } else if (dump_ast) {
             FILE *f = fopen(input_path, "r");
@@ -539,12 +542,14 @@ int main(int argc, char **argv)
             if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
             tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
+            RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
         } else {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
+            RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
         }
         if (!ast_prog) {
@@ -552,6 +557,7 @@ int main(int argc, char **argv)
             return 1;
         }
     }
+    if (nsegs == 1) segs[0].prog = ast_prog;
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
     const char *input_path = argv[argc - 1];
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t2);
@@ -599,7 +605,7 @@ int main(int argc, char **argv)
         extern void ir_drive_slot_assign(IR_graph_t * g);
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
-        stage2_t *s2 = sm_preamble(ast_prog);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
         const IR_t ** seen_all = (const IR_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
@@ -627,10 +633,9 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
             g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
             if (is_icon) g_postfix_resume = 1;
-            stage2_t *s2 = sm_preamble(ast_prog);
+            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
-            if (is_icon) icn_register_record_types(s2);
             if (is_icon || is_sno_bb) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             if (is_icon || is_sno_bb) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable(s2)) {
@@ -983,7 +988,7 @@ int main(int argc, char **argv)
             extern int g_frame_active;
             extern void rt_proc_reset(void);
             extern void rt_proc_register(const char * name, const char ** pnames, int nparams);
-            stage2_t *s2 = sm_preamble(ast_prog);
+            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
             int main_bb_idx = -1;
@@ -1150,7 +1155,7 @@ int main(int argc, char **argv)
     if (mode_run) {
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
-        stage2_t *s2 = sm_preamble(ast_prog);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (is_icon || is_raku || is_sno_bb) {
@@ -1192,7 +1197,6 @@ int main(int argc, char **argv)
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); }
             }
-            if (is_icon) icn_register_record_types(s2);
             if (is_icon || is_sno_bb) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             if (is_icon || is_sno_bb) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
@@ -1218,17 +1222,6 @@ int main(int argc, char **argv)
                 bb_box_fn pfn = emit_chain(s2->bbp.table[idx]->entry, NULL, "proc_flat");
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 if (pfn) rt_proc_set_fn(pname, pfn);
-            }
-            {
-                extern void *dat_register(const char *spec);
-                for (int _gi = 0; _gi < s2->bbp.count; _gi++) {
-                    IR_graph_t *g = s2->bbp.table[_gi];
-                    if (!g || !g->all) continue;
-                    for (int _ni = 0; _ni < g->n; _ni++) {
-                        IR_t *nd = g->all[_ni];
-                        if (nd && nd->op == IR_OP_COUNT && IR_LIT(nd).sval) dat_register(IR_LIT(nd).sval);
-                    }
-                }
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph not found\n");

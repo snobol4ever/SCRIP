@@ -7,7 +7,8 @@
 #include "stage2.h"
 extern int g_fi8_gen_init_count;
 extern int g_fi8_pl_init_count;
-uint32_t polyglot_lang_mask(const tree_t *prog);
-void     polyglot_init   (stage2_t *s2, const tree_t *prog, uint32_t lang_mask);
-tree_t   *parse_scrip_polyglot(const char *src, const char *filename);
+void     polyglot_init   (stage2_t *s2, const tree_t *prog);
+int      polyglot_module_open  (stage2_t *s2, const tree_t *s);
+void     polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s);
+tree_t   *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t *segs, int *nsegs, int max_segs);
 #endif

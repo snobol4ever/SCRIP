@@ -14,149 +14,55 @@
 #include "driver/polyglot.h"
 #include "lower.h"
 #include "SM.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int           s_int(const tree_t *s, const char *tag) {
-    const char *v = stmt_attr_str(stmt_attr_find(s, tag)); return v ? atoi(v) : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline tree_t        *s_expr(const tree_t *s, const char *tag) {
-    return stmt_attr_expr(stmt_attr_find(s, tag)); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-uint32_t polyglot_lang_mask(const tree_t *prog)
-{
-    uint32_t mask = 0;
-    if (!prog) return mask;
-    for (int i = 0; i < prog->n; i++) {
-        const tree_t *s = prog->c[i];
-        if (!s) continue;
-        int lang = s_int(s, ":lang");
-        if (lang >= 0 && lang < 32)
-            mask |= (1u << lang);
-    }
-    mask |= (1u << LANG_SNO);
-    return mask;
-}
 int g_fi8_gen_init_count = 0;
 int g_fi8_pl_init_count  = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void polyglot_init(stage2_t *s2, const tree_t *prog, uint32_t lang_mask)
+void polyglot_init(stage2_t *s2, const tree_t *prog)
 {
     if (!prog) return;
     label_table_build(s2, prog);
     prescan_defines(prog);
-    { /* init-all (Lon 2026-07-04): Icon/Raku/Pascal frame+scan state is set up UNCONDITIONALLY so every language is ready to run simultaneously — no language test gates initialization */
-        g_fi8_gen_init_count++;
-        s2->proc_count = 0; global_count = 0;
-        frame_depth = 0;
-        memset(frame_stack, 0, sizeof frame_stack);
-        scan_subj = ""; scan_pos = 1; scan_depth = 0;
-        g_root = NULL;
-    }
-    { /* init-all: Prolog atom/trail/resolve state set up UNCONDITIONALLY too */
-        g_fi8_pl_init_count++;
-        prolog_atom_init();
-        memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);
-        trail_init(&g_resolve_trail);
-        g_resolve_cut_flag = 0;
-        g_resolve_active   = 0;
-    }
+    g_fi8_gen_init_count++;
+    s2->proc_count = 0; global_count = 0;
+    frame_depth = 0;
+    memset(frame_stack, 0, sizeof frame_stack);
+    scan_subj = ""; scan_pos = 1; scan_depth = 0;
+    g_root = NULL;
+    g_fi8_pl_init_count++;
+    prolog_atom_init();
+    memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);
+    trail_init(&g_resolve_trail);
+    g_resolve_cut_flag = 0;
+    g_resolve_active   = 0;
     memset(&s2->module_registry, 0, sizeof s2->module_registry);
     s2->module_registry.main_mod = -1;
-    int cur_lang = -1;
-    int mod_idx  = -1;
-    for (int _ci = 0; _ci < prog->n; _ci++) {
-        const tree_t *s = prog->c[_ci];
-        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
-        int s_lang = s_int(s, ":lang");
-        if (s_lang != cur_lang) {
-            if (s2->module_registry.nmod < SCRIP_MOD_MAX) {
-                cur_lang = s_lang;
-                mod_idx  = s2->module_registry.nmod++;
-                ScripModule *m = &s2->module_registry.mods[mod_idx];
-                m->lang             = s_lang;
-                m->name             = NULL;
-                m->first            = s;
-                m->last             = s;
-                m->nstmts           = 0;
-                m->core_label_start  = s2->label_count;
-                m->core_label_count  = 0;
-                m->proc_start   = s2->proc_count;
-                m->nprocs            = 0;
-            }
-        }
-        if (mod_idx >= 0) {
-            s2->module_registry.mods[mod_idx].last = s;
-            s2->module_registry.mods[mod_idx].nstmts++;
-        }
-        tree_t *subj = s_expr(s, ":subj");
-        if (!subj) continue;
-        if (s_lang == LANG_ICN || s_lang == LANG_RAKU || s_lang == LANG_PASCAL) {
-            tree_t *proc = subj;
-            if (proc->t == TT_GLOBAL) {
-                for (int _gi = 0; _gi < proc->n; _gi++)
-                    if (proc->c[_gi] && proc->c[_gi]->v.sval)
-                        global_register(proc->c[_gi]->v.sval);
-            }
-            if (proc->t == TT_RECORD && proc->v.sval && *proc->v.sval) {
-                char spec[256]; int pos = 0;
-                pos += snprintf(spec+pos, sizeof(spec)-pos, "%s(", proc->v.sval);
-                for (int _ri = 0; _ri < proc->n && pos < (int)sizeof(spec)-2; _ri++) {
-                    if (_ri > 0) spec[pos++] = ',';
-                    const char *fn2 = (proc->c[_ri] && proc->c[_ri]->v.sval)
-                                      ? proc->c[_ri]->v.sval : "";
-                    pos += snprintf(spec+pos, sizeof(spec)-pos, "%s", fn2);
-                }
-                if (pos < (int)sizeof(spec)-1) spec[pos++] = ')';
-                spec[pos] = '\0';
-                record_register(spec);
-            }
-            int _lang_owned = (s_lang == LANG_RAKU && (proc->t == TT_FNC || proc->t == TT_SUB_DECL));
-            if (!_lang_owned && (proc->t == TT_FNC || proc->t == TT_PROC_DECL || proc->t == TT_SUB_DECL)) {
-                const char *name = NULL;
-                if (proc->t == TT_SUB_DECL) {
-                    if (proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR
-                        && proc->c[0]->v.sval && *proc->c[0]->v.sval)
-                        name = proc->c[0]->v.sval;
-                } else {
-                    name = (proc->v.sval && *proc->v.sval) ? proc->v.sval
-                         : ((proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR && proc->c[0]->v.sval && *proc->c[0]->v.sval)
-                            ? proc->c[0]->v.sval : NULL);
-                }
-                if (!name) goto _skip_proc_register;
-                int _pi = stage2_proc_grow(s2);
-                s2->proc_table[_pi].name     = name;
-                s2->proc_table[_pi].proc     = proc;
-                s2->proc_table[_pi].entry_pc = -1;
-                s2->proc_table[_pi].bb_idx   = -1;
-                s2->proc_table[_pi].nparams  = (s_lang == LANG_ICN || s_lang == LANG_PASCAL)
-                    ? (proc->t == TT_PROC_DECL && proc->n >= 2 ? proc->c[1]->n : 0)
-                    : (int)proc->v.ival;
-                s2->proc_table[_pi].byref_mask = (s_lang == LANG_PASCAL && proc->t == TT_PROC_DECL && proc->n >= 2 && proc->c[1])
-                    ? (uint64_t)proc->c[1]->v.ival : 0;
-                if (mod_idx >= 0) s2->module_registry.mods[mod_idx].nprocs++;
-                if (strcmp(name, "main") == 0 && s2->module_registry.main_mod < 0)
-                    s2->module_registry.main_mod = mod_idx;
-                _skip_proc_register: ;
-            }
-            if (proc->t == TT_RECORD) {
-            }
-        } else if (s_lang == LANG_PL) {
-            tree_t *sub = subj;
-            if ((sub->t == TT_CHOICE || sub->t == TT_CLAUSE) && sub->v.sval) {
-                resolve_pred_table_insert(&s2->resolve_pred_table, sub->v.sval, sub);
-                g_resolve_active = 1;
-                if (strcmp(sub->v.sval, "main/0") == 0 && s2->module_registry.main_mod < 0)
-                    s2->module_registry.main_mod = mod_idx;
-            }
-        } else if (s_lang == LANG_SNO) {
-            const char *lbl = stmt_attr_str(stmt_attr_find(s, ":lbl"));
-            if (mod_idx >= 0 && lbl && *lbl)
-                s2->module_registry.mods[mod_idx].core_label_count++;
-        }
-    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int polyglot_module_open(stage2_t *s2, const tree_t *s)
+{
+    if (s2->module_registry.nmod >= SCRIP_MOD_MAX) return -1;
+    int mod_idx = s2->module_registry.nmod++;
+    ScripModule *m = &s2->module_registry.mods[mod_idx];
+    m->name             = NULL;
+    m->first            = s;
+    m->last             = s;
+    m->nstmts           = 0;
+    m->core_label_start = s2->label_count;
+    m->core_label_count = 0;
+    m->proc_start       = s2->proc_count;
+    m->nprocs           = 0;
+    return mod_idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s)
+{
+    if (mod_idx < 0) return;
+    s2->module_registry.mods[mod_idx].last = s;
+    s2->module_registry.mods[mod_idx].nstmts++;
 }
 extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *parse_scrip_polyglot(const char *src, const char *filename)
+tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t *segs, int *nsegs, int max_segs)
 {
     tree_t *result = calloc(1, sizeof(tree_t));
     if (!result) return NULL;
@@ -173,14 +79,6 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename)
         p = tag_end;
         while (*p && *p != '\n') p++;
         if (*p == '\n') p++;
-        int lang = -1;
-        if      (tag_len == 7 && strncmp(tag_start, "SNOBOL4", 7) == 0) lang = LANG_SNO;
-        else if (tag_len == 4 && strncmp(tag_start, "Icon",    4) == 0) lang = LANG_ICN;
-        else if (tag_len == 6 && strncmp(tag_start, "Prolog",  6) == 0) lang = LANG_PL;
-        else if (tag_len == 4 && strncmp(tag_start, "Raku",    4) == 0) lang = LANG_RAKU;
-        else if (tag_len == 5 && strncmp(tag_start, "Scrip",   5) == 0) lang = LANG_SCRIP;
-        else if (tag_len == 5 && strncmp(tag_start, "SCRIP",   5) == 0) lang = LANG_SCRIP;
-        else if (tag_len == 5 && strncmp(tag_start, "Rebus",   5) == 0) lang = LANG_REB;
         const char *block_start = p;
         const char *close = strstr(p, "```");
         if (!close) break;
@@ -192,21 +90,30 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename)
         p = close + 3;
         while (*p && *p != '\n') p++;
         if (*p == '\n') p++;
-        if (lang < 0) { free(block); continue; }
         tree_t *sub_ast = NULL;
-        if (lang == LANG_SNO || lang == LANG_SCRIP) {
+        lower_entry_fn fence_fn = lower_sno_stage2;
+        if ((tag_len == 7 && strncmp(tag_start, "SNOBOL4", 7) == 0) || (tag_len == 5 && strncmp(tag_start, "Scrip", 5) == 0) || (tag_len == 5 && strncmp(tag_start, "SCRIP", 5) == 0)) {
             sub_ast = sno_parse_string_ast(block, NULL);
-        } else if (lang == LANG_ICN) {
+        } else if (tag_len == 4 && strncmp(tag_start, "Icon", 4) == 0) {
             icon_compile(block, filename, &sub_ast);
-        } else if (lang == LANG_PL) {
+            fence_fn = lower_icon_stage2;
+        } else if (tag_len == 6 && strncmp(tag_start, "Prolog", 6) == 0) {
             prolog_compile(block, filename, &sub_ast);
-        } else if (lang == LANG_RAKU) {
+            fence_fn = lower_pl_stage2;
+        } else if (tag_len == 4 && strncmp(tag_start, "Raku", 4) == 0) {
             raku_compile(block, filename, &sub_ast);
-        } else if (lang == LANG_REB) {
+            fence_fn = lower_raku_stage2;
+        } else if (tag_len == 5 && strncmp(tag_start, "Rebus", 5) == 0) {
             rebus_compile(block, filename, &sub_ast);
-        }
+        } else { free(block); continue; }
         free(block);
         if (!sub_ast || sub_ast->n == 0) { free(sub_ast); continue; }
+        if (segs && nsegs && *nsegs < max_segs) {
+            tree_t *_sp = calloc(1, sizeof(tree_t));
+            if (_sp) { _sp->t = TT_PROGRAM;
+                for (int _si = 0; _si < sub_ast->n; _si++) if (sub_ast->c[_si]) ast_push(_sp, sub_ast->c[_si]);
+                segs[*nsegs].prog = _sp; segs[*nsegs].fn = fence_fn; (*nsegs)++; }
+        }
         for (int _i = 0; _i < sub_ast->n; _i++) {
             tree_t *ch = sub_ast->c[_i];
             if (!ch) continue;

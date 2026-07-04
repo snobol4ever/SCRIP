@@ -21,9 +21,12 @@ static void sm_resolve_proc_entry_pcs(stage2_t *s2)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-stage2_t *sm_preamble(const tree_t *ast_prog){
+stage2_t *sm_preamble(const tree_t *ast_prog, const lower_seg_t *segs, int nsegs){
     g_core_err_active = 1;
-    stage2_t *s2 = lower_stage2(ast_prog);
+    stage2_reset();
+    polyglot_init(&g_stage2, ast_prog);
+    stage2_t *s2 = (nsegs > 0) ? &g_stage2 : NULL;
+    for (int i = 0; i < nsegs; i++) { if (!segs[i].fn || !segs[i].prog || !segs[i].fn(segs[i].prog)) s2 = NULL; }
     if (!s2) {
         fprintf(stderr, "scrip: sm_lower failed\n");
         return NULL;

@@ -176,8 +176,9 @@ RT_PIC_SRCS := \
     $(SRC)/lower/tree_to_sno.c \
     $(SRC)/lower/lower_icon.c \
     $(SRC)/lower/lower_snobol4.c \
-    $(SRC)/lower/lower_noicon_stubs.c \
-    $(SRC)/lower/rt_noicon_stubs.c \
+    $(SRC)/lower/lower_prolog.c \
+    $(SRC)/lower/lower_raku.c \
+    $(SRC)/lower/lower_pascal.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/builtins/resolution.c \
@@ -206,6 +207,7 @@ RT_PIC_SRCS := \
     $(SRC)/parser/prolog/prolog_builtin.c \
     $(SRC)/parser/prolog/prolog_unify.c \
     $(SRC)/parser/prolog/prolog_driver.c \
+    $(SRC)/parser/prolog/prolog_lower.c \
     $(SRC)/parser/snocone/snocone_lex.c \
     $(SRC)/parser/snocone/snocone_parse.tab.c \
     $(SRC)/parser/snocone/snocone_driver.c \
@@ -215,6 +217,7 @@ RT_PIC_SRCS := \
     $(SRC)/parser/raku/re.c \
     $(SRC)/parser/rebus/rebus.tab.c \
     $(SRC)/parser/rebus/lex.rebus.c \
+    $(SRC)/parser/rebus/rebus_lower.c \
     $(SRC)/parser/pascal/pascal.tab.c \
     $(SRC)/parser/pascal/pascal.lex.c \
     $(SRC)/parser/pascal/pascal_driver.c

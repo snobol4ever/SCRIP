@@ -134,7 +134,6 @@ static void add_proc(tree_t *e) {
     if (!e) return;
     if (!raku_prog_result) raku_prog_result = ast_stmt_new(TT_PROGRAM);
     tree_t *st = ast_stmt_new(TT_STMT);
-    expr_add_child(st, ast_attr_int(":lang", LANG_RAKU));
     expr_add_child(st, ast_attr_int(":line", 0));
     expr_add_child(st, ast_attr_int(":stno", 0));
     expr_add_child(st, ast_attr_expr(":subj", e));

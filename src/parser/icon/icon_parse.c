@@ -865,7 +865,6 @@ CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast) {
         }
         if (top) {
             tree_t *ast_st = ast_stmt_new(TT_STMT);
-            push_child(ast_st, ast_attr_int(":lang", LANG_ICN));
             push_child(ast_st, ast_attr_int(":line", 0));
             push_child(ast_st, ast_attr_int(":stno", 0));
             push_child(ast_st, ast_attr_expr(":subj", top));

@@ -701,7 +701,59 @@ static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
     return bb_program_add(&g_stage2.bbp, ng);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void lower_raku_stage2(const tree_t *prog) {
+static void raku_register_program(stage2_t * s2, const tree_t * prog) {
+    extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
+    extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
+    extern void record_register(const char * spec);
+    int mod_idx = -1;
+    for (int _ci = 0; _ci < prog->n; _ci++) {
+        const tree_t * s = prog->c[_ci];
+        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
+        if (mod_idx < 0) mod_idx = polyglot_module_open(s2, s);
+        polyglot_module_extend(s2, mod_idx, s);
+        tree_t * proc = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        if (!proc) continue;
+        if (proc->t == TT_GLOBAL) {
+            for (int _gi = 0; _gi < proc->n; _gi++)
+                if (proc->c[_gi] && proc->c[_gi]->v.sval)
+                    global_register(proc->c[_gi]->v.sval);
+        }
+        if (proc->t == TT_RECORD && proc->v.sval && *proc->v.sval) {
+            char spec[256]; int pos = 0;
+            pos += snprintf(spec+pos, sizeof(spec)-pos, "%s(", proc->v.sval);
+            for (int _ri = 0; _ri < proc->n && pos < (int)sizeof(spec)-2; _ri++) {
+                if (_ri > 0) spec[pos++] = ',';
+                const char *fn2 = (proc->c[_ri] && proc->c[_ri]->v.sval) ? proc->c[_ri]->v.sval : "";
+                pos += snprintf(spec+pos, sizeof(spec)-pos, "%s", fn2);
+            }
+            if (pos < (int)sizeof(spec)-1) spec[pos++] = ')';
+            spec[pos] = '\0';
+            record_register(spec);
+        }
+        if (proc->t == TT_PROC_DECL) {
+            const char *name = NULL;
+            if (proc->t == TT_SUB_DECL) {
+                if (proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR && proc->c[0]->v.sval && *proc->c[0]->v.sval) name = proc->c[0]->v.sval;
+            } else {
+                name = (proc->v.sval && *proc->v.sval) ? proc->v.sval : ((proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR && proc->c[0]->v.sval && *proc->c[0]->v.sval) ? proc->c[0]->v.sval : NULL);
+            }
+            if (name) {
+                int _pi = stage2_proc_grow(s2);
+                s2->proc_table[_pi].name     = name;
+                s2->proc_table[_pi].proc     = proc;
+                s2->proc_table[_pi].entry_pc = -1;
+                s2->proc_table[_pi].bb_idx   = -1;
+                s2->proc_table[_pi].nparams  = (int)proc->v.ival;
+                s2->proc_table[_pi].byref_mask = 0;
+                if (mod_idx >= 0) s2->module_registry.mods[mod_idx].nprocs++;
+                if (strcmp(name, "main") == 0 && s2->module_registry.main_mod < 0) s2->module_registry.main_mod = mod_idx;
+            }
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+stage2_t *lower_raku_stage2(const tree_t *prog) {
+    raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
     rk_register_classes(prog);
     g_rk_multi_n = 0;
@@ -768,4 +820,5 @@ void lower_raku_stage2(const tree_t *prog) {
             g_stage2.proc_table[pi].nparams  = 0;
         }
     }
+    return &g_stage2;
 }

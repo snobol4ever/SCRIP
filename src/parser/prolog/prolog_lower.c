@@ -610,7 +610,6 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                     STMT_t *rs = stmt_new();
                     rs->subject = lower_term(azterm);
                     rs->lineno  = cl->lineno;
-                    rs->lang    = LANG_PL;
                     if (!prog->head) prog->head = rs;
                     else             prog->tail->next = rs;
                     prog->tail = rs;
@@ -760,7 +759,6 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             STMT_t *s = stmt_new();
             s->subject = goal_tr;
             s->lineno  = cl->lineno;
-            s->lang    = LANG_PL;
             if (!prog->head) prog->head = s;
             else             prog->tail->next = s;
             prog->tail = s;
@@ -788,7 +786,6 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
         STMT_t *s = stmt_new();
         s->subject = choices[i];
         s->lineno  = 0;
-        s->lang    = LANG_PL;
         if (!prog->head) prog->head = s;
         else             prog->tail->next = s;
         prog->tail = s;
