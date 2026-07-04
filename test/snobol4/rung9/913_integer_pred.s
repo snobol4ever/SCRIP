@@ -14,6 +14,8 @@ __gva: .space 16, 0
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 1
@@ -24,6 +26,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
 main_α:
@@ -79,7 +82,7 @@ bb3_α:
  mov qword ptr [r12 + 88], rax
  jmp xchain0_n4_α
  xchain0_n2_β:
- jmp main_ω
+ jmp main_γ
 .Lx4_0:
  .quad .Lx4_0_s
 .Lx4_0_s:
@@ -106,7 +109,7 @@ bb5_α:
  mov qword ptr [r12 + 72], rdx
  jmp main_γ
  xchain0_n4_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n5_α:
 bb6_α:
 # BOX IR_CALL integer(...) -> rt_call_arr [operand-marshal, FAIL->ω]
@@ -151,7 +154,7 @@ bb8_α:
  mov qword ptr [r12 + 168], rax
  jmp xchain0_n9_α
  xchain0_n7_β:
- jmp main_ω
+ jmp main_γ
 .Lx10_0:
  .quad .Lx10_0_s
 .Lx10_0_s:
@@ -190,7 +193,7 @@ bb10_α:
  mov qword ptr [r12 + 152], rdx
  jmp main_γ
  xchain0_n9_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n10_α:
 # IR_LIT_STRING
 bb11_α:
@@ -199,7 +202,7 @@ bb11_α:
  mov qword ptr [r12 + 280], rax
  jmp xchain0_n12_α
  xchain0_n10_β:
- jmp main_ω
+ jmp main_γ
 .Lx14_0:
  .quad .Lx14_0_s
 .Lx14_0_s:
@@ -212,7 +215,7 @@ bb12_α:
  mov qword ptr [r12 + 248], rax
  jmp xchain0_n13_α
  xchain0_n11_β:
- jmp main_ω
+ jmp main_γ
 .Lx15_0:
  .quad .Lx15_0_s
 .Lx15_0_s:
@@ -228,7 +231,7 @@ bb13_α:
  mov qword ptr [r12 + 264], rdx
  jmp main_γ
  xchain0_n12_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n13_α:
 # IR_ASSIGN gva
 bb14_α:
@@ -240,7 +243,7 @@ bb14_α:
  mov qword ptr [r12 + 232], rdx
  jmp main_γ
  xchain0_n13_β:
- jmp main_ω
+ jmp main_γ
 main_β:
 jmp main_ω
 main_γ:

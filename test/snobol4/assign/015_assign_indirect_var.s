@@ -16,6 +16,8 @@ __gva: .space 32, 0
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   lea rdi, [rip + __gva_names]
   lea rsi, [rip + __gva]
   mov edx, 2
@@ -26,6 +28,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
 main_α:
@@ -117,7 +120,7 @@ bb6_α:
  mov qword ptr [r12 + 152], rdx
  jmp xchain0_n7_α
  xchain0_n5_β:
- jmp main_ω
+ jmp main_γ
 xchain0_n6_α:
 # IR_ASSIGN_VAR write through variable
 bb7_α:
@@ -144,7 +147,7 @@ bb8_α:
  mov qword ptr [r12 + 136], rdx
  jmp main_γ
  xchain0_n7_β:
- jmp main_ω
+ jmp main_γ
 .Lx9_0:
  .quad .Lx9_0_s
 .Lx9_0_s:

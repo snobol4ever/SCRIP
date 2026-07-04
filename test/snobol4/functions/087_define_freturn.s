@@ -1,71 +1,72 @@
   .intel_syntax noprefix
   .text
-ispos_α:
+  .globl proc_ispos_α
+proc_ispos_α:
 #=======================================================================================================================
-    .global ispos_α
-    .global ispos_β
-    .global ispos_γ
-    .global ispos_ω
+    .global proc_ispos_α
+    .global proc_ispos_β
+    .global proc_ispos_γ
+    .global proc_ispos_ω
 push r12
   mov r12, rdi
-  lea r10, [rip + Δ]
-ispos_α_body:
-snoch0_n0_α:
-# IR_VAR
+proc_ispos_α_body:
+xchain0_n0_α:
+# IR_VAR gva
 bb1_α:
- mov rdi, qword ptr [rip + .Lx3_0]
- call NV_GET_fn@PLT
+ mov rax, qword ptr [rbx + 16]
+ mov rdx, qword ptr [rbx + 24]
+ mov qword ptr [r12 + 64], rax
+ mov qword ptr [r12 + 72], rdx
+ jmp xchain0_n1_α
+ xchain0_n0_β:
+ jmp proc_ispos_ω
+xchain0_n1_α:
+# IR_LIT_INTEGER
+bb2_α:
+ mov qword ptr [r12 + 80], 6
+ mov rax, qword ptr [rip + .Lx2_0]
+ mov qword ptr [r12 + 88], rax
+ jmp xchain0_n2_α
+ xchain0_n1_β:
+ jmp proc_ispos_ω
+.Lx2_0:
+ .quad 0
+xchain0_n2_α:
+bb3_α:
+# BOX IR_CALL GT(...) -> rt_call_arr [operand-marshal, FAIL->ω]
+# marshal arg0 = producer-box slot [r12+64] -> [r12+32]
+ mov rax, qword ptr [r12 + 64]
+ mov qword ptr [r12 + 32], rax
+ mov rax, qword ptr [r12 + 72]
+ mov qword ptr [r12 + 40], rax
+# marshal arg1 = producer-box slot [r12+80] -> [r12+48]
+ mov rax, qword ptr [r12 + 80]
+ mov qword ptr [r12 + 48], rax
+ mov rax, qword ptr [r12 + 88]
+ mov qword ptr [r12 + 56], rax
+  .section .rodata
+  .Lrkfn4: .string "GT"
+  .section .text
+  .intel_syntax noprefix
+   lea rdi, [rip + .Lrkfn4]
+ lea rsi, [r12 + 32]
+ mov edx, 2
+ call rt_call_arr@PLT
  mov qword ptr [r12 + 16], rax
  mov qword ptr [r12 + 24], rdx
- jmp xgvarg1_done
- xgvarg1_β:
- jmp snoch0_n2_α
-.Lx3_0:
- .quad .Lx3_0_s
-.Lx3_0_s:
- .string "x"
-xgvarg1_done:
-# IR_LIT_I
-bb2_α:
- mov qword ptr [r12 + 32], 6
- mov rax, qword ptr [rip + .Lx5_0]
- mov qword ptr [r12 + 40], rax
- jmp xgvarg4_done
- xgvarg4_β:
- jmp snoch0_n2_α
-.Lx5_0:
- .quad 0
-xgvarg4_done:
-bb3_α:
-# BOX IR_CALL GT(...) inline integer relop [four-port, FAIL->ω]
-   lea rdi, [rip + .S0]
- call rt_gvar_get_int@PLT
- mov qword ptr [r12 + 64], rax
- mov rcx, 0
- mov qword ptr [r12 + 48], 0
- mov qword ptr [r12 + 56], 0
- mov rax, qword ptr [r12 + 64]
- cmp rax, rcx
- jle snoch0_n2_α
- jmp snoch0_n1_α
- snoch0_n0_β:
- jmp snoch0_n2_α
-snoch0_n1_α:
-snoch0_n1_β:
-jmp ispos_γ
-jmp ispos_γ
-snoch0_n2_α:
-snoch0_n2_β:
-jmp ispos_ω
-jmp ispos_ω
-ispos_β:
-jmp ispos_ω
-ispos_γ:
+ cmp eax, 99
+ je proc_ispos_ω
+ jmp proc_ispos_γ
+ xchain0_n2_β:
+ jmp proc_ispos_ω
+proc_ispos_β:
+jmp proc_ispos_ω
+proc_ispos_γ:
 mov eax, 1
 xor edx, edx
 pop r12
 ret
-ispos_ω:
+proc_ispos_ω:
 # GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
 mov dword ptr [r12+0], 99
 mov dword ptr [r12+4], 0
@@ -74,193 +75,271 @@ mov eax, 99
 xor edx, edx
 pop r12
 ret
-  .section .rodata
-  .Lpn0: .string "ispos"
-  .Lpp0_0: .string "x"
-  .Lpnames0:
-  .quad .Lpp0_0
-  .quad 0
-  .section .text
-  .intel_syntax noprefix
 proc_startup:
   push rbp
   mov rbp, rsp
-  call core_lib_init@PLT
-  call rt_proc_reset@PLT
-  lea rdi, [rip + .Lpn0]
-  lea rsi, [rip + .Lpnames0]
+  .section .rodata
+  .Lstartup_pname0: .string "ispos"
+  .Lstartup_pp0_0: .string "x"
+  .align 8
+  .Lstartup_pnames0:
+  .quad .Lstartup_pp0_0
+  .quad 0
+  .section .text
+  .intel_syntax noprefix
+  lea rdi, [rip + .Lstartup_pname0]
+  lea rsi, [rip + .Lstartup_pnames0]
   mov edx, 1
   call rt_proc_register@PLT
-  lea rdi, [rip + .Lpn0]
-  lea rsi, [rip + ispos_α]
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_dyn_scope@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  lea rsi, [rip + proc_ispos_α]
   call rt_proc_set_fn@PLT
-  lea rdi, [rip + .Lpn0]
-  mov esi, 80
-  call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_nparams@PLT
   pop rbp
   ret
   .section .rodata
-  .Lprocn0: .string "ispos"
+  .Lgvan0: .string "ispos"
+  .Lgvan1: .string "x"
   .align 8
-__proc_names:
-  .quad .Lprocn0
+__gva_names:
+  .quad .Lgvan0
+  .quad .Lgvan1
   .section .bss
-  .align 8
-__proc: .space 8, 0
+  .align 16
+__gva: .space 32, 0
   .section .text
   .intel_syntax noprefix
   .globl main
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   call proc_startup
-  lea rdi, [rip + __proc]
-  lea rsi, [rip + __proc_names]
-  mov edx, 1
-  call rt_proc_table_fill@PLT
+  lea rdi, [rip + __gva_names]
+  lea rsi, [rip + __gva]
+  mov edx, 2
+  call gva_register@PLT
+  mov rbx, rax
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
-  call flat_α
+  call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
-flat_α:
+main_α:
 #=======================================================================================================================
-    .global flat_α
-    .global flat_β
-    .global flat_γ
-    .global flat_ω
+    .global main_α
+    .global main_β
+    .global main_γ
+    .global main_ω
 push r12
   mov r12, rdi
-  lea r10, [rip + Δ]
-flat_α_body:
-snoch8_n0_α:
+main_α_body:
+xchain5_n0_α:
+# IR_LIT_INTEGER
 bb4_α:
-# IR_CALL_DEFINE
- lea rdi, [rip + .S1]
- call rt_proc_define@PLT
- jmp snoch8_n1_α
- snoch8_n0_β:
- jmp snoch8_n1_α
-snoch8_n1_α:
-# IR_LIT_I
-bb5_α:
- mov qword ptr [r12 + 16], 6
- mov rax, qword ptr [rip + .Lx11_0]
- mov qword ptr [r12 + 24], rax
- jmp xgvarg10_done
- xgvarg10_β:
- jmp snoch8_n3_α
-.Lx11_0:
+ mov qword ptr [r12 + 128], 6
+ mov rax, qword ptr [rip + .Lx6_0]
+ mov qword ptr [r12 + 136], rax
+ jmp xchain5_n1_α
+ xchain5_n0_β:
+ jmp xchain5_n3_α
+.Lx6_0:
  .quad 5
-xgvarg10_done:
+xchain5_n1_α:
+bb5_α:
+  .section .rodata
+  .Lcall5_pname: .string "ispos"
+  .section .text
+  .intel_syntax noprefix
+ mov edi, 0
+ mov rsi, qword ptr [r12 + 128]
+ mov rdx, qword ptr [r12 + 136]
+ call rt_arg_stage@PLT
+   lea rdi, [rip + .Lcall5_pname]
+ mov esi, 1
+ call rt_call_proc_descr@PLT
+ mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 104], rdx
+ cmp eax, 99
+ je xchain5_n3_α
+ jmp xchain5_n2_α
+xchain5_n1_β:
+ jmp xchain5_n3_α
+xchain5_n2_α:
+# IR_LIT_STRING
 bb6_α:
-# BOX IR_CALL ispos(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+16] -> [r12+48]
- mov rax, qword ptr [r12 + 16]
- mov qword ptr [r12 + 48], rax
- mov rax, qword ptr [r12 + 24]
- mov qword ptr [r12 + 56], rax
-   mov rdi, [rip + __proc + 0]
- lea rsi, [r12 + 48]
- mov edx, 1
- call rt_call_proc_direct@PLT
- mov qword ptr [r12 + 32], rax
- mov qword ptr [r12 + 40], rdx
- cmp eax, 99
- je snoch8_n3_α
- jmp snoch8_n2_α
-snoch8_n1_β:
- jmp snoch8_n3_α
-snoch8_n2_α:
-# IR_LIT_scalar
+ mov qword ptr [r12 + 160], 1
+ mov rax, qword ptr [rip + .Lx8_0]
+ mov qword ptr [r12 + 168], rax
+ jmp xchain5_n4_α
+ xchain5_n2_β:
+ jmp xchain5_n6_α
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
+ .string "positive"
+xchain5_n3_α:
+# IR_LIT_STRING
 bb7_α:
- jmp snoch8_n4_α
- snoch8_n2_β:
- jmp snoch8_n5_α
-snoch8_n3_α:
-# IR_LIT_scalar
+ mov qword ptr [r12 + 192], 1
+ mov rax, qword ptr [rip + .Lx9_0]
+ mov qword ptr [r12 + 200], rax
+ jmp xchain5_n5_α
+ xchain5_n3_β:
+ jmp xchain5_n6_α
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
+ .string "wrong"
+xchain5_n4_α:
+# IR_ASSIGN global
 bb8_α:
- jmp snoch8_n6_α
- snoch8_n3_β:
- jmp snoch8_n5_α
-snoch8_n4_α:
+ mov rsi, qword ptr [r12 + 160]
+ mov rdx, qword ptr [r12 + 168]
+ mov rdi, qword ptr [rip + .Lx10_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 144], rax
+ mov qword ptr [r12 + 152], rdx
+ jmp xchain5_n6_α
+ xchain5_n4_β:
+ jmp xchain5_n6_α
+.Lx10_0:
+ .quad .Lx10_0_s
+.Lx10_0_s:
+ .string "OUTPUT"
+xchain5_n5_α:
+# IR_ASSIGN global
 bb9_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S2]
- lea rsi, [rip + .S3]
- call rt_gvar_assign_str@PLT
- jmp snoch8_n5_α
- snoch8_n4_β:
- jmp snoch8_n5_α
-snoch8_n5_α:
-xgvarg16_done:
+ mov rsi, qword ptr [r12 + 192]
+ mov rdx, qword ptr [r12 + 200]
+ mov rdi, qword ptr [rip + .Lx11_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 176], rax
+ mov qword ptr [r12 + 184], rdx
+ jmp xchain5_n6_α
+ xchain5_n5_β:
+ jmp xchain5_n6_α
+.Lx11_0:
+ .quad .Lx11_0_s
+.Lx11_0_s:
+ .string "OUTPUT"
+xchain5_n6_α:
+# IR_LIT_INTEGER
 bb10_α:
-# BOX IR_CALL ispos(...) -> rt_call_named_proc [four-port, FAIL->ω.node]
-# marshal arg0 = inline gvar-unop subexpr -> [r12+80]
- movabs rax, 3
- neg rax
- mov qword ptr [r12 + 80], 6
- mov qword ptr [r12 + 88], rax
-   mov rdi, [rip + __proc + 0]
- lea rsi, [r12 + 80]
- mov edx, 1
- call rt_call_proc_direct@PLT
- mov qword ptr [r12 + 64], rax
- mov qword ptr [r12 + 72], rdx
- cmp eax, 99
- je snoch8_n8_α
- jmp snoch8_n7_α
-snoch8_n5_β:
- jmp snoch8_n8_α
-snoch8_n6_α:
+ mov qword ptr [r12 + 256], 6
+ mov rax, qword ptr [rip + .Lx12_0]
+ mov qword ptr [r12 + 264], rax
+ jmp xchain5_n7_α
+ xchain5_n6_β:
+ jmp xchain5_n9_α
+.Lx12_0:
+ .quad 3
+xchain5_n7_α:
+# IR_UNOP
 bb11_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S2]
- lea rsi, [rip + .S4]
- call rt_gvar_assign_str@PLT
- jmp snoch8_n5_α
- snoch8_n6_β:
- jmp snoch8_n5_α
-snoch8_n7_α:
-# IR_LIT_scalar
+ mov rdi, qword ptr [r12 + 256]
+ mov rsi, qword ptr [r12 + 264]
+ call rt_num_neg@PLT
+ mov qword ptr [r12 + 240], rax
+ mov qword ptr [r12 + 248], rdx
+ jmp xchain5_n8_α
+ xchain5_n7_β:
+ jmp xchain5_n9_α
+xchain5_n8_α:
 bb12_α:
- jmp snoch8_n9_α
- snoch8_n7_β:
- jmp flat_γ
-snoch8_n8_α:
-# IR_LIT_scalar
+  .section .rodata
+  .Lcall12_pname: .string "ispos"
+  .section .text
+  .intel_syntax noprefix
+ mov edi, 0
+ mov rsi, qword ptr [r12 + 240]
+ mov rdx, qword ptr [r12 + 248]
+ call rt_arg_stage@PLT
+   lea rdi, [rip + .Lcall12_pname]
+ mov esi, 1
+ call rt_call_proc_descr@PLT
+ mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 216], rdx
+ cmp eax, 99
+ je xchain5_n9_α
+ jmp xchain5_n10_α
+xchain5_n8_β:
+ jmp xchain5_n9_α
+xchain5_n9_α:
+# IR_LIT_STRING
 bb13_α:
- jmp snoch8_n10_α
- snoch8_n8_β:
- jmp flat_γ
-snoch8_n9_α:
+ mov qword ptr [r12 + 320], 1
+ mov rax, qword ptr [rip + .Lx15_0]
+ mov qword ptr [r12 + 328], rax
+ jmp xchain5_n11_α
+ xchain5_n9_β:
+ jmp main_γ
+.Lx15_0:
+ .quad .Lx15_0_s
+.Lx15_0_s:
+ .string "not positive"
+xchain5_n10_α:
+# IR_LIT_STRING
 bb14_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S2]
- lea rsi, [rip + .S4]
- call rt_gvar_assign_str@PLT
- jmp flat_γ
- snoch8_n9_β:
- jmp flat_γ
-snoch8_n10_α:
+ mov qword ptr [r12 + 288], 1
+ mov rax, qword ptr [rip + .Lx16_0]
+ mov qword ptr [r12 + 296], rax
+ jmp xchain5_n12_α
+ xchain5_n10_β:
+ jmp main_γ
+.Lx16_0:
+ .quad .Lx16_0_s
+.Lx16_0_s:
+ .string "wrong"
+xchain5_n11_α:
+# IR_ASSIGN global
 bb15_α:
-# IR_ASSIGN_LIT_S
- lea rdi, [rip + .S2]
- lea rsi, [rip + .S5]
- call rt_gvar_assign_str@PLT
- jmp flat_γ
- snoch8_n10_β:
- jmp flat_γ
-flat_β:
-jmp flat_ω
-flat_γ:
+ mov rsi, qword ptr [r12 + 320]
+ mov rdx, qword ptr [r12 + 328]
+ mov rdi, qword ptr [rip + .Lx17_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 304], rax
+ mov qword ptr [r12 + 312], rdx
+ jmp main_γ
+ xchain5_n11_β:
+ jmp main_γ
+.Lx17_0:
+ .quad .Lx17_0_s
+.Lx17_0_s:
+ .string "OUTPUT"
+xchain5_n12_α:
+# IR_ASSIGN global
+bb16_α:
+ mov rsi, qword ptr [r12 + 288]
+ mov rdx, qword ptr [r12 + 296]
+ mov rdi, qword ptr [rip + .Lx18_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 272], rax
+ mov qword ptr [r12 + 280], rdx
+ jmp main_γ
+ xchain5_n12_β:
+ jmp main_γ
+.Lx18_0:
+ .quad .Lx18_0_s
+.Lx18_0_s:
+ .string "OUTPUT"
+main_β:
+jmp main_ω
+main_γ:
 mov eax, 1
 xor edx, edx
 pop r12
 ret
-flat_ω:
+main_ω:
 # GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
 mov dword ptr [r12+0], 99
 mov dword ptr [r12+4], 0
@@ -269,11 +348,3 @@ mov eax, 99
 xor edx, edx
 pop r12
 ret
-.section .rodata
-.S0: .string "x"
-.S1: .string "ispos(x)"
-.S2: .string "OUTPUT"
-.S3: .string "positive"
-.S4: .string "wrong"
-.S5: .string "not positive"
-.text

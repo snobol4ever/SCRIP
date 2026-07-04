@@ -4,11 +4,14 @@
 main:
   push rbp
   mov rbp, rsp
+  push rdi
+  push rsi
   call rt_frame@PLT
   mov rdi, rax
   xor esi, esi
   call main_α
   xor eax, eax
+  mov rsp, rbp
   pop rbp
   ret
 main_α:
@@ -86,7 +89,7 @@ bb5_α:
  mov qword ptr [r12 + 104], rax
  jmp xchain0_n5_α
  xchain0_n4_β:
- jmp main_ω
+ jmp main_γ
 .Lx5_0:
  .quad .Lx5_0_s
 .Lx5_0_s:
@@ -102,7 +105,7 @@ bb6_α:
  mov qword ptr [r12 + 88], rdx
  jmp main_γ
  xchain0_n5_β:
- jmp main_ω
+ jmp main_γ
 .Lx6_0:
  .quad .Lx6_0_s
 .Lx6_0_s:
