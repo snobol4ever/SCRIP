@@ -1872,6 +1872,13 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
     return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_args_list_from(char **v, int n) {
+    if (n < 0 || !v) n = 0;
+    DESCR_t *tmp = GC_malloc((n>0?n:1)*sizeof(DESCR_t));
+    for (int _i=0;_i<n;_i++) tmp[_i] = STRVAL(v[_i]);
+    return rt_make_list(tmp, n);
+}
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3128,6 +3135,39 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t ret=arr[n-1];
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
         *out = ret; return 1;
+    }
+    if (!strcmp(fn,"sort") && nargs >= 1 && args[0].v == DT_T && args[0].tbl) {
+        /* fsort.r table sort: i=1,2 -> list of [key,val] pairs; i=3,4 -> flat k,v,k,v; odd sorts by key, even by value. Default i=1. */
+        TBBLK_t *tb = args[0].tbl;
+        int i_mode = (nargs >= 2) ? (int)to_int(args[1]) : 1;
+        if (i_mode < 1 || i_mode > 4) i_mode = 1;
+        int n = 0;
+        for (int _bi = 0; _bi < TABLE_BUCKETS; _bi++) for (TBPAIR_t *e = tb->buckets[_bi]; e; e = e->next) n++;
+        TBPAIR_t **ent = GC_malloc((n>0?n:1)*sizeof(TBPAIR_t*));
+        { int _k = 0; for (int _bi = 0; _bi < TABLE_BUCKETS; _bi++) for (TBPAIR_t *e = tb->buckets[_bi]; e; e = e->next) ent[_k++] = e; }
+        int by_val = (i_mode % 2 == 0);
+        for (int _i = 1; _i < n; _i++) {
+            TBPAIR_t *kp = ent[_i]; int _j = _i - 1;
+            while (_j >= 0) {
+                DESCR_t a = by_val ? ent[_j]->val : ent[_j]->key_descr;
+                DESCR_t b = by_val ? kp->val      : kp->key_descr;
+                int cmp;
+                if (IS_INT_fn(a) && IS_INT_fn(b)) cmp = (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0;
+                else { const char *sa = VARVAL_fn(a), *sb = VARVAL_fn(b); cmp = strcmp(sa?sa:"", sb?sb:""); }
+                if (cmp <= 0) break;
+                ent[_j+1] = ent[_j]; _j--;
+            }
+            ent[_j+1] = kp;
+        }
+        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
+        if (i_mode >= 3) {
+            DESCR_t *flat = GC_malloc((2*n>0?2*n:1)*sizeof(DESCR_t));
+            for (int _k = 0; _k < n; _k++) { flat[2*_k] = ent[_k]->key_descr; flat[2*_k+1] = ent[_k]->val; }
+            *out = rt_make_list(flat, 2*n); return 1;
+        }
+        DESCR_t *pairs = GC_malloc((n>0?n:1)*sizeof(DESCR_t));
+        for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
+        *out = rt_make_list(pairs, n); return 1;
     }
     if ((!strcmp(fn,"sort")&&nargs==1)||(!strcmp(fn,"sortf")&&nargs==2)) {
         DESCR_t ld = args[0];

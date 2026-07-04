@@ -116,7 +116,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
         IR_t * ae = lower(cx, a, (k == nargs - 1) ? call : NULL, aω, &ar); aω = cx->beta;
         if (k == 0) entry = ae;
-        if (prev) γ_to(prev, ae);
+        if (prev) lc_γ_to(prev, ae); /* ARG-BOUNDARY α-FORCE: forward success edge into the next arg is a fresh entry, never a resume; auto-β (γ_to) here made a keyword/generator-entry arg swallow the whole call. Resume direction flows via aω/cx->beta, untouched. */
         prev = ar;
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
     }
@@ -219,7 +219,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN) && IR_LIT(nd).sval) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
+        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -805,7 +805,17 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_t * succ = icn_subtree_has_suspend(body) ? PFAIL : PSUCC; IR_t * fail = PFAIL;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
-        IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ); succ = entry; fail = entry;
+        IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
+        /* STMT-BOUNDARY α-FORCE: the next statement (source order) reaches this one's entry as a
+         * fresh evaluation, never a resume. If that entry is generator-kind, build()'s auto-β stamp
+         * (lc_ω_to_β/lc_γ_to_β) would make a subsequent statement's fail/success edge land on its β
+         * (resume-and-fail) label, skipping the statement body. Interpose an α-stamped GOTO so the
+         * cross-statement edge enters at α. (Same trampoline idiom as lower_while/until/repeat.) */
+        if (entry && ir_is_generator_kind(entry->op)) {
+            IR_t * tramp = IR_node_alloc(g, IR_GOTO); lc_γ_to(tramp, entry); lc_ω_to(tramp, entry);
+            entry = tramp;
+        }
+        succ = entry; fail = entry;
     }
     g->entry = succ; return g;
 }

@@ -152,9 +152,7 @@ DESCR_t kw_read(const char *kw) {
           return STRVAL(buf);
       }
       if (!strcmp(kw,"time")) {
-          char *buf = GC_malloc(16);
-          snprintf(buf,16,"%d",(int)(clock()*1000/CLOCKS_PER_SEC));
-          return STRVAL(buf);
+          return INTVAL((int64_t)(clock()*1000/CLOCKS_PER_SEC));
       }
     }
     if (!strcmp(kw,"version")) return STRVAL("Jcon Version 2.2");

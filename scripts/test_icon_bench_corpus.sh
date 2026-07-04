@@ -118,10 +118,10 @@ SCRIP_LINK_DEPS[ipxref]="options.icn post.icn"
 SCRIP_LINK_DEPS[queens]="options.icn post.icn"
 SCRIP_LINK_DEPS[rsg]="options.icn post.icn"
 SCRIP_LINK_DEPS[tgrlink]="options.icn"
-# NB: scrip --run/--compile do not currently forward extra argv into the Icon program's `args`
-# list (verified 2026-07-02 — `scrip --run f.icn foo` treats "foo" as another file to open, not
-# program args). ARGS[] above is passed to iconx (which DOES receive real argv) and, harmlessly,
-# to the compiled m4 binary; it has no effect on scrip's own args list either way today.
+# ARGS[] forwarding (landed with the ICNBENCH-ARGS rung): mode-3 receives program args after a
+# `--` separator on scrip's own command line (everything before -- is source files; after is the
+# Icon program's args list); mode-4 binaries build args from their OWN C argc/argv at runtime, so
+# passing "${a[@]}" to the produced binary is now live, not harmless-inert.
 
 pass_o=0; pass3=0; pass4=0; total=0
 
@@ -147,7 +147,7 @@ for name in $progs; do
 
   # ---- SCRIP mode-3 (--run): in-process, primary native mode ----
   m3_status="?"
-  out3=$( cd "$CORPUS" && timeout 30 "$SCRIP" --bench --run "$name.icn" "${linkdeps[@]}" >"$WORK/$name.m3.out" 2>"$WORK/$name.m3.err" <"$sin"; echo "rc=$?" )
+  out3=$( cd "$CORPUS" && timeout 30 "$SCRIP" --bench --run "$name.icn" "${linkdeps[@]}" -- "${a[@]}" >"$WORK/$name.m3.out" 2>"$WORK/$name.m3.err" <"$sin"; echo "rc=$?" )
   rc3="${out3##*rc=}"
   if [ "$rc3" = "0" ] && [ -s "$WORK/$name.m3.out" ]; then
     bench=$(grep -o 'total=[0-9.]*ms' "$WORK/$name.m3.err" | tail -1)
