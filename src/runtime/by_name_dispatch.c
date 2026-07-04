@@ -53,6 +53,7 @@ int rt_builtin_is_known(const char *name)
         "table", "list", "set", "sort", "sortf", "get", "pop", "pull",
         "member", "insert", "delete", "key",
         "[]",
+        "__apply__",
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "elems", "push_pure",
@@ -3056,6 +3057,19 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 *out = td.tbl->buckets[_bi]->key_descr; return 1;
             }
         *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn,"__apply__") && nargs == 2) {
+        DESCR_t callee = args[0]; DESCR_t lv = args[1];
+        if (lv.v == DT_DATA) {
+            DESCR_t tag = FIELD_GET_fn(lv,"gen_type");
+            if (tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0) {
+                int n=(int)FIELD_GET_fn(lv,"frame_size").i;
+                DESCR_t ea=FIELD_GET_fn(lv,"frame_elems");
+                DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+                *out = rt_call_value(callee, arr, (arr?n:0)); return 1;
+            }
+        }
+        { DESCR_t a1 = lv; *out = rt_call_value(callee, &a1, 1); return 1; }
     }
     if (!strcmp(fn,"push") && nargs >= 1) {
         DESCR_t ld = args[0];

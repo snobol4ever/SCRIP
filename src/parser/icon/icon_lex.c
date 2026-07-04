@@ -502,8 +502,80 @@ static IcnToken lex_one(IcnLexer *lx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pp_word_char(char c) { return isalnum((unsigned char)c) || c == '_'; }
+typedef struct { char *name; char *val; } PpDef;
+static char *pp_subst_span(const char *s, size_t len, const PpDef *defs, int ndefs) {
+    char *out = NULL; int olen = 0, ocap = 0; size_t i = 0;
+    while (i < len) {
+        char c = s[i];
+        if (c == '"' || c == '\'') { char q = c; buf_push(&out, &olen, &ocap, s[i++]);
+            while (i < len) { char d = s[i]; buf_push(&out, &olen, &ocap, d); i++; if (d == '\\' && i < len) { buf_push(&out, &olen, &ocap, s[i++]); } else if (d == q) break; }
+            continue; }
+        if (pp_word_char(c) && !isdigit((unsigned char)c)) {
+            size_t ws = i; while (i < len && pp_word_char(s[i])) i++;
+            size_t wl = i - ws; const char *rep = NULL;
+            for (int k = ndefs - 1; k >= 0; k--) if (strlen(defs[k].name) == wl && !strncmp(defs[k].name, s + ws, wl)) { rep = defs[k].val; break; }
+            if (rep) { for (const char *p = rep; *p; p++) buf_push(&out, &olen, &ocap, *p); }
+            else     { for (size_t k = ws; k < i; k++) buf_push(&out, &olen, &ocap, s[k]); }
+            continue; }
+        buf_push(&out, &olen, &ocap, c); i++;
+    }
+    if (!out) out = strdup("");
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *icn_preprocess(const char *src) {
+    PpDef defs[128]; int ndefs = 0;
+    char *out = NULL; int olen = 0, ocap = 0;
+    size_t i = 0, n = strlen(src); int at_bol = 1;
+    while (i < n) {
+        char c = src[i];
+        if (at_bol && c == '$') {
+            size_t j = i + 1;
+            while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
+            if (j + 6 <= n && !strncmp(src + j, "define", 6) && (j + 6 == n || !pp_word_char(src[j + 6]))) {
+                j += 6; while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
+                size_t ns = j; while (j < n && pp_word_char(src[j])) j++;
+                size_t ne = j;
+                if (ne > ns && (j >= n || src[j] != '(')) {
+                    while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
+                    size_t vs = j, ve = j;
+                    while (j < n && src[j] != '\n') {
+                        char d = src[j];
+                        if (d == '#') break;
+                        if (d == '"' || d == '\'') { char q = d; j++; while (j < n && src[j] != '\n') { if (src[j] == '\\' && j + 1 < n) j++; else if (src[j] == q) break; j++; } if (j < n && src[j] == q) j++; ve = j; continue; }
+                        j++; ve = j;
+                    }
+                    while (ve > vs && (src[ve - 1] == ' ' || src[ve - 1] == '\t' || src[ve - 1] == '\r')) ve--;
+                    if (ndefs < 128) { defs[ndefs].name = strndup(src + ns, ne - ns); defs[ndefs].val = pp_subst_span(src + vs, ve - vs, defs, ndefs); ndefs++; }
+                }
+            }
+            while (i < n && src[i] != '\n') { buf_push(&out, &olen, &ocap, ' '); i++; }
+            continue;
+        }
+        if (c == '#') { while (i < n && src[i] != '\n') { buf_push(&out, &olen, &ocap, src[i++]); } continue; }
+        if (c == '"' || c == '\'') { char q = c; buf_push(&out, &olen, &ocap, src[i++]);
+            while (i < n) { char d = src[i]; buf_push(&out, &olen, &ocap, d); i++; if (d == '\\' && i < n) { buf_push(&out, &olen, &ocap, src[i++]); } else if (d == q || d == '\n') break; }
+            at_bol = 0; continue; }
+        if (pp_word_char(c) && !isdigit((unsigned char)c) && ndefs > 0) {
+            size_t ws = i; while (i < n && pp_word_char(src[i])) i++;
+            size_t wl = i - ws; const char *rep = NULL;
+            for (int k = ndefs - 1; k >= 0; k--) if (strlen(defs[k].name) == wl && !strncmp(defs[k].name, src + ws, wl)) { rep = defs[k].val; break; }
+            if (rep) { for (const char *p = rep; *p; p++) buf_push(&out, &olen, &ocap, *p); }
+            else     { for (size_t k = ws; k < i; k++) buf_push(&out, &olen, &ocap, src[k]); }
+            at_bol = 0; continue; }
+        buf_push(&out, &olen, &ocap, c);
+        at_bol = (c == '\n'); i++;
+    }
+    if (!out) out = strdup("");
+    for (int k = 0; k < ndefs; k++) { free(defs[k].name); free(defs[k].val); }
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_lex_init(IcnLexer *lx, const char *src) {
     memset(lx, 0, sizeof(*lx));
+    if (src && strchr(src, '$')) src = icn_preprocess(src);
     lx->src     = src;
     lx->src_len = strlen(src);
     lx->pos     = 0;
