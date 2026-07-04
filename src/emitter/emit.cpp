@@ -721,6 +721,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_SUSPEND:              bb_emit_x86(bb_suspend());        return 0;
     case IR_TO:                   { bb_prepare(nd); bb_emit_x86(bb_to()); } return 0;
+    case IR_MATCH_LEN:            { bb_prepare(nd); bb_emit_x86(bb_match_len()); } return 0;   /* SN4-PAT-1 */
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;

@@ -79,6 +79,57 @@ typedef enum {
     IR_UNOP_TEST,
     IR_VAR,
     IR_VAR_REF,
+    /* ---- SNOBOL4 pattern family (SN4-PAT) ---------------------------------------------------
+     * Re-added onto the post-GZ#5 spine. Amputated wholesale by 8de0fb46 (GZ#5 ENUM-AMPUTATION);
+     * design recovered from parent 41b53078. Two families + one sealed-blob ref, mirroring SPITBOL:
+     *   IR_MATCH_*   = MATCHERS: the inline needle. One node per pattern element, wired by γ (success)
+     *                  / ω (failure) ports; IR_MATCH_ALT builds the backtrack tree, IR_MATCH_CAT
+     *                  threads concatenation, IR_MATCH_ASSIGN_IMM/_COND do `$`/`.`. Used when a
+     *                  pattern is matched directly (`SUBJECT PAT [= REPL]`) — lower_pat_node emits these.
+     *   IR_PATTERN_* = STITCH boxes ONLY (D7 pivot d7ba0fd9 → RT build/stitch 52fce031): the per-element
+     *                  builders were ABANDONED — FZ-3/FZ-4 constant folding freezes every invariant
+     *                  subpattern to IR_REF_INVARIANT, so only VARIANT parts get stitched (CAT/ALT) around
+     *                  sealed blobs; + CAPTURE passthrough, DEFER, and IR_DTP_ASSIGN for stored `.`/`$`.
+     *   IR_REF_INVARIANT = a compile-time constant-folded pattern sealed into a RO blob (FZ-3,
+     *                  18133720): an all-constant (VARIANT-free) subpattern is built ONCE, not per-match.
+     * Re-seating is incremental (see GOAL-IR-IMMUTABLE-EMIT.md SN4-PAT ladder): enum first (here),
+     * then templates back into the Makefile + emitter dispatch, then lower_snobol4.c, matcher by matcher.
+     * Inert until lower_snobol4.c emits them, so this addition keeps Icon + the current build green. */
+    IR_MATCH,               /* base/abstract matcher tag */
+    IR_MATCH_LIT,
+    IR_MATCH_ANY,
+    IR_MATCH_NOTANY,
+    IR_MATCH_SPAN,
+    IR_MATCH_SPAN_VAR,
+    IR_MATCH_BREAK,
+    IR_MATCH_BREAKX,
+    IR_MATCH_LEN,
+    IR_MATCH_POS,
+    IR_MATCH_TAB,
+    IR_MATCH_RTAB,
+    IR_MATCH_ARB,
+    IR_MATCH_ARBNO,
+    IR_MATCH_REM,
+    IR_MATCH_BAL,
+    IR_MATCH_FENCE,
+    IR_MATCH_ABORT,
+    IR_MATCH_CAT,
+    IR_MATCH_ALT,
+    IR_MATCH_ASSIGN_IMM,
+    IR_MATCH_ASSIGN_COND,
+    IR_MATCH_ATP,
+    IR_MATCH_CALLOUT,
+    IR_MATCH_DEFER,
+    IR_MATCH_HEAD,
+    IR_MATCH_RETRY,
+    IR_MATCH_ADVANCE,
+    IR_REF_INVARIANT,       /* sealed constant-folded pattern blob (FZ-3) */
+    IR_PATTERN_CAT,      /* STITCH-CAT box (B6 409f62a9/a59f38b8): rt_pattern_stitch_cat */
+    IR_PATTERN_ALT,      /* STITCH-ALT box (B3 7a12aedd): rt_pattern_stitch_alt */
+    IR_PATTERN_CAPTURE,  /* passthrough since FZ-4 6141434 (Raku passthrough kept) */
+    IR_PATTERN_DEFER,    /* *EXPR deferred build */
+    IR_DTP_ASSIGN,       /* stored-pattern `.`/`$` capture (B3, DTP frag — see src/include/dtp.h) */
+    /* ---- end SNOBOL4 pattern family -------------------------------------------------------- */
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -101,6 +101,7 @@ std::string bb_case_arm();
 std::string bb_var_frame();
 std::string bb_var_frame_ref();
 std::string bb_to();
+std::string bb_match_len();   /* SN4-PAT: SNOBOL4 LEN(n) matcher */
 std::string bb_to_by();
 std::string bb_make_list();
 std::string bb_limit();
