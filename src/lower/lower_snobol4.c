@@ -139,6 +139,7 @@ int lower_sno_stage2(const tree_t * prog) {
         const char * lbl = sfind_str(st[i], ":lbl");
         if (lbl && lbl[0]) bb_label_registry_add(lp_strdup(lbl), anchor[i]);
     }
+    bb_label_registry_add(lp_strdup("END"), exitnd);
     g->entry = anchor[0];
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i];
