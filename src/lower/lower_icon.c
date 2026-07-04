@@ -227,6 +227,11 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
     if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = (t && t->line > 0) ? t->line : 0; *res = nd; return nd; }
     if (id && !strcmp(id, "file")) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; *res = nd; return nd; }
+    if (id) {
+        const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
+        if (!cs && !strcmp(id, "letters")) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        if (cs) { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(cs); *res = nd; return nd; }
+    }
     IR_t * nd = build(cx, IR_KEYWORD, γ, ω); IR_LIT(nd).sval = (char *) kw;
     if (id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections"))) {
         IR_t * seed = build(cx, IR_GOTO, ω, ω); lc_γ_to(seed, nd); cx->beta = nd; *res = nd; return seed;
