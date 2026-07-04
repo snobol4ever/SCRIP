@@ -66,6 +66,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CONJUNCTION] = "IR_CONJUNCTION",
     [IR_MOVE_LABEL] = "IR_MOVE_LABEL",
     [IR_INDIRECT_GOTO] = "IR_INDIRECT_GOTO",
+    [IR_DISJUNCTION] = "IR_DISJUNCTION",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
@@ -233,7 +234,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         if (nd->op == IR_KEYWORD_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }
         if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_INDIRECT_GOTO) { nd->tmp = base + k * 16; k += 2; continue; }
+        if (nd->op == IR_INDIRECT_GOTO || nd->op == IR_DISJUNCTION) { nd->tmp = base + k * 16; k += 2; continue; }
         if (ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; }
     }
     g->resume_slot = -1;
