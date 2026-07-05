@@ -16,7 +16,8 @@ std::string bb_match_capture() {
          : (strtab_label(b, sizeof b, _.op_sval ? _.op_sval : ""), (int)_.op_phase == 0
               ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE")
                 + x86("label",   _.lbl_α)
-                + x86("mov", FR(_.op_off), "r14d") )
+                + x86("mov", FR(_.op_off), "r14d")
+                + x86("jmp", "γ") )
               : ( x86("comment", (int)_.op_phase == 2 ? "IR_MATCH_CAPTURE_IMM" : "IR_MATCH_CAPTURE_COND")
                 + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
                 + x86("mov",  "esi", FR(_.op_off))
