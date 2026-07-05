@@ -641,7 +641,7 @@ int main(int argc, char **argv)
     }
     if (mode_compile_x86) {
         extern int g_frame_active;
-        if (is_icon || is_raku || is_sno_bb) {
+        if (is_icon || is_raku || is_sno_bb || is_prolog) {
             extern int g_postfix_resume;
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
             g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
@@ -649,8 +649,8 @@ int main(int argc, char **argv)
             stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
-            if (is_icon || is_sno_bb) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb || is_prolog) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1024,10 +1024,6 @@ int main(int argc, char **argv)
             ir_delete_all(s2);
             return rc;
         }
-        if (is_prolog) {
-            fprintf(stderr, "GROUND ZERO #5: Prolog backend deleted (Icon-only reset; Prolog rebuilds later).\n");
-            return 1;
-        }
         {
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             extern void xa_emit_strtab_rodata(void);
@@ -1204,7 +1200,7 @@ int main(int argc, char **argv)
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
-        if (is_icon || is_raku || is_sno_bb) {
+        if (is_icon || is_raku || is_sno_bb || is_prolog) {
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
@@ -1246,8 +1242,8 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
-            if (is_icon || is_sno_bb) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb || is_prolog) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1299,15 +1295,7 @@ int main(int argc, char **argv)
             { extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, rt_frame(), 0, m3_gva_arena); else (void)fn(rt_frame(), 0); }
             goto run_done;
         }
-        if (is_prolog) {
-            fprintf(stderr, "GROUND ZERO #5: Prolog backend deleted (Icon-only reset; Prolog rebuilds later).\n");
-            return 1;
-        }
         {
-            if (is_prolog) {
-                fprintf(stderr, "GROUND ZERO #5: Prolog backend deleted (Icon-only reset; Prolog rebuilds later).\n");
-                return 1;
-            }
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             extern void *rt_frame(void);
             extern int g_frame_active;
