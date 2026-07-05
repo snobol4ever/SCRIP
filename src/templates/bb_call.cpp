@@ -11,6 +11,7 @@ extern "C" {
 #include "../runtime/builtins/gen.h"
 extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
 extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);
 void rt_write_any_nl(DESCR_t d);
 int  rt_proc_is_registered(const char *name);
 int  rt_builtin_is_known(const char *name);
@@ -684,6 +685,65 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_call_byname_gen_str(IR_t * pBB) {
+    if (!PLATFORM_X86) return std::string();
+    const char * fn   = _.op_sval ? _.op_sval : "";
+    int64_t      narg = _.op_ival;
+    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
+    int resoff  = _.node ? _.node->tmp : -1;
+    if (resoff < 0) return x86_bomb("bb_call_byname_gen: no LOWER slot grant (TMP-ERADICATE)");
+    if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
+    int argbase = resoff + 16;
+    int genoff  = resoff + 16 * (1 + (int)narg);
+    if (MEDIUM_TEXT) {
+        std::string s = x86("label", _.lbl_α)
+            + x86("comment", emit_fmt("BOX IR_CALL_BUILTIN_GEN %s(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]", fn));
+        for (int i = 0; i < (int)narg; i++)
+            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
+        s += x86("mov", FRQ(genoff), (long)0);
+        s += x86("def", L(60));
+        std::string fl = emit_fmt(".Lbynamegenfn%d", g_flat_node_id++);
+        s += x86("directive", ".section .rodata")
+           + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
+           + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
+        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
+        s += x86("lea", "rsi", FRQ(argbase));
+        s += x86("mov32", "edx", (long)(narg));
+        s += x86("lea", "rcx", FRQ(genoff));
+        s += x86("call", "rt_call_arr_gen@PLT");
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
+        s += x86("cmp", "eax", "99");
+        s += x86("je", "ω");
+        s += x86("jmp", "γ");
+        s += x86("label", emit_fmt("%s", _.lbl_β));
+        s += x86("jmp", L(60));
+        return s;
+    }
+    if (MEDIUM_BINARY) {
+        std::string s;
+        for (int i = 0; i < (int)narg; i++)
+            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
+        s += x86("mov", FRQ(genoff), (long)0);
+        s += x86("def", L(60));
+        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
+        s += x86("lea", "rsi", FRQ(argbase));
+        s += x86("mov32", "edx", (long)narg);
+        s += x86("lea", "rcx", FRQ(genoff));
+        s += x86("call", "rt_call_arr_gen", fptr);
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
+        s += x86("cmp", "eax", (long)99);
+        s += x86("je", PORT_OMEGA);
+        s += x86("jmp", PORT_GAMMA);
+        s += x86("def", PORT_BETA);
+        s += x86("jmp", L(60));
+        return s;
+    }
+    return std::string();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rkbool_cond_relop(IR_graph_t * cond) {
     if (!cond) return NULL;
     IR_t * p = cond->entry; int g = 0;
@@ -769,6 +829,7 @@ std::string bb_call(IR_t * pBB) {
     g_emit.op_call_route = bb_call_route_classify(_.node);
     switch (g_emit.op_call_route) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
+        case CALL_ROUTE_BYNAME_GEN:    return bb_call_byname_gen_str(pBB);
         case CALL_ROUTE_RK_BOOL_COND:  return bb_call_bool_cond_str(pBB);
         case CALL_ROUTE_DVAL2_BOMB:    return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
         case CALL_ROUTE_GVAR_USERPROC: return bb_call_gvar_userproc_str(pBB);
