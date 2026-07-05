@@ -743,6 +743,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_POS:            { bb_prepare(nd); bb_emit_x86(bb_match_pos()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_REM:            { bb_prepare(nd); bb_emit_x86(bb_match_rem()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_ARB:            { bb_prepare(nd); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 */
+    case IR_MATCH_ARBNO:          { bb_prepare(nd); bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_SAVE:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE */
@@ -1000,6 +1001,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     }
     case IR_MATCH_REM: case IR_MATCH_ARB: {
         g_emit.x86_scratch_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_ARBNO: {   /* ZB-5: phase 0 owns the slot; phases 1/2 read it via operand[0] (the phase-0 node) */
+        IR_t * own = nd->n_operands > 0 ? nd->operands[0] : nd;
+        g_emit.op_off = drive_value_slot(own);
+        g_emit.op_phase = (int)IR_LIT(nd).ival;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO: {
