@@ -526,7 +526,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         lc_γ_to(enter, b_entry);
         IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);
         ir_operand_push(enter, sr);
-        cx->beta = ω; *res = enter; return s_entry; }
+        cx->beta = ω; *res = leave_succ; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CREATE: {
         IR_t * nd = build(cx, IR_CREATE, γ, ω);
@@ -819,13 +819,14 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
     IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr); γ_to(lr, em);
-    ir_operand_push(to, lr); ir_operand_push(to, mr);
+    ir_operand_push(to, lr); ir_operand_push(to, mr); IR_t * last_op = mr;
     if (by) {
         IR_t * mβ = cx->beta; IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, mβ, &br); γ_to(mr, eb); (void) eb;
         if (br && ir_is_generator_kind(to->op)) lc_γ_to(br, to);
-        ir_operand_push(to, br);
+        ir_operand_push(to, br); last_op = br;
         if ((lr && lr->op == IR_LIT_REAL) || (mr && mr->op == IR_LIT_REAL) || (br && br->op == IR_LIT_REAL)) IR_LIT(to).sval = (char *) "ar";
     } else if (mr && ir_is_generator_kind(to->op)) lc_γ_to(mr, to);
+    if (last_op && ir_is_generator_kind(last_op->op)) lc_ω_to_β(to, last_op); /* range-exhausted resumes the rightmost operand WHEN it is itself a generator, re-pumping it for a fresh bound; a literal bound leaves ω at the threaded caller edge (nothing to resume) — fixes nested (E1 to E2) backtrack without disturbing the literal-bound every-loop exit */
     cx->beta = to; *res = to; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
