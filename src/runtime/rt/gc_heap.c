@@ -18,6 +18,8 @@ _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title uni
 static char *g_hp_arena = (char *)0;
 static char *g_hp_top = (char *)0;
 static char *g_hp_end = (char *)0;
+static char *g_hp_win = (char *)0;
+static char *g_hp_wend = (char *)0;
 static long  g_hp_blocks = 0;
 static int   g_hp_report_reg = 0;
 int g_gc_pending;
@@ -52,23 +54,40 @@ static void rt_gcheap_init(void)
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
+{
+    /* Carve a block from the LOW end of a bump region [at, region_end); caller guarantees fit and, for the fill window, rewrites the remainder's HB_FILL title so the linear title walk stays valid. */
+    rt_hblk_t *h = (rt_hblk_t *)at;
+    h->fwd = 0; h->size = (uint32_t)total; h->type = type; h->flags = HBF_TTL;
+    memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
+    g_hp_blocks += 1;
+    return (void *)(h + 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
+    /* Allocation order: (1) main bump at g_hp_top; (2) the FILL WINDOW — a secondary bump region installed by the collector inside the largest HB_FILL gap, needed when a conservative pin holds the
+     * heap TOP at exhaustion time (the pinned block is near-always the allocating expression's own in-flight operand, so the top cannot retreat and all reclaimed space lands BELOW it — discovered by
+     * the 213/214 exhaustion tortures, 2026-07-05); (3) regenerate, recompute both, retry; (4) honest bomb. Window carves rewrite the remainder fill title in step, keeping rt_gcheap_verify green. */
     uint64_t total = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
-    rt_hblk_t *h;
+    void *r;
     static long stress_n = -1, stress_c = 0;
     if (!g_hp_report_reg) { g_hp_report_reg = 1; atexit(rt_gcheap_report); }
     if (!g_hp_arena) rt_gcheap_init();
     if (stress_n < 0) { const char *e = getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
     if (stress_n > 0 && ++stress_c >= stress_n) { stress_c = 0; g_gc_pending = 1; }
-    if (g_hp_top + total > g_hp_end) rt_gc_collect();
-    if (g_hp_top + total > g_hp_end) { fprintf(stderr, "[ZHP] heap exhausted (%d MB, %ld blocks) after storage regeneration — raise ZC_HEAP_MB or build with -DZC_HEAP_STRINGS=0\n", (int)ZC_HEAP_MB, g_hp_blocks); abort(); }
-    h = (rt_hblk_t *)g_hp_top;
-    g_hp_top += total;
-    h->fwd = 0; h->size = (uint32_t)total; h->type = type; h->flags = HBF_TTL;
-    memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
-    g_hp_blocks += 1;
-    return (void *)(h + 1);
+    if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) rt_gc_collect();
+    if (g_hp_top + total <= g_hp_end) { r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
+    if (g_hp_win + total <= g_hp_wend) {
+        uint64_t avail = (uint64_t)(g_hp_wend - g_hp_win);
+        if (avail - total == sizeof(rt_hblk_t)) total += sizeof(rt_hblk_t);
+        r = rt_gcheap_carve(g_hp_win, total, type);
+        g_hp_win += total;
+        if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
+        return r;
+    }
+    fprintf(stderr, "[ZHP] heap exhausted (%d MB, %ld blocks) after storage regeneration — raise ZC_HEAP_MB or build with -DZC_HEAP_STRINGS=0\n", (int)ZC_HEAP_MB, g_hp_blocks);
+    abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_str_alloc(long n)
@@ -243,6 +262,7 @@ static long gc_collect_ex(int cons_stack)
     if (g_gc_in || !g_hp_arena) return 0;
     if (g_scrip_coexpr_live > 0) { static int warned = 0; if (!warned) { warned = 1; fprintf(stderr, "[ZGC] collection declined: %ld co-expression(s) live — suspended-thread register snapshots are invisible to the v1 collector (ARCH §6b finding ii; fix home = coexpr rungs)\n", g_scrip_coexpr_live); } return 0; }
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
+    g_hp_win = (char *)0; g_hp_wend = (char *)0;
     g_gc_nblk = 0; { char *p = g_hp_arena; while (p < g_hp_top) { g_gc_nblk++; p += ((rt_hblk_t *)p)->size; } }
     g_gc_idx = (rt_hblk_t **)malloc((size_t)g_gc_nblk * sizeof(*g_gc_idx)); if (!g_gc_idx && g_gc_nblk) abort();
     { char *p = g_hp_arena; long i = 0; while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i++] = h; p += h->size; } }
@@ -265,14 +285,15 @@ static long gc_collect_ex(int cons_stack)
     for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->fwd) { liveo[li] = g_gc_idx[i]; livef[li] = g_gc_idx[i]->fwd; li++; }
     dest = g_hp_arena;
     for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size;
-        if ((char *)livef[i] == (char *)h) { if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++; } dest = (char *)h + sz; }
+        if ((char *)livef[i] == (char *)h) { if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
+            if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = dest; g_hp_wend = (char *)h; } } dest = (char *)h + sz; }
         else { memmove((void *)livef[i], (void *)h, (size_t)sz); dest = (char *)livef[i] + sz; } }
     g_hp_top = dest; g_hp_blocks = nlive + nfill;
     for (long i = 0; i < li; i++) { rt_hblk_t *nh = (rt_hblk_t *)livef[i]; nh->fwd = 0; nh->flags = (uint16_t)((nh->flags | HBF_TTL) & ~(HBF_MARK | HBF_PIN)); }
     after_b = (long)(g_hp_top - g_hp_arena);
     rt_gcheap_verify();
     g_gc_runs++;
-    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld: blocks %ld->%ld (pinned %ld, fill %ld) bytes %ld->%ld reclaimed %ld cells=%ld raws=%ld interior=%ld\n", g_gc_runs, g_gc_nblk, nlive, npin, nfill, before_b, after_b, before_b - after_b, g_gc_ncell, g_gc_nraw, g_gc_interior);
+    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld: blocks %ld->%ld (pinned %ld, fill %ld) bytes %ld->%ld reclaimed %ld win=%ld cells=%ld raws=%ld interior=%ld\n", g_gc_runs, g_gc_nblk, nlive, npin, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_ncell, g_gc_nraw, g_gc_interior);
     free(liveo); free(livef); free(g_gc_idx); g_gc_idx = (rt_hblk_t **)0;
     g_gc_in = 0;
     return before_b - after_b;
