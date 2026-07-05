@@ -1,5 +1,6 @@
 #ifdef __cplusplus
 #include "emit.h"
+#include "zeta_choices.h"
 #include "templates/x86_asm.h"
 #include "templates/bb_templates.h"
 #endif
@@ -1326,6 +1327,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_zeta_selfload_mode = -1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zeta_selfload_mode(void) { if (g_zeta_selfload_mode < 0) { const char *e = getenv("SCRIP_ZETA_SELFLOAD"); g_zeta_selfload_mode = e ? atoi(e) : (int)ZC_SELFLOAD; } return g_zeta_selfload_mode; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_zeta_selfload(void) { int m = zeta_selfload_mode(); if (m == ZC_SELFLOAD_ASSERT) { if (g_is_text) { const char *s = " test r12, r12\n jnz 1f\n ud2\n1:\n"; emit_text_n(s, strlen(s)); } else { ef_b3(0x4D, 0x85, 0xE4); ef_b2(0x75, 0x02); ef_b2(0x0F, 0x0B); } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -1436,6 +1443,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     for (int i = 0; i < n; i++) {
         emit_label_define_bb(lbls[i]);
+        emit_zeta_selfload();
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
         IR_t *gtgt = nodes[i]->γ.node;

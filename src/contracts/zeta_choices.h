@@ -6,7 +6,7 @@
 #define ZC_ALLOC_MALLOC        2
 #define ZC_ALLOC_GC            3
 #ifndef ZC_ALLOC
-#define ZC_ALLOC ZC_ALLOC_BUMP_INFINITE
+#define ZC_ALLOC ZC_ALLOC_BUMP_LIFO
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_COL_MALLOC 0
