@@ -7,7 +7,7 @@
 #include "parser/icon/icon_lex.h"
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
-typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; } scx_t;
+typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; } scx_t;
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
@@ -377,6 +377,10 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
 extern int ir_is_generator_kind(IR_e t);
 static void sno_ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_is_fence(const tree_t * t) { return t && ((t->t == TT_FENCE) || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE"))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_seq_has_fence(const tree_t * t) { if (!t) return 0; if (sno_is_fence(t)) return 1; if (t->t == TT_SEQ) return sno_seq_has_fence((t->n > 0) ? t->c[0] : NULL) || sno_seq_has_fence((t->n > 1) ? t->c[1] : NULL); return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -427,11 +431,14 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         ir_operand_push(nd, argval);
         return arg_entry;
     }
+    case TT_FENCE:
+        return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
     case TT_VAR: {
         const char * nm = t->v.sval;
         if (nm && !strcmp(nm, "REM")) { IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL); sno_ω_to(nd, fail); return nd; }
         if (nm && !strcmp(nm, "ARB")) { IR_t * nd = lc_build(g, IR_MATCH_ARB, succ, NULL); sno_ω_to(nd, fail); return nd; }
-        sno_fatal("bare-identifier pattern outside the SN4-PAT subset (REM, ARB only; FENCE/ABORT/BAL/deferred-var pending)", NULL);
+        if (nm && !strcmp(nm, "FENCE")) return succ;
+        sno_fatal("bare-identifier pattern outside the SN4-PAT subset (REM, ARB, FENCE only; ABORT/BAL/deferred-var pending)", NULL);
         return succ;
     }
     case TT_REM: {
@@ -481,18 +488,52 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * The ONLY resumable leaf today is ARB (a generator): if the left element is a
          * generator, the right element's failure must resume it (β) rather than advance the
          * whole attempt, so re-point right's tail-ω at the left tail via sno_ω_to (β-aware). */
-        const tree_t * lc = (t->n > 0) ? t->c[0] : NULL;
-        const tree_t * rc = (t->n > 1) ? t->c[1] : NULL;
-        if (!lc) return sno_pat_node(cx, rc, succ, fail);
-        if (!rc) return sno_pat_node(cx, lc, succ, fail);
-        int before_r = g->n;
-        IR_t * re = sno_pat_node(cx, rc, succ, fail);
-        IR_t * re_tail = (before_r < g->n) ? g->all[before_r] : re;  /* rc rightmost leaf (first allocated) */
-        int before_l = g->n;
-        IR_t * le = sno_pat_node(cx, lc, re, fail);
-        IR_t * le_tail = (before_l < g->n) ? g->all[before_l] : le;  /* lc rightmost leaf */
-        if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_ω_to(re_tail, le_tail);
-        return le;
+        /* SN4-PAT FENCE: a fence in the spine seals — every element to its RIGHT fails to the
+         * statement-level cx->pat_fail (no HEAD retry, no left-generator resume) instead of `fail`
+         * (= HEAD).  Fence is node-free and transparent forward.  Fence-free sequences keep the
+         * untouched 2-way path (zero behavioural change for every landed matcher). */
+        if (!sno_seq_has_fence(t)) {
+            const tree_t * lc = (t->n > 0) ? t->c[0] : NULL;
+            const tree_t * rc = (t->n > 1) ? t->c[1] : NULL;
+            if (!lc) return sno_pat_node(cx, rc, succ, fail);
+            if (!rc) return sno_pat_node(cx, lc, succ, fail);
+            int before_r = g->n;
+            IR_t * re = sno_pat_node(cx, rc, succ, fail);
+            IR_t * re_tail = (before_r < g->n) ? g->all[before_r] : re;  /* rc rightmost leaf (first allocated) */
+            int before_l = g->n;
+            IR_t * le = sno_pat_node(cx, lc, re, fail);
+            IR_t * le_tail = (before_l < g->n) ? g->all[before_l] : le;  /* lc rightmost leaf */
+            if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_ω_to(re_tail, le_tail);
+            return le;
+        }
+        const tree_t * elems[128]; int ne = 0; const tree_t * rstack[128]; int nr = 0; const tree_t * cur = t;
+        while (cur && cur->t == TT_SEQ) { if (nr >= 128) sno_fatal("pattern sequence too long (SN4-PAT cap 128)", NULL); rstack[nr++] = (cur->n > 1) ? cur->c[1] : NULL; cur = (cur->n > 0) ? cur->c[0] : NULL; }
+        elems[ne++] = cur;
+        for (int i = nr - 1; i >= 0; i--) elems[ne++] = rstack[i];
+        int first_fence = ne;
+        for (int i = 0; i < ne; i++) if (sno_is_fence(elems[i])) { first_fence = i; break; }
+        IR_t * cur_succ = succ; IR_t * right_tail = NULL; int right_sealed = 0;
+        for (int i = ne - 1; i >= 0; i--) {
+            if (sno_is_fence(elems[i])) {                                           /* seals everything to its right; the element to its left cannot resume into it */
+                right_sealed = 1;
+                const tree_t * inner = (elems[i]->t == TT_FENCE && elems[i]->n > 0) ? elems[i]->c[0] : NULL;
+                if (inner) {                                                        /* FENCE(P): lower P with the pre-seal fail so P retries normally on forward-fail; the seal blocks re-entry after success */
+                    IR_t * fail_p = (i > first_fence) ? cx->pat_fail : fail;
+                    int before_p = g->n;
+                    IR_t * pe = sno_pat_node(cx, inner, cur_succ, fail_p);
+                    IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
+                    cur_succ = pe; right_tail = p_tail;
+                }
+                continue;
+            }
+            IR_t * fail_i = (i > first_fence) ? cx->pat_fail : fail;                 /* right of the fence: cut to statement-fail, never HEAD */
+            int before_e = g->n;
+            IR_t * ee = sno_pat_node(cx, elems[i], cur_succ, fail_i);
+            IR_t * e_tail = (before_e < g->n) ? g->all[before_e] : ee;
+            if (right_tail && !right_sealed && before_e < g->n && ir_is_generator_kind(e_tail->op)) sno_ω_to(right_tail, e_tail);
+            cur_succ = ee; right_tail = e_tail; right_sealed = 0;
+        }
+        return cur_succ;
     }
     case TT_ALT: {
         /* SN4-PAT-3h ALTERNATE (A | B | C).  Flatten the left-associative TT_ALT spine into a
@@ -530,6 +571,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_supported(const tree_t * t) {
     if (!t) return 0;
+    if (t->t == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE")) return 1;
     if (t->t == TT_QLIT) return 1;
     if (t->t == TT_ANY || t->t == TT_NOTANY) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
     if (t->t == TT_SPAN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
@@ -547,6 +590,7 @@ static int sno_pat_supported(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t * fJ) {
     IR_graph_t * g = cx->g;
+    cx->pat_fail = fJ;
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
     IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
@@ -560,7 +604,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
-    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name;
+    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
