@@ -512,6 +512,37 @@ void rt_dcap_begin(void) { g_rt_dcap_active = 1; g_rt_dcap_n = 0; }
 void rt_dcap_end_fail(void) { g_rt_dcap_n = 0; g_rt_dcap_active = 0; }
 void rt_dcap_end_ok(void) { rt_dcap_flush(); g_rt_dcap_active = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
+static uint32_t g_cap_gen = 1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_cap_match_begin(void) { g_cap_gen++; if (!g_cap_gen) g_cap_gen = 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_cap_push(void *slot, int delta)
+{
+    /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05): capture frames on a per-box stack — the SAVE box's
+     * α does ++ (push), its β does -- (pop); the COND at each yield reads the top-of-stack span, so the
+     * β-resume chain survives a generator re-entry between capture-open and capture-close.  The slot is the
+     * box's 16B zls grant: +0 buf (GC_MALLOC_ATOMIC u32[]: [0]=cap, frames from [1] — atomic: cursor ints
+     * only, no DESCR refs, collected when the frame slot stops referencing it), +8 gen, +12 sp.  gen is a
+     * per-match generation stamped by rt_match_enter: a stale-gen slot lazily resets sp=0, so success-exited
+     * frames (never β-popped — the γ-exit-live case, ZB-ALLOC §3) die at the next match instead of leaking
+     * across statement executions; it also validates ZC_INIT_ZERO-fresh ζ frames (gen 0 ≠ any live gen). */
+    rt_cap_stk_t *s = (rt_cap_stk_t *)slot;
+    if (s->gen != g_cap_gen) { s->sp = 0; s->gen = g_cap_gen; }
+    if (!s->buf) { s->buf = (uint32_t *)GC_MALLOC_ATOMIC(17 * sizeof(uint32_t)); s->buf[0] = 16; }
+    if (s->sp == s->buf[0]) {
+        uint32_t nc = s->buf[0] * 2;
+        uint32_t *nb = (uint32_t *)GC_MALLOC_ATOMIC(((size_t)nc + 1) * sizeof(uint32_t));
+        memcpy(nb + 1, s->buf + 1, (size_t)s->sp * sizeof(uint32_t));
+        nb[0] = nc; s->buf = nb;
+    }
+    s->buf[1 + s->sp++] = (uint32_t)delta;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_cap_pop(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; if (s->gen == g_cap_gen && s->sp) s->sp--; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s->gen == g_cap_gen && s->sp) ? (int)s->buf[s->sp] : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
     (void)is_imm;
