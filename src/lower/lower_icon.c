@@ -233,8 +233,9 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
         if (!cs && !strcmp(id, "letters")) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         if (cs) { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(cs); *res = nd; return nd; }
     }
-    IR_t * nd = build(cx, IR_KEYWORD_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
-    if (id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections"))) {
+    int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections"));
+    IR_t * nd = build(cx, is_gen_kw ? IR_KEYWORD_ICON_GEN : IR_KEYWORD_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
+    if (is_gen_kw) {
         IR_t * seed = build(cx, IR_GOTO, ω, ω); lc_γ_to(seed, nd); cx->beta = nd; *res = nd; return seed;
     }
     *res = nd; return nd;
