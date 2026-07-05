@@ -381,6 +381,28 @@ static int sno_is_fence(const tree_t * t) { return t && ((t->t == TT_FENCE) || (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_seq_has_fence(const tree_t * t) { if (!t) return 0; if (sno_is_fence(t)) return 1; if (t->t == TT_SEQ) return sno_seq_has_fence((t->n > 0) ? t->c[0] : NULL) || sno_seq_has_fence((t->n > 1) ? t->c[1] : NULL); return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_deterministic(const tree_t * t) {
+    /* ZB-5 v1 gate: a body element that can yield MORE THAN ONE way (a generator, or an alternation whose
+     * re-choice a completed iteration would need) makes ARBNO backtrack non-total — that needs the
+     * per-iteration COLLECTION (v2).  Deterministic subtrees exhaust totally, so no iteration state is kept. */
+    if (!t) return 1;
+    if (t->t == TT_ALT || t->t == TT_ARB || t->t == TT_ARBNO || sno_is_fence(t)) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB")) return 0;
+    for (int i = 0; i < t->n; i++) if (!sno_pat_deterministic(t->c[i])) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_contains_arbno(const tree_t * t) {
+    /* ZB-5 v1 capture gate: capture-over-generator is a PRE-EXISTING defect (ARB shares it) — a phase-1 COND
+     * between a generator and its right neighbour severs the β-resume chain (the neighbour's fail reaches
+     * `head`, never the generator's β).  Until the capture-stack rung (Lon directive: ++ on α, -- on β), a
+     * capture whose span contains an ARBNO is declared UNSUPPORTED so it SKIPs rather than mis-compiling. */
+    if (!t) return 0;
+    if (t->t == TT_ARBNO) return 1;
+    for (int i = 0; i < t->n; i++) if (sno_contains_arbno(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -450,6 +472,26 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * nd = lc_build(g, IR_MATCH_ARB, succ, NULL);
         sno_ω_to(nd, fail);
         return nd;
+    }
+    case TT_ARBNO: {
+        /* ZB-5 SN4-PAT ARBNO v1 (deterministic body).  Three phases share IR_MATCH_ARBNO, IR_LIT.ival = phase.
+         * G (0, generator, no operands; MUST be first-allocated so TT_SEQ's tail rule finds the β surface):
+         *   α saves entry+yield cursors and jmps γ (null yield — SPITBOL shortest-first); β restores δ=yield,
+         *   records cur_before, jmps ω — G's ω is REPURPOSED as the body-entry edge (the β-continuation); the
+         *   construct's real fail exit lives on F.  K (1, operand[0]=G): body-success landing — null-progress
+         *   guard (δ==cur_before → ω=F, the 4/28 zero-advance rule), else yield=δ, jmp γ (yield one more).
+         * F (2, operand[0]=G): exhaust — δ=entry, jmp ω (outer fail); its template defines a β alias because
+         *   body leaves stamp their fail edges via sno_ω_to and IR_MATCH_ARBNO is generator-kind.
+         * Deterministic bodies exhaust totally (a completed iteration cannot re-choose), so NO per-iteration
+         * COLLECTION is needed — that is the generator-body v2 requirement (ALT/ARB/ARBNO/FENCE inside). */
+        if (!(t->n > 0) || !t->c[0]) sno_fatal("ARBNO requires a pattern argument", NULL);
+        if (!sno_pat_deterministic(t->c[0])) sno_fatal("ARBNO with a generator body (ALT/ARB/ARBNO/FENCE inside) needs per-iteration COLLECTION state — ZB-5 v2, not yet implemented", NULL);
+        IR_t * G = lc_build(g, IR_MATCH_ARBNO, succ, NULL); IR_LIT(G).ival = 0;
+        IR_t * F = lc_build(g, IR_MATCH_ARBNO, NULL, NULL); IR_LIT(F).ival = 2; ir_operand_push(F, G); sno_ω_to(F, fail);
+        IR_t * K = lc_build(g, IR_MATCH_ARBNO, succ, F);    IR_LIT(K).ival = 1; ir_operand_push(K, G);
+        IR_t * be = sno_pat_node(cx, t->c[0], K, F);
+        lc_ω_to(G, be);
+        return G;
     }
     case TT_LEN: {
         IR_t * nd = lc_build(g, IR_MATCH_LEN, succ, NULL);
@@ -580,9 +622,10 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_REM || t->t == TT_ARB) return 1;
+    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && sno_pat_deterministic(t->c[0]);
     if (t->t == TT_VAR) return t->v.sval && (!strcmp(t->v.sval, "REM") || !strcmp(t->v.sval, "ARB"));
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
-    if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]) && !sno_contains_arbno(t->c[0]);
     if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (t->t == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     return 0;

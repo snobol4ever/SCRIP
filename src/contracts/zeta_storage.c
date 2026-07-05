@@ -82,6 +82,9 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "break.cnt/cur", nd); return 1;
     case IR_MATCH_ARB: case IR_MATCH_REM:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
+    case IR_MATCH_ARBNO:
+        if (nd->n_operands) return 0;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0])", nd); return 1;
     case IR_MATCH_ASSIGN_SAVE:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "capture.delta save", nd); return 1;
     case IR_MATCH_ALTERNATE:
