@@ -118,6 +118,7 @@ typedef enum {
     IR_MATCH_ALT,
     IR_MATCH_ASSIGN_IMM,
     IR_MATCH_ASSIGN_COND,
+    IR_MATCH_ASSIGN_SAVE,   /* SN4-PAT-3h: phase-0 cursor SAVE for multi-element capture (its own δ-slot) */
     IR_MATCH_ATP,
     IR_MATCH_CALLOUT,
     IR_MATCH_DEFER,

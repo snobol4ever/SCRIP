@@ -674,7 +674,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
                        || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
-                       || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
+                       || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
                        || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
                     ? IR_LIT(nd).sval : (const char *)0;
@@ -743,6 +743,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_ARB:            { bb_prepare(nd); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
+    case IR_MATCH_ASSIGN_SAVE:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE */
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
@@ -948,6 +949,10 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     case IR_MATCH_ASSIGN_COND: {
         IR_t *box = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
         g_emit.op_off = box ? drive_value_slot(box) : -1; g_emit.op_phase = 1;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_ASSIGN_SAVE: {   /* SN4-PAT-3h phase-0: record the cursor into this node's own δ-slot */
+        g_emit.op_off = drive_value_slot(nd); g_emit.op_phase = 0;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LEN: {

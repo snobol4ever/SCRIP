@@ -457,16 +457,45 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         sno_reg_var(vn);
-        IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);
+        /* SN4-PAT-3h: capture spans [start-of-inner, current).  A phase-0 SAVE at the capture's
+         * open records the cursor into its OWN δ-slot the instant the inner pattern begins — so a
+         * capture preceded by consumers (TAB(3) LEN(2) . V) measures from the inner start, not the
+         * whole-attempt start.  The COND reads the SAVE's slot (operands[1] = save).  Single-element
+         * captures still work: the SAVE simply records the attempt-start, matching SN4-PAT-2. */
+        IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);  /* phase-1 COND, γ → succ */
         sno_ω_to(nd, fail);
         IR_LIT(nd).sval = (char *) vn;
-        IR_t * pe = sno_pat_node(cx, t->c[0], nd, fail);
-        ir_operand_push(nd, pe);
-        ir_operand_push(nd, fail);
-        return pe;
+        IR_t * pe = sno_pat_node(cx, t->c[0], nd, fail);           /* inner pattern, γ → COND */
+        IR_t * save = lc_build(g, IR_MATCH_ASSIGN_SAVE, pe, NULL); /* phase-0 SAVE, γ → inner entry */
+        IR_LIT(save).sval = (char *) vn;                           /* template's op_sval[0] guard */
+        ir_operand_push(nd, pe);                                   /* [0] inner entry (backtrack ω target) */
+        ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's δ-slot */
+        return save;                                               /* capture entry is the SAVE node */
+    }
+    case TT_SEQ: {
+        /* SN4-PAT-3h CAT: pattern concatenation A B — node-free in the live single-HEAD
+         * design (the parked IR_MATCH_CAT was a subgraph success-sink; here success threads
+         * straight to `succ`).  Wire A.γ → B.α → succ by lowering right-first, then left with
+         * succ = right's entry.  Failure: a deterministic element's ω already points at `fail`
+         * ( = head = retry-position, correct SNOBOL4 for SPAN/BREAK/LEN/… which never back off).
+         * The ONLY resumable leaf today is ARB (a generator): if the left element is a
+         * generator, the right element's failure must resume it (β) rather than advance the
+         * whole attempt, so re-point right's tail-ω at the left tail via sno_ω_to (β-aware). */
+        const tree_t * lc = (t->n > 0) ? t->c[0] : NULL;
+        const tree_t * rc = (t->n > 1) ? t->c[1] : NULL;
+        if (!lc) return sno_pat_node(cx, rc, succ, fail);
+        if (!rc) return sno_pat_node(cx, lc, succ, fail);
+        int before_r = g->n;
+        IR_t * re = sno_pat_node(cx, rc, succ, fail);
+        IR_t * re_tail = (before_r < g->n) ? g->all[before_r] : re;  /* rc rightmost leaf (first allocated) */
+        int before_l = g->n;
+        IR_t * le = sno_pat_node(cx, lc, re, fail);
+        IR_t * le_tail = (before_l < g->n) ? g->all[before_l] : le;  /* lc rightmost leaf */
+        if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_ω_to(re_tail, le_tail);
+        return le;
     }
     default:
-        sno_fatal("pattern element not in the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
+        sno_fatal("pattern element not in the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB; SEQ/CAT landed SN4-PAT-3h)", NULL);
     }
     return succ;
 }
@@ -483,6 +512,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_VAR) return t->v.sval && (!strcmp(t->v.sval, "REM") || !strcmp(t->v.sval, "ARB"));
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
     if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
