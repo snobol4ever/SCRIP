@@ -6,7 +6,7 @@ int ir_is_generator_kind(IR_e t) {
         case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MANY: case IR_SCAN_BAL:
         case IR_MATCH_HEAD:
         case IR_MATCH_ARB:
-        case IR_KEYWORD_ICON:
+        case IR_KEYWORD_ICON_GEN:
             return 1;
         default: return 0;
     }
