@@ -123,7 +123,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_arb.cpp \
     $(SRC)/templates/bb_match_head.cpp \
     $(SRC)/templates/bb_match_capture.cpp \
-    $(SRC)/templates/bb_match_alt.cpp \
+    $(SRC)/templates/bb_match_alternate.cpp \
     $(SRC)/templates/bb_to_by.cpp \
     $(SRC)/templates/bb_make_list.cpp \
     $(SRC)/templates/bb_activate.cpp \
@@ -149,7 +149,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_repalt.cpp \
     $(SRC)/templates/bb_limit.cpp \
     $(SRC)/templates/bb_section.cpp \
-    $(SRC)/templates/bb_rasgn.cpp \
+    $(SRC)/templates/bb_rev_assign.cpp \
     $(SRC)/templates/bb_swap.cpp \
     $(SRC)/templates/bb_swap_var.cpp \
     $(SRC)/templates/bb_proc_value.cpp \
@@ -333,7 +333,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_arb.cpp     -o $(OBJ)/bb_match_arb.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_head.cpp   -o $(OBJ)/bb_match_head.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_alt.cpp    -o $(OBJ)/bb_match_alt.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_alternate.cpp    -o $(OBJ)/bb_match_alternate.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to_by.cpp        -o $(OBJ)/bb_to_by.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_make_list.cpp     -o $(OBJ)/bb_make_list.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_activate.cpp     -o $(OBJ)/bb_activate.o
@@ -398,7 +398,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_match.cpp -o $(OBJ)/bb_scan_match.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_pos.cpp   -o $(OBJ)/bb_scan_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_bal.cpp   -o $(OBJ)/bb_scan_bal.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rasgn.cpp -o $(OBJ)/bb_rasgn.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rev_assign.cpp -o $(OBJ)/bb_rev_assign.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_case_arm.cpp -o $(OBJ)/bb_case_arm.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o

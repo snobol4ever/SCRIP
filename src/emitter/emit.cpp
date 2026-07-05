@@ -745,7 +745,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_SAVE:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE */
-    case IR_MATCH_ALTERNATE:      { bb_emit_x86(bb_match_alt()); } return 0;                   /* SN4-PAT-3h ALT */
+    case IR_MATCH_ALTERNATE:      { bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT */
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
@@ -754,7 +754,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
     case IR_RANDOM:               bb_emit_x86(bb_random());         return 0;
     case IR_ASSIGN_VAR:           bb_emit_x86(bb_assign_var());     return 0;
-    case IR_REV_ASSIGN:                bb_emit_x86(bb_rasgn());          return 0;
+    case IR_REV_ASSIGN:                bb_emit_x86(bb_rev_assign());          return 0;
     case IR_REV_ASSIGN_VAR:            bb_emit_x86(bb_rev_assign_var()); return 0;
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
     case IR_SWAP_VAR:             bb_emit_x86(bb_swap_var());       return 0;
