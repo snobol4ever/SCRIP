@@ -377,6 +377,15 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
 extern int ir_is_generator_kind(IR_e t);
 static void sno_ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_resume_ω_to(IR_t * nd, IR_t * t) {
+    /* SN4-PAT-CAPTURE-STACK: re-point nd's exhaust-ω at a left generator t — but a capture COND's ω is
+     * ALREADY the capture's inward resume edge (inner generator's β, or SAVE's pop); clobbering it would
+     * sever the capture's own chain.  The capture's OUTWARD exhaust is its SAVE's ω (β pops, then ω), so
+     * chain through operands[1] instead.  Everything else re-points directly (the pre-stack behaviour). */
+    if (nd && nd->op == IR_MATCH_ASSIGN_COND && nd->n_operands > 1 && nd->operands[1]) nd = nd->operands[1];
+    sno_ω_to(nd, t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_is_fence(const tree_t * t) { return t && ((t->t == TT_FENCE) || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE"))); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_seq_has_fence(const tree_t * t) { if (!t) return 0; if (sno_is_fence(t)) return 1; if (t->t == TT_SEQ) return sno_seq_has_fence((t->n > 0) ? t->c[0] : NULL) || sno_seq_has_fence((t->n > 1) ? t->c[1] : NULL); return 0; }
@@ -390,17 +399,6 @@ static int sno_pat_deterministic(const tree_t * t) {
     if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB")) return 0;
     for (int i = 0; i < t->n; i++) if (!sno_pat_deterministic(t->c[i])) return 0;
     return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_contains_arbno(const tree_t * t) {
-    /* ZB-5 v1 capture gate: capture-over-generator is a PRE-EXISTING defect (ARB shares it) — a phase-1 COND
-     * between a generator and its right neighbour severs the β-resume chain (the neighbour's fail reaches
-     * `head`, never the generator's β).  Until the capture-stack rung (Lon directive: ++ on α, -- on β), a
-     * capture whose span contains an ARBNO is declared UNSUPPORTED so it SKIPs rather than mis-compiling. */
-    if (!t) return 0;
-    if (t->t == TT_ARBNO) return 1;
-    for (int i = 0; i < t->n; i++) if (sno_contains_arbno(t->c[i])) return 1;
-    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
@@ -506,19 +504,27 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         sno_reg_var(vn);
-        /* SN4-PAT-3h: capture spans [start-of-inner, current).  A phase-0 SAVE at the capture's
-         * open records the cursor into its OWN δ-slot the instant the inner pattern begins — so a
-         * capture preceded by consumers (TAB(3) LEN(2) . V) measures from the inner start, not the
-         * whole-attempt start.  The COND reads the SAVE's slot (operands[1] = save).  Single-element
-         * captures still work: the SAVE simply records the attempt-start, matching SN4-PAT-2. */
+        /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05): capture spans [start-of-inner, current) on a
+         * per-box STACK — SAVE.α pushes the open cursor, SAVE.β pops it, the COND at every inner yield
+         * assigns from the top-of-stack frame — so the β-resume chain survives a generator between the
+         * capture's open and close.  COND is allocated FIRST (first-allocated = the capture's tail for
+         * TT_SEQ's re-point rule; both ops are generator-kind so re-points land β-wards).  The inner is
+         * lowered with fail = SAVE: an inner exhaust lands on SAVE.β (pop, then ω → the capture's fail,
+         * β-aware so a generator further left still resumes).  COND.ω is the backtrack-IN edge: a failing
+         * right neighbour lands on COND.β (jmp ω) and resumes the inner generator's β — or, for a
+         * deterministic inner, goes straight to SAVE.β (pop + fail leftward, the pre-stack destination). */
         IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);  /* phase-1 COND, γ → succ */
-        sno_ω_to(nd, fail);
         IR_LIT(nd).sval = (char *) vn;
-        IR_t * pe = sno_pat_node(cx, t->c[0], nd, fail);           /* inner pattern, γ → COND */
-        IR_t * save = lc_build(g, IR_MATCH_ASSIGN_SAVE, pe, NULL); /* phase-0 SAVE, γ → inner entry */
+        IR_t * save = lc_build(g, IR_MATCH_ASSIGN_SAVE, NULL, NULL); /* phase-0 SAVE: α push, β pop */
         IR_LIT(save).sval = (char *) vn;                           /* template's op_sval[0] guard */
-        ir_operand_push(nd, pe);                                   /* [0] inner entry (backtrack ω target) */
-        ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's δ-slot */
+        sno_ω_to(save, fail);                                      /* pop path exits to the capture's fail */
+        int before_i = g->n;
+        IR_t * pe = sno_pat_node(cx, t->c[0], nd, save);           /* inner pattern, γ → COND, fail → SAVE.β */
+        IR_t * itail = (before_i < g->n) ? g->all[before_i] : pe;  /* inner rightmost leaf (first allocated) */
+        lc_γ_to(save, pe);                                         /* SAVE.γ → inner entry */
+        sno_ω_to(nd, ir_is_generator_kind(itail->op) ? itail : save); /* COND backtrack-in: resume or pop */
+        ir_operand_push(nd, pe);                                   /* [0] inner entry */
+        ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's slot */
         return save;                                               /* capture entry is the SAVE node */
     }
     case TT_SEQ: {
@@ -545,7 +551,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             int before_l = g->n;
             IR_t * le = sno_pat_node(cx, lc, re, fail);
             IR_t * le_tail = (before_l < g->n) ? g->all[before_l] : le;  /* lc rightmost leaf */
-            if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_ω_to(re_tail, le_tail);
+            if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_resume_ω_to(re_tail, le_tail);
             return le;
         }
         const tree_t * elems[128]; int ne = 0; const tree_t * rstack[128]; int nr = 0; const tree_t * cur = t;
@@ -572,7 +578,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             int before_e = g->n;
             IR_t * ee = sno_pat_node(cx, elems[i], cur_succ, fail_i);
             IR_t * e_tail = (before_e < g->n) ? g->all[before_e] : ee;
-            if (right_tail && !right_sealed && before_e < g->n && ir_is_generator_kind(e_tail->op)) sno_ω_to(right_tail, e_tail);
+            if (right_tail && !right_sealed && before_e < g->n && ir_is_generator_kind(e_tail->op)) sno_resume_ω_to(right_tail, e_tail);
             cur_succ = ee; right_tail = e_tail; right_sealed = 0;
         }
         return cur_succ;
@@ -625,7 +631,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && sno_pat_deterministic(t->c[0]);
     if (t->t == TT_VAR) return t->v.sval && (!strcmp(t->v.sval, "REM") || !strcmp(t->v.sval, "ARB"));
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
-    if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]) && !sno_contains_arbno(t->c[0]);
+    if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
     if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (t->t == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     return 0;
