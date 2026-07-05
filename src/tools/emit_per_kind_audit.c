@@ -57,8 +57,8 @@ static const kind_entry_t g_kinds[] = {
     { IR_MATCH_BREAKX,      "IR_MATCH_BREAKX" },
     { IR_MATCH_ARB,         "IR_MATCH_ARB" },
     { IR_MATCH_ARBNO,       "IR_MATCH_ARBNO" },
-    { IR_MATCH_CAT,         "IR_MATCH_CAT" },
-    { IR_MATCH_ALT,         "IR_MATCH_ALT" },
+    { IR_MATCH_SEQUENCE,         "IR_MATCH_SEQUENCE" },
+    { IR_MATCH_ALTERNATE,         "IR_MATCH_ALTERNATE" },
     { IR_MATCH_ASSIGN_IMM,  "IR_MATCH_ASSIGN_IMM" },
     { IR_MATCH_ASSIGN_COND, "IR_MATCH_ASSIGN_COND" },
     { IR_MATCH_LEN,         "IR_MATCH_LEN" },
@@ -277,8 +277,8 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
         nd->sval = "captured";
         (void)(&g_audit_kids1);
         break;
-    case IR_MATCH_CAT:
-    case IR_MATCH_ALT:
+    case IR_MATCH_SEQUENCE:
+    case IR_MATCH_ALTERNATE:
     case IR_MATCH_ARBNO:
         (void)(&g_audit_kids2);
         break;
