@@ -199,6 +199,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/builtins/resolution.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/contracts/scrip_ir.c \
+    $(SRC)/contracts/zeta_storage.c \
     $(SRC)/runtime/rt_runtime.c \
     $(SRC)/driver/driver_globals.c \
     $(SRC)/driver/driver_label.c \
@@ -447,6 +448,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolution.c  -o $(OBJ)/resolution.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
+	$(CC) $(CRT)   -c $(SRC)/contracts/zeta_storage.c          -o $(OBJ)/zeta_storage.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt_runtime.c      -o $(OBJ)/rt_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/machine/sm_prog.c    -o $(OBJ)/sm_prog.o
 	$(CC) $(CRT)   -c $(SRC)/lower/lower_common.c -o $(OBJ)/lower_common.o

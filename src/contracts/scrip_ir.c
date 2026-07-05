@@ -68,6 +68,35 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_MOVE_LABEL] = "IR_MOVE_LABEL",
     [IR_INDIRECT_GOTO] = "IR_INDIRECT_GOTO",
     [IR_DISJUNCTION] = "IR_DISJUNCTION",
+    [IR_MATCH] = "IR_MATCH",
+    [IR_MATCH_LIT] = "IR_MATCH_LIT",
+    [IR_MATCH_ANY] = "IR_MATCH_ANY",
+    [IR_MATCH_NOTANY] = "IR_MATCH_NOTANY",
+    [IR_MATCH_SPAN] = "IR_MATCH_SPAN",
+    [IR_MATCH_SPAN_VAR] = "IR_MATCH_SPAN_VAR",
+    [IR_MATCH_BREAK] = "IR_MATCH_BREAK",
+    [IR_MATCH_BREAKX] = "IR_MATCH_BREAKX",
+    [IR_MATCH_LEN] = "IR_MATCH_LEN",
+    [IR_MATCH_POS] = "IR_MATCH_POS",
+    [IR_MATCH_TAB] = "IR_MATCH_TAB",
+    [IR_MATCH_RTAB] = "IR_MATCH_RTAB",
+    [IR_MATCH_ARB] = "IR_MATCH_ARB",
+    [IR_MATCH_ARBNO] = "IR_MATCH_ARBNO",
+    [IR_MATCH_REM] = "IR_MATCH_REM",
+    [IR_MATCH_BAL] = "IR_MATCH_BAL",
+    [IR_MATCH_FENCE] = "IR_MATCH_FENCE",
+    [IR_MATCH_ABORT] = "IR_MATCH_ABORT",
+    [IR_MATCH_SEQUENCE] = "IR_MATCH_SEQUENCE",
+    [IR_MATCH_ALTERNATE] = "IR_MATCH_ALTERNATE",
+    [IR_MATCH_ASSIGN_IMM] = "IR_MATCH_ASSIGN_IMM",
+    [IR_MATCH_ASSIGN_COND] = "IR_MATCH_ASSIGN_COND",
+    [IR_MATCH_ASSIGN_SAVE] = "IR_MATCH_ASSIGN_SAVE",
+    [IR_MATCH_ATP] = "IR_MATCH_ATP",
+    [IR_MATCH_CALLOUT] = "IR_MATCH_CALLOUT",
+    [IR_MATCH_DEFER] = "IR_MATCH_DEFER",
+    [IR_MATCH_HEAD] = "IR_MATCH_HEAD",
+    [IR_MATCH_RETRY] = "IR_MATCH_RETRY",
+    [IR_MATCH_ADVANCE] = "IR_MATCH_ADVANCE",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
@@ -205,61 +234,20 @@ int ir_varslot_of(const IR_graph_t * g, const char * name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_drive_slot_assign(IR_graph_t * g) {
     if (!g) return;
-    extern int is_global(const char *);
-    int base = 16 + (g->nparams > 0 ? g->nparams * 16 : 0);
-    int k = 0;
+    extern void zls_build(IR_graph_t *);
+    extern int zls_off(const IR_t *);
+    extern int zls_g_nslots(const IR_graph_t *);
+    extern int zls_g_region(const IR_graph_t *);
+    extern int zls_g_resume(const IR_graph_t *);
+    extern int zls_g_vslot_count(const IR_graph_t *);
+    extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
+    zls_build(g);
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd) continue; int off = zls_off(nd); if (off >= 0) nd->tmp = off; }
     g->n_vslots = 0;
-    for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) drv_vslot_push(g, g->pnames[i], 16 + i * 16);
-    for (int i = 0; i < g->n; i++) {
-        IR_t * nd = g->all[i];
-        if (!nd) continue;
-        if (nd->op == IR_TO || nd->op == IR_TO_BY) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_MAKE_LIST) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
-        if (nd->op == IR_SCAN_ENTER) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_MATCH_HEAD) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_MATCH_SPAN) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_MATCH_ARB || nd->op == IR_MATCH_REM) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_MATCH_ASSIGN_SAVE) { nd->tmp = base + k * 16; k += 1; continue; }  /* SN4-PAT-3h phase-0 SAVE δ-slot */
-        if (nd->op == IR_MATCH_ALTERNATE)   { nd->tmp = base + k * 16; k += 1; continue; }  /* SN4-PAT-3h ALT cursor-save slot */
-        /* SCAN SCRATCH GRANT: tab/move save r14 at +16 (data backtrack); upto/find/bal keep a
-         * cursor at +16 (find also needle-len, bal also counter, at +24); match(var) keeps len
-         * at +16. One slot (16B) covers only the value at +0/+8 — these boxes were writing into
-         * the NEXT node's slot (harmless only when that neighbor was a dead baked-literal operand;
-         * live-operand var arms corrupt their own operand). Grant 32B like IR_TO/IR_KEYWORD. */
-        if (nd->op == IR_SCAN_TAB || nd->op == IR_SCAN_MOVE || nd->op == IR_SCAN_UPTO
-         || nd->op == IR_SCAN_FIND || nd->op == IR_SCAN_MATCH || nd->op == IR_SCAN_BAL) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_INITIAL) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_ITERATE) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_LIMIT) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_REPALT) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_REV_ASSIGN || nd->op == IR_REV_ASSIGN_VAR) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) { nd->tmp = base + k * 16; k += 1 + nd->n_operands; continue; }
-        if (nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (nd->op == IR_KEYWORD_SNOBOL4) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_DEREF || nd->op == IR_ASSIGN_VAR || nd->op == IR_RANDOM || nd->op == IR_SWAP_VAR) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_KEYWORD_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_CREATE) { nd->tmp = base + k * 16; k += 4; continue; }
-        if (nd->op == IR_ASSIGN) { nd->tmp = base + k * 16; k += 1; continue; }
-        if (nd->op == IR_INDIRECT_GOTO || nd->op == IR_DISJUNCTION) { nd->tmp = base + k * 16; k += 2; continue; }
-        if (ir_node_produces_value(nd->op)) { nd->tmp = base + k * 16; k++; }
-    }
-    g->resume_slot = -1;
-    for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) { g->resume_slot = base + k * 16; k += 1; break; }
-    for (int i = 0; i < g->n; i++) {
-        IR_t * nd = g->all[i];
-        if (!nd) continue;
-        const char * vn = (const char *)0;
-        if (nd->op == IR_ASSIGN) vn = IR_LIT(nd).sval;
-        else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vn = IR_LIT(nd->operands[1]).sval;
-        else if (nd->op == IR_VAR || nd->op == IR_VAR_REF) vn = IR_LIT(nd).sval;
-        if (!vn || vn[0] == '&' || is_global(vn)) continue;
-        if (ir_varslot_of(g, vn) >= 0) continue;
-        drv_vslot_push(g, vn, base + k * 16);
-        k++;
-    }
-    g->jcon_value_region = base + k * 16;
-    g->nvalue_slots = k;
+    for (int v = 0; v < zls_g_vslot_count(g); v++) { int off = -1; const char * vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0) drv_vslot_push(g, vn, off); }
+    g->resume_slot = zls_g_resume(g);
+    g->jcon_value_region = zls_g_region(g);
+    g->nvalue_slots = zls_g_nslots(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ref_fmt(const IR_graph_t *bbg, const IR_t *target, char *out, size_t outsz) {

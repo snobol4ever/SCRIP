@@ -621,6 +621,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     g->entry = (nst > 0) ? anchor[entry_idx] : exitnd;
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i];
+        { extern void zls_group_mark(const IR_graph_t *, const char *); const char * mlbl = sfind_str(s, ":lbl"); if (mlbl && mlbl[0]) zls_group_mark(g, lp_strdup(mlbl)); }
         IR_t * next = (i + 1 < nst) ? anchor[i + 1] : exitnd;
         if (sfind(s, ":end")) { lc_γ_to(anchor[i], exitnd); continue; }
         const char * goU = sgoto(s, TT_GOTO_U);
