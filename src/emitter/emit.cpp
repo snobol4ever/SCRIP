@@ -693,6 +693,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_sval = op_a ? IR_LIT(op_a).sval : (const char *)0;
     g_emit.op_a_node_kind = op_a ? (int)ir_norm_call_kind(op_a->op) : -1;
     g_emit.op_a_slot = (op_a != (IR_t *)0) ? bb_slot_get(op_a) : -1;
+    if (g_emit.op_a_slot < 0 && op_a && op_a->tmp >= 0) g_emit.op_a_slot = op_a->tmp;
     g_emit.op_a_counter = 0;
     g_emit.op_a_ival_sg = op_a ? IR_LIT(op_a).ival : 0;
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
