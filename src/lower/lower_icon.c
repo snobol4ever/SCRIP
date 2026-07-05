@@ -781,9 +781,20 @@ static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     (void) nargs;
-    IR_t * kg = build(cx, IR_FAIL, γ, ω);
-    IR_t * orr = NULL; (void) lower(cx, t->c[argbase], NULL, ω, &orr); ir_operand_push(kg, orr);
-    cx->beta = kg; *res = kg; return kg;
+    /* key(t) is a generator: yield each key of table t in turn.  Reuse the
+     * proven IR_ITERATE (unary-bang) Byrd box, tagged with the "key" variant
+     * so the box calls rt_list_bang_key_at (keys) instead of rt_list_bang_at
+     * (values).  The operand's entry (ee) is the box entry; wire operand-γ
+     * into the generator, and leave cx->beta at the generator so backtracking
+     * resumes it for the next key.  (Previously this was a bare IR_FAIL stub,
+     * so key() always failed and every table-key iteration produced nothing —
+     * silently breaking tgrlink/ipxref/rsg/geddump output.) */
+    IR_t * kg = build(cx, IR_ITERATE, γ, ω);
+    IR_LIT(kg).sval = "key";
+    IR_t * orr = NULL; IR_t * ee = lower(cx, t->c[argbase], NULL, ω, &orr);
+    ir_operand_push(kg, orr);
+    lc_γ_to(orr, kg);
+    cx->beta = kg; *res = kg; return ee;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
