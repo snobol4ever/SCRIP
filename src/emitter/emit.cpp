@@ -577,12 +577,14 @@ int binop_slot_kind(IR_t *nd) {
     return BINOP_CAT_ARITH;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls_off(const IR_t *);
+static int nd_slot(const IR_t *nd) { return nd ? zls_off(nd) : -1; }
 int emit_binop_opnd_slot(IR_t *o) {
     if (!o) return -1;
     extern int is_global(const char *);
     if (o->op == IR_VAR && IR_LIT(o).sval && IR_LIT(o).sval[0] != '&' && !is_global(IR_LIT(o).sval)) { int voff = bb_varslot_peek(IR_LIT(o).sval); if (voff >= 0) return voff; }
     int s = bb_slot_get(o); if (s >= 0) return s;
-    return (o->tmp >= 0) ? o->tmp : -1;
+    return nd_slot(o);
 }
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -698,7 +700,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_a_sval = op_a ? IR_LIT(op_a).sval : (const char *)0;
     g_emit.op_a_node_kind = op_a ? (int)ir_norm_call_kind(op_a->op) : -1;
     g_emit.op_a_slot = (op_a != (IR_t *)0) ? bb_slot_get(op_a) : -1;
-    if (g_emit.op_a_slot < 0 && op_a && op_a->tmp >= 0) g_emit.op_a_slot = op_a->tmp;
+    if (g_emit.op_a_slot < 0 && op_a) { int _z = nd_slot(op_a); if (_z >= 0) g_emit.op_a_slot = _z; }
     g_emit.op_a_counter = 0;
     g_emit.op_a_ival_sg = op_a ? IR_LIT(op_a).ival : 0;
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
@@ -781,7 +783,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION: bb_emit_x86(bb_indirect_goto()); return 0;
-    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; g_emit.op_sb = 0; g_emit.op_off = _en ? _en->tmp : -1; bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
     case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
@@ -826,17 +828,16 @@ extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_PAIR_JMP(tgt)     do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=NULL; g_emit.xa_bb_emit_pair_jmp[_i]=(tgt); } while(0)
 #define DRIVE_PAIR_DEF_JMP(l,t) do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=(l); g_emit.xa_bb_emit_pair_jmp[_i]=(t); } while(0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int zls_off(const IR_t *);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int drive_value_slot(IR_t *nd) {
     int e = bb_slot_get(nd);
     if (e >= 0) return e;
-    if (nd && nd->tmp >= 0) {
-        int z = zls_off(nd);
-        if (z >= 0 && z != nd->tmp) { fprintf(stderr, "FATAL ZB-2 ZLS parity: op=%d zls_off=%d != nd->tmp=%d — the zl table and its tmp mirror disagree; fix zls_build's grant table (zeta_storage.c), never patch here\n", (int)nd->op, z, nd->tmp); abort(); }
-        bb_slot_register(nd, nd->tmp); return nd->tmp;
+    if (nd) {
+        int slot = nd_slot(nd);
+        if (slot >= 0) { bb_slot_register(nd, slot); return slot; }
     }
     if (nd && ir_node_produces_value(nd->op)) {
-        fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no nd->tmp — ir_drive_slot_assign never granted it. "
+        fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no ZLS slot — ir_drive_slot_assign never granted it. "
                         "Emit-time allocation is ERADICATED (TMP-ERADICATE); add the grant in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
         abort();
     }
@@ -956,7 +957,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN:
     case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
-        for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = (a && a->tmp >= 0) ? a->tmp : -1; }
+        for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1073,9 +1074,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CONJUNCTION:
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
-        if (nd->tmp >= 0 && nd->n_operands > 0 && nd->operands[0]) {
+        { int dst = nd_slot(nd); if (dst >= 0 && nd->n_operands > 0 && nd->operands[0]) {
             int src = bb_slot_get(nd->operands[0]);
-            int dst = nd->tmp;
             if (src >= 0 && dst >= 0 && src != dst) {
                 g_emit.op_sa = src; g_emit.op_off = dst;
             } else {
@@ -1083,7 +1083,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
             }
         } else {
             g_emit.op_sa = -1; g_emit.op_off = -1;
-        }
+        } }
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
@@ -1231,7 +1231,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_INITIAL: {
-        g_emit.op_off = nd->tmp;
+        g_emit.op_off = nd_slot(nd);
         if (g_emit.op_off < 0) { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1248,7 +1248,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sb  = 0;
         { extern int g_scan_regs_live; if (g_scan_regs_live > 0) g_scan_regs_live--; }
         IR_t * enter_nd = nd->n_operands > 0 ? nd->operands[0] : NULL;
-        g_emit.op_off = (enter_nd && enter_nd->tmp >= 0) ? enter_nd->tmp : -1;
+        g_emit.op_off = nd_slot(enter_nd);
         if (g_emit.op_off < 0) { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1485,9 +1485,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
         if (nodes[i]->op == IR_CONJUNCTION && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t * op0 = nodes[i]->operands[0];
-            if (op0->tmp >= 0 && nodes[i]->tmp < 0) {
-                bb_slot_register(nodes[i], op0->tmp);
-            }
+            { int _s0 = nd_slot(op0); if (_s0 >= 0 && bb_slot_get(nodes[i]) < 0) bb_slot_register(nodes[i], _s0); }
         }
         g_limit_gen_beta = NULL;
         g_create_body_entry = NULL;
