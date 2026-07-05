@@ -1,6 +1,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "utf8.h"
+#include "rt/gc_heap.h"
 #include <string.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -10,7 +11,7 @@ DESCR_t DUPL_fn(DESCR_t s, DESCR_t n) {
     if (times < 0) return FAILDESCR;
     if (times == 0 || !STRVAL_fn || !*STRVAL_fn) return STRVAL(GC_strdup(""));
     size_t slen = strlen(STRVAL_fn);
-    char *r = GC_malloc(slen * (size_t)times + 1);
+    char *r = rt_str_alloc((long)(slen * (size_t)times));
     r[0] = '\0';
     for (int64_t i = 0; i < times; i++) memcpy(r + i * slen, STRVAL_fn, slen);
     r[slen * times] = '\0';
@@ -32,7 +33,7 @@ DESCR_t REPLACE_fn(DESCR_t s, DESCR_t from, DESCR_t to) {
     }
     int binary_mode = (IS_STR(from) && from.slen) || (IS_STR(to) && to.slen)
                    || (IS_STR(s) && s.slen);
-    char *r = GC_malloc(slen_val + 1);
+    char *r = rt_str_alloc((long)slen_val);
     size_t rlen = 0;
     for (size_t i = 0; i < slen_val; i++) {
         unsigned char c = xlat[(unsigned char)sp[i]];
@@ -54,7 +55,7 @@ DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
     if ((size_t)(start - 1 + len_) > ncpts) len_ = (int64_t)(ncpts - (size_t)start + 1);
     size_t boff  = utf8_char_offset(STRVAL_fn, blen, (size_t)start);
     size_t bspan = utf8_char_bytes(STRVAL_fn, blen, boff, (size_t)len_);
-    char *r = GC_malloc(bspan + 1);
+    char *r = rt_str_alloc((long)bspan);
     memcpy(r, STRVAL_fn + boff, bspan);
     r[bspan] = '\0';
     return STRVAL(r);
@@ -64,7 +65,7 @@ DESCR_t TRIM_fn(DESCR_t s) {
     const char *STRVAL_fn = VARVAL_fn(s);
     int len = (int)strlen(STRVAL_fn);
     while (len > 0 && STRVAL_fn[len-1] == ' ') len--;
-    char *r = GC_malloc((size_t)len + 1);
+    char *r = rt_str_alloc(len);
     memcpy(r, STRVAL_fn, (size_t)len);
     r[len] = '\0';
     return STRVAL(r);
@@ -78,7 +79,7 @@ DESCR_t lpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
     int64_t slen    = (int64_t)strlen(STRVAL_fn);
     if (width <= slen) return STRVAL(GC_strdup(STRVAL_fn));
     int64_t npad = width - slen;
-    char *r = GC_malloc((size_t)width + 1);
+    char *r = rt_str_alloc((long)width);
     memset(r, padch, (size_t)npad);
     memcpy(r + npad, STRVAL_fn, (size_t)slen);
     r[width] = '\0';
@@ -92,7 +93,7 @@ DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
     char padch      = (p && *p) ? p[0] : ' ';
     int64_t slen    = (int64_t)strlen(STRVAL_fn);
     if (width <= slen) return STRVAL(GC_strdup(STRVAL_fn));
-    char *r = GC_malloc((size_t)width + 1);
+    char *r = rt_str_alloc((long)width);
     memcpy(r, STRVAL_fn, (size_t)slen);
     memset(r + slen, padch, (size_t)(width - slen));
     r[width] = '\0';
@@ -102,7 +103,7 @@ DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
 DESCR_t REVERS_fn(DESCR_t s) {
     const char *STRVAL_fn = VARVAL_fn(s);
     int len = (int)strlen(STRVAL_fn);
-    char *r = GC_malloc((size_t)len + 1);
+    char *r = rt_str_alloc(len);
     for (int i = 0; i < len; i++) r[i] = STRVAL_fn[len - 1 - i];
     r[len] = '\0';
     return STRVAL(r);
@@ -111,7 +112,7 @@ DESCR_t REVERS_fn(DESCR_t s) {
 DESCR_t BCHAR_fn(DESCR_t n) {
     int64_t code = to_int(n);
     if (code < 0 || code >= 256) return FAILDESCR;
-    char *buf = GC_malloc_atomic(2);
+    char *buf = rt_str_alloc(1);
     buf[0] = (char)(code & 0xFF);
     buf[1] = '\0';
     return BSTRVAL(buf, 1);

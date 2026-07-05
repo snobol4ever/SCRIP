@@ -3,6 +3,7 @@
 #include "ast.h"
 #include "../../parser/snobol4/scrip_cc.h"
 #include "gen.h"
+#include "../rt/gc_heap.h"
 #include "coerce.h"
 #include "../by_name_dispatch.h"
 #include "../../lower/lower.h"
@@ -74,7 +75,7 @@ DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b) {
     int64_t lo = a < b ? a : b;
     int64_t hi = a < b ? b : a;
     int64_t len = hi - lo;
-    char *buf = (char *)GC_malloc((size_t)len + 1);
+    char *buf = rt_str_alloc((long)len);
     if (len > 0) memcpy(buf, sigma + lo, (size_t)len);
     buf[len] = '\0';
     return STRVAL(buf);

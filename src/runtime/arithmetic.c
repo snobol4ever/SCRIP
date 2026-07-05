@@ -1,6 +1,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "rt/rt.h"
+#include "rt/gc_heap.h"
 #include "rk_opname.h"
 #include "builtins/gen.h"
 #include "builtins/gen_runtime.h"
@@ -236,7 +237,7 @@ DESCR_t rt_cset_compl(DESCR_t a) {
     else if (IS_REAL_fn(a)) { real_str(a.r, _cbuf, sizeof _cbuf); raw = _cbuf; }
     else { raw = VARVAL_fn(a); if (!raw) raw = ""; }
     unsigned char in[256] = {0}; for (const unsigned char *p = (const unsigned char *)raw; *p; p++) in[*p] = 1;
-    char *outs = GC_malloc(256); int n = 0; for (int c = 1; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
+    char *outs = rt_str_alloc(255); int n = 0; for (int c = 1; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
     return CSETVAL(cset_canonical(outs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -2,6 +2,7 @@
 #include "sil_macros.h"
 #include "coerce.h"
 #include "string_ops.h"
+#include "rt/gc_heap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +37,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     if (!asp) asp = "";
     if (!bsp) bsp = "";
     size_t al = strlen(asp), bl = strlen(bsp);
-    char *buf = GC_malloc(al + bl + 1);
+    char *buf = rt_str_alloc((long)(al + bl));
     memcpy(buf, asp, al);
     memcpy(buf + al, bsp, bl);
     buf[al + bl] = '\0';
