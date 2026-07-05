@@ -107,7 +107,8 @@ static int icn_arg_is_scan_fn(const tree_t * a) {
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (name && !strcmp(name, "seq")) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
-    IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : IR_CALL, γ, ω); IR_LIT(call).sval = (char *) name;
+    int gb = name && nargs == 2 && (!strcmp(name, "find") || !strcmp(name, "upto"));
+    IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
@@ -121,8 +122,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         prev = ar;
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
     }
-    if (icn_proc_is_generator(name) && last_ar) lc_γ_to(last_ar, call);
-    cx->beta = icn_proc_is_generator(name) ? call : (g_postfix_resume ? aω : ω);
+    if ((icn_proc_is_generator(name) || gb) && last_ar) lc_γ_to(last_ar, call);
+    cx->beta = (icn_proc_is_generator(name) || gb) ? call : (g_postfix_resume ? aω : ω);
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

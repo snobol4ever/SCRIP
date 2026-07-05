@@ -126,6 +126,12 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "assign.value", nd); return 1;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "gate.value", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 2;
+    case IR_CALL_BUILTIN_GEN:
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
+        zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
+        zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
+        return 2 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
             zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);

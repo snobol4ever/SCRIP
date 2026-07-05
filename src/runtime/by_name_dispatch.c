@@ -1868,6 +1868,16 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) {
+    DESCR_t out = FAILDESCR;
+    if (fn && resume && nargs == 2 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
+        DESCR_t a3[3]; a3[0] = args[0]; a3[1] = args[1]; a3[2] = INTVAL((*resume > 0) ? *resume : 1);
+        if (try_call_builtin_by_name(fn, a3, 3, &out) && !IS_FAIL_fn(out)) { *resume = out.i + 1; return out; }
+        return FAILDESCR;
+    }
+    return rt_call_arr(fn, args, nargs);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg3 = 1; }
@@ -2946,12 +2956,16 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = FAILDESCR;
         return 1;
     }
-    if (!strcmp(fn,"find") && nargs >= 1 && scan_pos > 0) {
+    if (!strcmp(fn,"find") && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *needle = VARVAL_fn(args[0]); if (!needle) { *out = FAILDESCR; return 1; }
         const char *hay    = (nargs >= 2) ? VARVAL_fn(args[1]) : (const char *)0; if (!hay) hay = scan_subj ? scan_subj : "";
         int nlen = (int)strlen(needle), hlen = (int)strlen(hay);
-        int start = scan_pos - 1;
-        for (int i = start; i + nlen <= hlen; i++) {
+        int i1 = (nargs >= 3) ? (int)args[2].i : (scan_pos > 0 && nargs < 2 ? scan_pos : 1);
+        int i2 = (nargs >= 4) ? (int)args[3].i : hlen + 1;
+        if (i1 <= 0 || i1 > hlen + 1) { *out = FAILDESCR; return 1; }
+        if (i2 <= 0 || i2 > hlen + 1) i2 = hlen + 1;
+        int term = (i2 - 1) - nlen;
+        for (int i = i1 - 1; i <= term; i++) {
             if (strncmp(hay + i, needle, nlen) == 0) { *out = INTVAL(i + 1); return 1; }
         }
         *out = FAILDESCR; return 1;
