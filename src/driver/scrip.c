@@ -350,6 +350,11 @@ static void m3_enter_with_rbx(bb_box_fn fn, void *frame, int entry, void *gva_ba
 static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void drive_slots_all(stage2_t * s2) {
+    extern void ir_drive_slot_assign(IR_graph_t * g);
+    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -632,7 +637,8 @@ int main(int argc, char **argv)
             if (dup) continue;
             seen_all[seen_n++] = (const IR_t *) all;
             if (dump_ir) fprintf(stdout, "; proc %s\n", pname);
-            if (is_icon || is_sno_bb) { zls_graph_name(s2->bbp.table[idx], pname); ir_drive_slot_assign(s2->bbp.table[idx]); } else ir_tmp_slot_assign(s2->bbp.table[idx]);
+            if (is_icon || is_sno_bb) zls_graph_name(s2->bbp.table[idx], pname);
+            ir_drive_slot_assign(s2->bbp.table[idx]);
             if (dump_ir) bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }
         if (dump_zeta) zls_dump(stdout);
@@ -650,7 +656,7 @@ int main(int argc, char **argv)
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb || is_prolog || is_raku) drive_slots_all(s2);
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1243,7 +1249,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog) { extern void ir_drive_slot_assign(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]); }
+            if (is_icon || is_sno_bb || is_prolog || is_raku) drive_slots_all(s2);
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");

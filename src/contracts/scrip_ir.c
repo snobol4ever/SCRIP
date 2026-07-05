@@ -125,7 +125,6 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->op       = t;
     bb->γ.node = NULL;
     bb->ω.node = NULL;
-    bb->tmp      = -1;
     if (bbg->n >= bbg->max) { free(bb); return NULL; }
     bbg->all[bbg->n++] = bb;
     return bb;
@@ -207,21 +206,6 @@ int ir_node_produces_value(IR_e op) {
         || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_KEYWORD_ASSIGN;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void ir_tmp_slot_assign(IR_graph_t * g) {
-    if (!g) return;
-    int cursor = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && ir_node_produces_value(nd->op)) { nd->tmp = cursor; cursor += 16; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int jcon_converted_producer(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_KEYWORD_ICON || op == IR_KEYWORD_ICON_GEN || op == IR_KEYWORD_SNOBOL4; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void ir_jcon_slot_assign(IR_graph_t * g) {
-    if (!g) return;
-    int k = 0;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && jcon_converted_producer(nd->op)) { nd->tmp = 16 + k * 16; k++; } }
-    g->jcon_value_region = k * 16;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
     if (!name) return;
     for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name && strcmp(g->vslots[i].name, name) == 0) return;
@@ -245,7 +229,6 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     extern int zls_g_vslot_count(const IR_graph_t *);
     extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     zls_build(g);
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd) continue; int off = zls_off(nd); if (off >= 0) nd->tmp = off; }
     g->n_vslots = 0;
     for (int v = 0; v < zls_g_vslot_count(g); v++) { int off = -1; const char * vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0) drv_vslot_push(g, vn, off); }
     g->resume_slot = zls_g_resume(g);
@@ -256,7 +239,9 @@ void ir_drive_slot_assign(IR_graph_t * g) {
 static void bb_ref_fmt(const IR_graph_t *bbg, const IR_t *target, char *out, size_t outsz) {
     if (!target) { snprintf(out, outsz, "."); return; }
     int ix = bb_index_of(bbg, target);
-    if (target->tmp >= 0) snprintf(out, outsz, "s%d", target->tmp);
+    extern int zls_off(const IR_t *);
+    int _z = zls_off(target);
+    if (_z >= 0)          snprintf(out, outsz, "s%d", _z);
     else if (ix >= 0)     snprintf(out, outsz, "n%d", ix);
     else                  snprintf(out, outsz, "?");
 }
@@ -265,7 +250,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
     const IR_t * bb = (i >= 0 && i < bbg->n) ? bbg->all[i] : NULL;
     char sq[8]; if (seq >= 0) snprintf(sq, sizeof sq, "%d", seq); else snprintf(sq, sizeof sq, "-");
     if (!bb) { fprintf(fp, "%4s %-6s    .    .  %-22s []\n", sq, "(null)", "(null)"); return; }
-    char self[12]; if (bb->tmp >= 0) snprintf(self, sizeof self, "s%-4d", bb->tmp); else snprintf(self, sizeof self, "n%-4d", i);
+    char self[12]; { extern int zls_off(const IR_t *); int _z = zls_off(bb); if (_z >= 0) snprintf(self, sizeof self, "s%-4d", _z); else snprintf(self, sizeof self, "n%-4d", i); }
     char gp[12], wp[12];
     bb_ref_fmt(bbg, bb->γ.node, gp, sizeof gp);
     bb_ref_fmt(bbg, bb->ω.node, wp, sizeof wp);

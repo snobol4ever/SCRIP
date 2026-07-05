@@ -12,7 +12,7 @@ void bb_slot_register(IR_t * nd, int off);
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_result_slot(IR_t * nd) {
-    if (nd && nd->tmp >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, nd->tmp); return nd->tmp; }
+    { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

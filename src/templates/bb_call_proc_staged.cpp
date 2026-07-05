@@ -29,13 +29,13 @@ static bb_label_t * bb_call_staged_beta_target() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i) {
     IR_t * a = ir_call_arg(call, i);
-    if (a) { int s = bb_slot_get(a); if (s < 0 && a->tmp >= 0) s = a->tmp; if (s >= 0) return s; }
+    if (a) { int s = bb_slot_get(a); if (s < 0) s = zls_off(a); if (s >= 0) return s; }
     IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int s = prod ? bb_slot_get(prod) : -1; return s < 0 ? 0 : s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_result_slot() {
     IR_t * nd = _.node;
-    if (nd && nd->tmp >= 0) { int e = bb_slot_get(nd); if (e < 0) bb_slot_register(nd, nd->tmp); return nd->tmp; }
+    { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

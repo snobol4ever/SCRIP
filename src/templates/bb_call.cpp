@@ -40,6 +40,7 @@ int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 DESCR_t rt_concat_parts_d(void * parts, int n);
 }
 #include "x86_asm.h"
+static inline int zoff(const IR_t * nd) { return nd ? zls_off(nd) : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pas_sl_setup(const char * fn) {
     int callee_dl = rt_proc_decl_level(fn);
@@ -165,7 +166,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
         long long av = 0; if (!lits_int_val(a, &av)) return x86_bomb("marshal inline-arith: non-numeric string left operand");
         s += x86_movabs_r64("rax", (uint64_t)av);
     } else if (a->op == IR_CALL || a->op == IR_OP_COUNT || ir_is_call_kind(a->op)) {
-        int sc = a->tmp;
+        int sc = zoff(a);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
         s += marshal_single_call(a, sc, bb_node_id(a));
         s += x86_frame_load64("rax", sc + 8);
@@ -206,7 +207,7 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
         long long bv = 0; if (!lits_int_val(b, &bv)) return x86_bomb("marshal inline-arith: non-numeric string right operand");
         s += x86_movabs_r64("rcx", (uint64_t)bv);
     } else if (b->op == IR_CALL || b->op == IR_OP_COUNT || ir_is_call_kind(b->op)) {
-        int sc = b->tmp;
+        int sc = zoff(b);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
         s += marshal_single_call(b, sc, bb_node_id(b));
         s += x86_frame_load64("rcx", sc + 8);
@@ -221,7 +222,7 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
     IR_t * a = NULL, * b = NULL;
     arith_operands(sg, nd, &a, &b);
     if (!a || !b) return x86_bomb("marshal inline-arith: binop operands unresolved");
-    int scratch = nd->tmp;
+    int scratch = zoff(nd);
     if (scratch < 0) return x86_bomb("marshal inline-arith: binop has no LOWER slot grant (TMP-ERADICATE)");
     std::string s = arith_opnd_a(sg, a);
     s += x86_frame_store64(scratch, "rax");
@@ -241,7 +242,7 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
     const char * nfn = IR_LIT(lf).sval ? IR_LIT(lf).sval : "";
     int nn = (int) IR_LIT(lf).ival;
     IR_graph_t ** nsubs = (IR_graph_t **)0;
-    int avbase = (lf && lf->tmp >= 0) ? lf->tmp : -1;
+    int avbase = zoff(lf);
     if (avbase < 0 || nn > (lf ? lf->n_operands : 0)) return x86_bomb("marshal_single_call: no/short LOWER slot grant (TMP-ERADICATE)");
     avbase += 16;
     int isreg = (nfn[0] && rt_proc_is_registered(nfn));
@@ -388,7 +389,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
                 if (idx * 2 + 1 >= X86_INTERNAL_MAX) return x86_bomb("marshal boolean-relop: arg index exceeds internal label capacity");
                 std::string s;
                 if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = boolean relop value INTVAL(0/1) -> [r12+%d]", idx, aoff));
-                int scratch = relnd->tmp;
+                int scratch = zoff(relnd);
                 if (scratch < 0) return x86_bomb("marshal boolean-relop: relop has no LOWER slot grant (TMP-ERADICATE)");
                 s += arith_opnd_a(sg, ra);
                 s += x86_frame_store64(scratch, "rax");
@@ -515,7 +516,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    int resoff  = _.node ? _.node->tmp : -1;
+    int resoff  = zoff(_.node);
     if (resoff < 0) return x86_bomb("bb_call_named_proc: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_named_proc: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
@@ -608,7 +609,7 @@ static IR_t * relop_arg_simple_operand(IR_graph_t * sg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_graph_t ** subs, int relop) {
     x86_begin();
-    int resoff = _.node ? _.node->tmp : -1;
+    int resoff = zoff(_.node);
     if (resoff < 0) return x86_bomb("bb_call_relop_inline: no LOWER slot grant (TMP-ERADICATE)");
     IR_t * a = relop_arg_simple_operand(subs[0]);
     IR_t * b = relop_arg_simple_operand(subs[1]);
@@ -638,7 +639,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
       if (g_gvar_flat_chain && _rl >= 0 && narg == 2 && subs && subs[0] && subs[1]
           && relop_arg_simple_operand(subs[0]) && relop_arg_simple_operand(subs[1]))
           return bb_call_relop_inline_str(pBB, fn, subs, _rl); }
-    int resoff  = _.node ? _.node->tmp : -1;
+    int resoff  = zoff(_.node);
     if (resoff < 0) return x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
@@ -690,7 +691,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    int resoff  = _.node ? _.node->tmp : -1;
+    int resoff  = zoff(_.node);
     if (resoff < 0) return x86_bomb("bb_call_byname_gen: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
@@ -786,7 +787,7 @@ static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
     if (!relnd) return x86_bomb("bb_call_bool_jct: no relop in cond sub-graph");
     IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
     if (!ra || !rb) return x86_bomb("bb_call_bool_jct: relop operands unresolved");
-    int lhs_slot = (_.node && _.node->tmp >= 0) ? _.node->tmp + 16 : -1;
+    int lhs_slot = (zoff(_.node) >= 0) ? zoff(_.node) + 16 : -1;
     if (lhs_slot < 0) return x86_bomb("bb_call_bool_jct: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node->n_operands < 2) return x86_bomb("bb_call_bool_jct: grant narrower than 2 slots (TMP-ERADICATE)");
     int rhs_slot = lhs_slot + 16;
@@ -811,7 +812,7 @@ static std::string bb_call_bool_cond_str(IR_t * pBB) {
     if (!ra || !rb) return x86_bomb("bb_call_bool_cond: relop operands unresolved");
     if (is_jct_call(ra) || is_jct_call(rb)) return bb_call_bool_jct_cond_str(pBB);
     if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_bool_cond: relop operands unhandled");
-    int scratch = relnd->tmp;
+    int scratch = zoff(relnd);
     if (scratch < 0) return x86_bomb("bb_call_bool_cond: relop has no LOWER slot grant (TMP-ERADICATE)");
     return x86("label", _.lbl_α)
          + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")

@@ -156,7 +156,6 @@ struct IR_t {
     IR_ref_t     ω;
     IR_t       ** operands;
     int           n_operands;
-    int           tmp;
     union { const char * sval; int64_t ival; double dval; };
 };
 #define IR_LIT(nd)  (*(nd))
@@ -218,8 +217,6 @@ static inline void ag_ring_clear(IR_graph_t * cfg) {
 IR_t       * IR_node_alloc(IR_graph_t * cfg, IR_e t);
 int          ir_operand_push(IR_t * nd, IR_t * child);
 int  ir_node_produces_value(IR_e op);
-void ir_tmp_slot_assign(IR_graph_t * g);
-void ir_jcon_slot_assign(IR_graph_t * g);
 void         bb_reset(IR_graph_t * cfg);
 void         IR_free(IR_graph_t * cfg);
 void         bb_print(const IR_graph_t * cfg, FILE * fp);
