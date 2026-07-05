@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <gc.h>
+#include "zeta_alloc.h"
 extern const char *Σ;
 extern int Σlen;
 #define STACKLESS_ABORT(fn) \
@@ -84,8 +85,9 @@ extern void *bb_arbno_new(void *fn, void *state);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_frame(void)
 {
-    static int64_t g_frame_buf[8192];
-    return (void *)g_frame_buf;
+    static void *g_main_frame = (void *)0;
+    if (!g_main_frame) g_main_frame = rt_zls_alloc(8192L * 8L);
+    return g_main_frame;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_nv_cstr(const char *name)
@@ -201,7 +203,6 @@ typedef struct { DESCR_t slot[RT_FRAME_SLOT_MAX]; int nslots; } rt_frame_t;
 static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
 #define PROC_FRAME_QWORDS 512
-#define PROC_FRAME_DEPTH  4096
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
@@ -345,14 +346,6 @@ void rt_arg_stage(int idx, DESCR_t v)
 {
     if (idx >= 0 && idx < CALL_ARGS_MAX) g_call_args[idx] = v;
 }
-static int64_t *g_proc_arena = (int64_t *)0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int64_t *proc_arena(void) {
-    if (!g_proc_arena)
-        g_proc_arena = (int64_t *)GC_MALLOC((size_t)(PROC_FRAME_DEPTH * PROC_FRAME_QWORDS) * sizeof(int64_t));
-    return g_proc_arena;
-}
-static int     g_proc_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -381,18 +374,14 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         abort();
     }
     if (p->dyn_scope) return rt_call_named_proc(name, g_call_args, nargs > CALL_ARGS_MAX ? CALL_ARGS_MAX : nargs);
-    if (g_proc_depth >= PROC_FRAME_DEPTH) {
-        fprintf(stderr, "[GZ-10] rt_call_proc_descr: recursion depth exceeded (%d)\n", PROC_FRAME_DEPTH);
-        abort();
-    }
-    char *fb = (char *)&proc_arena()[g_proc_depth * PROC_FRAME_QWORDS];
-    g_proc_depth++;
-    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < PROC_FRAME_QWORDS / 2; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
+    int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
+    char *fb = (char *)rt_zls_alloc((long)fbytes);
+    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    g_proc_depth--;
+    rt_zls_release((void *)fb);
     return result;
 }
 #define RT_INITIAL_MAX 8192
@@ -407,7 +396,6 @@ int64_t rt_initial_fire(int64_t site)
 }
 #define RT_GEN_ACT_MAX 256
 typedef struct { char *frame; bb_box_fn fn; } rt_gen_act_t;
-static int64_t     g_gen_arena[RT_GEN_ACT_MAX * PROC_FRAME_QWORDS];
 static rt_gen_act_t g_gen_act[RT_GEN_ACT_MAX];
 static int          g_gen_act_top = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -418,8 +406,9 @@ DESCR_t rt_proc_call_gen(const char *name, int nargs)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
     if (!p || !p->fn) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator '%s' has no stackless slab\n", name ? name : "(null)"); abort(); }
     if (g_gen_act_top >= RT_GEN_ACT_MAX) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator activation depth exceeded (%d)\n", RT_GEN_ACT_MAX); abort(); }
-    char *fb = (char *)&g_gen_arena[g_gen_act_top * PROC_FRAME_QWORDS];
-    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < PROC_FRAME_QWORDS / 2; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
+    int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
+    char *fb = (char *)rt_zls_alloc((long)fbytes);
+    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     g_gen_act[g_gen_act_top].frame = fb;
@@ -427,7 +416,7 @@ DESCR_t rt_proc_call_gen(const char *name, int nargs)
     g_gen_act_top++;
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    if (IS_FAIL(result)) g_gen_act_top--;
+    if (IS_FAIL(result)) { g_gen_act_top--; rt_zls_release((void *)fb); }
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -437,13 +426,11 @@ DESCR_t rt_proc_resume_gen(void)
     rt_gen_act_t *a = &g_gen_act[g_gen_act_top - 1];
     (void)a->fn((void *)a->frame, 1);
     DESCR_t result = *(DESCR_t *)(a->frame + 0);
-    if (IS_FAIL(result)) g_gen_act_top--;
+    if (IS_FAIL(result)) { g_gen_act_top--; rt_zls_release((void *)a->frame); }
     return result;
 }
 typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;
 #define PROC_FRAME_NEST_QWORDS 512
-#define PROC_FRAME_ARENA_QWORDS (8 * 1024 * 1024)
-#define PROC_FRAME_NEST_MAX (PROC_FRAME_ARENA_QWORDS / PROC_FRAME_NEST_QWORDS)
 #define DCR_CELL_CACHE_SIZE 2048
 #define DCR_CELL_CACHE_MASK (DCR_CELL_CACHE_SIZE - 1)
 static NameSaveEnt   *g_name_save = (NameSaveEnt *)0;
@@ -490,15 +477,6 @@ static void rt_name_save_grow(void) {
     int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt));
     if (!np) return; g_name_save = np; g_name_save_cap = nc;
 }
-static int64_t *g_proc_frame_nest_arena = (int64_t *)0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int64_t *proc_nest_arena(void) {
-    if (!g_proc_frame_nest_arena)
-        g_proc_frame_nest_arena = (int64_t *)GC_MALLOC((size_t)PROC_FRAME_ARENA_QWORDS * sizeof(int64_t));
-    return g_proc_frame_nest_arena;
-}
-static int            g_proc_frame_nest_depth = 0;
-static long           g_proc_frame_cursor_qw = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_name_save_push(const char **names, DESCR_t **cells, DESCR_t *args, int nargs, int n)
 {
@@ -549,26 +527,19 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     rt_proc_resolve_cells(p);
     int np = p->nparams;
     const char **pn = p->pnames;
-    if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    long fqw = (long)(((fbytes + 15) & ~15) / 8);
-    if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
     const char *rname = p->result_name ? p->result_name : name;
     int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
     { int rn_shadow = 0;
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
-    void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
-    long save_cursor = g_proc_frame_cursor_qw;
-    g_proc_frame_cursor_qw += fqw;
-    g_proc_frame_nest_depth++;
+    void *fb = rt_zls_alloc((long)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    g_proc_frame_nest_depth--;
-    g_proc_frame_cursor_qw = save_cursor;
+    rt_zls_release(fb);
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
@@ -584,26 +555,19 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     int np = p->nparams;
     const char **pn = p->pnames;
     const char *name = p->name;
-    if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    long fqw = (long)(((fbytes + 15) & ~15) / 8);
-    if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
     const char *rname = p->result_name ? p->result_name : name;
     int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
     { int rn_shadow = 0;
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
-    void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
-    long save_cursor = g_proc_frame_cursor_qw;
-    g_proc_frame_cursor_qw += fqw;
-    g_proc_frame_nest_depth++;
+    void *fb = rt_zls_alloc((long)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    g_proc_frame_nest_depth--;
-    g_proc_frame_cursor_qw = save_cursor;
+    rt_zls_release(fb);
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
@@ -686,17 +650,11 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     rt_proc_resolve_cells(p);
     int np = p->nparams;
     int ns = (p->frame_nslots > np) ? p->frame_nslots : np;
-    if (g_proc_frame_nest_depth >= PROC_FRAME_NEST_MAX) return FAILDESCR;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    long fqw = (long)(((fbytes + 15) & ~15) / 8);
-    if (g_proc_frame_cursor_qw + fqw > PROC_FRAME_ARENA_QWORDS) return FAILDESCR;
     int save_base = g_name_save_top;
     rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
-    void *fb = (void *)&proc_nest_arena()[g_proc_frame_cursor_qw];
-    long save_cursor = g_proc_frame_cursor_qw;
-    g_proc_frame_cursor_qw += fqw;
-    g_proc_frame_nest_depth++;
+    void *fb = rt_zls_alloc((long)fbytes);
     ((void **)fb)[0] = sl;
     DESCR_t *slots = (DESCR_t *)((char *)fb + 16);
     for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
@@ -704,8 +662,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    g_proc_frame_nest_depth--;
-    g_proc_frame_cursor_qw = save_cursor;
+    rt_zls_release(fb);
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
