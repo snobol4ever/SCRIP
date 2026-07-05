@@ -73,7 +73,7 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "list.elem", nd);
         return 1 + nd->n_operands; }
     case IR_SCAN_ENTER:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 16, ZK_RAW, 1, "scan.save", nd); return 2;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.leave out3 sigma (transient reg out-area; dead at safe points)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_MATCH_HEAD:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "head.cursor", nd); return 1;
     case IR_MATCH_SPAN:
@@ -87,19 +87,19 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_ALTERNATE:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "alt.cursor save", nd); return 1;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 1, "scan.pad", nd); return 2;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.cursor", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.len/counter", nd); return 2;
     case IR_INITIAL:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 1, "initial.once flag", nd); return 1;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "initial.pad (unused low half)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "initial.once flag (0->1)", nd); return 1;
     case IR_ITERATE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "iterate.value", nd); zls_field(scope_id, off + 16, 16, ZK_RAW, 1, "iterate.state", nd); return 2;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "iterate.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "iterate.index i (alpha=0, beta inc)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "iterate.pad (unused)", nd); return 2;
     case IR_LIMIT:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "limit.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "limit.counter", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 1, "limit.pad", nd); return 2;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "limit.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "limit.counter", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "limit.pad (unused)", nd); return 2;
     case IR_REPALT:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "repalt.value", nd); zls_field(scope_id, off + 16, 16, ZK_RAW, 1, "repalt.state", nd); return 2;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "repalt.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "repalt.yielded flag (clear/yield/test)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "repalt.pad (unused)", nd); return 2;
     case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "revasg.value", nd); zls_field(scope_id, off + 16, 16, ZK_RAW, 1, "revasg.pending", nd); return 2;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "revasg.value", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revasg.saved old value (beta restore; LIVE across suspension — GC must trace)", nd); return 2;
     case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "kw.value", nd); zls_field(scope_id, off + 16, 16, ZK_RAW, 0, "kw.gen counter", nd); return 2;
     case IR_KEYWORD_SNOBOL4:
@@ -109,11 +109,20 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
     case IR_KEYWORD_ASSIGN:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "kwset.value", nd); return 1;
     case IR_CREATE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "coexpr.handle", nd); zls_field(scope_id, off + 16, 48, ZK_RAW, 1, "coexpr.cells", nd); return 4;
+        zls_entry(nd, scope_id, off);
+        zls_field(scope_id, off,      8, ZK_RAW, 0, "coexpr.handle ctx* (malloc'd non-GC — never trace/relocate)", nd);
+        zls_field(scope_id, off + 8,  8, ZK_RAW, 0, "coexpr.handle pad (unwritten)", nd);
+        zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "coexpr.marshal r12 (copied out by scrip_coexpr_create; dead at return)", nd);
+        zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "coexpr.marshal r13", nd);
+        zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "coexpr.marshal r14", nd);
+        zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "coexpr.marshal r15", nd);
+        zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "coexpr.marshal rbx", nd);
+        zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "coexpr.marshal rbp", nd);
+        return 4;
     case IR_ASSIGN:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "assign.value", nd); return 1;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "gate.value", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 1, "gate.pad", nd); return 2;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "gate.value", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 2;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
             zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
@@ -170,7 +179,7 @@ void zls_build(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) {
         r->resume_off = base + k * 16;
         zls_field(root, r->resume_off, 8, ZK_PTR_CODE, 0, "gen-proc resume continuation", (const IR_t *)0);
-        zls_field(root, r->resume_off + 8, 8, ZK_RAW, 1, "resume.pad", (const IR_t *)0);
+        zls_field(root, r->resume_off + 8, 8, ZK_RAW, 0, "resume.pad (unused)", (const IR_t *)0);
         k += 1; break;
     }
     for (int i = 0; i < g->n; i++) {
@@ -233,7 +242,7 @@ void zls_dump(FILE * fp) {
         alloc_names[ZC_ALLOC], col_names[ZC_COLLECTION], selfload_names[ZC_SELFLOAD], init_names[ZC_INIT],
         ZC_POISON == ZC_POISON_FILL ? "FILL" : "OFF", ZC_TELEMETRY == ZC_TELEM_ON ? "ON" : "OFF", ZC_OVERFLOW == ZC_OVF_BOMB ? "BOMB" : "GUARD", (int)ZC_ARENA_MB, ZC_PROMOTE == ZC_PROMOTE_GATE ? "GATE" : "ON");
     fprintf(fp, "; kinds: DESCR = 16B t.p pair (GC traces payload) | RAW = int/cursor/counter (GC skips) | PTR_GC = heap pointer (GC traces+fixes) | PTR_CODE = continuation (GC skips, never relocates)\n");
-    fprintf(fp, "; (audit) = kind provisional pending template audit — GC-1 burns these down before any collector consumes the maps\n");
+    fprintf(fp, "; (audit) = kind provisional pending template audit — 2026-07-05 burndown: all shipped grants template-verified, audit=0; any NEW grant lands audit=1 until verified\n");
     for (int i = 0; i < zg_n; i++) {
         zls_graph_t * r = &zg[i];
         if (r->first_scope < 0) continue;
