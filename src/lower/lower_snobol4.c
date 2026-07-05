@@ -494,8 +494,36 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_ω_to(re_tail, le_tail);
         return le;
     }
+    case TT_ALT: {
+        /* SN4-PAT-3h ALTERNATE (A | B | C).  Flatten the left-associative TT_ALT spine into a
+         * left-to-right list, then wire: a phase-0 SAVE records the entry cursor; alternative i
+         * fails to a phase-1 RESTORE that reloads the cursor and jumps to alternative i+1; the last
+         * alternative fails to the outer `fail`; every alternative succeeds to `succ`. */
+        const tree_t * alts[64]; int na = 0;
+        const tree_t * rstack[64]; int nr = 0;
+        const tree_t * cur = t;
+        while (cur && cur->t == TT_ALT) {
+            if (nr >= 64) sno_fatal("alternation with too many branches (SN4-PAT-3h cap 64)", NULL);
+            rstack[nr++] = (cur->n > 1) ? cur->c[1] : NULL;
+            cur = (cur->n > 0) ? cur->c[0] : NULL;
+        }
+        alts[na++] = cur;                                   /* leftmost */
+        for (int i = nr - 1; i >= 0; i--) alts[na++] = rstack[i];
+        if (na == 1) return sno_pat_node(cx, alts[0], succ, fail);
+        IR_t * save = lc_build(g, IR_MATCH_ALTERNATE, NULL, NULL);   /* phase-0 (n_operands==0): save cursor */
+        IR_t * fail_target = fail;                                    /* last alternative fails to outer fail */
+        for (int i = na - 1; i >= 1; i--) {
+            IR_t * ei = sno_pat_node(cx, alts[i], succ, fail_target); /* alternative i, γ→succ, ω→fail_target */
+            IR_t * ri = lc_build(g, IR_MATCH_ALTERNATE, ei, NULL);    /* phase-1 RESTORE_i, γ→alt i entry */
+            ir_operand_push(ri, save);                                /* reads save's slot */
+            fail_target = ri;                                         /* alternative i-1 fails to RESTORE_i */
+        }
+        IR_t * e0 = sno_pat_node(cx, alts[0], succ, fail_target);     /* leftmost: fail→RESTORE_1, no restore before it */
+        lc_γ_to(save, e0);                                            /* SAVE proceeds to the first alternative */
+        return save;
+    }
     default:
-        sno_fatal("pattern element not in the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB; SEQ/CAT landed SN4-PAT-3h)", NULL);
+        sno_fatal("pattern element not in the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB; SEQ+ALT landed SN4-PAT-3h)", NULL);
     }
     return succ;
 }
@@ -513,6 +541,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
     if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
     if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
+    if (t->t == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

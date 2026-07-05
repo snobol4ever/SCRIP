@@ -220,6 +220,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         if (nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_MATCH_ARB || nd->op == IR_MATCH_REM) { nd->tmp = base + k * 16; k += 1; continue; }
         if (nd->op == IR_MATCH_ASSIGN_SAVE) { nd->tmp = base + k * 16; k += 1; continue; }  /* SN4-PAT-3h phase-0 SAVE δ-slot */
+        if (nd->op == IR_MATCH_ALTERNATE)   { nd->tmp = base + k * 16; k += 1; continue; }  /* SN4-PAT-3h ALT cursor-save slot */
         /* SCAN SCRATCH GRANT: tab/move save r14 at +16 (data backtrack); upto/find/bal keep a
          * cursor at +16 (find also needle-len, bal also counter, at +24); match(var) keeps len
          * at +16. One slot (16B) covers only the value at +0/+8 — these boxes were writing into
