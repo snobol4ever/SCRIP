@@ -64,6 +64,7 @@ T=$((SECONDS-T0))
 printf "  --run      PASS=%-3d FAIL=%d SKIP=%d\n" "$P3" "$F3" "$S3"
 printf "  --compile  PASS=%-3d FAIL=%d SKIP=%d\n" "$P4" "$F4" "$S4"
 printf "  DIVERGE (mode-3 != mode-4 vs ref): %d\n" "$DIV"
+[ -n "$F3_LIST" ]  && printf "  FAIL(m3):%s\n" "$F3_LIST"
 [ -n "$F4_LIST" ]  && printf "  FAIL(m4):%s\n" "$F4_LIST"
 [ -n "$DIV_LIST" ] && printf "  DIVERGE:%s\n" "$DIV_LIST"
 printf "TIME TOTAL=%ds\n" "$T"

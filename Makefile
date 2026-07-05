@@ -32,7 +32,8 @@ CXX     := g++
 CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED
 WARN    := -w
 CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
-CRT     := $(CBASE) -DDYN_ENGINE_LINKED
+ZCFLAGS ?=
+CRT     := $(CBASE) -DDYN_ENGINE_LINKED $(ZCFLAGS)
 LIBS    := -lgc -lm -lpthread
 
 # Runner defaults
@@ -64,6 +65,7 @@ libscrip_rt: out/libscrip_rt.so
 # EM-6 runtime objects (all compiled -fPIC so they can go into the .so)
 RT_PIC_SRCS := \
     $(RT)/rt/rt.c \
+    $(RT)/rt/zeta_alloc.c \
     $(RT)/rt/rt_protected.c \
     $(RT)/rt/pat_pool.c \
     $(RT)/rt/rt_coexpr.c \
@@ -243,7 +245,7 @@ out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
 	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
 	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku \
-	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES \
+	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) \
 	    $(RT_PIC_SRCS) \
 	    -lgc -lm -lstdc++ -lpthread \
 	    -o out/libscrip_rt.so
@@ -464,6 +466,7 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/branch_chain.c -o $(OBJ)/branch_chain.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/rt/zeta_alloc.c -o $(OBJ)/zeta_alloc.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_coexpr.c -o $(OBJ)/rt_coexpr.o
