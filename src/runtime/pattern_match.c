@@ -8,6 +8,7 @@
 #include "../parser/snobol4/scrip_cc.h"
 #include "sil_macros.h"
 #include "builtins/gen_runtime.h"
+#include "rt/gc_heap.h"
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -154,7 +155,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         int i = (int)to_int(idx);
         if (i < 0) i = slen + i + 1;
         if (i < 1 || i > slen) return FAILDESCR;
-        char *buf = GC_malloc(2); buf[0] = s[i-1]; buf[1] = '\0';
+        char *buf = rt_str_alloc(1); buf[0] = s[i-1]; buf[1] = '\0';
         return STRVAL(buf);
     }
     if (arr.v == DT_DATA) {
@@ -246,7 +247,7 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         if (!vs) vs = "";
         int vlen = (int)strlen(vs);
         int newlen = slen - 1 + vlen;
-        char *ns = GC_malloc(newlen + 1);
+        char *ns = rt_str_alloc(newlen);
         memcpy(ns, arr.s, i - 1);
         memcpy(ns + i - 1, vs, vlen);
         memcpy(ns + i - 1 + vlen, arr.s + i, slen - i + 1);
@@ -301,7 +302,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         if (ii < 1) ii = 1; if (jj > slen+1) jj = slen+1;
         if (ii > jj) { int t = ii; ii = jj; jj = t; }
         int len = jj - ii;
-        char *buf = GC_malloc(len+1); memcpy(buf, s+ii-1, len); buf[len]='\0';
+        char *buf = rt_str_alloc(len); memcpy(buf, s+ii-1, len); buf[len]='\0';
         return STRVAL(buf);
     }
     return FAILDESCR;
@@ -500,7 +501,7 @@ static void rt_dcap_record(const char *vname, const char *base, int len) {
 void rt_dcap_flush(void) {
     for (int i = 0; i < g_rt_dcap_n; i++) {
         int len = g_rt_dcap[i].len < 0 ? 0 : g_rt_dcap[i].len;
-        char *copy = (char *)GC_MALLOC((size_t)len + 1);
+        char *copy = rt_str_alloc(len);
         if (copy) { if (len > 0 && g_rt_dcap[i].base) memcpy(copy, g_rt_dcap[i].base, (size_t)len); copy[len] = '\0'; }
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         NV_SET_fn(g_rt_dcap[i].varname, d);
@@ -551,7 +552,7 @@ void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, i
     if (len < 0) len = 0;
     const char *base = Σ ? Σ + saved_delta : NULL;
     if (g_rt_dcap_active) { rt_dcap_record(varname, base, len); return; }
-    char *copy = (char *)GC_MALLOC((size_t)len + 1);
+    char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
     NV_SET_fn(varname, matched);
@@ -565,7 +566,7 @@ void rt_subject_load_nv(const char *name, void *slot)
     if (IS_NAMEVAL(v)) v = NV_GET_fn(v.s);
     const char *s = ""; int len = 0;
     if (v.v == DT_S || v.v == DT_SNUL) { s = v.s ? v.s : ""; len = v.slen ? (int)v.slen : (int)strlen(s); }
-    else if (IS_INT_fn(v)) { char *b = (char *)GC_MALLOC_ATOMIC(32); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
+    else if (IS_INT_fn(v)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
     ((const char **)slot)[0] = s;
     *(int *)((char *)slot + 8) = len;
     Σ = s; Σlen = len;
@@ -592,12 +593,12 @@ DESCR_t rt_concat_parts_d(void *parts, int n)
             DESCR_t v = NV_GET_fn(p[i].s ? p[i].s : "");
             if (IS_NAMEVAL(v)) v = NV_GET_fn(v.s);
             if (v.v == DT_S || v.v == DT_SNUL) { s = v.s ? v.s : ""; len = v.slen ? (int)v.slen : (int)strlen(s); }
-            else if (IS_INT_fn(v)) { char *b = (char *)GC_MALLOC_ATOMIC(32); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
-            else if (IS_REAL_fn(v)) { char *b = (char *)GC_MALLOC_ATOMIC(40); gcvt(v.r, 14, b); s = b; len = (int)strlen(b); }
+            else if (IS_INT_fn(v)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
+            else if (IS_REAL_fn(v)) { char *b = rt_str_alloc(39); gcvt(v.r, 14, b); s = b; len = (int)strlen(b); }
         }
         vals[i] = s; lens[i] = len; total += (size_t)len;
     }
-    char *buf = (char *)GC_MALLOC(total + 1); size_t off = 0;
+    char *buf = rt_str_alloc((long)total); size_t off = 0;
     for (int i = 0; i < n; i++) { if (lens[i] > 0) memcpy(buf + off, vals[i], (size_t)lens[i]); off += (size_t)lens[i]; }
     buf[off] = '\0';
     DESCR_t d = { .v = DT_S, .slen = (uint32_t)total, .s = buf };
@@ -774,7 +775,7 @@ DESCR_t rt_random_var(DESCR_t base) {
     g_random = (1103515245L * g_random + 453816694L) & 0x7FFFFFFFL; double rval = 4.65661286e-10 * (double)g_random;
     if (base.v == DT_S && base.slen == 0xFFFFFFFFu) {
         const char *cp; int clen; if (!cset_resolve(base, &cp, &clen) || clen <= 0) return FAILDESCR;
-        long i = (long)(rval * (double)clen); char *one = GC_malloc(2); one[0] = cp[i]; one[1] = 0;
+        long i = (long)(rval * (double)clen); char *one = rt_str_alloc(1); one[0] = cp[i]; one[1] = 0;
         return (DESCR_t){ .v = DT_S, .slen = 1, .s = one };
     }
     if ((base.v == DT_S || base.v == DT_SNUL) && IS_NAMETRAP_fn(bvar)) {
@@ -786,7 +787,7 @@ DESCR_t rt_random_var(DESCR_t base) {
     if (base.v == DT_S || base.v == DT_SNUL) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         if (slen <= 0) return FAILDESCR;
-        long i = (long)(rval * (double)slen); char *one = GC_malloc(2); one[0] = sp[i]; one[1] = 0;
+        long i = (long)(rval * (double)slen); char *one = rt_str_alloc(1); one[0] = sp[i]; one[1] = 0;
         return (DESCR_t){ .v = DT_S, .slen = 1, .s = one };
     }
     if (base.v == DT_DATA) {
@@ -865,7 +866,7 @@ DESCR_t rt_deref(DESCR_t d) {
         if (sd.v != DT_S && sd.v != DT_SNUL) return FAILDESCR;
         const char *sp = sd.s ? sd.s : ""; long slen = sd.slen ? (long)sd.slen : (long)strlen(sp);
         if (vc->pos + vc->len - 1 > slen) return FAILDESCR;
-        char *out = GC_malloc((size_t)vc->len + 1); memcpy(out, sp + vc->pos - 1, (size_t)vc->len); out[vc->len] = 0;
+        char *out = rt_str_alloc(vc->len); memcpy(out, sp + vc->pos - 1, (size_t)vc->len); out[vc->len] = 0;
         return (DESCR_t){ .v = DT_S, .slen = (uint32_t)vc->len, .s = out };
     }
     return FAILDESCR;
@@ -893,13 +894,13 @@ DESCR_t rt_assign_var(DESCR_t var, DESCR_t val) {
         long prelen = vc->pos - 1, poststrt = prelen + vc->len;
         if (poststrt > slen) return FAILDESCR;
         long nlen = prelen + srclen + (slen - poststrt);
-        char *ns = GC_malloc((size_t)nlen + 1);
+        char *ns = rt_str_alloc(nlen);
         memcpy(ns, sp, (size_t)prelen); memcpy(ns + prelen, src, (size_t)srclen); memcpy(ns + prelen + srclen, sp + poststrt, (size_t)(slen - poststrt)); ns[nlen] = 0;
         DESCR_t nsd = (DESCR_t){ .v = DT_S, .slen = (uint32_t)nlen, .s = ns };
         DESCR_t wr = rt_assign_var(vc->sv, nsd);
         if (wr.v == DT_FAIL) return FAILDESCR;
         vc->len = srclen;
-        char *rs = GC_malloc((size_t)srclen + 1); memcpy(rs, src, (size_t)srclen); rs[srclen] = 0;
+        char *rs = rt_str_alloc(srclen); memcpy(rs, src, (size_t)srclen); rs[srclen] = 0;
         return (DESCR_t){ .v = DT_S, .slen = (uint32_t)srclen, .s = rs };
     }
     return FAILDESCR;

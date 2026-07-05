@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <gc/gc.h>
+#include "../rt/gc_heap.h"
 const char *real_str(double r, char *buf, int bufsz);
 int64_t     to_int(DESCR_t v);
 double      to_real(DESCR_t v);
@@ -10,7 +11,7 @@ double      to_real(DESCR_t v);
 DESCR_t descr_to_str(DESCR_t d)
 {
     if (IS_INT_fn(d)) {
-        char *nbuf = GC_malloc(32);
+        char *nbuf = rt_str_alloc(31);
         snprintf(nbuf, 32, "%lld", (long long)d.i);
         return STRVAL(nbuf);
     }
@@ -18,7 +19,7 @@ DESCR_t descr_to_str(DESCR_t d)
         char tmp[64];
         real_str(d.r, tmp, sizeof tmp);
         size_t len = strlen(tmp);
-        char *nbuf = GC_malloc(len + 1);
+        char *nbuf = rt_str_alloc((long)len);
         memcpy(nbuf, tmp, len + 1);
         return STRVAL(nbuf);
     }
