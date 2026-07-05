@@ -15,7 +15,7 @@ extern "C" {
  *                       advance the cursor before failing; without this, the next alternative would
  *                       resume mid-input.)  The alternatives themselves chain via ω:
  *                       A.fail -> RESTORE_B -> B, ..., last.fail -> outer-fail. */
-std::string bb_match_alt() {
+std::string bb_match_alternate() {
     if (!PLATFORM_X86) return std::string();
     return _.op_off < 0
         ? x86_bomb("IR_MATCH_ALTERNATE: cursor slot not promoted (ir_drive_slot_assign)")

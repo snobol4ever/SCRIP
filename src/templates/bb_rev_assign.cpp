@@ -7,9 +7,9 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_rasgn() {
+std::string bb_rev_assign() {
     if (!PLATFORM_X86) return std::string();
-    return IF(!(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0), x86_bomb("bb_rasgn: x<-v needs varslot + rhs slot + save slot + own slot"))
+    return IF(!(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0), x86_bomb("bb_rev_assign: x<-v needs varslot + rhs slot + save slot + own slot"))
                            + IF(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0,
                              x86("label", _.lbl_α)
                            + x86("comment", "IR_REV_ASSIGN x<-v")
