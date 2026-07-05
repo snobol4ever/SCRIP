@@ -15,10 +15,19 @@
  * make magnitude discrimination unnecessary (§6b, manual pin 1). */
 #define HB_ZCOL  200
 #define HB_ZPROM 201
+#define HB_FILL  202
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002
+#define HBF_PIN  0x0004
 typedef struct rt_hblk_t { uint64_t fwd; uint32_t size; uint16_t type; uint16_t flags; } rt_hblk_t;
+struct DESCR_t;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 char *rt_str_alloc(long n);
 long  rt_gcheap_verify(void);
+long  rt_gc_collect(void);
+void  rt_gc_point(struct DESCR_t *d0, const char **r0);
+void  rt_gc_point_arr(struct DESCR_t *arr, int n, const char **r0);
+void  rt_gc_visit_descr(struct DESCR_t *d);
+void  rt_gc_visit_raw(const char **loc);
+void  rt_gc_pin_ptr(const char *p);
 #endif

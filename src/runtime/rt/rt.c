@@ -1,4 +1,5 @@
 #include "rt.h"
+#include "gc_heap.h"
 #include "core.h"
 #include "descr.h"
 #include "sil_macros.h"
@@ -99,6 +100,7 @@ const char *rt_nv_cstr(const char *name)
 void rt_gvar_assign_str(const char *name, const char *str)
 {
     DESCR_t d;
+    rt_gc_point((DESCR_t *)0, &str);
     d.v    = DT_S;
     d.s    = (char *)(str ? str : "");
     d.slen = (uint32_t)strlen(d.s);
@@ -131,6 +133,7 @@ void rt_gvar_assign_pat(const char *name, void *head)
 void rt_gvar_assign_int(const char *name, int64_t val)
 {
     DESCR_t d;
+    rt_gc_point((DESCR_t *)0, (const char **)0);
     d.v    = DT_I;
     d.slen = 0;
     d.i    = val;
@@ -177,7 +180,9 @@ DESCR_t rt_gvar_get_descr(const char *name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_var(const char *dst, const char *src)
 {
-    DESCR_t d = NV_GET_fn(src ? src : "");
+    DESCR_t d;
+    rt_gc_point((DESCR_t *)0, (const char **)0);
+    d = NV_GET_fn(src ? src : "");
     NV_SET_fn(dst ? dst : "", d);
     if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
 }
@@ -190,6 +195,7 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
     d.v    = u.f.v;
     d.slen = u.f.slen;
     d.i    = hi;
+    rt_gc_point(&d, (const char **)0);
     NV_SET_fn(name ? name : "", d);
     if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
@@ -344,6 +350,7 @@ DESCR_t g_call_args[CALL_ARGS_MAX];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_arg_stage(int idx, DESCR_t v)
 {
+    rt_gc_point(&v, (const char **)0);
     if (idx >= 0 && idx < CALL_ARGS_MAX) g_call_args[idx] = v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -745,3 +752,9 @@ static void rt_register_cap(cap_t *c);
 #define RT_MAX_CAPTURES 256
 static cap_t *g_rt_cap_list[RT_MAX_CAPTURES];
 static int    g_rt_cap_count = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_root_args(void)
+{
+    extern void rt_gc_visit_descr(DESCR_t *d);
+    for (int i = 0; i < CALL_ARGS_MAX; i++) rt_gc_visit_descr(&g_call_args[i]);
+}
