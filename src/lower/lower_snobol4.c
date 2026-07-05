@@ -474,7 +474,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     }
     case TT_SEQ: {
         /* SN4-PAT-3h CAT: pattern concatenation A B — node-free in the live single-HEAD
-         * design (the parked IR_MATCH_CAT was a subgraph success-sink; here success threads
+         * design (the parked IR_MATCH_SEQUENCE was a subgraph success-sink; here success threads
          * straight to `succ`).  Wire A.γ → B.α → succ by lowering right-first, then left with
          * succ = right's entry.  Failure: a deterministic element's ω already points at `fail`
          * ( = head = retry-position, correct SNOBOL4 for SPAN/BREAK/LEN/… which never back off).
