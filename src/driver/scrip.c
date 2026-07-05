@@ -361,6 +361,7 @@ int main(int argc, char **argv)
     int dump_ast           = 0;
     int dump_ir            = 0;
     int dump_ir_verbose    = 0;
+    int dump_zeta          = 0;
     int dump_transpile     = 0;
     int opt_bench          = 0;
     const char * target_name = NULL;
@@ -372,6 +373,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast       = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ir-verbose") == 0) { dump_ir = 1; dump_ir_verbose = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
+        else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;
@@ -396,6 +398,7 @@ int main(int argc, char **argv)
             "  --dump-ast       print AST after frontend\n"
             "  --dump-ir        print IR/BB-graph for each proc (terse: slot/op refs only)\n"
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
+            "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n"
             "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
             "\n"
@@ -606,14 +609,17 @@ int main(int argc, char **argv)
         tree_to_sno(ast_prog, stdout);
         return 0;
     }
-    if (dump_ir) {
+    if (dump_ir || dump_zeta) {
         extern void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose);
         extern void ir_drive_slot_assign(IR_graph_t * g);
+        extern void zls_graph_name(const IR_graph_t * g, const char * name);
+        extern void zls_dump(FILE * fp);
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
+        if (dump_zeta && (is_icon || is_sno_bb)) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
         const IR_t ** seen_all = (const IR_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
         int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -625,10 +631,11 @@ int main(int argc, char **argv)
             for (int s = 0; s < seen_n; s++) if (seen_all[s] == (const IR_t *) all) { dup = 1; break; }
             if (dup) continue;
             seen_all[seen_n++] = (const IR_t *) all;
-            fprintf(stdout, "; proc %s\n", pname);
-            if (is_icon || is_sno_bb) ir_drive_slot_assign(s2->bbp.table[idx]); else ir_tmp_slot_assign(s2->bbp.table[idx]);
-            bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
+            if (dump_ir) fprintf(stdout, "; proc %s\n", pname);
+            if (is_icon || is_sno_bb) { zls_graph_name(s2->bbp.table[idx], pname); ir_drive_slot_assign(s2->bbp.table[idx]); } else ir_tmp_slot_assign(s2->bbp.table[idx]);
+            if (dump_ir) bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }
+        if (dump_zeta) zls_dump(stdout);
         free(seen_all);
         return 0;
     }

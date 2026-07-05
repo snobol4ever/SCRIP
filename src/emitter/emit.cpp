@@ -815,10 +815,15 @@ extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_PAIR_JMP(tgt)     do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=NULL; g_emit.xa_bb_emit_pair_jmp[_i]=(tgt); } while(0)
 #define DRIVE_PAIR_DEF_JMP(l,t) do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=(l); g_emit.xa_bb_emit_pair_jmp[_i]=(t); } while(0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls_off(const IR_t *);
 static int drive_value_slot(IR_t *nd) {
     int e = bb_slot_get(nd);
     if (e >= 0) return e;
-    if (nd && nd->tmp >= 0) { bb_slot_register(nd, nd->tmp); return nd->tmp; }
+    if (nd && nd->tmp >= 0) {
+        int z = zls_off(nd);
+        if (z >= 0 && z != nd->tmp) { fprintf(stderr, "FATAL ZB-2 ZLS parity: op=%d zls_off=%d != nd->tmp=%d — the zl table and its tmp mirror disagree; fix zls_build's grant table (zeta_storage.c), never patch here\n", (int)nd->op, z, nd->tmp); abort(); }
+        bb_slot_register(nd, nd->tmp); return nd->tmp;
+    }
     if (nd && ir_node_produces_value(nd->op)) {
         fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no nd->tmp — ir_drive_slot_assign never granted it. "
                         "Emit-time allocation is ERADICATED (TMP-ERADICATE); add the grant in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
