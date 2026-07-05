@@ -26,6 +26,37 @@ int rt_builtin_is_generator(const char *name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int builtin_is_generator(const char *name) { return rt_builtin_is_generator(name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int icn_builtin_is_generator(const char *name)
+{
+    if (!name) return 0;
+    return !strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "any")
+        || !strcmp(name, "many") || !strcmp(name, "bal")
+        || !strcmp(name, "key") || !strcmp(name, "seq");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int icn_builtin_is_known(const char *name)
+{
+    if (!name || !name[0]) return 0;
+    static const char *icn_known[] = {
+        "integer", "real", "string", "numeric", "char", "cset", "abs", "ord",
+        "iand", "ior", "ixor", "ishift", "icom", "proc",
+        "sqrt", "sin", "cos", "tan", "atan", "log", "exp",
+        "asin", "acos", "dtor", "rtod",
+        "max", "min",
+        "args", "collect", "copy",
+        "image", "name", "type", "variable", "sort", "sortf",
+        "center", "detab", "entab", "left", "map", "repl", "reverse", "right", "trim",
+        "delete", "insert", "list", "member", "pull", "get", "pop",
+        "push", "put", "set", "table",
+        "close", "getenv", "open", "read", "reads",
+        "seek", "where",
+        "stop", "write", "writes",
+        NULL
+    };
+    for (int i = 0; icn_known[i]; i++) if (!strcmp(icn_known[i], name)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_is_truthy(DESCR_t v) {
     if (IS_FAIL_fn(v)) return 0;
     if (IS_INT_fn(v))  return v.i != 0;
