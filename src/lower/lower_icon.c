@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include "lower.h"
+extern int icn_builtin_is_known(const char *);
+extern int icn_builtin_is_generator(const char *);
 int g_postfix_resume = 0;
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 typedef struct {
@@ -221,7 +223,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
+        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_BUILTIN_ICON) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1095,8 +1097,8 @@ void lower_icon_resolve_call_kinds(void) {
             int pi = icn_callable_proc_index(fn);
             if (pi >= 0 && g_stage2.proc_table[pi].is_generator) nd->op = IR_PROC_GEN;
             else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
-            else if (rt_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN;
-            else if (strcmp(fn, "write") && strcmp(fn, "writes") && rt_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN;
+            else if (icn_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN_ICON;
+            else if (icn_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN_ICON;
         }
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];
