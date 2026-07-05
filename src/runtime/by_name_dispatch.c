@@ -1862,6 +1862,8 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    rt_gc_point_arr(args, nargs, (const char **)0);
     if (!fn) return out;
     if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
     out = APPLY_fn(fn, args, nargs);

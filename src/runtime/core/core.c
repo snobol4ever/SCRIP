@@ -2791,3 +2791,10 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
 }
 int _x4_pending_parent_frame = -1;
 int _command_pending_parent_frame = -1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_gc_roots(void)
+{
+    extern void rt_gc_visit_descr(DESCR_t *d);
+    for (int b = 0; b < VAR_BUCKETS; b++) for (NV_t *e = _var_buckets[b]; e; e = e->next) { rt_gc_visit_descr(&e->val); if (e->cell) rt_gc_visit_descr(e->cell); }
+    for (int i = 0; i < _var_reg_n; i++) if (_var_reg[i].ptr) rt_gc_visit_descr(_var_reg[i].ptr);
+}

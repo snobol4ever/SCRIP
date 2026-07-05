@@ -26,8 +26,6 @@ int         scan_depth = 0;
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
-    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
-    if (!s) s = "";
     if (scan_depth < SCAN_STACK_MAX) {
         scan_stack[scan_depth].subj  = scan_subj;
         scan_stack[scan_depth].pos   = scan_pos;
@@ -36,6 +34,9 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t de
         scan_stack[scan_depth].Delta = Delta;
         scan_depth++;
     }
+    rt_gc_point(&sv, (const char **)0);
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+    if (!s) s = "";
     scan_subj = s;
     scan_pos  = 1;
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
@@ -113,3 +114,13 @@ DESCR_t rt_keyword_random_set(DESCR_t v) {
 }
 #include "../../driver/driver_private.h"
 #include <time.h>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gen_gc_roots(void)
+{
+    extern void rt_gc_visit_descr(DESCR_t *d); extern void rt_gc_visit_raw(const char **loc); extern void rt_gc_pin_ptr(const char *p);
+    rt_gc_visit_descr(&drive_val);
+    for (int f = 0; f < frame_depth; f++) { GenFrame *fr = &frame_stack[f]; for (int i = 0; i < fr->env_n; i++) rt_gc_visit_descr(&fr->env[i]); rt_gc_visit_descr(&fr->return_val); for (int g = 0; g < fr->gen_depth; g++) rt_gc_visit_raw(&fr->gen[g].sval); }
+    rt_gc_pin_ptr(scan_subj);
+    rt_gc_visit_raw(&scan_subj);
+    for (int i = 0; i < scan_depth; i++) { rt_gc_visit_raw(&scan_stack[i].subj); rt_gc_visit_raw((const char **)&scan_stack[i].sigma); }
+}
