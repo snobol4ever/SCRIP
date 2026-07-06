@@ -100,6 +100,7 @@ int rt_builtin_is_known(const char *name)
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET",
+        "EVAL", "SNO$MKEXPR",
         "$unify",
         NULL
     };
@@ -2343,8 +2344,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
             } else t="procedure";
         }
+        else if (av.v==DT_X)     t="EXPRESSION";
         else if (av.v==DT_SNUL)  t="null";
         else t="string";
+        if (!strcmp(fn,"DATATYPE")) { static char ub[32]; int ui=0; for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(GC_strdup(ub)); return 1; }
         *out = STRVAL(t); return 1;
     }
     if (!strcmp(fn,"image") && nargs == 0) {
@@ -3597,6 +3600,20 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
         rt_keyword_write_snobol4(kn ? kn : "", args[1]);
         *out = args[1]; return 1;
+    }
+    if (!strcmp(fn,"SNO$MKEXPR") && nargs == 1) {
+        const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
+        DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = GC_strdup(nm);
+        *out = xd; return 1;
+    }
+    if (!strcmp(fn,"EVAL") && nargs == 1) {
+        extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
+        DESCR_t av = args[0];
+        if (av.v == DT_X) { *out = rt_call_named_proc(av.s ? av.s : "", (DESCR_t *)0, 0); return 1; }
+        if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
+        if (av.v == DT_SNUL) { *out = NULVCL; return 1; }
+        if (av.v == DT_S) { fprintf(stderr, "[SNO] EVAL(<string>): runtime compilation of source text is outside the landed subset (EXPRESSION values only)\n"); abort(); }
+        *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn,"VALUE") && nargs == 1) {
         extern DESCR_t NV_GET_fn(const char *); extern DESCR_t rt_deref(DESCR_t);

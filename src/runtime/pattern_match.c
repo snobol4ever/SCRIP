@@ -625,11 +625,22 @@ extern int Σlen;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
 {
-    DESCR_t val = NV_GET_fn(varname ? varname : "");
-    if (ival_flag) {
-        if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
-        else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
+    extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
+    DESCR_t val;
+    if (varname && !strcmp(varname, "FAIL")) return -1;
+    if (varname && varname[0] == '*') val = rt_call_named_proc(varname + 1, (DESCR_t *)0, 0);
+    else {
+        val = NV_GET_fn(varname ? varname : "");
+        if (ival_flag) {
+            if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
+            else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
+        }
     }
+    if (val.v == DT_X) val = rt_call_named_proc(val.s ? val.s : "", (DESCR_t *)0, 0);
+    if (IS_FAIL_fn(val)) return -1;
+    char nb[40];
+    if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
+    else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
     if (val.v == DT_S || val.v == DT_SNUL) {
         const char *lit = val.s ? val.s : "";
         int llen = val.slen ? (int)val.slen : (int)strlen(lit);
@@ -664,6 +675,7 @@ int cset_has(const char *cv, int clen, unsigned char ch) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
 {
+    if (varname && varname[0] == '*') return NULL;
     DESCR_t val = NV_GET_fn(varname ? varname : "");
     if (ival_flag) {
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);

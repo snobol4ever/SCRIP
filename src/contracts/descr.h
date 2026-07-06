@@ -17,6 +17,7 @@ typedef enum {
     DT_FH   = 12,
     DT_PLVAR = 13,
     DT_PLREF = 14,
+    DT_X    = 15,
     DT_FAIL = 99,
     DT_DATA = 100,
 } DTYPE_t;
