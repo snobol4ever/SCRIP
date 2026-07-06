@@ -583,6 +583,33 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t * lt = (t->n > 0) ? t->c[0] : NULL; const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
         int plain_l = lt && lt->t == TT_VAR && lt->v.sval && lt->v.sval[0] != '&';
         int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&';
+        int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
+        int kw_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval && rt2->v.sval[0] == '&';
+        if (kw_l || kw_r) {
+            /* Keyword operand: emit sequential read-old/write-new per canonical oasgn.r :=: swap.
+             * Canonical order from oasgn.r: lhs := rhs_old FIRST, then rhs := lhs_old.
+             * kw_l (&pos :=: x): &pos := x_old first (fails OOB -> both unchanged); then x := &pos_old.
+             * kw_r (x :=: &pos): x := &pos_old first (always succeeds); then &pos := x_old (fails OOB -> x updated, &pos not). */
+            IR_t * kv_old = build(cx, IR_KEYWORD_ICON, NULL, ω);
+            IR_t * pv_old = build(cx, IR_VAR, NULL, ω);
+            const tree_t * kw_tree = kw_l ? lt : rt2;
+            const tree_t * pl_tree = kw_l ? rt2 : lt;
+            IR_LIT(kv_old).sval = (char *) kw_tree->v.sval;
+            IR_LIT(pv_old).sval = (char *) pl_tree->v.sval;
+            lc_γ_to(kv_old, pv_old);
+            if (kw_l) {
+                /* lhs=kw: write kw := plain_old first (can fail), then write plain := kw_old */
+                IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN, NULL, ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
+                IR_t * write_plain = build(cx, IR_ASSIGN,          γ,    ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
+                lc_γ_to(pv_old, write_kw); lc_γ_to(write_kw, write_plain);
+                *res = write_plain; return kv_old;
+            } else {
+                /* lhs=plain: write plain := kw_old first (always ok), then write kw := plain_old (can fail) */
+                IR_t * write_plain = build(cx, IR_ASSIGN,          NULL, ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
+                IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN,  γ,    ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
+                lc_γ_to(pv_old, write_plain); lc_γ_to(write_plain, write_kw);
+                *res = write_kw; return kv_old;
+            } }
         if (!(plain_l && plain_r)) {
             IR_t * xr = NULL; IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
             IR_t * yr = NULL; IR_t * ye = xe ? lower_lvalue_var(cx, rt2, ω, &yr) : NULL;
