@@ -57,6 +57,14 @@ int icn_builtin_is_known(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_builtin_is_known(const char *name)
+{
+    if (!name || !name[0]) return 0;
+    if (!strcmp(name, "$unify")) return 1;
+    if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_is_truthy(DESCR_t v) {
     if (IS_FAIL_fn(v)) return 0;
     if (IS_INT_fn(v))  return v.i != 0;
@@ -647,8 +655,35 @@ int rt_descr_equal(DESCR_t a, DESCR_t b) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_is_op_code(const char *s) {
+    if (!strcmp(s, "add")) return BINOP_ADD; if (!strcmp(s, "sub")) return BINOP_SUB; if (!strcmp(s, "mul")) return BINOP_MUL;
+    if (!strcmp(s, "div")) return BINOP_DIV; if (!strcmp(s, "idiv")) return BINOP_DIV; if (!strcmp(s, "mod")) return BINOP_MOD; if (!strcmp(s, "pow")) return BINOP_POW;
+    return BINOP_ADD;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_num_cmp(const char *s, DESCR_t a, DESCR_t b) {
+    double av = IS_REAL_fn(a) ? a.r : (double)a.i; double bv = IS_REAL_fn(b) ? b.r : (double)b.i;
+    if (!strcmp(s, "lt")) return av < bv; if (!strcmp(s, "gt")) return av > bv; if (!strcmp(s, "le")) return av <= bv;
+    if (!strcmp(s, "ge")) return av >= bv; if (!strcmp(s, "eq")) return av == bv; if (!strcmp(s, "ne")) return av != bv;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
+    if (!strncmp(fn, "$is_", 4) && nargs == 3) {
+        extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_assign_var(DESCR_t, DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); extern int rt_descr_equal(DESCR_t, DESCR_t);
+        DESCR_t a = rt_deref(args[1]); DESCR_t b = rt_deref(args[2]); DESCR_t r = rt_num_arith(a, b, pl_is_op_code(fn + 4));
+        if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; }
+        DESCR_t lx = rt_deref(args[0]); int lu = (lx.v == DT_SNUL || lx.v == DT_FAIL);
+        if (lu) { rt_assign_var(args[0], r); *out = r; return 1; }
+        if (rt_descr_equal(lx, r)) { *out = r; return 1; }
+        *out = FAILDESCR; return 1;
+    }
+    if (!strncmp(fn, "$cmp_", 5) && nargs == 2) {
+        extern DESCR_t rt_deref(DESCR_t); DESCR_t a = rt_deref(args[0]); DESCR_t b = rt_deref(args[1]);
+        if (pl_num_cmp(fn + 5, a, b)) { *out = a; return 1; }
+        *out = FAILDESCR; return 1;
+    }
     if (!strcmp(fn, "$unify") && nargs == 2) {
         extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
         DESCR_t la = rt_deref(args[0]); DESCR_t ra = rt_deref(args[1]);

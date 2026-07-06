@@ -642,6 +642,7 @@ int bb_call_write_route(IR_t *nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int icn_builtin_is_known(const char *);
 extern "C" int icn_builtin_is_generator(const char *);
+extern "C" int pl_builtin_is_known(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_call_route_classify(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int64_t narg = g_emit.op_ival; IR_t * a0 = ir_call_arg(nd, 0); double dv = g_emit.op_dval;
@@ -652,6 +653,7 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN && g_emit.op_write_route == 0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (k == IR_CALL_BUILTIN_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_BUILTIN_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
+    if (k == IR_CALL_BUILTIN_PROLOG && fn[0] && pl_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
@@ -797,13 +799,14 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
         g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
-    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4:
+    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG:
     case IR_PROC_GEN:
     case IR_CALL: {
         bb_emit_x86(bb_call(nd));
         return 0;
     }
     case IR_FAIL:            bb_emit_x86(bb_fail());                            return 0;
+    case IR_CUT:             bb_emit_x86(bb_cut());                             return 0;
     case IR_UNOP:
     case IR_UNOP_TEST: case IR_NULLTEST_VAR: bb_emit_x86(bb_unop());   return 0;
     case IR_FIELD_GET: case IR_FIELD_VAR: bb_emit_x86(bb_field_get());   return 0;
@@ -956,7 +959,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN:
-    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: {
+    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
@@ -1089,6 +1092,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } }
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:
+    case IR_CUT:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUSPEND: {
         IR_t * ev = bb_child0(nd); int sa = ev ? bb_slot_get(ev) : -1;
@@ -1567,7 +1571,7 @@ static int emit_chain_arity(const IR_t *n) {
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN:
-    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4:
+    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG:
     case IR_CALL:  return n->n_operands;
     case IR_PROC_GEN: return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_POS:

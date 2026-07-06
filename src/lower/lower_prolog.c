@@ -97,7 +97,7 @@ static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t 
         if (entry_out) *entry_out = first_entry;
         return head;
     }
-    IR_t * nd = build(cx, IR_CALL_BUILTIN, γ, ω); IR_LIT(nd).sval = "$unify";
+    IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify";
     IR_t * a0 = term_lval(cx, lt); IR_t * a1 = term_lval(cx, rt);
     lc_γ_to(a0, a1); lc_ω_to(a0, ω);
     lc_γ_to(a1, nd); lc_ω_to(a1, ω);
@@ -151,12 +151,42 @@ static IR_t * thread1(lcx_t * cx, const tree_t * gt, IR_t * γ, IR_t * ω, IR_t 
     return thread_goals(cx, &w, 0, 1, γ, ω, entry_out, NULL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_arith_op_suffix(const char * s) {
+    if (!s) return NULL;
+    if (!strcmp(s, "+")) return "add"; if (!strcmp(s, "-")) return "sub"; if (!strcmp(s, "*")) return "mul";
+    if (!strcmp(s, "/")) return "div"; if (!strcmp(s, "//")) return "idiv"; if (!strcmp(s, "div")) return "idiv";
+    if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "**")) return "pow"; if (!strcmp(s, "^")) return "pow";
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_cmp_op_suffix(const char * s) {
+    if (!s) return NULL;
+    if (!strcmp(s, "<")) return "lt"; if (!strcmp(s, ">")) return "gt"; if (!strcmp(s, "=<")) return "le";
+    if (!strcmp(s, ">=")) return "ge"; if (!strcmp(s, "=:=")) return "eq"; if (!strcmp(s, "=\\=")) return "ne";
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * te = NULL; IR_t * ee = NULL; IR_t * ce = NULL;
+    IR_t * tn = thread1(cx, T, γnext, ωfail, &te);
+    IR_t * en = E ? thread1(cx, E, γnext, ωfail, &ee) : NULL;
+    IR_t * cω = E ? (ee ? ee : en) : ωfail;
+    IR_t * cn = thread1(cx, C, (te ? te : tn), cω, &ce);
+    if (entry_out) *entry_out = ce ? ce : cn;
+    cx->beta = NULL;
+    return E ? (en ? en : cn) : cn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
     switch (t->t) {
     case TT_FNC: {
         const char * nm = t->v.sval ? t->v.sval : "?";
+        if (!strcmp(nm, ";") && t->n == 2 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->") && t->c[0]->n == 2)
+            return lower_ite(cx, t->c[0]->c[0], t->c[0]->c[1], t->c[1], γnext, ωfail, entry_out);
+        if (!strcmp(nm, "->") && t->n == 2)
+            return lower_ite(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, ";") && t->n >= 2) {
             IR_t * nbf = ωfail;
             IR_t * bentry = NULL;
@@ -275,6 +305,32 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = a;
             return call;
         }
+        if (!strcmp(nm, "is") && t->n == 2) {
+            const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
+            const char * suf = (rhs && rhs->t == TT_FNC && rhs->n == 2) ? pl_arith_op_suffix(rhs->v.sval) : NULL;
+            if (suf) {
+                char nb[16]; snprintf(nb, sizeof nb, "$is_%s", suf);
+                IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
+                IR_t * xl = term_lval(cx, lhs); IR_t * a = term(cx, rhs->c[0]); IR_t * b = term(cx, rhs->c[1]);
+                lc_γ_to(xl, a); lc_ω_to(xl, ωfail); lc_γ_to(a, b); lc_ω_to(a, ωfail); lc_γ_to(b, nd); lc_ω_to(b, ωfail);
+                ir_operand_push(nd, xl); ir_operand_push(nd, a); ir_operand_push(nd, b);
+                if (entry_out) *entry_out = xl;
+                return nd;
+            }
+            IR_t * e = NULL; IR_t * nd = unify_pair(cx, lhs, rhs, γnext, ωfail, &e);
+            if (entry_out) *entry_out = e ? e : nd;
+            return nd;
+        }
+        { const char * csuf = (t->n == 2) ? pl_cmp_op_suffix(nm) : NULL;
+          if (csuf) {
+            char nb[16]; snprintf(nb, sizeof nb, "$cmp_%s", csuf);
+            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
+            IR_t * a = term(cx, t->c[0]); IR_t * b = term(cx, t->c[1]);
+            lc_γ_to(a, b); lc_ω_to(a, ωfail); lc_γ_to(b, nd); lc_ω_to(b, ωfail);
+            ir_operand_push(nd, a); ir_operand_push(nd, b);
+            if (entry_out) *entry_out = a;
+            return nd;
+          } }
         if (is_builtin_exec(nm)) {
             IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n;
             IR_t * sav = cx->tω; if (is_builtin_argw(nm)) cx->tω = ωfail;
@@ -348,28 +404,15 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         IR_LIT(nd).ival = (long long)(intptr_t) z;
         return nd;
     }
-    case TT_IF: {
-        const tree_t * cnd = (t->n > 0) ? t->c[0] : NULL; const tree_t * thn = (t->n > 1) ? t->c[1] : NULL; const tree_t * els = (t->n > 2) ? t->c[2] : NULL;
-        bb_ite_state_t * zi = (bb_ite_state_t *) calloc(1, sizeof *zi);
-        IR_t * eentry = NULL; IR_t * efirst = els ? thread1(cx, els, γnext, ωfail, &eentry) : NULL;
-        if (!els) eentry = ωfail;
-        IR_t * tentry = NULL; IR_t * tfirst = thread1(cx, thn, γnext, ωfail, &tentry);
-        IR_t * commit = build(cx, IR_OP_COUNT, tentry, ωfail); IR_LIT(commit).ival = (long long)(intptr_t) zi;
-        IR_t * gate   = build(cx, IR_OP_COUNT, eentry, ωfail);   IR_LIT(gate).ival   = (long long)(intptr_t) zi;
-        IR_t * centry = NULL; IR_t * cfirst = thread1(cx, cnd, commit, gate, &centry);
-        IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).ival = (long long)(intptr_t) zi;
-        ir_operand_push(nd, cfirst);
-        zi->cond = centry; zi->then_ = tentry; zi->else_ = eentry;
-        zi->cond_root = cfirst; zi->then_root = tfirst; zi->else_root = efirst;
-        return nd;
-    }
+    case TT_IF:
+        return lower_ite(cx, (t->n > 0) ? t->c[0] : NULL, (t->n > 1) ? t->c[1] : NULL, (t->n > 2) ? t->c[2] : NULL, γnext, ωfail, entry_out);
     case TT_UNIFY: {
         IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail);
         ir_operand_push(nd, term(cx, t->c[0]));
         ir_operand_push(nd, term(cx, t->c[1]));
         return nd;
     }
-    case TT_CUT: return build(cx, IR_OP_COUNT, γnext, ωfail);
+    case TT_CUT: return build(cx, IR_CUT, γnext, ωfail);
     case TT_PROGRAM: {
         IR_t * bg = build(cx, IR_OP_COUNT, γnext, ωfail);
         IR_t * e = NULL;

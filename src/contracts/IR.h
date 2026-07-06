@@ -28,12 +28,14 @@ typedef enum {
     IR_CALL_BUILTIN_GEN,
     IR_CALL_BUILTIN_ICON,
     IR_CALL_BUILTIN_SNOBOL4,
+    IR_CALL_BUILTIN_PROLOG,
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
     IR_COFAIL,
     IR_CONJUNCTION,
     IR_CORET,
     IR_CREATE,
+    IR_CUT,
     IR_DEREF,
     IR_DISJUNCTION,
     IR_INITIAL,
@@ -142,7 +144,7 @@ typedef enum {
 static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_call_kind(IR_e t) {
-    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_BUILTIN_ICON || t == IR_CALL_BUILTIN_SNOBOL4 || t == IR_CALL_VALUE;
+    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_BUILTIN_ICON || t == IR_CALL_BUILTIN_SNOBOL4 || t == IR_CALL_BUILTIN_PROLOG || t == IR_CALL_VALUE;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
