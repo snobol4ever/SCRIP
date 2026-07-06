@@ -106,21 +106,21 @@ xchain0_n4_α:
 bb5_α:
  lea rdi, [r12 + 96]
  mov esi, r14d
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_push@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n5_α
  xchain0_n4_β:
  lea rdi, [r12 + 96]
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_pop@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n3_β
 xchain0_n5_α:
 # IR_MATCH_LEN
@@ -136,8 +136,8 @@ bb6_α:
 xchain0_n6_α:
 # IR_MATCH_CAPTURE_COND
 bb7_α:
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  lea rdi, [r12 + 96]
  call rt_cap_top@PLT
@@ -146,8 +146,8 @@ bb7_α:
  mov edx, r14d
  mov ecx, 0
  call rt_cap_assign_cursor@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n7_α
  xchain0_n6_β:
  jmp xchain0_n4_β
@@ -156,21 +156,21 @@ xchain0_n7_α:
 bb8_α:
  lea rdi, [r12 + 80]
  mov esi, r14d
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_push@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n8_α
  xchain0_n7_β:
  lea rdi, [r12 + 80]
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_pop@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n6_β
 xchain0_n8_α:
 # IR_MATCH_LEN
@@ -186,8 +186,8 @@ bb9_α:
 xchain0_n9_α:
 # IR_MATCH_CAPTURE_COND
 bb10_α:
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  lea rdi, [r12 + 80]
  call rt_cap_top@PLT
@@ -196,8 +196,8 @@ bb10_α:
  mov edx, r14d
  mov ecx, 0
  call rt_cap_assign_cursor@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n10_α
  xchain0_n9_β:
  jmp xchain0_n7_β
@@ -206,21 +206,21 @@ xchain0_n10_α:
 bb11_α:
  lea rdi, [r12 + 64]
  mov esi, r14d
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_push@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n11_α
  xchain0_n10_β:
  lea rdi, [r12 + 64]
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_pop@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n9_β
 xchain0_n11_α:
 # IR_MATCH_LEN
@@ -236,8 +236,8 @@ bb12_α:
 xchain0_n12_α:
 # IR_MATCH_CAPTURE_COND
 bb13_α:
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  lea rdi, [r12 + 64]
  call rt_cap_top@PLT
@@ -246,8 +246,8 @@ bb13_α:
  mov edx, r14d
  mov ecx, 0
  call rt_cap_assign_cursor@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n10_β
