@@ -306,6 +306,14 @@ int rt_proc_has_native_fn(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_proc_get_fn(const char *name)
+{
+    if (!name) return (void *)0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return (void *)g_rt_gen_procs[i].fn;
+    return (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_generator(const char *name, int is_gen)
 {
     if (!name) return;

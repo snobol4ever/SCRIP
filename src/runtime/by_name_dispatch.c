@@ -108,7 +108,7 @@ int rt_builtin_is_known(const char *name)
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET",
-        "EVAL", "SNO$MKEXPR",
+        "EVAL", "SNO$MKEXPR", "SNO$MKPAT",
         "$unify",
         NULL
     };
@@ -3652,6 +3652,14 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
         DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = GC_strdup(nm);
         *out = xd; return 1;
+    }
+    if (!strcmp(fn,"SNO$MKPAT") && nargs == 1) {
+        extern void *rt_proc_get_fn(const char *name);
+        const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
+        void *pf = rt_proc_get_fn(nm);
+        if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
+        DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = pf;
+        *out = pd; return 1;
     }
     if (!strcmp(fn,"EVAL") && nargs == 1) {
         extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
