@@ -16,6 +16,9 @@ typedef struct { const char * fname; const char * entry; const char * result_nam
 static struct { const char * name; const tree_t * expr; } g_sno_exprs[SNO_EXPR_MAX];
 static int g_sno_nexpr = 0;
 static const char * sno_expr_collect(const tree_t * expr);
+#define SNO_PAT_MAX 256
+static struct { const char * name; const tree_t * pat; } g_sno_pats[SNO_PAT_MAX];
+static int g_sno_npat = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fatal(const char * what, const char * detail) {
     fprintf(stderr, "FATAL lower_snobol4 (GZ#5 subset): %s%s%s. Pattern matching, EVAL and CODE are outside the landed subset (IR_MATCH_* family pending); see GOAL-SNOBOL4-BB.md.\n",
@@ -449,6 +452,16 @@ static int sno_pat_v2_ok(const tree_t * t) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_cset_fold(const tree_t * a) {
+    if (!a) return NULL;
+    if (a->t == TT_QLIT) return a->v.sval ? a->v.sval : "";
+    if (a->t == TT_KEYWORD && a->v.sval) {
+        if (!strcmp(a->v.sval, "LCASE") || !strcmp(a->v.sval, "lcase")) return "abcdefghijklmnopqrstuvwxyz";
+        if (!strcmp(a->v.sval, "UCASE") || !strcmp(a->v.sval, "ucase")) return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -462,21 +475,24 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_ANY: case TT_NOTANY: {
         IR_t * nd = lc_build(g, (t->t == TT_ANY) ? IR_MATCH_ANY : IR_MATCH_NOTANY, succ, NULL);
         sno_ω_to(nd, fail);
-        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT) IR_LIT(nd).sval = t->c[0]->v.sval ? t->c[0]->v.sval : (char *) "";
+        const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
+        if (cs) IR_LIT(nd).sval = (char *) cs;
         else sno_fatal("ANY/NOTANY with a non-literal charset is outside the SN4-PAT subset", NULL);
         return nd;
     }
     case TT_SPAN: {
         IR_t * nd = lc_build(g, IR_MATCH_SPAN, succ, NULL);
         sno_ω_to(nd, fail);
-        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT) IR_LIT(nd).sval = t->c[0]->v.sval ? t->c[0]->v.sval : (char *) "";
+        const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
+        if (cs) IR_LIT(nd).sval = (char *) cs;
         else sno_fatal("SPAN with a non-literal charset is outside the SN4-PAT subset", NULL);
         return nd;
     }
     case TT_BREAK: case TT_BREAKX: {
         IR_t * nd = lc_build(g, (t->t == TT_BREAK) ? IR_MATCH_BREAK : IR_MATCH_BREAKX, succ, NULL);
         sno_ω_to(nd, fail);
-        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT) IR_LIT(nd).sval = t->c[0]->v.sval ? t->c[0]->v.sval : (char *) "";
+        const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
+        if (cs) IR_LIT(nd).sval = (char *) cs;
         else sno_fatal("BREAK/BREAKX with a non-literal charset is outside the SN4-PAT subset", NULL);
         return nd;
     }
@@ -700,9 +716,9 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
     if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE")) return 1;
     if (t->t == TT_QLIT) return 1;
-    if (t->t == TT_ANY || t->t == TT_NOTANY) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
-    if (t->t == TT_SPAN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
-    if (t->t == TT_BREAK || t->t == TT_BREAKX) return t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT;
+    if (t->t == TT_ANY || t->t == TT_NOTANY) return sno_cset_fold((t->n > 0) ? t->c[0] : NULL) != NULL;
+    if (t->t == TT_SPAN) return sno_cset_fold((t->n > 0) ? t->c[0] : NULL) != NULL;
+    if (t->t == TT_BREAK || t->t == TT_BREAKX) return sno_cset_fold((t->n > 0) ? t->c[0] : NULL) != NULL;
     if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_REM || t->t == TT_ARB) return 1;
@@ -714,6 +730,29 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (t->t == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_is_pattern_rhs(const tree_t * t) {
+    if (!t) return 0;
+    switch (t->t) {
+    case TT_ALT: case TT_FENCE: case TT_ARBNO:
+    case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX:
+    case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS:
+    case TT_ARB: case TT_REM: case TT_BAL:
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN:
+        return 1;
+    case TT_SEQ: case TT_CAT:
+        return sno_is_pattern_rhs((t->n > 0) ? t->c[0] : NULL) || sno_is_pattern_rhs((t->n > 1) ? t->c[1] : NULL);
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_pat_collect(const tree_t * pat) {
+    if (g_sno_npat >= SNO_PAT_MAX) sno_fatal("too many stored patterns in one program", NULL);
+    char buf[32]; snprintf(buf, sizeof buf, "PAT$%d", g_sno_npat);
+    g_sno_pats[g_sno_npat].name = lp_strdup(buf);
+    g_sno_pats[g_sno_npat].pat = pat;
+    return g_sno_pats[g_sno_npat++].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t * fJ) {
@@ -779,6 +818,17 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             continue;
         }
         tree_t * repl = sfind_expr(s, ":repl");
+        if (subj->t == TT_VAR && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) {
+            sno_reg_var(subj->v.sval);
+            const char * bn = sno_pat_collect(repl);
+            IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = subj->v.sval;
+            IR_t * mk = lc_build(g, IR_CALL, asn, fJ); IR_LIT(mk).sval = (char *) "SNO$MKPAT";
+            IR_t * nl = lc_build(g, IR_LIT_STRING, mk, fJ); IR_LIT(nl).sval = (char *) bn;
+            ir_operand_push(mk, nl);
+            ir_operand_push(asn, mk);
+            lc_γ_to(anchor[i], nl);
+            continue;
+        }
         if (subj->t == TT_VAR) {
             sno_reg_var(subj->v.sval);
             IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = subj->v.sval;
@@ -903,6 +953,7 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs) {
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_sno_nexpr = 0;
+    g_sno_npat = 0;
     sno_register_program(&g_stage2, prog);
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
@@ -1008,6 +1059,25 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[xpi].dyn_scope = 1;
         g_stage2.proc_table[xpi].result_name = g_sno_exprs[xi].name;
         g_stage2.proc_table[xpi].bb_idx = bb_program_add(&g_stage2.bbp, gx);
+    }
+    for (int pi2 = 0; pi2 < g_sno_npat; pi2++) {
+        IR_graph_t * gp = IR_alloc(512);
+        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL;
+        IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
+        IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
+        px.pat_fail = no;
+        IR_t * pe = sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no);
+        gp->entry = pe;
+        int ppi = stage2_proc_grow(&g_stage2);
+        g_stage2.proc_table[ppi].name = g_sno_pats[pi2].name;
+        g_stage2.proc_table[ppi].proc = NULL;
+        g_stage2.proc_table[ppi].entry_pc = -1;
+        g_stage2.proc_table[ppi].nparams = 0;
+        g_stage2.proc_table[ppi].lower_sc.n = 0;
+        g_stage2.proc_table[ppi].is_generator = 0;
+        g_stage2.proc_table[ppi].dyn_scope = 0;
+        g_stage2.proc_table[ppi].result_name = NULL;
+        g_stage2.proc_table[ppi].bb_idx = bb_program_add(&g_stage2.bbp, gp);
     }
     free((void *) st); free(is_def);
     return &g_stage2;
