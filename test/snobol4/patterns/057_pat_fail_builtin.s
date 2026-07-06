@@ -120,22 +120,22 @@ xchain0_n5_α:
 # IR_MATCH_DEFER
 bb6_α:
  lea rdi, [rip + .S1]
- mov esi, 0
- push rbx
- mov rbx, rsp
+ xor esi, esi
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_defer_get_pat_fn@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  test rax, rax
  jz .Lx8_0
  push rax
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_frame@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  pop rcx
  mov rdi, rax
  xor esi, esi
@@ -144,13 +144,15 @@ bb6_α:
  jne xchain0_n3_β
  jmp xchain0_n6_α
 .Lx8_0:
+ lea rdi, [rip + .S1]
+ xor esi, esi
  mov edx, r14d
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_defer_match@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  test eax, eax
  js xchain0_n3_β
  mov r14d, eax
@@ -233,5 +235,5 @@ pop r12
 ret
 .section .rodata
 .S0: .string "abc"
-.S1: .string ""
+.S1: .string "FAIL"
 .text
