@@ -440,6 +440,8 @@ xchain28_n3_α:
 bb19_α:
  mov rdi, qword ptr [rip + .Lx33_0]
  call NV_GET_fn@PLT
+ cmp eax, 99
+ je main_γ
  mov qword ptr [r12 + 96], rax
  mov qword ptr [r12 + 104], rdx
  jmp xchain28_n4_α

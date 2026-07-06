@@ -72,7 +72,7 @@ bb3_α:
  mov qword ptr [r12 + 72], rdx
  jmp xchain0_n3_α
  xchain0_n2_β:
- jmp xchain0_n7_α
+ jmp xchain0_n4_α
 xchain0_n3_α:
 # IR_MATCH_HEAD
 bb4_α:
@@ -84,20 +84,33 @@ bb4_α:
  mov dword ptr [r12 + 48], 0
 .Lx5_0:
  mov r14d, dword ptr [r12 + 48]
- jmp xchain0_n4_α
+ jmp xchain0_n5_α
  xchain0_n3_β:
  add dword ptr [r12 + 48], 1
  mov eax, dword ptr [r12 + 48]
  cmp eax, r15d
- jg xchain0_n7_α
+ jg xchain0_n4_α
  lea rcx, [rip + g_anchor]
  mov rax, qword ptr [rcx]
  cmp rax, 0
- jne xchain0_n7_α
+ jne xchain0_n4_α
  jmp .Lx5_0
 xchain0_n4_α:
-# IR_MATCH_LIT
+# IR_LIT_STRING
 bb5_α:
+ mov qword ptr [r12 + 128], 1
+ mov rax, qword ptr [rip + .Lx6_0]
+ mov qword ptr [r12 + 136], rax
+ jmp xchain0_n6_α
+ xchain0_n4_β:
+ jmp main_γ
+.Lx6_0:
+ .quad .Lx6_0_s
+.Lx6_0_s:
+ .string "no match"
+xchain0_n5_α:
+# IR_MATCH_LIT
+bb6_α:
  mov eax, r14d
  add eax, 5
  cmp eax, r15d
@@ -112,32 +125,19 @@ bb5_α:
  test eax, eax
  jne xchain0_n3_β
  add r14d, 5
- jmp xchain0_n5_α
- xchain0_n4_β:
+ jmp xchain0_n7_α
+ xchain0_n5_β:
  sub r14d, 5
  jmp xchain0_n3_β
-xchain0_n5_α:
-# IR_LIT_STRING
-bb6_α:
- mov qword ptr [r12 + 96], 1
- mov rax, qword ptr [rip + .Lx8_0]
- mov qword ptr [r12 + 104], rax
- jmp xchain0_n6_α
- xchain0_n5_β:
- jmp main_γ
-.Lx8_0:
- .quad .Lx8_0_s
-.Lx8_0_s:
- .string "matched"
 xchain0_n6_α:
 # IR_ASSIGN global
 bb7_α:
- mov rsi, qword ptr [r12 + 96]
- mov rdx, qword ptr [r12 + 104]
+ mov rsi, qword ptr [r12 + 128]
+ mov rdx, qword ptr [r12 + 136]
  mov rdi, qword ptr [rip + .Lx9_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 80], rax
- mov qword ptr [r12 + 88], rdx
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
  jmp main_γ
  xchain0_n6_β:
  jmp main_γ
@@ -148,25 +148,25 @@ bb7_α:
 xchain0_n7_α:
 # IR_LIT_STRING
 bb8_α:
- mov qword ptr [r12 + 128], 1
+ mov qword ptr [r12 + 96], 1
  mov rax, qword ptr [rip + .Lx10_0]
- mov qword ptr [r12 + 136], rax
+ mov qword ptr [r12 + 104], rax
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp main_γ
 .Lx10_0:
  .quad .Lx10_0_s
 .Lx10_0_s:
- .string "no match"
+ .string "matched"
 xchain0_n8_α:
 # IR_ASSIGN global
 bb9_α:
- mov rsi, qword ptr [r12 + 128]
- mov rdx, qword ptr [r12 + 136]
+ mov rsi, qword ptr [r12 + 96]
+ mov rdx, qword ptr [r12 + 104]
  mov rdi, qword ptr [rip + .Lx11_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 112], rax
- mov qword ptr [r12 + 120], rdx
+ mov qword ptr [r12 + 80], rax
+ mov qword ptr [r12 + 88], rdx
  jmp main_γ
  xchain0_n8_β:
  jmp main_γ

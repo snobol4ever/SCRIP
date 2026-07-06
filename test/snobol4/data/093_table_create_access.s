@@ -77,86 +77,81 @@ bb3_α:
  mov qword ptr [r12 + 56], rdx
  jmp xchain0_n3_α
  xchain0_n2_β:
- jmp xchain0_n6_α
+ jmp xchain0_n4_α
 xchain0_n3_α:
 # IR_LIT_STRING
 bb4_α:
  mov qword ptr [r12 + 64], 1
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 72], rax
- jmp xchain0_n4_α
+ jmp xchain0_n5_α
  xchain0_n3_β:
- jmp xchain0_n6_α
+ jmp xchain0_n4_α
 .Lx5_0:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "name"
 xchain0_n4_α:
-# IR_SUBSCRIPT x[i] variable
+# IR_VAR gva
 bb5_α:
+ mov rax, qword ptr [rbx + 0]
+ mov rdx, qword ptr [rbx + 8]
+ mov qword ptr [r12 + 128], rax
+ mov qword ptr [r12 + 136], rdx
+ jmp xchain0_n6_α
+ xchain0_n4_β:
+ jmp xchain0_n7_α
+xchain0_n5_α:
+# IR_SUBSCRIPT x[i] variable
+bb6_α:
  mov rdi, qword ptr [r12 + 48]
  mov rsi, qword ptr [r12 + 56]
  mov rdx, qword ptr [r12 + 64]
  mov rcx, qword ptr [r12 + 72]
  call rt_subscript_var@PLT
  cmp eax, 99
- je xchain0_n6_α
+ je xchain0_n4_α
  mov qword ptr [r12 + 80], rax
  mov qword ptr [r12 + 88], rdx
- jmp xchain0_n5_α
- xchain0_n4_β:
- jmp xchain0_n6_α
-xchain0_n5_α:
-# IR_LIT_STRING
-bb6_α:
- mov qword ptr [r12 + 96], 1
- mov rax, qword ptr [rip + .Lx7_0]
- mov qword ptr [r12 + 104], rax
- jmp xchain0_n7_α
+ jmp xchain0_n8_α
  xchain0_n5_β:
- jmp xchain0_n6_α
-.Lx7_0:
- .quad .Lx7_0_s
-.Lx7_0_s:
- .string "Alice"
+ jmp xchain0_n4_α
 xchain0_n6_α:
-# IR_VAR gva
+# IR_LIT_STRING
 bb7_α:
+ mov qword ptr [r12 + 144], 1
+ mov rax, qword ptr [rip + .Lx8_0]
+ mov qword ptr [r12 + 152], rax
+ jmp xchain0_n9_α
+ xchain0_n6_β:
+ jmp xchain0_n7_α
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
+ .string "age"
+xchain0_n7_α:
+# IR_VAR gva
+bb8_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
- jmp xchain0_n8_α
- xchain0_n6_β:
- jmp xchain0_n11_α
-xchain0_n7_α:
-# IR_ASSIGN_VAR write through variable
-bb8_α:
- mov rdi, qword ptr [r12 + 80]
- mov rsi, qword ptr [r12 + 88]
- mov rdx, qword ptr [r12 + 96]
- mov rcx, qword ptr [r12 + 104]
- call rt_assign_var@PLT
- cmp eax, 99
- je xchain0_n6_α
- mov qword ptr [r12 + 112], rax
- mov qword ptr [r12 + 120], rdx
- jmp xchain0_n6_α
+ mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 216], rdx
+ jmp xchain0_n10_α
  xchain0_n7_β:
- jmp xchain0_n6_α
+ jmp xchain0_n11_α
 xchain0_n8_α:
 # IR_LIT_STRING
 bb9_α:
- mov qword ptr [r12 + 144], 1
+ mov qword ptr [r12 + 96], 1
  mov rax, qword ptr [rip + .Lx10_0]
- mov qword ptr [r12 + 152], rax
- jmp xchain0_n9_α
+ mov qword ptr [r12 + 104], rax
+ jmp xchain0_n12_α
  xchain0_n8_β:
- jmp xchain0_n11_α
+ jmp xchain0_n4_α
 .Lx10_0:
  .quad .Lx10_0_s
 .Lx10_0_s:
- .string "age"
+ .string "Alice"
 xchain0_n9_α:
 # IR_SUBSCRIPT x[i] variable
 bb10_α:
@@ -166,61 +161,61 @@ bb10_α:
  mov rcx, qword ptr [r12 + 152]
  call rt_subscript_var@PLT
  cmp eax, 99
- je xchain0_n11_α
+ je xchain0_n7_α
  mov qword ptr [r12 + 160], rax
  mov qword ptr [r12 + 168], rdx
- jmp xchain0_n10_α
+ jmp xchain0_n13_α
  xchain0_n9_β:
- jmp xchain0_n11_α
+ jmp xchain0_n7_α
 xchain0_n10_α:
-# IR_LIT_INTEGER
+# IR_LIT_STRING
 bb11_α:
- mov qword ptr [r12 + 176], 6
+ mov qword ptr [r12 + 224], 1
  mov rax, qword ptr [rip + .Lx12_0]
- mov qword ptr [r12 + 184], rax
- jmp xchain0_n12_α
+ mov qword ptr [r12 + 232], rax
+ jmp xchain0_n14_α
  xchain0_n10_β:
  jmp xchain0_n11_α
 .Lx12_0:
- .quad 30
+ .quad .Lx12_0_s
+.Lx12_0_s:
+ .string "lang"
 xchain0_n11_α:
 # IR_VAR gva
 bb12_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
- mov qword ptr [r12 + 208], rax
- mov qword ptr [r12 + 216], rdx
- jmp xchain0_n13_α
+ mov qword ptr [r12 + 304], rax
+ mov qword ptr [r12 + 312], rdx
+ jmp xchain0_n15_α
  xchain0_n11_β:
  jmp xchain0_n16_α
 xchain0_n12_α:
 # IR_ASSIGN_VAR write through variable
 bb13_α:
- mov rdi, qword ptr [r12 + 160]
- mov rsi, qword ptr [r12 + 168]
- mov rdx, qword ptr [r12 + 176]
- mov rcx, qword ptr [r12 + 184]
+ mov rdi, qword ptr [r12 + 80]
+ mov rsi, qword ptr [r12 + 88]
+ mov rdx, qword ptr [r12 + 96]
+ mov rcx, qword ptr [r12 + 104]
  call rt_assign_var@PLT
  cmp eax, 99
- je xchain0_n11_α
- mov qword ptr [r12 + 192], rax
- mov qword ptr [r12 + 200], rdx
- jmp xchain0_n11_α
+ je xchain0_n4_α
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
+ jmp xchain0_n4_α
  xchain0_n12_β:
- jmp xchain0_n11_α
+ jmp xchain0_n4_α
 xchain0_n13_α:
-# IR_LIT_STRING
+# IR_LIT_INTEGER
 bb14_α:
- mov qword ptr [r12 + 224], 1
+ mov qword ptr [r12 + 176], 6
  mov rax, qword ptr [rip + .Lx15_0]
- mov qword ptr [r12 + 232], rax
- jmp xchain0_n14_α
+ mov qword ptr [r12 + 184], rax
+ jmp xchain0_n17_α
  xchain0_n13_β:
- jmp xchain0_n16_α
+ jmp xchain0_n7_α
 .Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
- .string "lang"
+ .quad 30
 xchain0_n14_α:
 # IR_SUBSCRIPT x[i] variable
 bb15_α:
@@ -230,63 +225,63 @@ bb15_α:
  mov rcx, qword ptr [r12 + 232]
  call rt_subscript_var@PLT
  cmp eax, 99
- je xchain0_n16_α
+ je xchain0_n11_α
  mov qword ptr [r12 + 240], rax
  mov qword ptr [r12 + 248], rdx
- jmp xchain0_n15_α
+ jmp xchain0_n18_α
  xchain0_n14_β:
- jmp xchain0_n16_α
+ jmp xchain0_n11_α
 xchain0_n15_α:
 # IR_LIT_STRING
 bb16_α:
- mov qword ptr [r12 + 256], 1
+ mov qword ptr [r12 + 320], 1
  mov rax, qword ptr [rip + .Lx17_0]
- mov qword ptr [r12 + 264], rax
- jmp xchain0_n17_α
+ mov qword ptr [r12 + 328], rax
+ jmp xchain0_n19_α
  xchain0_n15_β:
  jmp xchain0_n16_α
 .Lx17_0:
  .quad .Lx17_0_s
 .Lx17_0_s:
- .string "SNOBOL4"
+ .string "name"
 xchain0_n16_α:
 # IR_VAR gva
 bb17_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
- mov qword ptr [r12 + 304], rax
- mov qword ptr [r12 + 312], rdx
- jmp xchain0_n18_α
+ mov qword ptr [r12 + 384], rax
+ mov qword ptr [r12 + 392], rdx
+ jmp xchain0_n20_α
  xchain0_n16_β:
  jmp xchain0_n21_α
 xchain0_n17_α:
 # IR_ASSIGN_VAR write through variable
 bb18_α:
- mov rdi, qword ptr [r12 + 240]
- mov rsi, qword ptr [r12 + 248]
- mov rdx, qword ptr [r12 + 256]
- mov rcx, qword ptr [r12 + 264]
+ mov rdi, qword ptr [r12 + 160]
+ mov rsi, qword ptr [r12 + 168]
+ mov rdx, qword ptr [r12 + 176]
+ mov rcx, qword ptr [r12 + 184]
  call rt_assign_var@PLT
  cmp eax, 99
- je xchain0_n16_α
- mov qword ptr [r12 + 272], rax
- mov qword ptr [r12 + 280], rdx
- jmp xchain0_n16_α
+ je xchain0_n7_α
+ mov qword ptr [r12 + 192], rax
+ mov qword ptr [r12 + 200], rdx
+ jmp xchain0_n7_α
  xchain0_n17_β:
- jmp xchain0_n16_α
+ jmp xchain0_n7_α
 xchain0_n18_α:
 # IR_LIT_STRING
 bb19_α:
- mov qword ptr [r12 + 320], 1
+ mov qword ptr [r12 + 256], 1
  mov rax, qword ptr [rip + .Lx20_0]
- mov qword ptr [r12 + 328], rax
- jmp xchain0_n19_α
+ mov qword ptr [r12 + 264], rax
+ jmp xchain0_n22_α
  xchain0_n18_β:
- jmp xchain0_n21_α
+ jmp xchain0_n11_α
 .Lx20_0:
  .quad .Lx20_0_s
 .Lx20_0_s:
- .string "name"
+ .string "SNOBOL4"
 xchain0_n19_α:
 # IR_SUBSCRIPT x[i] variable
 bb20_α:
@@ -296,64 +291,63 @@ bb20_α:
  mov rcx, qword ptr [r12 + 328]
  call rt_subscript_var@PLT
  cmp eax, 99
- je xchain0_n21_α
+ je xchain0_n16_α
  mov qword ptr [r12 + 336], rax
  mov qword ptr [r12 + 344], rdx
- jmp xchain0_n20_α
+ jmp xchain0_n23_α
  xchain0_n19_β:
- jmp xchain0_n21_α
+ jmp xchain0_n16_α
 xchain0_n20_α:
-# IR_DEREF variable -> value
+# IR_LIT_STRING
 bb21_α:
- mov rdi, qword ptr [r12 + 336]
- mov rsi, qword ptr [r12 + 344]
- call rt_deref@PLT
- cmp eax, 99
- je xchain0_n21_α
- mov qword ptr [r12 + 352], rax
- mov qword ptr [r12 + 360], rdx
- jmp xchain0_n22_α
+ mov qword ptr [r12 + 400], 1
+ mov rax, qword ptr [rip + .Lx22_0]
+ mov qword ptr [r12 + 408], rax
+ jmp xchain0_n24_α
  xchain0_n20_β:
  jmp xchain0_n21_α
+.Lx22_0:
+ .quad .Lx22_0_s
+.Lx22_0_s:
+ .string "age"
 xchain0_n21_α:
 # IR_VAR gva
 bb22_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
- mov qword ptr [r12 + 384], rax
- mov qword ptr [r12 + 392], rdx
- jmp xchain0_n23_α
+ mov qword ptr [r12 + 464], rax
+ mov qword ptr [r12 + 472], rdx
+ jmp xchain0_n25_α
  xchain0_n21_β:
- jmp xchain0_n26_α
+ jmp main_γ
 xchain0_n22_α:
-# IR_ASSIGN global
+# IR_ASSIGN_VAR write through variable
 bb23_α:
- mov rsi, qword ptr [r12 + 352]
- mov rdx, qword ptr [r12 + 360]
- mov rdi, qword ptr [rip + .Lx24_0]
- call NV_SET_fn@PLT
- mov qword ptr [r12 + 288], rax
- mov qword ptr [r12 + 296], rdx
- jmp xchain0_n21_α
+ mov rdi, qword ptr [r12 + 240]
+ mov rsi, qword ptr [r12 + 248]
+ mov rdx, qword ptr [r12 + 256]
+ mov rcx, qword ptr [r12 + 264]
+ call rt_assign_var@PLT
+ cmp eax, 99
+ je xchain0_n11_α
+ mov qword ptr [r12 + 272], rax
+ mov qword ptr [r12 + 280], rdx
+ jmp xchain0_n11_α
  xchain0_n22_β:
- jmp xchain0_n21_α
-.Lx24_0:
- .quad .Lx24_0_s
-.Lx24_0_s:
- .string "OUTPUT"
+ jmp xchain0_n11_α
 xchain0_n23_α:
-# IR_LIT_STRING
+# IR_DEREF variable -> value
 bb24_α:
- mov qword ptr [r12 + 400], 1
- mov rax, qword ptr [rip + .Lx25_0]
- mov qword ptr [r12 + 408], rax
- jmp xchain0_n24_α
- xchain0_n23_β:
+ mov rdi, qword ptr [r12 + 336]
+ mov rsi, qword ptr [r12 + 344]
+ call rt_deref@PLT
+ cmp eax, 99
+ je xchain0_n16_α
+ mov qword ptr [r12 + 352], rax
+ mov qword ptr [r12 + 360], rdx
  jmp xchain0_n26_α
-.Lx25_0:
- .quad .Lx25_0_s
-.Lx25_0_s:
- .string "age"
+ xchain0_n23_β:
+ jmp xchain0_n16_α
 xchain0_n24_α:
 # IR_SUBSCRIPT x[i] variable
 bb25_α:
@@ -363,67 +357,57 @@ bb25_α:
  mov rcx, qword ptr [r12 + 408]
  call rt_subscript_var@PLT
  cmp eax, 99
- je xchain0_n26_α
+ je xchain0_n21_α
  mov qword ptr [r12 + 416], rax
  mov qword ptr [r12 + 424], rdx
- jmp xchain0_n25_α
+ jmp xchain0_n27_α
  xchain0_n24_β:
- jmp xchain0_n26_α
+ jmp xchain0_n21_α
 xchain0_n25_α:
-# IR_DEREF variable -> value
+# IR_LIT_STRING
 bb26_α:
+ mov qword ptr [r12 + 480], 1
+ mov rax, qword ptr [rip + .Lx27_0]
+ mov qword ptr [r12 + 488], rax
+ jmp xchain0_n28_α
+ xchain0_n25_β:
+ jmp main_γ
+.Lx27_0:
+ .quad .Lx27_0_s
+.Lx27_0_s:
+ .string "lang"
+xchain0_n26_α:
+# IR_ASSIGN global
+bb27_α:
+ mov rsi, qword ptr [r12 + 352]
+ mov rdx, qword ptr [r12 + 360]
+ mov rdi, qword ptr [rip + .Lx28_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 288], rax
+ mov qword ptr [r12 + 296], rdx
+ jmp xchain0_n16_α
+ xchain0_n26_β:
+ jmp xchain0_n16_α
+.Lx28_0:
+ .quad .Lx28_0_s
+.Lx28_0_s:
+ .string "OUTPUT"
+xchain0_n27_α:
+# IR_DEREF variable -> value
+bb28_α:
  mov rdi, qword ptr [r12 + 416]
  mov rsi, qword ptr [r12 + 424]
  call rt_deref@PLT
  cmp eax, 99
- je xchain0_n26_α
+ je xchain0_n21_α
  mov qword ptr [r12 + 432], rax
  mov qword ptr [r12 + 440], rdx
- jmp xchain0_n27_α
- xchain0_n25_β:
- jmp xchain0_n26_α
-xchain0_n26_α:
-# IR_VAR gva
-bb27_α:
- mov rax, qword ptr [rbx + 0]
- mov rdx, qword ptr [rbx + 8]
- mov qword ptr [r12 + 464], rax
- mov qword ptr [r12 + 472], rdx
- jmp xchain0_n28_α
- xchain0_n26_β:
- jmp main_γ
-xchain0_n27_α:
-# IR_ASSIGN global
-bb28_α:
- mov rsi, qword ptr [r12 + 432]
- mov rdx, qword ptr [r12 + 440]
- mov rdi, qword ptr [rip + .Lx29_0]
- call NV_SET_fn@PLT
- mov qword ptr [r12 + 368], rax
- mov qword ptr [r12 + 376], rdx
- jmp xchain0_n26_α
- xchain0_n27_β:
- jmp xchain0_n26_α
-.Lx29_0:
- .quad .Lx29_0_s
-.Lx29_0_s:
- .string "OUTPUT"
-xchain0_n28_α:
-# IR_LIT_STRING
-bb29_α:
- mov qword ptr [r12 + 480], 1
- mov rax, qword ptr [rip + .Lx30_0]
- mov qword ptr [r12 + 488], rax
  jmp xchain0_n29_α
- xchain0_n28_β:
- jmp main_γ
-.Lx30_0:
- .quad .Lx30_0_s
-.Lx30_0_s:
- .string "lang"
-xchain0_n29_α:
+ xchain0_n27_β:
+ jmp xchain0_n21_α
+xchain0_n28_α:
 # IR_SUBSCRIPT x[i] variable
-bb30_α:
+bb29_α:
  mov rdi, qword ptr [r12 + 464]
  mov rsi, qword ptr [r12 + 472]
  mov rdx, qword ptr [r12 + 480]
@@ -434,8 +418,24 @@ bb30_α:
  mov qword ptr [r12 + 496], rax
  mov qword ptr [r12 + 504], rdx
  jmp xchain0_n30_α
- xchain0_n29_β:
+ xchain0_n28_β:
  jmp main_γ
+xchain0_n29_α:
+# IR_ASSIGN global
+bb30_α:
+ mov rsi, qword ptr [r12 + 432]
+ mov rdx, qword ptr [r12 + 440]
+ mov rdi, qword ptr [rip + .Lx31_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 368], rax
+ mov qword ptr [r12 + 376], rdx
+ jmp xchain0_n21_α
+ xchain0_n29_β:
+ jmp xchain0_n21_α
+.Lx31_0:
+ .quad .Lx31_0_s
+.Lx31_0_s:
+ .string "OUTPUT"
 xchain0_n30_α:
 # IR_DEREF variable -> value
 bb31_α:

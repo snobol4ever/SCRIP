@@ -74,7 +74,7 @@ bb3_α:
  mov qword ptr [r12 + 120], rdx
  jmp xchain0_n3_α
  xchain0_n2_β:
- jmp xchain0_n11_α
+ jmp xchain0_n4_α
 xchain0_n3_α:
 # IR_MATCH_HEAD
 bb4_α:
@@ -86,22 +86,35 @@ bb4_α:
  mov dword ptr [r12 + 48], 0
 .Lx5_0:
  mov r14d, dword ptr [r12 + 48]
- jmp xchain0_n4_α
+ jmp xchain0_n5_α
  xchain0_n3_β:
  add dword ptr [r12 + 48], 1
  mov eax, dword ptr [r12 + 48]
  cmp eax, r15d
- jg xchain0_n11_α
+ jg xchain0_n4_α
  lea rcx, [rip + g_anchor]
  mov rax, qword ptr [rcx]
  cmp rax, 0
- jne xchain0_n11_α
+ jne xchain0_n4_α
  jmp .Lx5_0
 xchain0_n4_α:
-# IR_MATCH_BREAK
+# IR_LIT_STRING
 bb5_α:
+ mov qword ptr [r12 + 144], 1
+ mov rax, qword ptr [rip + .Lx6_0]
+ mov qword ptr [r12 + 152], rax
+ jmp xchain0_n6_α
+ xchain0_n4_β:
+ jmp main_γ
+.Lx6_0:
+ .quad .Lx6_0_s
+.Lx6_0_s:
+ .string "fail"
+xchain0_n5_α:
+# IR_MATCH_BREAK
+bb6_α:
  mov dword ptr [r12 + 96], 0
-.Lx7_0:
+.Lx8_0:
  mov eax, r14d
  add eax, dword ptr [r12 + 96]
  cmp eax, r15d
@@ -113,33 +126,49 @@ bb5_α:
  call strchr@PLT
  add rsp, 8
  test rax, rax
- jnz .Lx7_1
+ jnz .Lx8_1
  add dword ptr [r12 + 96], 1
- jmp .Lx7_0
-.Lx7_1:
+ jmp .Lx8_0
+.Lx8_1:
  mov eax, r14d
  add eax, dword ptr [r12 + 96]
  mov r14d, eax
- jmp xchain0_n5_α
- xchain0_n4_β:
+ jmp xchain0_n7_α
+ xchain0_n5_β:
  mov eax, r14d
  sub eax, dword ptr [r12 + 96]
  mov r14d, eax
  jmp xchain0_n3_β
-xchain0_n5_α:
+xchain0_n6_α:
+# IR_ASSIGN global
+bb7_α:
+ mov rsi, qword ptr [r12 + 144]
+ mov rdx, qword ptr [r12 + 152]
+ mov rdi, qword ptr [rip + .Lx9_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 128], rax
+ mov qword ptr [r12 + 136], rdx
+ jmp main_γ
+ xchain0_n6_β:
+ jmp main_γ
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
+ .string "OUTPUT"
+xchain0_n7_α:
 # IR_MATCH_LEN
-bb6_α:
+bb8_α:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
  jg xchain0_n3_β
  add r14d, 1
- jmp xchain0_n6_α
- xchain0_n5_β:
+ jmp xchain0_n8_α
+ xchain0_n7_β:
  jmp xchain0_n3_β
-xchain0_n6_α:
+xchain0_n8_α:
 # IR_MATCH_CAPTURE_SAVE push
-bb7_α:
+bb9_α:
  lea rdi, [r12 + 64]
  mov esi, r14d
  push rbp
@@ -148,8 +177,8 @@ bb7_α:
  call rt_cap_push@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n7_α
- xchain0_n6_β:
+ jmp xchain0_n9_α
+ xchain0_n8_β:
  lea rdi, [r12 + 64]
  push rbp
  mov rbp, rsp
@@ -158,18 +187,18 @@ bb7_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n3_β
-xchain0_n7_α:
+xchain0_n9_α:
 # IR_MATCH_REM
-bb8_α:
+bb10_α:
  mov dword ptr [r12 + 80], r14d
  mov r14d, r15d
- jmp xchain0_n8_α
- xchain0_n7_β:
+ jmp xchain0_n10_α
+ xchain0_n9_β:
  mov r14d, dword ptr [r12 + 80]
- jmp xchain0_n6_β
-xchain0_n8_α:
+ jmp xchain0_n8_β
+xchain0_n10_α:
 # IR_MATCH_CAPTURE_COND
-bb9_α:
+bb11_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -182,57 +211,28 @@ bb9_α:
  call rt_cap_assign_cursor@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n9_α
- xchain0_n8_β:
- jmp xchain0_n6_β
-xchain0_n9_α:
+ jmp xchain0_n11_α
+ xchain0_n10_β:
+ jmp xchain0_n8_β
+xchain0_n11_α:
 # IR_VAR gva
-bb10_α:
+bb12_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 176], rax
  mov qword ptr [r12 + 184], rdx
- jmp xchain0_n10_α
- xchain0_n9_β:
- jmp main_γ
-xchain0_n10_α:
-# IR_ASSIGN global
-bb11_α:
- mov rsi, qword ptr [r12 + 176]
- mov rdx, qword ptr [r12 + 184]
- mov rdi, qword ptr [rip + .Lx15_0]
- call NV_SET_fn@PLT
- mov qword ptr [r12 + 160], rax
- mov qword ptr [r12 + 168], rdx
- jmp main_γ
- xchain0_n10_β:
- jmp main_γ
-.Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
- .string "OUTPUT"
-xchain0_n11_α:
-# IR_LIT_STRING
-bb12_α:
- mov qword ptr [r12 + 144], 1
- mov rax, qword ptr [rip + .Lx16_0]
- mov qword ptr [r12 + 152], rax
  jmp xchain0_n12_α
  xchain0_n11_β:
  jmp main_γ
-.Lx16_0:
- .quad .Lx16_0_s
-.Lx16_0_s:
- .string "fail"
 xchain0_n12_α:
 # IR_ASSIGN global
 bb13_α:
- mov rsi, qword ptr [r12 + 144]
- mov rdx, qword ptr [r12 + 152]
+ mov rsi, qword ptr [r12 + 176]
+ mov rdx, qword ptr [r12 + 184]
  mov rdi, qword ptr [rip + .Lx17_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
+ mov qword ptr [r12 + 160], rax
+ mov qword ptr [r12 + 168], rdx
  jmp main_γ
  xchain0_n12_β:
  jmp main_γ
