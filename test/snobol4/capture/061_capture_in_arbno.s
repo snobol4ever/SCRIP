@@ -146,21 +146,21 @@ xchain0_n8_α:
 bb9_α:
  lea rdi, [r12 + 96]
  mov esi, r14d
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_push@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n9_α
  xchain0_n8_β:
  lea rdi, [r12 + 96]
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  call rt_cap_pop@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n5_β
 xchain0_n9_α:
 # IR_MATCH_LIT
@@ -186,8 +186,8 @@ bb10_α:
 xchain0_n10_α:
 # IR_MATCH_CAPTURE_COND
 bb11_α:
- push rbx
- mov rbx, rsp
+ push rbp
+ mov rbp, rsp
  and rsp, -16
  lea rdi, [r12 + 96]
  call rt_cap_top@PLT
@@ -196,8 +196,8 @@ bb11_α:
  mov edx, r14d
  mov ecx, 0
  call rt_cap_assign_cursor@PLT
- mov rsp, rbx
- pop rbx
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n11_α
  xchain0_n10_β:
  jmp xchain0_n8_β
