@@ -484,7 +484,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
         int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
         IR_t * sec = build(cx, IR_SUBSCRIPT, γ, ω);
-        IR_LIT(sec).ival = 0;
+        if (sec_variant == 1) IR_LIT(sec).sval = "+";
+        else if (sec_variant == 2) IR_LIT(sec).sval = "-";
         IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar); IR_t * aβ = cx->beta;
         IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
         IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ωa, &br); γ_to(ar, be); IR_t * bβ = cx->beta;

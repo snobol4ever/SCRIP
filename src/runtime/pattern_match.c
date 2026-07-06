@@ -265,6 +265,11 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
+    long ii = (long)to_int(i), ee = (long)to_int(end);
+    if (((-ii) ^ (-ee)) < 0) return FAILDESCR;
+    return subscript_get2(arr, i, end);
+}
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     if (arr.v == DT_A)
         return array_get2(arr.arr, (int)to_int(i), (int)to_int(j));

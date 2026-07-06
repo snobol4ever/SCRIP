@@ -1384,7 +1384,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     xa_dispatch(XA_FLAT_PROLOGUE);
     if (g_is_text) g_emit_pos += 7;
     emit_label_define_bb(&lbl_α_body);
-    enum { CH_MAX = 512 };
+    enum { CH_MAX = 8192 };
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
@@ -1436,6 +1436,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
     }
+    if (qt >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= CH_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)CH_MAX, prefix); abort(); }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_y  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -1585,41 +1586,41 @@ static int emit_chain_arity(const IR_t *n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_chain_operand_refs(IR_t *entry) {
-    IR_t *chain[512]; int nc = 0;
-    IR_t *seen[512]; int ns = 0;
-    IR_t *stkv[512]; int sv = 0;
-    { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 512) entry = entry->γ.node; }
+    IR_t *chain[8192]; int nc = 0;
+    IR_t *seen[8192]; int ns = 0;
+    IR_t *stkv[8192]; int sv = 0;
+    { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 8192) entry = entry->γ.node; }
     entry = entry;
     stkv[sv++] = entry;
-    while (sv > 0 && nc < 512) {
+    while (sv > 0 && nc < 8192) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
-             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 512)
+             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 8192)
             stkv[sv++] = c->ω.node;
-        if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
+        if (c->γ.node && sv < 8192) stkv[sv++] = c->γ.node;
     }
     for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) {
         int present = 0; for (int j = 0; j < ns; j++) if (seen[j] == chain[i]->ω.node) { present = 1; break; }
-        if (!present && sv < 512) stkv[sv++] = chain[i]->ω.node; }
-    while (sv > 0 && nc < 512) {
+        if (!present && sv < 8192) stkv[sv++] = chain[i]->ω.node; }
+    while (sv > 0 && nc < 8192) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
         if (dup) continue;
         seen[ns++] = c; chain[nc++] = c;
-        if ((c->op == IR_BINOP) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
-             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 512)
+             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 8192)
             stkv[sv++] = c->ω.node;
-        if (ir_is_generator_kind(c->op) && c->ω.node && sv < 512) stkv[sv++] = c->ω.node;
-        if (c->γ.node && sv < 512) stkv[sv++] = c->γ.node;
+        if (ir_is_generator_kind(c->op) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
+        if (c->γ.node && sv < 8192) stkv[sv++] = c->γ.node;
     }
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {

@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
+extern DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);
 extern DESCR_t rt_section_var(DESCR_t base, DESCR_t i1, DESCR_t i2);
 }
 #include "x86_asm.h"
@@ -29,7 +30,23 @@ std::string bb_section() {
              + x86("jmp", "γ")
              + x86("def", "β")
              + x86("jmp", "ω");
-    if (_.op_ival != 0) return x86_bomb("bb_section: only plain s[i:j] has a native arm (s[i+:n]/s[i-:n] pending)");
+    if (_.op_sval && (_.op_sval[0] == '+' || _.op_sval[0] == '-'))
+        return x86("comment", "IR_SUBSCRIPT section extended (x[i+:n]/x[i-:n]; end pre-computed by IR_BINOP; wraparound→ω)")
+             + x86("label",   _.lbl_α)
+             + x86("mov",     "rdi", FRQ(_.op_a_slot))
+             + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
+             + x86("mov",     "rdx", FRQ(_.op_sa))
+             + x86("mov",     "rcx", FRQ(_.op_sa + 8))
+             + x86("mov",     "r8",  FRQ(_.op_sb))
+             + x86("mov",     "r9",  FRQ(_.op_sb + 8))
+             + x86("call",    "subscript_get2_ext", (uint64_t)(uintptr_t)(void *)subscript_get2_ext)
+             + x86("cmp",     "eax", (long)DT_FAIL)
+             + x86("je",  "ω")
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86("jmp", "γ")
+             + x86("def", "β")
+             + x86("jmp", "ω");
     return x86("comment", "IR_SUBSCRIPT section")
          + x86("label",   _.lbl_α)
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
