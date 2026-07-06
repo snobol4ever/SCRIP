@@ -2336,7 +2336,13 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             else { DATINST_t *di = (DATINST_t *)av.u; t = (di && di->type && di->type->name) ? di->type->name : "record"; }
         }
         else if (IS_CSET_fn(av)) t="cset";
-        else if (av.v==DT_E)     t="procedure";
+        else if (av.v==DT_E) {
+            t = "function";
+            if (av.slen == 0xFFFFFFFEu && av.s) {
+                for (int _ti=0;_ti<g_stage2.proc_count;_ti++) if (g_stage2.proc_table[_ti].name && !strcmp(g_stage2.proc_table[_ti].name,av.s)){t="procedure";break;}
+                if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
+            } else t="procedure";
+        }
         else if (av.v==DT_SNUL)  t="null";
         else t="string";
         *out = STRVAL(t); return 1;
@@ -2347,14 +2353,34 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (!strcmp(fn,"args") && nargs == 1) {
         DESCR_t a = args[0];
         if (a.v == DT_E && a.slen == 0xFFFFFFFEu) {
+            static const struct { const char *nm; int np; } _bt[] = {
+                {"push",-2},{"put",-2},{"insert",-2},{"delete",-2},
+                {"pop",1},{"get",1},{"pull",1},{"bal",3},{"find",3},{"upto",3},
+                {"any",3},{"many",3},{"match",3},{"tab",1},{"move",1},{"pos",1},
+                {"write",-1},{"writes",-1},{"writef",-1},
+                {"read",0},{"reads",1},{"close",1},{"open",2},{"flush",1},
+                {"image",1},{"type",1},{"copy",1},{"sort",2},{"sortf",2},
+                {"reverse",1},{"size",1},{"left",3},{"right",3},{"center",3},
+                {"string",1},{"integer",1},{"real",1},{"char",1},{"ord",1},
+                {"trim",2},{"map",3},{"repl",2},{"cset",1},{"list",2},
+                {"table",1},{"set",1},{"key",1},{"member",2},
+                {"proc",2},{"args",1},{"name",1},{"variable",1},
+                {"abs",1},{"sqrt",1},{"sin",1},{"cos",1},{"atan",2},
+                {"exp",1},{"log",2},{"max",-1},{"min",-1},
+                {"iand",2},{"ior",2},{"ixor",2},{"icom",1},{"ishift",2},
+                {"numeric",1},{"entab",-1},{"detab",-1},{"seq",2},
+                {"collect",2},{"display",2},{"runerr",2},{"errorclear",0},
+                {"function",0},{"serial",1},{"system",1},{"exit",1},
+                {NULL,0}};
             int np = rt_proc_nparams(a.s);
+            if (np < 0 && a.s) for (int _bi=0;_bt[_bi].nm;_bi++) if (!strcmp(_bt[_bi].nm,a.s)){np=_bt[_bi].np;break;}
             if (np < 0 && a.s && !strcmp(a.s, "main")) {
                 np = 0;
                 for (int i = 0; i < g_stage2.proc_count; i++)
                     if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, "main")) { np = g_stage2.proc_table[i].nparams; break; }
             }
             if (np >= 0) { *out = INTVAL(np); return 1; }
-            *out = INTVAL(-1); return 1;
+            *out = INTVAL(np < -1 ? np : -1); return 1;
         }
         if (a.v == DT_E) {
             for (int i=0;i<g_stage2.proc_count;i++) {
