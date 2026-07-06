@@ -57,10 +57,60 @@ int icn_builtin_is_known(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include "../parser/prolog/pl_cell.h"
+extern pl_trail_t g_pl_trail;
+typedef struct { const char *key; void *alpha; void *beta; int nslots; } plw_pred_t;
+static plw_pred_t g_plw_preds[512]; static int g_plw_pred_n = 0;
+void rt_pl_pred_bind(const char *key, void *alpha, void *beta, int nslots) {
+    for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) { g_plw_preds[i].alpha = alpha; g_plw_preds[i].beta = beta; g_plw_preds[i].nslots = nslots; return; }
+    if (g_plw_pred_n < 512) { g_plw_preds[g_plw_pred_n].key = strdup(key); g_plw_preds[g_plw_pred_n].alpha = alpha; g_plw_preds[g_plw_pred_n].beta = beta; g_plw_preds[g_plw_pred_n].nslots = nslots; g_plw_pred_n++; }
+}
+void *rt_pl_pred_alpha(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].alpha; fprintf(stderr, "rt_pl_pred_alpha: unknown predicate %s\n", key); abort(); }
+void *rt_pl_pred_beta(const char *key)  { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].beta;  fprintf(stderr, "rt_pl_pred_beta: unknown predicate %s\n", key);  abort(); }
+int rt_pl_pred_nslots_rt(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].nslots; return 8; }
+static int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
+static DESCR_t *plw_cell_deref(DESCR_t *c) {
+    for (int guard = 0; guard < 4096; guard++) {
+        if (c->v == DT_N && c->slen == 1 && c->p) { c = (DESCR_t *)c->p; continue; }
+        if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) { c = ((VCELL_t *)c->p)->cellp; continue; }
+        if (c->v == (DTYPE_t)DT_PLVAR && c->p && c->p != (void *)c) { c = (DESCR_t *)c->p; continue; }
+        return c;
+    }
+    return c;
+}
+static void plw_bind(DESCR_t *cell, DESCR_t word) { pl_trail_push(&g_pl_trail, cell); *cell = word; }
+static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
+    DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
+    if (A == B) return 1;
+    int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
+    if (av && bv) { DESCR_t *hi = ((uintptr_t)A >= (uintptr_t)B) ? A : B, *lo = ((uintptr_t)A >= (uintptr_t)B) ? B : A; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)lo; plw_bind(hi, r); return 1; }
+    if (av) { plw_bind(A, *B); return 1; }
+    if (bv) { plw_bind(B, *A); return 1; }
+    if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
+        if (A->slen != B->slen) return 0;
+        int ar = (int)(A->slen & 0xFFFFu);
+        DESCR_t *aa = (DESCR_t *)A->p, *bb = (DESCR_t *)B->p;
+        for (int i = 0; i < ar; i++) if (!plw_unify_cells(&aa[i], &bb[i])) return 0;
+        return 1;
+    }
+    if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
+    { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
+}
+static DESCR_t *plw_entry(DESCR_t *tmp) {
+    if (tmp->v == DT_N && tmp->slen == 1 && tmp->p) return (DESCR_t *)tmp->p;
+    if (tmp->v == DT_N && tmp->slen == 2 && tmp->p && ((VCELL_t *)tmp->p)->cellp) return ((VCELL_t *)tmp->p)->cellp;
+    return tmp;
+}
+static int plw_unify_vals(DESCR_t va, DESCR_t vb) {
+    DESCR_t ta = va, tb = vb;
+    return plw_unify_cells(plw_entry(&ta), plw_entry(&tb));
+}
+DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
-    if (!strcmp(name, "$unify")) return 1;
+    if (!strcmp(name, "$unify") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5)) return 1;
     return 0;
 }
@@ -685,15 +735,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$unify") && nargs == 2) {
-        extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
-        DESCR_t la = rt_deref(args[0]); DESCR_t ra = rt_deref(args[1]);
-        int lu = (la.v == DT_SNUL || la.v == DT_FAIL); int ru = (ra.v == DT_SNUL || ra.v == DT_FAIL);
-        if (lu && !ru) { rt_assign_var(args[0], ra); *out = ra; return 1; }
-        if (ru && !lu) { rt_assign_var(args[1], la); *out = la; return 1; }
-        if (lu && ru)  { rt_assign_var(args[0], args[1]); *out = ra; return 1; }
-        { extern int rt_descr_equal(DESCR_t, DESCR_t); if (rt_descr_equal(la, ra)) { *out = la; return 1; } }
+        if (plw_unify_vals(args[0], args[1])) { *out = rt_pl_deref_val(args[0]); return 1; }
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$mkc") && nargs >= 1) {
+        const char *fname = VARVAL_fn(args[0]); if (!fname) fname = "?";
+        int ar = nargs - 1;
+        extern int prolog_atom_intern(const char *);
+        DESCR_t *kids = (DESCR_t *)GC_MALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+        for (int i = 0; i < ar; i++) kids[i] = args[1 + i];
+        DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
+        *out = c; return 1;
+    }
+    if (!strcmp(fn, "$trail_mark") && nargs == 0) { DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); *out = m; return 1; }
+    if (!strcmp(fn, "$trail_unwind") && nargs == 1) { pl_trail_unwind(&g_pl_trail, (int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
     if (!strcmp(fn, "__multi_call") && nargs >= 1) {
         const char *base = VARVAL_fn(args[0]); if (!base) { *out = FAILDESCR; return 1; }
         int na = nargs - 1; DESCR_t *aa = &args[1];
