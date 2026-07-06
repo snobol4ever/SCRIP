@@ -2050,6 +2050,14 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
     *out = (endd > endi) ? REALVAL(dv) : INTVAL((int64_t)iv); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_str_coerce(DESCR_t d) {
+    if (!IS_CSET_fn(d)) return d;
+    const char *cp; int cl; if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
+    char *b = GC_malloc((size_t)cl + 1); memcpy(b, cp, (size_t)cl); b[cl] = 0;
+    for (int i = 1; i < cl; i++) { char t = b[i]; int j = i - 1; while (j >= 0 && (unsigned char)b[j] > (unsigned char)t) { b[j+1] = b[j]; j--; } b[j+1] = t; }
+    return STRVAL(b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     int lj = junction_is(lhs), rj = junction_is(rhs);
     int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
@@ -2373,7 +2381,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (!strcmp(fn,"string") && nargs == 1) {
         DESCR_t av = args[0];
-        if (IS_CSET_fn(av)) { const char *cp; int cl; if (!cset_resolve(av,&cp,&cl)||cl<0) { *out=FAILDESCR; return 1; } char *b=GC_malloc((size_t)cl+1); memcpy(b,cp,(size_t)cl); b[cl]=0; for(int i=1;i<cl;i++){char t=b[i];int j=i-1;while(j>=0&&(unsigned char)b[j]>(unsigned char)t){b[j+1]=b[j];j--;}b[j+1]=t;} *out=STRVAL(b); return 1; }
+        if (IS_CSET_fn(av)) { *out = rt_str_coerce(av); return 1; }
         if (IS_STR_fn(av)) { *out = av; return 1; }
         char *buf = GC_malloc(64);
         if (IS_INT_fn(av))       snprintf(buf,64,"%lld",(long long)av.i);
@@ -3566,7 +3574,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
 #define _STRREL(op) do { DESCR_t _l=args[0],_r=args[1]; \
         const char *_ls=VARVAL_fn(_l); if(!_ls)_ls=""; \
         const char *_rs=VARVAL_fn(_r); if(!_rs)_rs=""; \
-        int _cmp=strcmp(_ls,_rs); *out=(_cmp op 0)?_r:FAILDESCR; return 1; } while(0)
+        int _cmp=strcmp(_ls,_rs); *out=(_cmp op 0)?rt_str_coerce(_r):FAILDESCR; return 1; } while(0)
 #define _SNOCOERCE(d) do { \
         if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
             const char *_s9 = VARVAL_fn(d); \

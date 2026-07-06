@@ -9,6 +9,7 @@ extern "C" {
 #include "../runtime/builtins/gen.h"
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
+DESCR_t rt_str_coerce(DESCR_t d);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -80,10 +81,16 @@ std::string bb_binop_relop() {
                  + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void*)rt_jct_relop)
                  + x86("test", "eax", "eax")
                  + x86("jz", "ω")
-                 + x86("mov", "rax", FRQ(_.op_sb))
-                 + x86("mov", FRQ(_.op_off), "rax")
-                 + x86("mov", "rax", FRQ(_.op_sb + 8))
-                 + x86("mov", FRQ(_.op_off + 8), "rax")
+                 + (_.op_ival >= BINOP_SLT
+                     ? x86("mov", "rdi", FRQ(_.op_sb))
+                     + x86("mov", "rsi", FRQ(_.op_sb + 8))
+                     + x86("call", "rt_str_coerce", (uint64_t)(uintptr_t)(void*)rt_str_coerce)
+                     + x86("mov", FRQ(_.op_off), "rax")
+                     + x86("mov", FRQ(_.op_off + 8), "rdx")
+                     : x86("mov", "rax", FRQ(_.op_sb))
+                     + x86("mov", FRQ(_.op_off), "rax")
+                     + x86("mov", "rax", FRQ(_.op_sb + 8))
+                     + x86("mov", FRQ(_.op_off + 8), "rax"))
                  + x86("jmp", "γ")
                  + x86("def", "β")
                  + x86("jmp", "ω")
