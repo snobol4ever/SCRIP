@@ -9,6 +9,7 @@
 #include "sil_macros.h"
 #include "builtins/gen_runtime.h"
 #include "rt/gc_heap.h"
+#include "zeta_choices.h"
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -930,4 +931,35 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     if (rt_assign_var(vb, dx).v == DT_FAIL) return FAILDESCR;
     if (adj1 != 0) xc->pos += adj1;
     return rt_deref(va);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
+{
+    /* ZB-5 ARBNO v2 COLLECTION (ARCH-ZETA-LOCAL-STORAGE.md section 5f): grow the owner's per-iteration
+     * element store to hold index i, ZERO element i (the fresh-iteration rule — body boxes may read-before-
+     * write via rt_cap_push and a reused index must not leak a popped iteration's state; POP never zeroes,
+     * resume needs the state), return its address.  ZC_COLLECTION = MALLOC (D7): realloc house style, with
+     * the zeta_alloc GC_add_roots trick so capture-stack GC pointers INSIDE elements stay collector-visible;
+     * roots move with the block.  Known v1 lifetime residual (watermarked): the block is reused across
+     * anchor retries and statement re-executions within a frame, but leaks at frame death — the per-
+     * activation grown-collection release list (5f) or the GC backing (GC-4) retires this. */
+    extern void rt_bomb(const char *);
+#if ZC_COLLECTION == ZC_COL_MALLOC
+    if (i + 1 > *cap_cell) {
+        int nc = *cap_cell > 0 ? *cap_cell : 4;
+        while (nc < i + 1) nc *= 2;
+        char * op = (char *)*ptr_cell;
+        if (op) GC_remove_roots(op, op + (size_t)*cap_cell * (size_t)elem_sz);
+        char * np = (char *)realloc(op, (size_t)nc * (size_t)elem_sz);
+        if (!np) rt_bomb("rt_zcol_push: collection realloc failed");
+        memset(np + (size_t)*cap_cell * (size_t)elem_sz, 0, (size_t)(nc - *cap_cell) * (size_t)elem_sz);
+        GC_add_roots(np, np + (size_t)nc * (size_t)elem_sz);
+        *ptr_cell = np; *cap_cell = nc;
+    }
+#else
+#error "rt_zcol_push: only the ZC_COL_MALLOC arm exists (ZC_COL_GC is the GC-4 rung; ZC_COL_ARENA needs a bump ZC_ALLOC)"
+#endif
+    char * e = (char *)*ptr_cell + (size_t)i * (size_t)elem_sz;
+    memset(e, 0, (size_t)elem_sz);
+    return e;
 }

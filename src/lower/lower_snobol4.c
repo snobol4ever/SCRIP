@@ -401,6 +401,32 @@ static int sno_pat_deterministic(const tree_t * t) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_is_arb(const tree_t * t) { return t && (t->t == TT_ARB || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB"))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_v2_tail_gen(const tree_t * t) {
+    /* ZB-5 v2: the exhaust box resumes the body via F.γ → the body's FIRST-ALLOCATED node's β — the
+     * rightmost leaf.  That leaf must therefore expose a resume surface: an alternation (SAVE.β dispatch),
+     * ARB (β extend), or a capture whose COND.ω forwards to resume-or-pop.  A deterministic rightmost leaf
+     * has no β (chaining THROUGH it is the Finding-B pass-through rung, not this one) — gate it. */
+    if (!t) return 0;
+    if (t->t == TT_ALT || sno_pat_is_arb(t)) return 1;
+    if (t->t == TT_SEQ || t->t == TT_CAT) return t->n > 1 && sno_pat_v2_tail_gen(t->c[1]);
+    if (t->t == TT_CAPT_COND_ASGN) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_v2_ok(const tree_t * t) {
+    /* ZB-5 v2 body admission: ALT and ARB anywhere EXCEPT nested inside an alternative (the ALT-RESUME mark
+     * records the NEXT alternative, so an inner generator's remaining ways would be skipped on resume);
+     * nested ARBNO refused (an element's prev_rZ would point into a REALLOC-MOVABLE outer collection —
+     * the RELOAD-LAW escape); FENCE refused (its seal jumps to the statement fail with rZ still repointed). */
+    if (!t) return 1;
+    if (t->t == TT_ARBNO || sno_is_fence(t)) return 0;
+    if (t->t == TT_ALT) { const tree_t * l = (t->n > 0) ? t->c[0] : NULL; const tree_t * r = (t->n > 1) ? t->c[1] : NULL; return ((l && l->t == TT_ALT) ? sno_pat_v2_ok(l) : sno_pat_deterministic(l)) && sno_pat_deterministic(r); }
+    for (int i = 0; i < t->n; i++) if (!sno_pat_v2_ok(t->c[i])) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -482,12 +508,26 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * Deterministic bodies exhaust totally (a completed iteration cannot re-choose), so NO per-iteration
          * COLLECTION is needed — that is the generator-body v2 requirement (ALT/ARB/ARBNO/FENCE inside). */
         if (!(t->n > 0) || !t->c[0]) sno_fatal("ARBNO requires a pattern argument", NULL);
-        if (!sno_pat_deterministic(t->c[0])) sno_fatal("ARBNO with a generator body (ALT/ARB/ARBNO/FENCE inside) needs per-iteration COLLECTION state — ZB-5 v2, not yet implemented", NULL);
-        IR_t * G = lc_build(g, IR_MATCH_ARBNO, succ, NULL); IR_LIT(G).ival = 0;
-        IR_t * F = lc_build(g, IR_MATCH_ARBNO, NULL, NULL); IR_LIT(F).ival = 2; ir_operand_push(F, G); sno_ω_to(F, fail);
-        IR_t * K = lc_build(g, IR_MATCH_ARBNO, succ, F);    IR_LIT(K).ival = 1; ir_operand_push(K, G);
+        int a2 = !sno_pat_deterministic(t->c[0]);
+        if (a2 && !(sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0]))) sno_fatal("ARBNO body outside the ZB-5 v2 subset (generator body needs a rightmost ALT/ARB/capture leaf; nested ARBNO, FENCE inside, and a generator inside an alternative are v3)", NULL);
+        /* v2 (a2): phases 3/4/5 — per-iteration COLLECTION (ARCH-ZETA-LOCAL-STORAGE.md section 5f).  G.β pushes a
+         * zeroed element {prev_rZ, cur_before} + body slot range and REPOINTS rZ into it, so body boxes' [r12+off]
+         * become per-iteration; K reads the header, restores rZ, counts and yields (zero-advance → F.α, which
+         * re-repoints and resumes THIS element's body β); F.β (body-fail) restores rZ, pops (i==0 → exhaust) and
+         * resumes element i's body tail β via F.γ — stamped at the body's first-allocated (rightmost) leaf.
+         * operands[0]/[1] on G bracket the body subgraph by allocation for the zls geometry post-pass. */
+        IR_t * G = lc_build(g, IR_MATCH_ARBNO, succ, NULL); IR_LIT(G).ival = a2 ? 3 : 0;
+        IR_t * F = lc_build(g, IR_MATCH_ARBNO, NULL, NULL); IR_LIT(F).ival = a2 ? 5 : 2; ir_operand_push(F, G); sno_ω_to(F, fail);
+        IR_t * K = lc_build(g, IR_MATCH_ARBNO, succ, F);    IR_LIT(K).ival = a2 ? 4 : 1; ir_operand_push(K, G);
+        int bi0 = g->n;
         IR_t * be = sno_pat_node(cx, t->c[0], K, F);
         lc_ω_to(G, be);
+        if (a2) {
+            if (bi0 >= g->n) sno_fatal("ARBNO v2 internal: body lowered to zero nodes", NULL);
+            ir_operand_push(G, g->all[bi0]); ir_operand_push(G, g->all[g->n - 1]);
+            IR_t * btail = g->all[bi0];
+            if (ir_is_generator_kind(btail->op)) lc_γ_to_β(F, btail); else lc_γ_to(F, btail);
+        }
         return G;
     }
     case TT_LEN: {
@@ -598,15 +638,26 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         alts[na++] = cur;                                   /* leftmost */
         for (int i = nr - 1; i >= 0; i--) alts[na++] = rstack[i];
         if (na == 1) return sno_pat_node(cx, alts[0], succ, fail);
-        IR_t * save = lc_build(g, IR_MATCH_ALTERNATE, NULL, NULL);   /* phase-0 (n_operands==0): save cursor */
-        IR_t * fail_target = fail;                                    /* last alternative fails to outer fail */
+        /* ALT-RESUME (ZB-5 v2 prerequisite): each alternative i gets ONE join box J_{i+1} — its α is the
+         * MARK (alternative i just succeeded: record J's own reload arm as the resume continuation in the
+         * SAVE slot, jmp ω = outer succ), its β/L(0) is reload-cursor-and-try-alternative-i+1 (forward
+         * fails land β-wards via sno_ω_to since ALTERNATE is generator-kind).  A trailing T = J_n is the
+         * SAME box with γ = the outer fail (resume exhaust: restore entry cursor, fail leftward, β-aware).
+         * A failing RIGHT neighbour lands SAVE.β (the construct tail is first-allocated) which dispatches
+         * `jmp [slot+8]` — replaying exactly where forward-failure of the succeeded alternative would have
+         * gone.  Residual (documented, gated for ARBNO v2 bodies): a generator nested INSIDE an alternative
+         * has its remaining ways skipped on resume — the mark records the NEXT alternative, not the inner β. */
+        IR_t * save = lc_build(g, IR_MATCH_ALTERNATE, NULL, NULL);    /* phase-0 (n_operands==0): save cursor + resume dispatch */
+        IR_t * join = lc_build(g, IR_MATCH_ALTERNATE, NULL, succ);    /* trailing T = J_n: ω→outer succ (MARK exit) */
+        ir_operand_push(join, save);
+        if (fail && ir_is_generator_kind(fail->op)) lc_γ_to_β(join, fail); else lc_γ_to(join, fail); /* T reload arm exhausts leftward */
         for (int i = na - 1; i >= 1; i--) {
-            IR_t * ei = sno_pat_node(cx, alts[i], succ, fail_target); /* alternative i, γ→succ, ω→fail_target */
-            IR_t * ri = lc_build(g, IR_MATCH_ALTERNATE, ei, NULL);    /* phase-1 RESTORE_i, γ→alt i entry */
-            ir_operand_push(ri, save);                                /* reads save's slot */
-            fail_target = ri;                                         /* alternative i-1 fails to RESTORE_i */
+            IR_t * ei = sno_pat_node(cx, alts[i], join, join);        /* succ → J_{i+1}.α (MARK); fail → J_{i+1}.β (reload+try-next, β via sno_ω_to) */
+            IR_t * ji = lc_build(g, IR_MATCH_ALTERNATE, ei, succ);    /* J_i: γ→alternative i's entry (its reload arm's target), ω→outer succ (MARK exit) */
+            ir_operand_push(ji, save);
+            join = ji;
         }
-        IR_t * e0 = sno_pat_node(cx, alts[0], succ, fail_target);     /* leftmost: fail→RESTORE_1, no restore before it */
+        IR_t * e0 = sno_pat_node(cx, alts[0], join, join);            /* leftmost: succ→J_1.α (MARK), fail→J_1.β (reload, try alternative 1) */
         lc_γ_to(save, e0);                                            /* SAVE proceeds to the first alternative */
         return save;
     }
@@ -627,7 +678,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_REM || t->t == TT_ARB) return 1;
-    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && sno_pat_deterministic(t->c[0]);
+    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_pat_deterministic(t->c[0]) || (sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0])));
     if (t->t == TT_VAR) return t->v.sval != NULL;
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
     if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);

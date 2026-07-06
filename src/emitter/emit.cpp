@@ -829,6 +829,7 @@ extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_PAIR_DEF_JMP(l,t) do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=(l); g_emit.xa_bb_emit_pair_jmp[_i]=(t); } while(0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 static int drive_value_slot(IR_t *nd) {
     int e = bb_slot_get(nd);
     if (e >= 0) return e;
@@ -1018,10 +1019,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa = -1; g_emit.op_off = -1;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_ARBNO: {   /* ZB-5: phase 0 owns the slot; phases 1/2 read it via operand[0] (the phase-0 node) */
-        IR_t * own = nd->n_operands > 0 ? nd->operands[0] : nd;
+    case IR_MATCH_ARBNO: {   /* ZB-5: roles 0/3 own the slot; 1/2/4/5 read it via operand[0] (the owner).  v2 roles 3-5 additionally stage the COLLECTION geometry (op_sa=min_off, op_sb=elem_sz). */
+        long ph = IR_LIT(nd).ival;
+        IR_t * own = (ph == 0 || ph == 3) ? nd : (nd->n_operands > 0 ? nd->operands[0] : nd);
         g_emit.op_off = drive_value_slot(own);
-        g_emit.op_phase = (int)IR_LIT(nd).ival;
+        g_emit.op_phase = (int)ph;
+        if (ph >= 3) { int mo = -1, sp = 0; if (zls_arbno_geom(own, &mo, &sp)) { g_emit.op_sa = mo; g_emit.op_sb = (sp + 16 + 15) & ~15; } else { g_emit.op_sa = -1; g_emit.op_sb = -1; } }
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO: {

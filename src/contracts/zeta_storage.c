@@ -24,8 +24,10 @@ static zls_graph_t  zg[ZLS_MAX_GRAPHS];   static int zg_n = 0;
 static zls_vslot_t  zv[ZLS_MAX_VSLOTS];   static int zv_n = 0;
 static zls_mark_t   zm[ZLS_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[ZLS_MAX_ENTRIES]; static int zx_n = 0;
+typedef struct { const IR_t * nd; int min_off; int span; } zls_ageom_t;
+static zls_ageom_t  za[1024];             static int za_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void zls_reset(void) { ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; }
+void zls_reset(void) { ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; za_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
@@ -83,12 +85,13 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_ARB: case IR_MATCH_REM:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_ARBNO:
-        if (nd->n_operands) return 0;
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0])", nd); return 1;
+        if (IR_LIT(nd).ival == 0) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0])", nd); return 1; }
+        if (IR_LIT(nd).ival == 3) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno2.owner quad low: entry/yield/i/cap (4x4B; phases 4/5 read via operand[0])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno2.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_rZ, cur_before} + body-subgraph slot range)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno2.pad (unused)", nd); return 2; }
+        return 0;
     case IR_MATCH_ASSIGN_SAVE:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack GC_MALLOC_ATOMIC u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
     case IR_MATCH_ALTERNATE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "alt.cursor save", nd); return 1;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B, +4 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (&JOIN reload arm; SAVE.β dispatches jmp [slot+8] — replay of the succeeded alternative's forward-fail)", nd); return 1;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
@@ -217,6 +220,34 @@ void zls_build(IR_graph_t * g) {
         zs[sid].n_fields++;
     }
     qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
+    /* ARBNO v2 (ZB-5) COLLECTION geometry: a phase-3 owner brackets its body subgraph with operands[0]=first
+     * and operands[1]=last body node BY ALLOCATION (the optimizer never reorders/compacts g->all, so the
+     * index window is exact and its grants are CONTIGUOUS — offsets are handed out in node order).  Element
+     * layout = 16B header {prev_rZ, cur_before} + the window's slot range; the emitter repoints rZ to
+     * elem+16-min_off so body boxes' [r12+off] land per-iteration (ARCH-ZETA-LOCAL-STORAGE.md section 5f). */
+    for (int i = 0; i < g->n; i++) {
+        IR_t * nd = g->all[i];
+        if (!nd || nd->op != IR_MATCH_ARBNO || IR_LIT(nd).ival != 3 || nd->n_operands < 2) continue;
+        int i0 = -1, i1 = -1;
+        for (int j = 0; j < g->n; j++) { if (g->all[j] == nd->operands[0]) i0 = j; if (g->all[j] == nd->operands[1]) i1 = j; }
+        if (i0 < 0 || i1 < 0) { fprintf(stderr, "zls: arbno2 geometry — body bracket operands not found in g->all\n"); abort(); }
+        if (i0 > i1) { int t = i0; i0 = i1; i1 = t; }
+        int mn = 0x7fffffff, mx = 0;
+        for (int j = i0; j <= i1; j++) {
+            const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0;
+            if (!e) continue;
+            if (e->off < mn) mn = e->off;
+            for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > mx) mx = zf[f].off + zf[f].size;
+        }
+        if (za_n >= (int)(sizeof za / sizeof *za)) { fprintf(stderr, "zls: arbno2 geometry table overflow (%d)\n", (int)(sizeof za / sizeof *za)); abort(); }
+        if (mn == 0x7fffffff) za[za_n++] = (zls_ageom_t){ nd, 16, 0 };
+        else                  za[za_n++] = (zls_ageom_t){ nd, mn, mx - mn };
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
+    for (int i = 0; i < za_n; i++) if (za[i].nd == nd) { if (min_off) *min_off = za[i].min_off; if (span) *span = za[i].span; return 1; }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }

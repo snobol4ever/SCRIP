@@ -8,6 +8,7 @@ int ir_is_generator_kind(IR_e t) {
         case IR_MATCH_ARB:
         case IR_MATCH_ARBNO:
         case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_SAVE:
+        case IR_MATCH_ALTERNATE:
         case IR_KEYWORD_ICON_GEN:
         case IR_CALL_BUILTIN_GEN:
             return 1;
