@@ -630,7 +630,7 @@ static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
 int bb_call_write_route(IR_t *nd) {
     extern int g_icon_write_reassignable;
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
-    if (!(fn && !strcmp(fn, "write") && narg == 1 && a0)) return 0;
+    if (!(fn && narg == 1 && a0 && !strcmp(fn, "write"))) return 0;
     if (g_icon_write_reassignable) return 0;
     if (bb_slot_get(a0) >= 0) return 1;
     int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_VAR || a0->op == IR_CALL || ir_is_call_kind(a0->op));
@@ -668,6 +668,7 @@ int bb_call_route_classify(IR_t * nd) {
     case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP;
     case 4: return CALL_ROUTE_WRITE_LEGACY; case 5: return CALL_ROUTE_WRITE_EMPTY; default: break; }
     if (fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
+    if (fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
     return CALL_ROUTE_FATAL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1649,7 +1650,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gva_collect_graph(IR_graph_t *g) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gva_collect_graph"); abort(); }
+void gva_collect_graph(IR_graph_t *g) { if (!g) return; for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; if ((nd->op == IR_VAR || nd->op == IR_ASSIGN) && IR_LIT(nd).sval) (void)gva_collect_var(IR_LIT(nd).sval); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
     extern const char *global_names[]; extern int global_count;
