@@ -100,6 +100,7 @@ int rt_builtin_is_known(const char *name)
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET",
+        "$unify",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -637,8 +638,26 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     return rt_call_arr(nm, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_descr_equal(DESCR_t a, DESCR_t b) {
+    if (a.v == DT_I && b.v == DT_I) return a.i == b.i;
+    if (a.v == DT_R && b.v == DT_R) return a.r == b.r;
+    if ((a.v == DT_S || a.v == DT_SNUL) && (b.v == DT_S || b.v == DT_SNUL)) { const char *x = a.s ? a.s : ""; const char *y = b.s ? b.s : ""; return strcmp(x, y) == 0; }
+    { const char *x = VARVAL_fn(a); const char *y = VARVAL_fn(b); if (x && y) return strcmp(x, y) == 0; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
+    if (!strcmp(fn, "$unify") && nargs == 2) {
+        extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
+        DESCR_t la = rt_deref(args[0]); DESCR_t ra = rt_deref(args[1]);
+        int lu = (la.v == DT_SNUL || la.v == DT_FAIL); int ru = (ra.v == DT_SNUL || ra.v == DT_FAIL);
+        if (lu && !ru) { rt_assign_var(args[0], ra); *out = ra; return 1; }
+        if (ru && !lu) { rt_assign_var(args[1], la); *out = la; return 1; }
+        if (lu && ru)  { rt_assign_var(args[0], args[1]); *out = ra; return 1; }
+        { extern int rt_descr_equal(DESCR_t, DESCR_t); if (rt_descr_equal(la, ra)) { *out = la; return 1; } }
+        *out = FAILDESCR; return 1;
+    }
     if (!strcmp(fn, "__multi_call") && nargs >= 1) {
         const char *base = VARVAL_fn(args[0]); if (!base) { *out = FAILDESCR; return 1; }
         int na = nargs - 1; DESCR_t *aa = &args[1];
