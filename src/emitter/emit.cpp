@@ -1469,10 +1469,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_label_t *node_ω = &lbl_ω;
         IR_t *gtgt = nodes[i]->γ.node;
         IR_t *otgt = nodes[i]->ω.node;
-        { int _gg = 0; while (gtgt && gtgt->op == IR_GOTO && _gg++ < 128) gtgt = gtgt->γ.node; }
-        { int _gg = 0; while (otgt && otgt->op == IR_GOTO && _gg++ < 128) otgt = otgt->γ.node; }
         int gamma_is_beta = (nodes[i]->γ.sz[0] == (char)0xce && (unsigned char)nodes[i]->γ.sz[1] == 0xb2);
         int omega_is_beta = (nodes[i]->ω.sz[0] == (char)0xce && (unsigned char)nodes[i]->ω.sz[1] == 0xb2);
+        { int _gg = 0; IR_t * _g = gtgt; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gamma_is_beta) gamma_is_beta = (_g->γ.sz[0] == (char)0xce && (unsigned char)_g->γ.sz[1] == 0xb2); gtgt = _g->γ.node; _g = gtgt; } }
+        { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!omega_is_beta) omega_is_beta = (_o->γ.sz[0] == (char)0xce && (unsigned char)_o->γ.sz[1] == 0xb2); otgt = _o->γ.node; _o = otgt; } }
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
             node_γ = gamma_is_beta ? betas[k] : lbls[k];
             break;
