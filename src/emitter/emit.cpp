@@ -687,7 +687,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
                        || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
                        || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
-                       || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS || nd->op == IR_MATCH_DEFER
+                       || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
                     ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN);
@@ -754,6 +754,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_RTAB:           { bb_prepare(nd); bb_emit_x86(bb_match_rtab()); } return 0;    /* SN4-PAT-3 */
     case IR_MATCH_POS:            { bb_prepare(nd); bb_emit_x86(bb_match_pos()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_REM:            { bb_prepare(nd); bb_emit_x86(bb_match_rem()); } return 0;     /* SN4-PAT-3 */
+    case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
     case IR_MATCH_ARB:            { bb_prepare(nd); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
     case IR_MATCH_ARBNO:          { bb_prepare(nd); bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 */
@@ -992,6 +993,10 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LIT: {
+        g_emit.op_sa = -1; g_emit.op_off = -1;
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_ATP: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }

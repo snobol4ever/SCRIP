@@ -591,6 +591,15 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         return nd;
     }
+    case TT_CAPT_CURSOR: {
+        const tree_t * tgt = (t->n > 0) ? t->c[0] : NULL;
+        if (!tgt || tgt->t != TT_VAR || !tgt->v.sval) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
+        sno_reg_var(tgt->v.sval);
+        IR_t * nd = lc_build(g, IR_MATCH_ATP, succ, NULL);
+        IR_LIT(nd).sval = (char *) tgt->v.sval;
+        sno_ω_to(nd, fail);
+        return nd;
+    }
     case TT_ARB: {
         IR_t * nd = lc_build(g, IR_MATCH_ARB, succ, NULL);
         sno_ω_to(nd, fail);
@@ -783,6 +792,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
     if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    if (t->t == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
     if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (t->t == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     return 0;
