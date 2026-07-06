@@ -11,6 +11,7 @@ void         zls_graph_name(const IR_graph_t * g, const char * name);
 void         zls_group_mark(const IR_graph_t * g, const char * name);
 void         zls_build(IR_graph_t * g);
 int          zls_off(const IR_t * nd);
+int          zls_arbno_geom(const IR_t * nd, int * min_off, int * span);
 int          zls_scope_of(const IR_t * nd);
 int          zls_g_nslots(const IR_graph_t * g);
 int          zls_g_region(const IR_graph_t * g);

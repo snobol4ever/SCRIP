@@ -290,6 +290,14 @@ inline std::string x86_deflabel_id(int n) {
     return MEDIUM_BINARY ? x86_Drec(X86_INTERNAL_BASE + n) : (x86_internal_name(n) + ":\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_lea_rip_id(const char * reg, int n) {
+    /* lea r64, [rip + L(n)] — materialize an internal label's code address (ALT-RESUME continuation cells).  REX.W 8D /r mod=00 rm=101; the rel32 is the instruction's last 4 bytes, so the same
+     * J-record fixup that resolves jmp/jcc rel32 resolves this (rel32 is relative to next-instruction in both). */
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += (char)(0x05 | ((g & 7) << 3)); return x86_Lrec(c) + x86_Jrec(X86_INTERNAL_BASE + n); }
+    return std::string(" lea ") + reg + ", [rip + " + x86_internal_name(n) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void x86_begin() { if (!MEDIUM_BINARY) _.x86_uid = g_flat_node_id++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_ro_load_q(const char * reg, int n) {
@@ -699,6 +707,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
     if (!strcmp(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
     if (!strcmp(mnem, "lea")) {
+        if (a.kind == XK_REG && b.kind == XK_ILBL)                  return x86_lea_rip_id(a.txt, b.lbl);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && (b.kind == XK_FR32 || b.kind == XK_FR64)) return x86_frame_lea(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_REGDISP)              return x86_reg_disp32_lea64(a.txt, b.base, b.off);
