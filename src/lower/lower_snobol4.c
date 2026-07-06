@@ -1112,7 +1112,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         } else {
             int eidx = -1;
             for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
-            if (eidx < 0) sno_fatal("DEFINE entry label not found among statement labels", defs[di].entry);
+            if (eidx < 0) continue; /* entry label doesn't exist anywhere: this DEFINE is dead (never callable); SPITBOL only resolves an entry at call time, not at DEFINE time, so a program that never calls it must still run (132_pat_fence_eps_recur_shallow) */
             gf = sno_build_graph(st, nst, eidx, is_def, rn);
         }
         int fpi = stage2_proc_grow(&g_stage2);
