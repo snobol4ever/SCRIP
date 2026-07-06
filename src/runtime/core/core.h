@@ -308,6 +308,7 @@ DESCR_t *table_ptr(TBBLK_t *tbl, DESCR_t key_d);
 extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);
 int    subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
+DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);
 int    subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
 int    val_stack_depth(void);
 void   register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args);
