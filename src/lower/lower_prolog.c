@@ -81,6 +81,31 @@ static IR_t * term(lcx_t * cx, const tree_t * t) {
 }
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * term_lval(lcx_t * cx, const tree_t * t) {
+    if (t && t->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_var_name((int) t->v.ival); return nd; }
+    return term(cx, t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_same_functor(const tree_t * a, const tree_t * b) {
+    return a && b && a->t == TT_FNC && b->t == TT_FNC && a->n == b->n && a->v.sval && b->v.sval && !strcmp(a->v.sval, b->v.sval);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
+    if (pl_same_functor(lt, rt)) {
+        IR_t * next = γ; IR_t * first_entry = γ; IR_t * head = NULL;
+        for (int i = lt->n - 1; i >= 0; i--) { IR_t * e = NULL; IR_t * u = unify_pair(cx, lt->c[i], rt->c[i], next, ω, &e); next = e ? e : u; head = u; if (i == 0) first_entry = next; }
+        if (entry_out) *entry_out = first_entry;
+        return head;
+    }
+    IR_t * nd = build(cx, IR_CALL_BUILTIN, γ, ω); IR_LIT(nd).sval = "$unify";
+    IR_t * a0 = term_lval(cx, lt); IR_t * a1 = term_lval(cx, rt);
+    lc_γ_to(a0, a1); lc_ω_to(a0, ω);
+    lc_γ_to(a1, nd); lc_ω_to(a1, ω);
+    ir_operand_push(nd, a0); ir_operand_push(nd, a1);
+    if (entry_out) *entry_out = a0;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_conj(const tree_t * t, lc_vec * out) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ",")) { for (int i = 0; i < t->n; i++) collect_conj(t->c[i], out); return; }
@@ -155,9 +180,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return bn;
         }
         if (!strcmp(nm, "=") && t->n == 2) {
-            IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail);
-            ir_operand_push(nd, term(cx, t->c[0]));
-            ir_operand_push(nd, term(cx, t->c[1]));
+            IR_t * e = NULL;
+            IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e);
+            if (entry_out) *entry_out = e ? e : nd;
             return nd;
         }
         if (!strcmp(nm, "\\=") && t->n == 2) {
