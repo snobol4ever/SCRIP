@@ -492,7 +492,9 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         return s;
     }
     {
-        int ps = (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && !is_global(IR_LIT(lf).sval)) ? -1 : bb_slot_get(lf);
+        int is_local_var = (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && !is_global(IR_LIT(lf).sval));
+        int ps = is_local_var ? -1 : bb_slot_get(lf);
+        if (ps < 0 && !is_local_var) ps = zoff(lf);
         if (ps >= 0) {
             std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [r12+%d] -> [r12+%d]", idx, ps, aoff)));
             s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");

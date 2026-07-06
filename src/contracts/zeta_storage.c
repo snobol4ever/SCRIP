@@ -92,6 +92,8 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack GC_MALLOC_ATOMIC u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
     case IR_MATCH_ALTERNATE:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B, +4 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (&JOIN reload arm; SAVE.β dispatches jmp [slot+8] — replay of the succeeded alternative's forward-fail)", nd); return 1;
+    case IR_SCAN:
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value (? body result carried out of the scan env for an outer consumer)", nd); return 1;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
