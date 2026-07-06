@@ -28,6 +28,8 @@ static int g_pas_has_nesting = 0;
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(pcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
+extern void global_register(const char * name);
+static void pas_reg_var(const char * nm) { if (nm && nm[0]) global_register(lp_strdup(nm)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scope_slot(const pas_scope_t * sc, const char * name) {
     if (!name) return -1;
@@ -48,7 +50,11 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_arg_lower(void * vcx, const tree_t * a, IR_t * F) { return lower((pcx_t *) vcx, a, NULL, F); }
 static IR_graph_t * pas_arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((pcx_t *) vcx)->g, pas_arg_lower, vcx, a); }
-static void pas_call_blocks(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs) { lc_call_argblks(call, dv, nargs, pas_arg_block, cx, args); }
+static void pas_call_blocks(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs) {
+    IR_LIT(call).dval = dv;
+    IR_t * F = lc_build(cx->g, IR_FAIL, NULL, NULL);
+    for (int k = 0; k < nargs; k++) { IR_t * e = lower(cx, args[k], NULL, F); ir_operand_push(call, e); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     long long byref = 0;
@@ -59,7 +65,7 @@ static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
         if (sl >= 0) { slot = sl; byref = s->byref; found_sc = s; break; }
     }
     if (slot < 0) {
-        IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
+        pas_reg_var(name); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
     int isref     = (int)((byref >> slot) & 1LL);
     int is_own    = (found_sc == &cx->sc);
@@ -73,7 +79,7 @@ static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
     }
     if (!use_frame) {
-        IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
+        pas_reg_var(name); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
     IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
     IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
@@ -88,7 +94,7 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
         if (sl >= 0) { slot = sl; byref = s->byref; found_sc = s; break; }
     }
     if (slot < 0) {
-        IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
+        pas_reg_var(name); IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
     int isref     = (int)((byref >> slot) & 1LL);
     int is_own    = (found_sc == &cx->sc);
@@ -102,7 +108,7 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
         IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
     }
     if (!use_frame) {
-        IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
+        pas_reg_var(name); IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
     }
     IR_t * nd = build(cx, IR_OP_COUNT, γ, ω);
     IR_LIT(nd).sval = name; IR_LIT(nd).ival = slot; IR_LIT(nd).dval = (double) hops; return nd;
@@ -200,8 +206,8 @@ static tree_t * pas_vptmp_var(void) {
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL;
     if (c0 && c0->v.sval && !strcmp(c0->v.sval, "arr_make")) {
-        IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_make"; IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0;
-        pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0); return nd;
+        IR_t * nd = build(cx, IR_CALL, γ, ω);
+        pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0); IR_LIT(nd).sval = "arr_make"; return nd;
     }
     uint64_t brm = pas_callee_byref_mask(c0 ? c0->v.sval : NULL);
     if (brm) { int rw = 0; for (int i = 1; i < t->n; i++) { if (((brm >> (i - 1)) & 1ULL) && t->c[i] && t->c[i]->t == TT_IDX) { rw = 1; break; } }
@@ -223,11 +229,10 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
             return lower(cx, seq, γ, ω);
         }
     }
+    const char * _pas_callee = (c0 && c0->v.sval) ? c0->v.sval : NULL;
     IR_t * nd = build(cx, IR_CALL, γ, ω);
-    IR_LIT(nd).sval = (c0 && c0->v.sval) ? c0->v.sval : NULL;
-    IR_LIT(nd).ival = (t->n > 0) ? t->n - 1 : 0;
     pas_call_blocks(cx, nd, 3.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0);
-    return nd;
+    IR_LIT(nd).sval = _pas_callee; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
@@ -237,24 +242,24 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (lhs && lhs->t == TT_IDX) {
         const tree_t * base = (lhs->n > 0) ? lhs->c[0] : NULL;
         if (base && base->t == TT_FNC && base->n >= 2 && base->c[0] && base->c[0]->v.sval && !strcmp(base->c[0]->v.sval, "__pas_deref")) {
-            IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = "__pas_field_set"; IR_LIT(call).ival = 3;
+            IR_t * call = build(cx, IR_CALL, γ, ω);
             const tree_t * av[3]; av[0] = (base->n > 1) ? base->c[1] : NULL; av[1] = (lhs->n > 1) ? lhs->c[1] : NULL; av[2] = rhs;
-            pas_call_blocks(cx, call, 2.0, av, 3); return call;
+            pas_call_blocks(cx, call, 2.0, av, 3); IR_LIT(call).sval = "__pas_field_set"; return call;
         }
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         IR_t * asn = lower_assign_var(cx, bname, γ, ω);
-        IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure"; IR_LIT(call).ival = lhs->n + 1;
+        IR_t * call = build(cx, IR_CALL, asn, ω);
         {
             const tree_t ** av = (const tree_t **) calloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
             for (int k = 0; k < lhs->n; k++) av[an++] = lhs->c[k];
             av[an++] = rhs; pas_call_blocks(cx, call, 2.0, av, an);
         }
-        return call;
+        IR_LIT(call).sval = "arr_set_pure"; return call;
     }
     if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0] && lhs->c[0]->v.sval && !strcmp(lhs->c[0]->v.sval, "__pas_deref")) {
-        IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = "__pas_deref_set"; IR_LIT(call).ival = 2;
+        IR_t * call = build(cx, IR_CALL, γ, ω);
         { const tree_t * av[2]; av[0] = (lhs->n > 1) ? lhs->c[1] : NULL; av[1] = rhs; pas_call_blocks(cx, call, 2.0, av, 2); }
-        return call;
+        IR_LIT(call).sval = "__pas_deref_set"; return call;
     }
     if (lhs && lhs->t == TT_VAR) vname = lhs->v.sval;
     else if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0]) vname = lhs->c[0]->v.sval;
@@ -465,11 +470,11 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         if (pas_is_nrec_idx(t) && t->n == 2 && t->c[0] && t->c[0]->t == TT_IDX && t->c[0]->n == 2) {
             const tree_t *inner = t->c[0];
             const tree_t *base_node = inner->c[0]; const tree_t *fi_node = inner->c[1]; const tree_t *ei_node = t->c[1];
-            IR_t *nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__pas_nrec_get"; IR_LIT(nd).ival = 3;
+            IR_t *nd = build(cx, IR_CALL, γ, ω);
             const tree_t *av[3]; av[0] = base_node; av[1] = fi_node; av[2] = ei_node;
-            pas_call_blocks(cx, nd, 2.0, av, 3); return nd;
+            pas_call_blocks(cx, nd, 2.0, av, 3); IR_LIT(nd).sval = "__pas_nrec_get"; return nd;
         }
-        IR_t *nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_get"; IR_LIT(nd).ival = t->n; pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) t->c, t->n); return nd; }
+        IR_t *nd = build(cx, IR_CALL, γ, ω); pas_call_blocks(cx, nd, 2.0, (const tree_t * const *) t->c, t->n); IR_LIT(nd).sval = "arr_get"; return nd; }
     case TT_FNC:    return lower_call(cx, t, γ, ω);
     case TT_IF: case TT_UNLESS: return lower_if(cx, t, γ, ω);
     case TT_WHILE:  return lower_while(cx, t, γ, ω);
