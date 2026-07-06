@@ -1547,6 +1547,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     } else {
         bb_label_t *resume_tgt = &lbl_ω;
         for (int i = 0; i < n; i++) if (nodes[i]->op == IR_SUSPEND) { resume_tgt = betas[i]; break; }
+        if (g_emit_cfg && g_emit_cfg->body_root)
+            for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root && nodes[i]->op == IR_DISJUNCTION) { resume_tgt = lbls[i]; break; }
         emit_jmp_label(resume_tgt, JMP_JMP);
     }
     emit_label_define_bb(&lbl_γ);
