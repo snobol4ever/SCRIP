@@ -133,15 +133,26 @@ bb6_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_frame@PLT
+ mov rdi, 65536
+ call rt_zls_alloc@PLT
  mov rsp, rbp
  pop rbp
  pop rcx
+ push rax
  mov rdi, rax
  xor esi, esi
  call rcx
+ pop rdi
  cmp eax, 1
- jne xchain0_n3_β
+ je .Lx8_1
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_zls_release@PLT
+ mov rsp, rbp
+ pop rbp
+ jmp xchain0_n3_β
+.Lx8_1:
  jmp xchain0_n6_α
 .Lx8_0:
  lea rdi, [rip + .S1]

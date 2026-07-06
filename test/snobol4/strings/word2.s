@@ -453,15 +453,26 @@ bb24_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_frame@PLT
+ mov rdi, 65536
+ call rt_zls_alloc@PLT
  mov rsp, rbp
  pop rbp
  pop rcx
+ push rax
  mov rdi, rax
  xor esi, esi
  call rcx
+ pop rdi
  cmp eax, 1
- jne xchain25_n6_β
+ je .Lx35_1
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_zls_release@PLT
+ mov rsp, rbp
+ pop rbp
+ jmp xchain25_n6_β
+.Lx35_1:
  jmp xchain25_n8_α
 .Lx35_0:
  lea rdi, [rip + .S4]
