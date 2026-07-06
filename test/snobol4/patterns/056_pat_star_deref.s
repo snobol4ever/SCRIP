@@ -101,7 +101,7 @@ bb5_α:
  mov qword ptr [r12 + 120], rdx
  jmp xchain0_n5_α
  xchain0_n4_β:
- jmp xchain0_n11_α
+ jmp xchain0_n6_α
 xchain0_n5_α:
 # IR_MATCH_HEAD
 bb6_α:
@@ -113,20 +113,33 @@ bb6_α:
  mov dword ptr [r12 + 80], 0
 .Lx7_0:
  mov r14d, dword ptr [r12 + 80]
- jmp xchain0_n6_α
+ jmp xchain0_n7_α
  xchain0_n5_β:
  add dword ptr [r12 + 80], 1
  mov eax, dword ptr [r12 + 80]
  cmp eax, r15d
- jg xchain0_n11_α
+ jg xchain0_n6_α
  lea rcx, [rip + g_anchor]
  mov rax, qword ptr [rcx]
  cmp rax, 0
- jne xchain0_n11_α
+ jne xchain0_n6_α
  jmp .Lx7_0
 xchain0_n6_α:
-# IR_MATCH_CAPTURE_SAVE push
+# IR_LIT_STRING
 bb7_α:
+ mov qword ptr [r12 + 144], 1
+ mov rax, qword ptr [rip + .Lx8_0]
+ mov qword ptr [r12 + 152], rax
+ jmp xchain0_n8_α
+ xchain0_n6_β:
+ jmp main_γ
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
+ .string "fail"
+xchain0_n7_α:
+# IR_MATCH_CAPTURE_SAVE push
+bb8_α:
  lea rdi, [r12 + 96]
  mov esi, r14d
  push rbp
@@ -135,8 +148,8 @@ bb7_α:
  call rt_cap_push@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n7_α
- xchain0_n6_β:
+ jmp xchain0_n9_α
+ xchain0_n7_β:
  lea rdi, [r12 + 96]
  push rbp
  mov rbp, rsp
@@ -145,9 +158,25 @@ bb7_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n5_β
-xchain0_n7_α:
+xchain0_n8_α:
+# IR_ASSIGN global
+bb9_α:
+ mov rsi, qword ptr [r12 + 144]
+ mov rdx, qword ptr [r12 + 152]
+ mov rdi, qword ptr [rip + .Lx11_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 128], rax
+ mov qword ptr [r12 + 136], rdx
+ jmp main_γ
+ xchain0_n8_β:
+ jmp main_γ
+.Lx11_0:
+ .quad .Lx11_0_s
+.Lx11_0_s:
+ .string "OUTPUT"
+xchain0_n9_α:
 # IR_MATCH_DEFER
-bb8_α:
+bb10_α:
  lea rdi, [rip + .S0]
  xor esi, esi
  push rbp
@@ -157,7 +186,7 @@ bb8_α:
  mov rsp, rbp
  pop rbp
  test rax, rax
- jz .Lx10_0
+ jz .Lx12_0
  push rax
  push rbp
  mov rbp, rsp
@@ -173,17 +202,17 @@ bb8_α:
  call rcx
  pop rdi
  cmp eax, 1
- je .Lx10_1
+ je .Lx12_1
  push rbp
  mov rbp, rsp
  and rsp, -16
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n6_β
-.Lx10_1:
- jmp xchain0_n8_α
-.Lx10_0:
+ jmp xchain0_n7_β
+.Lx12_1:
+ jmp xchain0_n10_α
+.Lx12_0:
  lea rdi, [rip + .S0]
  xor esi, esi
  mov edx, r14d
@@ -194,14 +223,14 @@ bb8_α:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain0_n6_β
+ js xchain0_n7_β
  mov r14d, eax
- jmp xchain0_n8_α
- xchain0_n7_β:
- jmp xchain0_n6_β
-xchain0_n8_α:
+ jmp xchain0_n10_α
+ xchain0_n9_β:
+ jmp xchain0_n7_β
+xchain0_n10_α:
 # IR_MATCH_CAPTURE_COND
-bb9_α:
+bb11_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -214,57 +243,28 @@ bb9_α:
  call rt_cap_assign_cursor@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n9_α
- xchain0_n8_β:
- jmp xchain0_n6_β
-xchain0_n9_α:
+ jmp xchain0_n11_α
+ xchain0_n10_β:
+ jmp xchain0_n7_β
+xchain0_n11_α:
 # IR_VAR gva
-bb10_α:
+bb12_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
  mov qword ptr [r12 + 176], rax
  mov qword ptr [r12 + 184], rdx
- jmp xchain0_n10_α
- xchain0_n9_β:
- jmp main_γ
-xchain0_n10_α:
-# IR_ASSIGN global
-bb11_α:
- mov rsi, qword ptr [r12 + 176]
- mov rdx, qword ptr [r12 + 184]
- mov rdi, qword ptr [rip + .Lx14_0]
- call NV_SET_fn@PLT
- mov qword ptr [r12 + 160], rax
- mov qword ptr [r12 + 168], rdx
- jmp main_γ
- xchain0_n10_β:
- jmp main_γ
-.Lx14_0:
- .quad .Lx14_0_s
-.Lx14_0_s:
- .string "OUTPUT"
-xchain0_n11_α:
-# IR_LIT_STRING
-bb12_α:
- mov qword ptr [r12 + 144], 1
- mov rax, qword ptr [rip + .Lx15_0]
- mov qword ptr [r12 + 152], rax
  jmp xchain0_n12_α
  xchain0_n11_β:
  jmp main_γ
-.Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
- .string "fail"
 xchain0_n12_α:
 # IR_ASSIGN global
 bb13_α:
- mov rsi, qword ptr [r12 + 144]
- mov rdx, qword ptr [r12 + 152]
+ mov rsi, qword ptr [r12 + 176]
+ mov rdx, qword ptr [r12 + 184]
  mov rdi, qword ptr [rip + .Lx16_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
+ mov qword ptr [r12 + 160], rax
+ mov qword ptr [r12 + 168], rdx
  jmp main_γ
  xchain0_n12_β:
  jmp main_γ

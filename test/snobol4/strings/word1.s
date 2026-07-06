@@ -282,6 +282,8 @@ xchain19_n3_α:
 bb13_α:
  mov rdi, qword ptr [rip + .Lx24_0]
  call NV_GET_fn@PLT
+ cmp eax, 99
+ je main_γ
  mov qword ptr [r12 + 96], rax
  mov qword ptr [r12 + 104], rdx
  jmp xchain19_n4_α

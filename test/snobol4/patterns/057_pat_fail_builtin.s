@@ -72,7 +72,7 @@ bb3_α:
  mov qword ptr [r12 + 72], rdx
  jmp xchain0_n3_α
  xchain0_n2_β:
- jmp xchain0_n8_α
+ jmp xchain0_n4_α
 xchain0_n3_α:
 # IR_MATCH_HEAD
 bb4_α:
@@ -84,20 +84,33 @@ bb4_α:
  mov dword ptr [r12 + 48], 0
 .Lx5_0:
  mov r14d, dword ptr [r12 + 48]
- jmp xchain0_n4_α
+ jmp xchain0_n5_α
  xchain0_n3_β:
  add dword ptr [r12 + 48], 1
  mov eax, dword ptr [r12 + 48]
  cmp eax, r15d
- jg xchain0_n8_α
+ jg xchain0_n4_α
  lea rcx, [rip + g_anchor]
  mov rax, qword ptr [rcx]
  cmp rax, 0
- jne xchain0_n8_α
+ jne xchain0_n4_α
  jmp .Lx5_0
 xchain0_n4_α:
-# IR_MATCH_LIT
+# IR_LIT_STRING
 bb5_α:
+ mov qword ptr [r12 + 128], 1
+ mov rax, qword ptr [rip + .Lx6_0]
+ mov qword ptr [r12 + 136], rax
+ jmp xchain0_n6_α
+ xchain0_n4_β:
+ jmp main_γ
+.Lx6_0:
+ .quad .Lx6_0_s
+.Lx6_0_s:
+ .string "correctly failed"
+xchain0_n5_α:
+# IR_MATCH_LIT
+bb6_α:
  mov eax, r14d
  add eax, 3
  cmp eax, r15d
@@ -112,13 +125,29 @@ bb5_α:
  test eax, eax
  jne xchain0_n3_β
  add r14d, 3
- jmp xchain0_n5_α
- xchain0_n4_β:
+ jmp xchain0_n7_α
+ xchain0_n5_β:
  sub r14d, 3
  jmp xchain0_n3_β
-xchain0_n5_α:
+xchain0_n6_α:
+# IR_ASSIGN global
+bb7_α:
+ mov rsi, qword ptr [r12 + 128]
+ mov rdx, qword ptr [r12 + 136]
+ mov rdi, qword ptr [rip + .Lx9_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
+ jmp main_γ
+ xchain0_n6_β:
+ jmp main_γ
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
+ .string "OUTPUT"
+xchain0_n7_α:
 # IR_MATCH_DEFER
-bb6_α:
+bb8_α:
  lea rdi, [rip + .S1]
  xor esi, esi
  push rbp
@@ -128,7 +157,7 @@ bb6_α:
  mov rsp, rbp
  pop rbp
  test rax, rax
- jz .Lx8_0
+ jz .Lx10_0
  push rax
  push rbp
  mov rbp, rsp
@@ -144,7 +173,7 @@ bb6_α:
  call rcx
  pop rdi
  cmp eax, 1
- je .Lx8_1
+ je .Lx10_1
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -152,9 +181,9 @@ bb6_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n3_β
-.Lx8_1:
- jmp xchain0_n6_α
-.Lx8_0:
+.Lx10_1:
+ jmp xchain0_n8_α
+.Lx10_0:
  lea rdi, [rip + .S1]
  xor esi, esi
  mov edx, r14d
@@ -167,60 +196,31 @@ bb6_α:
  test eax, eax
  js xchain0_n3_β
  mov r14d, eax
- jmp xchain0_n6_α
- xchain0_n5_β:
- jmp xchain0_n3_β
-xchain0_n6_α:
-# IR_LIT_STRING
-bb7_α:
- mov qword ptr [r12 + 96], 1
- mov rax, qword ptr [rip + .Lx9_0]
- mov qword ptr [r12 + 104], rax
- jmp xchain0_n7_α
- xchain0_n6_β:
- jmp main_γ
-.Lx9_0:
- .quad .Lx9_0_s
-.Lx9_0_s:
- .string "should not reach"
-xchain0_n7_α:
-# IR_ASSIGN global
-bb8_α:
- mov rsi, qword ptr [r12 + 96]
- mov rdx, qword ptr [r12 + 104]
- mov rdi, qword ptr [rip + .Lx10_0]
- call NV_SET_fn@PLT
- mov qword ptr [r12 + 80], rax
- mov qword ptr [r12 + 88], rdx
- jmp main_γ
+ jmp xchain0_n8_α
  xchain0_n7_β:
- jmp main_γ
-.Lx10_0:
- .quad .Lx10_0_s
-.Lx10_0_s:
- .string "OUTPUT"
+ jmp xchain0_n3_β
 xchain0_n8_α:
 # IR_LIT_STRING
 bb9_α:
- mov qword ptr [r12 + 128], 1
+ mov qword ptr [r12 + 96], 1
  mov rax, qword ptr [rip + .Lx11_0]
- mov qword ptr [r12 + 136], rax
+ mov qword ptr [r12 + 104], rax
  jmp xchain0_n9_α
  xchain0_n8_β:
  jmp main_γ
 .Lx11_0:
  .quad .Lx11_0_s
 .Lx11_0_s:
- .string "correctly failed"
+ .string "should not reach"
 xchain0_n9_α:
 # IR_ASSIGN global
 bb10_α:
- mov rsi, qword ptr [r12 + 128]
- mov rdx, qword ptr [r12 + 136]
+ mov rsi, qword ptr [r12 + 96]
+ mov rdx, qword ptr [r12 + 104]
  mov rdi, qword ptr [rip + .Lx12_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 112], rax
- mov qword ptr [r12 + 120], rdx
+ mov qword ptr [r12 + 80], rax
+ mov qword ptr [r12 + 88], rdx
  jmp main_γ
  xchain0_n9_β:
  jmp main_γ

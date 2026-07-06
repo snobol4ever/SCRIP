@@ -156,7 +156,7 @@ bb7_α:
  mov qword ptr [r12 + 232], rdx
  jmp xchain0_n8_α
  xchain0_n6_β:
- jmp xchain0_n10_α
+ jmp xchain0_n9_α
 xchain0_n7_α:
 # IR_ASSIGN gva
 bb8_α:
@@ -188,36 +188,36 @@ bb9_α:
  mov qword ptr [r12 + 192], rax
  mov qword ptr [r12 + 200], rdx
  cmp eax, 99
- je xchain0_n10_α
- jmp xchain0_n9_α
+ je xchain0_n9_α
+ jmp xchain0_n10_α
  xchain0_n8_β:
- jmp xchain0_n10_α
+ jmp xchain0_n9_α
 xchain0_n9_α:
-# IR_ASSIGN global
-bb10_α:
- mov rsi, qword ptr [r12 + 192]
- mov rdx, qword ptr [r12 + 200]
- mov rdi, qword ptr [rip + .Lx13_0]
- call NV_SET_fn@PLT
- mov qword ptr [r12 + 176], rax
- mov qword ptr [r12 + 184], rdx
- jmp xchain0_n10_α
- xchain0_n9_β:
- jmp xchain0_n10_α
-.Lx13_0:
- .quad .Lx13_0_s
-.Lx13_0_s:
- .string "OUTPUT"
-xchain0_n10_α:
 # IR_VAR gva
-bb11_α:
+bb10_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 288], rax
  mov qword ptr [r12 + 296], rdx
  jmp xchain0_n11_α
- xchain0_n10_β:
+ xchain0_n9_β:
  jmp main_γ
+xchain0_n10_α:
+# IR_ASSIGN global
+bb11_α:
+ mov rsi, qword ptr [r12 + 192]
+ mov rdx, qword ptr [r12 + 200]
+ mov rdi, qword ptr [rip + .Lx14_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [r12 + 176], rax
+ mov qword ptr [r12 + 184], rdx
+ jmp xchain0_n9_α
+ xchain0_n10_β:
+ jmp xchain0_n9_α
+.Lx14_0:
+ .quad .Lx14_0_s
+.Lx14_0_s:
+ .string "OUTPUT"
 xchain0_n11_α:
 bb12_α:
 # BOX IR_CALL imag(...) -> rt_call_arr [operand-marshal, FAIL->ω]
