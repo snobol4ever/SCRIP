@@ -1984,6 +1984,17 @@ DESCR_t rt_args_list_from(char **v, int n) {
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
+    if (IS_INT_fn(v) || IS_REAL_fn(v)) { *out = v; return 1; }
+    const char *s = IS_STR_fn(v) ? v.s : IS_CSET_fn(v) ? v.s : (const char *)0;
+    if (!s) return 0;
+    const char *t = s; while (*t == ' ') t++; if (!*t) return 0;
+    char *endi = 0, *endd = 0; long long iv = strtoll(t, &endi, 10); double dv = strtod(t, &endd);
+    const char *e = (endd > endi) ? endd : endi; if (e == t) return 0;
+    while (*e == ' ') e++; if (*e != '\0') return 0;
+    *out = (endd > endi) ? REALVAL(dv) : INTVAL((int64_t)iv); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     int lj = junction_is(lhs), rj = junction_is(rhs);
     int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
@@ -1997,6 +2008,14 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
         int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
         return junction_collapse(scalar, jct, tt_op, numeric) ? 1 : 0;
     }
+    if (num_rel) { DESCR_t L, R;
+        if (relop_num_coerce(lhs, &L) && relop_num_coerce(rhs, &R)) {
+            if (IS_REAL_fn(L) || IS_REAL_fn(R)) { double a = to_real(L), b = to_real(R);
+                switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
+                              case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
+            int64_t a = L.i, b = R.i;
+            switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
+                          case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; } }
     if (num_rel && (IS_REAL_fn(lhs) || IS_REAL_fn(rhs)) && (IS_INT_fn(lhs) || IS_REAL_fn(lhs)) && (IS_INT_fn(rhs) || IS_REAL_fn(rhs))) {
         double a = to_real(lhs), b = to_real(rhs);
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
@@ -2568,13 +2587,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             snprintf(buf, 64, "function %s", av.s);
             *out = STRVAL(buf); return 1;
         }
-        if (av.v == DT_E) {
-            char *buf = GC_malloc(128);
-            for (int i=0;i<g_stage2.proc_count;i++)
-                if (g_stage2.proc_table[i].entry_pc==(int)av.i)
-                    { snprintf(buf,128,"procedure %s",g_stage2.proc_table[i].name); *out=STRVAL(buf); return 1; }
-            snprintf(buf,128,"procedure"); *out=STRVAL(buf); return 1;
-        }
         DESCR_t one_out = FAILDESCR;
         if (try_call_builtin_by_name("image", args, 1, &one_out))
             { *out = one_out; return 1; }
@@ -2836,13 +2848,13 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
 #undef MATH1
     if (!strcmp(fn,"atan") && nargs >= 1) {
         double v = TONUM(args[0]);
-        if (nargs >= 2) { double v2 = TONUM(args[1]); *out = REALVAL(atan2(v,v2)); }
+        if (nargs >= 2 && args[1].v != DT_SNUL) { double v2 = TONUM(args[1]); *out = REALVAL(atan2(v,v2)); }
         else *out = REALVAL(atan(v));
         return 1;
     }
     if (!strcmp(fn,"log") && nargs >= 1) {
         double v = TONUM(args[0]);
-        if (nargs >= 2) { double base = TONUM(args[1]); *out = REALVAL(log(v)/log(base)); }
+        if (nargs >= 2 && args[1].v != DT_SNUL) { double base = TONUM(args[1]); *out = REALVAL(log(v)/log(base)); }
         else *out = REALVAL(log(v));
         return 1;
     }

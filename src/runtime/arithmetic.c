@@ -195,11 +195,18 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
     return INTVAL(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int operand_is_real_str(DESCR_t v) {
+    if (!IS_STR_fn(v) || !v.s) return 0;
+    const char *s = v.s; while (*s == ' ') s++; if (!*s) return 0;
+    char *endi = 0, *endd = 0; strtoll(s, &endi, 10); strtod(s, &endd);
+    if (endd <= endi) return 0; while (*endd == ' ') endd++; return *endd == '\0';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);
     if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || !b.s[0])) b = INTVAL(0);
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
-    int anyf = lf || rf;
+    int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
     double ld = to_real(a), rd = to_real(b);
     int64_t li = to_int(a), ri = to_int(b);
     switch (op) {
