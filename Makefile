@@ -124,6 +124,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_rtab.cpp \
     $(SRC)/templates/bb_match_pos.cpp \
     $(SRC)/templates/bb_match_rem.cpp \
+    $(SRC)/templates/bb_match_atp.cpp \
     $(SRC)/templates/bb_match_arb.cpp \
     $(SRC)/templates/bb_match_arbno.cpp \
     $(SRC)/templates/bb_match_head.cpp \
@@ -337,6 +338,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rtab.cpp    -o $(OBJ)/bb_match_rtab.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_pos.cpp     -o $(OBJ)/bb_match_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rem.cpp     -o $(OBJ)/bb_match_rem.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_atp.cpp     -o $(OBJ)/bb_match_atp.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_arb.cpp     -o $(OBJ)/bb_match_arb.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_arbno.cpp   -o $(OBJ)/bb_match_arbno.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_head.cpp   -o $(OBJ)/bb_match_head.o
