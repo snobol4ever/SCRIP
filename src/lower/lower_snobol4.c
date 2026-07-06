@@ -675,6 +675,28 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's slot */
         return save;                                               /* capture entry is the SAVE node */
     }
+    case TT_CAPT_IMMED_ASGN: {
+        const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
+        sno_reg_var(vn);
+        /* $ immediate assignment: SAME span/capture-stack shape as . (TT_CAPT_COND_ASGN) above — the only
+         * difference is IR_MATCH_ASSIGN_IMM vs _COND, which bb_match_capture()'s op_phase (2 vs 1) turns into
+         * is_imm passed to rt_cap_assign_cursor.  Per the manual: $ commits at every inner yield regardless of
+         * whether the overall match later fails; . is the same wiring, the outcome-dependence lives in rt_*. */
+        IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_IMM, succ, NULL);
+        IR_LIT(nd).sval = (char *) vn;
+        IR_t * save = lc_build(g, IR_MATCH_ASSIGN_SAVE, NULL, NULL);
+        IR_LIT(save).sval = (char *) vn;
+        sno_ω_to(save, fail);
+        int before_i = g->n;
+        IR_t * pe = sno_pat_node(cx, t->c[0], nd, save);
+        IR_t * itail = (before_i < g->n) ? g->all[before_i] : pe;
+        lc_γ_to(save, pe);
+        sno_ω_to(nd, ir_is_generator_kind(itail->op) ? itail : save);
+        ir_operand_push(nd, pe);
+        ir_operand_push(nd, save);
+        return save;
+    }
     case TT_SEQ: {
         /* SN4-PAT-3h CAT: pattern concatenation A B — node-free in the live single-HEAD
          * design (the parked IR_MATCH_SEQUENCE was a subgraph success-sink; here success threads
@@ -792,6 +814,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
     if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    if (t->t == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
     if (t->t == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
     if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (t->t == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
