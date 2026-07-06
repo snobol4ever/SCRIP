@@ -786,7 +786,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION: bb_emit_x86(bb_indirect_goto()); return 0;
-    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
     case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;

@@ -525,6 +525,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(leave_succ, enter);
         ir_operand_push(leave_fail, enter);
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], leave_succ, leave_fail, &bv);
+        if (bv) ir_operand_push(leave_succ, bv);
         icn_retag_scan_body(cx->g, 0);
         lc_γ_to(enter, b_entry);
         IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);

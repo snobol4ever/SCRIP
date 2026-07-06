@@ -28,7 +28,12 @@ std::string bb_gen_scan() {
              + x86("def", "β")
              + x86("jmp", "ω"))
          + IF(_.op_sb != 1 && _.op_off >= 0,
-               x86("lea", "rdi", FRQ(_.op_off))
+               IF(_.op_sa >= 0 && _.op_ival >= 0,
+                   x86("mov", "rax", FRQ(_.op_sa))
+                 + x86("mov", FRQ(_.op_ival), "rax")
+                 + x86("mov", "rax", FRQ(_.op_sa + 8))
+                 + x86("mov", FRQ(_.op_ival + 8), "rax"))
+             + x86("lea", "rdi", FRQ(_.op_off))
              + x86("call", "rt_scan_leave", (uint64_t)(uintptr_t)(void *)rt_scan_leave)
              + x86("mov", "r13", FRQ(_.op_off))
              + x86("mov", "r14", FRQ(_.op_off + 8))
