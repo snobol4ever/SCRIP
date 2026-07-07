@@ -850,7 +850,14 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t *
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
     IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
-    IR_t * pat_entry = sno_pat_node(cx, ptt, sJ, head);
+    /* BB-OWNED-ζ statement-scope pivot (this session): release owns the success exit the way head's own ω
+     * already owns the failure exit (head IS the scanner's single fixed exhaustion choke point; success has
+     * no such fixed point of its own — it's whichever pattern element the match happens to end on — so this
+     * node IS that fixed point, added for exactly this).  operand[0] = head, read at emit time via the same
+     * operand[0]-owner convention IR_MATCH_ARBNO's non-owner phases already use to find role 0's slot. */
+    IR_t * release = lc_build(g, IR_MATCH_RELEASE, sJ, NULL);
+    ir_operand_push(release, head);
+    IR_t * pat_entry = sno_pat_node(cx, ptt, release, head);
     lc_γ_to(head, pat_entry);
     IR_t * subjval = NULL;
     IR_t * subj_entry = sx_lower(cx, svt, head, fJ, &subjval);

@@ -759,6 +759,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
     case IR_MATCH_ARBNO:          { bb_prepare(nd); bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
+    case IR_MATCH_RELEASE:        { bb_emit_x86(bb_match_release()); } return 0;               /* BB-OWNED-ζ statement-scope pivot */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_IMM:     { bb_emit_x86(bb_match_capture()); } return 0;               /* $ immediate capture */
     case IR_MATCH_ASSIGN_SAVE:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE */
@@ -972,6 +973,14 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t *subj = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_sa = subj ? drive_value_slot(subj) : -1;
         g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_RELEASE: {
+        /* BB-OWNED-ζ statement-scope pivot: operand[0] = the statement's IR_MATCH_HEAD node (set by
+         * sno_lower_match's ir_operand_push); read ITS slot, same convention as IR_MATCH_ARBNO's non-owner
+         * phases reading role 0's slot via operand[0] two cases below. */
+        IR_t *hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_off = hd ? drive_value_slot(hd) : -1;
         DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ASSIGN_COND: {
