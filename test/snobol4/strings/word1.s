@@ -318,6 +318,8 @@ bb15_α:
 xchain19_n6_α:
 # IR_MATCH_HEAD
 bb16_α:
+ call rt_zls_mark@PLT
+ mov qword ptr [r12 + 120], rax
  mov rdi, qword ptr [r12 + 128]
  mov rsi, qword ptr [r12 + 136]
  call rt_match_enter@PLT
@@ -331,12 +333,21 @@ bb16_α:
  add dword ptr [r12 + 112], 1
  mov eax, dword ptr [r12 + 112]
  cmp eax, r15d
- jg xchain19_n3_α
+ jg .Lx28_1
  lea rcx, [rip + g_anchor]
  mov rax, qword ptr [rcx]
  cmp rax, 0
- jne xchain19_n3_α
+ jne .Lx28_1
  jmp .Lx28_0
+.Lx28_1:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ mov rdi, qword ptr [r12 + 120]
+ call rt_zls_release_to@PLT
+ mov rsp, rbp
+ pop rbp
+ jmp xchain19_n3_α
 xchain19_n7_α:
 # IR_MATCH_DEFER
 bb17_α:
@@ -374,7 +385,7 @@ bb17_α:
  pop rbp
  jmp xchain19_n6_β
 .Lx29_1:
- jmp xchain19_n3_α
+ jmp xchain19_n8_α
 .Lx29_0:
  lea rdi, [rip + .S4]
  xor esi, esi
@@ -388,9 +399,20 @@ bb17_α:
  test eax, eax
  js xchain19_n6_β
  mov r14d, eax
- jmp xchain19_n3_α
+ jmp xchain19_n8_α
  xchain19_n7_β:
  jmp xchain19_n6_β
+xchain19_n8_α:
+# IR_MATCH_RELEASE
+bb18_α:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ mov rdi, qword ptr [r12 + 120]
+ call rt_zls_release_to@PLT
+ mov rsp, rbp
+ pop rbp
+ jmp xchain19_n3_α
 main_β:
 jmp main_ω
 main_γ:
