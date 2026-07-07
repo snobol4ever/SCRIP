@@ -112,6 +112,30 @@ DESCR_t rt_keyword_random_set(DESCR_t v) {
     else return FAILDESCR;
     g_random = i; return INTVAL((int64_t)i);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_error_set(DESCR_t v) { extern long g_error;
+    long i;
+    if (v.v == DT_I) i = (long)v.i;
+    else if (v.v == DT_R) i = (long)v.r;
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
+    else return FAILDESCR;
+    g_error = i; return INTVAL((int64_t)i); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_trace_set(DESCR_t v) { extern long g_trace;
+    long i;
+    if (v.v == DT_I) i = (long)v.i;
+    else if (v.v == DT_R) i = (long)v.r;
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
+    else return FAILDESCR;
+    g_trace = i; return INTVAL((int64_t)i); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_dump_set(DESCR_t v)  { extern long g_dump;
+    long i;
+    if (v.v == DT_I) i = (long)v.i;
+    else if (v.v == DT_R) i = (long)v.r;
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
+    else return FAILDESCR;
+    g_dump  = i; return INTVAL((int64_t)i); }
 #include "../../driver/driver_private.h"
 #include <time.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
