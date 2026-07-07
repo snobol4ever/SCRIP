@@ -75,6 +75,7 @@ void rt_zls_release(void *fb)
 {
     char *base;
     if (!fb) return;
+    if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-RELEASE] fb=%p (call #%ld)\n", fb, g_zls_releases + 1);
     base = (char *)fb - ZLS_HDR;
     g_zls_releases += 1;
     g_zls_cur = ((void **)base)[0];
@@ -111,9 +112,10 @@ void rt_zls_release(void *fb)
  * mark" would be clobbered by an inner call before the outer call's epilogue reads it back — the same
  * single-carrier trap rt_zls_arbno_step1_store/load below is honestly scoped to avoid, at the LARGER scale
  * where it would corrupt the outer caller's own graph, not just lose one activation's pointer. */
-void *rt_zls_mark(void) { return g_zls_cur; }
+void *rt_zls_mark(void) { if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-MARK] returning g_zls_cur=%p\n", g_zls_cur); return g_zls_cur; }
 void rt_zls_release_to(void *mark)
 {
+    if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-RELEASE-TO] called with mark=%p, g_zls_cur=%p\n", mark, g_zls_cur);
     while (g_zls_cur != mark) {
         void *cur = g_zls_cur;
         if (!cur) break;
