@@ -395,6 +395,19 @@ typedef struct {
     int                          op_sb;
     int                          op_sc;
     int                          op_off;
+    /* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  Set once per node in codegen_flat_chain_body, BEFORE
+     * emit_drive(nodes[i],...) is called for that node, at the exact point the flattening loop already
+     * computes omega_resolved/otgt (emit.cpp ~line 1498-1500).  True (1) iff this node's ω-edge falls through
+     * to the chain's own outer lbl_ω AND the unresolved target is not an IR_SUCCEED node -- i.e., genuinely
+     * "falls off the end of this chain to the real failure continuation," which per lower_snobol4.c's
+     * sno_ω_to(F, fail) construction (verified this session for IR_MATCH_ARBNO roles 2/5) is exactly the
+     * point nothing in this chain can ever read this node's zls slot again.  False for every other resolution
+     * (lands at another node's α = clean handoff to a fresh activation; lands at another node's β = that
+     * node's β reads THIS node's shared slot per the SN4-PAT-ARBNO role-0/role-2 aliasing, so freeing here
+     * would be a premature free one instruction before the last legitimate read).  x86_jmp() in x86_asm.h
+     * checks this ONLY when port==OMEGA; every other jump ignores it.  Defaults to 0 (never free) so any
+     * node kind this rung hasn't explicitly reasoned through stays inert under ZC_SELFLOAD_ALLOC. */
+    int                          op_omega_is_death;
     int                          op_phase;
     int                          op_binop_kind;
     int                          op_gva_k;

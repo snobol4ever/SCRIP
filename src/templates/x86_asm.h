@@ -249,6 +249,53 @@ inline std::string x86_port_canary() {
     return std::string(" test r12, r12\n jnz 1f\n ud2\n1:\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  x86_selfload_mode() mirrors x86_port_mode()'s env-override
+ * pattern but reads ZC_SELFLOAD (the α/β self-load axis), not ZC_PORT.  SCRIP_ZETA_SELFLOAD env var overrides
+ * the compile-time default for quick A/B without a rebuild, exactly as SCRIP_ZETA_PORT already does. */
+inline int x86_selfload_mode() {
+    static int m = -1;
+    if (m < 0) { const char *e = getenv("SCRIP_ZETA_SELFLOAD"); m = e ? atoi(e) : (int)ZC_SELFLOAD; }
+    return m;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_zeta_free_call() — emits `call rt_zls_release(r12)`, alignment-safe (push rbp/and rsp,-16/restore, the
+ * SAME convention bb_match_capture.cpp already uses for its rt_cap_push/rt_cap_pop calls) because this call
+ * is spliced into x86_jmp() at an arbitrary jmp-ω site whose surrounding stack parity is not guaranteed the
+ * way a template's own fixed-position call site is.  r12 is passed as the sole argument and is NOT clobbered
+ * afterward (rt_zls_release takes the block pointer by value; the caller's r12 register is unaffected by the
+ * call itself, only by whatever the callee does with the copy in rdi) — the jmp that follows still uses
+ * whatever r12 held going in, which is correct: the block is freed, not the register zeroed, matching
+ * "flag/pointer-snap on exit" rather than "invalidate the pointer we're about to jump past."
+ * FORWARD-DECLARED here (defined after x86() below, since its body calls x86() which isn't defined until
+ * later in this file, while x86_jmp — which calls this — must stay BEFORE x86() because x86() itself calls
+ * x86_jmp for XK_PORT jump operands; see the ordering note by the definition). */
+extern "C" void rt_zls_release(void *);
+inline std::string x86_zeta_free_call();
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_jmp's ALLOC-mode free-call fires ONLY when op_omega_is_death is set (computed once per node in
+ * codegen_flat_chain_body, BEFORE this template ran — see the field comment in emit.h).  Verified this
+ * session, precisely, against IR_MATCH_ARBNO: role 0's and role 1's `jmp "ω"` are BOTH cases where the
+ * port-name "ω" is reused for an internal handoff (role 0's β-aliases into role 2's β, which then reads
+ * role-0's OWN shared slot at FR(_.op_off) one instruction before ITS OWN true exit) — freeing on either of
+ * those would be a premature free one instruction before the last legitimate read, the exact silent-
+ * corruption trap this rung exists to avoid.  Only role 2/5's `jmp "ω"` (built via sno_ω_to(F, fail) in
+ * lower_snobol4.c, landing on the pattern's own outer fail continuation, outside the local chain) sets
+ * op_omega_is_death=1.  This is NOT a guess or a discriminator inferred from op_phase/op_node_kind (that
+ * approach was tried and abandoned this session as unsafe) — it reads a flag the wiring layer already
+ * computed with full graph knowledge, at the one point that knowledge was available. */
+/* BB-OWNED-ζ STEP 1 STATUS (Lon pivot, this session): op_omega_is_death IS computed correctly (see emit.cpp)
+ * and IS a sound, reusable signal — but the free-call this hook WOULD make is x86_zeta_free_call(), which
+ * frees r12 itself.  STEP 1's actual implementation deliberately does NOT repoint r12 to the allocated block
+ * (repointing the shared r12 would corrupt every sibling box interleaved with this ARBNO activation, since
+ * r12 is one register for the whole function — see the design note in bb_match_arbno.cpp's
+ * x86_arbno_role0_alloc).  The real pointer lives in a runtime-side single carrier
+ * (rt_zls_arbno_step1_store/load in zeta_alloc.c), read back and freed at the TEMPLATE level
+ * (x86_arbno_role2_free in bb_match_arbno.cpp), not here.  Firing x86_zeta_free_call() unconditionally at
+ * this central hook would free whatever r12 happens to hold for the entire function — catastrophically
+ * wrong, not merely a double-free.  DISABLED until a real central-hook design exists that knows how to reach
+ * the correct per-construct carrier generically (a later rung, not this one).  op_omega_is_death stays
+ * computed (it costs nothing when unused and is exactly the signal a future correct hook would need) but is
+ * deliberately NOT read here for now. */
 inline std::string x86_jmp(int port) {
     std::string pre = x86_port_canary();
     return pre + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
@@ -767,6 +814,18 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         return std::string();
     }
     return std::string();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_zeta_free_call() definition (forward-declared above x86_jmp; see that declaration's comment for why
+ * this must live here, after x86() itself is defined). */
+inline std::string x86_zeta_free_call() {
+    return x86("push", "rbp")
+         + x86("mov",  "rbp", "rsp")
+         + x86("and",  "rsp", -16L)
+         + x86("mov",  "rdi", "r12")
+         + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
+         + x86("mov",  "rsp", "rbp")
+         + x86("pop",  "rbp");
 }
 extern "C" void rt_bomb(const char * msg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

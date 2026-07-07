@@ -20,6 +20,7 @@
 #define ZC_SELFLOAD_PLANE_CELL 1
 #define ZC_SELFLOAD_ASSERT     2
 #define ZC_SELFLOAD_STATIC     3
+#define ZC_SELFLOAD_ALLOC      4
 #ifndef ZC_SELFLOAD
 #define ZC_SELFLOAD ZC_SELFLOAD_OFF
 #endif

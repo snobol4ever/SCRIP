@@ -6,7 +6,62 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
+extern "C" void * rt_zls_alloc(long bytes);
+extern "C" void   rt_zls_release(void *fb);
+extern "C" void   rt_zls_arbno_step1_store(void *p);
+extern "C" void * rt_zls_arbno_step1_load(void);
 #include "x86_asm.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  x86_arbno_role0_alloc() — gated on ZC_SELFLOAD_ALLOC, fully
+ * inert otherwise.  Fires at role 0's own α entry (the one point a fresh ARBNO activation begins) and stores
+ * the resulting block pointer via rt_zls_arbno_step1_store (zeta_alloc.c) — a single runtime-side static
+ * carrier, NOT slot-packed (role 0's own zls_field grant is exactly 16B, "3x4B + pad" meaning 4 bytes of pad
+ * at +12..+15, not 8 — an 8-byte pointer does not fit there without spilling into whatever field is granted
+ * next in the whole-program slot layout).  Carries the pointer to role 2's matching free WITHOUT repointing
+ * r12 itself — r12 stays exactly as the outer function's single static prologue set it, so every sibling box
+ * interleaved with this ARBNO activation is completely unaffected.  This deliberately does NOT yet make role
+ * 0/1/2's own [r12+off] reads/writes land inside the allocated block (that's the harder producer/consumer
+ * r12-sharing problem the design doc's own open sub-question flags, ZB-ACT-1 territory) -- this slice proves
+ * ONLY the alloc-discipline: one alloc per fresh role-0 activation, one matching free at the provably-true
+ * exit (role 2), counts balance, nothing corrupts.  HONEST SCOPE (see zeta_alloc.c for the full note):
+ * correct for SEQUENTIAL re-entry only, not yet nested/concurrent activations of the same node. */
+static std::string x86_arbno_role0_alloc() {
+    if (x86_selfload_mode() != ZC_SELFLOAD_ALLOC) return std::string();
+    return x86("push", "rbp")
+         + x86("mov",  "rbp", "rsp")
+         + x86("and",  "rsp", -16L)
+         + x86("mov",  "rdi", 4096L)
+         + x86("call", "rt_zls_alloc", (uint64_t)(uintptr_t)(void *)(void * (*)(long))rt_zls_alloc)
+         + x86("mov",  "rdi", "rax")
+         + x86("call", "rt_zls_arbno_step1_store", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_arbno_step1_store)
+         + x86("mov",  "rsp", "rbp")
+         + x86("pop",  "rbp");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_arbno_role2_free() — mirror of the above, at role 2's true exit.  Loads the carrier pointer and frees
+ * it.  Gated identically; inert unless ZC_SELFLOAD_ALLOC mode is active.  NOTE: op_omega_is_death's own gate
+ * in x86_jmp (x86_asm.h) ALSO fires for role 2's jmp "ω" — this template-level free and that central-hook
+ * free are NOT the same call and would double-free if both fired.  This rung uses this template-level call
+ * as the actual free (since it needs the carrier-load step anyway, which the central hook doesn't have
+ * access to); the central x86_jmp hook's op_omega_is_death gate is left in place unused for future
+ * generalization (a construct whose true-exit-carrier IS reachable centrally, once one exists) but does NOT
+ * currently double-fire here because role 2 is IR_MATCH_ARBNO phase 2, and phase 2's op_off resolves to
+ * role-0's OWN node (drive_value_slot(own) in emit_drive's IR_MATCH_ARBNO case) — the central hook's
+ * op_omega_is_death check does not know to call rt_zls_arbno_step1_load, so it would try to free r12 itself
+ * (wrong pointer entirely) if ZC_SELFLOAD_ALLOC's x86_jmp branch were left enabled unconditionally. VERIFY
+ * BEFORE TRUSTING COUNTS: this session's plan disables the central x86_jmp free path for this experiment (see
+ * the follow-up edit) so only this template-level, carrier-aware free actually fires. */
+static std::string x86_arbno_role2_free() {
+    if (x86_selfload_mode() != ZC_SELFLOAD_ALLOC) return std::string();
+    return x86("call", "rt_zls_arbno_step1_load", (uint64_t)(uintptr_t)(void *)(void * (*)(void))rt_zls_arbno_step1_load)
+         + x86("push", "rbp")
+         + x86("mov",  "rbp", "rsp")
+         + x86("and",  "rsp", -16L)
+         + x86("mov",  "rdi", "rax")
+         + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
+         + x86("mov",  "rsp", "rbp")
+         + x86("pop",  "rbp");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-5 SN4-PAT ARBNO.  Six roles share IR_MATCH_ARBNO; _.op_phase = IR_LIT.ival (NAMING NOTE, Lon 2026-07-05:
  * "phase" is a misnomer — this is a box-ROLE discriminator; rename is a future housekeeping rung).
@@ -45,6 +100,7 @@ std::string bb_match_arbno() {
     if ((int)_.op_phase == 0)
         return x86("comment", "IR_MATCH_ARBNO gen")
              + x86("label",   _.lbl_α)
+             + x86_arbno_role0_alloc()
              + x86("mov", FR(_.op_off), "r14d")
              + x86("mov", FR(_.op_off + 4), "r14d")
              + x86("jmp", "γ")
@@ -67,6 +123,7 @@ std::string bb_match_arbno() {
              + x86("label",   _.lbl_α)
              + x86("def", "β")
              + x86("mov", "r14d", FR(_.op_off))
+             + x86_arbno_role2_free()
              + x86("jmp", "ω");
     if (_.op_sa < 0 || _.op_sb <= 0) return x86_bomb("IR_MATCH_ARBNO v2: COLLECTION geometry not staged (zls_arbno_geom)");
     if ((int)_.op_phase == 3)

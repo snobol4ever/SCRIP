@@ -1498,6 +1498,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
+        /* BB-OWNED-ζ STEP 1: true death iff this ω-edge falls all the way through to the chain's own outer
+         * lbl_ω (never resolved inside the local chain) AND the unresolved target isn't a success-fallthrough
+         * masquerading through the ω port.  See the field comment in emit.h for the full reasoning; verified
+         * against IR_MATCH_ARBNO roles 2/5 via lower_snobol4.c's sno_ω_to(F, fail) construction this session. */
+        g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
         for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
         if (nodes[i]->op == IR_CONJUNCTION && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t * op0 = nodes[i]->operands[0];
