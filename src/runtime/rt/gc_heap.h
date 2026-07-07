@@ -23,6 +23,7 @@ typedef struct rt_hblk_t { uint64_t fwd; uint32_t size; uint16_t type; uint16_t 
 struct DESCR_t;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 char *rt_str_alloc(long n);
+char *rt_str_dup(const char *s);
 long  rt_gcheap_verify(void);
 long  rt_gc_collect(void);
 void  rt_gc_point(struct DESCR_t *d0, const char **r0);

@@ -49,7 +49,7 @@ int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) { found = 1; break; } }
     if (!found) return 0;
     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-    DESCR_t args[3]; args[0] = STRVAL(GC_strdup(base)); args[1] = a; args[2] = b;
+    DESCR_t args[3]; args[0] = STRVAL(rt_str_dup(base)); args[1] = a; args[2] = b;
     DESCR_t r = FAILDESCR; if (script_try_call_builtin_by_name("__multi_call", args, 3, &r)) { *out = r; return 1; }
     return 0;
 }

@@ -103,6 +103,17 @@ char *rt_str_alloc(long n)
     { char *b = (char *)GC_MALLOC_ATOMIC((size_t)want); if (b) memset(b, 0, (size_t)want); return b; }
 #endif
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *rt_str_dup(const char *s)
+{
+    /* GC-5 strings-row TAIL: the mechanical GC_strdup replacement flagged in ARCH-ZETA-LOCAL-STORAGE.md
+     * §6e. Reuses rt_str_alloc so both heap paths (scrip-owned / libgc-atomic fallback) stay in sync automatically. */
+    if (!s) s = "";
+    long n = (long)strlen(s);
+    char *b = rt_str_alloc(n);
+    if (b) memcpy(b, s, (size_t)n);
+    return b;
+}
 /*====================================================================================================================================================================================================*/
 /* GC-1 MARK + GC-2 ADJUST + GC-3 SLIDE (ARCH-ZETA-LOCAL-STORAGE §6a/§6b/§6e) — the SIL 3-stage storage regeneration, v1 scope = the DT_S strings family (the only resident family after GC-0).
  * TWO ROOT LAYERS. PRECISE (tag-driven, §6b: DESCR_t.v discriminates — marked AND adjusted): NV buckets incl. bound GVA cells (core_gc_roots), _var_reg cells, g_call_args window (rt_gc_root_args),

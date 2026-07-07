@@ -148,7 +148,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
     }
     if (arr.v == DT_I) {
         char ibuf[32]; snprintf(ibuf, sizeof ibuf, "%lld", (long long)arr.i);
-        arr = STRVAL(GC_strdup(ibuf));
+        arr = STRVAL(rt_str_dup(ibuf));
     }
     if (arr.v == DT_S || arr.v == DT_SNUL) {
         const char *s = arr.s ? arr.s : "";
