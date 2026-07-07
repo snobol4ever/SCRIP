@@ -1,5 +1,7 @@
 #include <string>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
@@ -95,6 +97,7 @@ static std::string x86_arbno_role2_free() {
  *                first-allocated (rightmost) leaf, the body's resume surface. */
 std::string bb_match_arbno() {
     x86_begin();
+    if (getenv("SCRIP_ARBNO_PHASE_TRACE")) fprintf(stderr, "[ARBNO-PHASE] op_phase=%d op_off=%d op_sa=%d op_sb=%d\n", (int)_.op_phase, _.op_off, _.op_sa, _.op_sb);
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0) return x86_bomb("IR_MATCH_ARBNO: cursor slot not granted (zls)");
     if ((int)_.op_phase == 0)
