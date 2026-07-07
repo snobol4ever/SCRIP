@@ -117,6 +117,7 @@ IR_graph_t * IR_alloc(int max_nodes) {
     bbg->max  = max_nodes;
     bbg->entry = NULL;
     bbg->resume_slot = -1;
+    bbg->zeta_mark_slot = -1;
     return bbg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -227,12 +228,14 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     extern int zls_g_nslots(const IR_graph_t *);
     extern int zls_g_region(const IR_graph_t *);
     extern int zls_g_resume(const IR_graph_t *);
+    extern int zls_g_zeta_mark(const IR_graph_t *);
     extern int zls_g_vslot_count(const IR_graph_t *);
     extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     zls_build(g);
     g->n_vslots = 0;
     for (int v = 0; v < zls_g_vslot_count(g); v++) { int off = -1; const char * vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0) drv_vslot_push(g, vn, off); }
     g->resume_slot = zls_g_resume(g);
+    g->zeta_mark_slot = zls_g_zeta_mark(g);
     g->jcon_value_region = zls_g_region(g);
     g->nvalue_slots = zls_g_nslots(g);
 }

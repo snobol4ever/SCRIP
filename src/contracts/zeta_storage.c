@@ -16,7 +16,7 @@ typedef struct { const IR_t * nd; int scope_id; int off; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; } zls_mark_t;
-typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int first_vslot; int n_vslots; } zls_graph_t;
+typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int first_vslot; int n_vslots; } zls_graph_t;
 static zls_entry_t  ze[ZLS_MAX_ENTRIES];  static int ze_n = 0;
 static zls_pfield_t zf[ZLS_MAX_FIELDS];   static int zf_n = 0;
 static zls_scope_t  zs[ZLS_MAX_SCOPES];   static int zs_n = 0;
@@ -205,6 +205,10 @@ void zls_build(IR_graph_t * g) {
         zls_field(root, r->resume_off + 8, 8, ZK_RAW, 0, "resume.pad (unused)", (const IR_t *)0);
         k += 1; break;
     }
+    r->zeta_mark_off = base + k * 16;
+    zls_field(root, r->zeta_mark_off, 8, ZK_RAW, 0, "graph-scope zeta mark (rt_zls_mark snapshot, prologue-stashed, epilogue-released)", (const IR_t *)0);
+    zls_field(root, r->zeta_mark_off + 8, 8, ZK_RAW, 0, "zeta_mark.pad (unused)", (const IR_t *)0);
+    k += 1;
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
@@ -270,6 +274,7 @@ int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_resume(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->resume_off : -1; }
+int zls_g_zeta_mark(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->zeta_mark_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_vslot_count(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->n_vslots : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
