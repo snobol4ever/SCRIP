@@ -235,6 +235,7 @@ inline std::string x86_jcc(const char * mnem, int port) {
                          : (std::string(" ") + mnem + " " + x86_portname(port) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp(int port) {
     return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
                          : (std::string(" jmp ") + x86_portname(port) + "\n");
@@ -771,14 +772,14 @@ inline std::string x86_pair_jmp(int idx) {
     return std::string(" jmp ") + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_zeta_selfload_mode() {
+inline int x86_port_mode() {
     static int m = -1;
-    if (m < 0) { const char *e = getenv("SCRIP_ZETA_SELFLOAD"); m = e ? atoi(e) : (int)ZC_SELFLOAD; }
+    if (m < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); m = e ? atoi(e) : (int)ZC_PORT; }
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zeta_selfload_beta() {
-    if (x86_zeta_selfload_mode() != ZC_SELFLOAD_ASSERT) return std::string();
+    if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
     if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x4D, 0x85, 0xE4) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
     return std::string(" test r12, r12\n jnz 1f\n ud2\n1:\n");
 }
