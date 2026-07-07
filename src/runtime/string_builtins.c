@@ -9,7 +9,7 @@ DESCR_t DUPL_fn(DESCR_t s, DESCR_t n) {
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t times   = to_int(n);
     if (times < 0) return FAILDESCR;
-    if (times == 0 || !STRVAL_fn || !*STRVAL_fn) return STRVAL(GC_strdup(""));
+    if (times == 0 || !STRVAL_fn || !*STRVAL_fn) return STRVAL(rt_str_dup(""));
     size_t slen = strlen(STRVAL_fn);
     char *r = rt_str_alloc((long)(slen * (size_t)times));
     r[0] = '\0';
@@ -50,7 +50,7 @@ DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
     size_t blen     = strlen(STRVAL_fn);
     size_t ncpts    = utf8_strlen(STRVAL_fn);
     if (start < 1) return FAILDESCR;
-    if ((size_t)start > ncpts + 1) return STRVAL(GC_strdup(""));
+    if ((size_t)start > ncpts + 1) return STRVAL(rt_str_dup(""));
     if (len_ < 0) len_ = 0;
     if ((size_t)(start - 1 + len_) > ncpts) len_ = (int64_t)(ncpts - (size_t)start + 1);
     size_t boff  = utf8_char_offset(STRVAL_fn, blen, (size_t)start);
@@ -77,7 +77,7 @@ DESCR_t lpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
     const char *p   = VARVAL_fn(pad);
     char padch      = (p && *p) ? p[0] : ' ';
     int64_t slen    = (int64_t)strlen(STRVAL_fn);
-    if (width <= slen) return STRVAL(GC_strdup(STRVAL_fn));
+    if (width <= slen) return STRVAL(rt_str_dup(STRVAL_fn));
     int64_t npad = width - slen;
     char *r = rt_str_alloc((long)width);
     memset(r, padch, (size_t)npad);
@@ -92,7 +92,7 @@ DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
     const char *p   = VARVAL_fn(pad);
     char padch      = (p && *p) ? p[0] : ' ';
     int64_t slen    = (int64_t)strlen(STRVAL_fn);
-    if (width <= slen) return STRVAL(GC_strdup(STRVAL_fn));
+    if (width <= slen) return STRVAL(rt_str_dup(STRVAL_fn));
     char *r = rt_str_alloc((long)width);
     memcpy(r, STRVAL_fn, (size_t)slen);
     memset(r + slen, padch, (size_t)(width - slen));
