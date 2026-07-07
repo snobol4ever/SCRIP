@@ -90,3 +90,18 @@ void rt_zls_release(void *fb)
     }
 #endif
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  rt_zls_arbno_step1_store/load — a SINGLE static carrier for
+ * the pointer role 0's fresh alloc returns, read back by role 2 right before its own true-exit free.
+ * DELIBERATELY not slot-packed (role 0's own zls_field grant is exactly 16B, "3x4B + pad" — 4 bytes of pad,
+ * not 8, so an 8-byte pointer does not fit there; widening the grant would require touching the whole-
+ * program slot-layout return-value-times-16 arithmetic in zeta_storage.c, disproportionate risk for a first
+ * proof-of-wiring slice).  HONEST SCOPE: this is correct ONLY for SEQUENTIAL re-entry (one activation live at
+ * a time — exactly arbno_reentrant.sno's shape, and the ALREADY-PASSING case per this session's earlier
+ * testing). It does NOT handle nested or concurrent activations of the same ARBNO node (a second alloc before
+ * the first's matching free would silently overwrite the carrier, losing the first pointer — the general
+ * fix needs a real per-activation carrier, e.g. a correctly-widened slot or an explicit stack, and is
+ * explicitly future work, not solved here). */
+static void *g_zls_arbno_step1_carrier = (void *)0;
+void rt_zls_arbno_step1_store(void *p) { if (getenv("SCRIP_ARBNO_STEP1_TRACE")) fprintf(stderr, "[ARBNO-S1] STORE %p (prev carrier was %p)\n", p, g_zls_arbno_step1_carrier); g_zls_arbno_step1_carrier = p; }
+void *rt_zls_arbno_step1_load(void) { if (getenv("SCRIP_ARBNO_STEP1_TRACE")) fprintf(stderr, "[ARBNO-S1] LOAD  %p\n", g_zls_arbno_step1_carrier); return g_zls_arbno_step1_carrier; }
