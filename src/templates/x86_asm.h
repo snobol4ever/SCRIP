@@ -236,9 +236,23 @@ inline std::string x86_jcc(const char * mnem, int port) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int x86_port_mode() {
+    static int m = -1;
+    if (m < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); m = e ? atoi(e) : (int)ZC_PORT; }
+    return m;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_port_canary() {
+    if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
+    if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x4D, 0x85, 0xE4) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
+    return std::string(" test r12, r12\n jnz 1f\n ud2\n1:\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp(int port) {
-    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
-                         : (std::string(" jmp ") + x86_portname(port) + "\n");
+    std::string pre = x86_port_canary();
+    return pre + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
+                                : (std::string(" jmp ") + x86_portname(port) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel(int port) {
@@ -772,26 +786,14 @@ inline std::string x86_pair_jmp(int idx) {
     return std::string(" jmp ") + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_port_mode() {
-    static int m = -1;
-    if (m < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); m = e ? atoi(e) : (int)ZC_PORT; }
-    return m;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zeta_selfload_beta() {
-    if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
-    if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x4D, 0x85, 0xE4) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
-    return std::string(" test r12, r12\n jnz 1f\n ud2\n1:\n");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pair_loop() {
     std::string r;
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
         if (MEDIUM_BINARY) {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; r += x86_zeta_selfload_beta(); }
+            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; r += x86_port_canary(); }
             if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
         } else {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_zeta_selfload_beta(); }
+            if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_port_canary(); }
             if (g_emit.xa_bb_emit_pair_jmp[i])    r += std::string(" jmp ") + g_emit.xa_bb_emit_pair_jmp[i]->name + "\n";
         }
     }
