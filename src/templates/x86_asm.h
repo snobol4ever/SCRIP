@@ -354,6 +354,28 @@ inline std::string x86_deflabel_id(int n) {
     return MEDIUM_BINARY ? x86_Drec(X86_INTERNAL_BASE + n) : (x86_internal_name(n) + ":\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_jmp_ext / x86_jcc_ext — jump (unconditional / conditional) to an EXTERNALLY-supplied bb_label_t*, e.g.
+ * g_emit.flat_β_p, a label allocated by the surrounding chain machinery in emit.cpp rather than one this
+ * template defines itself. The existing 'J' tag only carries a one-byte INDEX into bb_emit_x86's own local
+ * internal[] array (see its decoder loop) — it has no way to reference a caller-supplied pointer. This adds
+ * a new 'X' tag carrying the raw pointer bytes (8 bytes, this platform's pointer width), decoded by
+ * bb_emit_x86 as a direct call to bb_emit_patch_rel32(that pointer) — the SAME function xa_emit_one already
+ * calls successfully for external labels, just triggered from the tag-decode loop instead of from
+ * xa_emit_one's raw-offset splicing. TEXT mode needs no tag machinery at all — GAS resolves a plain label
+ * name at assemble time, so this is just the label's ->name string, exactly as xa_flat.cpp's existing TEXT
+ * branches already do it directly. */
+inline std::string x86_ext_ptr_bytes(const void * p) {
+    uint64_t v = (uint64_t)(uintptr_t)p; std::string s; for (int i = 0; i < 8; i++) { s += (char)(unsigned char)(v & 0xFF); v >>= 8; } return s;
+}
+inline std::string x86_jmp_ext(const struct bb_label_t * lbl) {
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
+    return std::string(" jmp ") + (lbl ? lbl->name : "?") + "\n";
+}
+inline std::string x86_jcc_ext(const char * mnem, const struct bb_label_t * lbl) {
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
+    return std::string(" ") + mnem + " " + (lbl ? lbl->name : "?") + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lea_rip_id(const char * reg, int n) {
     /* lea r64, [rip + L(n)] — materialize an internal label's code address (ALT-RESUME continuation cells).  REX.W 8D /r mod=00 rm=101; the rel32 is the instruction's last 4 bytes, so the same
      * J-record fixup that resolves jmp/jcc rel32 resolves this (rel32 is relative to next-instruction in both). */
@@ -612,7 +634,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_SYM, XK_ROSLOT };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_SYM, XK_ROSLOT, XK_EXTLBL };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -644,6 +666,7 @@ inline void x86_parse(const xop & x, opnd & o) {
     int p = x86_port_of(s);
     if (p >= 0 && (s[2] == 0)) { o.kind = XK_PORT; o.port = p; return; }
     if (s[0] == 'L' && s[1] >= '0' && s[1] <= '9') { int n = atoi(s + 1); o.kind = XK_ILBL; o.lbl = n; return; }
+    if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
     if (!strncmp(s, "dword ptr [r12 + ", 17)) { o.kind = XK_FR32;  o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [r12 + ", 17)) { o.kind = XK_FR64;  o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [rip + ", 17)) { o.kind = XK_ROSLOT; o.off = atoi(s + 17); return; }
@@ -716,12 +739,14 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_PORT) return x86_jmp(a.port);
         if (a.kind == XK_ILBL) return x86_jmp_id(a.lbl);
         if (a.kind == XK_FR64) return x86_jmp_frame64(a.off);
+        if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jmp_ext((const struct bb_label_t *)(uintptr_t)xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" jmp ") + a.sym + "\n";
         return std::string();
     }
     if (mnem[0] == 'j') {
         if (a.kind == XK_PORT) return x86_jcc(mnem, a.port);
         if (a.kind == XK_ILBL) return x86_jcc_id(mnem, a.lbl);
+        if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jcc_ext(mnem, (const struct bb_label_t *)(uintptr_t)xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" ") + mnem + " " + a.sym + "\n";
         return std::string();
     }
@@ -884,6 +909,7 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'D') { int id = (unsigned char)s[i++]; bb_label_define(x86_label_for(id, internal)); }
         else if (tag == 'E') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_define[idx]) bb_label_define(g_emit.xa_bb_emit_pair_define[idx]); }
         else if (tag == 'F') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_jmp[idx]) bb_emit_patch_rel32(g_emit.xa_bb_emit_pair_jmp[idx]); }
+        else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
         else break;
     }
 }

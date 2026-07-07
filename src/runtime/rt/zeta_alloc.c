@@ -91,6 +91,36 @@ void rt_zls_release(void *fb)
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* BB-OWNED-ζ GRAPH-EXIT STEP (Lon directive, this session).  rt_zls_mark/rt_zls_release_to — the graph-scale
+ * counterpart of the construct-scale alloc/free pair ARBNO already proves (role 0's α allocs, role 2's ω
+ * frees, for ONE construct).  Here: rt_zls_mark() is called once at a compiled graph's own prologue (before
+ * any BB inside that graph has run) and simply snapshots g_zls_cur — the LIFO chain's current top — as "the
+ * mark below which nothing belongs to this graph."  rt_zls_release_to(mark) is called once at that SAME
+ * graph's true success exit (the γ-landing in xa_flat_epilogue_str, immediately before the function returns)
+ * and walks the LIFO chain from whatever g_zls_cur is NOW back down to mark, releasing each block on the way
+ * via the exact same per-block logic rt_zls_release already uses — this is not a new allocator, it is a bulk
+ * caller of the existing one-block-at-a-time release, stopping at the boundary instead of going all the way
+ * to NULL.  This walks EVERY block any BB in the graph allocated between the mark and now, regardless of
+ * which construct made it or whether that construct's OWN local free already ran — a block already freed by
+ * its own construct is no longer reachable from g_zls_cur (rt_zls_release already spliced it out), so it is
+ * never visited twice; a block whose construct never reached its own local free (e.g. an ARBNO activation
+ * still mid-iteration when a LATER part of the pattern succeeds and the whole graph returns) is still on the
+ * chain and DOES get caught here — this is precisely the backstop case the per-construct rule alone misses.
+ * The mark itself must be held in the COMPILED CODE's own per-activation storage (a stack slot in the
+ * graph's frame), never a global: graphs call graphs (procedure calls nest), so a single global "current
+ * mark" would be clobbered by an inner call before the outer call's epilogue reads it back — the same
+ * single-carrier trap rt_zls_arbno_step1_store/load below is honestly scoped to avoid, at the LARGER scale
+ * where it would corrupt the outer caller's own graph, not just lose one activation's pointer. */
+void *rt_zls_mark(void) { return g_zls_cur; }
+void rt_zls_release_to(void *mark)
+{
+    while (g_zls_cur != mark) {
+        void *cur = g_zls_cur;
+        if (!cur) break;
+        rt_zls_release(cur);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  rt_zls_arbno_step1_store/load — a SINGLE static carrier for
  * the pointer role 0's fresh alloc returns, read back by role 2 right before its own true-exit free.
  * DELIBERATELY not slot-packed (role 0's own zls_field grant is exactly 16B, "3x4B + pad" — 4 bytes of pad,
