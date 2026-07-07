@@ -6,6 +6,8 @@ extern "C" {
 #include "bb_templates.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
+void * rt_zls_mark(void);
+void   rt_zls_release_to(void *mark);
 extern long g_anchor;
 }
 #include "x86_asm.h"
@@ -17,6 +19,14 @@ std::string bb_match_head() {
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86("label",   _.lbl_α)
+         /* BB-OWNED-ζ statement-scope pivot (this session): mark ONCE per statement scan-entry, before
+          * rt_match_enter -- so nothing from THAT call's result (consumed into r13/r15 below) is at risk
+          * from rt_zls_mark's own return-register clobber.  Stored immediately to the frame slot (op_off+8,
+          * the padding zls_grant newly carved out of this node's existing 16B quad) rather than left live in
+          * a register across the second call.  IR_MATCH_RELEASE (the pattern's spliced success-tail) reads
+          * this same slot via operand[0] at the statement's true success exit. */
+         + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
+         + x86("mov", FRQ(_.op_off + 8), "rax")
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
@@ -30,10 +40,27 @@ std::string bb_match_head() {
          + x86("add", FR(_.op_off), (long)1)
          + x86("mov", "eax", FR(_.op_off))
          + x86("cmp", "eax", "r15d")
-         + x86("jg",  "ω")
+         + x86("jg",  L(1))
          + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_anchor, "g_anchor")
          + x86("mov", "rax", "[rcx]")
          + x86("cmp64", "rax", (long)0)
-         + x86("jne", "ω")
-         + x86("jmp", L(0));
+         + x86("jne", L(1))
+         + x86("jmp", L(0))
+         /* BB-OWNED-ζ statement-scope pivot: this node's own omega IS the statement's failure exit (head's
+          * ω was already wired to fJ by sno_lower_match, unchanged) -- both scanner-exhaustion exits
+          * (limit reached / &ANCHOR set) now redirect through this ONE local label instead of jumping to
+          * omega directly, so the release_to call exists once, not duplicated at each conditional jump.
+          * Reads the SAME slot (op_off+8) the alpha above just wrote, and the SAME primitive
+          * IR_MATCH_RELEASE's own alpha calls on the success side -- one mark, released exactly once on
+          * whichever exit the statement actually takes, never both (success and failure are mutually
+          * exclusive control-flow paths out of this node, never both reached in one execution). */
+         + x86("def", L(1))
+         + x86("push", "rbp")
+         + x86("mov",  "rbp", "rsp")
+         + x86("and",  "rsp", -16L)
+         + x86("mov",  "rdi", FRQ(_.op_off + 8))
+         + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
+         + x86("mov",  "rsp", "rbp")
+         + x86("pop",  "rbp")
+         + x86("jmp",  "ω");
 }

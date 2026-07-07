@@ -77,7 +77,16 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
     case IR_SCAN_ENTER:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.leave out3 sigma (transient reg out-area; dead at safe points)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_MATCH_HEAD:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "head.cursor", nd); return 1;
+        /* BB-OWNED-ζ statement-scope pivot (this session): the existing 16B grant only ever used its first
+         * 4 bytes (head.cursor, an int32 counter read/written as FR(op_off) by bb_match_head.cpp) -- 12 bytes
+         * of padding sat unused.  Reusing 8 of those bytes (off+8) for the saved rt_zls_mark() pointer needs
+         * NO change to the slot count (still "return 1", still one 16B quad) and therefore cannot shift any
+         * later node's offset -- the safest possible way to add a field.  ZK_PTR_GC to match the precedent
+         * set by IR_MATCH_ARBNO's own COLLECTION pointer (arbno2.COLLECTION ptr below): both are pointers
+         * into the SAME zeta arena, whose address-range rooting (rt_zls_alloc's GC_add_roots widening,
+         * zeta_alloc.c) already covers them regardless of tag, but the tag is recorded honestly for
+         * whichever future consumer reads it, not left as an untagged raw word next to a tagged sibling. */
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer)", nd); return 1;
     case IR_MATCH_SPAN:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX:

@@ -34,6 +34,7 @@ std::string bb_match_alternate();
 std::string bb_match_cat();
 std::string bb_subject();
 std::string bb_match_head();
+std::string bb_match_release();
 std::string bb_match_retry();
 std::string bb_match_advance();
 std::string bb_match_capture();

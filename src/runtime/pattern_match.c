@@ -973,8 +973,29 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
         GC_add_roots(np, np + (size_t)nc * (size_t)elem_sz);
         *ptr_cell = np; *cap_cell = nc;
     }
+#elif ZC_COLLECTION == ZC_COL_ARENA
+    /* BB-OWNED-ζ pivot (statement-scope mark/release_to, this session): grow onto the SAME LIFO arena
+     * rt_zls_alloc/rt_zls_release already use, instead of realloc.  No GC_add_roots/GC_remove_roots here —
+     * rt_zls_alloc already widened the arena's root range to cover every byte up to the new hiwater
+     * (zeta_alloc.c rt_zls_alloc), so a block living INSIDE the arena is already GC-visible by construction;
+     * per-block rooting was only ever needed for the malloc arm, where each block was its own separate
+     * allocation outside any pre-rooted range.  Deliberately NO free of the old block: it chained onto
+     * g_zls_cur when it was allocated (rt_zls_alloc's own header write) and stays reachable there even
+     * after *ptr_cell moves past it — the enclosing statement's rt_zls_release_to(mark) walks the WHOLE
+     * chain back to the mark at statement end and reclaims it then, same backstop property already
+     * documented for a mid-iteration ARBNO activation in zeta_alloc.c's rt_zls_release_to comment.  This is
+     * what retires the "leaks at frame death" residual noted above: nothing here can outlive the mark. */
+    extern void * rt_zls_alloc(long bytes);
+    if (i + 1 > *cap_cell) {
+        int nc = *cap_cell > 0 ? *cap_cell : 4;
+        while (nc < i + 1) nc *= 2;
+        char * op = (char *)*ptr_cell;
+        char * np = (char *)rt_zls_alloc((long)nc * elem_sz);
+        if (op) memcpy(np, op, (size_t)*cap_cell * (size_t)elem_sz);
+        *ptr_cell = np; *cap_cell = nc;
+    }
 #else
-#error "rt_zcol_push: only the ZC_COL_MALLOC arm exists (ZC_COL_GC is the GC-4 rung; ZC_COL_ARENA needs a bump ZC_ALLOC)"
+#error "rt_zcol_push: ZC_COLLECTION must be ZC_COL_MALLOC or ZC_COL_ARENA (ZC_COL_GC is the GC-4 rung)"
 #endif
     char * e = (char *)*ptr_cell + (size_t)i * (size_t)elem_sz;
     memset(e, 0, (size_t)elem_sz);

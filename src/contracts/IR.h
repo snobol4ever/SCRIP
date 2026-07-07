@@ -129,6 +129,17 @@ typedef enum {
     IR_MATCH_CALLOUT,
     IR_MATCH_DEFER,
     IR_MATCH_HEAD,
+    IR_MATCH_RELEASE,       /* BB-OWNED-ζ statement-scope pivot: α reads the saved rt_zls_mark() pointer from
+                             * its operand[0] (the statement's own IR_MATCH_HEAD node, via drive_value_slot,
+                             * same operand[0]-owner convention IR_MATCH_ARBNO phases 1/2/4/5 already use to
+                             * read role 0's slot) and calls rt_zls_release_to, then falls through γ.  Spliced
+                             * as the pattern's own new tail (sno_lower_match passes this node's α as `succ`
+                             * to the outermost sno_pat_node call, with this node's own γ = the statement's
+                             * true sJ) so the success exit gets release_to the same way IR_MATCH_HEAD's ω
+                             * already gives the failure exit release_to for free -- HEAD owns fail (single
+                             * fixed choke point, the scanner's own exhaustion); RELEASE owns success (which
+                             * has no fixed choke point of its own, since it's whichever element the pattern
+                             * happens to end on -- this node IS that fixed point, added for exactly this). */
     IR_MATCH_RETRY,
     IR_MATCH_ADVANCE,
     IR_REF_INVARIANT,       /* sealed constant-folded pattern blob (FZ-3) */
