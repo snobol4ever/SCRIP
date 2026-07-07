@@ -2530,7 +2530,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 }
             }
         }
-        *out = STRVAL(GC_strdup(pname)); return 1;
+        /* name not in proc_table -- check if it is a known builtin */
+        if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname)) {
+            DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = GC_strdup(pname); *out = bv; return 1;
+        }
+        *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn,"image") && nargs == 1) {
         DESCR_t av = args[0];
