@@ -96,8 +96,10 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
+static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def, std::string * out_succ, std::string * out_fail) {
     out_site = 0; out_lbl = nullptr; out_def = false;
+    if (out_succ) out_succ->clear();
+    if (out_fail) out_fail->clear();
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_EPILOGUE");
         if (MEDIUM_BINARY) {
@@ -133,6 +135,8 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                    + unwind
                    + bytes(1, "\xC3") );
             out_site = (int)succ_half.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
+            if (out_succ) *out_succ = succ_half;
+            if (out_fail) *out_fail = fail_half;
             return succ_half + fail_half;
         }
         {
@@ -146,12 +150,12 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                 extern int g_emit_frame_caller_dl;
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
                 std::string dpop = dreg ? (std::string("add rsp, 8\npop ") + dreg + "\n") : std::string();
-                return std::string("mov eax, 1\n")
+                std::string succ_half = std::string("mov eax, 1\n")
                      + "xor edx, edx\n"
                      + dpop
                      + "pop r12\n"
-                     + "ret\n"
-                     + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                     + "ret\n";
+                std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
                      + "# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure\n"
                      + "mov dword ptr [r12+0], 99\n"
                      + "mov dword ptr [r12+4], 0\n"
@@ -161,6 +165,9 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      + dpop
                      + "pop r12\n"
                      + "ret\n";
+                if (out_succ) *out_succ = succ_half;
+                if (out_fail) *out_fail = fail_half;
+                return succ_half + fail_half;
             }
         }
         return std::string("lea rcx, [rip + Σ]\n")
@@ -193,6 +200,30 @@ static std::string xa_flat_data_section_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void)    { auto s = xa_entry_dispatch_str();    if (!s.empty()) emit_text_n(s.data(), s.size()); }
-extern "C" void xa_flat_prologue(void)     { int st; bb_label_t * lb; bool df; auto s = xa_flat_prologue_str(st, lb, df); xa_emit_one(s, st, lb, df); }
-extern "C" void xa_flat_epilogue(void)     { int st; bb_label_t * lb; bool df; auto s = xa_flat_epilogue_str(st, lb, df); xa_emit_one(s, st, lb, df); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* xa_flat_prologue/epilogue: the mark/release_to calls are emitted via bb_emit_x86 (the ordinary template
+ * dispatch consumer, tag-decodes x86()'s L/J/D/E/F/X record stream) as SEPARATE statements around the
+ * existing xa_emit_one call (which still only ever sees the original, unmodified raw prologue/epilogue
+ * bytes it always has) — never spliced into the string xa_emit_one patches. This keeps xa_emit_one's own
+ * patch-site byte-offset arithmetic completely untouched by this rung, and keeps zero manual MEDIUM_* checks
+ * in this file: bb_emit_x86 and xa_emit_one each already dispatch on medium internally, exactly once, inside
+ * their own bodies — this wrapper just sequences calls, it never inspects MEDIUM_* itself. */
+extern "C" void xa_flat_prologue(void) {
+    int st; bb_label_t * lb; bool df;
+    auto s = xa_flat_prologue_str(st, lb, df);
+    xa_emit_one(s, st, lb, df);
+    extern int g_frame_active;
+    if (g_frame_active && g_emit_cfg && g_emit_cfg->zeta_mark_slot >= 0) bb_emit_x86(x86_zeta_mark_call(g_emit_cfg->zeta_mark_slot));
+}
+extern "C" void xa_flat_epilogue(void) {
+    int st; bb_label_t * lb; bool df; std::string succ, fail;
+    auto s = xa_flat_epilogue_str(st, lb, df, &succ, &fail);
+    extern int g_frame_active;
+    bool have_halves = g_frame_active && g_emit_cfg && g_emit_cfg->zeta_mark_slot >= 0 && (!succ.empty() || !fail.empty());
+    if (!have_halves) { xa_emit_one(s, st, lb, df); return; }
+    int off = g_emit_cfg->zeta_mark_slot;
+    xa_emit_one(succ, 0, nullptr, false);
+    bb_emit_x86(x86_zeta_release_to_call(off));
+    xa_emit_one(fail, 0, lb, df);
+}
 extern "C" void xa_flat_data_section(void) { auto s = xa_flat_data_section_str(); if (!s.empty()) emit_text_n(s.data(), s.size()); }

@@ -852,8 +852,43 @@ inline std::string x86_zeta_free_call() {
          + x86("mov",  "rsp", "rbp")
          + x86("pop",  "rbp");
 }
-extern "C" void rt_bomb(const char * msg);
+extern "C" void *rt_zls_mark(void);
+extern "C" void  rt_zls_release_to(void *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,
+ * pure x86() concatenation, same as x86_zeta_free_call above and every other encoder in this file: zero
+ * manual MEDIUM_* branching in these two functions themselves. rt_zls_mark's return (rax) is stashed at
+ * [r12+off]; rt_zls_release_to reads it back from there. Callers MUST emit the returned string via
+ * bb_emit_x86() (the tag-framed L/J/D/E/F/X decoder below), never via a raw byte-copy loop — x86()'s
+ * MEDIUM_BINARY output is a tagged record stream, not literal bytes, and only bb_emit_x86() understands the
+ * framing. (This was gotten wrong once already this session: an earlier version's raw output was fed to
+ * xa_flat.cpp's own xa_emit_one(), a literal-byte-copy loop with no decoder for this framing — the resulting
+ * corrupted stream reproduced this project's prior 108-test regression, 023_arith_add.sno segfaulting on a
+ * plain assignment. Confirmed via hex dump of the corrupted bytes, not assumed; then confirmed the fix by
+ * finding bb_emit_x86's actual tag loop, the same consumer every ordinary bb_*.cpp template already uses.) */
+inline std::string x86_zeta_mark_call(int off) {
+    return x86("push", "rsi")
+         + x86("push", "rbp")
+         + x86("mov",  "rbp", "rsp")
+         + x86("and",  "rsp", -16L)
+         + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_zls_mark)
+         + x86("mov",  "rsp", "rbp")
+         + x86("pop",  "rbp")
+         + x86("mov",  FRQ(off), "rax")
+         + x86("pop",  "rsi");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_zeta_release_to_call(int off) {
+    return x86("push", "rbp")
+         + x86("mov",  "rbp", "rsp")
+         + x86("and",  "rsp", -16L)
+         + x86("mov",  "rdi", FRQ(off))
+         + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release_to)
+         + x86("mov",  "rsp", "rbp")
+         + x86("pop",  "rbp");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void rt_bomb(const char * msg);
 inline std::string x86_bomb(const char * msg) {
     const char * m   = msg ? msg : "(unimplemented box)";
     const char * lbl = emit_intern_str(m);

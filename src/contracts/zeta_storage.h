@@ -16,6 +16,7 @@ int          zls_scope_of(const IR_t * nd);
 int          zls_g_nslots(const IR_graph_t * g);
 int          zls_g_region(const IR_graph_t * g);
 int          zls_g_resume(const IR_graph_t * g);
+int          zls_g_zeta_mark(const IR_graph_t * g);
 int          zls_g_vslot_count(const IR_graph_t * g);
 const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off);
 void         zls_dump(FILE * fp);
