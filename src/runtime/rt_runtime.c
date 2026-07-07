@@ -359,6 +359,7 @@ void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap) {
+    while (c && (int)c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) c = (pl_cell_t *)((VCELL_t *)c->p)->cellp;
     pl_cell_t *d = pl_deref(c);
     int t = (int)d->v;
     if (t == DT_PLVAR) {
@@ -370,6 +371,7 @@ static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **
     if (t == DT_I) return term_new_int((long)d->i);
     if (t == DT_A) return term_new_atom((int)d->i);
     if (t == DT_R) return term_new_float(d->r);
+    if (t == DT_S || t == DT_SNUL) return term_new_atom(prolog_atom_intern(d->s ? d->s : ""));
     if (t == DT_PLREF) {
         int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
         pl_cell_t *aa = (pl_cell_t *)d->p;
@@ -378,6 +380,11 @@ static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **
         return term_new_compound(fn, ar, args);
     }
     return term_new_var(-1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+Term *rt_pl_cell_to_term(void *cell) {
+    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
+    return rt_cmp_cell_to_term_shared((pl_cell_t *)cell, vaddr, vterm, &vn, 256);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_term_cmp_terms(const char *op, void *t0, void *t1) {

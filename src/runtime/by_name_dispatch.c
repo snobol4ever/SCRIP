@@ -58,6 +58,7 @@ int icn_builtin_is_known(const char *name)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "../parser/prolog/pl_cell.h"
+#include "../parser/prolog/term.h"
 extern pl_trail_t g_pl_trail;
 typedef struct { const char *key; void *alpha; void *beta; int nslots; } plw_pred_t;
 static plw_pred_t g_plw_preds[512]; static int g_plw_pred_n = 0;
@@ -112,6 +113,9 @@ int pl_builtin_is_known(const char *name)
     if (!name || !name[0]) return 0;
     if (!strcmp(name, "$unify") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5)) return 1;
+    if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
+    if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
+    if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -718,22 +722,148 @@ static int pl_num_cmp(const char *s, DESCR_t a, DESCR_t b) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_atom_str(DESCR_t v) {
+    if (v.v == DT_S) return v.s ? v.s : "";
+    if (v.v == (DTYPE_t)DT_A) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm ? nm : ""; }
+    return NULL;
+}
+static DESCR_t pl_mk_atom(const char *s) { DESCR_t d; d.v = DT_S; d.slen = (uint32_t)strlen(s); d.s = s; return d; }
+static DESCR_t pl_nil(void) { return pl_mk_atom("[]"); }
+static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
+    extern int prolog_atom_intern(const char *);
+    DESCR_t *kids = (DESCR_t *)GC_MALLOC(2 * sizeof(DESCR_t)); kids[0] = head; kids[1] = tail;
+    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(".")) << 16) | (2u & 0xFFFFu); c.p = (void *)kids;
+    return c;
+}
+static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
+static int pl_is_nil(DESCR_t v) {
+    if (v.v == DT_S || v.v == DT_SNUL) return v.s && !strcmp(v.s, "[]");
+    if (v.v == (DTYPE_t)DT_A) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm && !strcmp(nm, "[]"); }
+    return 0;
+}
+static int pl_list_to_arr(DESCR_t lst, DESCR_t *out, int max) {
+    extern DESCR_t rt_pl_deref_val(DESCR_t);
+    int n = 0; DESCR_t cur = rt_pl_deref_val(lst);
+    while (cur.v == (DTYPE_t)DT_PLREF && (int)(cur.slen & 0xFFFFu) == 2) {
+        DESCR_t *kids = (DESCR_t *)cur.p; if (n >= max) return -1;
+        out[n++] = rt_pl_deref_val(kids[0]); cur = rt_pl_deref_val(kids[1]);
+    }
+    return pl_is_nil(cur) ? n : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_term_to_cell(Term *t) {
+    t = term_deref(t);
+    if (!t) return pl_nil();
+    switch (t->tag) {
+        case TERM_INT: { DESCR_t d; d.v = (DTYPE_t)DT_I; d.slen = 0; d.i = t->ival; return d; }
+        case TERM_FLOAT: { DESCR_t d; d.v = (DTYPE_t)DT_R; d.slen = 0; d.r = t->fval; return d; }
+        case TERM_ATOM: { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name(t->atom_id); return pl_mk_atom(nm ? nm : ""); }
+        case TERM_VAR: { DESCR_t *c = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t)); c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; return *c; }
+        case TERM_COMPOUND: {
+            int ar = t->compound.arity;
+            DESCR_t *kids = (DESCR_t *)GC_MALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+            for (int i = 0; i < ar; i++) kids[i] = pl_term_to_cell(t->compound.args[i]);
+            DESCR_t d; d.v = (DTYPE_t)DT_PLREF; d.slen = (((uint32_t)t->compound.functor) << 16) | ((uint32_t)ar & 0xFFFFu); d.p = (void *)kids;
+            return d;
+        }
+        default: return pl_nil();
+    }
+}
+typedef struct { Term **items; int n; int cap; } PlFindallAcc;
+static DESCR_t rt_findall_new(void) {
+    PlFindallAcc *acc = (PlFindallAcc *)GC_MALLOC(sizeof(PlFindallAcc)); acc->items = NULL; acc->n = 0; acc->cap = 0;
+    DESCR_t h; h.v = (DTYPE_t)DT_I; h.slen = 0; h.i = (int64_t)(intptr_t)acc; return h;
+}
+static void rt_findall_add(DESCR_t handle, DESCR_t tmpl_val) {
+    PlFindallAcc *acc = (PlFindallAcc *)(intptr_t)handle.i; DESCR_t tmp = tmpl_val;
+    extern Term *rt_pl_cell_to_term(void *); Term *snap = rt_pl_cell_to_term(&tmp);
+    if (acc->n >= acc->cap) { int nc = acc->cap ? acc->cap * 2 : 8; Term **ni = (Term **)GC_MALLOC((size_t)nc * sizeof(Term *)); for (int i = 0; i < acc->n; i++) ni[i] = acc->items[i]; acc->items = ni; acc->cap = nc; }
+    acc->items[acc->n++] = snap;
+}
+static DESCR_t rt_findall_result(DESCR_t handle) {
+    PlFindallAcc *acc = (PlFindallAcc *)(intptr_t)handle.i;
+    DESCR_t *elems = (DESCR_t *)GC_MALLOC((size_t)(acc->n > 0 ? acc->n : 1) * sizeof(DESCR_t));
+    for (int i = 0; i < acc->n; i++) elems[i] = pl_term_to_cell(acc->items[i]);
+    return pl_list_from_arr(elems, acc->n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strncmp(fn, "$is_", 4) && nargs == 3) {
-        extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_assign_var(DESCR_t, DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); extern int rt_descr_equal(DESCR_t, DESCR_t);
-        DESCR_t a = rt_deref(args[1]); DESCR_t b = rt_deref(args[2]); DESCR_t r = rt_num_arith(a, b, pl_is_op_code(fn + 4));
+        extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+        DESCR_t a = rt_pl_deref_val(args[1]); DESCR_t b = rt_pl_deref_val(args[2]); DESCR_t r = rt_num_arith(a, b, pl_is_op_code(fn + 4));
         if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; }
-        DESCR_t lx = rt_deref(args[0]); int lu = (lx.v == DT_SNUL || lx.v == DT_FAIL);
-        if (lu) { rt_assign_var(args[0], r); *out = r; return 1; }
-        if (rt_descr_equal(lx, r)) { *out = r; return 1; }
+        if (plw_unify_vals(args[0], r)) { *out = r; return 1; }
         *out = FAILDESCR; return 1;
     }
     if (!strncmp(fn, "$cmp_", 5) && nargs == 2) {
-        extern DESCR_t rt_deref(DESCR_t); DESCR_t a = rt_deref(args[0]); DESCR_t b = rt_deref(args[1]);
+        extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t a = rt_pl_deref_val(args[0]); DESCR_t b = rt_pl_deref_val(args[1]);
         if (pl_num_cmp(fn + 5, a, b)) { *out = a; return 1; }
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$succ") && nargs == 2) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        DESCR_t a = rt_pl_deref_val(args[0]); DESCR_t b = rt_pl_deref_val(args[1]); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0;
+        if (a.v == DT_I) { r.i = a.i + 1; if (plw_unify_vals(args[1], r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
+        if (b.v == DT_I) { if (b.i <= 0) { *out = FAILDESCR; return 1; } r.i = b.i - 1; if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
+        *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$plus") && nargs == 3) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        DESCR_t a = rt_pl_deref_val(args[0]); DESCR_t b = rt_pl_deref_val(args[1]); DESCR_t c = rt_pl_deref_val(args[2]); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0;
+        if (a.v == DT_I && b.v == DT_I) { r.i = a.i + b.i; if (plw_unify_vals(args[2], r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
+        if (a.v == DT_I && c.v == DT_I) { r.i = c.i - a.i; if (plw_unify_vals(args[1], r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
+        if (b.v == DT_I && c.v == DT_I) { r.i = c.i - b.i; if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
+        *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$atom_length") && nargs == 2) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        const char *s = pl_atom_str(rt_pl_deref_val(args[0])); if (!s) { *out = FAILDESCR; return 1; }
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = (long long)strlen(s);
+        if (plw_unify_vals(args[1], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if ((!strcmp(fn, "$upcase_atom") || !strcmp(fn, "$downcase_atom")) && nargs == 2) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        const char *s = pl_atom_str(rt_pl_deref_val(args[0])); if (!s) { *out = FAILDESCR; return 1; }
+        size_t n = strlen(s); char *o = (char *)GC_MALLOC(n + 1);
+        for (size_t i = 0; i < n; i++) o[i] = (fn[1] == 'u') ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
+        o[n] = 0; DESCR_t r = pl_mk_atom(o);
+        if (plw_unify_vals(args[1], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$atom_concat") && nargs == 3) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        const char *a = pl_atom_str(rt_pl_deref_val(args[0])); const char *b = pl_atom_str(rt_pl_deref_val(args[1]));
+        if (!a || !b) { *out = FAILDESCR; return 1; }
+        size_t na = strlen(a), nb = strlen(b); char *o = (char *)GC_MALLOC(na + nb + 1);
+        memcpy(o, a, na); memcpy(o + na, b, nb); o[na + nb] = 0; DESCR_t r = pl_mk_atom(o);
+        if (plw_unify_vals(args[2], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if ((!strcmp(fn, "$atom_chars") || !strcmp(fn, "$atom_codes")) && nargs == 2) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        int codes = !strcmp(fn, "$atom_codes");
+        DESCR_t a0 = rt_pl_deref_val(args[0]); const char *s = pl_atom_str(a0);
+        if (s) {
+            size_t n = strlen(s); DESCR_t *elems = (DESCR_t *)GC_MALLOC((n > 0 ? n : 1) * sizeof(DESCR_t));
+            for (size_t i = 0; i < n; i++) {
+                if (codes) { elems[i].v = (DTYPE_t)DT_I; elems[i].slen = 0; elems[i].i = (unsigned char)s[i]; }
+                else { char *o = (char *)GC_MALLOC(2); o[0] = s[i]; o[1] = 0; elems[i] = pl_mk_atom(o); }
+            }
+            DESCR_t lst = pl_list_from_arr(elems, (int)n);
+            if (plw_unify_vals(args[1], lst)) { *out = lst; return 1; } *out = FAILDESCR; return 1;
+        }
+        DESCR_t elems[4096]; int n = pl_list_to_arr(args[1], elems, 4096);
+        if (n < 0) { *out = FAILDESCR; return 1; }
+        char *o = (char *)GC_MALLOC((size_t)n + 1);
+        for (int i = 0; i < n; i++) {
+            if (codes) { if (elems[i].v != DT_I) { *out = FAILDESCR; return 1; } o[i] = (char)elems[i].i; }
+            else { const char *cs = pl_atom_str(elems[i]); if (!cs || !cs[0]) { *out = FAILDESCR; return 1; } o[i] = cs[0]; }
+        }
+        o[n] = 0; DESCR_t r = pl_mk_atom(o);
+        if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$findall_new") && nargs == 0) { *out = rt_findall_new(); return 1; }
+    if (!strcmp(fn, "$findall_add") && nargs == 2) { rt_findall_add(args[0], args[1]); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
+    if (!strcmp(fn, "$findall_result") && nargs == 1) { *out = rt_findall_result(args[0]); return 1; }
     if (!strcmp(fn, "$unify") && nargs == 2) {
         if (plw_unify_vals(args[0], args[1])) { *out = rt_pl_deref_val(args[0]); return 1; }
         *out = FAILDESCR; return 1;
@@ -2189,6 +2319,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
+    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern struct Term *rt_pl_cell_to_term(void *); extern void pl_write(struct Term *); DESCR_t _pt = av; fflush(dest); pl_write(rt_pl_cell_to_term(plw_entry(&_pt))); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
