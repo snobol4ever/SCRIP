@@ -9,6 +9,7 @@ extern "C" void rt_cap_assign_cursor(const char *varname, int saved_delta, int c
 extern "C" void rt_cap_push(void *slot, int delta);
 extern "C" void rt_cap_pop(void *slot);
 extern "C" int rt_cap_top(void *slot);
+extern "C" void rt_cap_unpend(const char *varname);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05).  Capture frames live on a per-box stack in the SAVE
@@ -57,5 +58,12 @@ std::string bb_match_capture() {
          + x86_align_leave()
          + x86_gamma()
          + x86_beta()
+         /* NOTE (2026-07-08 s7): an unpend-on-β (dead-trial discard) was tried here and REVERTED — ALT's
+          * try-next-alternative edge routes through this β, so it discarded captures still on the winning
+          * thread ('A' ARB . V ('B'|'C') lost V; proven on /tmp/cap4 vs oracle).  The ring's per-scope
+          * by-name overwrite already collapses generator-extend re-yields; the residual overcommit (a
+          * matched-then-abandoned capture branch whose statement later succeeds elsewhere) is accepted for
+          * this slice — a correct discard needs LOWER to distinguish backtrack-past from alternative-switch
+          * at this edge.  rt_cap_unpend stays in the runtime for that future wiring. */
          + x86_omega();
 }

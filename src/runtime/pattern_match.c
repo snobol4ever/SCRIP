@@ -484,14 +484,19 @@ DESCR_t eval_ast_pat(tree_t *e) {
     abort();
 }
 #define RT_DCAP_MAX 32
+#define RT_DCAP_DEPTH_MAX 16
 typedef struct { const char *varname; const char *base; int len; } rt_dcap_t;
 static rt_dcap_t g_rt_dcap[RT_DCAP_MAX];
 static int       g_rt_dcap_n = 0;
+static int       g_rt_dcap_mark[RT_DCAP_DEPTH_MAX];
+static int       g_rt_dcap_depth = 0;
 int              g_rt_dcap_active = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_dcap_scope_base(void) { int d = g_rt_dcap_depth; if (d > RT_DCAP_DEPTH_MAX) d = RT_DCAP_DEPTH_MAX; return d > 0 ? g_rt_dcap_mark[d - 1] : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_dcap_record(const char *vname, const char *base, int len) {
     if (!vname || !*vname) return;
-    for (int i = 0; i < g_rt_dcap_n; i++) {
+    for (int i = rt_dcap_scope_base(); i < g_rt_dcap_n; i++) {
         if (g_rt_dcap[i].varname && strcmp(g_rt_dcap[i].varname, vname) == 0) {
             g_rt_dcap[i].base = base; g_rt_dcap[i].len = len; return;
         }
@@ -504,20 +509,44 @@ static void rt_dcap_record(const char *vname, const char *base, int len) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_flush(void) {
-    for (int i = 0; i < g_rt_dcap_n; i++) {
+static void rt_dcap_flush_from(int m) {
+    for (int i = m; i < g_rt_dcap_n; i++) {
         int len = g_rt_dcap[i].len < 0 ? 0 : g_rt_dcap[i].len;
         char *copy = rt_str_alloc(len);
         if (copy) { if (len > 0 && g_rt_dcap[i].base) memcpy(copy, g_rt_dcap[i].base, (size_t)len); copy[len] = '\0'; }
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         NV_SET_fn(g_rt_dcap[i].varname, d);
     }
-    g_rt_dcap_n = 0;
+    g_rt_dcap_n = m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_begin(void) { g_rt_dcap_active = 1; g_rt_dcap_n = 0; }
-void rt_dcap_end_fail(void) { g_rt_dcap_n = 0; g_rt_dcap_active = 0; }
-void rt_dcap_end_ok(void) { rt_dcap_flush(); g_rt_dcap_active = 0; }
+void rt_dcap_flush(void) { rt_dcap_flush_from(0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* D3 COMMIT-RING (2026-07-08 s7, the DEMO-PAT DP-2 machinery lit for the first time — the ring predated this
+ * session but nothing ever called begin/end, so COND captures wrote at every trial yield, immediate-assignment
+ * style: word1 printed one blank line per " the " and ARB . OUTPUT printed '', 'U', 'UN', 'UNT' — proven
+ * against the oracle before wiring).  SPITBOL semantics (manual Ch.6 p.72, Ch.18): conditional assignments
+ * are performed ONLY when the entire match succeeds, before replacement.  Wiring: rt_match_enter → begin
+ * (pushes a depth mark, so an EVAL-nested inner match commits only its own entries); head's L(1) failure
+ * choke → end_fail (truncate to mark); IR_MATCH_RELEASE's success α → end_ok (flush [mark, n) then truncate);
+ * COND's β (backtrack-in) → rt_cap_unpend (the dead-trial discard: an alternation that abandons the captured
+ * branch must not commit it).  Immediate captures ($) bypass the ring entirely — rt_cap_assign_cursor now
+ * honors is_imm. */
+void rt_dcap_begin(void) { if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) g_rt_dcap_mark[g_rt_dcap_depth] = g_rt_dcap_n; g_rt_dcap_depth++; g_rt_dcap_active = 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_dcap_end_fail(void) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_fail depth=%d n=%d\n", g_rt_dcap_depth, g_rt_dcap_n); if (g_rt_dcap_depth > 0) { g_rt_dcap_depth--; if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) g_rt_dcap_n = g_rt_dcap_mark[g_rt_dcap_depth]; } if (g_rt_dcap_depth == 0) g_rt_dcap_active = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_dcap_end_ok(void) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_ok depth=%d n=%d\n", g_rt_dcap_depth, g_rt_dcap_n); if (g_rt_dcap_depth > 0) { g_rt_dcap_depth--; if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) rt_dcap_flush_from(g_rt_dcap_mark[g_rt_dcap_depth]); } else rt_dcap_flush_from(0); if (g_rt_dcap_depth == 0) g_rt_dcap_active = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_cap_unpend(const char *vname) {
+    if (!vname || !*vname || !g_rt_dcap_active) return;
+    for (int i = g_rt_dcap_n - 1; i >= rt_dcap_scope_base(); i--) {
+        if (g_rt_dcap[i].varname && strcmp(g_rt_dcap[i].varname, vname) == 0) {
+            for (int j = i; j < g_rt_dcap_n - 1; j++) g_rt_dcap[j] = g_rt_dcap[j + 1];
+            g_rt_dcap_n--; return;
+        }
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
 static uint32_t g_cap_gen = 1;
@@ -552,12 +581,11 @@ int rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s->
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
-    (void)is_imm;
     if (!varname || !*varname) return;
     int len = cur_delta - saved_delta;
     if (len < 0) len = 0;
     const char *base = Σ ? Σ + saved_delta : NULL;
-    if (g_rt_dcap_active) { rt_dcap_record(varname, base, len); return; }
+    if (g_rt_dcap_active && !is_imm) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] pend %s len=%d n=%d\n", varname, len, g_rt_dcap_n); rt_dcap_record(varname, base, len); return; }
     char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };

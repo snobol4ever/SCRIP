@@ -55,7 +55,9 @@ void rt_scan_leave(uint64_t *out3) {
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi) {
     extern const char *Σ; extern int Σlen;
     extern void rt_cap_match_begin(void);
+    extern void rt_dcap_begin(void);
     rt_cap_match_begin();
+    rt_dcap_begin();
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);

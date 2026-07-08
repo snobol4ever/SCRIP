@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" void rt_zls_release_to(void *mark);
+extern "C" void rt_dcap_end_ok(void);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB-OWNED-ζ statement-scope pivot (this session).  IR_MATCH_RELEASE owns the pattern-match's SUCCESS exit
@@ -31,6 +32,7 @@ std::string bb_match_release() {
           * alpha saved at +16 — the success half of the same statement-scope backstop, reclaiming any v1
           * ARBNO activation that succeeded and left via this join without reaching its own role-2 pop. */
          + x86_zls2_release_to_call(_.op_off + 16)
+         + x86("call", "rt_dcap_end_ok", (uint64_t)(uintptr_t)(void *)rt_dcap_end_ok)
          + x86_align_leave()
          + x86_gamma();
 }
