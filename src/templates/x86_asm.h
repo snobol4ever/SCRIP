@@ -317,7 +317,22 @@ inline std::string x86_jmp(int port) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel(int port) {
-    return MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
+    std::string s = MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
+    /* ZLS2 ARENA (Lon 2026-07-08): ALLOC flavor of the α port — the box self-allocates its frame with its
+     * OWN emit-time constant on the DOWN-growing arena.  Fires only under SCRIP_ZETA_PORT=2 AND a nonzero
+     * per-node grant (g_emit.op_zls2_bytes, zeroed at every DRIVE_FILL) — dormant everywhere until a
+     * construct's driver arm opts in.  The matching free is NEVER hooked here or at x86_jmp(ω) (six-decoy-ω
+     * finding): a construct places x86_zls2_free() at its own single true-exit label. */
+    if (port == X86P_ALPHA && _.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC)
+        s += x86_sub("r12", _.op_zls2_bytes);
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZLS2 ω-side free: the box's own-constant up-bump, placed by the TEMPLATE at its single true-exit label,
+ * immediately before the final jmp "ω".  Reads the same per-node grant as the α hook; same dormancy rules. */
+inline std::string x86_zls2_free() {
+    if (_.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC) return x86_add("r12", _.op_zls2_bytes);
+    return std::string();
 }
 enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
