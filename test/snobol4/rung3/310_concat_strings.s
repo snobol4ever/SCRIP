@@ -47,9 +47,8 @@ push r12
  mov qword ptr [r12 + 544], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 80], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 88], rax
@@ -60,9 +59,8 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "a"
-xchain0_n1_α:
 # IR_LIT_STRING
-bb2_α:
+ xchain0_n1_α:
  mov qword ptr [r12 + 96], 1
  mov rax, qword ptr [rip + .Lx2_0]
  mov qword ptr [r12 + 104], rax
@@ -73,8 +71,7 @@ bb2_α:
  .quad .Lx2_0_s
 .Lx2_0_s:
  .string "b"
-xchain0_n2_α:
-bb3_α:
+ xchain0_n2_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 80]
  mov rsi, qword ptr [r12 + 88]
@@ -86,9 +83,8 @@ bb3_α:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
-xchain0_n3_α:
 # IR_LIT_STRING
-bb4_α:
+ xchain0_n3_α:
  mov qword ptr [r12 + 112], 1
  mov rax, qword ptr [rip + .Lx4_0]
  mov qword ptr [r12 + 120], rax
@@ -99,9 +95,8 @@ bb4_α:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "ab"
-xchain0_n4_α:
 # IR_LIT_STRING
-bb5_α:
+ xchain0_n4_α:
  mov qword ptr [r12 + 240], 1
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 248], rax
@@ -112,8 +107,7 @@ bb5_α:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "a"
-xchain0_n5_α:
-bb6_α:
+ xchain0_n5_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+32]
  mov rax, qword ptr [r12 + 64]
@@ -140,9 +134,8 @@ bb6_α:
  jmp xchain0_n7_α
 xchain0_n5_β:
  jmp xchain0_n4_α
-xchain0_n6_α:
 # IR_LIT_STRING
-bb7_α:
+ xchain0_n6_α:
  mov qword ptr [r12 + 256], 1
  mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [r12 + 264], rax
@@ -153,9 +146,8 @@ bb7_α:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "b"
-xchain0_n7_α:
 # IR_LIT_STRING
-bb8_α:
+ xchain0_n7_α:
  mov qword ptr [r12 + 144], 1
  mov rax, qword ptr [rip + .Lx9_0]
  mov qword ptr [r12 + 152], rax
@@ -166,8 +158,7 @@ bb8_α:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "FAIL 310/001: two-string concat"
-xchain0_n8_α:
-bb9_α:
+ xchain0_n8_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 240]
  mov rsi, qword ptr [r12 + 248]
@@ -179,9 +170,8 @@ bb9_α:
  jmp xchain0_n10_α
  xchain0_n8_β:
  jmp xchain0_n11_α
-xchain0_n9_α:
 # IR_ASSIGN gva
-bb10_α:
+ xchain0_n9_α:
  mov rax, qword ptr [r12 + 144]
  mov rdx, qword ptr [r12 + 152]
  mov qword ptr [rbx + 0], rax
@@ -191,9 +181,8 @@ bb10_α:
  jmp main_γ
  xchain0_n9_β:
  jmp main_γ
-xchain0_n10_α:
 # IR_LIT_STRING
-bb11_α:
+ xchain0_n10_α:
  mov qword ptr [r12 + 272], 1
  mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 280], rax
@@ -204,9 +193,8 @@ bb11_α:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "c"
-xchain0_n11_α:
 # IR_LIT_STRING
-bb12_α:
+ xchain0_n11_α:
  mov qword ptr [r12 + 416], 1
  mov rax, qword ptr [rip + .Lx13_0]
  mov qword ptr [r12 + 424], rax
@@ -217,8 +205,7 @@ bb12_α:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "hello"
-xchain0_n12_α:
-bb13_α:
+ xchain0_n12_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 224]
  mov rsi, qword ptr [r12 + 232]
@@ -230,9 +217,8 @@ bb13_α:
  jmp xchain0_n14_α
  xchain0_n12_β:
  jmp xchain0_n11_α
-xchain0_n13_α:
 # IR_LIT_STRING
-bb14_α:
+ xchain0_n13_α:
  mov qword ptr [r12 + 432], 1
  mov rax, qword ptr [rip + .Lx15_0]
  mov qword ptr [r12 + 440], rax
@@ -243,9 +229,8 @@ bb14_α:
  .quad .Lx15_0_s
 .Lx15_0_s:
  .string " "
-xchain0_n14_α:
 # IR_LIT_STRING
-bb15_α:
+ xchain0_n14_α:
  mov qword ptr [r12 + 288], 1
  mov rax, qword ptr [rip + .Lx16_0]
  mov qword ptr [r12 + 296], rax
@@ -256,8 +241,7 @@ bb15_α:
  .quad .Lx16_0_s
 .Lx16_0_s:
  .string "abc"
-xchain0_n15_α:
-bb16_α:
+ xchain0_n15_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 416]
  mov rsi, qword ptr [r12 + 424]
@@ -269,8 +253,7 @@ bb16_α:
  jmp xchain0_n17_α
  xchain0_n15_β:
  jmp xchain0_n18_α
-xchain0_n16_α:
-bb17_α:
+ xchain0_n16_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+208] -> [r12+176]
  mov rax, qword ptr [r12 + 208]
@@ -297,9 +280,8 @@ bb17_α:
  jmp xchain0_n19_α
 xchain0_n16_β:
  jmp xchain0_n11_α
-xchain0_n17_α:
 # IR_LIT_STRING
-bb18_α:
+ xchain0_n17_α:
  mov qword ptr [r12 + 448], 1
  mov rax, qword ptr [rip + .Lx20_0]
  mov qword ptr [r12 + 456], rax
@@ -310,9 +292,8 @@ bb18_α:
  .quad .Lx20_0_s
 .Lx20_0_s:
  .string "world"
-xchain0_n18_α:
 # IR_LIT_STRING
-bb19_α:
+ xchain0_n18_α:
  mov qword ptr [r12 + 528], 1
  mov rax, qword ptr [rip + .Lx21_0]
  mov qword ptr [r12 + 536], rax
@@ -323,9 +304,8 @@ bb19_α:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "PASS 310_concat_strings (3/3)"
-xchain0_n19_α:
 # IR_LIT_STRING
-bb20_α:
+ xchain0_n19_α:
  mov qword ptr [r12 + 320], 1
  mov rax, qword ptr [rip + .Lx22_0]
  mov qword ptr [r12 + 328], rax
@@ -336,8 +316,7 @@ bb20_α:
  .quad .Lx22_0_s
 .Lx22_0_s:
  .string "FAIL 310/002: three-string concat"
-xchain0_n20_α:
-bb21_α:
+ xchain0_n20_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 400]
  mov rsi, qword ptr [r12 + 408]
@@ -349,9 +328,8 @@ bb21_α:
  jmp xchain0_n23_α
  xchain0_n20_β:
  jmp xchain0_n18_α
-xchain0_n21_α:
 # IR_ASSIGN gva
-bb22_α:
+ xchain0_n21_α:
  mov rax, qword ptr [r12 + 528]
  mov rdx, qword ptr [r12 + 536]
  mov qword ptr [rbx + 0], rax
@@ -361,9 +339,8 @@ bb22_α:
  jmp main_γ
  xchain0_n21_β:
  jmp main_γ
-xchain0_n22_α:
 # IR_ASSIGN gva
-bb23_α:
+ xchain0_n22_α:
  mov rax, qword ptr [r12 + 320]
  mov rdx, qword ptr [r12 + 328]
  mov qword ptr [rbx + 0], rax
@@ -373,9 +350,8 @@ bb23_α:
  jmp main_γ
  xchain0_n22_β:
  jmp main_γ
-xchain0_n23_α:
 # IR_LIT_STRING
-bb24_α:
+ xchain0_n23_α:
  mov qword ptr [r12 + 464], 1
  mov rax, qword ptr [rip + .Lx26_0]
  mov qword ptr [r12 + 472], rax
@@ -386,8 +362,7 @@ bb24_α:
  .quad .Lx26_0_s
 .Lx26_0_s:
  .string "hello world"
-xchain0_n24_α:
-bb25_α:
+ xchain0_n24_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+384] -> [r12+352]
  mov rax, qword ptr [r12 + 384]
@@ -414,9 +389,8 @@ bb25_α:
  jmp xchain0_n25_α
 xchain0_n24_β:
  jmp xchain0_n18_α
-xchain0_n25_α:
 # IR_LIT_STRING
-bb26_α:
+ xchain0_n25_α:
  mov qword ptr [r12 + 496], 1
  mov rax, qword ptr [rip + .Lx29_0]
  mov qword ptr [r12 + 504], rax
@@ -427,9 +401,8 @@ bb26_α:
  .quad .Lx29_0_s
 .Lx29_0_s:
  .string "FAIL 310/003: left-associative concat"
-xchain0_n26_α:
 # IR_ASSIGN gva
-bb27_α:
+ xchain0_n26_α:
  mov rax, qword ptr [r12 + 496]
  mov rdx, qword ptr [r12 + 504]
  mov qword ptr [rbx + 0], rax

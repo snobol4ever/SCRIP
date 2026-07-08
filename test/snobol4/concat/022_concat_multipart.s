@@ -32,9 +32,8 @@ push r12
  mov qword ptr [r12 + 144], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 80], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 88], rax
@@ -45,9 +44,8 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "a"
-xchain0_n1_α:
 # IR_LIT_STRING
-bb2_α:
+ xchain0_n1_α:
  mov qword ptr [r12 + 96], 1
  mov rax, qword ptr [rip + .Lx2_0]
  mov qword ptr [r12 + 104], rax
@@ -58,8 +56,7 @@ bb2_α:
  .quad .Lx2_0_s
 .Lx2_0_s:
  .string "b"
-xchain0_n2_α:
-bb3_α:
+ xchain0_n2_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 80]
  mov rsi, qword ptr [r12 + 88]
@@ -71,9 +68,8 @@ bb3_α:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp main_γ
-xchain0_n3_α:
 # IR_LIT_STRING
-bb4_α:
+ xchain0_n3_α:
  mov qword ptr [r12 + 112], 1
  mov rax, qword ptr [rip + .Lx4_0]
  mov qword ptr [r12 + 120], rax
@@ -84,8 +80,7 @@ bb4_α:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "c"
-xchain0_n4_α:
-bb5_α:
+ xchain0_n4_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 64]
  mov rsi, qword ptr [r12 + 72]
@@ -97,9 +92,8 @@ bb5_α:
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp main_γ
-xchain0_n5_α:
 # IR_LIT_STRING
-bb6_α:
+ xchain0_n5_α:
  mov qword ptr [r12 + 128], 1
  mov rax, qword ptr [rip + .Lx6_0]
  mov qword ptr [r12 + 136], rax
@@ -110,8 +104,7 @@ bb6_α:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "d"
-xchain0_n6_α:
-bb7_α:
+ xchain0_n6_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 48]
  mov rsi, qword ptr [r12 + 56]
@@ -123,9 +116,8 @@ bb7_α:
  jmp xchain0_n7_α
  xchain0_n6_β:
  jmp main_γ
-xchain0_n7_α:
 # IR_ASSIGN global
-bb8_α:
+ xchain0_n7_α:
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov rdi, qword ptr [rip + .Lx8_0]

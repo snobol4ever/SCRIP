@@ -47,9 +47,8 @@ push r12
  mov qword ptr [r12 + 48], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_VAR gva
-bb1_α:
+ xchain0_n0_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 32], rax
@@ -57,9 +56,8 @@ bb1_α:
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp main_γ
-xchain0_n1_α:
 # IR_ASSIGN global
-bb2_α:
+ xchain0_n1_α:
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov rdi, qword ptr [rip + .Lx2_0]

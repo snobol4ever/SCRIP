@@ -19,9 +19,8 @@ push r12
  mov qword ptr [r12 + 272], rax
  pop rsi
 proc_add_α_body:
-xchain0_n0_α:
 # IR_VAR gva
-bb1_α:
+ xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 48], rax
@@ -29,9 +28,8 @@ bb1_α:
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp proc_add_γ
-xchain0_n1_α:
 # IR_VAR gva
-bb2_α:
+ xchain0_n1_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
  mov qword ptr [r12 + 64], rax
@@ -39,8 +37,7 @@ bb2_α:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp proc_add_γ
-xchain0_n2_α:
-bb3_α:
+ xchain0_n2_α:
 # IR_BINOP_ARITH
  mov eax, dword ptr [r12 + 48]
  cmp eax, 100
@@ -86,9 +83,8 @@ bb3_α:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp proc_add_γ
-xchain0_n3_α:
 # IR_ASSIGN gva
-bb4_α:
+ xchain0_n3_α:
  mov rax, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov qword ptr [rbx + 0], rax
@@ -202,9 +198,8 @@ push r12
  mov qword ptr [r12 + 272], rax
  pop rsi
 main_α_body:
-xchain5_n0_α:
 # IR_LIT_INTEGER
-bb5_α:
+ xchain5_n0_α:
  mov qword ptr [r12 + 144], 6
  mov rax, qword ptr [rip + .Lx6_0]
  mov qword ptr [r12 + 152], rax
@@ -213,9 +208,8 @@ bb5_α:
  jmp xchain5_n4_α
 .Lx6_0:
  .quad 3
-xchain5_n1_α:
 # IR_LIT_INTEGER
-bb6_α:
+ xchain5_n1_α:
  mov qword ptr [r12 + 160], 6
  mov rax, qword ptr [rip + .Lx7_0]
  mov qword ptr [r12 + 168], rax
@@ -224,8 +218,7 @@ bb6_α:
  jmp xchain5_n4_α
 .Lx7_0:
  .quad 4
-xchain5_n2_α:
-bb7_α:
+ xchain5_n2_α:
   .section .rodata
   .Lcall7_pname: .string "add"
   .section .text
@@ -248,9 +241,8 @@ bb7_α:
  jmp xchain5_n3_α
 xchain5_n2_β:
  jmp xchain5_n4_α
-xchain5_n3_α:
 # IR_ASSIGN global
-bb8_α:
+ xchain5_n3_α:
  mov rsi, qword ptr [r12 + 96]
  mov rdx, qword ptr [r12 + 104]
  mov rdi, qword ptr [rip + .Lx9_0]
@@ -264,9 +256,8 @@ bb8_α:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "OUTPUT"
-xchain5_n4_α:
 # IR_LIT_INTEGER
-bb9_α:
+ xchain5_n4_α:
  mov qword ptr [r12 + 240], 6
  mov rax, qword ptr [rip + .Lx10_0]
  mov qword ptr [r12 + 248], rax
@@ -275,9 +266,8 @@ bb9_α:
  jmp main_γ
 .Lx10_0:
  .quad 10
-xchain5_n5_α:
 # IR_LIT_INTEGER
-bb10_α:
+ xchain5_n5_α:
  mov qword ptr [r12 + 256], 6
  mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 264], rax
@@ -286,8 +276,7 @@ bb10_α:
  jmp main_γ
 .Lx11_0:
  .quad 32
-xchain5_n6_α:
-bb11_α:
+ xchain5_n6_α:
   .section .rodata
   .Lcall11_pname: .string "add"
   .section .text
@@ -310,9 +299,8 @@ bb11_α:
  jmp xchain5_n7_α
 xchain5_n6_β:
  jmp main_γ
-xchain5_n7_α:
 # IR_ASSIGN global
-bb12_α:
+ xchain5_n7_α:
  mov rsi, qword ptr [r12 + 192]
  mov rdx, qword ptr [r12 + 200]
  mov rdi, qword ptr [rip + .Lx13_0]

@@ -32,9 +32,8 @@ push r12
  mov qword ptr [r12 + 144], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 64], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 72], rax
@@ -45,9 +44,8 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "a"
-xchain0_n1_α:
 # IR_ASSIGN global
-bb2_α:
+ xchain0_n1_α:
  mov rsi, qword ptr [r12 + 64]
  mov rdx, qword ptr [r12 + 72]
  mov rdi, qword ptr [rip + .Lx2_0]
@@ -61,9 +59,8 @@ bb2_α:
  .quad .Lx2_0_s
 .Lx2_0_s:
  .string "OUTPUT"
-xchain0_n2_α:
 # IR_LIT_STRING
-bb3_α:
+ xchain0_n2_α:
  mov qword ptr [r12 + 128], 1
  mov rax, qword ptr [rip + .Lx3_0]
  mov qword ptr [r12 + 136], rax
@@ -74,9 +71,8 @@ bb3_α:
  .quad .Lx3_0_s
 .Lx3_0_s:
  .string "b"
-xchain0_n3_α:
 # IR_ASSIGN global
-bb4_α:
+ xchain0_n3_α:
  mov rsi, qword ptr [r12 + 128]
  mov rdx, qword ptr [r12 + 136]
  mov rdi, qword ptr [rip + .Lx4_0]

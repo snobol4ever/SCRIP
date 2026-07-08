@@ -32,9 +32,8 @@ push r12
  mov qword ptr [r12 + 240], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 48], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 56], rax
@@ -45,8 +44,7 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "42"
-xchain0_n1_α:
-bb2_α:
+ xchain0_n1_α:
 # BOX IR_CALL INTEGER(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+48] -> [r12+32]
  mov rax, qword ptr [r12 + 48]
@@ -68,9 +66,8 @@ bb2_α:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n3_α
-xchain0_n2_α:
 # IR_LIT_STRING
-bb3_α:
+ xchain0_n2_α:
  mov qword ptr [r12 + 80], 1
  mov rax, qword ptr [rip + .Lx4_0]
  mov qword ptr [r12 + 88], rax
@@ -81,9 +78,8 @@ bb3_α:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "numeric"
-xchain0_n3_α:
 # IR_LIT_STRING
-bb4_α:
+ xchain0_n3_α:
  mov qword ptr [r12 + 112], 1
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 120], rax
@@ -94,9 +90,8 @@ bb4_α:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "not numeric"
-xchain0_n4_α:
 # IR_ASSIGN global
-bb5_α:
+ xchain0_n4_α:
  mov rsi, qword ptr [r12 + 80]
  mov rdx, qword ptr [r12 + 88]
  mov rdi, qword ptr [rip + .Lx6_0]
@@ -110,9 +105,8 @@ bb5_α:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "OUTPUT"
-xchain0_n5_α:
 # IR_ASSIGN global
-bb6_α:
+ xchain0_n5_α:
  mov rsi, qword ptr [r12 + 112]
  mov rdx, qword ptr [r12 + 120]
  mov rdi, qword ptr [rip + .Lx7_0]
@@ -126,9 +120,8 @@ bb6_α:
  .quad .Lx7_0_s
 .Lx7_0_s:
  .string "OUTPUT"
-xchain0_n6_α:
 # IR_LIT_STRING
-bb7_α:
+ xchain0_n6_α:
  mov qword ptr [r12 + 160], 1
  mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [r12 + 168], rax
@@ -139,8 +132,7 @@ bb7_α:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "abc"
-xchain0_n7_α:
-bb8_α:
+ xchain0_n7_α:
 # BOX IR_CALL INTEGER(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+160] -> [r12+144]
  mov rax, qword ptr [r12 + 160]
@@ -162,9 +154,8 @@ bb8_α:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
-xchain0_n8_α:
 # IR_LIT_STRING
-bb9_α:
+ xchain0_n8_α:
  mov qword ptr [r12 + 192], 1
  mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 200], rax
@@ -175,9 +166,8 @@ bb9_α:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "numeric"
-xchain0_n9_α:
 # IR_LIT_STRING
-bb10_α:
+ xchain0_n9_α:
  mov qword ptr [r12 + 224], 1
  mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 232], rax
@@ -188,9 +178,8 @@ bb10_α:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "not numeric"
-xchain0_n10_α:
 # IR_ASSIGN global
-bb11_α:
+ xchain0_n10_α:
  mov rsi, qword ptr [r12 + 192]
  mov rdx, qword ptr [r12 + 200]
  mov rdi, qword ptr [rip + .Lx13_0]
@@ -204,9 +193,8 @@ bb11_α:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "OUTPUT"
-xchain0_n11_α:
 # IR_ASSIGN global
-bb12_α:
+ xchain0_n11_α:
  mov rsi, qword ptr [r12 + 224]
  mov rdx, qword ptr [r12 + 232]
  mov rdi, qword ptr [rip + .Lx14_0]

@@ -51,9 +51,8 @@ push r12
  mov qword ptr [r12 + 272], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 32], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 40], rax
@@ -64,9 +63,8 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "John Smith"
-xchain0_n1_α:
 # IR_ASSIGN gva
-bb2_α:
+ xchain0_n1_α:
  mov rax, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov qword ptr [rbx + 0], rax
@@ -76,9 +74,8 @@ bb2_α:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
-xchain0_n2_α:
 # IR_VAR gva
-bb3_α:
+ xchain0_n2_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 128], rax
@@ -86,9 +83,8 @@ bb3_α:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
-xchain0_n3_α:
 # IR_MATCH_HEAD
-bb4_α:
+ xchain0_n3_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 56], rax
  mov rdi, qword ptr [r12 + 128]
@@ -119,9 +115,8 @@ bb4_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n4_α
-xchain0_n4_α:
 # IR_LIT_STRING
-bb5_α:
+ xchain0_n4_α:
  mov qword ptr [r12 + 160], 1
  mov rax, qword ptr [rip + .Lx6_0]
  mov qword ptr [r12 + 168], rax
@@ -132,9 +127,8 @@ bb5_α:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "fail"
-xchain0_n5_α:
 # IR_MATCH_CAPTURE_SAVE push
-bb6_α:
+ xchain0_n5_α:
  lea rdi, [r12 + 96]
  mov esi, r14d
  push rbp
@@ -153,9 +147,8 @@ bb6_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n3_β
-xchain0_n6_α:
 # IR_ASSIGN global
-bb7_α:
+ xchain0_n6_α:
  mov rsi, qword ptr [r12 + 160]
  mov rdx, qword ptr [r12 + 168]
  mov rdi, qword ptr [rip + .Lx9_0]
@@ -169,9 +162,8 @@ bb7_α:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "OUTPUT"
-xchain0_n7_α:
 # IR_MATCH_BREAK
-bb8_α:
+ xchain0_n7_α:
  mov dword ptr [r12 + 112], 0
 .Lx11_0:
  mov eax, r14d
@@ -198,9 +190,8 @@ bb8_α:
  sub eax, dword ptr [r12 + 112]
  mov r14d, eax
  jmp xchain0_n5_β
-xchain0_n8_α:
 # IR_MATCH_CAPTURE_COND
-bb9_α:
+ xchain0_n8_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -216,9 +207,8 @@ bb9_α:
  jmp xchain0_n9_α
  xchain0_n8_β:
  jmp xchain0_n5_β
-xchain0_n9_α:
 # IR_MATCH_LEN
-bb10_α:
+ xchain0_n9_α:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
@@ -227,9 +217,8 @@ bb10_α:
  jmp xchain0_n10_α
  xchain0_n9_β:
  jmp xchain0_n8_β
-xchain0_n10_α:
 # IR_MATCH_CAPTURE_SAVE push
-bb11_α:
+ xchain0_n10_α:
  lea rdi, [r12 + 64]
  mov esi, r14d
  push rbp
@@ -248,18 +237,16 @@ bb11_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n3_β
-xchain0_n11_α:
 # IR_MATCH_REM
-bb12_α:
+ xchain0_n11_α:
  mov dword ptr [r12 + 80], r14d
  mov r14d, r15d
  jmp xchain0_n12_α
  xchain0_n11_β:
  mov r14d, dword ptr [r12 + 80]
  jmp xchain0_n10_β
-xchain0_n12_α:
 # IR_MATCH_CAPTURE_COND
-bb13_α:
+ xchain0_n12_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -275,9 +262,8 @@ bb13_α:
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n10_β
-xchain0_n13_α:
 # IR_MATCH_RELEASE
-bb14_α:
+ xchain0_n13_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -286,9 +272,8 @@ bb14_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n14_α
-xchain0_n14_α:
 # IR_VAR gva
-bb15_α:
+ xchain0_n14_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
  mov qword ptr [r12 + 224], rax
@@ -296,9 +281,8 @@ bb15_α:
  jmp xchain0_n15_α
  xchain0_n14_β:
  jmp main_γ
-xchain0_n15_α:
 # IR_LIT_STRING
-bb16_α:
+ xchain0_n15_α:
  mov qword ptr [r12 + 240], 1
  mov rax, qword ptr [rip + .Lx23_0]
  mov qword ptr [r12 + 248], rax
@@ -309,8 +293,7 @@ bb16_α:
  .quad .Lx23_0_s
 .Lx23_0_s:
  .string " / "
-xchain0_n16_α:
-bb17_α:
+ xchain0_n16_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 224]
  mov rsi, qword ptr [r12 + 232]
@@ -322,9 +305,8 @@ bb17_α:
  jmp xchain0_n17_α
  xchain0_n16_β:
  jmp main_γ
-xchain0_n17_α:
 # IR_VAR gva
-bb18_α:
+ xchain0_n17_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 256], rax
@@ -332,8 +314,7 @@ bb18_α:
  jmp xchain0_n18_α
  xchain0_n17_β:
  jmp main_γ
-xchain0_n18_α:
-bb19_α:
+ xchain0_n18_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [r12 + 208]
  mov rsi, qword ptr [r12 + 216]
@@ -345,9 +326,8 @@ bb19_α:
  jmp xchain0_n19_α
  xchain0_n18_β:
  jmp main_γ
-xchain0_n19_α:
 # IR_ASSIGN global
-bb20_α:
+ xchain0_n19_α:
  mov rsi, qword ptr [r12 + 192]
  mov rdx, qword ptr [r12 + 200]
  mov rdi, qword ptr [rip + .Lx27_0]

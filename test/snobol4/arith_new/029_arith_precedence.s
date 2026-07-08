@@ -32,9 +32,8 @@ push r12
  mov qword ptr [r12 + 112], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_INTEGER
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 48], 6
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 56], rax
@@ -43,9 +42,8 @@ bb1_α:
  jmp main_γ
 .Lx1_0:
  .quad 2
-xchain0_n1_α:
 # IR_LIT_INTEGER
-bb2_α:
+ xchain0_n1_α:
  mov qword ptr [r12 + 80], 6
  mov rax, qword ptr [rip + .Lx2_0]
  mov qword ptr [r12 + 88], rax
@@ -54,9 +52,8 @@ bb2_α:
  jmp main_γ
 .Lx2_0:
  .quad 3
-xchain0_n2_α:
 # IR_LIT_INTEGER
-bb3_α:
+ xchain0_n2_α:
  mov qword ptr [r12 + 96], 6
  mov rax, qword ptr [rip + .Lx3_0]
  mov qword ptr [r12 + 104], rax
@@ -65,8 +62,7 @@ bb3_α:
  jmp main_γ
 .Lx3_0:
  .quad 4
-xchain0_n3_α:
-bb4_α:
+ xchain0_n3_α:
 # IR_BINOP_ARITH
  mov eax, dword ptr [r12 + 80]
  cmp eax, 100
@@ -112,8 +108,7 @@ bb4_α:
  jmp xchain0_n4_α
  xchain0_n3_β:
  jmp main_γ
-xchain0_n4_α:
-bb5_α:
+ xchain0_n4_α:
 # IR_BINOP_ARITH
  mov eax, dword ptr [r12 + 48]
  cmp eax, 100
@@ -159,9 +154,8 @@ bb5_α:
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp main_γ
-xchain0_n5_α:
 # IR_ASSIGN global
-bb6_α:
+ xchain0_n5_α:
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov rdi, qword ptr [rip + .Lx6_0]

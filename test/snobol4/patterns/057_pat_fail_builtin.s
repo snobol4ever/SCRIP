@@ -47,9 +47,8 @@ push r12
  mov qword ptr [r12 + 144], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 32], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 40], rax
@@ -60,9 +59,8 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "abc"
-xchain0_n1_α:
 # IR_ASSIGN gva
-bb2_α:
+ xchain0_n1_α:
  mov rax, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov qword ptr [rbx + 0], rax
@@ -72,9 +70,8 @@ bb2_α:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
-xchain0_n2_α:
 # IR_VAR gva
-bb3_α:
+ xchain0_n2_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 64], rax
@@ -82,9 +79,8 @@ bb3_α:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
-xchain0_n3_α:
 # IR_MATCH_HEAD
-bb4_α:
+ xchain0_n3_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 56], rax
  mov rdi, qword ptr [r12 + 64]
@@ -115,9 +111,8 @@ bb4_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n4_α
-xchain0_n4_α:
 # IR_LIT_STRING
-bb5_α:
+ xchain0_n4_α:
  mov qword ptr [r12 + 128], 1
  mov rax, qword ptr [rip + .Lx6_0]
  mov qword ptr [r12 + 136], rax
@@ -128,9 +123,8 @@ bb5_α:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "correctly failed"
-xchain0_n5_α:
 # IR_MATCH_LIT
-bb6_α:
+ xchain0_n5_α:
  mov eax, r14d
  add eax, 3
  cmp eax, r15d
@@ -149,9 +143,8 @@ bb6_α:
  xchain0_n5_β:
  sub r14d, 3
  jmp xchain0_n3_β
-xchain0_n6_α:
 # IR_ASSIGN global
-bb7_α:
+ xchain0_n6_α:
  mov rsi, qword ptr [r12 + 128]
  mov rdx, qword ptr [r12 + 136]
  mov rdi, qword ptr [rip + .Lx9_0]
@@ -165,9 +158,8 @@ bb7_α:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "OUTPUT"
-xchain0_n7_α:
 # IR_MATCH_DEFER
-bb8_α:
+ xchain0_n7_α:
  lea rdi, [rip + .S1]
  xor esi, esi
  push rbp
@@ -219,9 +211,8 @@ bb8_α:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n3_β
-xchain0_n8_α:
 # IR_MATCH_RELEASE
-bb9_α:
+ xchain0_n8_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -230,9 +221,8 @@ bb9_α:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n9_α
-xchain0_n9_α:
 # IR_LIT_STRING
-bb10_α:
+ xchain0_n9_α:
  mov qword ptr [r12 + 96], 1
  mov rax, qword ptr [rip + .Lx13_0]
  mov qword ptr [r12 + 104], rax
@@ -243,9 +233,8 @@ bb10_α:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "should not reach"
-xchain0_n10_α:
 # IR_ASSIGN global
-bb11_α:
+ xchain0_n10_α:
  mov rsi, qword ptr [r12 + 96]
  mov rdx, qword ptr [r12 + 104]
  mov rdi, qword ptr [rip + .Lx14_0]

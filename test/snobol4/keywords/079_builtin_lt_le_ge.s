@@ -32,9 +32,8 @@ push r12
  mov qword ptr [r12 + 352], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_INTEGER
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 64], 6
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 72], rax
@@ -43,9 +42,8 @@ bb1_α:
  jmp main_γ
 .Lx1_0:
  .quad 3
-xchain0_n1_α:
 # IR_LIT_INTEGER
-bb2_α:
+ xchain0_n1_α:
  mov qword ptr [r12 + 80], 6
  mov rax, qword ptr [rip + .Lx2_0]
  mov qword ptr [r12 + 88], rax
@@ -54,8 +52,7 @@ bb2_α:
  jmp main_γ
 .Lx2_0:
  .quad 5
-xchain0_n2_α:
-bb3_α:
+ xchain0_n2_α:
 # BOX IR_CALL LT(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+32]
  mov rax, qword ptr [r12 + 64]
@@ -82,9 +79,8 @@ bb3_α:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp main_γ
-xchain0_n3_α:
 # IR_LIT_STRING
-bb4_α:
+ xchain0_n3_α:
  mov qword ptr [r12 + 112], 1
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 120], rax
@@ -95,9 +91,8 @@ bb4_α:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "3 < 5"
-xchain0_n4_α:
 # IR_ASSIGN global
-bb5_α:
+ xchain0_n4_α:
  mov rsi, qword ptr [r12 + 112]
  mov rdx, qword ptr [r12 + 120]
  mov rdi, qword ptr [rip + .Lx6_0]
@@ -111,9 +106,8 @@ bb5_α:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "OUTPUT"
-xchain0_n5_α:
 # IR_LIT_INTEGER
-bb6_α:
+ xchain0_n5_α:
  mov qword ptr [r12 + 176], 6
  mov rax, qword ptr [rip + .Lx7_0]
  mov qword ptr [r12 + 184], rax
@@ -122,9 +116,8 @@ bb6_α:
  jmp main_γ
 .Lx7_0:
  .quad 5
-xchain0_n6_α:
 # IR_LIT_INTEGER
-bb7_α:
+ xchain0_n6_α:
  mov qword ptr [r12 + 192], 6
  mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [r12 + 200], rax
@@ -133,8 +126,7 @@ bb7_α:
  jmp main_γ
 .Lx8_0:
  .quad 5
-xchain0_n7_α:
-bb8_α:
+ xchain0_n7_α:
 # BOX IR_CALL LE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+176] -> [r12+144]
  mov rax, qword ptr [r12 + 176]
@@ -161,9 +153,8 @@ bb8_α:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp main_γ
-xchain0_n8_α:
 # IR_LIT_STRING
-bb9_α:
+ xchain0_n8_α:
  mov qword ptr [r12 + 224], 1
  mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 232], rax
@@ -174,9 +165,8 @@ bb9_α:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "5 <= 5"
-xchain0_n9_α:
 # IR_ASSIGN global
-bb10_α:
+ xchain0_n9_α:
  mov rsi, qword ptr [r12 + 224]
  mov rdx, qword ptr [r12 + 232]
  mov rdi, qword ptr [rip + .Lx12_0]
@@ -190,9 +180,8 @@ bb10_α:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "OUTPUT"
-xchain0_n10_α:
 # IR_LIT_INTEGER
-bb11_α:
+ xchain0_n10_α:
  mov qword ptr [r12 + 288], 6
  mov rax, qword ptr [rip + .Lx13_0]
  mov qword ptr [r12 + 296], rax
@@ -201,9 +190,8 @@ bb11_α:
  jmp main_γ
 .Lx13_0:
  .quad 7
-xchain0_n11_α:
 # IR_LIT_INTEGER
-bb12_α:
+ xchain0_n11_α:
  mov qword ptr [r12 + 304], 6
  mov rax, qword ptr [rip + .Lx14_0]
  mov qword ptr [r12 + 312], rax
@@ -212,8 +200,7 @@ bb12_α:
  jmp main_γ
 .Lx14_0:
  .quad 5
-xchain0_n12_α:
-bb13_α:
+ xchain0_n12_α:
 # BOX IR_CALL GE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+288] -> [r12+256]
  mov rax, qword ptr [r12 + 288]
@@ -240,9 +227,8 @@ bb13_α:
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp main_γ
-xchain0_n13_α:
 # IR_LIT_STRING
-bb14_α:
+ xchain0_n13_α:
  mov qword ptr [r12 + 336], 1
  mov rax, qword ptr [rip + .Lx17_0]
  mov qword ptr [r12 + 344], rax
@@ -253,9 +239,8 @@ bb14_α:
  .quad .Lx17_0_s
 .Lx17_0_s:
  .string "7 >= 5"
-xchain0_n14_α:
 # IR_ASSIGN global
-bb15_α:
+ xchain0_n14_α:
  mov rsi, qword ptr [r12 + 336]
  mov rdx, qword ptr [r12 + 344]
  mov rdi, qword ptr [rip + .Lx18_0]
