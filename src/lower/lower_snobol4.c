@@ -428,7 +428,12 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_is_fence(const tree_t * t) { return t && ((t->t == TT_FENCE) || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE"))); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_seq_has_fence(const tree_t * t) { if (!t) return 0; if (sno_is_fence(t)) return 1; if (t->t == TT_SEQ) return sno_seq_has_fence((t->n > 0) ? t->c[0] : NULL) || sno_seq_has_fence((t->n > 1) ? t->c[1] : NULL); return 0; }
+static void sno_seq_flatten_pat(const tree_t * t, const tree_t ** elems, int * ne) {
+    if (!t) return;
+    if (t->t == TT_SEQ) { sno_seq_flatten_pat((t->n > 0) ? t->c[0] : NULL, elems, ne); sno_seq_flatten_pat((t->n > 1) ? t->c[1] : NULL, elems, ne); return; }
+    if (*ne >= 128) sno_fatal("pattern sequence too long (SN4-PAT cap 128)", NULL);
+    elems[(*ne)++] = t;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_deterministic(const tree_t * t) {
     /* ZB-5 v1 gate: a body element that can yield MORE THAN ONE way (a generator, or an alternation whose
@@ -725,24 +730,15 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * statement-level cx->pat_fail (no HEAD retry, no left-generator resume) instead of `fail`
          * (= HEAD).  Fence is node-free and transparent forward.  Fence-free sequences keep the
          * untouched 2-way path (zero behavioural change for every landed matcher). */
-        if (!sno_seq_has_fence(t)) {
-            const tree_t * lc = (t->n > 0) ? t->c[0] : NULL;
-            const tree_t * rc = (t->n > 1) ? t->c[1] : NULL;
-            if (!lc) return sno_pat_node(cx, rc, succ, fail);
-            if (!rc) return sno_pat_node(cx, lc, succ, fail);
-            int before_r = g->n;
-            IR_t * re = sno_pat_node(cx, rc, succ, fail);
-            IR_t * re_tail = (before_r < g->n) ? g->all[before_r] : re;  /* rc rightmost leaf (first allocated) */
-            int before_l = g->n;
-            IR_t * le = sno_pat_node(cx, lc, re, fail);
-            IR_t * le_tail = (before_l < g->n) ? g->all[before_l] : le;  /* lc rightmost leaf */
-            if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_resume_ω_to(g, before_r, re_tail, le_tail);
-            return le;
-        }
-        const tree_t * elems[128]; int ne = 0; const tree_t * rstack[128]; int nr = 0; const tree_t * cur = t;
-        while (cur && cur->t == TT_SEQ) { if (nr >= 128) sno_fatal("pattern sequence too long (SN4-PAT cap 128)", NULL); rstack[nr++] = (cur->n > 1) ? cur->c[1] : NULL; cur = (cur->n > 0) ? cur->c[0] : NULL; }
-        elems[ne++] = cur;
-        for (int i = nr - 1; i >= 0; i--) elems[ne++] = rstack[i];
+        /* SN4-PAT GROUP-TRANSPARENT SEQ (2026-07-08 s8, word3/cross bracket): concatenation is associative —
+         * (A B) C ≡ A B C — so a parenthesized fence-free group MUST NOT be an opaque element: the old 2-way
+         * branch took the right construct's resume surface as its FIRST-ALLOCATED node, which for a right-nested
+         * group is its RIGHTMOST leaf; the group's LEFTMOST element's fail edge stayed at HEAD, so the left
+         * generator never resumed ('AB CD' ? ARB . B (' ' 'C') "succeeded" at the slid anchor with B='').
+         * Fix: recursively flatten every nested TT_SEQ into ONE element list and let the single pairwise loop
+         * wire every seam uniformly (fences inside plain groups now also seal at their true spine position). */
+        const tree_t * elems[128]; int ne = 0;
+        sno_seq_flatten_pat(t, elems, &ne);
         int first_fence = ne;
         for (int i = 0; i < ne; i++) if (sno_is_fence(elems[i])) { first_fence = i; break; }
         IR_t * cur_succ = succ; IR_t * right_tail = NULL; int right_tail_idx = -1; int right_sealed = 0;
