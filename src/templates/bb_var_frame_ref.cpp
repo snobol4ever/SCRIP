@@ -19,15 +19,15 @@ std::string bb_var_frame_ref() {
     if (PLATFORM_X86)
         return !(g_gvar_flat_chain && _.op_off >= 0) ? x86_bomb("bb_var_frame_ref: needs gvar flat-chain + own slot") :
                x86("comment", "IR_VAR_FRAME_REF")
-             + x86("def",     "α")
+             + x86_alpha()
              + frame_reach("rax", (int) _.op_dval)
              + x86("mov",     "rax", RDQ("rax", 16 + (int)_.op_ival * 16 + 8))
              + x86("mov",     "rcx", RDQ("rax", 0))
              + x86("mov",     FRQ(_.op_off),     "rcx")
              + x86("mov",     "rcx", RDQ("rax", 8))
              + x86("mov",     FRQ(_.op_off + 8), "rcx")
-             + x86("jmp",     "γ")
-             + x86("def",     "β")
-             + x86("jmp",     "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     return std::string();
 }

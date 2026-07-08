@@ -19,7 +19,7 @@ std::string bb_cell_catch() {
     if (_.op_parts_ival[0] < 0) return x86_bomb("bb_cell_catch: unadmitted catch shape reached the emitter");
     const IR_t *catcher = (const IR_t *)(intptr_t)_.op_parts_ival[1];
     if (_.op_sa == 0)
-        return x86("def",     "α")
+        return x86_alpha()
              + x86("comment", "IR_CELL_CATCH alpha: mark trail, run goal")
              + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
              + x86("mov", FR(bcc_mark_off()), "eax")
@@ -28,7 +28,7 @@ std::string bb_cell_catch() {
         return x86("comment", "IR_CELL_CATCH ball-check (goal failed)")
              + x86("call", "rt_pl_throw_pending", (uint64_t)(uintptr_t)(void *)rt_pl_throw_pending)
              + x86("test", "eax", "eax")
-             + x86("je", "ω")
+             + x86_omega("je")
              + x86("mov", "edi", FR(bcc_mark_off()))
              + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
              + gzu_build(catcher)
@@ -36,8 +36,8 @@ std::string bb_cell_catch() {
              + x86("call", "rt_pl_throw_match", (uint64_t)(uintptr_t)(void *)rt_pl_throw_match)
              + x86("test", "eax", "eax")
              + x86_jcc_tgt("jne", X86T_TGT0)
-             + x86("jmp", "ω");
+             + x86_omega();
     if (_.op_sa == 2)
-        return x86("def", "β") + x86("jmp", "ω");
+        return x86_beta() + x86_omega();
     return x86_bomb("bb_cell_catch: unknown aspect");
 }

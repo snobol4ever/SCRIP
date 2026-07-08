@@ -51,7 +51,7 @@ static std::string bcch_clause(int k, int *ro_id, std::string *seals) {
         out += bcch_arg_unify(a, c, k, *ro_id);
         if (a->op == IR_LOGICVAR && c->op == IR_ATOM) { *seals += x86_ro_seal_str(*ro_id, IR_LIT(c).sval); (*ro_id)++; }
     }
-    return out + x86("jmp", "γ");
+    return out + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_clause_tail(int k) {
@@ -63,7 +63,7 @@ static std::string bcch_clause_tail(int k) {
     return x86("def", L(k))
          + x86("mov", "edi", FR(bcch_mark_off()))
          + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
-         + x86("jmp", "ω");
+         + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcch_beta_dispatch() {
@@ -75,14 +75,14 @@ static std::string bcch_beta_dispatch() {
 static std::string bcch_build() {
     std::string seals;
     int ro_id = bcch_N();
-    std::string s = x86("def",     "α")
+    std::string s = x86_alpha()
         + IF(MEDIUM_TEXT, x86("comment", "BOX CELL_CHOICE  [PL-GZ-4 seed transcription: 1-based cursor + trail-mark in the box's OWN frame row; redo unwinds to entry mark; clause k fail falls"
                        " into clause k+1]"))
         + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
         + x86("mov", FR(bcch_mark_off()), "eax")
         + x86("mov", FR(bcch_cur_off()), (long)1)
         + FOR(0, bcch_N(), [&](int k) { return bcch_clause(k, &ro_id, &seals) + bcch_clause_tail(k); })
-        + x86("def", "β")
+        + x86_beta()
         + bcch_beta_dispatch();
     return s + seals;
 }

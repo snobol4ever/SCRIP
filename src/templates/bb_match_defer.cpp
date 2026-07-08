@@ -17,10 +17,10 @@ std::string bb_match_defer() {
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     std::string head = inl
         ? ( x86("comment", "IR_MATCH_DEFER inlined frozen head (FZ-5b)")
-          + x86("def",     "α")
+          + x86_alpha()
           + x86("lea",  "rax", "[rip + __]", (uint64_t)(uintptr_t)_.bb_child_fn, _.bb_child_lbl ? _.bb_child_lbl : "") )
         : ( x86("comment", "IR_MATCH_DEFER")
-          + x86("def",     "α")
+          + x86_alpha()
           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
           + x86("xor",  "esi", "esi")
           + x86_align_enter()
@@ -45,9 +45,9 @@ std::string bb_match_defer() {
          + x86_align_enter()
          + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
          + x86_align_leave()
-         + x86("jmp",  "ω")
+         + x86_omega()
          + x86("def",  "L1")
-         + x86("jmp",  "γ")
+         + x86_gamma()
          + x86("def",  "L0")
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
          + x86("xor",  "esi", "esi")
@@ -56,9 +56,9 @@ std::string bb_match_defer() {
          + x86("call", "rt_defer_match", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, int, int))rt_defer_match)
          + x86_align_leave()
          + x86("test", "eax", "eax")
-         + x86("js",   "ω")
+         + x86_omega("js")
          + x86("mov",  "r14d", "eax")
-         + x86("jmp",  "γ")
-         + x86("def",  "β")
-         + x86("jmp",  "ω");
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
 }

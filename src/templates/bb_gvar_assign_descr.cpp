@@ -13,7 +13,7 @@ std::string bb_gvar_assign_descr() {
     if (PLATFORM_X86)
         return (!(_.op_sa >= 0 && _.op_off >= 0)) ? x86_bomb("bb_gvar_assign_descr: needs rhs slot + own slot") :
                (_.op_gva_k >= 0) ?
-               x86("def",     "α")
+               x86_alpha()
              + x86("comment", "IR_ASSIGN_DESCR gva")
              + x86("mov",    "rax", FRQ(_.op_sa))
              + x86("mov",    "rcx", FRQ(_.op_sa + 8))
@@ -21,10 +21,10 @@ std::string bb_gvar_assign_descr() {
              + x86("mov",    RDQ("rbx", _.op_gva_k * 16 + 8), "rcx")
              + x86("mov",    FRQ(_.op_off),     "rax")
              + x86("mov",    FRQ(_.op_off + 8), "rcx")
-             + x86("jmp",    "γ")
-             + x86("def",    "β")
-             + x86("jmp",    "ω") :
-               x86("def",     "α")
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega() :
+               x86_alpha()
              + x86("comment", "IR_ASSIGN_DESCR")
              + x86("mov",    "rsi", FRQ(_.op_sa))
              + x86("mov",    "rdx", FRQ(_.op_sa + 8))
@@ -32,8 +32,8 @@ std::string bb_gvar_assign_descr() {
              + x86("call",   "NV_SET_fn", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(const char *, DESCR_t))NV_SET_fn)
              + x86("mov",    FRQ(_.op_off), "rax")
              + x86("mov",    FRQ(_.op_off + 8), "rdx")
-             + x86("jmp",    "γ")
-             + x86("def",    "β")
-             + x86("jmp",    "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     return std::string();
 }

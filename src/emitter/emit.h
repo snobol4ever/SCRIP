@@ -428,6 +428,7 @@ typedef struct {
      * the C-call push/pop scheme keys on ops!=0 and never collides with it. */
     int                          op_zls2_slot;
     int                          op_zls2_ops;
+    int                          op_selfload;
     int                          op_phase;
     int                          op_binop_kind;
     int                          op_gva_k;

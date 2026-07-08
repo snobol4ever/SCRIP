@@ -13,7 +13,7 @@ std::string bb_conjunction() {
      * restores the ONE-WAY-OUTPUT invariant regardless: every live template defines its own α, never the
      * driver. Costs nothing if some path never actually jumps here. */
     if (_.op_sa >= 0 && _.op_off >= 0 && _.op_sa != _.op_off) {
-        return x86("def", "α")
+        return x86_alpha()
              + x86("comment", "IR_CONJUNCTION value-forward copy")
              + x86("mov", "rax", FRQ(_.op_sa))
              + x86("mov", FRQ(_.op_off), "rax")
@@ -21,5 +21,5 @@ std::string bb_conjunction() {
              + x86("mov", FRQ(_.op_off + 8), "rax")
              + x86_pair_loop();
     }
-    return x86("def", "α") + x86_pair_loop();
+    return x86_alpha() + x86_pair_loop();
 }

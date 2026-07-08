@@ -15,7 +15,7 @@ static inline int bcs_ok() { return _.op_off >= 0 && _.op_ival == BINOP_CONCAT &
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
     return IF(PLATFORM_X86 && bcs_ok(),
-           x86("def",     "α")
+           x86_alpha()
          + x86("comment", "IR_BINOP_CONCAT")
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
@@ -24,7 +24,7 @@ std::string bb_binop_concat_slot() {
          + x86("call", "str_concat_d", (uint64_t)(uintptr_t)(void*)str_concat_d)
          + x86("mov", FRQ(_.op_off),     "rax")
          + x86("mov", FRQ(_.op_off + 8), "rdx")
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω"));
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega());
 }

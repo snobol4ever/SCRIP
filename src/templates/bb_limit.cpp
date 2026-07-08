@@ -11,20 +11,20 @@ std::string bb_limit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sc >= 0 && _.lbl_t0))
-        return x86("def", "α") + x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, count slot, gen-β)");
+        return x86_alpha() + x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, count slot, gen-β)");
     return x86("comment", "IR_LIMIT")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("mov",   "rax", FRQ(_.op_off + 16))
          + x86("mov",   "rcx", FRQ(_.op_sc + 8))
          + x86("cmp",   "rax", "rcx")
-         + x86("jge",   "ω")
+         + x86_omega("jge")
          + x86("inc",   FRQ(_.op_off + 16))
          + x86("mov",   "rax", FRQ(_.op_sa))
          + x86("mov",   FRQ(_.op_off),     "rax")
          + x86("mov",   "rax", FRQ(_.op_sa + 8))
          + x86("mov",   FRQ(_.op_off + 8), "rax")
-         + x86("jmp",   "γ")
-         + x86("def",   "β")
+         + x86_gamma()
+         + x86_beta()
          + x86_jmp_tgt(X86T_TGT0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

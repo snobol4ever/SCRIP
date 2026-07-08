@@ -13,11 +13,11 @@ static std::string disj_lbl(int ci, const char *tag) { char b[160]; resolve_choi
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_disj() {
     if (PLATFORM_X86) {
-        return x86("def",     "α")
+        return x86_alpha()
              + IF(MEDIUM_TEXT,
                   IF(_.resolve_choice_n <= 0,
-                      x86("jmp", "ω")
-                    + x86("def", "β") + x86("jmp", "ω"))
+                      x86_omega()
+                    + x86_beta() + x86_omega())
                 + IF(_.resolve_choice_n > 0,
                       x86("comment", "IR_DISJ")
                     + x86("jmp", disj_lbl(0, "pre").c_str())
@@ -28,7 +28,7 @@ std::string bb_disj() {
                           return x86("label", disj_lbl(i, "pre"))
                                + x86("call", "rt_trail_unwind_top", (uint64_t)(uintptr_t)(void*)rt_trail_unwind_top)
                                + x86("jmp", disj_lbl(i, "body").c_str()); })
-                    + x86("def", "β") + x86("jmp", "ω")));
+                    + x86_beta() + x86_omega()));
     }
     return std::string();
 }

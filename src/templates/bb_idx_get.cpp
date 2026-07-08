@@ -11,12 +11,12 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_idx_get() {
     if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0))
-        return x86("def", "α") + x86_bomb("bb_idx_get: unhandled (needs base name + result/scratch slots)");
+        return x86_alpha() + x86_bomb("bb_idx_get: unhandled (needs base name + result/scratch slots)");
     if (!(_.bb_lk == (int)IR_LIT_INTEGER || _.bb_lk == (int)IR_LIT_STRING || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
-        return x86("def", "α") + x86_bomb("bb_idx_get: unhandled key kind (LIT_I immediate, LIT_S literal, or VAR by-name only)");
+        return x86_alpha() + x86_bomb("bb_idx_get: unhandled key kind (LIT_I immediate, LIT_S literal, or VAR by-name only)");
     x86_begin();
     if (_.bb_lk == (int)IR_LIT_STRING) {
-        return x86("def",     "α")
+        return x86_alpha()
              + x86("comment", "IR_IDX: string-literal key — table-only, subscript_get")
              + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
              + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
@@ -27,12 +27,12 @@ std::string bb_idx_get() {
              + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
-             + x86("jmp",  "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     }
     int byname = (_.bb_lk == (int)IR_VAR);
-    std::string s = x86("def",     "α")
+    std::string s = x86_alpha()
                   + x86("comment", "IR_IDX: AXS inline DT_A+int fast path, else subscript_get");
     if (byname)
         s += x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])
@@ -66,7 +66,7 @@ std::string bb_idx_get() {
        + x86("mov", "rdx", "[r11 + rcx*8]")
        + x86("mov", FRQ(_.op_off),     "rax")
        + x86("mov", FRQ(_.op_off + 8), "rdx")
-       + x86("jmp", "γ")
+       + x86_gamma()
        + x86("def", L(0))
        + x86("mov", "rdi", "rax")
        + x86("mov", "rsi", "rdx");
@@ -78,10 +78,10 @@ std::string bb_idx_get() {
            + x86("movabs", "rcx", (uint64_t)(int64_t) _.bb_li);
     return s + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
              + x86("cmp", "eax", (long)DT_FAIL)
-             + x86("je",  "ω")
+             + x86_omega("je")
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
-             + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
 }

@@ -7,10 +7,10 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_logicvar(IR_t * pBB) {
     if (PLATFORM_X86) {
-        return x86("def",     "α") + x86("comment", "# BOX RESOLVE_VAR(slot=" + std::to_string(_.op_ival) + ") [stackless pass-through]")
-             + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω");
+        return x86_alpha() + x86("comment", "# BOX RESOLVE_VAR(slot=" + std::to_string(_.op_ival) + ") [stackless pass-through]")
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     }
     return std::string();
 }

@@ -389,6 +389,25 @@ inline std::string x86_deflabel(int port) {
     return s + x86_port_hook(X86H_DEF, port);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* THE FOUR PORT FUNCTIONS (Lon pivot 2026-07-08 session 5: "create a unique x86() function call for EACH of
+ * the 4 port processing ... All the code HIDES inside these functions and the templates just call and
+ * concat").  This is the ONLY port surface a template may use: the two INPUT ports α (fresh entry) and β
+ * (backtrack resume) are label DEFINES; the two OUTPUT ports γ (success) and ω (failure) are TRANSFERS —
+ * unconditional, or conditional via the mnemonic overload (jcc; the FLAGS CONTRACT at x86_port_hook governs
+ * what a flavor may emit there).  Everything that varies — medium, ZLS2 arena bump/restore/release per
+ * zls2_geom grant, poison, canary, ω-trace, the ARBNO selfload carrier, future assert/GC/stack flavors —
+ * lives inside these calls (they inherit the whole x86_port_hook seam through the int-level internals they
+ * wrap), so a template body is port-uniform, flavor-invisible, and NEVER edited again for flavor work.  The
+ * former string forms x86("def","α") / x86("jmp","ω") / x86("jcc","ω") are RETIRED and abort at emit time in
+ * x86_parse (the XK_PORT string arm) — the bb_bin_t enforcement-by-deletion pattern; parked (non-Makefile)
+ * templates still carrying the old strings trip that lock the moment they are ever re-enabled, loudly. */
+inline std::string x86_alpha()                    { return x86_deflabel(X86P_ALPHA); }
+inline std::string x86_beta()                     { return x86_deflabel(X86P_BETA); }
+inline std::string x86_gamma()                    { return x86_jmp(X86P_GAMMA); }
+inline std::string x86_gamma(const char * mnem)   { return x86_jcc(mnem, X86P_GAMMA); }
+inline std::string x86_omega()                    { return x86_jmp(X86P_OMEGA); }
+inline std::string x86_omega(const char * mnem)   { return x86_jcc(mnem, X86P_OMEGA); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZLS2 ω-side free: the box's own-constant up-bump, placed by the TEMPLATE at its single true-exit label,
  * immediately before the final jmp "ω".  Reads the same per-node grant as the hook's α arm; same dormancy. */
 inline std::string x86_zls2_free() {
@@ -817,7 +836,7 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (x.tag == 2) { o.kind = XK_IMM; o.imm = (long)(int64_t)x.u; return; }
     const char * s = x.s;
     int p = x86_port_of(s);
-    if (p >= 0 && (s[2] == 0)) { o.kind = XK_PORT; o.port = p; return; }
+    if (p >= 0 && (s[2] == 0)) { fprintf(stderr, "x86_parse: string port operand \"%s\" is RETIRED (Lon 2026-07-08 s5) — ports go through x86_alpha/x86_beta/x86_gamma/x86_omega ONLY\n", s); abort(); }
     if (s[0] == 'L' && s[1] >= '0' && s[1] <= '9') { int n = atoi(s + 1); o.kind = XK_ILBL; o.lbl = n; return; }
     if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
     if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32;  o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
@@ -1060,6 +1079,10 @@ inline std::string x86_zls2_release_to_call(int off) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void *rt_zls2_push(long k);
 extern "C" void  rt_zls2_pop(long k);
+extern "C" void *rt_zls_alloc(long bytes);
+extern "C" void  rt_zls_release(void *fb);
+extern "C" void  rt_zls_arbno_step1_store(void *p);
+extern "C" void *rt_zls_arbno_step1_load(void);
 /* x86_zls2_push_call(k) / x86_zls2_pop_call(k) — the ZLS2 arena's per-ACTIVATION bump pair (promoted from
  * bb_match_arbno.cpp's private statics of the same name to here, 2nd consumer session, so bb_match_arb.cpp can
  * share them without duplicating the alignment-dance idiom — RULES.md's NO-DUPLICATED-LOGIC rule; zero
@@ -1142,6 +1165,21 @@ inline std::string x86_port_hook(int site, int port) {
     }
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);
+    if (x86_selfload_mode() == ZC_SELFLOAD_ALLOC && _.op_selfload) {
+        if (site == X86H_DEF && port == X86P_ALPHA && _.op_selfload == 1)
+            s += x86_align_enter()
+               + x86("mov",  "rdi", 4096L)
+               + x86("call", "rt_zls_alloc", (uint64_t)(uintptr_t)(void *)(void * (*)(long))rt_zls_alloc)
+               + x86("mov",  "rdi", "rax")
+               + x86("call", "rt_zls_arbno_step1_store", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_arbno_step1_store)
+               + x86_align_leave();
+        if (site == X86H_JMP && port == X86P_OMEGA && _.op_selfload == 2)
+            s += x86("call", "rt_zls_arbno_step1_load", (uint64_t)(uintptr_t)(void *)(void * (*)(void))rt_zls_arbno_step1_load)
+               + x86_align_enter()
+               + x86("mov",  "rdi", "rax")
+               + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
+               + x86_align_leave();
+    }
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

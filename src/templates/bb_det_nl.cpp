@@ -8,10 +8,10 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_det_nl() {
     if (!PLATFORM_X86) return std::string();
-    return x86("def",     "α")
+    return x86_alpha()
          + x86("comment", "IR_DET_NL")
          + x86("mov32", "edi", 10L)
          + x86("call", "putchar", (uint64_t)(uintptr_t)(void *)putchar)
-         + x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"));
+         + x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega());
 }

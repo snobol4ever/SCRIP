@@ -10,10 +10,10 @@ extern "C" int   rt_unify_var_var(int lslot, int rslot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string u_tail() {
     return x86("test", "eax", "eax")
-         + x86("je",   "ω")
-         + x86("jmp",  "γ")
-         + x86("def",  "β")
-         + x86("jmp",  "ω");
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int u_const_kind(int k) { return k == IR_ATOM || k == IR_LIT_INTEGER; }
@@ -33,26 +33,26 @@ std::string bb_unify() {
     if (PLATFORM_X86)
         return _.bb_lk < 0 ?
                x86("comment", "IR_UNIFY")
-             + x86("def",     "α")
-             + x86("jmp",     "γ")
-             + x86("def",     "β")
-             + x86("jmp",     "ω") :
+             + x86_alpha()
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega() :
                (_.bb_lk == IR_LOGICVAR && _.bb_rk == IR_LOGICVAR && (long)_.bb_li == (long)_.bb_ri) ?
                x86("comment", "IR_UNIFY")
-             + x86("def",     "α")
-             + x86("jmp",     "γ")
-             + x86("def",     "β")
-             + x86("jmp",     "ω") :
+             + x86_alpha()
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega() :
                (_.bb_lk == IR_LOGICVAR && _.bb_rk == IR_LOGICVAR) ?
                x86("comment", "IR_UNIFY")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov",     "edi", (long)_.bb_li)
              + x86("mov",     "esi", (long)_.bb_ri)
              + x86("call",    "rt_unify_var_var", (uint64_t)(uintptr_t)(void*)rt_unify_var_var)
              + u_tail() :
                (_.bb_lk == IR_LOGICVAR && u_const_kind(_.bb_rk) && (int)(long)_.bb_li >= 0) ?
                x86("comment", "IR_UNIFY")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov",     "edi", (long)_.bb_li)
              + x86("mov",     "esi", (long)_.bb_rk)
              + x86("mov",     "rdx", (long)_.bb_ri)
@@ -63,7 +63,7 @@ std::string bb_unify() {
              + u_tail() :
                (_.bb_rk == IR_LOGICVAR && u_const_kind(_.bb_lk) && (int)(long)_.bb_ri >= 0) ?
                x86("comment", "IR_UNIFY")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov",     "edi", (long)_.bb_ri)
              + x86("mov",     "esi", (long)_.bb_lk)
              + x86("mov",     "rdx", (long)_.bb_li)
@@ -73,7 +73,7 @@ std::string bb_unify() {
              + x86("call",    "rt_unify_const", (uint64_t)(uintptr_t)(void*)rt_unify_const)
              + u_tail() :
                x86("comment", "IR_UNIFY")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("sub",     "rsp", (long)16)
              + IF(u_compound_kind(_.bb_lk), emit_build_compound_term((const IR_t *)_.bb_ln))
              + IF(!u_compound_kind(_.bb_lk), u_build_scalar(_.bb_lk, (long)_.bb_li, _.bb_ln ? IR_LIT((const IR_t *)_.bb_ln).dval : 0.0, _.bb_ls))

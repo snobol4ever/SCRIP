@@ -13,7 +13,7 @@ std::string bb_match_span() {
     if (!PLATFORM_X86) return std::string();
     static char b[24];
     return x86("comment", "IR_MATCH_SPAN")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("mov",    FR(_.x86_scratch_off), (long)0)
          + x86("def",    L(0))
          + x86("mov",    "eax", "r14d")
@@ -33,14 +33,14 @@ std::string bb_match_span() {
          + x86("def",    L(1))
          + x86("mov",    "eax", FR(_.x86_scratch_off))
          + x86("test",   "eax", "eax")
-         + x86("jle",    "ω")
+         + x86_omega("jle")
          + x86("mov",    "edx", "r14d")
          + x86("mov",    FR(_.x86_scratch_off + 4), "edx")
          + x86("add",    "edx", "eax")
          + x86("mov",    "r14d", "edx")
-         + x86("jmp",    "γ")
-         + x86("def",    "β")
-         + x86("def",    "β")
+         + x86_gamma()
+         + x86_beta()
+         + x86_beta()
          + x86("mov",    "r14d", FR(_.x86_scratch_off + 4))
-         + x86("jmp",    "ω");
+         + x86_omega();
 }

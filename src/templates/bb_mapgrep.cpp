@@ -26,7 +26,7 @@ static inline int          mgRes()    { return s_mg_resoff; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_mapgrep() {
     x86_begin();
-    if (PLATFORM_X86) return x86("def",     "α")
+    if (PLATFORM_X86) return x86_alpha()
          + x86("comment",   "IR_MAP/IR_GREP (materialized)")
          + IF(MEDIUM_TEXT,
                x86("directive", ".section .rodata")
@@ -39,14 +39,14 @@ std::string bb_mapgrep() {
          + x86("def",       L(0))
          + x86("mov",       "rcx", FRQ(mgCurs()))
          + x86("cmp64",     "rcx", (long)mgN())
-         + x86("jge",       "ω")
+         + x86_omega("jge")
          + x86("lea",       "rdx", "[rip + __]", mgValsP(), mgLbl())
          + x86("mov",       "rsi", "[rdx + rcx*8]")
          + x86("mov",       FRQ(mgRes()), (long)6)
          + x86("mov",       FRQ(mgRes() + 8), "rsi")
          + x86("inc",       FRQ(mgCurs()))
-         + x86("jmp",       "γ")
-         + x86("def",       "β")
+         + x86_gamma()
+         + x86_beta()
          + x86("jmp",       L(0));
     return std::string();
 }

@@ -24,13 +24,13 @@ std::string bb_binop_gvar_concat() {
     std::string b = bgc_bareint(_.bb_rk)
                   ? x86("mov", "rdx", (long)DT_I) + x86("mov", "rcx", FRQ(_.op_sb + 8))
                   : x86("mov", "rdx", FRQ(_.op_sb)) + x86("mov", "rcx", FRQ(_.op_sb + 8));
-    return x86("def",     "α")
+    return x86_alpha()
          + x86("comment", "IR_BINOP_GVAR_CONCAT")
          + a + b
          + x86("call", "str_concat_d", (uint64_t)(uintptr_t)(void*)str_concat_d)
          + x86("mov", FRQ(_.op_off),     "rax")
          + x86("mov", FRQ(_.op_off + 8), "rdx")
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
 }

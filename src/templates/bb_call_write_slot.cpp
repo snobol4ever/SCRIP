@@ -20,13 +20,13 @@ static bb_label_t * bb_call_write_beta_target() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcws_slot_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86("def",   "α")
+    return x86_alpha()
          + x86_frame_load64("rdi", off)
          + x86_frame_load64("rsi", off + 8)
          + x86("call", "rt_write_any_nl", fptr)
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
+         + x86_gamma()
+         + x86_beta()
+         + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_slot_str(IR_t * pBB) {
@@ -34,12 +34,12 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
     int off = bb_slot_get(ir_call_arg(_.node, 0));
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     if (MEDIUM_BINARY) return bcws_slot_bin(off, beta_tgt);
-    if (MEDIUM_TEXT) return x86("def",     "α")
+    if (MEDIUM_TEXT) return x86_alpha()
                           + x86("comment", "BOX IR_CALL write(op) [GZ-7 flat-chain slot -> rt_write_any_nl]")
                           + x86("mov", "rdi", FRQ(off))
                           + x86("mov", "rsi", FRQ(off + 8))
                           + x86("call", "rt_write_any_nl@PLT")
-                          + x86("jmp", "γ")
+                          + x86_gamma()
                           + x86("label", std::string(_.lbl_β))
                           + x86("label", _.lbl_β)
                           + x86("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
@@ -47,21 +47,21 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcws_binop_concat_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(const char *) = rt_write_strz_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86("def",   "α")
+    return x86_alpha()
          + x86_frame_load64("rdi", off + 8)
          + x86("call", "rt_write_strz_nl", fptr)
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
+         + x86_gamma()
+         + x86_beta()
+         + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcws_binop_int_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86("def",   "α")
+    return x86_alpha()
          + x86_frame_load64("rdi", off)
          + x86("call", "rt_write_int_nl", fptr)
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
+         + x86_gamma()
+         + x86_beta()
+         + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_binop_str(IR_t * pBB) {
@@ -77,11 +77,11 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
         std::string tail = x86("label", std::string(_.lbl_β))
                          + x86("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
         if (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT)
-            return x86("def",     "α")
+            return x86_alpha()
                  + x86("mov", "rdi", "[r12 + " + std::to_string(off + 8) + "]")
                  + x86("call",     "rt_write_strz_nl@PLT")
                  + x86("jmp",      _.lbl_γ) + tail;
-        return x86("def",     "α")
+        return x86_alpha()
              + x86("mov", "rdi", "[r12 + " + std::to_string(off) + "]")
              + x86("call",     "rt_write_int_nl@PLT")
              + x86("jmp",      _.lbl_γ) + tail;

@@ -23,7 +23,7 @@ static inline int          resoff()   { return s_gather_resoff; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gather() {
     x86_begin();
-    if (PLATFORM_X86) return x86("def",     "α")
+    if (PLATFORM_X86) return x86_alpha()
          + x86("comment",   "IR_GATHER")
          + IF(MEDIUM_TEXT,
                x86("directive", ".section .rodata")
@@ -36,14 +36,14 @@ std::string bb_gather() {
          + x86("def",       L(0))
          + x86("mov",       "rcx", FRQ(cursoff()))
          + x86("cmp64",     "rcx", (long)gatherN())
-         + x86("jge",       "ω")
+         + x86_omega("jge")
          + x86("lea",       "rdx", "[rip + __]", valsPtr(), valsLbl())
          + x86("mov",       "rsi", "[rdx + rcx*8]")
          + x86("mov",       FRQ(resoff()), (long)6)
          + x86("mov",       FRQ(resoff() + 8), "rsi")
          + x86("inc",       FRQ(cursoff()))
-         + x86("jmp",       "γ")
-         + x86("def",       "β")
+         + x86_gamma()
+         + x86_beta()
          + x86("jmp",       L(0));
     return std::string();
 }

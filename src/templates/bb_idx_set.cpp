@@ -10,9 +10,9 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_idx_set() {
     if (!PLATFORM_X86 || !(_.op_a_slot >= 0 && _.op_sb >= 0 && _.op_sc >= 0))
-        return x86("def", "α") + x86_bomb("bb_idx_set: needs base/key/value operand slots ([ζ+off] producers)");
+        return x86_alpha() + x86_bomb("bb_idx_set: needs base/key/value operand slots ([ζ+off] producers)");
     x86_begin();
-    std::string s = x86("def",     "α")
+    std::string s = x86_alpha()
                   + x86("comment", "IR_IDX_SET: base/key/value from [ζ+off]; inline DT_A+int fast path, else subscript_set")
                   + x86("mov", "rax", FRQ(_.op_a_slot))
                   + x86("cmp", "eax", (long)DT_A)
@@ -42,7 +42,7 @@ std::string bb_idx_set() {
                   + IF(!_.op_num_real, x86("mov", "rdx", FRQ(_.op_sc)))
                   + x86("mov", "[r11 + 0]", "rax")
                   + x86("mov", "[r11 + 8]", "rdx")
-                  + x86("jmp", "γ")
+                  + x86_gamma()
                   + x86("def", L(0));
     return s + x86("mov",  "rdi", FRQ(_.op_a_slot)) + x86("mov", "rsi", FRQ(_.op_a_slot + 8))
              + x86("mov",  "rdx", FRQ(_.op_sb))     + x86("mov", "rcx", FRQ(_.op_sb + 8))
@@ -52,8 +52,8 @@ std::string bb_idx_set() {
              + IF(!_.op_num_real, x86("mov", "r9", FRQ(_.op_sc)))
              + x86("call", "subscript_set", (uint64_t)(uintptr_t)(void *) subscript_set)
              + x86("cmp",  "eax", (long)0)
-             + x86("je",   "ω")
-             + x86("jmp",  "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω");
+             + x86_omega("je")
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
 }

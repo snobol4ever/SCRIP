@@ -23,17 +23,17 @@ void bb_gvar_assign_concat_build_parts() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gvar_assign_concat() {
     if (PLATFORM_X86) return _.bb_rs
-        ? x86("def",     "α")
+        ? x86_alpha()
         + x86("comment","IR_ASSIGN_CONCAT lit_s")
         + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(IR_LIT(_.node).sval ? IR_LIT(_.node).sval : ""), _.bb_ls)
         + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_parts_str[0]   ? _.op_parts_str[0]   : ""), _.bb_rs)
         + x86("call", "rt_gvar_assign_str", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, const char *))rt_gvar_assign_str)
-        + x86("jmp",  "γ")
-        + x86("def",  "β")
-        + x86("jmp",  "ω")
+        + x86_gamma()
+        + x86_beta()
+        + x86_omega()
         : _.op_parts_n <= 0 ? x86_bomb("bb_gvar_assign_concat: no parts (not flattenable)")
         : (bb_gvar_assign_concat_build_parts(),
-           x86("def",     "α")
+           x86_alpha()
          + x86("comment", std::string("IR_ASSIGN_CONCAT ") + std::to_string(_.op_parts_n) + " parts")
          + g_parts_str
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(IR_LIT(_.node).sval ? IR_LIT(_.node).sval : ""), _.bb_ls)
@@ -47,8 +47,8 @@ std::string bb_gvar_assign_concat() {
          + x86("mov",  "rsp", "rbx")
          + x86("pop",  "rbx")
          + x86("pop",  "r10")
-         + x86("jmp",  "γ")
-         + x86("def",  "β")
-         + x86("jmp",  "ω"));
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega());
     return std::string();
 }

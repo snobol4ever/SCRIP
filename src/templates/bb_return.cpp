@@ -8,9 +8,9 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_return() {
-    if (!PLATFORM_X86) return x86("def", "α") + x86_bomb("bb_return: unhandled (needs descr flat-chain)");
+    if (!PLATFORM_X86) return x86_alpha() + x86_bomb("bb_return: unhandled (needs descr flat-chain)");
     return x86("comment", "IR_RETURN")
-         + x86("def",     "α")
+         + x86_alpha()
          + IF(_.op_sa >= 0,
                x86("mov", "rax", FRQ(_.op_sa))
              + x86("mov", "rdx", FRQ(_.op_sa + 8))
@@ -19,6 +19,6 @@ std::string bb_return() {
          + IF(_.op_sa < 0,
                x86("mov", FRQ(0), (long)DT_SNUL)
              + x86("mov", FRQ(8), 0L))
-         + IF(_.op_dval == 2.0, x86("jmp", "ω"))
-         + IF(_.op_dval != 2.0, x86("jmp", "γ"));
+         + IF(_.op_dval == 2.0, x86_omega())
+         + IF(_.op_dval != 2.0, x86_gamma());
 }

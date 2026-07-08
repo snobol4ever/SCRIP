@@ -12,7 +12,7 @@ std::string bb_scan_many() {
     x86_begin();
     if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) {
         return x86("comment", "IR_SCAN_MANY (var cset) [fstranl.r many: advance while s[i] in cset-descr@slot; fail if none consumed]")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov",     "eax", "r14d")
              + x86("def",     L(0))
              + x86("cmp",     "eax", "r15d")
@@ -31,18 +31,18 @@ std::string bb_scan_many() {
              + x86("jmp",     L(0))
              + x86("def",     L(1))
              + x86("cmp",     "eax", "r14d")
-             + x86("je",      "ω")
+             + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     (long)DT_I)
              + x86("movsxd",  "rcx", "eax")
              + x86("add",     "rcx", (long)1)
              + x86("mov",     FRQ(_.op_off + 8), "rcx")
-             + x86("jmp",     "γ")
-             + x86("def",     "β")
-             + x86("jmp",     "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     }
-    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86("def", "α") + x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)");
+    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_alpha() + x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_MANY")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("mov",     "eax", "r14d")
          + x86("def",     L(0))
          + x86("cmp",     "eax", "r15d")
@@ -61,14 +61,14 @@ std::string bb_scan_many() {
          + x86("jmp",     L(0))
          + x86("def",     L(1))
          + x86("cmp",     "eax", "r14d")
-         + x86("je",      "ω")
+         + x86_omega("je")
          + x86("mov",     FRQ(_.op_off),     (long)DT_I)
          + x86("movsxd",  "rcx", "eax")
          + x86("add",     "rcx", (long)1)
          + x86("mov",     FRQ(_.op_off + 8), "rcx")
-         + x86("jmp",     "γ")
-         + x86("def",     "β")
-         + x86("jmp",     "ω")
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega()
          + x86("def",     L(2))
          + x86(".quad",   LS(2), _.op_name1)
          + x86("label",   LS(2))

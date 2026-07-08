@@ -13,7 +13,7 @@ extern "C" void rt_pl_write_canonical_cell(void * cell_term);
 std::string bb_det_write() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
-    return x86("def",     "α")
+    return x86_alpha()
          + x86("comment", "IR_DET_WRITE")
          + IF(_.op_sb && _.op_ival == 1,
                x86("lea", "rdi", FR(GZ_CELL_OFF(_.op_off)))
@@ -30,8 +30,8 @@ std::string bb_det_write() {
          + IF(!_.op_sb && !_.op_sval,
                x86("mov", "rdi", (long)_.op_ival)
              + x86("call", "rt_write_int", (uint64_t)(uintptr_t)(void *)rt_write_int))
-         + x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"))
+         + x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega())
          + IF(!_.op_sb && _.op_sval,
                x86("def", L(0))
              + x86(".quad", LS(0), _.op_sval)

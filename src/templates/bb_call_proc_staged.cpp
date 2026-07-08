@@ -44,7 +44,7 @@ static std::string bcps_bin_arm() {
     bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86("def",   "α")
+    return x86_alpha()
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
@@ -55,16 +55,16 @@ static std::string bcps_bin_arm() {
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
          + x86("cmp", "eax", (long)99)
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + (beta_tgt == _.lbl_ω_p ? x86("jmp", "ω") : x86_pair_jmp(0));
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta()
+         + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_txt_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    return x86("def",     "α")
+    return x86_alpha()
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
@@ -79,8 +79,8 @@ static std::string bcps_txt_arm() {
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", "99")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
+         + x86_omega("je")
+         + x86_gamma()
          + x86("label", _.lbl_β)
          + x86("jmp", beta_tgt ? beta_tgt->name : _.lbl_ω);
 }
@@ -91,7 +91,7 @@ static std::string bcps_bin_gen_arm() {
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t callg_fp; { DESCR_t (*fp)(const char *, int) = rt_proc_call_gen; callg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t resumeg_fp; { DESCR_t (*fp)(void) = rt_proc_resume_gen; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86("def",   "α")
+    return x86_alpha()
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
@@ -102,21 +102,21 @@ static std::string bcps_bin_gen_arm() {
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
          + x86("cmp", "eax", (long)99)
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + x86("def", "β")
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta()
          + x86("call", "rt_proc_resume_gen", resumeg_fp)
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
          + x86("cmp", "eax", (long)99)
-         + x86("je", "ω")
-         + x86("jmp", "γ");
+         + x86_omega("je")
+         + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_txt_gen_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    return x86("def",     "α")
+    return x86_alpha()
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
@@ -131,15 +131,15 @@ static std::string bcps_txt_gen_arm() {
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", "99")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
+         + x86_omega("je")
+         + x86_gamma()
          + x86("label", _.lbl_β)
          + x86("call", "rt_proc_resume_gen@PLT")
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", "99")
-         + x86("je", "ω")
-         + x86("jmp", "γ");
+         + x86_omega("je")
+         + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_proc_staged_str(IR_t * pBB) {

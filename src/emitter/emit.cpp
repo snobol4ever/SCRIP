@@ -758,7 +758,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
     case IR_MATCH_ARB:            { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.x86_scratch_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZLS2 port-hook grant */
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
-    case IR_MATCH_ARBNO:          { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.op_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 + ZLS2 port-hook grant (op_off already owner-resolved for ph1/2) */
+    case IR_MATCH_ARBNO:          { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.op_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); g_emit.op_selfload = ((int)g_emit.op_phase == 0) ? 1 : ((int)g_emit.op_phase == 2) ? 2 : 0; bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 + ZLS2 port-hook grant (op_off already owner-resolved for ph1/2) */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_RELEASE:        { bb_emit_x86(bb_match_release()); } return 0;               /* BB-OWNED-ζ statement-scope pivot */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
@@ -828,7 +828,7 @@ extern int           gva_index_of(const char *name);
 extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
-    g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; \
+    g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
@@ -1491,10 +1491,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     for (int i = 0; i < n; i++) {
         /* BB-OWNED-ζ / ONE-WAY-OUTPUT FIX (Claude, this session, per Lon's ask): α's byte position used to be
          * defined HERE, directly, via a bare bb_label_define(lbls[i]) call outside x86()'s funnel entirely --
-         * a second output path for the identical logical operation x86("def","β") already performs correctly
+         * a second output path for the identical logical operation x86_beta() already performs correctly
          * through x86_deflabel()/x86_Drec(), one function, both media, internally.  That direct call is now
-         * REMOVED; every template defines its OWN α via x86("def","α") as its first emitted instruction
-         * (mirroring the existing x86("def","β") convention), so bb_label_define(lbls[i]) fires exactly once,
+         * REMOVED; every template defines its OWN α via x86_alpha() as its first emitted instruction
+         * (mirroring the existing x86_beta() convention), so bb_label_define(lbls[i]) fires exactly once,
          * from inside walk_bb_node's own bb_emit_x86 walk of that template's returned 'D'-tagged record --
          * the SAME single call site β already uses.  Scope: this fixes ONLY the per-node α/β def-mechanism
          * asymmetry; it does not audit or touch any other TEXT/BINARY-branching site in this file. */

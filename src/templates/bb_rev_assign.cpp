@@ -11,7 +11,7 @@ std::string bb_rev_assign() {
     if (!PLATFORM_X86) return std::string();
     return IF(!(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0), x86_bomb("bb_rev_assign: x<-v needs varslot + rhs slot + save slot + own slot"))
                            + IF(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0,
-                             x86("def",     "α")
+                             x86_alpha()
                            + x86("comment", "IR_REV_ASSIGN x<-v")
                            + x86("mov", "rax", FRQ(_.op_sb))
                            + x86("mov", "rdx", FRQ(_.op_sb + 8))
@@ -23,11 +23,11 @@ std::string bb_rev_assign() {
                            + x86("mov", FRQ(_.op_sb + 8), "rsi")
                            + x86("mov", FRQ(_.op_off), "rcx")
                            + x86("mov", FRQ(_.op_off + 8), "rsi")
-                           + x86("jmp", "γ")
-                           + x86("def", "β")
+                           + x86_gamma()
+                           + x86_beta()
                            + x86("mov", "rax", FRQ(_.op_sc))
                            + x86("mov", "rdx", FRQ(_.op_sc + 8))
                            + x86("mov", FRQ(_.op_sb), "rax")
                            + x86("mov", FRQ(_.op_sb + 8), "rdx")
-                           + x86("jmp", "ω"));
+                           + x86_omega());
 }
