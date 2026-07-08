@@ -32,9 +32,8 @@ push r12
  mov qword ptr [r12 + 496], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 128], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 136], rax
@@ -45,8 +44,7 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "hello"
-xchain0_n1_α:
-bb2_α:
+ xchain0_n1_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+128] -> [r12+112]
  mov rax, qword ptr [r12 + 128]
@@ -68,9 +66,8 @@ bb2_α:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n3_α
-xchain0_n2_α:
 # IR_KEYWORD_SNOBOL4_read
-bb3_α:
+ xchain0_n2_α:
  mov rdi, qword ptr [rip + .Lx4_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 144], rax
@@ -82,9 +79,8 @@ bb3_α:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "LCASE"
-xchain0_n3_α:
 # IR_LIT_INTEGER
-bb4_α:
+ xchain0_n3_α:
  mov qword ptr [r12 + 288], 6
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 296], rax
@@ -93,9 +89,8 @@ bb4_α:
  jmp xchain0_n8_α
 .Lx5_0:
  .quad 42
-xchain0_n4_α:
 # IR_KEYWORD_SNOBOL4_read
-bb5_α:
+ xchain0_n4_α:
  mov rdi, qword ptr [rip + .Lx6_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 160], rax
@@ -107,8 +102,7 @@ bb5_α:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "UCASE"
-xchain0_n5_α:
-bb6_α:
+ xchain0_n5_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+288] -> [r12+272]
  mov rax, qword ptr [r12 + 288]
@@ -130,8 +124,7 @@ bb6_α:
  jmp xchain0_n7_α
  xchain0_n5_β:
  jmp xchain0_n8_α
-xchain0_n6_α:
-bb7_α:
+ xchain0_n6_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+96] -> [r12+48]
  mov rax, qword ptr [r12 + 96]
@@ -163,9 +156,8 @@ bb7_α:
  jmp xchain0_n9_α
  xchain0_n6_β:
  jmp xchain0_n3_α
-xchain0_n7_α:
 # IR_KEYWORD_SNOBOL4_read
-bb8_α:
+ xchain0_n7_α:
  mov rdi, qword ptr [rip + .Lx11_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 304], rax
@@ -177,9 +169,8 @@ bb8_α:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "LCASE"
-xchain0_n8_α:
 # IR_LIT_REAL
-bb9_α:
+ xchain0_n8_α:
  mov qword ptr [r12 + 448], 7
  mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 456], rax
@@ -188,9 +179,8 @@ bb9_α:
  jmp main_γ
 .Lx12_0:
  .quad 4614253070214989087
-xchain0_n9_α:
 # IR_ASSIGN global
-bb10_α:
+ xchain0_n9_α:
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov rdi, qword ptr [rip + .Lx13_0]
@@ -204,9 +194,8 @@ bb10_α:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "OUTPUT"
-xchain0_n10_α:
 # IR_KEYWORD_SNOBOL4_read
-bb11_α:
+ xchain0_n10_α:
  mov rdi, qword ptr [rip + .Lx14_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 320], rax
@@ -218,8 +207,7 @@ bb11_α:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "UCASE"
-xchain0_n11_α:
-bb12_α:
+ xchain0_n11_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+448] -> [r12+432]
  mov rax, qword ptr [r12 + 448]
@@ -241,8 +229,7 @@ bb12_α:
  jmp xchain0_n13_α
  xchain0_n11_β:
  jmp main_γ
-xchain0_n12_α:
-bb13_α:
+ xchain0_n12_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+256] -> [r12+208]
  mov rax, qword ptr [r12 + 256]
@@ -274,9 +261,8 @@ bb13_α:
  jmp xchain0_n14_α
  xchain0_n12_β:
  jmp xchain0_n8_α
-xchain0_n13_α:
 # IR_KEYWORD_SNOBOL4_read
-bb14_α:
+ xchain0_n13_α:
  mov rdi, qword ptr [rip + .Lx19_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 464], rax
@@ -288,9 +274,8 @@ bb14_α:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "LCASE"
-xchain0_n14_α:
 # IR_ASSIGN global
-bb15_α:
+ xchain0_n14_α:
  mov rsi, qword ptr [r12 + 192]
  mov rdx, qword ptr [r12 + 200]
  mov rdi, qword ptr [rip + .Lx20_0]
@@ -304,9 +289,8 @@ bb15_α:
  .quad .Lx20_0_s
 .Lx20_0_s:
  .string "OUTPUT"
-xchain0_n15_α:
 # IR_KEYWORD_SNOBOL4_read
-bb16_α:
+ xchain0_n15_α:
  mov rdi, qword ptr [rip + .Lx21_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 480], rax
@@ -318,8 +302,7 @@ bb16_α:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "UCASE"
-xchain0_n16_α:
-bb17_α:
+ xchain0_n16_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+416] -> [r12+368]
  mov rax, qword ptr [r12 + 416]
@@ -351,9 +334,8 @@ bb17_α:
  jmp xchain0_n17_α
  xchain0_n16_β:
  jmp main_γ
-xchain0_n17_α:
 # IR_ASSIGN global
-bb18_α:
+ xchain0_n17_α:
  mov rsi, qword ptr [r12 + 352]
  mov rdx, qword ptr [r12 + 360]
  mov rdi, qword ptr [rip + .Lx24_0]

@@ -49,9 +49,8 @@ push r12
  mov qword ptr [r12 + 112], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_STRING
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 32], 1
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 40], rax
@@ -62,9 +61,8 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "alpha"
-xchain0_n1_α:
 # IR_ASSIGN gva
-bb2_α:
+ xchain0_n1_α:
  mov rax, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov qword ptr [rbx + 0], rax
@@ -74,9 +72,8 @@ bb2_α:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
-xchain0_n2_α:
 # IR_VAR gva
-bb3_α:
+ xchain0_n2_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
  mov qword ptr [r12 + 64], rax
@@ -84,9 +81,8 @@ bb3_α:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
-xchain0_n3_α:
 # IR_ASSIGN gva
-bb4_α:
+ xchain0_n3_α:
  mov rax, qword ptr [r12 + 64]
  mov rdx, qword ptr [r12 + 72]
  mov qword ptr [rbx + 16], rax
@@ -96,9 +92,8 @@ bb4_α:
  jmp xchain0_n4_α
  xchain0_n3_β:
  jmp xchain0_n4_α
-xchain0_n4_α:
 # IR_VAR gva
-bb5_α:
+ xchain0_n4_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 96], rax
@@ -106,9 +101,8 @@ bb5_α:
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp main_γ
-xchain0_n5_α:
 # IR_ASSIGN global
-bb6_α:
+ xchain0_n5_α:
  mov rsi, qword ptr [r12 + 96]
  mov rdx, qword ptr [r12 + 104]
  mov rdi, qword ptr [rip + .Lx6_0]

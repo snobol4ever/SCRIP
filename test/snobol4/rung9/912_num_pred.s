@@ -47,9 +47,8 @@ push r12
  mov qword ptr [r12 + 2096], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_LIT_INTEGER
-bb1_α:
+ xchain0_n0_α:
  mov qword ptr [r12 + 64], 6
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [r12 + 72], rax
@@ -58,9 +57,8 @@ bb1_α:
  jmp xchain0_n4_α
 .Lx1_0:
  .quad 5
-xchain0_n1_α:
 # IR_LIT_INTEGER
-bb2_α:
+ xchain0_n1_α:
  mov qword ptr [r12 + 80], 6
  mov rax, qword ptr [rip + .Lx2_0]
  mov qword ptr [r12 + 88], rax
@@ -69,8 +67,7 @@ bb2_α:
  jmp xchain0_n4_α
 .Lx2_0:
  .quad 4
-xchain0_n2_α:
-bb3_α:
+ xchain0_n2_α:
 # BOX IR_CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+32]
  mov rax, qword ptr [r12 + 64]
@@ -97,9 +94,8 @@ bb3_α:
  jmp xchain0_n3_α
 xchain0_n2_β:
  jmp xchain0_n4_α
-xchain0_n3_α:
 # IR_LIT_STRING
-bb4_α:
+ xchain0_n3_α:
  mov qword ptr [r12 + 112], 1
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 120], rax
@@ -110,9 +106,8 @@ bb4_α:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "FAIL 912/001: lt(5,4) should fail"
-xchain0_n4_α:
 # IR_LIT_INTEGER
-bb5_α:
+ xchain0_n4_α:
  mov qword ptr [r12 + 176], 6
  mov rax, qword ptr [rip + .Lx6_0]
  mov qword ptr [r12 + 184], rax
@@ -121,9 +116,8 @@ bb5_α:
  jmp xchain0_n9_α
 .Lx6_0:
  .quad 4
-xchain0_n5_α:
 # IR_ASSIGN gva
-bb6_α:
+ xchain0_n5_α:
  mov rax, qword ptr [r12 + 112]
  mov rdx, qword ptr [r12 + 120]
  mov qword ptr [rbx + 0], rax
@@ -133,9 +127,8 @@ bb6_α:
  jmp main_γ
  xchain0_n5_β:
  jmp main_γ
-xchain0_n6_α:
 # IR_LIT_INTEGER
-bb7_α:
+ xchain0_n6_α:
  mov qword ptr [r12 + 192], 6
  mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [r12 + 200], rax
@@ -144,8 +137,7 @@ bb7_α:
  jmp xchain0_n9_α
 .Lx8_0:
  .quad 4
-xchain0_n7_α:
-bb8_α:
+ xchain0_n7_α:
 # BOX IR_CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+176] -> [r12+144]
  mov rax, qword ptr [r12 + 176]
@@ -172,9 +164,8 @@ bb8_α:
  jmp xchain0_n8_α
 xchain0_n7_β:
  jmp xchain0_n9_α
-xchain0_n8_α:
 # IR_LIT_STRING
-bb9_α:
+ xchain0_n8_α:
  mov qword ptr [r12 + 224], 1
  mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 232], rax
@@ -185,9 +176,8 @@ bb9_α:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "FAIL 912/002: lt(4,4) should fail"
-xchain0_n9_α:
 # IR_LIT_INTEGER
-bb10_α:
+ xchain0_n9_α:
  mov qword ptr [r12 + 288], 6
  mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 296], rax
@@ -196,9 +186,8 @@ bb10_α:
  jmp xchain0_n14_α
 .Lx12_0:
  .quad 4
-xchain0_n10_α:
 # IR_ASSIGN gva
-bb11_α:
+ xchain0_n10_α:
  mov rax, qword ptr [r12 + 224]
  mov rdx, qword ptr [r12 + 232]
  mov qword ptr [rbx + 0], rax
@@ -208,9 +197,8 @@ bb11_α:
  jmp main_γ
  xchain0_n10_β:
  jmp main_γ
-xchain0_n11_α:
 # IR_LIT_INTEGER
-bb12_α:
+ xchain0_n11_α:
  mov qword ptr [r12 + 304], 6
  mov rax, qword ptr [rip + .Lx14_0]
  mov qword ptr [r12 + 312], rax
@@ -219,8 +207,7 @@ bb12_α:
  jmp xchain0_n14_α
 .Lx14_0:
  .quad 5
-xchain0_n12_α:
-bb13_α:
+ xchain0_n12_α:
 # BOX IR_CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+288] -> [r12+256]
  mov rax, qword ptr [r12 + 288]
@@ -247,9 +234,8 @@ bb13_α:
  jmp xchain0_n13_α
 xchain0_n12_β:
  jmp xchain0_n14_α
-xchain0_n13_α:
 # IR_LIT_INTEGER
-bb14_α:
+ xchain0_n13_α:
  mov qword ptr [r12 + 400], 6
  mov rax, qword ptr [rip + .Lx17_0]
  mov qword ptr [r12 + 408], rax
@@ -258,9 +244,8 @@ bb14_α:
  jmp xchain0_n19_α
 .Lx17_0:
  .quad 5
-xchain0_n14_α:
 # IR_LIT_STRING
-bb15_α:
+ xchain0_n14_α:
  mov qword ptr [r12 + 336], 1
  mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [r12 + 344], rax
@@ -271,9 +256,8 @@ bb15_α:
  .quad .Lx18_0_s
 .Lx18_0_s:
  .string "FAIL 912/003: lt(4,5) should succeed"
-xchain0_n15_α:
 # IR_LIT_INTEGER
-bb16_α:
+ xchain0_n15_α:
  mov qword ptr [r12 + 416], 6
  mov rax, qword ptr [rip + .Lx19_0]
  mov qword ptr [r12 + 424], rax
@@ -282,9 +266,8 @@ bb16_α:
  jmp xchain0_n19_α
 .Lx19_0:
  .quad 2
-xchain0_n16_α:
 # IR_ASSIGN gva
-bb17_α:
+ xchain0_n16_α:
  mov rax, qword ptr [r12 + 336]
  mov rdx, qword ptr [r12 + 344]
  mov qword ptr [rbx + 0], rax
@@ -294,8 +277,7 @@ bb17_α:
  jmp main_γ
  xchain0_n16_β:
  jmp main_γ
-xchain0_n17_α:
-bb18_α:
+ xchain0_n17_α:
 # BOX IR_CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+400] -> [r12+368]
  mov rax, qword ptr [r12 + 400]
@@ -322,9 +304,8 @@ bb18_α:
  jmp xchain0_n18_α
 xchain0_n17_β:
  jmp xchain0_n19_α
-xchain0_n18_α:
 # IR_LIT_STRING
-bb19_α:
+ xchain0_n18_α:
  mov qword ptr [r12 + 448], 1
  mov rax, qword ptr [rip + .Lx23_0]
  mov qword ptr [r12 + 456], rax
@@ -335,9 +316,8 @@ bb19_α:
  .quad .Lx23_0_s
 .Lx23_0_s:
  .string "FAIL 912/004: le(5,2) should fail"
-xchain0_n19_α:
 # IR_LIT_INTEGER
-bb20_α:
+ xchain0_n19_α:
  mov qword ptr [r12 + 512], 6
  mov rax, qword ptr [rip + .Lx24_0]
  mov qword ptr [r12 + 520], rax
@@ -346,9 +326,8 @@ bb20_α:
  jmp xchain0_n24_α
 .Lx24_0:
  .quad 4
-xchain0_n20_α:
 # IR_ASSIGN gva
-bb21_α:
+ xchain0_n20_α:
  mov rax, qword ptr [r12 + 448]
  mov rdx, qword ptr [r12 + 456]
  mov qword ptr [rbx + 0], rax
@@ -358,9 +337,8 @@ bb21_α:
  jmp main_γ
  xchain0_n20_β:
  jmp main_γ
-xchain0_n21_α:
 # IR_LIT_INTEGER
-bb22_α:
+ xchain0_n21_α:
  mov qword ptr [r12 + 528], 6
  mov rax, qword ptr [rip + .Lx26_0]
  mov qword ptr [r12 + 536], rax
@@ -369,8 +347,7 @@ bb22_α:
  jmp xchain0_n24_α
 .Lx26_0:
  .quad 4
-xchain0_n22_α:
-bb23_α:
+ xchain0_n22_α:
 # BOX IR_CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+512] -> [r12+480]
  mov rax, qword ptr [r12 + 512]
@@ -397,9 +374,8 @@ bb23_α:
  jmp xchain0_n23_α
 xchain0_n22_β:
  jmp xchain0_n24_α
-xchain0_n23_α:
 # IR_LIT_INTEGER
-bb24_α:
+ xchain0_n23_α:
  mov qword ptr [r12 + 624], 6
  mov rax, qword ptr [rip + .Lx29_0]
  mov qword ptr [r12 + 632], rax
@@ -408,9 +384,8 @@ bb24_α:
  jmp xchain0_n29_α
 .Lx29_0:
  .quad 4
-xchain0_n24_α:
 # IR_LIT_STRING
-bb25_α:
+ xchain0_n24_α:
  mov qword ptr [r12 + 560], 1
  mov rax, qword ptr [rip + .Lx30_0]
  mov qword ptr [r12 + 568], rax
@@ -421,9 +396,8 @@ bb25_α:
  .quad .Lx30_0_s
 .Lx30_0_s:
  .string "FAIL 912/005: le(4,4) should succeed"
-xchain0_n25_α:
 # IR_LIT_INTEGER
-bb26_α:
+ xchain0_n25_α:
  mov qword ptr [r12 + 640], 6
  mov rax, qword ptr [rip + .Lx31_0]
  mov qword ptr [r12 + 648], rax
@@ -432,9 +406,8 @@ bb26_α:
  jmp xchain0_n29_α
 .Lx31_0:
  .quad 10
-xchain0_n26_α:
 # IR_ASSIGN gva
-bb27_α:
+ xchain0_n26_α:
  mov rax, qword ptr [r12 + 560]
  mov rdx, qword ptr [r12 + 568]
  mov qword ptr [rbx + 0], rax
@@ -444,8 +417,7 @@ bb27_α:
  jmp main_γ
  xchain0_n26_β:
  jmp main_γ
-xchain0_n27_α:
-bb28_α:
+ xchain0_n27_α:
 # BOX IR_CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+624] -> [r12+592]
  mov rax, qword ptr [r12 + 624]
@@ -472,9 +444,8 @@ bb28_α:
  jmp xchain0_n28_α
 xchain0_n27_β:
  jmp xchain0_n29_α
-xchain0_n28_α:
 # IR_LIT_INTEGER
-bb29_α:
+ xchain0_n28_α:
  mov qword ptr [r12 + 736], 6
  mov rax, qword ptr [rip + .Lx35_0]
  mov qword ptr [r12 + 744], rax
@@ -483,9 +454,8 @@ bb29_α:
  jmp xchain0_n34_α
 .Lx35_0:
  .quad 4
-xchain0_n29_α:
 # IR_LIT_STRING
-bb30_α:
+ xchain0_n29_α:
  mov qword ptr [r12 + 672], 1
  mov rax, qword ptr [rip + .Lx36_0]
  mov qword ptr [r12 + 680], rax
@@ -496,9 +466,8 @@ bb30_α:
  .quad .Lx36_0_s
 .Lx36_0_s:
  .string "FAIL 912/006: le(4,10) should succeed"
-xchain0_n30_α:
 # IR_LIT_INTEGER
-bb31_α:
+ xchain0_n30_α:
  mov qword ptr [r12 + 752], 6
  mov rax, qword ptr [rip + .Lx37_0]
  mov qword ptr [r12 + 760], rax
@@ -507,9 +476,8 @@ bb31_α:
  jmp xchain0_n34_α
 .Lx37_0:
  .quad 5
-xchain0_n31_α:
 # IR_ASSIGN gva
-bb32_α:
+ xchain0_n31_α:
  mov rax, qword ptr [r12 + 672]
  mov rdx, qword ptr [r12 + 680]
  mov qword ptr [rbx + 0], rax
@@ -519,8 +487,7 @@ bb32_α:
  jmp main_γ
  xchain0_n31_β:
  jmp main_γ
-xchain0_n32_α:
-bb33_α:
+ xchain0_n32_α:
 # BOX IR_CALL eq(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+736] -> [r12+704]
  mov rax, qword ptr [r12 + 736]
@@ -547,9 +514,8 @@ bb33_α:
  jmp xchain0_n33_α
 xchain0_n32_β:
  jmp xchain0_n34_α
-xchain0_n33_α:
 # IR_LIT_STRING
-bb34_α:
+ xchain0_n33_α:
  mov qword ptr [r12 + 784], 1
  mov rax, qword ptr [rip + .Lx41_0]
  mov qword ptr [r12 + 792], rax
@@ -560,9 +526,8 @@ bb34_α:
  .quad .Lx41_0_s
 .Lx41_0_s:
  .string "FAIL 912/007: eq(4,5) should fail"
-xchain0_n34_α:
 # IR_LIT_INTEGER
-bb35_α:
+ xchain0_n34_α:
  mov qword ptr [r12 + 848], 6
  mov rax, qword ptr [rip + .Lx42_0]
  mov qword ptr [r12 + 856], rax
@@ -571,9 +536,8 @@ bb35_α:
  jmp xchain0_n39_α
 .Lx42_0:
  .quad 5
-xchain0_n35_α:
 # IR_ASSIGN gva
-bb36_α:
+ xchain0_n35_α:
  mov rax, qword ptr [r12 + 784]
  mov rdx, qword ptr [r12 + 792]
  mov qword ptr [rbx + 0], rax
@@ -583,9 +547,8 @@ bb36_α:
  jmp main_γ
  xchain0_n35_β:
  jmp main_γ
-xchain0_n36_α:
 # IR_LIT_INTEGER
-bb37_α:
+ xchain0_n36_α:
  mov qword ptr [r12 + 864], 6
  mov rax, qword ptr [rip + .Lx44_0]
  mov qword ptr [r12 + 872], rax
@@ -594,8 +557,7 @@ bb37_α:
  jmp xchain0_n39_α
 .Lx44_0:
  .quad 5
-xchain0_n37_α:
-bb38_α:
+ xchain0_n37_α:
 # BOX IR_CALL eq(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+848] -> [r12+816]
  mov rax, qword ptr [r12 + 848]
@@ -622,9 +584,8 @@ bb38_α:
  jmp xchain0_n38_α
 xchain0_n37_β:
  jmp xchain0_n39_α
-xchain0_n38_α:
 # IR_LIT_INTEGER
-bb39_α:
+ xchain0_n38_α:
  mov qword ptr [r12 + 960], 6
  mov rax, qword ptr [rip + .Lx47_0]
  mov qword ptr [r12 + 968], rax
@@ -633,9 +594,8 @@ bb39_α:
  jmp xchain0_n44_α
 .Lx47_0:
  .quad 4
-xchain0_n39_α:
 # IR_LIT_STRING
-bb40_α:
+ xchain0_n39_α:
  mov qword ptr [r12 + 896], 1
  mov rax, qword ptr [rip + .Lx48_0]
  mov qword ptr [r12 + 904], rax
@@ -646,9 +606,8 @@ bb40_α:
  .quad .Lx48_0_s
 .Lx48_0_s:
  .string "FAIL 912/008: eq(5,5) should succeed"
-xchain0_n40_α:
 # IR_LIT_INTEGER
-bb41_α:
+ xchain0_n40_α:
  mov qword ptr [r12 + 976], 6
  mov rax, qword ptr [rip + .Lx49_0]
  mov qword ptr [r12 + 984], rax
@@ -657,9 +616,8 @@ bb41_α:
  jmp xchain0_n44_α
 .Lx49_0:
  .quad 4
-xchain0_n41_α:
 # IR_ASSIGN gva
-bb42_α:
+ xchain0_n41_α:
  mov rax, qword ptr [r12 + 896]
  mov rdx, qword ptr [r12 + 904]
  mov qword ptr [rbx + 0], rax
@@ -669,8 +627,7 @@ bb42_α:
  jmp main_γ
  xchain0_n41_β:
  jmp main_γ
-xchain0_n42_α:
-bb43_α:
+ xchain0_n42_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+960] -> [r12+928]
  mov rax, qword ptr [r12 + 960]
@@ -697,9 +654,8 @@ bb43_α:
  jmp xchain0_n43_α
 xchain0_n42_β:
  jmp xchain0_n44_α
-xchain0_n43_α:
 # IR_LIT_STRING
-bb44_α:
+ xchain0_n43_α:
  mov qword ptr [r12 + 1008], 1
  mov rax, qword ptr [rip + .Lx53_0]
  mov qword ptr [r12 + 1016], rax
@@ -710,9 +666,8 @@ bb44_α:
  .quad .Lx53_0_s
 .Lx53_0_s:
  .string "FAIL 912/009: ne(4,4) should fail"
-xchain0_n44_α:
 # IR_LIT_INTEGER
-bb45_α:
+ xchain0_n44_α:
  mov qword ptr [r12 + 1072], 6
  mov rax, qword ptr [rip + .Lx54_0]
  mov qword ptr [r12 + 1080], rax
@@ -721,9 +676,8 @@ bb45_α:
  jmp xchain0_n49_α
 .Lx54_0:
  .quad 4
-xchain0_n45_α:
 # IR_ASSIGN gva
-bb46_α:
+ xchain0_n45_α:
  mov rax, qword ptr [r12 + 1008]
  mov rdx, qword ptr [r12 + 1016]
  mov qword ptr [rbx + 0], rax
@@ -733,9 +687,8 @@ bb46_α:
  jmp main_γ
  xchain0_n45_β:
  jmp main_γ
-xchain0_n46_α:
 # IR_LIT_INTEGER
-bb47_α:
+ xchain0_n46_α:
  mov qword ptr [r12 + 1088], 6
  mov rax, qword ptr [rip + .Lx56_0]
  mov qword ptr [r12 + 1096], rax
@@ -744,8 +697,7 @@ bb47_α:
  jmp xchain0_n49_α
 .Lx56_0:
  .quad 6
-xchain0_n47_α:
-bb48_α:
+ xchain0_n47_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1072] -> [r12+1040]
  mov rax, qword ptr [r12 + 1072]
@@ -772,9 +724,8 @@ bb48_α:
  jmp xchain0_n48_α
 xchain0_n47_β:
  jmp xchain0_n49_α
-xchain0_n48_α:
 # IR_LIT_INTEGER
-bb49_α:
+ xchain0_n48_α:
  mov qword ptr [r12 + 1184], 6
  mov rax, qword ptr [rip + .Lx59_0]
  mov qword ptr [r12 + 1192], rax
@@ -783,9 +734,8 @@ bb49_α:
  jmp xchain0_n54_α
 .Lx59_0:
  .quad 4
-xchain0_n49_α:
 # IR_LIT_STRING
-bb50_α:
+ xchain0_n49_α:
  mov qword ptr [r12 + 1120], 1
  mov rax, qword ptr [rip + .Lx60_0]
  mov qword ptr [r12 + 1128], rax
@@ -796,9 +746,8 @@ bb50_α:
  .quad .Lx60_0_s
 .Lx60_0_s:
  .string "FAIL 912/010: ne(4,6) should succeed"
-xchain0_n50_α:
 # IR_LIT_INTEGER
-bb51_α:
+ xchain0_n50_α:
  mov qword ptr [r12 + 1200], 6
  mov rax, qword ptr [rip + .Lx61_0]
  mov qword ptr [r12 + 1208], rax
@@ -807,9 +756,8 @@ bb51_α:
  jmp xchain0_n54_α
 .Lx61_0:
  .quad 6
-xchain0_n51_α:
 # IR_ASSIGN gva
-bb52_α:
+ xchain0_n51_α:
  mov rax, qword ptr [r12 + 1120]
  mov rdx, qword ptr [r12 + 1128]
  mov qword ptr [rbx + 0], rax
@@ -819,8 +767,7 @@ bb52_α:
  jmp main_γ
  xchain0_n51_β:
  jmp main_γ
-xchain0_n52_α:
-bb53_α:
+ xchain0_n52_α:
 # BOX IR_CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1184] -> [r12+1152]
  mov rax, qword ptr [r12 + 1184]
@@ -847,9 +794,8 @@ bb53_α:
  jmp xchain0_n53_α
 xchain0_n52_β:
  jmp xchain0_n54_α
-xchain0_n53_α:
 # IR_LIT_STRING
-bb54_α:
+ xchain0_n53_α:
  mov qword ptr [r12 + 1232], 1
  mov rax, qword ptr [rip + .Lx65_0]
  mov qword ptr [r12 + 1240], rax
@@ -860,9 +806,8 @@ bb54_α:
  .quad .Lx65_0_s
 .Lx65_0_s:
  .string "FAIL 912/011: gt(4,6) should fail"
-xchain0_n54_α:
 # IR_LIT_INTEGER
-bb55_α:
+ xchain0_n54_α:
  mov qword ptr [r12 + 1296], 6
  mov rax, qword ptr [rip + .Lx66_0]
  mov qword ptr [r12 + 1304], rax
@@ -871,9 +816,8 @@ bb55_α:
  jmp xchain0_n59_α
 .Lx66_0:
  .quad 4
-xchain0_n55_α:
 # IR_ASSIGN gva
-bb56_α:
+ xchain0_n55_α:
  mov rax, qword ptr [r12 + 1232]
  mov rdx, qword ptr [r12 + 1240]
  mov qword ptr [rbx + 0], rax
@@ -883,9 +827,8 @@ bb56_α:
  jmp main_γ
  xchain0_n55_β:
  jmp main_γ
-xchain0_n56_α:
 # IR_LIT_INTEGER
-bb57_α:
+ xchain0_n56_α:
  mov qword ptr [r12 + 1312], 6
  mov rax, qword ptr [rip + .Lx68_0]
  mov qword ptr [r12 + 1320], rax
@@ -894,8 +837,7 @@ bb57_α:
  jmp xchain0_n59_α
 .Lx68_0:
  .quad 4
-xchain0_n57_α:
-bb58_α:
+ xchain0_n57_α:
 # BOX IR_CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1296] -> [r12+1264]
  mov rax, qword ptr [r12 + 1296]
@@ -922,9 +864,8 @@ bb58_α:
  jmp xchain0_n58_α
 xchain0_n57_β:
  jmp xchain0_n59_α
-xchain0_n58_α:
 # IR_LIT_STRING
-bb59_α:
+ xchain0_n58_α:
  mov qword ptr [r12 + 1344], 1
  mov rax, qword ptr [rip + .Lx71_0]
  mov qword ptr [r12 + 1352], rax
@@ -935,9 +876,8 @@ bb59_α:
  .quad .Lx71_0_s
 .Lx71_0_s:
  .string "FAIL 912/012: gt(4,4) should fail"
-xchain0_n59_α:
 # IR_LIT_INTEGER
-bb60_α:
+ xchain0_n59_α:
  mov qword ptr [r12 + 1408], 6
  mov rax, qword ptr [rip + .Lx72_0]
  mov qword ptr [r12 + 1416], rax
@@ -946,9 +886,8 @@ bb60_α:
  jmp xchain0_n64_α
 .Lx72_0:
  .quad 5
-xchain0_n60_α:
 # IR_ASSIGN gva
-bb61_α:
+ xchain0_n60_α:
  mov rax, qword ptr [r12 + 1344]
  mov rdx, qword ptr [r12 + 1352]
  mov qword ptr [rbx + 0], rax
@@ -958,9 +897,8 @@ bb61_α:
  jmp main_γ
  xchain0_n60_β:
  jmp main_γ
-xchain0_n61_α:
 # IR_LIT_INTEGER
-bb62_α:
+ xchain0_n61_α:
  mov qword ptr [r12 + 1424], 6
  mov rax, qword ptr [rip + .Lx74_0]
  mov qword ptr [r12 + 1432], rax
@@ -969,8 +907,7 @@ bb62_α:
  jmp xchain0_n64_α
 .Lx74_0:
  .quad 2
-xchain0_n62_α:
-bb63_α:
+ xchain0_n62_α:
 # BOX IR_CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1408] -> [r12+1376]
  mov rax, qword ptr [r12 + 1408]
@@ -997,9 +934,8 @@ bb63_α:
  jmp xchain0_n63_α
 xchain0_n62_β:
  jmp xchain0_n64_α
-xchain0_n63_α:
 # IR_LIT_INTEGER
-bb64_α:
+ xchain0_n63_α:
  mov qword ptr [r12 + 1520], 6
  mov rax, qword ptr [rip + .Lx77_0]
  mov qword ptr [r12 + 1528], rax
@@ -1008,9 +944,8 @@ bb64_α:
  jmp xchain0_n69_α
 .Lx77_0:
  .quad 5
-xchain0_n64_α:
 # IR_LIT_STRING
-bb65_α:
+ xchain0_n64_α:
  mov qword ptr [r12 + 1456], 1
  mov rax, qword ptr [rip + .Lx78_0]
  mov qword ptr [r12 + 1464], rax
@@ -1021,9 +956,8 @@ bb65_α:
  .quad .Lx78_0_s
 .Lx78_0_s:
  .string "FAIL 912/013: gt(5,2) should succeed"
-xchain0_n65_α:
 # IR_LIT_INTEGER
-bb66_α:
+ xchain0_n65_α:
  mov qword ptr [r12 + 1536], 6
  mov rax, qword ptr [rip + .Lx79_0]
  mov qword ptr [r12 + 1544], rax
@@ -1032,9 +966,8 @@ bb66_α:
  jmp xchain0_n69_α
 .Lx79_0:
  .quad 7
-xchain0_n66_α:
 # IR_ASSIGN gva
-bb67_α:
+ xchain0_n66_α:
  mov rax, qword ptr [r12 + 1456]
  mov rdx, qword ptr [r12 + 1464]
  mov qword ptr [rbx + 0], rax
@@ -1044,8 +977,7 @@ bb67_α:
  jmp main_γ
  xchain0_n66_β:
  jmp main_γ
-xchain0_n67_α:
-bb68_α:
+ xchain0_n67_α:
 # BOX IR_CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1520] -> [r12+1488]
  mov rax, qword ptr [r12 + 1520]
@@ -1072,9 +1004,8 @@ bb68_α:
  jmp xchain0_n68_α
 xchain0_n67_β:
  jmp xchain0_n69_α
-xchain0_n68_α:
 # IR_LIT_STRING
-bb69_α:
+ xchain0_n68_α:
  mov qword ptr [r12 + 1568], 1
  mov rax, qword ptr [rip + .Lx83_0]
  mov qword ptr [r12 + 1576], rax
@@ -1085,9 +1016,8 @@ bb69_α:
  .quad .Lx83_0_s
 .Lx83_0_s:
  .string "FAIL 912/014: ge(5,7) should fail"
-xchain0_n69_α:
 # IR_LIT_INTEGER
-bb70_α:
+ xchain0_n69_α:
  mov qword ptr [r12 + 1632], 6
  mov rax, qword ptr [rip + .Lx84_0]
  mov qword ptr [r12 + 1640], rax
@@ -1096,9 +1026,8 @@ bb70_α:
  jmp xchain0_n74_α
 .Lx84_0:
  .quad 4
-xchain0_n70_α:
 # IR_ASSIGN gva
-bb71_α:
+ xchain0_n70_α:
  mov rax, qword ptr [r12 + 1568]
  mov rdx, qword ptr [r12 + 1576]
  mov qword ptr [rbx + 0], rax
@@ -1108,9 +1037,8 @@ bb71_α:
  jmp main_γ
  xchain0_n70_β:
  jmp main_γ
-xchain0_n71_α:
 # IR_LIT_INTEGER
-bb72_α:
+ xchain0_n71_α:
  mov qword ptr [r12 + 1648], 6
  mov rax, qword ptr [rip + .Lx86_0]
  mov qword ptr [r12 + 1656], rax
@@ -1119,8 +1047,7 @@ bb72_α:
  jmp xchain0_n74_α
 .Lx86_0:
  .quad 4
-xchain0_n72_α:
-bb73_α:
+ xchain0_n72_α:
 # BOX IR_CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1632] -> [r12+1600]
  mov rax, qword ptr [r12 + 1632]
@@ -1147,9 +1074,8 @@ bb73_α:
  jmp xchain0_n73_α
 xchain0_n72_β:
  jmp xchain0_n74_α
-xchain0_n73_α:
 # IR_LIT_INTEGER
-bb74_α:
+ xchain0_n73_α:
  mov qword ptr [r12 + 1744], 6
  mov rax, qword ptr [rip + .Lx89_0]
  mov qword ptr [r12 + 1752], rax
@@ -1158,9 +1084,8 @@ bb74_α:
  jmp xchain0_n79_α
 .Lx89_0:
  .quad 7
-xchain0_n74_α:
 # IR_LIT_STRING
-bb75_α:
+ xchain0_n74_α:
  mov qword ptr [r12 + 1680], 1
  mov rax, qword ptr [rip + .Lx90_0]
  mov qword ptr [r12 + 1688], rax
@@ -1171,9 +1096,8 @@ bb75_α:
  .quad .Lx90_0_s
 .Lx90_0_s:
  .string "FAIL 912/015: ge(4,4) should succeed"
-xchain0_n75_α:
 # IR_LIT_INTEGER
-bb76_α:
+ xchain0_n75_α:
  mov qword ptr [r12 + 1760], 6
  mov rax, qword ptr [rip + .Lx91_0]
  mov qword ptr [r12 + 1768], rax
@@ -1182,9 +1106,8 @@ bb76_α:
  jmp xchain0_n79_α
 .Lx91_0:
  .quad 5
-xchain0_n76_α:
 # IR_ASSIGN gva
-bb77_α:
+ xchain0_n76_α:
  mov rax, qword ptr [r12 + 1680]
  mov rdx, qword ptr [r12 + 1688]
  mov qword ptr [rbx + 0], rax
@@ -1194,8 +1117,7 @@ bb77_α:
  jmp main_γ
  xchain0_n76_β:
  jmp main_γ
-xchain0_n77_α:
-bb78_α:
+ xchain0_n77_α:
 # BOX IR_CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1744] -> [r12+1712]
  mov rax, qword ptr [r12 + 1744]
@@ -1222,9 +1144,8 @@ bb78_α:
  jmp xchain0_n78_α
 xchain0_n77_β:
  jmp xchain0_n79_α
-xchain0_n78_α:
 # IR_LIT_INTEGER
-bb79_α:
+ xchain0_n78_α:
  mov qword ptr [r12 + 1856], 6
  mov rax, qword ptr [rip + .Lx95_0]
  mov qword ptr [r12 + 1864], rax
@@ -1233,9 +1154,8 @@ bb79_α:
  jmp xchain0_n85_α
 .Lx95_0:
  .quad 4
-xchain0_n79_α:
 # IR_LIT_STRING
-bb80_α:
+ xchain0_n79_α:
  mov qword ptr [r12 + 1792], 1
  mov rax, qword ptr [rip + .Lx96_0]
  mov qword ptr [r12 + 1800], rax
@@ -1246,9 +1166,8 @@ bb80_α:
  .quad .Lx96_0_s
 .Lx96_0_s:
  .string "FAIL 912/016: ge(7,5) should succeed"
-xchain0_n80_α:
 # IR_LIT_INTEGER
-bb81_α:
+ xchain0_n80_α:
  mov qword ptr [r12 + 1888], 6
  mov rax, qword ptr [rip + .Lx97_0]
  mov qword ptr [r12 + 1896], rax
@@ -1257,9 +1176,8 @@ bb81_α:
  jmp xchain0_n85_α
 .Lx97_0:
  .quad 5
-xchain0_n81_α:
 # IR_ASSIGN gva
-bb82_α:
+ xchain0_n81_α:
  mov rax, qword ptr [r12 + 1792]
  mov rdx, qword ptr [r12 + 1800]
  mov qword ptr [rbx + 0], rax
@@ -1269,9 +1187,8 @@ bb82_α:
  jmp main_γ
  xchain0_n81_β:
  jmp main_γ
-xchain0_n82_α:
 # IR_LIT_INTEGER
-bb83_α:
+ xchain0_n82_α:
  mov qword ptr [r12 + 1904], 6
  mov rax, qword ptr [rip + .Lx99_0]
  mov qword ptr [r12 + 1912], rax
@@ -1280,8 +1197,7 @@ bb83_α:
  jmp xchain0_n85_α
 .Lx99_0:
  .quad 1
-xchain0_n83_α:
-bb84_α:
+ xchain0_n83_α:
 # IR_BINOP_ARITH
  mov eax, dword ptr [r12 + 1888]
  cmp eax, 100
@@ -1327,8 +1243,7 @@ bb84_α:
  jmp xchain0_n84_α
  xchain0_n83_β:
  jmp xchain0_n85_α
-xchain0_n84_α:
-bb85_α:
+ xchain0_n84_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+1856] -> [r12+1824]
  mov rax, qword ptr [r12 + 1856]
@@ -1355,9 +1270,8 @@ bb85_α:
  jmp xchain0_n86_α
 xchain0_n84_β:
  jmp xchain0_n85_α
-xchain0_n85_α:
 # IR_LIT_STRING
-bb86_α:
+ xchain0_n85_α:
  mov qword ptr [r12 + 2000], 1
  mov rax, qword ptr [rip + .Lx103_0]
  mov qword ptr [r12 + 2008], rax
@@ -1368,9 +1282,8 @@ bb86_α:
  .quad .Lx103_0_s
 .Lx103_0_s:
  .string "12"
-xchain0_n86_α:
 # IR_LIT_STRING
-bb87_α:
+ xchain0_n86_α:
  mov qword ptr [r12 + 1936], 1
  mov rax, qword ptr [rip + .Lx104_0]
  mov qword ptr [r12 + 1944], rax
@@ -1381,9 +1294,8 @@ bb87_α:
  .quad .Lx104_0_s
 .Lx104_0_s:
  .string "FAIL 912/017: ne(4,5-1) should fail (both=4)"
-xchain0_n87_α:
 # IR_LIT_INTEGER
-bb88_α:
+ xchain0_n87_α:
  mov qword ptr [r12 + 2016], 6
  mov rax, qword ptr [rip + .Lx105_0]
  mov qword ptr [r12 + 2024], rax
@@ -1392,9 +1304,8 @@ bb88_α:
  jmp xchain0_n91_α
 .Lx105_0:
  .quad 12
-xchain0_n88_α:
 # IR_ASSIGN gva
-bb89_α:
+ xchain0_n88_α:
  mov rax, qword ptr [r12 + 1936]
  mov rdx, qword ptr [r12 + 1944]
  mov qword ptr [rbx + 0], rax
@@ -1404,8 +1315,7 @@ bb89_α:
  jmp main_γ
  xchain0_n88_β:
  jmp main_γ
-xchain0_n89_α:
-bb90_α:
+ xchain0_n89_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [r12+2000] -> [r12+1968]
  mov rax, qword ptr [r12 + 2000]
@@ -1432,9 +1342,8 @@ bb90_α:
  jmp xchain0_n90_α
 xchain0_n89_β:
  jmp xchain0_n91_α
-xchain0_n90_α:
 # IR_LIT_STRING
-bb91_α:
+ xchain0_n90_α:
  mov qword ptr [r12 + 2048], 1
  mov rax, qword ptr [rip + .Lx109_0]
  mov qword ptr [r12 + 2056], rax
@@ -1445,9 +1354,8 @@ bb91_α:
  .quad .Lx109_0_s
 .Lx109_0_s:
  .string "FAIL 912/018: ne(string,int) type mismatch"
-xchain0_n91_α:
 # IR_LIT_STRING
-bb92_α:
+ xchain0_n91_α:
  mov qword ptr [r12 + 2080], 1
  mov rax, qword ptr [rip + .Lx110_0]
  mov qword ptr [r12 + 2088], rax
@@ -1458,9 +1366,8 @@ bb92_α:
  .quad .Lx110_0_s
 .Lx110_0_s:
  .string "PASS 912_num_pred (18/18)"
-xchain0_n92_α:
 # IR_ASSIGN gva
-bb93_α:
+ xchain0_n92_α:
  mov rax, qword ptr [r12 + 2048]
  mov rdx, qword ptr [r12 + 2056]
  mov qword ptr [rbx + 0], rax
@@ -1470,9 +1377,8 @@ bb93_α:
  jmp main_γ
  xchain0_n92_β:
  jmp main_γ
-xchain0_n93_α:
 # IR_ASSIGN gva
-bb94_α:
+ xchain0_n93_α:
  mov rax, qword ptr [r12 + 2080]
  mov rdx, qword ptr [r12 + 2088]
  mov qword ptr [rbx + 0], rax

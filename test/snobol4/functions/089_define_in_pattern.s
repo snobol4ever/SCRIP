@@ -19,9 +19,8 @@ push r12
  mov qword ptr [r12 + 272], rax
  pop rsi
 proc_upcase_α_body:
-xchain0_n0_α:
 # IR_VAR gva
-bb1_α:
+ xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
  mov qword ptr [r12 + 96], rax
@@ -29,9 +28,8 @@ bb1_α:
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp proc_upcase_γ
-xchain0_n1_α:
 # IR_KEYWORD_SNOBOL4_read
-bb2_α:
+ xchain0_n1_α:
  mov rdi, qword ptr [rip + .Lx2_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 112], rax
@@ -43,9 +41,8 @@ bb2_α:
  .quad .Lx2_0_s
 .Lx2_0_s:
  .string "LCASE"
-xchain0_n2_α:
 # IR_KEYWORD_SNOBOL4_read
-bb3_α:
+ xchain0_n2_α:
  mov rdi, qword ptr [rip + .Lx3_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 128], rax
@@ -57,8 +54,7 @@ bb3_α:
  .quad .Lx3_0_s
 .Lx3_0_s:
  .string "UCASE"
-xchain0_n3_α:
-bb4_α:
+ xchain0_n3_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+96] -> [r12+48]
  mov rax, qword ptr [r12 + 96]
@@ -90,9 +86,8 @@ bb4_α:
  jmp xchain0_n4_α
  xchain0_n3_β:
  jmp proc_upcase_γ
-xchain0_n4_α:
 # IR_ASSIGN gva
-bb5_α:
+ xchain0_n4_α:
  mov rax, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov qword ptr [rbx + 0], rax
@@ -202,9 +197,8 @@ push r12
  mov qword ptr [r12 + 272], rax
  pop rsi
 main_α_body:
-xchain7_n0_α:
 # IR_LIT_STRING
-bb6_α:
+ xchain7_n0_α:
  mov qword ptr [r12 + 192], 1
  mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [r12 + 200], rax
@@ -215,8 +209,7 @@ bb6_α:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "hello"
-xchain7_n1_α:
-bb7_α:
+ xchain7_n1_α:
   .section .rodata
   .Lcall7_pname: .string "upcase"
   .section .text
@@ -235,9 +228,8 @@ bb7_α:
  jmp xchain7_n2_α
 xchain7_n1_β:
  jmp xchain7_n3_α
-xchain7_n2_α:
 # IR_ASSIGN global
-bb8_α:
+ xchain7_n2_α:
  mov rsi, qword ptr [r12 + 160]
  mov rdx, qword ptr [r12 + 168]
  mov rdi, qword ptr [rip + .Lx10_0]
@@ -251,9 +243,8 @@ bb8_α:
  .quad .Lx10_0_s
 .Lx10_0_s:
  .string "OUTPUT"
-xchain7_n3_α:
 # IR_LIT_STRING
-bb9_α:
+ xchain7_n3_α:
  mov qword ptr [r12 + 256], 1
  mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 264], rax
@@ -264,8 +255,7 @@ bb9_α:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "world"
-xchain7_n4_α:
-bb10_α:
+ xchain7_n4_α:
   .section .rodata
   .Lcall10_pname: .string "upcase"
   .section .text
@@ -284,9 +274,8 @@ bb10_α:
  jmp xchain7_n5_α
 xchain7_n4_β:
  jmp main_γ
-xchain7_n5_α:
 # IR_ASSIGN global
-bb11_α:
+ xchain7_n5_α:
  mov rsi, qword ptr [r12 + 224]
  mov rdx, qword ptr [r12 + 232]
  mov rdi, qword ptr [rip + .Lx13_0]

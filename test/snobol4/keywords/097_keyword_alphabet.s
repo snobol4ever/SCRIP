@@ -32,9 +32,8 @@ push r12
  mov qword ptr [r12 + 208], rax
  pop rsi
 main_α_body:
-xchain0_n0_α:
 # IR_KEYWORD_SNOBOL4_read
-bb1_α:
+ xchain0_n0_α:
  mov rdi, qword ptr [rip + .Lx1_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 64], rax
@@ -46,8 +45,7 @@ bb1_α:
  .quad .Lx1_0_s
 .Lx1_0_s:
  .string "ALPHABET"
-xchain0_n1_α:
-bb2_α:
+ xchain0_n1_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+64] -> [r12+48]
  mov rax, qword ptr [r12 + 64]
@@ -69,9 +67,8 @@ bb2_α:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n3_α
-xchain0_n2_α:
 # IR_ASSIGN global
-bb3_α:
+ xchain0_n2_α:
  mov rsi, qword ptr [r12 + 32]
  mov rdx, qword ptr [r12 + 40]
  mov rdi, qword ptr [rip + .Lx4_0]
@@ -85,9 +82,8 @@ bb3_α:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "OUTPUT"
-xchain0_n3_α:
 # IR_KEYWORD_SNOBOL4_read
-bb4_α:
+ xchain0_n3_α:
  mov rdi, qword ptr [rip + .Lx5_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 128], rax
@@ -99,8 +95,7 @@ bb4_α:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "UCASE"
-xchain0_n4_α:
-bb5_α:
+ xchain0_n4_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+128] -> [r12+112]
  mov rax, qword ptr [r12 + 128]
@@ -122,9 +117,8 @@ bb5_α:
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp xchain0_n6_α
-xchain0_n5_α:
 # IR_ASSIGN global
-bb6_α:
+ xchain0_n5_α:
  mov rsi, qword ptr [r12 + 96]
  mov rdx, qword ptr [r12 + 104]
  mov rdi, qword ptr [rip + .Lx8_0]
@@ -138,9 +132,8 @@ bb6_α:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "OUTPUT"
-xchain0_n6_α:
 # IR_KEYWORD_SNOBOL4_read
-bb7_α:
+ xchain0_n6_α:
  mov rdi, qword ptr [rip + .Lx9_0]
  call rt_keyword_read_snobol4@PLT
  mov qword ptr [r12 + 192], rax
@@ -152,8 +145,7 @@ bb7_α:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "LCASE"
-xchain0_n7_α:
-bb8_α:
+ xchain0_n7_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [r12+192] -> [r12+176]
  mov rax, qword ptr [r12 + 192]
@@ -175,9 +167,8 @@ bb8_α:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp main_γ
-xchain0_n8_α:
 # IR_ASSIGN global
-bb9_α:
+ xchain0_n8_α:
  mov rsi, qword ptr [r12 + 160]
  mov rdx, qword ptr [r12 + 168]
  mov rdi, qword ptr [rip + .Lx12_0]
