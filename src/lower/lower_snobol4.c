@@ -19,6 +19,19 @@ static const char * sno_expr_collect(const tree_t * expr);
 #define SNO_PAT_MAX 256
 static struct { const char * name; const tree_t * pat; } g_sno_pats[SNO_PAT_MAX];
 static int g_sno_npat = 0;
+static int g_sno_uses_stmtkw = 0;
+/*--- true iff the tree references &STNO/&STCOUNT/&LASTNO — those keywords need the per-statement rt_stmt_enter hook, others don't ---*/
+static int sno_kw_is_stmt(const char * s) {
+    if (!s) return 0; if (s[0] == '&') s++;
+    char lk[16]; size_t i = 0; for (; s[i] && i < sizeof(lk) - 1; i++) lk[i] = (s[i] >= 'A' && s[i] <= 'Z') ? (char)(s[i] - 'A' + 'a') : s[i]; lk[i] = 0;
+    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_scan_stmtkw(const tree_t * t) {
+    if (!t || g_sno_uses_stmtkw) return;
+    if (t->t == TT_KEYWORD && sno_kw_is_stmt(t->v.sval)) { g_sno_uses_stmtkw = 1; return; }
+    for (int i = 0; i < t->n; i++) sno_scan_stmtkw(t->c[i]);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fatal(const char * what, const char * detail) {
     fprintf(stderr, "FATAL lower_snobol4 (GZ#5 subset): %s%s%s. Pattern matching, EVAL and CODE are outside the landed subset (IR_MATCH_* family pending); see GOAL-SNOBOL4-BB.md.\n",
@@ -1023,6 +1036,16 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         sno_fatal("assignment subject form not in the landed subset", NULL);
     }
+    if (g_sno_uses_stmtkw) {
+        for (int i = 0; i < nst; i++) {
+            if (is_def && is_def[i]) continue;
+            IR_t * body = anchor[i]->γ.node;
+            IR_t * hook = lc_build(g, IR_CALL, body, body); IR_LIT(hook).sval = (char *) "SNO$STMT";
+            IR_t * num = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(num).ival = (int64_t)(i + 1);
+            ir_operand_push(hook, num);
+            lc_γ_to(anchor[i], num);
+        }
+    }
     free(anchor);
     return g;
 }
@@ -1079,6 +1102,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_sno_nexpr = 0;
     g_sno_npat = 0;
+    g_sno_uses_stmtkw = 0;
+    for (int i = 0; i < prog->n; i++) if (prog->c[i]) sno_scan_stmtkw(prog->c[i]);
     sno_register_program(&g_stage2, prog);
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
