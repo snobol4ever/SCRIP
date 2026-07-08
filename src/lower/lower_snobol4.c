@@ -32,6 +32,18 @@ static void sno_scan_stmtkw(const tree_t * t) {
     if (t->t == TT_KEYWORD && sno_kw_is_stmt(t->v.sval)) { g_sno_uses_stmtkw = 1; return; }
     for (int i = 0; i < t->n; i++) sno_scan_stmtkw(t->c[i]);
 }
+/*--- true iff the program calls CODE( ) anywhere — gates the LBL__ pseudo-proc export so programs that never
+ *--- runtime-compile stay byte-identical (same use-gate discipline as g_sno_uses_stmtkw / rt_stmt_enter) ---*/
+static int g_sno_uses_code = 0;
+static void sno_scan_code_use(const tree_t * t) {
+    if (!t || g_sno_uses_code) return;
+    if (t->t == TT_FNC) {
+        const char * fn = t->v.sval;
+        if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval;
+        if (fn && !strcmp(fn, "CODE")) { g_sno_uses_code = 1; return; }
+    }
+    for (int i = 0; i < t->n; i++) sno_scan_code_use(t->c[i]);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fatal(const char * what, const char * detail) {
     fprintf(stderr, "FATAL lower_snobol4 (GZ#5 subset): %s%s%s. Pattern matching, EVAL and CODE are outside the landed subset (IR_MATCH_* family pending); see GOAL-SNOBOL4-BB.md.\n",
@@ -194,7 +206,6 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
         if (!name) sno_fatal("call with no resolvable name", NULL);
         if (!strcmp(name, "DEFINE")) sno_fatal("DEFINE in expression position is outside the landed subset (statement-level literal DEFINE only)", NULL);
-        if (!strcmp(name, "CODE")) sno_fatal("outside subset", name);
         return sx_call_named(cx, name, t, argbase, γ, ω, res);
     }
     case TT_WHILE: case TT_UNTIL: {
@@ -351,10 +362,13 @@ static const char * sgoto(const tree_t * s, tree_e kind) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_resolve_label(const char * nm) {
-    IR_t * l = nm ? bb_label_landing(nm) : NULL;
-    if (!l) sno_fatal("goto to unknown label", nm ? nm : "?");
-    return l;
+static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
+    IR_t * l = (nm && nm[0] != '$') ? bb_label_landing(nm) : NULL;
+    if (l) return l;
+    if (!nm || !nm[0]) sno_fatal("goto to unknown label", "?");
+    IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);
+    IR_LIT(gd).sval = lp_strdup(nm);
+    return gd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
@@ -933,8 +947,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const char * goU = sgoto(s, TT_GOTO_U);
         const char * goS = sgoto(s, TT_GOTO_S);
         const char * goF = sgoto(s, TT_GOTO_F);
-        IR_t * sT = goS ? sno_resolve_label(goS) : (goU ? sno_resolve_label(goU) : next);
-        IR_t * fT = goF ? sno_resolve_label(goF) : (goU ? sno_resolve_label(goU) : next);
+        IR_t * sT = goS ? sno_goto_target(g, goS, exitnd) : (goU ? sno_goto_target(g, goU, exitnd) : next);
+        IR_t * fT = goF ? sno_goto_target(g, goF, exitnd) : (goU ? sno_goto_target(g, goU, exitnd) : next);
         IR_t * sJ = lc_build(g, IR_GOTO, sT, NULL);
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);
         if (is_def && is_def[i]) { lc_γ_to(anchor[i], sJ); continue; }
@@ -1103,7 +1117,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_nexpr = 0;
     g_sno_npat = 0;
     g_sno_uses_stmtkw = 0;
-    for (int i = 0; i < prog->n; i++) if (prog->c[i]) sno_scan_stmtkw(prog->c[i]);
+    g_sno_uses_code = 0;
+    for (int i = 0; i < prog->n; i++) if (prog->c[i]) { sno_scan_stmtkw(prog->c[i]); sno_scan_code_use(prog->c[i]); }
     sno_register_program(&g_stage2, prog);
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
@@ -1157,6 +1172,30 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_stage2.proc_table[pi].dyn_scope = 0;
     g_stage2.proc_table[pi].result_name = NULL;
     g_stage2.proc_table[pi].bb_idx = bb_program_add(&g_stage2.bbp, g);
+    /* EVAL/CODE (manual Ch.9): a CODE fragment may goto BACK into a main-program label (its `:S(L)F(DONE)`
+     * fields), so every main label must be transfer-reachable at runtime.  Each labelled statement becomes a
+     * pseudo-proc "LBL__<name>" — the SAME statement array re-lowered with entry_idx at that label, exactly the
+     * entry-label DEFINE shape below — flowing through the existing proc registration in BOTH mode drivers
+     * untouched.  rt_goto_transfer resolves fragment-registry first (fragment labels OVERRIDE main's, per the
+     * manual), then these.  Use-gated on g_sno_uses_code => byte-zero perturbation for programs without CODE. */
+    if (g_sno_uses_code) {
+        for (int i = 0; i < nst; i++) {
+            const char * lbl = sfind_str(st[i], ":lbl");
+            if (!lbl || !lbl[0]) continue;
+            IR_graph_t * gl = sno_build_graph(st, nst, i, is_def, NULL);
+            char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", lbl);
+            int lpi = stage2_proc_grow(&g_stage2);
+            g_stage2.proc_table[lpi].name = lp_strdup(lname);
+            g_stage2.proc_table[lpi].proc = NULL;
+            g_stage2.proc_table[lpi].entry_pc = -1;
+            g_stage2.proc_table[lpi].nparams = 0;
+            g_stage2.proc_table[lpi].lower_sc.n = 0;
+            g_stage2.proc_table[lpi].is_generator = 0;
+            g_stage2.proc_table[lpi].dyn_scope = 0;
+            g_stage2.proc_table[lpi].result_name = NULL;
+            g_stage2.proc_table[lpi].bb_idx = bb_program_add(&g_stage2.bbp, gl);
+        }
+    }
     for (int di = 0; di < ndefs; di++) {
         IR_graph_t * gf;
         const char * rn = defs[di].result_name ? defs[di].result_name : defs[di].fname;
@@ -1234,9 +1273,43 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* EVAL/CODE runtime-lowering entries (directive lifted 2026-07-08, Lon: "We're ready now since we have
+ * optimized BB-owned memory management").  These lower a runtime-parsed fragment to ONE emit-ready graph.
+ * lower_snobol4(prog) — the EVAL shape: entry at statement 0 (runtime_eval.c's synthesized ZZEVALZZ program).
+ * sno_lower_fragment_at(prog, entry_idx) — the CODE shape: same statement array entered AT a label's index
+ * (identical to the entry-label DEFINE / LBL__ pseudo-proc shape in lower_sno_stage2 above), one call per
+ * fragment label so every label lands on its own chain α.  Neither touches g_stage2 (the main program's
+ * stage2 is dead by the time fragments compile — ir_delete_all ran — but staying off it keeps that a fact
+ * about timing, not a dependency).  DEFINE inside a fragment is a loud fatal: lower would build the body
+ * graph but nothing emits or registers it on this path — flagged, not faked. */
+static void sno_fragment_reject_define(const tree_t ** st, int nst) {
+    for (int i = 0; i < nst; i++) {
+        const tree_t * dfn = lc_stmt_subj(st[i]);
+        if (dfn && dfn->t == TT_DEFINE) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
+        if (sno_stmt_define(st[i], NULL)) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {
+    if (!prog || prog->t != TT_PROGRAM) return NULL;
+    int nst = 0;
+    for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
+    if (nst == 0 || entry_idx < 0 || entry_idx >= nst) return NULL;
+    const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
+    { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
+    sno_fragment_reject_define(st, nst);
+    sno_cconst_build_table(st, nst);
+    int * is_def = (int *) calloc((size_t) nst, sizeof(int));
+    IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL);
+    { extern void optimizer_run(IR_graph_t *); extern void ir_drive_slot_assign(IR_graph_t *); if (g) { optimizer_run(g); ir_drive_slot_assign(g); } }
+    free((void *) st); free(is_def);
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_snobol4(const tree_t * prog) {
-    (void) prog;
-    fprintf(stderr, "FATAL lower_snobol4 (GZ#5 subset): the EVAL/CODE runtime-lowering entry is outside the landed subset (per directive: EVAL and CODE are not remotely possible yet).\n");
-    abort();
-    return NULL;
+    return sno_lower_fragment_at(prog, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * sno_stmt_label(const tree_t * s) {
+    return s ? sfind_str(s, ":lbl") : NULL;
 }
