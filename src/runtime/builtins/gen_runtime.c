@@ -67,6 +67,25 @@ ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
+    extern char * rt_str_alloc(long n);
+    uint64_t w[2]; w[0] = sub_lo; w[1] = sub_hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv); if (!s) s = "";
+    int64_t slen = (int64_t)strlen(s);
+    DESCR_t rv = replp ? *replp : sv;
+    if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
+    const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
+    int64_t rlen = (int64_t)strlen(rs);
+    if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
+    if (getenv("SCRIP_REPL_TRACE")) fprintf(stderr, "[REPL] name=%s slen=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)start, (long long)end, rs, (long long)rlen);
+    int64_t nlen = start + rlen + (slen - end);
+    char *buf = rt_str_alloc((long)nlen);
+    if (buf) { memcpy(buf, s, (size_t)start); memcpy(buf + start, rs, (size_t)rlen); memcpy(buf + start + rlen, s + end, (size_t)(slen - end)); buf[nlen] = '\0'; }
+    DESCR_t d = { .v = DT_S, .slen = (uint32_t)nlen, .s = buf ? buf : "" };
+    if (name && name[0]) NV_SET_fn(name, d);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char *var) {
     DESCR_t sub = rt_substr((const char *)(uintptr_t)sigma, start, end);
     if (var && var[0]) NV_SET_fn(var, sub);

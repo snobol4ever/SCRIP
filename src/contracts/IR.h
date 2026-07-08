@@ -140,6 +140,14 @@ typedef enum {
                              * fixed choke point, the scanner's own exhaustion); RELEASE owns success (which
                              * has no fixed choke point of its own, since it's whichever element the pattern
                              * happens to end on -- this node IS that fixed point, added for exactly this). */
+    IR_MATCH_REPLACE,       /* SN4-REPL (doctrine stages 4/5): the statement's replacement splice, α-only like
+                             * RELEASE.  operands: [0]=head (start@FR(slot), end stashed@FRQ(slot+24) by RELEASE
+                             * when its dval=1), [1]=replacement value node, [2]=subject value node (raw DESCR
+                             * quads, coerced runtime-side exactly as rt_match_enter does); sval=subject var name.
+                             * α marshals rt_match_replace(name, sub_lo, sub_hi, start, end, &repl) which builds
+                             * prefix+repl+suffix and NV_SET_fn's it; γ = the statement's true sJ.  Sits AFTER the
+                             * replacement expression chain (RELEASE.γ → repl chain → this) so a repl expr that
+                             * nests its own match cannot stale the end cursor — end left r14 at RELEASE time. */
     IR_MATCH_RETRY,
     IR_MATCH_ADVANCE,
     IR_REF_INVARIANT,       /* sealed constant-folded pattern blob (FZ-3) */

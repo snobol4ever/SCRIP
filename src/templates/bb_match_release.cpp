@@ -25,6 +25,11 @@ std::string bb_match_release() {
     if (_.op_off < 0) return x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)");
     return x86("comment", "IR_MATCH_RELEASE")
          + x86_alpha()
+         /* SN4-REPL: when this statement carries a replacement (dval=1, sno_lower_match), stash the end
+          * cursor NOW — r14's upper half is zero by the 32-bit-write convention every element box follows —
+          * into head's +24 pad quad, BEFORE the replacement expression chain runs (a repl expr nesting its
+          * own match would stale r13/r14/r15).  IR_MATCH_REPLACE reads it back via the same operand[0] slot. */
+         + (_.op_dval != 0.0 ? x86("mov", FRQ(_.op_off + 24), "r14") : std::string())
          + x86_align_enter()
          + x86("mov",  "rdi", FRQ(_.op_off + 8))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
