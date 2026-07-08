@@ -383,6 +383,7 @@ static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *rt_pl_cell_to_term(void *cell) {
+    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
     pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
     return rt_cmp_cell_to_term_shared((pl_cell_t *)cell, vaddr, vterm, &vn, 256);
 }
