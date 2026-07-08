@@ -86,6 +86,21 @@
 #define ZC_PROMOTE ZC_PROMOTE_GATE
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZLS2 port-hook injection ops (Lon directive 2026-07-08: frame protocol injected at the α/β/ω port seam;
+ * templates stay untouched).  Per-node bitmask computed by zls2_geom (zeta_storage.c, the save-slot layout
+ * authority), promoted into g_emit.op_zls2_ops at the emit dispatch point, read by x86_port_hook (x86_asm.h)
+ * under ZC_PORT_ALLOC:
+ *   BUMP    fires at the α define — rt_zls2_push(K), prev-chain via the save slot, store block to slot.
+ *   RESTORE fires at the β define — rt_zls2_release_to(slot block): backtrack arrival resets the arena
+ *           cursor to this frame, wholesale-freeing every failed successor's frame (the fail-direction
+ *           release).  Idempotent; the runtime hard-aborts on LIFO violation.
+ *   RELEASE fires before a jmp-ω — unchain + rt_zls2_release_to(block+K).  Granted ONLY to roles whose
+ *           ω-jumps are statically all activation-death (the grant is the classifier; op_omega_is_death is
+ *           recorded broken and never consulted). */
+#define ZLS2_BUMP    1
+#define ZLS2_RESTORE 2
+#define ZLS2_RELEASE 4
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if ZC_ALLOC == ZC_ALLOC_GC
 #error "ZC_ALLOC_GC is a stub until GC-3 lands (ARCH-ZETA-LOCAL-STORAGE.md section 6e)"
 #endif

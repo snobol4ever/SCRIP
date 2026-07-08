@@ -417,6 +417,17 @@ typedef struct {
      * single true-exit label instead.  Defaults to 0 (no self-alloc) at every DRIVE_FILL, so every node this
      * ladder hasn't explicitly converted stays byte-identical in all port modes. */
     long                         op_zls2_bytes;
+    /* ZLS2 PORT-HOOK FRAME PROTOCOL (Lon directive 2026-07-08 session 3, completing the field above): the
+     * per-node injection geometry, computed by zls2_geom (zeta_storage.c — the save-slot layout authority)
+     * at the walk_bb_node dispatch cases and read by x86_port_hook under ZC_PORT_ALLOC.  op_zls2_slot = the
+     * absolute [ZR+off] frame offset of the node's activation-block save slot (-1 = none); op_zls2_ops = the
+     * ZLS2_BUMP/RESTORE/RELEASE bitmask (zeta_choices.h) selecting which port injections fire.  BOTH default
+     * inert at every DRIVE_FILL (slot -1, ops 0), so nodes outside the granted consumers stay byte-identical
+     * in every port mode.  The ops==0 && bytes>0 combination remains the DORMANT direct-sub discipline (the
+     * recorded future full-discipline design: sub ZR,K at α for boxes that never touch the graph frame) —
+     * the C-call push/pop scheme keys on ops!=0 and never collides with it. */
+    int                          op_zls2_slot;
+    int                          op_zls2_ops;
     int                          op_phase;
     int                          op_binop_kind;
     int                          op_gva_k;

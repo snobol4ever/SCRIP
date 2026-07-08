@@ -674,6 +674,7 @@ int bb_call_route_classify(IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls2_geom(const IR_t *, int, int *, long *);   /* zeta_storage.c — ZLS2 port-hook frame-protocol geometry (slot/K/ops per node) */
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
@@ -755,9 +756,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_POS:            { bb_prepare(nd); bb_emit_x86(bb_match_pos()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_REM:            { bb_prepare(nd); bb_emit_x86(bb_match_rem()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
-    case IR_MATCH_ARB:            { bb_prepare(nd); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 */
+    case IR_MATCH_ARB:            { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.x86_scratch_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZLS2 port-hook grant */
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
-    case IR_MATCH_ARBNO:          { bb_prepare(nd); bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 */
+    case IR_MATCH_ARBNO:          { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.op_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 + ZLS2 port-hook grant (op_off already owner-resolved for ph1/2) */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_RELEASE:        { bb_emit_x86(bb_match_release()); } return 0;               /* BB-OWNED-ζ statement-scope pivot */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
@@ -827,7 +828,7 @@ extern int           gva_index_of(const char *name);
 extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
-    g_emit.op_zls2_bytes = 0; \
+    g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
