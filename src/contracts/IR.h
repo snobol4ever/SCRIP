@@ -156,7 +156,16 @@ typedef enum {
     IR_PATTERN_CAPTURE,  /* passthrough since FZ-4 6141434 (Raku passthrough kept) */
     IR_PATTERN_DEFER,    /* *EXPR deferred build */
     IR_DTP_ASSIGN,       /* stored-pattern `.`/`$` capture (B3, DTP frag — see src/include/dtp.h) */
-    /* ---- end SNOBOL4 pattern family -------------------------------------------------------- */
+    IR_GOTO_DEFERRED,         /* EVAL/CODE (manual Ch.9): goto whose target label is unknown at lower time — a label
+                          * defined only inside a runtime-compiled CODE fragment, a `$X` indirect label name, or a
+                          * variable holding a CODE value (the lexer maps `:<C>` direct-goto brackets onto the
+                          * plain-name form).  sval = the name as written (`$`-prefixed when indirect).  α marshals
+                          * rt_goto_transfer(name), which resolves via the runtime label registry (fragment labels,
+                          * which per the manual OVERRIDE same-named main labels), then the LBL__ pseudo-proc table
+                          * (main-program labels, exported only when the program uses CODE), then a DT_C variable,
+                          * else faults "transfer to undefined label".  The transferee runs nested; when it
+                          * terminates, control cascades back here and γ (wired to the graph's exit) unwinds this
+                          * chain too — SNOBOL4 gotos never resume their source, so return-here means END. */
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

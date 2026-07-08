@@ -104,7 +104,12 @@ static eval_chain_fn eval_build_chain(const char *s)
     ast_push(prog, st);
     void *g = lower_snobol4(prog);
     if (!g) { ast_tree_free_dyn(prog); return NULL; }
+    extern int g_frame_active;
+    extern IR_graph_t *g_emit_cfg;
+    IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
+    int fa = g_frame_active; g_frame_active = 1;
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
+    g_frame_active = fa; g_emit_cfg = cfg_sv;
     IR_free_dyn(g);
     ast_tree_free_dyn(prog);
     return fn;
@@ -148,43 +153,113 @@ DESCR_t eval_expr(const char *src)
     return eval_node(tree);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static eval_chain_fn code_build_chain(const char *s)
+/* EVAL/CODE (manual Ch.9, directive lifted 2026-07-08).  Runtime label registry: fragment labels registered by
+ * code(); resolution order in rt_goto_transfer is (1) `$X` indirect deref, (2) END, (3) this registry — so a
+ * fragment label OVERRIDES a same-named main label per the manual, (4) the main program's LBL__ pseudo-procs
+ * (exported by lower_sno_stage2 when the program uses CODE), (5) a variable holding a CODE value (the lexer
+ * folds direct-goto `:<C>` onto the plain-name form, so `C` here may be the variable), (6) fault.  A transfer
+ * RUNS the target nested on a fresh 64KB frame (GC-visible so DESCR temporaries in it stay rooted); SNOBOL4
+ * gotos never resume their source, so the target running to termination cascades clean returns back up every
+ * crossing — the process exits through the driver as always.  Honest slice-1 caveats: one frame is allocated
+ * per crossing and never freed, and each crossing nests one C-stack level, so a loop that ping-pongs across
+ * the main/fragment boundary (label-to-label, not within one graph) grows both without bound — fine for the
+ * manual's shapes (a handful of crossings), a real rung for a frame-recycling tail-transfer later. */
+typedef struct { char *key; eval_chain_fn fn; } lbl_ent_t;
+static lbl_ent_t *g_lbl_tab = NULL;
+static int        g_lbl_n = 0;
+static int        g_lbl_cap = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_label_set_fn(const char *name, void *fn) {
+    if (!name || !*name) return;
+    for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) { g_lbl_tab[i].fn = (eval_chain_fn)fn; return; }
+    if (g_lbl_n >= g_lbl_cap) {
+        int ncap = g_lbl_cap ? g_lbl_cap * 2 : 16;
+        lbl_ent_t *nt = (lbl_ent_t *)realloc(g_lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
+        if (!nt) return;
+        g_lbl_tab = nt; g_lbl_cap = ncap;
+    }
+    g_lbl_tab[g_lbl_n].key = strdup(name);
+    g_lbl_tab[g_lbl_n].fn  = (eval_chain_fn)fn;
+    g_lbl_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static eval_chain_fn rt_label_get_fn(const char *name) {
+    if (!name || !*name) return NULL;
+    for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) return g_lbl_tab[i].fn;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define GOTO_FRAME_BYTES (64 * 1024)
+static void run_code_chain(eval_chain_fn fn)
 {
-    if (!s || !*s) return NULL;
-    { extern void bb_pool_init(void); bb_pool_init(); }
-    extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
-    tree_t *prog = sno_parse_string_ast(s, NULL);
-    if (!prog || prog->n == 0) return NULL;
-    void *g = lower_snobol4(prog);
-    if (!g) return NULL;
-    return emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
+    if (!fn) return;
+    extern void *GC_malloc_uncollectable(size_t);
+    void *frame = GC_malloc_uncollectable(GOTO_FRAME_BYTES);
+    if (!frame) { fprintf(stderr, "[SNO] rt_goto_transfer: transfer frame allocation failed\n"); exit(1); }
+    rt_eval_run(fn, frame);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_goto_transfer(const char *name)
+{
+    if (!name || !*name) return;
+    if (name[0] == '$') {
+        DESCR_t iv = NV_GET_fn(name + 1);
+        const char *inm = VARVAL_fn(iv);
+        if (!inm || !*inm) { fprintf(stderr, "[SNO] transfer to undefined label: $%s (indirect name is null)\n", name + 1); exit(1); }
+        rt_goto_transfer(inm);
+        return;
+    }
+    if (!strcmp(name, "END")) return;
+    eval_chain_fn fn = rt_label_get_fn(name);
+    if (!fn) {
+        extern void *rt_proc_get_fn(const char *);
+        char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name);
+        fn = (eval_chain_fn)rt_proc_get_fn(lname);
+    }
+    if (!fn) {
+        DESCR_t d = NV_GET_fn(name);
+        if (d.v == DT_C && d.slen == 3) fn = (eval_chain_fn)d.ptr;
+    }
+    if (!fn) { fprintf(stderr, "[SNO] transfer to undefined label: %s\n", name); exit(1); }
+    run_code_chain(fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code(const char *src)
 {
     if (!src || !*src) return FAILDESCR;
-    eval_chain_fn fn = code_build_chain(src);
-    if (!fn) return FAILDESCR;
+    { extern void bb_pool_init(void); bb_pool_init(); }
+    extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
+    extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx);
+    extern const char *sno_stmt_label(const tree_t *s);
+    extern int g_frame_active;
+    tree_t *prog = sno_parse_string_ast(src, NULL);
+    if (!prog || prog->n == 0) return FAILDESCR;
+    eval_chain_fn first = NULL;
+    int k = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t *c = prog->c[i];
+        if (!c || c->t != TT_STMT) continue;
+        const char *lbl = sno_stmt_label(c);
+        if (k == 0 || (lbl && lbl[0])) {
+            IR_graph_t *g = sno_lower_fragment_at(prog, k);
+            if (!g) return FAILDESCR;
+            extern IR_graph_t *g_emit_cfg;
+            IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = g;
+            int fa = g_frame_active; g_frame_active = 1;
+            eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
+            g_frame_active = fa; g_emit_cfg = cfg_sv;
+            if (!fn) return FAILDESCR;
+            if (k == 0) first = fn;
+            if (lbl && lbl[0]) rt_label_set_fn(lbl, (void *)fn);
+        }
+        k++;
+    }
+    if (!first) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_C;
     d.slen = 3;
-    d.ptr  = (void *)fn;
+    d.ptr  = (void *)first;
     return d;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void run_code_chain(eval_chain_fn fn)
-{
-    if (!fn) return;
-    int64_t code_frame[512];
-    memset(code_frame, 0, sizeof code_frame);
-    rt_eval_run(fn, (void *)code_frame);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_goto_dyn(const char *name)
-{
-    if (!name || !*name) return;
-    DESCR_t d = NV_GET_fn(name);
-    if (d.v == DT_C && d.slen == 3) run_code_chain((eval_chain_fn)d.ptr);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t EXPVAL_fn(DESCR_t expr_d)

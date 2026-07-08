@@ -99,6 +99,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_rev_assign_var.cpp \
     $(SRC)/templates/bb_var_ref.cpp \
     $(SRC)/templates/bb_goto.cpp \
+    $(SRC)/templates/bb_goto_dyn.cpp \
     $(SRC)/templates/bb_fail.cpp \
     $(SRC)/templates/bb_cut.cpp \
     $(SRC)/templates/bb_lit_scalar.cpp \
