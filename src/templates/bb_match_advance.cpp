@@ -16,10 +16,10 @@ std::string bb_match_advance() {
          + x86("add", FR(_.op_off), (long)1)
          + x86("mov", "eax", FR(_.op_off))
          + x86("cmp", "eax", "r15d")
-         + x86("jg",  "ω")
+         + x86_omega("jg")
          + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&kw_anchor, "kw_anchor")
          + x86("mov", "rax", "[rcx]")
          + x86("cmp64", "rax", (long)0)
-         + x86("jne", "ω")
-         + x86("jmp", "γ");
+         + x86_omega("jne")
+         + x86_gamma();
 }

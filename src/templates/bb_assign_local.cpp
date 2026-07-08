@@ -9,17 +9,17 @@ std::string bb_assign_local() {
     if (PLATFORM_X86)
         return IF(!(_.op_sb >= 0 && _.op_off >= 0 && (_.op_a_slot >= 0 || _.op_a_node_kind == (int)IR_OP_COUNT)), x86_bomb("bb_assign_local: needs descr flat-chain + rhs slot + varslot + own slot"))
                            + IF(_.op_sb >= 0 && _.op_off >= 0 && _.op_a_node_kind == (int)IR_OP_COUNT,
-                             x86("def",     "α")
+                             x86_alpha()
                            + x86("comment", "IR_ASSIGN local=NUL")
                            + x86("mov", FRQ(_.op_sb), "0")
                            + x86("mov", FRQ(_.op_sb + 8), "0")
                            + x86("mov", FRQ(_.op_off), "0")
                            + x86("mov", FRQ(_.op_off + 8), "0")
-                           + x86("jmp", "γ")
-                           + x86("def", "β")
-                           + x86("jmp", "ω"))
+                           + x86_gamma()
+                           + x86_beta()
+                           + x86_omega())
                            + IF(_.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0,
-                             x86("def",     "α")
+                             x86_alpha()
                            + x86("comment", "IR_ASSIGN local")
                            + x86("mov", "rax", FRQ(_.op_a_slot))
                            + x86("mov", "rdx", FRQ(_.op_a_slot + 8))
@@ -27,8 +27,8 @@ std::string bb_assign_local() {
                            + x86("mov", FRQ(_.op_sb + 8), "rdx")
                            + x86("mov", FRQ(_.op_off), "rax")
                            + x86("mov", FRQ(_.op_off + 8), "rdx")
-                           + x86("jmp", "γ")
-                           + x86("def", "β")
-                           + x86("jmp", "ω"));
+                           + x86_gamma()
+                           + x86_beta()
+                           + x86_omega());
     return std::string();
 }

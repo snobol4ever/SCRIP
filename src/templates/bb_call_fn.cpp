@@ -21,11 +21,11 @@ std::string bb_call_fn_str(IR_t * pBB) {
     const char * fn = _.op_sval ? _.op_sval : "";
     int nargs = (int) _.op_ival;
     int resoff = bcfn_result_slot(pBB);
-    if (resoff < 0) return x86("def", "α") + x86_bomb("bb_call_fn: no LOWER slot grant (TMP-ERADICATE)");
-    if (_.node && nargs > _.node->n_operands) return x86("def", "α") + x86_bomb("bb_call_fn: arg count exceeds LOWER grant (TMP-ERADICATE)");
+    if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_fn: no LOWER slot grant (TMP-ERADICATE)");
+    if (_.node && nargs > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_fn: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    std::string s = x86("def",     "α")
+    std::string s = x86_alpha()
                   + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr [operand-marshal, FAIL->ω]", fn));
     for (int i = 0; i < nargs; i++) {
         IR_t * ai = (subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i);
@@ -49,9 +49,9 @@ uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
     s += x86("cmp", "eax", (long)99);
-    s += x86("je", PORT_OMEGA);
-    s += x86("jmp", PORT_GAMMA);
-    s += x86("def", PORT_BETA);
-    s += x86("jmp", PORT_OMEGA);
+    s += x86_omega("je");
+    s += x86_gamma();
+    s += x86_beta();
+    s += x86_omega();
     return s;
 }

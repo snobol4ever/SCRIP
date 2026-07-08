@@ -13,9 +13,9 @@ std::string bb_key_gen(IR_t * pBB) {
     (void)pBB;
     if (!PLATFORM_X86) return std::string();
     if (MEDIUM_MACRO_DEF) return x86("comment", "no macro form — IR_KEY_GEN");
-    if (_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0) return x86("def", "α") + x86_bomb("bb_key_gen: IR_KEY_GEN — operand/idx/out slot missing");
+    if (_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0) return x86_alpha() + x86_bomb("bb_key_gen: IR_KEY_GEN — operand/idx/out slot missing");
     return x86("comment", "IR_KEY_GEN")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("mov",  FRQ(_.op_sb), 0L)
          + x86("def",  L(0))
          + x86("mov",  "rdi", FRQ(_.op_sa))
@@ -25,9 +25,9 @@ std::string bb_key_gen(IR_t * pBB) {
          + x86("mov",  FRQ(_.op_off),     "rax")
          + x86("mov",  FRQ(_.op_off + 8), "rdx")
          + x86("cmp64", "rax", 99L)
-         + x86("je",   "ω")
-         + x86("jmp",  "γ")
-         + x86("def",  "β")
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta()
          + x86("inc",  FRQ(_.op_sb))
          + x86("jmp",  L(0));
 }

@@ -82,7 +82,7 @@ static std::string gzu_struct_args(const IR_t *nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cell_unify() {
     x86_begin();
-    if (PLATFORM_X86) return x86("def",     "α")
+    if (PLATFORM_X86) return x86_alpha()
          + x86("comment", "IR_CELL_UNIFY")
          + IF(bcu_sh() == 0 && bcu_rm_dst() != (const IR_t *)0,
            x86("sub", "rsp", (long)bcu_rm_frm())
@@ -94,9 +94,9 @@ std::string bb_cell_unify() {
          + x86("call", "rt_pl_unify_struct", (uint64_t)(uintptr_t)(void *)rt_pl_unify_struct)
          + x86("add", "rsp", (long)bcu_rm_frm())
          + x86("test", "eax", "eax")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
+         + x86_omega("je")
+         + x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega()))
          + IF(bcu_sh() == 0 && bcu_rm_dst() == (const IR_t *)0,
            x86("sub", "rsp", 16L)
          + gzu_build((const IR_t *)(intptr_t)_.op_parts_ival[1])
@@ -108,28 +108,28 @@ std::string bb_cell_unify() {
          + x86("add", "rsp", 16L)
          + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void *)rt_unify_terms)
          + x86("test", "eax", "eax")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
+         + x86_omega("je")
+         + x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega()))
          + IF(bcu_sh() == 1 || bcu_sh() == 5,
-           x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
+           x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega()))
          + IF(bcu_sh() == 2,
            x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("lea", "rsi", FR(GZ_CELL_OFF((int)_.op_parts_ival[2])))
          + x86("call", "rt_unify_terms", (uint64_t)(uintptr_t)(void *)rt_unify_terms)
          + x86("test", "eax", "eax")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
+         + x86_omega("je")
+         + x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega()))
          + IF(bcu_sh() == 3,
            x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("movsd", "xmm0", F64(bcu_fv()))
          + x86("call", "rt_pl_unify_cell_float", (uint64_t)(uintptr_t)(void *)rt_pl_unify_cell_float)
          + x86("test", "eax", "eax")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
+         + x86_omega("je")
+         + x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega()))
          + IF(bcu_sh() == 4,
            x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[1])))
          + x86("mov", "esi", (long)_.op_parts_ival[2])
@@ -138,17 +138,17 @@ std::string bb_cell_unify() {
          + IF(_.op_parts_str[0] == 0, x86("mov", "ecx", (long)0))
          + x86("call", "rt_pl_unify_cell_const", (uint64_t)(uintptr_t)(void *)rt_pl_unify_cell_const)
          + x86("test", "eax", "eax")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"))
+         + x86_omega("je")
+         + x86_gamma()
+         + IF(!_.op_bounded, x86_beta() + x86_omega())
          + IF(_.op_parts_str[0] != 0,
            x86("def", L(0))
          + x86(".quad", LS(0), _.op_parts_str[0])
          + x86("label", LS(0))
          + x86(".string", _.op_parts_str[0])))
          + IF(bcu_sh() == 6,
-           x86("jmp", "ω")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
+           x86_omega()
+         + IF(!_.op_bounded, x86_beta() + x86_omega()))
          + IF(bcu_sh() < 0, x86_bomb("bb_cell_unify: unadmitted operand shape reached the emitter"));
     return std::string();
 }

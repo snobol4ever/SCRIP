@@ -17,9 +17,9 @@ std::string bb_case_arm() {
              + x86("mov",     "rdx", FRQ(_.op_sb + 8))
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
-             + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     }
     if (_.op_sa < 0 || _.op_sb < 0) return x86_bomb("bb_case_arm: needs selector slot (op_sa) + key slot (op_sb)");
     return x86("comment", "IR_CASE_ARM")
@@ -27,8 +27,8 @@ std::string bb_case_arm() {
          + x86("lea",     "rsi", FRQ(_.op_sb))
          + x86("call",    "rt_case_eq", (uint64_t)(uintptr_t)(void *)rt_case_eq)
          + x86("test",    "eax", "eax")
-         + x86("jz",      "ω")
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+         + x86_omega("jz")
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
 }

@@ -21,9 +21,9 @@ extern "C" void rt_zls_release_to(void *mark);
 std::string bb_match_release() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0) return x86("def", "α") + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)");
+    if (_.op_off < 0) return x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)");
     return x86("comment", "IR_MATCH_RELEASE")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86_align_enter()
          + x86("mov",  "rdi", FRQ(_.op_off + 8))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
@@ -32,5 +32,5 @@ std::string bb_match_release() {
           * ARBNO activation that succeeded and left via this join without reaching its own role-2 pop. */
          + x86_zls2_release_to_call(_.op_off + 16)
          + x86_align_leave()
-         + x86("jmp",  "γ");
+         + x86_gamma();
 }

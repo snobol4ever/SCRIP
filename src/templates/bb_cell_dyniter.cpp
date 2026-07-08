@@ -18,15 +18,15 @@ static std::string bdi_step() {
          + x86("mov32", "edx", (long)bdi_st()->arity)
          + x86("call", "rt_pl_dyn_iter_step", (uint64_t)(uintptr_t)(void *)rt_pl_dyn_iter_step)
          + x86("test", "eax", "eax")
-         + x86("jne", "γ")
-         + x86("jmp", "ω");
+         + x86_gamma("jne")
+         + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cell_dyniter() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     if (!bdi_st() || bdi_st()->arity < 0 || bdi_st()->arity > 3) return x86_bomb("bb_cell_dyniter: unadmitted dyniter shape reached the emitter");
-    return x86("def",     "α")
+    return x86_alpha()
          + x86("comment", "IR_CELL_DYNITER")
          + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
          + x86("mov", FR(GZ_CELL_OFF(bdi_st()->mark_slot)), "eax")
@@ -35,7 +35,7 @@ std::string bb_cell_dyniter() {
          + x86("call", "rt_pl_dyn_iter_begin", (uint64_t)(uintptr_t)(void *)rt_pl_dyn_iter_begin)
          + x86("mov", FRQ(GZ_CELL_OFF(bdi_st()->cursor_slot)), "rax")
          + bdi_step()
-         + x86("def", "β")
+         + x86_beta()
          + x86("mov", "edi", FR(GZ_CELL_OFF(bdi_st()->mark_slot)))
          + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
          + bdi_step()

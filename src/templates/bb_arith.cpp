@@ -9,12 +9,12 @@ extern long rt_arith(int lk, long li, const char *ls, int rk, long ri, const cha
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_arith() {
     return IF(PLATFORM_X86,
-           x86("def",     "α")
+           x86_alpha()
          + x86("comment", "IR_ARITH")
          + IF(_.bb_lk < 0,
-              x86("jmp", "γ")
-            + x86("def", "β")
-            + x86("jmp", "ω"))
+              x86_gamma()
+            + x86_beta()
+            + x86_omega())
          + IF(!(_.bb_lk < 0),
               x86("mov", "edi", (long)_.bb_lk)
             + x86("mov", "esi", (long)_.bb_li)
@@ -28,7 +28,7 @@ std::string bb_arith() {
             + x86("push", "rax")
             + x86("call", "rt_arith", (uint64_t)(uintptr_t)(void*)rt_arith)
             + x86("add", "rsp", (long)8)
-            + x86("jmp", "γ")
-            + x86("def", "β")
-            + x86("jmp", "ω")));
+            + x86_gamma()
+            + x86_beta()
+            + x86_omega()));
 }

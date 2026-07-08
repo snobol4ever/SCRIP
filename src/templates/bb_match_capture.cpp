@@ -26,26 +26,26 @@ std::string bb_match_capture() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     static char b[24];
-    if (_.op_off < 0) return x86("def", "α") + x86_bomb("IR_MATCH_ASSIGN: capture stack slot not promoted (flat_drive_capture)");
-    if (!(_.op_sval ? _.op_sval : "")[0]) return x86("def", "α") + x86_bomb("IR_MATCH_ASSIGN: empty capture variable name");
+    if (_.op_off < 0) return x86_alpha() + x86_bomb("IR_MATCH_ASSIGN: capture stack slot not promoted (flat_drive_capture)");
+    if (!(_.op_sval ? _.op_sval : "")[0]) return x86_alpha() + x86_bomb("IR_MATCH_ASSIGN: empty capture variable name");
     if ((int)_.op_phase == 0)
         return x86("comment", "IR_MATCH_CAPTURE_SAVE push")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("lea",  "rdi", FR(_.op_off))
              + x86("mov",  "esi", "r14d")
              + x86_align_enter()
              + x86("call", "rt_cap_push", (uint64_t)(uintptr_t)(void *)(void (*)(void *, int))rt_cap_push)
              + x86_align_leave()
-             + x86("jmp",  "γ")
-             + x86("def",  "β")
+             + x86_gamma()
+             + x86_beta()
              + x86("lea",  "rdi", FR(_.op_off))
              + x86_align_enter()
              + x86("call", "rt_cap_pop", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_cap_pop)
              + x86_align_leave()
-             + x86("jmp",  "ω");
+             + x86_omega();
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     return x86("comment", (int)_.op_phase == 2 ? "IR_MATCH_CAPTURE_IMM" : "IR_MATCH_CAPTURE_COND")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86_align_enter()
          + x86("lea",  "rdi", FR(_.op_off))
          + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
@@ -55,7 +55,7 @@ std::string bb_match_capture() {
          + x86("mov",  "ecx", (long)((int)_.op_phase == 2 ? 1 : 0))
          + x86("call", "rt_cap_assign_cursor", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int, int, int))rt_cap_assign_cursor)
          + x86_align_leave()
-         + x86("jmp",  "γ")
-         + x86("def",  "β")
-         + x86("jmp",  "ω");
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
 }

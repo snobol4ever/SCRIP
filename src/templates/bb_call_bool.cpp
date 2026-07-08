@@ -16,35 +16,35 @@ std::string bb_call_bool_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     IR_t * a0 = ir_call_arg(_.node, 0);
     if (rkbool_arg_is_relop(a0))
-        return x86("def",     "α")
+        return x86_alpha()
              + x86("comment", "BOX __rk_bool [relop pass-through: BINOP already branched γ/ω]")
-             + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     int off = _.op_a_slot;
-    if (off < 0) return x86("def", "α") + x86_bomb("bb_call_bool: arg slot not allocated");
-    return x86("def",     "α")
+    if (off < 0) return x86_alpha() + x86_bomb("bb_call_bool: arg slot not allocated");
+    return x86_alpha()
          + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
          + x86("mov", "rdi", FRQ(off))
          + x86("mov", "rsi", FRQ(off + 8))
          + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
          + x86("test", "eax", "eax")
-         + x86("je", "ω")
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
     if (MEDIUM_BINARY)
-        return x86("def",     "α")
+        return x86_alpha()
              + x86_frame_load64("rdi", off)
              + x86_frame_load64("rsi", off + 8)
              + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
              + x86("test", "eax", "eax")
-             + x86("je", "ω")
-             + x86("jmp", "γ")
-             + x86("def", "β")
-             + x86("jmp", "ω");
+             + x86_omega("je")
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     if (MEDIUM_TEXT)
-        return x86("def",     "α")
+        return x86_alpha()
              + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
              + x86("mov", "rdi", FRQ(off))
              + x86("mov", "rsi", FRQ(off + 8))

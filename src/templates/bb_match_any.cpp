@@ -14,24 +14,24 @@ std::string bb_match_any() {
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     return x86("comment", "IR_MATCH_ANY")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("mov",    "eax", "r14d")
          + x86("cmp",    "eax", "r15d")
-         + x86("jge",    "ω")
+         + x86_omega("jge")
          + x86("movsxd", "rcx", "r14d")
          + x86("movzx",  "esi", "[r13+rcx]")
          + ( strlen(_.op_sval ? _.op_sval : "") == 1
            ? ( x86("cmp",  "esi", (long)(unsigned char)(_.op_sval ? _.op_sval : "")[0])
-             + x86("jne",  "ω") )
+             + x86_omega("jne") )
            : ( x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
              + x86("sub",  "rsp", (long)8)
              + x86("call", "strchr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *, int))strchr)
              + x86("add",  "rsp", (long)8)
              + x86("test", "rax", "rax")
-             + x86("je",   "ω") ) )
+             + x86_omega("je") ) )
          + x86("add",    "r14d", (long)1)
-         + x86("jmp",    "γ")
-         + x86("def",    "β")
+         + x86_gamma()
+         + x86_beta()
          + x86("sub",    "r14d", (long)1)
-         + x86("jmp",    "ω");
+         + x86_omega();
 }

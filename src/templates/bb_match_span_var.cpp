@@ -14,7 +14,7 @@ std::string bb_match_span_var() {
     if (!PLATFORM_X86) return std::string();
     static char b[24];
     return x86("comment", "IR_MATCH_SPAN_VAR")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
          + x86("sub",    "rsp", (long)8)
          + x86("call",   "rt_nv_cstr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *))rt_nv_cstr)
@@ -39,13 +39,13 @@ std::string bb_match_span_var() {
          + x86("def",    L(1))
          + x86("mov",    "eax", FR(_.x86_scratch_off + 8))
          + x86("test",   "eax", "eax")
-         + x86("jle",    "ω")
+         + x86_omega("jle")
          + x86("mov",    "edx", "r14d")
          + x86("mov",    FR(_.x86_scratch_off + 12), "edx")
          + x86("add",    "edx", "eax")
          + x86("mov",    "r14d", "edx")
-         + x86("jmp",    "γ")
-         + x86("def",    "β")
+         + x86_gamma()
+         + x86_beta()
          + x86("mov",    "r14d", FR(_.x86_scratch_off + 12))
-         + x86("jmp",    "ω");
+         + x86_omega();
 }

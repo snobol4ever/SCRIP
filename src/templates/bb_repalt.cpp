@@ -16,7 +16,7 @@ std::string bb_repalt_clear() {
      * label object), so this node's own α is defined here, exactly where every ordinary template defines its
      * own α as its first instruction -- matching the ONE-WAY-OUTPUT fix (x86("def",...) is the sole output
      * path for a port define, in both mediums; the driver no longer calls bb_label_define(lbls[i]) directly). */
-    return x86("def",     "α")
+    return x86_alpha()
          + x86("comment", "IR_REPALT yielded:=0")
          + x86("mov", FRQ(_.op_off + 16), (long)0);
 }

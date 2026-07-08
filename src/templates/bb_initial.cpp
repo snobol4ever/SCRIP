@@ -11,7 +11,7 @@ std::string bb_initial() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     return x86("comment", "IR_INITIAL run-once guard")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("mov",   "rdi", (long)_.op_sc)
          + x86("push",  "r10")
          + x86("push",  "r10")
@@ -19,8 +19,8 @@ std::string bb_initial() {
          + x86("pop",   "r10")
          + x86("pop",   "r10")
          + x86("test",  "rax", "rax")
-         + x86("je",    "γ")
+         + x86_gamma("je")
          + x86_pair_jmp(0)
-         + x86("def",   "β")
-         + x86("jmp",   "ω");
+         + x86_beta()
+         + x86_omega();
 }

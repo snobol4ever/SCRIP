@@ -22,7 +22,7 @@ std::string bb_assign_frame() {
                            + IF(_.bb_lk == 8 && _.op_a_slot < 0, x86_bomb("bb_assign_frame call-result: op_a_slot==-1 (call result slot not promoted)"))
                            + IF(_.bb_lk == 0, x86_bomb("bb_assign_frame: unhandled rhs shape"))
                            + IF(_.bb_lk != 0,
-                             x86("def",     "α")
+                             x86_alpha()
                            + x86("comment", "IR_ASSIGN_FRAME"))
                            + IF(_.bb_lk == 1,
                              frame_reach("rcx", (int) _.op_dval)
@@ -71,8 +71,8 @@ std::string bb_assign_frame() {
                            + x86("mov", RDQ("rcx", 16 + (int) _.op_ival * 16), "rax")
                            + x86("mov", RDQ("rcx", 16 + (int) _.op_ival * 16 + 8), "rdx"))
                            + IF(_.bb_lk != 0,
-                             x86("jmp", "γ")
-                           + x86("def", "β")
-                           + x86("jmp", "ω"));
+                             x86_gamma()
+                           + x86_beta()
+                           + x86_omega());
     return std::string();
 }

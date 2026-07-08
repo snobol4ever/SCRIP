@@ -11,10 +11,10 @@ std::string bb_suspend() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (_.op_sa < 0)
-        return x86("def", "α") + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
+        return x86_alpha() + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
     std::string s;
     s += x86("comment", "IR_SUSPEND yield+resume");
-    s += x86("def",     "α");
+    s += x86_alpha();
     if (_.op_sb >= 0 && _.lbl_t1_p) {
         if (!MEDIUM_BINARY) {
             char load_β[128];
@@ -34,8 +34,8 @@ std::string bb_suspend() {
     s += x86("mov", FRQ(0), "rax");
     s += x86("mov", "rax", FRQ(_.op_sa + 8));
     s += x86("mov", FRQ(8), "rax");
-    s += x86("jmp", "γ");
-    s += x86("def", "β");
-    s += _.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86("jmp", "ω");
+    s += x86_gamma();
+    s += x86_beta();
+    s += _.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega();
     return s;
 }

@@ -13,22 +13,22 @@ std::string bb_det_nb_getval() {
     int s_key = (int)_.op_parts_ival[0];
     int s_val = (int)_.op_parts_ival[1];
     if (_.op_gva_k >= 0)
-        return x86("def",     "α")
+        return x86_alpha()
              + x86("comment", "IR_DET_NB_GETVAL gva")
              + x86("mov", "rdi", RDQ("rbx", _.op_gva_k * 16))
              + x86("lea", "rsi", FR(GZ_CELL_OFF(s_val)))
              + x86("call", "rt_pl_nb_getval_ptr", (uint64_t)(uintptr_t)(void *)rt_pl_nb_getval_ptr)
              + x86("test", "eax", "eax")
-             + x86("jne", "γ")
-             + x86("jmp", "ω")
-             + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"));
-    return x86("def",     "α")
+             + x86_gamma("jne")
+             + x86_omega()
+             + IF(!_.op_bounded, x86_beta() + x86_omega());
+    return x86_alpha()
          + x86("comment", "IR_DET_NB_GETVAL")
          + x86("lea", "rdi", FR(GZ_CELL_OFF(s_key)))
          + x86("lea", "rsi", FR(GZ_CELL_OFF(s_val)))
          + x86("call", "rt_pl_nb_getval_cell", (uint64_t)(uintptr_t)(void *)rt_pl_nb_getval_cell)
          + x86("test", "eax", "eax")
-         + x86("jne", "γ")
-         + x86("jmp", "ω")
-         + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω"));
+         + x86_gamma("jne")
+         + x86_omega()
+         + IF(!_.op_bounded, x86_beta() + x86_omega());
 }

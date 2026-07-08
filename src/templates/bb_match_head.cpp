@@ -18,7 +18,7 @@ std::string bb_match_head() {
     return (_.op_sa < 0 || _.op_off < 0)
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
-         + x86("def",     "α")
+         + x86_alpha()
          /* BB-OWNED-ζ statement-scope pivot (this session): mark ONCE per statement scan-entry, before
           * rt_match_enter -- so nothing from THAT call's result (consumed into r13/r15 below) is at risk
           * from rt_zls_mark's own return-register clobber.  Stored immediately to the frame slot (op_off+8,
@@ -40,8 +40,8 @@ std::string bb_match_head() {
          + x86("mov", FR(_.op_off), (long)0)
          + x86("def", L(0))
          + x86("mov", "r14d", FR(_.op_off))
-         + x86("jmp", "γ")
-         + x86("def", "β")
+         + x86_gamma()
+         + x86_beta()
          + x86("add", FR(_.op_off), (long)1)
          + x86("mov", "eax", FR(_.op_off))
          + x86("cmp", "eax", "r15d")
@@ -65,5 +65,5 @@ std::string bb_match_head() {
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
          + x86_zls2_release_to_call(_.op_off + 16)
          + x86_align_leave()
-         + x86("jmp",  "ω");
+         + x86_omega();
 }

@@ -26,7 +26,7 @@ std::string bb_binop_gvar_relop() {
                   && (_.bb_rk == (int)IR_CALL || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || (_.bb_rk == (int)IR_LIT_STRING && _.op_parts_lbl[1] != 0)));
         return IF(_.op_relop_descr && !D, x86_bomb("bb_binop_gvar_relop: descr arm shape mismatch (op_relop_descr set but operands unexpected)"))
              + IF(D,
-                 x86("def",     "α")
+                 x86_alpha()
                + x86("comment", "IR_BINOP_GVAR_RELOP_DESCR")
                + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0,
                    x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
@@ -58,13 +58,13 @@ std::string bb_binop_gvar_relop() {
                + x86("mov", "r8", (long) _.op_ival)
                + x86("call", "rt_relop_descr2", (uint64_t)(uintptr_t)(void *) rt_relop_descr2)
                + x86("test", "rax", "rax")
-               + x86("je", "ω")
-               + x86("jmp", "γ")
-               + x86("def", "β")
-               + x86("jmp", "ω"))
+               + x86_omega("je")
+               + x86_gamma()
+               + x86_beta()
+               + x86_omega())
              + IF(!_.op_relop_descr && !P, x86_bomb("bb_binop_gvar_relop: shape mismatch (dispatch chose this arm but predicate failed)"))
              + IF(!_.op_relop_descr && P,
-                 x86("def",     "α")
+                 x86_alpha()
                + x86("comment", "IR_BINOP_GVAR_RELOP")
                + IF(_.bb_lk == (int)IR_LIT_INTEGER || _.bb_lk == (int)IR_OP_COUNT, x86("mov", "rax", (long) _.bb_li))
                + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0,
@@ -82,15 +82,15 @@ std::string bb_binop_gvar_relop() {
                + IF(!(_.bb_rk == (int)IR_LIT_INTEGER || _.bb_rk == (int)IR_OP_COUNT) && !(_.bb_rk == (int)IR_VAR && _.op_name2 != 0),
                  x86("mov", "rcx", FRQ(_.op_sb + ((_.bb_rk == (int)IR_CALL || _.bb_rk == (int)IR_OP_COUNT || _.bb_rk == (int)IR_OP_COUNT) ? 8 : 0))))
                + x86("cmp", "rax", "rcx")
-               + IF(_.op_ival == BINOP_LT, x86("jge", "ω"))
-               + IF(_.op_ival == BINOP_LE, x86("jg",  "ω"))
-               + IF(_.op_ival == BINOP_GT, x86("jle", "ω"))
-               + IF(_.op_ival == BINOP_GE, x86("jl",  "ω"))
-               + IF(_.op_ival == BINOP_EQ, x86("jne", "ω"))
-               + IF(_.op_ival == BINOP_NE, x86("je",  "ω"))
-               + x86("jmp", "γ")
-               + x86("def", "β")
-               + x86("jmp", "ω"));
+               + IF(_.op_ival == BINOP_LT, x86_omega("jge"))
+               + IF(_.op_ival == BINOP_LE, x86_omega("jg"))
+               + IF(_.op_ival == BINOP_GT, x86_omega("jle"))
+               + IF(_.op_ival == BINOP_GE, x86_omega("jl"))
+               + IF(_.op_ival == BINOP_EQ, x86_omega("jne"))
+               + IF(_.op_ival == BINOP_NE, x86_omega("je"))
+               + x86_gamma()
+               + x86_beta()
+               + x86_omega());
     }
     return std::string();
 }

@@ -8,13 +8,13 @@ extern "C" {
 std::string bb_match_len() {
     if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_MATCH_LEN")
-         + x86("def",     "α")
+         + x86_alpha()
          + x86("mov", "eax", "r14d")
          + x86("add", "eax", (long)(int)_.op_ival)
          + x86("cmp", "eax", "r15d")
-         + x86("jg",  "ω")
+         + x86_omega("jg")
          + x86("add", "r14d", (long)(int)_.op_ival)
-         + x86("jmp", "γ")
-         + x86("def", "β")
-         + x86("jmp", "ω");
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
 }

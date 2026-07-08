@@ -17,7 +17,7 @@ std::string bb_cell_call() {
     if (PLATFORM_X86) return IF(!bcc_sh(), x86_bomb("bb_cell_call: unadmitted call shape reached the emitter"))
                            + IF(bcc_sh() && !bcc_ar(), x86_bomb("bb_cell_call: non-slot arg reached the emitter"))
                            + IF(bcc_sh() && bcc_ar(),
-                             x86("def",     "α")
+                             x86_alpha()
                            + x86("comment", "IR_CELL_CALL")
                            + x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[0])))
                            + x86("mov32", "esi", (long)_.op_parts_ival[2])
@@ -32,10 +32,10 @@ std::string bb_cell_call() {
                            + x86_call_tgt(X86T_TGT0)
                            + x86("def", L(0))
                            + x86("test", "eax", "eax")
-                           + x86("jne", "γ")
-                           + x86("jmp", "ω")
+                           + x86_gamma("jne")
+                           + x86_omega()
                            + IF(!_.op_bounded,
-                             x86("def", "β")
+                             x86_beta()
                            + x86("mov", "rdi", FRQ(GZ_CELL_OFF((int)_.op_parts_ival[0])))
                            + x86_call_tgt(X86T_TGT1)
                            + x86("jmp", L(0))));

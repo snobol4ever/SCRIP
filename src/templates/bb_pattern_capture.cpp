@@ -8,10 +8,10 @@ extern "C" {
 std::string bb_pattern_capture() {
     if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_PATTERN_CAPTURE passthrough")
-         + x86("def",     "α")
-         + x86("jmp",  "γ")
-         + x86("def",  "β")
-         + x86("jmp",  "ω");
+         + x86_alpha()
+         + x86_gamma()
+         + x86_beta()
+         + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_emit_pattern_capture_call(void) { bb_emit_x86(bb_pattern_capture()); }

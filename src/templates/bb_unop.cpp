@@ -38,86 +38,86 @@ std::string bb_unop() {
                _.op_node_kind == IR_NULLTEST_VAR ?
                (_.op_sa < 0 ? x86_bomb("bb_unop lv: operand slot unresolved") :
                x86("comment", "IR_UNOP_TEST lv")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
-             + x86("je",  "ω")
+             + x86_omega("je")
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("call", "rt_deref", (uint64_t)(uintptr_t)(void *)rt_deref)
              + x86("cmp", "eax", (long)99)
-             + x86("je",  "ω")
+             + x86_omega("je")
              + x86("cmp", "eax", (long)0)
-             + (_.op_sval && !strcmp(_.op_sval, "nonnull") ? x86("je", "ω") : x86("jne", "ω"))
+             + (_.op_sval && !strcmp(_.op_sval, "nonnull") ? x86_omega("je") : x86_omega("jne"))
              + x86("mov", "rax", FRQ(_.op_sa))
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", "rax", FRQ(_.op_sa + 8))
              + x86("mov", FRQ(_.op_off + 8), "rax")
-             + x86("jmp", "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω")) :
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega()) :
                uop() == UO_UNHANDLED ? std::string() :
                _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
                uop() == UO_NONNULL ?
                x86("comment", "IR_UNOP")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
-             + x86("je",  "ω")
+             + x86_omega("je")
              + x86("cmp", "eax", (long)0)
-             + x86("je",  "ω")
+             + x86_omega("je")
              + x86("mov", "rax", FRQ(_.op_sa))
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", "rax", FRQ(_.op_sa + 8))
              + x86("mov", FRQ(_.op_off + 8), "rax")
-             + x86("jmp", "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω") :
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega() :
                uop() == UO_NULL_TEST ?
                x86("comment", "IR_UNOP")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
-             + x86("je",  "ω")
+             + x86_omega("je")
              + x86("cmp", "eax", (long)0)
-             + x86("jne", "ω")
+             + x86_omega("jne")
              + x86("mov", FRQ(_.op_off),     (long)0)
              + x86("mov", FRQ(_.op_off + 8), (long)0)
-             + x86("jmp", "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω") :
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega() :
                uop() == UO_CSET_COMPL ?
                x86("comment", "IR_UNOP")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("call", "rt_cset_compl", (uint64_t)(uintptr_t)(void *)rt_cset_compl)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
-             + x86("jmp", "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω") :
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega() :
                uop() == UO_SIZE ?
                x86("comment", "IR_UNOP")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("call", "rt_size_d", (uint64_t)(uintptr_t)(void *)rt_size_d)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
-             + x86("jmp", "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω") :
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega() :
                x86("comment", "IR_UNOP")
-             + x86("def",     "α")
+             + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + IF(uop() == UO_NEG, x86("call", "rt_num_neg", (uint64_t)(uintptr_t)(void *)rt_num_neg))
              + IF(uop() != UO_NEG, x86("call", "rt_num_pos", (uint64_t)(uintptr_t)(void *)rt_num_pos))
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
-             + x86("jmp", "γ")
-             + x86("def",  "β")
-             + x86("jmp",  "ω");
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     return std::string();
 }

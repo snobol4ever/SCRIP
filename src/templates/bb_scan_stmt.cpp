@@ -14,7 +14,7 @@ std::string bb_scan_stmt() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_scan_pat_lit)
         return x86("comment", "IR_SCAN")
-             + x86("def",     "α")
+             + x86_alpha()
              + IF(_.op_sval && _.op_sval[0], x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)_.op_sval, scan_lbl(_.op_sval)))
              + IF(!(_.op_sval && _.op_sval[0]), x86("mov", "rdi", (long)0))
              + IF(_.op_scan_subj_lit != 0,  x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.op_scan_subj_lit, scan_lbl(_.op_scan_subj_lit)))
@@ -25,10 +25,10 @@ std::string bb_scan_stmt() {
              + IF(!_.op_scan_replace_lit, x86("mov", "r8", (long)0))
              + x86("call",    "rt_scan_lit", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, const char *, const char *, int, const char *))rt_scan_lit)
              + x86("test",    "eax", "eax")
-             + x86("je",      "ω")
-             + x86("jmp",     "γ")
-             + x86("def",     "β")
-             + x86("jmp",     "ω");
+             + x86_omega("je")
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     if (MEDIUM_TEXT && !(_.op_sval && _.op_sval[0]) && !_.op_scan_subj_lit)
         return x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)");
     if (MEDIUM_TEXT && (_.op_sval && _.op_sval[0] || _.op_scan_subj_lit) && _.op_ival && !_.op_scan_replace_lit)
