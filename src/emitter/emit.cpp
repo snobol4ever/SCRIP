@@ -826,10 +826,9 @@ extern int           is_global(const char *name);
 extern int           gva_index_of(const char *name);
 extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
-#define DRIVE_FILL(nd,s,f,b) do { \
-    bb_fill_alpha(nd); \
-    g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
-    g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
+#define DRIVE_FILL(nd,a,s,f,b) do { \
+    g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
+    g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
 #define DRIVE_PAIR_RESET()      do { g_emit.xa_bb_emit_pair_n = 0; } while(0)
 #define DRIVE_PAIR_JMP(tgt)     do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=NULL; g_emit.xa_bb_emit_pair_jmp[_i]=(tgt); } while(0)
@@ -864,7 +863,7 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
     if (e_entry) for (int k = 0; k < n; k++) if (nodes[k] == e_entry) { e_lbl = lbls[k]; break; }
     if (e_root && ir_is_generator_kind(e_root->op)) for (int k = 0; k < n; k++) if (nodes[k] == e_root) { e_beta = betas[k]; break; }
     g_emit.op_off = off; g_emit.op_sa = e_sa;
-    DRIVE_FILL(nodes[i], node_γ, node_ω, betas[i]);
+    DRIVE_FILL(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     bb_emit_x86(bb_repalt_clear());
     emit_jmp_label(e_lbl, JMP_JMP);
     emit_label_define_bb(ra_y[i]);
@@ -897,33 +896,33 @@ static void drive_unowned(IR_t *nd) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
+void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_unowned(nd); return; }
     switch (nd->op) {
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
-        g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_CHARSET:
-        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD_ICON:
     case IR_KEYWORD_ICON_GEN:
     case IR_KEYWORD_SNOBOL4:
-        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD_ASSIGN:
-        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR: {
         const char *vn = IR_LIT(nd).sval;
         if (vn && vn[0] == '&') { g_emit.op_sval = vn; g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); }
         else if (vn && is_global(vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
         else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? drive_value_slot(nd) : -1; }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_VAR_REF: {
         const char *vn = IR_LIT(nd).sval;
         if (vn && is_global(vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
         else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = drive_value_slot(nd); }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_BINOP: case IR_BINOP_TEST: {
         g_emit.op_relop_descr = 0; g_emit.op_num_real = 0; g_emit.op_arith_descr = 0; g_emit.op_gva_k1 = -1; g_emit.op_gva_k2 = -1;
@@ -932,19 +931,19 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (!g_emit.op_num_real) { sa = emit_binop_opnd_slot(bb_child0(nd)); sb = emit_binop_opnd_slot(bb_child1(nd)); }
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd); g_emit.op_binop_kind = (int)binop_slot_kind(nd);
-        DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_UNOP: case IR_UNOP_TEST: case IR_NULLTEST_VAR: {
         int sa = emit_binop_opnd_slot(bb_child0(nd));
         if (sa < 0) { drive_unowned(nd); break; }
-        g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_FIELD_GET: case IR_FIELD_VAR: {
         IR_t * obj = bb_child0(nd);
         int sa = obj ? emit_binop_opnd_slot(obj) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ASSIGN: {
         const char *vn = IR_LIT(nd).sval;
@@ -955,25 +954,25 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         }
         if (is_global(vn)) {
             g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1;
-            g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+            g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
         }
         { int voff = bb_varslot_peek(vn);
           if (voff < 0) { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort(); }
           g_emit.op_sb = voff; }
-        g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN:
     case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
-        DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_HEAD: {
         IR_t *subj = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_sa = subj ? drive_value_slot(subj) : -1;
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_RELEASE: {
         /* BB-OWNED-ζ statement-scope pivot: operand[0] = the statement's IR_MATCH_HEAD node (set by
@@ -981,51 +980,51 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
          * phases reading role 0's slot via operand[0] two cases below. */
         IR_t *hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = hd ? drive_value_slot(hd) : -1;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ASSIGN_COND: {
         IR_t *box = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
         g_emit.op_off = box ? drive_value_slot(box) : -1; g_emit.op_phase = 1;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ASSIGN_IMM: {
         IR_t *box = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
         g_emit.op_off = box ? drive_value_slot(box) : -1; g_emit.op_phase = 2;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ASSIGN_SAVE: {   /* SN4-PAT-3h phase-0: record the cursor into this node's own δ-slot */
         g_emit.op_off = drive_value_slot(nd); g_emit.op_phase = 0;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ALTERNATE: {   /* SN4-PAT-3h: n_operands==0 → phase-0 SAVE (own slot); else phase-1 RESTORE (reads save's slot) */
         IR_t *save = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         if (save) { g_emit.op_off = drive_value_slot(save); g_emit.op_phase = 1; }
         else      { g_emit.op_off = drive_value_slot(nd);   g_emit.op_phase = 0; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LEN: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LIT: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ATP: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ANY: case IR_MATCH_NOTANY: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_SPAN: {
         g_emit.x86_scratch_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX: {
         g_emit.x86_scratch_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_POS: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
@@ -1033,15 +1032,15 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (!a0) { drive_unowned(nd); break; }
         if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
         else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_REM: case IR_MATCH_ARB: {
         g_emit.x86_scratch_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_DEFER: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ARBNO: {   /* ZB-5: roles 0/3 own the slot; 1/2/4/5 read it via operand[0] (the owner).  v2 roles 3-5 additionally stage the COLLECTION geometry (op_sa=min_off, op_sb=elem_sz). */
         long ph = IR_LIT(nd).ival;
@@ -1049,7 +1048,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_off = drive_value_slot(own);
         g_emit.op_phase = (int)ph;
         if (ph >= 3) { int mo = -1, sp = 0; if (zls_arbno_geom(own, &mo, &sp)) { g_emit.op_sa = mo; g_emit.op_sb = (sp + 16 + 15) & ~15; } else { g_emit.op_sa = -1; g_emit.op_sb = -1; } }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO: {
         if (!bb_child0(nd) || !bb_child1(nd)) { drive_unowned(nd); break; }
@@ -1057,7 +1056,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sc = -1;
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO_BY: {
         if (!bb_child0(nd) || !bb_child1(nd) || nd->n_operands < 3 || !nd->operands[2]) { drive_unowned(nd); break; }
@@ -1065,14 +1064,14 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sc = drive_value_slot(nd->operands[2]);
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MAKE_LIST: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = nd->operands[i]; g_emit.op_arg_slot[i] = a ? drive_value_slot(a) : -1; }
         g_emit.op_arg_slot_n = na;
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REV_ASSIGN: {
         IR_t * lv = nd->n_operands > 1 ? nd->operands[1] : NULL;
@@ -1085,7 +1084,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
           g_emit.op_sb = voff; }
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REV_ASSIGN_VAR: {
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1095,10 +1094,10 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa  = sb;
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_GOTO:
-        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CONJUNCTION:
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         { int dst = nd_slot(nd); if (dst >= 0 && nd->n_operands > 0 && nd->operands[0]) {
@@ -1111,17 +1110,17 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } else {
             g_emit.op_sa = -1; g_emit.op_off = -1;
         } }
-        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:
     case IR_CUT:
-        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUSPEND: {
         IR_t * ev = bb_child0(nd); int sa = ev ? bb_slot_get(ev) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.lbl_t0 = g_suspend_dobody_beta ? g_suspend_dobody_beta->name : NULL; g_emit.lbl_t0_p = g_suspend_dobody_beta;
         g_emit.lbl_t1_p = lbl_β;
         g_emit.op_sb    = g_suspend_resume_slot;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SUBSCRIPT: {
         if (nd->n_operands == 2) {
@@ -1129,7 +1128,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
             int va = vb ? drive_value_slot(vb) : -1; int vs = vi ? drive_value_slot(vi) : -1;
             if (va < 0 || vs < 0) { drive_unowned(nd); break; }
             g_emit.op_a_slot = va; g_emit.op_sa = vs; g_emit.op_off = drive_value_slot(nd);
-            DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+            DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
         }
         IR_t * base = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * i1   = nd->n_operands > 1 ? nd->operands[1] : NULL;
@@ -1140,21 +1139,21 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (sa < 0 || sb < 0 || sc < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_sb = sc;
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_RANDOM: {
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = v ? drive_value_slot(v) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_DEREF: {
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = v ? drive_value_slot(v) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ASSIGN_VAR: {
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1162,7 +1161,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         int sa = v ? drive_value_slot(v) : -1; int sb = r ? drive_value_slot(r) : -1;
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SWAP: {
         IR_t * xv = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1171,11 +1170,11 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         int sb = yv ? bb_varslot_peek(IR_LIT(yv).sval) : -1;
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_PROC_VALUE: {
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CALL_VALUE: {
         IR_t * cal = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1186,7 +1185,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         for (int i = 0; i < na2; i++) { IR_t * a = nd->operands[i + 1]; g_emit.op_arg_slot[i] = a ? drive_value_slot(a) : -1; }
         g_emit.op_arg_slot_n = na2;
         g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SWAP_VAR: {
         IR_t * xv = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1194,7 +1193,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         int sa = xv ? drive_value_slot(xv) : -1; int sb = yv ? drive_value_slot(yv) : -1;
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_LIMIT: {
         IR_t * gen = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1206,13 +1205,13 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.lbl_t0   = g_limit_gen_beta ? g_limit_gen_beta->name : (lbl_β ? lbl_β->name : NULL);
         g_emit.lbl_t0_p = g_limit_gen_beta ? g_limit_gen_beta : lbl_β;
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CREATE: {
         g_emit.op_off = drive_value_slot(nd);
         g_emit.lbl_t0   = g_create_body_entry ? g_create_body_entry->name : NULL;
         g_emit.lbl_t0_p = g_create_body_entry;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ACTIVATE: {
         IR_t * ce = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1222,17 +1221,17 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa = sa;
         g_emit.op_sb = xv ? bb_slot_get(xv) : -1;
         g_emit.op_off = drive_value_slot(nd);
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CORET: {
         IR_t * pv = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = pv ? bb_slot_get(pv) : -1;
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_COFAIL: {
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MOVE_LABEL: {
         IR_t * ig = nd->n_operands > 1 ? nd->operands[1] : NULL;
@@ -1242,12 +1241,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa = av ? bb_slot_get(av) : -1;
         g_emit.lbl_t0 = g_move_label_tgt ? g_move_label_tgt->name : NULL;
         g_emit.lbl_t0_p = g_move_label_tgt;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION: {
         int off = drive_value_slot(nd);
         g_emit.op_off = off;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ITERATE: {
         IR_t * obj = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1256,12 +1255,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa = sa;
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sb  = g_emit.op_off + 16;
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_INITIAL: {
         g_emit.op_off = nd_slot(nd);
         if (g_emit.op_off < 0) { drive_unowned(nd); break; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_ENTER: {
         IR_t * subj = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1270,7 +1269,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         g_emit.op_sa = sa; g_emit.op_sb = 1;
         g_emit.op_off = drive_value_slot(nd);
         { extern int g_scan_regs_live; g_scan_regs_live++; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN: {
         g_emit.op_sb  = 0;
@@ -1278,7 +1277,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         IR_t * enter_nd = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = nd_slot(enter_nd);
         if (g_emit.op_off < 0) { drive_unowned(nd); break; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_TAB: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1286,7 +1285,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (!a0) { drive_unowned(nd); break; }
         if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
         else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_MOVE: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1294,7 +1293,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (!a0) { drive_unowned(nd); break; }
         if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
         else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_POS: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1302,7 +1301,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         if (!a0) { drive_unowned(nd); break; }
         if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
         else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_UPTO: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1312,7 +1311,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } else if (a0) {
             int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_unowned(nd); break; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_ANY: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1322,7 +1321,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } else if (a0) {
             int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_unowned(nd); break; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_MANY: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1332,7 +1331,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } else if (a0) {
             int sl = bb_slot_get(a0); g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { g_emit.op_name1 = NULL; g_emit.op_sa = -1; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_FIND: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1342,7 +1341,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } else if (a0) {
             int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_unowned(nd); break; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_MATCH: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1352,7 +1351,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } else if (a0) {
             int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_unowned(nd); break; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_BAL: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -1362,15 +1361,15 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lb
         } else if (a0) {
             int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_unowned(nd); break; }
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REPALT: {
         drive_unowned(nd); break;
     }
     case IR_FAIL:
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_RETURN:
-        DRIVE_FILL(nd, lbl_γ, lbl_ω, lbl_β); break;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     default:
         drive_unowned(nd); break;
     }
@@ -1564,7 +1563,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             IR_t *gen = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
             if (gen) for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; }
         }
-        emit_drive(nodes[i], node_γ, node_ω, betas[i]);
+        emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {

@@ -562,7 +562,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
         return s;
     }
     if (MEDIUM_BINARY) {
-        std::string s;
+        std::string s = x86("def",   "α");
         uint64_t brm = rt_proc_byref_mask(fn);
         for (int i = 0; i < (int)narg; i++)
             s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, subs[i], argbase + i * 16, _.node, i);
@@ -668,7 +668,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         return s;
     }
     if (MEDIUM_BINARY) {
-        std::string s;
+        std::string s = x86("def",   "α");
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
         uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
@@ -724,7 +724,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
         return s;
     }
     if (MEDIUM_BINARY) {
-        std::string s;
+        std::string s = x86("def",   "α");
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
         s += x86("mov", FRQ(genoff), (long)0);

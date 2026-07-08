@@ -20,7 +20,8 @@ static bb_label_t * bb_call_write_beta_target() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcws_slot_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86_frame_load64("rdi", off)
+    return x86("def",   "α")
+         + x86_frame_load64("rdi", off)
          + x86_frame_load64("rsi", off + 8)
          + x86("call", "rt_write_any_nl", fptr)
          + x86("jmp", "γ")
@@ -46,7 +47,8 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcws_binop_concat_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(const char *) = rt_write_strz_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86_frame_load64("rdi", off + 8)
+    return x86("def",   "α")
+         + x86_frame_load64("rdi", off + 8)
          + x86("call", "rt_write_strz_nl", fptr)
          + x86("jmp", "γ")
          + x86("def", "β")
@@ -54,7 +56,8 @@ static std::string bcws_binop_concat_bin(int off, bb_label_t * beta_tgt) { uint6
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcws_binop_int_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86_frame_load64("rdi", off)
+    return x86("def",   "α")
+         + x86_frame_load64("rdi", off)
          + x86("call", "rt_write_int_nl", fptr)
          + x86("jmp", "γ")
          + x86("def", "β")
