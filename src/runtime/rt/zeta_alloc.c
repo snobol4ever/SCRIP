@@ -185,9 +185,19 @@ void *rt_zls2_push(long k)
     return (void *)g_zls2_cur;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_zls2_pop/rt_zls2_release_to poison (Claude Sonnet 5, 2026-07-08 session 2) — the ZLS2 proving lever, the
+ * arena's ASan-equivalent-lite: under ZC_POISON_FILL (the compiled default) or SCRIP_ZLS2_POISON=1, every
+ * reclaimed byte is filled 0xDD, so a consumer reading a popped/released block gets loud garbage instead of
+ * silently-still-valid stale data.  Rationale from this session's own regression: the word2 bug survived TWO
+ * full crosschecks precisely because reclaimed-then-reallocated arena memory happened to hold plausible
+ * values; poison converts that silence into immediate, visible divergence.  Gated OFF by env
+ * SCRIP_ZLS2_POISON=0 for perf runs; the pop-side bounds/LIFO aborts are unconditional either way. */
+static int rt_zls2_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS2_POISON"); p = e ? (atoi(e) != 0) : (ZC_POISON == ZC_POISON_FILL); } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zls2_pop(long k)
 {
     if (!g_zls2_cur || g_zls2_cur + k > g_zls2_hi) { fprintf(stderr, "[ZLS2] pop(%ld) past arena top — unbalanced push/pop (LIFO discipline violated)\n", k); abort(); }
+    if (rt_zls2_poison()) memset(g_zls2_cur, 0xDD, (size_t)k);
     g_zls2_cur += k;
     if (getenv("SCRIP_ZLS2_TRACE")) fprintf(stderr, "[ZLS2] POP  %ld -> cur=%p (used=%ld)\n", k, (void *)g_zls2_cur, (long)(g_zls2_hi - g_zls2_cur));
 }
@@ -214,5 +224,6 @@ void rt_zls2_release_to(void *mark)
     if (m < g_zls2_cur) { fprintf(stderr, "[ZLS2] release_to(%p) BELOW cursor %p — LIFO discipline violated\n", mark, (void *)g_zls2_cur); abort(); }
     if (m > g_zls2_hi)  { fprintf(stderr, "[ZLS2] release_to(%p) past arena top %p\n", mark, (void *)g_zls2_hi); abort(); }
     if (getenv("SCRIP_ZLS2_TRACE") && m != g_zls2_cur) fprintf(stderr, "[ZLS2] RELEASE_TO %p (reclaimed %ld)\n", mark, (long)(m - g_zls2_cur));
+    if (m != g_zls2_cur && rt_zls2_poison()) memset(g_zls2_cur, 0xDD, (size_t)(m - g_zls2_cur));
     g_zls2_cur = m;
 }
