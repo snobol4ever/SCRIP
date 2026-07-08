@@ -3865,13 +3865,18 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = pf;
         *out = pd; return 1;
     }
+    if (!strcmp(fn,"CODE") && nargs == 1) {
+        extern DESCR_t code(const char *);
+        const char *cs = VARVAL_fn(args[0]);
+        *out = cs ? code(cs) : FAILDESCR; return 1;
+    }
     if (!strcmp(fn,"EVAL") && nargs == 1) {
         extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
         DESCR_t av = args[0];
         if (av.v == DT_X) { *out = rt_call_named_proc(av.s ? av.s : "", (DESCR_t *)0, 0); return 1; }
         if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
         if (av.v == DT_SNUL) { *out = NULVCL; return 1; }
-        if (av.v == DT_S) { fprintf(stderr, "[SNO] EVAL(<string>): runtime compilation of source text is outside the landed subset (EXPRESSION values only)\n"); abort(); }
+        if (av.v == DT_S) { extern DESCR_t EVAL_fn(DESCR_t); *out = EVAL_fn(av); return 1; }
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn,"VALUE") && nargs == 1) {
