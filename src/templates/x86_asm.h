@@ -1066,12 +1066,27 @@ extern "C" void  rt_zls2_release_to(void *);
  * makes the sibling rt_zls_mark call bare at the same point).  release_to_call: rdi load + bare call — the
  * caller splices it INSIDE its own existing push-rbp/and-rsp aligned window, immediately after its sibling
  * rt_zls_release_to call, so no second alignment dance is emitted. */
+extern "C" char *g_zls2_cur;
+/* x86_zls2_cur_lea(reg) — address of the exported ZLS2 cursor cell into reg, the ZC_PORT_INLINE primitive.
+ * Medium split is the sanctioned RO-load exception (R10): TEXT `lea reg,[rip+g_zls2_cur]` (resolved by the
+ * -no-pie link against libscrip_rt), BINARY movabs of the in-process address. */
+inline std::string x86_zls2_cur_lea(const char * reg) {
+    return x86_load_ro(reg, "g_zls2_cur", (uint64_t)(uintptr_t)(void *)&g_zls2_cur);
+}
 inline std::string x86_zls2_mark_save(int off) {
+    if (x86_port_mode() == ZC_PORT_INLINE)
+        return x86_zls2_cur_lea("rdi")
+             + x86("mov", "rax", RDQ("rdi", 0))
+             + x86("mov", FRQ(off), "rax");
     if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
     return x86("call", "rt_zls2_mark", (uint64_t)(uintptr_t)(void *)rt_zls2_mark)
          + x86("mov", FRQ(off), "rax");
 }
 inline std::string x86_zls2_release_to_call(int off) {
+    if (x86_port_mode() == ZC_PORT_INLINE)
+        return x86_zls2_cur_lea("rdi")
+             + x86("mov", "rax", FRQ(off))
+             + x86("mov", RDQ("rdi", 0), "rax");
     if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
     return x86("mov",  "rdi", FRQ(off))
          + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to);
@@ -1162,6 +1177,32 @@ inline std::string x86_port_hook(int site, int port) {
                + x86("mov", "rcx", RDQ("rax", 0))
                + x86("mov", FRQ(_.op_zls2_slot), "rcx")
                + x86_zls2_release_to_reg("rax", _.op_zls2_bytes);
+    }
+    /* ZC_PORT_INLINE (ZETA-INLINE first slice, 2026-07-08 s7) — the IDENTICAL grant-keyed protocol, zero C
+     * calls: raw arithmetic on the exported g_zls2_cur cell (see zeta_choices.h for what the flavor drops).
+     * Same sites, same order (BUMP saves AFTER the decrement — the slot holds THIS activation's base), same
+     * register contract (rax/rcx/rdi only, dead at DEF sites and before a port jmp; no arm at JCC — the
+     * FLAGS CONTRACT is untouched by construction since these movs are jmp/def-site only). */
+    if (x86_port_mode() == ZC_PORT_INLINE && _.op_zls2_ops && _.op_zls2_slot >= 0) {
+        if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
+            s += x86_zls2_cur_lea("rdi")
+               + x86("mov", "rax", RDQ("rdi", 0))
+               + x86_sub("rax", _.op_zls2_bytes)
+               + x86("mov", RDQ("rdi", 0), "rax")
+               + x86("mov", "rcx", FRQ(_.op_zls2_slot))
+               + x86("mov", RDQ("rax", 0), "rcx")
+               + x86("mov", FRQ(_.op_zls2_slot), "rax");
+        if (site == X86H_DEF && port == X86P_BETA && (_.op_zls2_ops & ZLS2_RESTORE))
+            s += x86_zls2_cur_lea("rdi")
+               + x86("mov", "rax", FRQ(_.op_zls2_slot))
+               + x86("mov", RDQ("rdi", 0), "rax");
+        if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
+            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
+               + x86("mov", "rcx", RDQ("rax", 0))
+               + x86("mov", FRQ(_.op_zls2_slot), "rcx")
+               + x86_add("rax", _.op_zls2_bytes)
+               + x86_zls2_cur_lea("rdi")
+               + x86("mov", RDQ("rdi", 0), "rax");
     }
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);

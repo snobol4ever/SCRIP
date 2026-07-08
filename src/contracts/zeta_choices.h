@@ -33,8 +33,22 @@
 #define ZC_PORT_PLAIN        0
 #define ZC_PORT_INSTRUMENTED 1
 #define ZC_PORT_ALLOC        2
+/* ZC_PORT_INLINE (ZETA-INLINE rung, GOAL-SNOBOL4-BB.md, first slice 2026-07-08 s7): the SAME BUMP/RESTORE/
+ * RELEASE frame protocol as ALLOC, emitted as raw cursor arithmetic on the exported g_zls2_cur cell — zero C
+ * calls, zero align dances.  The cursor stays a memory cell (not r12: repointing r12 breaks every sibling
+ * [r12+off] reference, the documented wall; the register-cursor end state waits on the activation-local-
+ * offsets contract).  Dropped vs ALLOC by design: poison, telemetry, trace, LIFO aborts, the exhaustion bomb
+ * (overflow protection = the unmapped address space below the MAP_NORESERVE reserve — a touch below g_zls2_lo
+ * faults; the ZC_OVF_GUARD idea for free).  ALLOC remains the proving flavor; INLINE is the perf flavor.
+ * Select with SCRIP_ZETA_PORT=3. */
+#define ZC_PORT_INLINE       3
+/* DEFAULT RULING (Lon session directive 2026-07-08 s7: "Finish optimized BB memory allocation where it's all
+ * routed through x86_*() port hooks"): INLINE is the compiled default — proven watermark-EXACT both modes,
+ * Icon/Prolog crosschecks clean, zero gate regressions, adversarial ARBNO micro 2150ms→419ms (5.2×, parity
+ * with PLAIN), pattern_bt outputs identical.  SCRIP_ZETA_PORT=2 remains the ALLOC proving flavor (poison,
+ * telemetry, LIFO aborts); =0 PLAIN; =1 INSTRUMENTED. */
 #ifndef ZC_PORT
-#define ZC_PORT ZC_PORT_ALLOC
+#define ZC_PORT ZC_PORT_INLINE
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_INIT_ZERO  0
