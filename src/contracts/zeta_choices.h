@@ -5,8 +5,13 @@
 #define ZC_ALLOC_BUMP_LIFO     1
 #define ZC_ALLOC_MALLOC        2
 #define ZC_ALLOC_GC            3
+/* Lon ruling 2026-07-08 s6: TWO zeta lifetime classes, two providers, zero globals. Control-flow-lifetime
+ * zeta rides the ZLS2 down-arena (the stack; r12-destined). LONG-LIVED zeta — persists its data state, freed
+ * independent of control flow (suspended generator frames, COLLECTION captures) — lives on the HEAP: the v1
+ * rt_zls_alloc/release pair IS that heap provider (malloc + GC roots, per-block free). The v1 up-arena is
+ * therefore retired from the default build (never mmapped under MALLOC). */
 #ifndef ZC_ALLOC
-#define ZC_ALLOC ZC_ALLOC_BUMP_LIFO
+#define ZC_ALLOC ZC_ALLOC_MALLOC
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_COL_MALLOC 0
