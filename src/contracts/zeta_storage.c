@@ -287,13 +287,15 @@ int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
  * the ZLS2_* ops bitmask (zeta_choices.h): which injections the port hook fires for this node.  The grant IS
  * the ω-death classifier: ZLS2_RELEASE is awarded ONLY to roles whose jmp-ω sites are STATICALLY all
  * activation-death (construct-role knowledge — never the op_omega_is_death chain-window classifier, recorded
- * broken in bb_match_arbno.cpp's L(9) note).  Per-role mapping:
- *   IR_MATCH_ARB        BUMP|RESTORE|RELEASE  α pushes; β (retry) restores the cursor to this frame,
- *                                             reclaiming failed successors; its single exhaust ω is always
- *                                             this activation's death → release.
- *   IR_MATCH_ARBNO ph0  BUMP|RESTORE          α pushes; β (EXTEND, a backtrack arrival — v1 never re-opens
- *                                             completed iterations, so nothing below is live) restores.  Its
- *                                             β-arm jmp ω is the BODY-ENTRY ALIAS → never release here.
+ * broken in bb_match_arbno.cpp's L(9) note).  ⛔ RULING (Lon, 2026-07-08 s7): ONLY α AND ω PARTICIPATE IN
+ * MEMORY ALLOCATION.  Under pure LIFO the ω that lands on a β has already put the cursor right (its own
+ * RELEASE fired at death), so a β restore is always a no-op — exactly what the ALLOC-flavor traces observed
+ * ("silent no-op restores under clean LIFO").  ZLS2_RESTORE is therefore never granted; frames of roles whose
+ * own ω is an alias (ARBNO ph0) die at ph2's release / the statement backstop.  Per-role mapping:
+ *   IR_MATCH_ARB        BUMP|RELEASE          α pushes; its single exhaust ω is always this activation's
+ *                                             death → release.
+ *   IR_MATCH_ARBNO ph0  BUMP                  α pushes.  Its β-arm jmp ω is the BODY-ENTRY ALIAS → never
+ *                                             release here; ph2's release (same slot, chained) frees it.
  *   IR_MATCH_ARBNO ph1  0                     forward-flow landing; its jmp ω aliases into ph2 → no ops.
  *   IR_MATCH_ARBNO ph2  RELEASE               its single jmp ω is the construct's outer-fail true death →
  *                                             unchain + release ph0's frame (and stray body frames below).
@@ -301,10 +303,10 @@ int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
  * Returns 0 (no participation) for every other node kind — the hook stays inert exactly where it is today. */
 int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
     if (!nd || base_off < 0) return 0;
-    if (nd->op == IR_MATCH_ARB)   { if (slot_off) *slot_off = base_off + 8;  if (k) *k = 16; return ZLS2_BUMP | ZLS2_RESTORE | ZLS2_RELEASE; }
+    if (nd->op == IR_MATCH_ARB)   { if (slot_off) *slot_off = base_off + 8;  if (k) *k = 16; return ZLS2_BUMP | ZLS2_RELEASE; }
     if (nd->op == IR_MATCH_ARBNO) {
         long ph = IR_LIT(nd).ival;
-        int ops = ph == 0 ? (ZLS2_BUMP | ZLS2_RESTORE) : ph == 2 ? ZLS2_RELEASE : 0;
+        int ops = ph == 0 ? ZLS2_BUMP : ph == 2 ? ZLS2_RELEASE : 0;
         if (!ops) return 0;   /* ph1 / v2: outputs UNWRITTEN — bytes>0 with ops==0 is the DORMANT direct-sub arm's key (sub ZR,K!) and must never be reachable from this path */
         if (slot_off) *slot_off = base_off + 16;
         if (k) *k = 32;
