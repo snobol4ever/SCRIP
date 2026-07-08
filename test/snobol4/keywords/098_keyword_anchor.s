@@ -132,6 +132,8 @@ main_α_body:
  xchain0_n6_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 136], rax
+ call rt_zls2_mark@PLT
+ mov qword ptr [r12 + 144], rax
  mov rdi, qword ptr [r12 + 160]
  mov rsi, qword ptr [r12 + 168]
  call rt_match_enter@PLT
@@ -157,6 +159,8 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 136]
  call rt_zls_release_to@PLT
+ mov rdi, qword ptr [r12 + 144]
+ call rt_zls2_release_to@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain0_n7_α
@@ -214,6 +218,8 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 136]
  call rt_zls_release_to@PLT
+ mov rdi, qword ptr [r12 + 144]
+ call rt_zls2_release_to@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain0_n11_α
@@ -257,6 +263,8 @@ main_α_body:
  xchain0_n14_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 216], rax
+ call rt_zls2_mark@PLT
+ mov qword ptr [r12 + 224], rax
  mov rdi, qword ptr [r12 + 240]
  mov rsi, qword ptr [r12 + 248]
  call rt_match_enter@PLT
@@ -282,6 +290,8 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 216]
  call rt_zls_release_to@PLT
+ mov rdi, qword ptr [r12 + 224]
+ call rt_zls2_release_to@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain0_n15_α
@@ -339,6 +349,8 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 216]
  call rt_zls_release_to@PLT
+ mov rdi, qword ptr [r12 + 224]
+ call rt_zls2_release_to@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain0_n19_α
