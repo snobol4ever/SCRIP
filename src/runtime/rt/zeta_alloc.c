@@ -163,3 +163,56 @@ void *rt_zls2_init(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_zls2_lo(void) { return (void *)g_zls2_lo; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_zls2_push/rt_zls2_pop (Claude, 2026-07-08 continuation session) — the ZLS2 arena's FIRST-CONSUMER bump
+ * pair, the C-helper form of the design's own-constant discipline: push = cursor -= K (down-growth), pop =
+ * cursor += K, K always the CALLER's own emit-time frame constant, so a pop needs no size lookup, no header,
+ * no walk — exactly the `sub r12,K` / `add r12,K` end state, held in a memory cursor instead of r12 because
+ * r12 is still the graph frame base today (repointing it breaks every sibling [r12+off] reference — the
+ * documented wall in GOAL-SNOBOL4-BB.md).  The pair migrates INTO emitted code (register cursor) when the
+ * proc trampoline retires and rsp becomes the frame pointer; until then this is the bare bump with a bounds
+ * check.  NO zeroing (the ZLS2 contract: a consumer writes every field it reads before reading it), NO
+ * per-block header, NO GC-root chunking (whole reserve rooted once at init, see rt_zls2_init above).
+ * LIFO enforcement: pop past hi aborts loudly; push past lo aborts loudly (exhaustion).  SCRIP_ZLS2_TRACE=1
+ * prints every push/pop with the cursor so alloc/free balance is auditable event-by-event. */
+static char *g_zls2_cur = (char *)0;
+void *rt_zls2_push(long k)
+{
+    if (!g_zls2_cur) { rt_zls2_init(); g_zls2_cur = g_zls2_hi; }
+    if (g_zls2_cur - k < g_zls2_lo) { fprintf(stderr, "[ZLS2] arena exhausted on push(%ld) — raise ZC_ZLS2_MB\n", k); abort(); }
+    g_zls2_cur -= k;
+    if (getenv("SCRIP_ZLS2_TRACE")) fprintf(stderr, "[ZLS2] PUSH %ld -> cur=%p (used=%ld)\n", k, (void *)g_zls2_cur, (long)(g_zls2_hi - g_zls2_cur));
+    return (void *)g_zls2_cur;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_zls2_pop(long k)
+{
+    if (!g_zls2_cur || g_zls2_cur + k > g_zls2_hi) { fprintf(stderr, "[ZLS2] pop(%ld) past arena top — unbalanced push/pop (LIFO discipline violated)\n", k); abort(); }
+    g_zls2_cur += k;
+    if (getenv("SCRIP_ZLS2_TRACE")) fprintf(stderr, "[ZLS2] POP  %ld -> cur=%p (used=%ld)\n", k, (void *)g_zls2_cur, (long)(g_zls2_hi - g_zls2_cur));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_zls2_mark/rt_zls2_release_to — the ZLS2 twins of rt_zls_mark/rt_zls_release_to above, same statement-
+ * scope backstop role: IR_MATCH_HEAD marks the cursor once at match entry; the ONE exit the statement
+ * actually takes (head's own ω-choke on failure, IR_MATCH_RELEASE's α on success) releases back to the mark.
+ * This is what reclaims a v1 ARBNO activation whose match SUCCEEDED and therefore left via the pattern's
+ * success join without ever reaching its own role-2 pop — the success-path leak, closed the same way the
+ * prior session closed it for the up-growing arena.  Release-to is idempotent with role 2's own eager pop
+ * (an already-popped cursor equals the mark; setting it to the mark is then a no-op), and releasing to a
+ * mark BELOW the cursor is impossible under LIFO — enforced loudly. */
+void *rt_zls2_mark(void)
+{
+    if (!g_zls2_cur) { rt_zls2_init(); g_zls2_cur = g_zls2_hi; }
+    if (getenv("SCRIP_ZLS2_TRACE")) fprintf(stderr, "[ZLS2] MARK cur=%p\n", (void *)g_zls2_cur);
+    return (void *)g_zls2_cur;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_zls2_release_to(void *mark)
+{
+    char *m = (char *)mark;
+    if (!m) return;
+    if (m < g_zls2_cur) { fprintf(stderr, "[ZLS2] release_to(%p) BELOW cursor %p — LIFO discipline violated\n", mark, (void *)g_zls2_cur); abort(); }
+    if (m > g_zls2_hi)  { fprintf(stderr, "[ZLS2] release_to(%p) past arena top %p\n", mark, (void *)g_zls2_hi); abort(); }
+    if (getenv("SCRIP_ZLS2_TRACE") && m != g_zls2_cur) fprintf(stderr, "[ZLS2] RELEASE_TO %p (reclaimed %ld)\n", mark, (long)(m - g_zls2_cur));
+    g_zls2_cur = m;
+}

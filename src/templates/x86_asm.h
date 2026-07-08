@@ -555,6 +555,7 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [r12 + %d]", off); return b[i]; }
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
+inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_load64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
@@ -572,6 +573,24 @@ inline std::string x86_reg_disp32_store64(const char * base, int disp, const cha
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
     return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_load32(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return std::string(" mov ") + dst + ", dword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_store32(const char * base, int disp, const char * src) {
+    int g = x86_rnum(src), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x89; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return std::string(" mov dword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long imm) {
@@ -663,7 +682,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_SYM, XK_ROSLOT, XK_EXTLBL };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -698,6 +717,9 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
     if (!strncmp(s, "dword ptr [r12 + ", 17)) { o.kind = XK_FR32;  o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [r12 + ", 17)) { o.kind = XK_FR64;  o.off = atoi(s + 17); return; }
+    if (!strncmp(s, "dword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
+      if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
+        char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP32; o.off = (int)d; return; } } }
     if (!strncmp(s, "qword ptr [rip + ", 17)) { o.kind = XK_ROSLOT; o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [rsp + ", 17)) { o.kind = XK_RSP64; o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
@@ -813,6 +835,8 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_REGDISP && b.kind == XK_REG)  return x86_reg_disp32_store64(a.base, a.off, b.txt);
         if (a.kind == XK_REGDISP && b.kind == XK_IMM)  return x86_reg_disp32_store_imm64(a.base, a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REGDISP)  return x86_reg_disp32_load64(a.txt, b.base, b.off);
+        if (a.kind == XK_REGDISP32 && b.kind == XK_REG)  return x86_reg_disp32_store32(a.base, a.off, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP32)  return x86_reg_disp32_load32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_MEMIDX8)  return x86_load_indexed8(a.txt, b.base, b.idx);
         if (a.kind == XK_REG && b.kind == XK_MEMIND)   return x86_load_mem64(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)  return x86_load_ro(a.txt, xd.s, xc.u);
@@ -883,6 +907,28 @@ inline std::string x86_zeta_free_call() {
 }
 extern "C" void *rt_zls_mark(void);
 extern "C" void  rt_zls_release_to(void *);
+extern "C" void *rt_zls2_mark(void);
+extern "C" void  rt_zls2_release_to(void *);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_zls2_mark_save(off) / x86_zls2_release_to_call(off) — the ZLS2 statement-scope backstop pair (Claude,
+ * 2026-07-08 continuation session), the ZC_PORT_ALLOC twins of x86_zeta_mark_call/x86_zeta_release_to_call
+ * below.  Both return the EMPTY string unless the port mode is ZC_PORT_ALLOC (SCRIP_ZETA_PORT=2), so every
+ * PLAIN/INSTRUMENTED compile is byte-identical with these spliced into a template — the same gated-helper
+ * idiom as x86_arbno_role0_alloc (bb_match_arbno.cpp).  mark_save: bare call (rax = cursor) + store to the
+ * caller's granted frame quad — placed where alignment is already the caller's problem solved (the head α
+ * makes the sibling rt_zls_mark call bare at the same point).  release_to_call: rdi load + bare call — the
+ * caller splices it INSIDE its own existing push-rbp/and-rsp aligned window, immediately after its sibling
+ * rt_zls_release_to call, so no second alignment dance is emitted. */
+inline std::string x86_zls2_mark_save(int off) {
+    if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
+    return x86("call", "rt_zls2_mark", (uint64_t)(uintptr_t)(void *)rt_zls2_mark)
+         + x86("mov", FRQ(off), "rax");
+}
+inline std::string x86_zls2_release_to_call(int off) {
+    if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
+    return x86("mov",  "rdi", FRQ(off))
+         + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,
  * pure x86() concatenation, same as x86_zeta_free_call above and every other encoder in this file: zero

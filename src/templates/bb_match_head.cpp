@@ -27,6 +27,11 @@ std::string bb_match_head() {
           * this same slot via operand[0] at the statement's true success exit. */
          + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
          + x86("mov", FRQ(_.op_off + 8), "rax")
+         /* ZLS2 twin (ZC_PORT_ALLOC only, inert otherwise): mark the ZLS2 cursor at the same statement
+          * entry, into the second quad (+16, zeta_storage.c).  Same placement rationale as the line above:
+          * before rt_match_enter, stored immediately, read back by this node's own failure choke L(1) and
+          * by IR_MATCH_RELEASE's success alpha.  Closes the v1-ARBNO success-path leak on the ZLS2 arena. */
+         + x86_zls2_mark_save(_.op_off + 16)
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
@@ -60,6 +65,7 @@ std::string bb_match_head() {
          + x86("and",  "rsp", -16L)
          + x86("mov",  "rdi", FRQ(_.op_off + 8))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
+         + x86_zls2_release_to_call(_.op_off + 16)
          + x86("mov",  "rsp", "rbp")
          + x86("pop",  "rbp")
          + x86("jmp",  "ω");
