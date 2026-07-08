@@ -5,6 +5,9 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
+extern int rt_proc_is_registered(const char *);
+extern int rt_proc_is_generator(const char *);
+static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZLS_MAX_ENTRIES 65536
 #define ZLS_MAX_FIELDS  131072
@@ -155,10 +158,21 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
         zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
         return 2 + nd->n_operands;
+    case IR_PROC_GEN:
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
+        zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
+        zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+        return 2 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
             zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
             for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
+            if (nd->op == IR_CALL_PROC_STAGED && zls_callee_is_gen(nd)) {
+                zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
+                zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+                return 2 + nd->n_operands;
+            }
             return 1 + nd->n_operands;
         }
         if (ir_node_produces_value(nd->op)) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "value", nd); return 1; }

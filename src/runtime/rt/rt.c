@@ -410,58 +410,39 @@ int64_t rt_initial_fire(int64_t site)
     if (g_initial_fired_n < RT_INITIAL_MAX) g_initial_fired[g_initial_fired_n++] = site;
     return 1;
 }
-#define RT_GEN_ACT_MAX 256
-typedef struct { char *frame; bb_box_fn fn; } rt_gen_act_t;
-static rt_gen_act_t g_gen_act[RT_GEN_ACT_MAX];
-static int          g_gen_act_top = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 {
     rt_proc_t *p = (rt_proc_t *)0;
     for (int i = 0; i < g_rt_gen_proc_count; i++)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
-    if (!p || !p->fn) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator '%s' has no stackless slab\n", name ? name : "(null)"); abort(); }
-    if (g_gen_act_top >= RT_GEN_ACT_MAX) { fprintf(stderr, "[SUSP] rt_proc_call_gen: generator activation depth exceeded (%d)\n", RT_GEN_ACT_MAX); abort(); }
+    if (!p || !p->fn) { fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); abort(); }
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    char *fb = (char *)rt_zls_alloc((long)fbytes);
-    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
+    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    long total = 16L + (long)fbytes;
+    char *base = (char *)rt_zls_alloc(total);
+    char *fb = base + 16;
+    ((void **)base)[0] = (void *)p->fn;
+    ((long *)base)[1] = total;
+    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     if (hout) *hout = (void *)fb;
-    g_gen_act[g_gen_act_top].frame = fb;
-    g_gen_act[g_gen_act_top].fn    = p->fn;
-    g_gen_act_top++;
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    if (IS_FAIL(result)) { g_gen_act_top--; rt_zls_release((void *)fb); }
-    return result;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_gen(const char *name, int nargs)
-{
-    return rt_proc_call_gen_h(name, nargs, (void **)0);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_resume_gen(void)
-{
-    if (g_gen_act_top <= 0) return FAILDESCR;
-    rt_gen_act_t *a = &g_gen_act[g_gen_act_top - 1];
-    (void)a->fn((void *)a->frame, 1);
-    DESCR_t result = *(DESCR_t *)(a->frame + 0);
-    if (IS_FAIL(result)) { g_gen_act_top--; rt_zls_release((void *)a->frame); }
+    if (IS_FAIL(result)) { if (hout) *hout = (void *)0; rt_zls_release((void *)base); }
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_resume_frame(void *frame)
 {
-    if (!frame) return FAILDESCR;
-    int idx = -1;
-    for (int i = g_gen_act_top - 1; i >= 0; i--) if ((void *)g_gen_act[i].frame == frame) { idx = i; break; }
-    if (idx < 0) return FAILDESCR;
-    rt_gen_act_t *a = &g_gen_act[idx];
-    (void)a->fn((void *)a->frame, 1);
-    DESCR_t result = *(DESCR_t *)(a->frame + 0);
-    if (IS_FAIL(result)) { for (int j = idx; j < g_gen_act_top - 1; j++) g_gen_act[j] = g_gen_act[j + 1]; g_gen_act_top--; rt_zls_release(frame); }
+    char *fb = (char *)frame;
+    if (!fb) return FAILDESCR;
+    char *base = fb - 16;
+    bb_box_fn fn = (bb_box_fn)((void **)base)[0];
+    long total = ((long *)base)[1];
+    (void)fn((void *)fb, 1);
+    DESCR_t result = *(DESCR_t *)(fb + 0);
+    if (IS_FAIL(result)) { (void)total; rt_zls_release((void *)base); }
     return result;
 }
 typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;
