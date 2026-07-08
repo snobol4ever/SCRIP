@@ -274,6 +274,45 @@ int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* zls2_geom — the ZLS2 per-activation frame-protocol geometry authority (Lon directive, 2026-07-08 session:
+ * "templates instrumented through x86's α/β/γ/ω with code injection of stack frame bump, restore on
+ * backtrack, and release on exit").  This file already OWNS the save-slot layout (the zls_field grants above
+ * name "arb.zls2" at +8 and "arbno.zls2" at +16), so the per-node protocol geometry lives here too — ONE
+ * authority, queried at the emit dispatch point (the zls_arbno_geom precedent) and promoted into g_emit for
+ * the central port hook in x86_asm.h.  Inputs: nd = the node; base_off = the node's ALREADY-RESOLVED frame
+ * base (x86_scratch_off for ARB, op_off for ARBNO — owner resolution via operand[0] for phases 1/2 happens
+ * at dispatch, exactly as the templates read it today).  Outputs: *slot_off = absolute frame offset of the
+ * activation-block save slot; *k = ZLS2 block size (the former template-private ARB_ZLS2_K/ARBNO_ZLS2_K
+ * constants, relocated here — block layouts documented at the grants above and in the templates).  Returns
+ * the ZLS2_* ops bitmask (zeta_choices.h): which injections the port hook fires for this node.  The grant IS
+ * the ω-death classifier: ZLS2_RELEASE is awarded ONLY to roles whose jmp-ω sites are STATICALLY all
+ * activation-death (construct-role knowledge — never the op_omega_is_death chain-window classifier, recorded
+ * broken in bb_match_arbno.cpp's L(9) note).  Per-role mapping:
+ *   IR_MATCH_ARB        BUMP|RESTORE|RELEASE  α pushes; β (retry) restores the cursor to this frame,
+ *                                             reclaiming failed successors; its single exhaust ω is always
+ *                                             this activation's death → release.
+ *   IR_MATCH_ARBNO ph0  BUMP|RESTORE          α pushes; β (EXTEND, a backtrack arrival — v1 never re-opens
+ *                                             completed iterations, so nothing below is live) restores.  Its
+ *                                             β-arm jmp ω is the BODY-ENTRY ALIAS → never release here.
+ *   IR_MATCH_ARBNO ph1  0                     forward-flow landing; its jmp ω aliases into ph2 → no ops.
+ *   IR_MATCH_ARBNO ph2  RELEASE               its single jmp ω is the construct's outer-fail true death →
+ *                                             unchain + release ph0's frame (and stray body frames below).
+ *   ARBNO v2 (ph3/4/5)  0                     rt_zcol COLLECTION machinery, not ZLS2 — untouched.
+ * Returns 0 (no participation) for every other node kind — the hook stays inert exactly where it is today. */
+int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
+    if (!nd || base_off < 0) return 0;
+    if (nd->op == IR_MATCH_ARB)   { if (slot_off) *slot_off = base_off + 8;  if (k) *k = 16; return ZLS2_BUMP | ZLS2_RESTORE | ZLS2_RELEASE; }
+    if (nd->op == IR_MATCH_ARBNO) {
+        long ph = IR_LIT(nd).ival;
+        int ops = ph == 0 ? (ZLS2_BUMP | ZLS2_RESTORE) : ph == 2 ? ZLS2_RELEASE : 0;
+        if (!ops) return 0;   /* ph1 / v2: outputs UNWRITTEN — bytes>0 with ops==0 is the DORMANT direct-sub arm's key (sub ZR,K!) and must never be reachable from this path */
+        if (slot_off) *slot_off = base_off + 16;
+        if (k) *k = 32;
+        return ops;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }

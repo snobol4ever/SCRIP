@@ -302,12 +302,27 @@ inline const char * x86_fr64_prefix() { static char b[32]; static int done; if (
  * freedom fire at X86H_DEF and X86H_JMP only (arrival at a label kills flag liveness by this codebase's own
  * convention — the pre-existing α ALLOC sub already relies on that).  This is exactly why the canary was
  * historically wired at x86_jmp and never x86_jcc; the constraint is now stated instead of implicit.
- * Current flavors, relocated here verbatim from their former inline homes (byte-identical under defaults):
+ * ZLS2 FRAME PROTOCOL (2026-07-08 session 3, Lon: "code injection of stack frame bump, restore on backtrack,
+ * and release on exit ... the templates stay untouched for this entire operation"): the protocol rides the
+ * THREE EXISTING sites — no new site, no template marker.  BUMP at the α define, RESTORE at the β define
+ * (backtrack arrival = the fail-direction bulk release), RELEASE before a jmp-ω — gated per node by the
+ * zls2_geom grant (zeta_storage.c), which awards RELEASE only to roles whose ω-jumps are STATICALLY all
+ * activation-death (role knowledge; the op_omega_is_death chain classifier is recorded broken and is NOT
+ * consulted — see the definition's ⛔ note below x86_zls2_pop_call).  Same seam, same reach, for future
+ * trace/assert/GC flavors.
+ * Current flavors (canary/trace relocated verbatim session 2; frame protocol added session 3):
  *   INSTRUMENTED canary (X86H_JMP)          — test ZR,ZR / jnz +2 / ud2: the R12-wiring assert, D13's sibling.
  *   ω compile-time trace (X86H_JMP, env)    — SCRIP_ZETA_OMEGA_TRACE: which ω sites exist + death class.
- *   ZLS2 α self-alloc (X86H_DEF, ALLOC)     — sub ZR,K from the per-node grant; free NEVER hooked centrally
- *                                             (six-decoy-ω finding) — a construct places x86_zls2_free() at
- *                                             its own single true-exit label. */
+ *   ZLS2 FRAME PROTOCOL (ALLOC, ops-gated)  — per-node op_zls2_{ops,slot,bytes} from zls2_geom: BUMP at the
+ *                                             α define, RESTORE at the β define, RELEASE at grant-marked
+ *                                             jmp-ω.  See the definition below x86_zls2_pop_call for the
+ *                                             instruction sequences and their contracts.
+ *   ZLS2 α direct-sub (X86H_DEF, ALLOC)     — DORMANT (bytes>0 && ops==0): sub ZR,K, the recorded future
+ *                                             full-discipline design for boxes that never touch the graph
+ *                                             frame; its free twin is x86_zls2_free() at a template exit.
+ * DEFINITION ORDER NOTE: x86_port_hook's BODY moved below x86_zls2_push_call/pop_call (which it now calls),
+ * the same forward-decl-then-define-after-x86() pattern x86_zeta_free_call uses; the decl at the site enum
+ * keeps x86_jmp/x86_jcc/x86_deflabel compiling here. */
 inline std::string x86_sub(const char * reg, long imm);
 inline std::string x86_port_canary() {
     if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
@@ -317,15 +332,6 @@ inline std::string x86_port_canary() {
         return x86_Lrec(x86_b3(rex, 0x85, modrm) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
     }
     return std::string(" test ") + x86_zr() + ", " + x86_zr() + "\n jnz 1f\n ud2\n1:\n";
-}
-inline std::string x86_port_hook(int site, int port) {
-    std::string s;
-    if (site == X86H_JMP) s += x86_port_canary();
-    if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
-        fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
-    if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC)
-        s += x86_sub(x86_zr(), _.op_zls2_bytes);
-    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_free_call() — emits `call rt_zls_release(r12)`, alignment-safe (push rbp/and rsp,-16/restore, the
@@ -386,7 +392,7 @@ inline std::string x86_deflabel(int port) {
 /* ZLS2 ω-side free: the box's own-constant up-bump, placed by the TEMPLATE at its single true-exit label,
  * immediately before the final jmp "ω".  Reads the same per-node grant as the hook's α arm; same dormancy. */
 inline std::string x86_zls2_free() {
-    if (_.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC) return x86_add(x86_zr(), _.op_zls2_bytes);
+    if (_.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC) return x86_add(x86_zr(), _.op_zls2_bytes);
     return std::string();
 }
 enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
@@ -1075,6 +1081,68 @@ inline std::string x86_zls2_pop_call(long k) {
          + x86("mov",  "rdi", k)
          + x86("call", "rt_zls2_pop", (uint64_t)(uintptr_t)(void *)(void (*)(long))rt_zls2_pop)
          + x86_align_leave();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_port_hook DEFINITION (declared at the site enum; the seam doc lives there).  ZLS2 FRAME PROTOCOL (Lon
+ * directive 2026-07-08 session 3: "code injection of stack frame bump, restore on backtrack, and release on
+ * exit ... the templates stay untouched") — the whole protocol is injected at the templates' EXISTING port
+ * calls; no template names any of this.  Keyed on the per-node zls2_geom grant (op_zls2_{ops,slot,bytes},
+ * zeta_storage.c), fully inert at ZC_PORT_PLAIN and for ungranted nodes in every mode.  The arms:
+ *   BUMP (DEF+α, ops&ZLS2_BUMP)     rt_zls2_push(K); block->prev = save-slot; save-slot = block.  A fresh
+ *                                   per-activation arena frame, prev-chained for same-node nesting (DP-7).
+ *   RESTORE (DEF+β, ops&RESTORE)    rt_zls2_release_to(save-slot block): a β define IS the backtrack
+ *                                   arrival, and everything the failed successors allocated below this
+ *                                   frame is dead — one cursor reset reclaims it all.  This is the
+ *                                   FAIL-DIRECTION release: a mid-pattern node's exhaust ω lands on its
+ *                                   predecessor's β, and it is THAT restore which frees the exhausted
+ *                                   frame (the stack discipline: reclamation belongs to the frame you fail
+ *                                   INTO).  Idempotent (release_to at the cursor is a no-op), and
+ *                                   rt_zls2_release_to hard-aborts on a LIFO violation — a free assert.
+ *   RELEASE (JMP+ω, ops&RELEASE)    unchain (save-slot = block->prev) + rt_zls2_release_to(block+K): the
+ *                                   frame itself dies when failure leaves the construct for good.  ⛔ Gated
+ *                                   ONLY by the grant, NEVER by op_omega_is_death — the chain-window
+ *                                   classifier is recorded BROKEN (bb_match_arbno.cpp's L(9) note: an
+ *                                   IR_MATCH_HEAD sharing the window makes role 2 look resolved).  zls2_geom
+ *                                   grants RELEASE only to roles whose jmp-ω sites are STATICALLY all
+ *                                   activation-death (ARB's single exhaust ω; ARBNO role 2's single outer-
+ *                                   fail ω) — role knowledge is the classifier, so the six-decoy-ω trap
+ *                                   (ARBNO roles 0/1's ω = body-entry/exhaust ALIASES) cannot fire it.
+ * Register contract: rax/rcx/rdi + C-call caller-saved clobbered at DEF sites and before a port jmp — dead
+ * at both by this codebase's convention (r12-r15/rbx/rbp callee-saved through the rt_zls2 calls).  The
+ * X86H_JCC flags contract is untouched: no frame arm fires at JCC.  γ carries NO frame arm (success hands
+ * the live frame down); the seam still fires there for future trace/assert flavors.  The dormant direct-sub
+ * α arm (bytes>0 && ops==0) is the recorded future full-discipline design — preserved, disjoint from the
+ * C-call scheme (zls2_geom grants always set ops). */
+extern "C" void rt_zls2_release_to(void *);
+inline std::string x86_zls2_release_to_reg(const char * reg, long disp) {
+    return x86_align_enter()
+         + (disp ? (x86("mov", "rdi", reg) + x86("add", "rdi", disp)) : x86("mov", "rdi", reg))
+         + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls2_release_to)
+         + x86_align_leave();
+}
+inline std::string x86_port_hook(int site, int port) {
+    std::string s;
+    if (site == X86H_JMP) s += x86_port_canary();
+    if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
+        fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
+    if (x86_port_mode() == ZC_PORT_ALLOC && _.op_zls2_ops && _.op_zls2_slot >= 0) {
+        if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
+            s += x86_zls2_push_call(_.op_zls2_bytes)
+               + x86("mov", "rcx", FRQ(_.op_zls2_slot))
+               + x86("mov", RDQ("rax", 0), "rcx")
+               + x86("mov", FRQ(_.op_zls2_slot), "rax");
+        if (site == X86H_DEF && port == X86P_BETA && (_.op_zls2_ops & ZLS2_RESTORE))
+            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
+               + x86_zls2_release_to_reg("rax", 0);
+        if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
+            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
+               + x86("mov", "rcx", RDQ("rax", 0))
+               + x86("mov", FRQ(_.op_zls2_slot), "rcx")
+               + x86_zls2_release_to_reg("rax", _.op_zls2_bytes);
+    }
+    if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
+        s += x86_sub(x86_zr(), _.op_zls2_bytes);
+    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,

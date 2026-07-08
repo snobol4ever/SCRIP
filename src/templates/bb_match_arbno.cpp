@@ -59,24 +59,21 @@ static std::string x86_arbno_role2_free() {
          + x86_align_leave();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZLS2 FIRST CONSUMER (Claude, 2026-07-08 continuation session, Lon: "Get Zeta ARENA working well") — ARBNO
- * v1 per-activation frame ON the ZLS2 down-growing arena, gated on ZC_PORT_ALLOC (SCRIP_ZETA_PORT=2), fully
- * inert otherwise.  This is the save-slot-in-frame design the prior session's NEXT named: the activation
- * STATE (entry/yield/cur_before, the three cursors that under ZC_PORT_PLAIN live in the ONE static graph-
- * frame quad and clobber under re-entry — the documented ARBNO casualty) moves INTO a per-activation 32-byte
- * ZLS2 block; the CURRENT activation's block pointer lives in a per-node granted graph-frame save slot
- * (FRQ(op_off+16), zeta_storage.c); the block's own header (+0) chains the PREVIOUS activation's pointer, so
- * nested/re-entrant activations of the SAME node push/pop correctly — the single-static-carrier hazard the
- * SELFLOAD=4 slice documented is structurally gone.  r12 is NEVER repointed (every sibling [r12+off] is
- * untouched — the GOAL file's own wall); the block is reached through a scratch register loaded from the
- * save slot at each role port.  Free is the own-constant pop at role 2's true exit (immediately before the
- * L(9) single-exit label), never central (six-decoy-ω finding).  Block layout (ARBNO_ZLS2_K = 32):
- * {+0 prev block ptr (8B), +8 entry δ (4B), +12 yield δ (4B), +16 cur_before (4B), +20 pad}.  Fields are
- * written before read on every path (α writes entry/yield; β writes cur_before before role 1 reads it; role
- * 2 reads entry written at α), so the arena's no-zeroing contract holds.  x86_zls2_push_call/pop_call now
- * live in x86_asm.h (2nd-consumer session, promoted so bb_match_arb.cpp can share them — was a private static
- * pair here before, zero behavior change). */
-enum { ARBNO_ZLS2_K = 32 };
+/* ONE BODY, FLAVOR-INVISIBLE (Lon directive 2026-07-08 session 3, same removal as bb_match_arb.cpp — see the
+ * fuller note there): the former ZC_PORT_ALLOC arms of roles 0/1/2 (state-in-ZLS2-block, hand-placed
+ * push/load/pop) are DELETED; a template never branches on a flavor axis.  Under SCRIP_ZETA_PORT=2 the ZLS2
+ * frame protocol is INJECTED at these roles' own port emissions by x86_port_hook (x86_asm.h), driven by
+ * per-role zls2_geom grants (zeta_storage.c, slot = op_off+16, K = 32): role 0 BUMP|RESTORE — x86("def","α")
+ * bumps a per-activation frame, x86("def","β") (EXTEND, a backtrack arrival: everything downstream has
+ * failed, and v1 never re-opens completed iterations, so nothing below this frame is live) restores the
+ * cursor to it; role 1 no grant (forward-flow landing, its jmp ω is the internal alias to F); role 2 RELEASE —
+ * its single x86("jmp","ω") is STATICALLY this construct's true death (role knowledge, NOT the
+ * op_omega_is_death chain classifier the L(9) note below records as broken), so the hook releases role 0's
+ * frame there (unchain + release_to(block+K), which also reclaims any stray body frames below it).  The
+ * activation STATE stays in the static graph-frame quad in every mode; the state-in-block re-entrancy design
+ * retires with the deleted arms (nothing exercisable lost — same-node nesting needs DP-7, the recorded HONEST
+ * SCOPE caveat).  The v1 quad hazard under re-entry remains exactly the documented PLAIN-mode ARBNO casualty
+ * it always was.  x86_zls2_push_call/pop_call remain in x86_asm.h — the hook's arms are their callers now. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-5 SN4-PAT ARBNO.  Six roles share IR_MATCH_ARBNO; _.op_phase = IR_LIT.ival (NAMING NOTE, Lon 2026-07-05:
  * "phase" is a misnomer — this is a box-ROLE discriminator; rename is a future housekeeping rung).
@@ -112,23 +109,8 @@ std::string bb_match_arbno() {
     x86_begin();
     if (getenv("SCRIP_ARBNO_PHASE_TRACE")) fprintf(stderr, "[ARBNO-PHASE] op_phase=%d op_off=%d op_sa=%d op_sb=%d\n", (int)_.op_phase, _.op_off, _.op_sa, _.op_sb);
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0) return x86_bomb("IR_MATCH_ARBNO: cursor slot not granted (zls)");
+    if (_.op_off < 0) return x86("def", "α") + x86_bomb("IR_MATCH_ARBNO: cursor slot not granted (zls)");
     if ((int)_.op_phase == 0) {
-        if (x86_port_mode() == ZC_PORT_ALLOC)
-            return x86("comment", "IR_MATCH_ARBNO gen (ZLS2 per-activation)")
-                 + x86("def",     "α")
-                 + x86_zls2_push_call(ARBNO_ZLS2_K)
-                 + x86("mov", "rcx", FRQ(_.op_off + 16))
-                 + x86("mov", RDQ("rax", 0), "rcx")
-                 + x86("mov", FRQ(_.op_off + 16), "rax")
-                 + x86("mov", RDD("rax", 8), "r14d")
-                 + x86("mov", RDD("rax", 12), "r14d")
-                 + x86("jmp", "γ")
-                 + x86("def", "β")
-                 + x86("mov", "rax", FRQ(_.op_off + 16))
-                 + x86("mov", "r14d", RDD("rax", 12))
-                 + x86("mov", RDD("rax", 16), "r14d")
-                 + x86("jmp", "ω");
         return x86("comment", "IR_MATCH_ARBNO gen")
              + x86("def",     "α")
              + x86_arbno_role0_alloc()
@@ -141,17 +123,6 @@ std::string bb_match_arbno() {
              + x86("jmp", "ω");
     }
     if ((int)_.op_phase == 1) {
-        if (x86_port_mode() == ZC_PORT_ALLOC)
-            return x86("comment", "IR_MATCH_ARBNO ok (ZLS2 per-activation)")
-                 + x86("def",     "α")
-                 + x86("mov", "rax", FRQ(_.op_off + 16))
-                 + x86("mov", "ecx", RDD("rax", 16))
-                 + x86("cmp", "r14d", "ecx")
-                 + x86("je",  L(0))
-                 + x86("mov", RDD("rax", 12), "r14d")
-                 + x86("jmp", "γ")
-                 + x86("def", L(0))
-                 + x86("jmp", "ω");
         return x86("comment", "IR_MATCH_ARBNO ok")
              + x86("def",     "α")
              + x86("mov", "eax", FR(_.op_off + 8))
@@ -163,17 +134,6 @@ std::string bb_match_arbno() {
              + x86("jmp", "ω");
     }
     if ((int)_.op_phase == 2) {
-        if (x86_port_mode() == ZC_PORT_ALLOC)
-            return x86("comment", "IR_MATCH_ARBNO exhaust (ZLS2 per-activation)")
-                 + x86("def",     "α")
-                 + x86("def", "β")
-                 + x86("mov", "rax", FRQ(_.op_off + 16))
-                 + x86("mov", "r14d", RDD("rax", 8))
-                 + x86("mov", "rcx", RDQ("rax", 0))
-                 + x86("mov", FRQ(_.op_off + 16), "rcx")
-                 + x86_zls2_pop_call(ARBNO_ZLS2_K)
-                 + x86("def", L(9))
-                 + x86("jmp", "ω");
         return x86("comment", "IR_MATCH_ARBNO exhaust")
              + x86("def",     "α")
              + x86("def", "β")
@@ -196,7 +156,7 @@ std::string bb_match_arbno() {
              + x86("def", L(9))
              + x86("jmp", "ω");
     }
-    if (_.op_sa < 0 || _.op_sb <= 0) return x86_bomb("IR_MATCH_ARBNO v2: COLLECTION geometry not staged (zls_arbno_geom)");
+    if (_.op_sa < 0 || _.op_sb <= 0) return x86("def", "α") + x86_bomb("IR_MATCH_ARBNO v2: COLLECTION geometry not staged (zls_arbno_geom)");
     if ((int)_.op_phase == 3)
         return x86("comment", "IR_MATCH_ARBNO2 gen")
              + x86("def",     "α")
