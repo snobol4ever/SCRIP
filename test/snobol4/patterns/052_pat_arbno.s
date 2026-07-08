@@ -197,9 +197,6 @@ main_α_body:
  mov dword ptr [r12 + 116], r14d
  jmp xchain0_n10_α
  xchain0_n9_β:
- lea rdi, [rip + g_zls2_cur]
- mov rax, qword ptr [r12 + 128]
- mov qword ptr [rdi + 0], rax
  mov r14d, dword ptr [r12 + 116]
  mov dword ptr [r12 + 120], r14d
  jmp xchain0_n11_α

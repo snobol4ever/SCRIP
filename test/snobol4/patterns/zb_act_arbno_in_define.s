@@ -140,9 +140,6 @@ proc_MATCHIT_α_body:
  mov dword ptr [r12 + 84], r14d
  jmp xchain0_n8_α
  xchain0_n7_β:
- lea rdi, [rip + g_zls2_cur]
- mov rax, qword ptr [r12 + 96]
- mov qword ptr [rdi + 0], rax
  mov r14d, dword ptr [r12 + 84]
  mov dword ptr [r12 + 88], r14d
  jmp xchain0_n9_α

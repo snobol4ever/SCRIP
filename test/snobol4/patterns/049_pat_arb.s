@@ -180,9 +180,6 @@ main_α_body:
  mov dword ptr [r12 + 100], eax
  jmp xchain0_n8_α
  xchain0_n7_β:
- lea rdi, [rip + g_zls2_cur]
- mov rax, qword ptr [r12 + 104]
- mov qword ptr [rdi + 0], rax
  add dword ptr [r12 + 96], 1
  mov eax, dword ptr [r12 + 100]
  add eax, dword ptr [r12 + 96]
