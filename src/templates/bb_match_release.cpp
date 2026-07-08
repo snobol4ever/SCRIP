@@ -24,16 +24,13 @@ std::string bb_match_release() {
     if (_.op_off < 0) return x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)");
     return x86("comment", "IR_MATCH_RELEASE")
          + x86("def",     "α")
-         + x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
+         + x86_align_enter()
          + x86("mov",  "rdi", FRQ(_.op_off + 8))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
          /* ZLS2 twin (ZC_PORT_ALLOC only, inert otherwise): release the ZLS2 cursor to the mark head's
           * alpha saved at +16 — the success half of the same statement-scope backstop, reclaiming any v1
           * ARBNO activation that succeeded and left via this join without reaching its own role-2 pop. */
          + x86_zls2_release_to_call(_.op_off + 16)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp")
+         + x86_align_leave()
          + x86("jmp",  "γ");
 }

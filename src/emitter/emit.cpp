@@ -1376,7 +1376,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void emit_zeta_selfload(void) { int m = x86_port_mode(); if (m == ZC_PORT_INSTRUMENTED) { if (g_is_text) { const char *s = " test r12, r12\n jnz 1f\n ud2\n1:\n"; emit_text_n(s, strlen(s)); } else { ef_b3(0x4D, 0x85, 0xE4); ef_b2(0x75, 0x02); ef_b2(0x0F, 0x0B); } } }
+static void emit_zeta_selfload(void) { int m = x86_port_mode(); if (m == ZC_PORT_INSTRUMENTED) { if (g_is_text) { char s[64]; snprintf(s, sizeof s, " test %s, %s\n jnz 1f\n ud2\n1:\n", x86_zr(), x86_zr()); emit_text_n(s, strlen(s)); } else { int z = x86_zr_num(), lo = z & 7; ef_b3((uint8_t)(0x48 | (z >= 8 ? 0x05 : 0x00)), 0x85, (uint8_t)(0xC0 | (lo << 3) | lo)); ef_b2(0x75, 0x02); ef_b2(0x0F, 0x0B); } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
@@ -1473,12 +1473,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (g_is_text) {
                 char _init[256];
                 snprintf(_init, sizeof _init,
-                    "lea rax, [rip + %s]\nmov qword ptr [r12 + %d], rax\n",
-                    betas[_si]->name, g_suspend_resume_slot);
+                    "lea rax, [rip + %s]\nmov qword ptr [%s + %d], rax\n",
+                    betas[_si]->name, x86_zr(), g_suspend_resume_slot);
                 emit_text_n(_init, strlen(_init));
             } else {
                 ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(betas[_si]);
-                ef_b4(0x49, 0x89, 0x84, 0x24); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot);
+                { int z = x86_zr_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0x89); if (lo == 4) ef_b2(0x84, 0x24); else ef_b1((uint8_t)(0x80 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }
             }
             break;
         }
@@ -1570,10 +1570,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
         if (g_is_text) {
             char _ind_jmp[64];
-            snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [r12 + %d]\n", g_suspend_resume_slot);
+            snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [%s + %d]\n", x86_zr(), g_suspend_resume_slot);
             emit_text_n(_ind_jmp, strlen(_ind_jmp));
         } else {
-            ef_b4(0x49, 0xFF, 0xA4, 0x24); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot);
+            { int z = x86_zr_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0xFF); if (lo == 4) ef_b2(0xA4, 0x24); else ef_b1((uint8_t)(0xA0 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }
         }
     } else {
         bb_label_t *resume_tgt = &lbl_ω;

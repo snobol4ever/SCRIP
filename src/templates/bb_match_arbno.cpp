@@ -29,15 +29,12 @@ extern "C" void * rt_zls_arbno_step1_load(void);
  * correct for SEQUENTIAL re-entry only, not yet nested/concurrent activations of the same node. */
 static std::string x86_arbno_role0_alloc() {
     if (x86_selfload_mode() != ZC_SELFLOAD_ALLOC) return std::string();
-    return x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
+    return x86_align_enter()
          + x86("mov",  "rdi", 4096L)
          + x86("call", "rt_zls_alloc", (uint64_t)(uintptr_t)(void *)(void * (*)(long))rt_zls_alloc)
          + x86("mov",  "rdi", "rax")
          + x86("call", "rt_zls_arbno_step1_store", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_arbno_step1_store)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp");
+         + x86_align_leave();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_arbno_role2_free() — mirror of the above, at role 2's true exit.  Loads the carrier pointer and frees
@@ -56,17 +53,12 @@ static std::string x86_arbno_role0_alloc() {
 static std::string x86_arbno_role2_free() {
     if (x86_selfload_mode() != ZC_SELFLOAD_ALLOC) return std::string();
     return x86("call", "rt_zls_arbno_step1_load", (uint64_t)(uintptr_t)(void *)(void * (*)(void))rt_zls_arbno_step1_load)
-         + x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
+         + x86_align_enter()
          + x86("mov",  "rdi", "rax")
          + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp");
+         + x86_align_leave();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void * rt_zls2_push(long k);
-extern "C" void   rt_zls2_pop(long k);
 /* ZLS2 FIRST CONSUMER (Claude, 2026-07-08 continuation session, Lon: "Get Zeta ARENA working well") — ARBNO
  * v1 per-activation frame ON the ZLS2 down-growing arena, gated on ZC_PORT_ALLOC (SCRIP_ZETA_PORT=2), fully
  * inert otherwise.  This is the save-slot-in-frame design the prior session's NEXT named: the activation
@@ -81,26 +73,10 @@ extern "C" void   rt_zls2_pop(long k);
  * L(9) single-exit label), never central (six-decoy-ω finding).  Block layout (ARBNO_ZLS2_K = 32):
  * {+0 prev block ptr (8B), +8 entry δ (4B), +12 yield δ (4B), +16 cur_before (4B), +20 pad}.  Fields are
  * written before read on every path (α writes entry/yield; β writes cur_before before role 1 reads it; role
- * 2 reads entry written at α), so the arena's no-zeroing contract holds. */
+ * 2 reads entry written at α), so the arena's no-zeroing contract holds.  x86_zls2_push_call/pop_call now
+ * live in x86_asm.h (2nd-consumer session, promoted so bb_match_arb.cpp can share them — was a private static
+ * pair here before, zero behavior change). */
 enum { ARBNO_ZLS2_K = 32 };
-static std::string x86_zls2_push_call(long k) {
-    return x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
-         + x86("mov",  "rdi", k)
-         + x86("call", "rt_zls2_push", (uint64_t)(uintptr_t)(void *)(void * (*)(long))rt_zls2_push)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp");
-}
-static std::string x86_zls2_pop_call(long k) {
-    return x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
-         + x86("mov",  "rdi", k)
-         + x86("call", "rt_zls2_pop", (uint64_t)(uintptr_t)(void *)(void (*)(long))rt_zls2_pop)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp");
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-5 SN4-PAT ARBNO.  Six roles share IR_MATCH_ARBNO; _.op_phase = IR_LIT.ival (NAMING NOTE, Lon 2026-07-05:
  * "phase" is a misnomer — this is a box-ROLE discriminator; rename is a future housekeeping rung).
@@ -234,16 +210,13 @@ std::string bb_match_arbno() {
              + x86("lea", "rsi", FR(_.op_off + 12))
              + x86("mov", "edx", FR(_.op_off + 8))
              + x86("mov", "rcx", (long)_.op_sb)
-             + x86("push", "rbp")
-             + x86("mov",  "rbp", "rsp")
-             + x86("and",  "rsp", -16L)
+             + x86_align_enter()
              + x86("call", "rt_zcol_push", (uint64_t)(uintptr_t)(void *)(void * (*)(void **, int *, int, long))rt_zcol_push)
-             + x86("mov",  "rsp", "rbp")
-             + x86("pop",  "rbp")
-             + x86("mov", RDQ("rax", 0), "r12")
+             + x86_align_leave()
+             + x86("mov", RDQ("rax", 0), x86_zr())
              + x86("mov", "ecx", "r14d")
              + x86("mov", RDQ("rax", 8), "rcx")
-             + x86("lea", "r12", RDQ("rax", 16 - _.op_sa))
+             + x86("lea", x86_zr(), RDQ("rax", 16 - _.op_sa))
              + x86("jmp", "ω");
     if ((int)_.op_phase == 4)
         return x86("comment", "IR_MATCH_ARBNO2 ok")
@@ -252,21 +225,21 @@ std::string bb_match_arbno() {
              + x86("mov", "rdx", FRQ(_.op_sa - 16))
              + x86("cmp", "r14d", "eax")
              + x86("je",  L(0))
-             + x86("mov", "r12", "rdx")
+             + x86("mov", x86_zr(), "rdx")
              + x86("mov", "eax", FR(_.op_off + 8))
              + x86("add", "eax", 1L)
              + x86("mov", FR(_.op_off + 8), "eax")
              + x86("mov", FR(_.op_off + 4), "r14d")
              + x86("jmp", "γ")
              + x86("def", L(0))
-             + x86("mov", "r12", "rdx")
+             + x86("mov", x86_zr(), "rdx")
              + x86("jmp", "ω");
     return x86("comment", "IR_MATCH_ARBNO2 pop/exhaust")
          + x86("def",     "α")
          + x86("jmp", L(1))
          + x86("def", "β")
          + x86("mov", "rdx", FRQ(_.op_sa - 16))
-         + x86("mov", "r12", "rdx")
+         + x86("mov", x86_zr(), "rdx")
          + x86("mov", "eax", FR(_.op_off + 8))
          + x86("test", "eax", "eax")
          + x86("jz",  L(2))
@@ -278,7 +251,7 @@ std::string bb_match_arbno() {
          + x86("mov", "rdx", (long)_.op_sb)
          + x86("imul", "rcx", "rdx")
          + x86("add", "rax", "rcx")
-         + x86("lea", "r12", RDQ("rax", 16 - _.op_sa))
+         + x86("lea", x86_zr(), RDQ("rax", 16 - _.op_sa))
          + x86("jmp", "γ")
          + x86("def", L(2))
          /* BB-OWNED-ζ STEP 1 (Claude, this session): L(2) here is role 5's OWN single true-exit -- the i==0
