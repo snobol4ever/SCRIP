@@ -16,7 +16,7 @@ std::string bb_idx_get() {
         return x86_bomb("bb_idx_get: unhandled key kind (LIT_I immediate, LIT_S literal, or VAR by-name only)");
     x86_begin();
     if (_.bb_lk == (int)IR_LIT_STRING) {
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("comment", "IR_IDX: string-literal key — table-only, subscript_get")
              + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
              + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
@@ -32,7 +32,7 @@ std::string bb_idx_get() {
              + x86("jmp",  "ω");
     }
     int byname = (_.bb_lk == (int)IR_VAR);
-    std::string s = x86("label", _.lbl_α)
+    std::string s = x86("def",     "α")
                   + x86("comment", "IR_IDX: AXS inline DT_A+int fast path, else subscript_get");
     if (byname)
         s += x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])

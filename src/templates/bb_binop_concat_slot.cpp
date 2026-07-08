@@ -15,7 +15,7 @@ static inline int bcs_ok() { return _.op_off >= 0 && _.op_ival == BINOP_CONCAT &
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
     return IF(PLATFORM_X86 && bcs_ok(),
-           x86("label", _.lbl_α)
+           x86("def",     "α")
          + x86("comment", "IR_BINOP_CONCAT")
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))

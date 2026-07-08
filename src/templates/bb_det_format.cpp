@@ -13,7 +13,7 @@ std::string bb_det_format() {
     int arity = (int)_.op_parts_ival[0];
     int list_slot = (int)_.op_parts_ival[1];
     if (!fmt) return x86_bomb("bb_det_format: missing fmt");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_FORMAT")
          + x86("mov", "rdi", ROQ(0))
          + IF(arity == 2 && list_slot >= 0,

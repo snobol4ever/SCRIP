@@ -14,7 +14,7 @@ std::string bb_scan_stmt() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_scan_pat_lit)
         return x86("comment", "IR_SCAN")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + IF(_.op_sval && _.op_sval[0], x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)_.op_sval, scan_lbl(_.op_sval)))
              + IF(!(_.op_sval && _.op_sval[0]), x86("mov", "rdi", (long)0))
              + IF(_.op_scan_subj_lit != 0,  x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.op_scan_subj_lit, scan_lbl(_.op_scan_subj_lit)))

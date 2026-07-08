@@ -26,7 +26,7 @@ std::string bb_cell_dyniter() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     if (!bdi_st() || bdi_st()->arity < 0 || bdi_st()->arity > 3) return x86_bomb("bb_cell_dyniter: unadmitted dyniter shape reached the emitter");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_CELL_DYNITER")
          + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
          + x86("mov", FR(GZ_CELL_OFF(bdi_st()->mark_slot)), "eax")

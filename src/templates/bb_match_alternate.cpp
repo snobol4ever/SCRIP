@@ -26,13 +26,13 @@ std::string bb_match_alternate() {
     if (_.op_off < 0) return x86_bomb("IR_MATCH_ALTERNATE: cursor slot not granted (zls)");
     if ((int)_.op_phase == 0)
         return x86("comment", "IR_MATCH_ALT_SAVE")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", FR(_.op_off), "r14d")
              + x86("jmp", "γ")
              + x86("def", "β")
              + x86("jmp", FRQ(_.op_off + 8));
     return x86("comment", "IR_MATCH_ALT_JOIN")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("lea", "rax", L(0))
          + x86("mov", FRQ(_.op_off + 8), "rax")
          + x86("jmp", "ω")

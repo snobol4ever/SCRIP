@@ -21,12 +21,12 @@ std::string bb_keyword_icon() {
     if (!strcmp(kw, "subject")) {
         if (g_scan_regs_live)
             return x86("comment", "IR_KEYWORD_subject_reg")
-                 + x86("label",   _.lbl_α)
+                 + x86("def",     "α")
                  + x86("mov", FRQ(_.op_off),     (long)DT_S)
                  + x86("mov", FRQ(_.op_off + 8), "r13")
                  + tail;
         return x86("comment", "IR_KEYWORD_subject_call")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("call", "rt_keyword_subject", (uint64_t)(uintptr_t)(void *)rt_keyword_subject)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
@@ -35,14 +35,14 @@ std::string bb_keyword_icon() {
     if (!strcmp(kw, "pos")) {
         if (g_scan_regs_live)
             return x86("comment", "IR_KEYWORD_pos_reg")
-                 + x86("label",   _.lbl_α)
+                 + x86("def",     "α")
                  + x86("mov", FRQ(_.op_off), (long)DT_I)
                  + x86("mov", "rax", "r14")
                  + x86("add", "rax", (long)1)
                  + x86("mov", FRQ(_.op_off + 8), "rax")
                  + tail;
         return x86("comment", "IR_KEYWORD_pos_call")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("call", "rt_keyword_pos", (uint64_t)(uintptr_t)(void *)rt_keyword_pos)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
@@ -50,19 +50,19 @@ std::string bb_keyword_icon() {
     }
     if (!strcmp(kw, "null"))
         return x86("comment", "IR_KEYWORD_null")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", FRQ(_.op_off),     (long)DT_SNUL)
              + x86("mov", FRQ(_.op_off + 8), (long)0)
              + tail;
     if (!strcmp(kw, "fail"))
         return x86("comment", "IR_KEYWORD_fail")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("jmp", "ω")
              + x86("def", "β")
              + x86("jmp", "ω");
     if (!strcmp(kw, "features") || !strcmp(kw, "regions") || !strcmp(kw, "storage") || !strcmp(kw, "collections"))
         return x86("comment", "IR_KEYWORD_gen")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     FRQ(_.op_off + 16), (long)0)
              + x86("def",     L(1))
              + x86("mov",     "rdi", ROQ(0))
@@ -83,7 +83,7 @@ std::string bb_keyword_icon() {
              + x86("label",   LS(0))
              + x86(".string", _.op_sval);
     return x86("comment", "IR_KEYWORD_read")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rdi", ROQ(0))
          + x86("call",    "rt_keyword_read", (uint64_t)(uintptr_t)(void *)rt_keyword_read)
          + x86("mov",     FRQ(_.op_off),     "rax")

@@ -13,7 +13,7 @@ std::string bb_rev_assign_var() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sc < 0) return x86_bomb("bb_rev_assign_var: needs own slot + variable/value operand slots + save slot");
     return x86("comment", "IR_REV_ASSIGN_VAR x[i]<-v: deref-save old, write new, suspend; restore on resume")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
          + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
          + x86("call",    "rt_deref", (uint64_t)(uintptr_t)(void *)rt_deref)

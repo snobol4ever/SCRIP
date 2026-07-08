@@ -13,7 +13,7 @@ std::string bb_det_atom_op() {
     int arity = (int)_.op_parts_ival[0];
     int s0 = (int)_.op_parts_ival[1], s1 = (int)_.op_parts_ival[2], s2 = (int)_.op_parts_ival[3];
     if (!fn) return x86_bomb("bb_det_atom_op: missing fn");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_ATOM_OP")
          + x86("mov", "rdi", ROQ(0))
          + x86("lea", "rsi", FR(GZ_CELL_OFF(s0)))

@@ -13,7 +13,7 @@ extern "C" void rt_pl_write_canonical_cell(void * cell_term);
 std::string bb_det_write() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_WRITE")
          + IF(_.op_sb && _.op_ival == 1,
                x86("lea", "rdi", FR(GZ_CELL_OFF(_.op_off)))

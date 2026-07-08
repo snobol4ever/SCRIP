@@ -13,7 +13,7 @@ std::string bb_match_span() {
     if (!PLATFORM_X86) return std::string();
     static char b[24];
     return x86("comment", "IR_MATCH_SPAN")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",    FR(_.x86_scratch_off), (long)0)
          + x86("def",    L(0))
          + x86("mov",    "eax", "r14d")

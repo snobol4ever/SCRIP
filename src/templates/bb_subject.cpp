@@ -18,7 +18,7 @@ static const char * bb_subj_nlbl() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_subject_nv_arm() {
     return x86("comment", "IR_SUBJECT")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("lea",     "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), bb_subj_nlbl())
          + x86("lea",     "rsi", FR(_.op_sa))
          + x86("push",    "r10")
@@ -44,7 +44,7 @@ static const char * bb_subj_litlbl() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_subject_lit_arm() {
     return x86("comment", "IR_SUBJECT")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("lea",     "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_a_sval ? _.op_a_sval : ""), bb_subj_litlbl())
          + x86("lea",     "rsi", FR(_.op_sa))
          + x86("push",    "r10")

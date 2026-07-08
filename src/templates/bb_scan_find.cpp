@@ -14,7 +14,7 @@ std::string bb_scan_find() {
     x86_begin();
     if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0)
         return x86("comment", "IR_SCAN_FIND (var needle) [fstranl.r find: generate positions where needle@slot matches; cursor off+16, len off+24; beta resumes]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     FRQ(_.op_off + 16), "r14")
              + x86("mov",     "rdi", FRQ(_.op_sa + 8))
              + x86("push",    "r10")
@@ -49,7 +49,7 @@ std::string bb_scan_find() {
              + x86("jmp",     L(0));
     if (!PLATFORM_X86 || !find_admit()) return x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_FIND")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     FRQ(_.op_off + 16), "r14")
          + x86("def",     L(0))
          + x86("mov",     "rax", FRQ(_.op_off + 16))

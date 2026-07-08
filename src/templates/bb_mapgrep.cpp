@@ -26,7 +26,7 @@ static inline int          mgRes()    { return s_mg_resoff; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_mapgrep() {
     x86_begin();
-    if (PLATFORM_X86) return x86("label",    _.lbl_α)
+    if (PLATFORM_X86) return x86("def",     "α")
          + x86("comment",   "IR_MAP/IR_GREP (materialized)")
          + IF(MEDIUM_TEXT,
                x86("directive", ".section .rodata")

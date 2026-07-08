@@ -9,7 +9,7 @@ extern "C" void mon_emit_label_bin(int64_t stno);
 std::string bb_succeed() {
     if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_SUCCEED")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("jmp",     "γ")
          + x86("def",     "β")
          + x86("jmp",     "ω");

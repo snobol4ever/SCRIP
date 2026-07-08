@@ -11,7 +11,7 @@ std::string bb_det_copy_term() {
     x86_begin();
     int s_term = (int)_.op_parts_ival[0];
     int s_copy = (int)_.op_parts_ival[1];
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_COPY_TERM")
          + x86("lea", "rdi", FR(GZ_CELL_OFF(s_term)))
          + x86("lea", "rsi", FR(GZ_CELL_OFF(s_copy)))

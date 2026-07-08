@@ -17,7 +17,7 @@ std::string bb_to() {
         return x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)");
     if (_.op_num_real) {
         return x86("comment", "IR_TO real")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     "rax", FRQ(_.op_sa))
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("mov",     "rax", FRQ(_.op_sa + 8))
@@ -50,7 +50,7 @@ std::string bb_to() {
              + x86_ro_seal_q(1, (uint64_t)(int64_t)1);
     }
     return x86("comment", "IR_TO")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rax", FRQ(_.op_sa + 8))
          + x86("mov",     FRQ(_.op_off + 16), "rax")
          + x86("def",     L(0))

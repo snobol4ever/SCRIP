@@ -12,7 +12,7 @@ std::string bb_goto_dyn() {
     if (!PLATFORM_X86) return std::string();
     const char *nm = _.op_sval ? _.op_sval : "";
     return x86("comment", "IR_GOTO_DYN")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rdi", ROQ(0))
          + x86("call",    "rt_goto_dyn", (uint64_t)(uintptr_t)(void *)rt_goto_dyn)
          + x86("jmp",     "γ")

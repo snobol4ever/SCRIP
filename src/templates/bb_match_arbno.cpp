@@ -102,7 +102,7 @@ std::string bb_match_arbno() {
     if (_.op_off < 0) return x86_bomb("IR_MATCH_ARBNO: cursor slot not granted (zls)");
     if ((int)_.op_phase == 0)
         return x86("comment", "IR_MATCH_ARBNO gen")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86_arbno_role0_alloc()
              + x86("mov", FR(_.op_off), "r14d")
              + x86("mov", FR(_.op_off + 4), "r14d")
@@ -113,7 +113,7 @@ std::string bb_match_arbno() {
              + x86("jmp", "ω");
     if ((int)_.op_phase == 1)
         return x86("comment", "IR_MATCH_ARBNO ok")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "eax", FR(_.op_off + 8))
              + x86("cmp", "r14d", "eax")
              + x86("je",  L(0))
@@ -123,7 +123,7 @@ std::string bb_match_arbno() {
              + x86("jmp", "ω");
     if ((int)_.op_phase == 2)
         return x86("comment", "IR_MATCH_ARBNO exhaust")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("def", "β")
              + x86("mov", "r14d", FR(_.op_off))
              + x86_arbno_role2_free()
@@ -146,7 +146,7 @@ std::string bb_match_arbno() {
     if (_.op_sa < 0 || _.op_sb <= 0) return x86_bomb("IR_MATCH_ARBNO v2: COLLECTION geometry not staged (zls_arbno_geom)");
     if ((int)_.op_phase == 3)
         return x86("comment", "IR_MATCH_ARBNO2 gen")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", FR(_.op_off), "r14d")
              + x86("mov", FR(_.op_off + 4), "r14d")
              + x86("mov", FR(_.op_off + 8), 0L)
@@ -170,7 +170,7 @@ std::string bb_match_arbno() {
              + x86("jmp", "ω");
     if ((int)_.op_phase == 4)
         return x86("comment", "IR_MATCH_ARBNO2 ok")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "eax", FR(_.op_sa - 8))
              + x86("mov", "rdx", FRQ(_.op_sa - 16))
              + x86("cmp", "r14d", "eax")
@@ -185,7 +185,7 @@ std::string bb_match_arbno() {
              + x86("mov", "r12", "rdx")
              + x86("jmp", "ω");
     return x86("comment", "IR_MATCH_ARBNO2 pop/exhaust")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("jmp", L(1))
          + x86("def", "β")
          + x86("mov", "rdx", FRQ(_.op_sa - 16))

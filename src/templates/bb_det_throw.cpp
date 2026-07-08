@@ -13,7 +13,7 @@ std::string bb_det_throw() {
     if (!PLATFORM_X86) return std::string();
     const IR_t *ball = (const IR_t *)(intptr_t)_.op_parts_ival[0];
     if (!ball) return x86_bomb("bb_det_throw: missing ball node");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_THROW")
          + gzu_build(ball)
          + x86("mov", "rdi", "rax")

@@ -14,7 +14,7 @@ std::string bb_match_breakx() {
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     return x86("comment", "IR_MATCH_BREAKX")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",    FR(_.x86_scratch_off), (long)0)
          + x86("def",    L(0))
          + x86("mov",    "eax", "r14d")

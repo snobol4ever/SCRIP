@@ -18,7 +18,7 @@ std::string bb_create() {
                          "(operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)");
     int op_off2 = _.op_off + 16;
     std::string s = x86("comment", "IR_CREATE")
-                   + x86("label", _.lbl_α);
+                   + x86("def",     "α");
     static const char *contract_regs[6] = {"r12", "r13", "r14", "r15", "rbx", "rbp"};
     for (int k = 0; k < 6; k++) {
         s += x86("mov", "qword ptr [r12 + " + std::to_string(op_off2 + k * 8) + "]", contract_regs[k]);

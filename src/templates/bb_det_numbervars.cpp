@@ -12,7 +12,7 @@ std::string bb_det_numbervars() {
     int s_term  = (int)_.op_parts_ival[0];
     int s_start = (int)_.op_parts_ival[1];
     int s_end   = (int)_.op_parts_ival[2];
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_NUMBERVARS")
          + x86("lea", "rdi", FR(GZ_CELL_OFF(s_term)))
          + x86("lea", "rsi", FR(GZ_CELL_OFF(s_start)))

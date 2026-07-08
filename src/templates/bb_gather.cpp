@@ -23,7 +23,7 @@ static inline int          resoff()   { return s_gather_resoff; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gather() {
     x86_begin();
-    if (PLATFORM_X86) return x86("label",    _.lbl_α)
+    if (PLATFORM_X86) return x86("def",     "α")
          + x86("comment",   "IR_GATHER")
          + IF(MEDIUM_TEXT,
                x86("directive", ".section .rodata")

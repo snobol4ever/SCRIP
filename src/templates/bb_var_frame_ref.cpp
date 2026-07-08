@@ -19,7 +19,7 @@ std::string bb_var_frame_ref() {
     if (PLATFORM_X86)
         return !(g_gvar_flat_chain && _.op_off >= 0) ? x86_bomb("bb_var_frame_ref: needs gvar flat-chain + own slot") :
                x86("comment", "IR_VAR_FRAME_REF")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + frame_reach("rax", (int) _.op_dval)
              + x86("mov",     "rax", RDQ("rax", 16 + (int)_.op_ival * 16 + 8))
              + x86("mov",     "rcx", RDQ("rax", 0))

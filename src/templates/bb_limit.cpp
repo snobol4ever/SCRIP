@@ -13,7 +13,7 @@ std::string bb_limit() {
     if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sc >= 0 && _.lbl_t0))
         return x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, count slot, gen-β)");
     return x86("comment", "IR_LIMIT")
-         + x86("label", _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",   "rax", FRQ(_.op_off + 16))
          + x86("mov",   "rcx", FRQ(_.op_sc + 8))
          + x86("cmp",   "rax", "rcx")

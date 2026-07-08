@@ -23,7 +23,7 @@ std::string bb_keyword_assign() {
     if (!strcmp(kw, "pos")) {
         if (g_scan_regs_live)
             return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN pos reg [oasgn.r kywdpos: cvpos(v,Delta) fail->omega; delta=pos-1; result {DT_I,pos}]")
-                 + x86("label",   _.lbl_α)
+                 + x86("def",     "α")
                  + x86("mov",  "rdi", FRQ(_.op_a_slot))
                  + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
                  + x86("mov",  "rdx", "r15")
@@ -38,7 +38,7 @@ std::string bb_keyword_assign() {
                  + x86("def",  "β")
                  + x86("jmp",  "ω");
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN pos call [non-scan: rt_keyword_pos_set cvpos vs strlen(scan_subj), set scan_pos, fail->omega]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
              + x86("call", "rt_keyword_pos_set", (uint64_t)(uintptr_t)(void *)rt_keyword_pos_set)
@@ -52,7 +52,7 @@ std::string bb_keyword_assign() {
     }
     if (!strcmp(kw, "random")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN random [data.r kywdint: coerce int, store g_random seed, result {DT_I,n}; non-numeric->omega]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
              + x86("call", "rt_keyword_random_set", (uint64_t)(uintptr_t)(void *)rt_keyword_random_set)
@@ -66,7 +66,7 @@ std::string bb_keyword_assign() {
     }
     if (!strcmp(kw, "error")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN error [coerce int, store g_error; non-numeric->omega]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
              + x86("call", "rt_keyword_error_set", (uint64_t)(uintptr_t)(void *)rt_keyword_error_set)
@@ -80,7 +80,7 @@ std::string bb_keyword_assign() {
     }
     if (!strcmp(kw, "trace")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN trace [coerce int, store g_trace; non-numeric->omega]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
              + x86("call", "rt_keyword_trace_set", (uint64_t)(uintptr_t)(void *)rt_keyword_trace_set)
@@ -94,7 +94,7 @@ std::string bb_keyword_assign() {
     }
     if (!strcmp(kw, "dump")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN dump [coerce int, store g_dump; non-numeric->omega]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
              + x86("call", "rt_keyword_dump_set", (uint64_t)(uintptr_t)(void *)rt_keyword_dump_set)

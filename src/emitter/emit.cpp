@@ -1488,7 +1488,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_emit_x86(bb_limit_init());
     }
     for (int i = 0; i < n; i++) {
-        emit_label_define_bb(lbls[i]);
+        /* BB-OWNED-ζ / ONE-WAY-OUTPUT FIX (Claude, this session, per Lon's ask): α's byte position used to be
+         * defined HERE, directly, via a bare bb_label_define(lbls[i]) call outside x86()'s funnel entirely --
+         * a second output path for the identical logical operation x86("def","β") already performs correctly
+         * through x86_deflabel()/x86_Drec(), one function, both media, internally.  That direct call is now
+         * REMOVED; every template defines its OWN α via x86("def","α") as its first emitted instruction
+         * (mirroring the existing x86("def","β") convention), so bb_label_define(lbls[i]) fires exactly once,
+         * from inside walk_bb_node's own bb_emit_x86 walk of that template's returned 'D'-tagged record --
+         * the SAME single call site β already uses.  Scope: this fixes ONLY the per-node α/β def-mechanism
+         * asymmetry; it does not audit or touch any other TEXT/BINARY-branching site in this file. */
         emit_zeta_selfload();
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;

@@ -11,7 +11,7 @@ std::string bb_ref_invariant() {
     static char bn[24];
     strtab_label(bn, sizeof bn, _.op_sval ? _.op_sval : "");
     return x86("comment", "IR_REF_INVARIANT frozen-pattern store")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), bn)
          + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.bb_child_fn, _.bb_child_lbl ? _.bb_child_lbl : "")
          + x86("push", "rbx")

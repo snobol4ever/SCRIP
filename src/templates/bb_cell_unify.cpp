@@ -82,7 +82,7 @@ static std::string gzu_struct_args(const IR_t *nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cell_unify() {
     x86_begin();
-    if (PLATFORM_X86) return x86("label", _.lbl_α)
+    if (PLATFORM_X86) return x86("def",     "α")
          + x86("comment", "IR_CELL_UNIFY")
          + IF(bcu_sh() == 0 && bcu_rm_dst() != (const IR_t *)0,
            x86("sub", "rsp", (long)bcu_rm_frm())

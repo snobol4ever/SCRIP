@@ -12,12 +12,12 @@ std::string bb_det_cmp() {
     if (PLATFORM_X86) return IF(_.op_parts_ival[0] == -1, x86_bomb("bb_det_cmp: unknown cmp op"))
          + IF(_.op_parts_ival[0] == -2, x86_bomb("bb_det_cmp: null operand"))
          + IF(_.op_parts_ival[0] == 0 || _.op_parts_ival[0] == 1,
-               x86("label", _.lbl_α)
+               x86("def",     "α")
              + x86("comment", "IR_DET_CMP")
              + x86("jmp", _.op_parts_ival[0] == 1 ? "γ" : "ω")
              + IF(!_.op_bounded, x86("def", "β") + x86("jmp", "ω")))
          + IF(_.op_parts_ival[0] == 2,
-               x86("label", _.lbl_α)
+               x86("def",     "α")
              + x86("comment", "IR_DET_CMP")
              + x86("mov", "rdi", ROQ(0))
              + IF(_.op_parts_ival[1] != 0, x86("lea", "rsi", FR(GZ_CELL_OFF((int)_.op_parts_ival[2]))))
@@ -36,7 +36,7 @@ std::string bb_det_cmp() {
              + x86("label", LS(0))
              + x86(".string", _.op_sval))
          + IF(_.op_parts_ival[0] == 3,
-               x86("label", _.lbl_α)
+               x86("def",     "α")
              + x86("comment", "IR_DET_CMP term-order")
              + x86("mov", "rdi", ROQ(0))
              + IF(_.op_parts_ival[1] >= 0, x86("lea", "rsi", FR(GZ_CELL_OFF((int)_.op_parts_ival[1]))))

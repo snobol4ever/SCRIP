@@ -13,7 +13,7 @@ std::string bb_coret() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_sa < 0) return x86_bomb("bb_coret: no produced-value slot (coret.operand[0] has no DESCR slot -- body value node missing from chain)");
     return x86("comment", "IR_CORET yield")
-         + x86("label", _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",  "rdi", FRQ(_.op_sa))
          + x86("mov",  "rsi", FRQ(_.op_sa + 8))
          + x86("xor",  "edx", "edx")

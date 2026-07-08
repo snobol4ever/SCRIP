@@ -18,7 +18,7 @@ std::string bb_match_head() {
     return (_.op_sa < 0 || _.op_off < 0)
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          /* BB-OWNED-ζ statement-scope pivot (this session): mark ONCE per statement scan-entry, before
           * rt_match_enter -- so nothing from THAT call's result (consumed into r13/r15 below) is at risk
           * from rt_zls_mark's own return-register clobber.  Stored immediately to the frame slot (op_off+8,

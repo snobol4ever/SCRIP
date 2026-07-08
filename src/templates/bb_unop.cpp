@@ -38,7 +38,7 @@ std::string bb_unop() {
                _.op_node_kind == IR_NULLTEST_VAR ?
                (_.op_sa < 0 ? x86_bomb("bb_unop lv: operand slot unresolved") :
                x86("comment", "IR_UNOP_TEST lv")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
              + x86("je",  "ω")
@@ -60,7 +60,7 @@ std::string bb_unop() {
                _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
                uop() == UO_NONNULL ?
                x86("comment", "IR_UNOP")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
              + x86("je",  "ω")
@@ -75,7 +75,7 @@ std::string bb_unop() {
              + x86("jmp",  "ω") :
                uop() == UO_NULL_TEST ?
                x86("comment", "IR_UNOP")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
              + x86("je",  "ω")
@@ -88,7 +88,7 @@ std::string bb_unop() {
              + x86("jmp",  "ω") :
                uop() == UO_CSET_COMPL ?
                x86("comment", "IR_UNOP")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("call", "rt_cset_compl", (uint64_t)(uintptr_t)(void *)rt_cset_compl)
@@ -99,7 +99,7 @@ std::string bb_unop() {
              + x86("jmp",  "ω") :
                uop() == UO_SIZE ?
                x86("comment", "IR_UNOP")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("call", "rt_size_d", (uint64_t)(uintptr_t)(void *)rt_size_d)
@@ -109,7 +109,7 @@ std::string bb_unop() {
              + x86("def",  "β")
              + x86("jmp",  "ω") :
                x86("comment", "IR_UNOP")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + IF(uop() == UO_NEG, x86("call", "rt_num_neg", (uint64_t)(uintptr_t)(void *)rt_num_neg))

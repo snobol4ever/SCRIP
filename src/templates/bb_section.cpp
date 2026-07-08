@@ -15,7 +15,7 @@ std::string bb_section() {
     if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0) return x86_bomb("bb_section: needs own slot + base/i1/i2 operand slots");
     if (_.op_sval && _.op_sval[0] == 'l' && _.op_sval[1] == 'v' && !_.op_sval[2])
         return x86("comment", "IR_SUBSCRIPT section VARIABLE (ASSIGN-LV: rt_section_var tvsubs trap; FAIL routes ω)")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     "rdi", FRQ(_.op_a_slot))
              + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
              + x86("mov",     "rdx", FRQ(_.op_sa))
@@ -32,7 +32,7 @@ std::string bb_section() {
              + x86("jmp", "ω");
     if (_.op_sval && (_.op_sval[0] == '+' || _.op_sval[0] == '-'))
         return x86("comment", "IR_SUBSCRIPT section extended (x[i+:n]/x[i-:n]; end pre-computed by IR_BINOP; wraparound→ω)")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     "rdi", FRQ(_.op_a_slot))
              + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
              + x86("mov",     "rdx", FRQ(_.op_sa))
@@ -48,7 +48,7 @@ std::string bb_section() {
              + x86("def", "β")
              + x86("jmp", "ω");
     return x86("comment", "IR_SUBSCRIPT section")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
          + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
          + x86("mov",     "rdx", FRQ(_.op_sa))

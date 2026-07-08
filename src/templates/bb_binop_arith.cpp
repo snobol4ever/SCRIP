@@ -17,7 +17,7 @@ static inline long long bo() { return (long long)_.op_ival; }
 std::string bb_binop_arith() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_num_real && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0)
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("comment", "IR_BINOP_ARITH_REAL")
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
@@ -33,7 +33,7 @@ std::string bb_binop_arith() {
              + x86("def", "β")
              + x86("jmp", "ω");
     return IF(_.op_off >= 0 && !_.op_num_real && (bo() == BINOP_ADD || bo() == BINOP_SUB || bo() == BINOP_MUL || bo() == BINOP_DIV || bo() == BINOP_MOD),
-           x86("label", _.lbl_α)
+           x86("def",     "α")
          + x86("comment", "IR_BINOP_ARITH")
          + x86("mov", "eax", FR(_.op_sa))
          + x86("cmp", "eax", (long)DT_DATA)

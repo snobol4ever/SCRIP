@@ -15,7 +15,7 @@ std::string bb_keyword_snobol4() {
     if (!PLATFORM_X86) return std::string();
     if (!(_.op_off >= 0)) return x86_bomb("bb_keyword_snobol4: no slot");
     return x86("comment", "IR_KEYWORD_SNOBOL4_read")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rdi", ROQ(0))
          + x86("call",    "rt_keyword_read_snobol4", (uint64_t)(uintptr_t)(void *)rt_keyword_read_snobol4)
          + x86("mov",     FRQ(_.op_off),     "rax")

@@ -11,7 +11,7 @@ std::string bb_det_abolish() {
     x86_begin();
     int s_fn = (int)_.op_parts_ival[0];
     int s_ar = (int)_.op_parts_ival[1];
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_ABOLISH")
          + x86("lea", "rdi", FR(GZ_CELL_OFF(s_fn)))
          + x86("lea", "rsi", FR(GZ_CELL_OFF(s_ar)))

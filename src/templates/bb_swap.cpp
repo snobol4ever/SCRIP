@@ -8,7 +8,7 @@ extern "C" {
 std::string bb_swap() {
     if (PLATFORM_X86) return IF(!(_.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0), x86_bomb("bb_swap: x:=:y needs both var slots + own slot"))
                            + IF(_.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0,
-                             x86("label", _.lbl_α)
+                             x86("def",     "α")
                            + x86("comment", "IR_SWAP x:=:y")
                            + x86("mov", "rax", FRQ(_.op_sa))
                            + x86("mov", "rdx", FRQ(_.op_sa + 8))

@@ -14,7 +14,7 @@ std::string bb_scan_bal() {
     x86_begin();
     if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0)
         return x86("comment", "IR_SCAN_BAL (var c1) [fstranl.r bal: c1 cset-descr@slot, c2/c3 default ()/; counter off+24, cursor off+16; same envelope as literal arm]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     FRQ(_.op_off + 16), "r14")
              + x86("mov",     FRQ(_.op_off + 24), (long)0)
              + x86("def",     L(0))
@@ -61,7 +61,7 @@ std::string bb_scan_bal() {
              + x86("jmp",     L(0));
     if (!PLATFORM_X86 || !bal_admit()) return x86_bomb("bb_scan_bal: unhandled (needs nonempty bracket-free literal c1 + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_BAL")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     FRQ(_.op_off + 16), "r14")
          + x86("mov",     FRQ(_.op_off + 24), (long)0)
          + x86("def",     L(0))

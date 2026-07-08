@@ -12,7 +12,7 @@ std::string bb_det_sort() {
     int do_msort = (int)_.op_parts_ival[0];
     int s_list   = (int)_.op_parts_ival[1];
     int s_result = (int)_.op_parts_ival[2];
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_SORT")
          + x86("mov", "edi", (uint32_t)do_msort)
          + x86("lea", "rsi", FR(GZ_CELL_OFF(s_list)))
