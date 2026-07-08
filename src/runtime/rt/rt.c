@@ -87,7 +87,7 @@ extern void *bb_arbno_new(void *fn, void *state);
 void *rt_frame(void)
 {
     static void *g_main_frame = (void *)0;
-    if (!g_main_frame) g_main_frame = rt_zls_alloc(8192L * 8L);
+    if (!g_main_frame) { g_main_frame = rt_zls2_push(8192L * 8L); memset(g_main_frame, 0, (size_t)(8192L * 8L)); }
     return g_main_frame;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -390,13 +390,14 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     }
     if (p->dyn_scope) return rt_call_named_proc(name, g_call_args, nargs > CALL_ARGS_MAX ? CALL_ARGS_MAX : nargs);
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    char *fb = (char *)rt_zls_alloc((long)fbytes);
+    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    char *fb = (char *)rt_zls2_push((long)fbytes);
     { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    rt_zls_release((void *)fb);
+    rt_zls2_release_to((void *)(fb + fbytes));
     return result;
 }
 #define RT_INITIAL_MAX 8192
@@ -549,12 +550,14 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     { int rn_shadow = 0;
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
-    void *fb = rt_zls_alloc((long)fbytes);
+    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    void *fb = rt_zls2_push((long)fbytes);
+    memset(fb, 0, (size_t)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    rt_zls_release(fb);
+    rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
@@ -577,12 +580,14 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     { int rn_shadow = 0;
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
-    void *fb = rt_zls_alloc((long)fbytes);
+    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    void *fb = rt_zls2_push((long)fbytes);
+    memset(fb, 0, (size_t)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    rt_zls_release(fb);
+    rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
@@ -669,7 +674,8 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     int save_base = g_name_save_top;
     rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
-    void *fb = rt_zls_alloc((long)fbytes);
+    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    void *fb = rt_zls2_push((long)fbytes);
     ((void **)fb)[0] = sl;
     DESCR_t *slots = (DESCR_t *)((char *)fb + 16);
     for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
@@ -677,7 +683,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    rt_zls_release(fb);
+    rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
