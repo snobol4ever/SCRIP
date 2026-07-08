@@ -169,7 +169,7 @@ proc_PAT$0_α_body:
  xchain0_n8_β:
 .Lx18_0:
  mov r14d, dword ptr [r12 + 16]
- jmp proc_PAT$0_ω
+ jmp xchain0_n3_β
 proc_PAT$0_β:
 jmp proc_PAT$0_ω
 proc_PAT$0_γ:
@@ -373,6 +373,7 @@ main_α_body:
  lea rdi, [rip + g_zls2_cur]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [rdi + 0], rax
+ call rt_dcap_end_fail@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain19_n3_α
@@ -439,6 +440,7 @@ main_α_body:
  lea rdi, [rip + g_zls2_cur]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [rdi + 0], rax
+ call rt_dcap_end_ok@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain19_n3_α
