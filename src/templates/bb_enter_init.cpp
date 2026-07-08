@@ -9,8 +9,8 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_enter_init() {
     x86_begin();
-    if (!PLATFORM_X86) return x86_bomb("bb_enter_init: no x86 platform");
-    if (_.op_off < 0) return x86_bomb("bb_enter_init: op_off < 0 (no slot assigned)");
+    if (!PLATFORM_X86) return x86("def", "α") + x86_bomb("bb_enter_init: no x86 platform");
+    if (_.op_off < 0) return x86("def", "α") + x86_bomb("bb_enter_init: op_off < 0 (no slot assigned)");
     return x86("def",     "α")
          + x86("comment", "IR_INITIAL")
          + x86("mov",  "rax", FRQ(_.op_off + 8))

@@ -10,8 +10,8 @@ extern "C" {
 std::string bb_move_label() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0) return x86_bomb("bb_move_label: no shared-slot owner (op_off<0)");
-    if (!_.lbl_t0) return x86_bomb("bb_move_label: resume-target label unresolved (lbl_t0 NULL)");
+    if (_.op_off < 0) return x86("def", "α") + x86_bomb("bb_move_label: no shared-slot owner (op_off<0)");
+    if (!_.lbl_t0) return x86("def", "α") + x86_bomb("bb_move_label: resume-target label unresolved (lbl_t0 NULL)");
     std::string s = x86("comment", "IR_MOVE_LABEL: shared value := arm value; t := &arm-resume")
                   + x86("def",     "α");
     if (_.op_sa >= 0 && _.op_sa != _.op_off)

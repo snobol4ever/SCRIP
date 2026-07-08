@@ -10,7 +10,7 @@ extern DESCR_t rt_deref(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_deref() {
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0) return x86_bomb("bb_deref: needs own slot + variable operand slot");
+    if (_.op_off < 0 || _.op_a_slot < 0) return x86("def", "α") + x86_bomb("bb_deref: needs own slot + variable operand slot");
     return x86("comment", "IR_DEREF variable -> value")
          + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))

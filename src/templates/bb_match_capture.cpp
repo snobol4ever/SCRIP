@@ -26,8 +26,8 @@ std::string bb_match_capture() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     static char b[24];
-    if (_.op_off < 0) return x86_bomb("IR_MATCH_ASSIGN: capture stack slot not promoted (flat_drive_capture)");
-    if (!(_.op_sval ? _.op_sval : "")[0]) return x86_bomb("IR_MATCH_ASSIGN: empty capture variable name");
+    if (_.op_off < 0) return x86("def", "α") + x86_bomb("IR_MATCH_ASSIGN: capture stack slot not promoted (flat_drive_capture)");
+    if (!(_.op_sval ? _.op_sval : "")[0]) return x86("def", "α") + x86_bomb("IR_MATCH_ASSIGN: empty capture variable name");
     if ((int)_.op_phase == 0)
         return x86("comment", "IR_MATCH_CAPTURE_SAVE push")
              + x86("def",     "α")

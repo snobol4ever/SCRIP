@@ -10,7 +10,7 @@ extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_subscript() {
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) return x86_bomb("bb_subscript: needs own slot + base/index operand slots");
+    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) return x86("def", "α") + x86_bomb("bb_subscript: needs own slot + base/index operand slots");
     return x86("comment", "IR_SUBSCRIPT x[i] variable")
          + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))

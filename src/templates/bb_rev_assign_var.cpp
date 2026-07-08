@@ -11,7 +11,7 @@ extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_assign_var() {
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sc < 0) return x86_bomb("bb_rev_assign_var: needs own slot + variable/value operand slots + save slot");
+    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sc < 0) return x86("def", "α") + x86_bomb("bb_rev_assign_var: needs own slot + variable/value operand slots + save slot");
     return x86("comment", "IR_REV_ASSIGN_VAR x[i]<-v: deref-save old, write new, suspend; restore on resume")
          + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))

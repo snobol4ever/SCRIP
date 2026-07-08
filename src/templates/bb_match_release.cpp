@@ -21,7 +21,7 @@ extern "C" void rt_zls_release_to(void *mark);
 std::string bb_match_release() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0) return x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)");
+    if (_.op_off < 0) return x86("def", "α") + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)");
     return x86("comment", "IR_MATCH_RELEASE")
          + x86("def",     "α")
          + x86_align_enter()

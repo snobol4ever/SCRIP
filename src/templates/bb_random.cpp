@@ -10,7 +10,7 @@ extern DESCR_t rt_random_var(DESCR_t base);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_random() {
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0) return x86_bomb("bb_random: needs own slot + base operand slot");
+    if (_.op_off < 0 || _.op_a_slot < 0) return x86("def", "α") + x86_bomb("bb_random: needs own slot + base operand slot");
     return x86("comment", "IR_RANDOM ?x -> element variable / value (canonical LCG, oref.r random)")
          + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))

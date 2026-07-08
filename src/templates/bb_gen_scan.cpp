@@ -12,7 +12,7 @@ void rt_scan_leave(uint64_t *out3);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gen_scan() {
     x86_begin();
-    if (!PLATFORM_X86) return x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)");
+    if (!PLATFORM_X86) return x86("def", "α") + x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)");
     return x86("comment", "IR_GEN_SCAN")
          + x86("def",     "α")
          + IF(_.op_sb == 1,

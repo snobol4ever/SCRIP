@@ -41,7 +41,7 @@ std::string bb_scan_match() {
              + x86("jmp",     "γ")
              + x86("def",     "β")
              + x86("jmp",     "ω");
-    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_match: unhandled (needs literal string arg + descr flat-chain slot)");
+    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86("def", "α") + x86_bomb("bb_scan_match: unhandled (needs literal string arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_MATCH")
          + x86("def",     "α")
          + x86("mov",     "rax", "r15")

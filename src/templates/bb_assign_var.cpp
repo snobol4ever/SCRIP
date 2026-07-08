@@ -10,7 +10,7 @@ extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_var() {
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) return x86_bomb("bb_assign_var: needs own slot + variable/value operand slots");
+    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) return x86("def", "α") + x86_bomb("bb_assign_var: needs own slot + variable/value operand slots");
     return x86("comment", "IR_ASSIGN_VAR write through variable")
          + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
