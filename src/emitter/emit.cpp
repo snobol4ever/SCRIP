@@ -688,7 +688,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
                        || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
                        || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_ASSIGN_IMM || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
-                       || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP
+                       || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP || nd->op == IR_MATCH_REPLACE
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
                     ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN);
@@ -761,6 +761,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_ARBNO:          { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.op_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); g_emit.op_selfload = ((int)g_emit.op_phase == 0) ? 1 : ((int)g_emit.op_phase == 2) ? 2 : 0; bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 + ZLS2 port-hook grant (op_off already owner-resolved for ph1/2) */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_RELEASE:        { bb_emit_x86(bb_match_release()); } return 0;               /* BB-OWNED-ζ statement-scope pivot */
+    case IR_MATCH_REPLACE:        { bb_emit_x86(bb_match_replace()); } return 0;               /* SN4-REPL stages 4/5 splice */
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_IMM:     { bb_emit_x86(bb_match_capture()); } return 0;               /* $ immediate capture */
     case IR_MATCH_ASSIGN_SAVE:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE */
@@ -982,6 +983,17 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
          * phases reading role 0's slot via operand[0] two cases below. */
         IR_t *hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = hd ? drive_value_slot(hd) : -1;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_REPLACE: {
+        /* SN4-REPL: [0]=head (start@+0, RELEASE-stashed end@+24), [1]=repl value, [2]=subject value; sval=name */
+        IR_t *hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        IR_t *rp = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
+        IR_t *sb = nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0;
+        g_emit.op_off = hd ? drive_value_slot(hd) : -1;
+        g_emit.op_sb  = rp ? drive_value_slot(rp) : -1;
+        g_emit.op_sa  = sb ? drive_value_slot(sb) : -1;
+        g_emit.op_sval = IR_LIT(nd).sval;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ASSIGN_COND: {

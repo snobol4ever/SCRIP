@@ -473,6 +473,7 @@ static int sno_pat_v2_ok(const tree_t * t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SNO_CCONST_MAX 256
+static const char * sno_cset_fold(const tree_t * a);
 static struct { const char * name; const char * val; int total; int clean; } g_sno_cconst[SNO_CCONST_MAX];
 static int g_sno_ncconst = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -509,7 +510,7 @@ static void sno_cconst_build_table(const tree_t ** st, int nst) {
         int argbase = 0; const tree_t * dsub = sno_stmt_define(s, &argbase);
         if (dsub) { sno_def_t d; sno_parse_define(dsub->c[argbase]->v.sval, NULL, &d); sno_cconst_note_define_names(&d); continue; }
         if (!has_eq) continue;
-        if (subj && subj->t == TT_VAR && subj->v.sval) { if (repl && repl->t == TT_QLIT && repl->v.sval) sno_cconst_write(subj->v.sval, repl->v.sval); else sno_cconst_write(subj->v.sval, NULL); }
+        if (subj && subj->t == TT_VAR && subj->v.sval) { const char * fv = repl ? sno_cset_fold(repl) : NULL; sno_cconst_write(subj->v.sval, fv); }
         else if (subj) sno_cconst_scan_indirect_target(subj);
         if (repl) sno_cconst_scan_writes(repl);
     }
@@ -855,24 +856,42 @@ static const char * sno_pat_collect(const tree_t * pat) {
     return g_sno_pats[g_sno_npat++].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, IR_t * sJ, IR_t * fJ) {
+static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ) {
     IR_graph_t * g = cx->g;
     cx->pat_fail = fJ;
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
     IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
+    /* SN4-REPL (doctrine stages 4/5): pattern-success → RELEASE (stashes end@head+24, flushes captures per
+     * manual Ch.6 "before replacement") → replacement expression chain → SPLICE (rt_match_replace by name)
+     * → sJ.  Slice 1: subject must be a plain variable lvalue — indirect/subscript splice targets pending. */
+    IR_t * splice = NULL;
+    if (has_repl) {
+        if (!svt || svt->t != TT_VAR) sno_fatal("SN4-REPL slice 1: replacement subject must be a plain variable (indirect/subscript lvalue splice pending)", NULL);
+        sno_reg_var(svt->v.sval);
+        splice = lc_build(g, IR_MATCH_REPLACE, sJ, NULL);
+        IR_LIT(splice).sval = svt->v.sval;
+        ir_operand_push(splice, head);
+        IR_t * rv = NULL; IR_t * re;
+        if (repl_t) re = sx_lower(cx, repl_t, splice, fJ, &rv);
+        else { re = lc_build(g, IR_LIT_STRING, splice, fJ); IR_LIT(re).sval = (char *) ""; rv = re; }
+        ir_operand_push(splice, rv);
+        sJ = re;
+    }
     /* BB-OWNED-ζ statement-scope pivot (this session): release owns the success exit the way head's own ω
      * already owns the failure exit (head IS the scanner's single fixed exhaustion choke point; success has
      * no such fixed point of its own — it's whichever pattern element the match happens to end on — so this
      * node IS that fixed point, added for exactly this).  operand[0] = head, read at emit time via the same
      * operand[0]-owner convention IR_MATCH_ARBNO's non-owner phases already use to find role 0's slot. */
     IR_t * release = lc_build(g, IR_MATCH_RELEASE, sJ, NULL);
+    if (has_repl) IR_LIT(release).dval = 1.0;
     ir_operand_push(release, head);
     IR_t * pat_entry = sno_pat_node(cx, ptt, release, head);
     lc_γ_to(head, pat_entry);
     IR_t * subjval = NULL;
     IR_t * subj_entry = sx_lower(cx, svt, head, fJ, &subjval);
     ir_operand_push(head, subjval);
+    if (splice) ir_operand_push(splice, subjval);
     return subj_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -911,10 +930,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         int has_eq = sfind(s, ":eq") != NULL;
         if (pat) sno_fatal("statement has a separate :pat field (stored-pattern form) — SN4-PAT-2 handles TT_SCAN match subjects only", NULL);
         if (subj && subj->t == TT_SCAN) {
-            if (has_eq) sno_fatal("SUBJECT PATTERN = REPL splice is outside the SN4-PAT-2 subset (match-only for now)", NULL);
             const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
             if (!sno_pat_supported(ptt)) sno_fatal("pattern shape outside the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
-            IR_t * e = sno_lower_match(&cx, subj, sJ, fJ);
+            IR_t * e = sno_lower_match(&cx, subj, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ);
             lc_γ_to(anchor[i], e);
             continue;
         }
