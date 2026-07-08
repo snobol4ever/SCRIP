@@ -1512,6 +1512,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          * masquerading through the ω port.  See the field comment in emit.h for the full reasoning; verified
          * against IR_MATCH_ARBNO roles 2/5 via lower_snobol4.c's sno_ω_to(F, fail) construction this session. */
         g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
+        if (getenv("SCRIP_OMEGA_DIAG")) fprintf(stderr, "[OMEGA-DIAG] i=%d node_op=%s omega_resolved=%d otgt_op=%s op_omega_is_death=%d\n", i, bb_op_name(nodes[i]->op), omega_resolved, otgt ? bb_op_name(otgt->op) : "NULL", g_emit.op_omega_is_death);
         for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
         if (nodes[i]->op == IR_CONJUNCTION && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t * op0 = nodes[i]->operands[0];

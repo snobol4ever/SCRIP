@@ -127,6 +127,21 @@ std::string bb_match_arbno() {
              + x86("def", "β")
              + x86("mov", "r14d", FR(_.op_off))
              + x86_arbno_role2_free()
+             /* BB-OWNED-ζ STEP 1, SINGLE-EXIT LABEL (Claude, this session, per Lon's ask): L(9) marks the ONE
+              * instruction address that is this ARBNO node's provable true death -- the jmp immediately
+              * following it is the same "jmp ω" every other true-exit uses (the port CONTRACT is unchanged:
+              * this activation's real exit still goes through omega, same as any other node's), but this def
+              * gives anything auditing the emitted stream (a disassembler, a future central hook, a person)
+              * one unambiguous, greppable address for "ARBNO role 2 died here" that does NOT depend on the
+              * op_omega_is_death chain-membership classification -- which this session found DOES NOT
+              * correctly distinguish role 2's death from role 0/1's internal omega-reuse in at least one real
+              * case (IR_MATCH_HEAD landing inside the same codegen_flat_chain_body window as this ARBNO's own
+              * roles, making omega_resolved=1 for role 2 too, contradicting the STANDING POINTER's own claim
+              * that only role 2/5 sets the flag -- see SCRIP_OMEGA_DIAG trace this session, emit.cpp ~1514).
+              * No new port is added (RULES.md: FOUR PORTS = FOUR GREEK NAMES ALWAYS, no synonyms) -- this is
+              * an ordinary local integer label via the existing L(n) mechanism (same as L(0) in phase 1 and in
+              * bb_match_arb.cpp), not a fifth port; the jmp target is still literally "ω". */
+             + x86("def", L(9))
              + x86("jmp", "ω");
     if (_.op_sa < 0 || _.op_sb <= 0) return x86_bomb("IR_MATCH_ARBNO v2: COLLECTION geometry not staged (zls_arbno_geom)");
     if ((int)_.op_phase == 3)
@@ -189,6 +204,14 @@ std::string bb_match_arbno() {
          + x86("lea", "r12", RDQ("rax", 16 - _.op_sa))
          + x86("jmp", "γ")
          + x86("def", L(2))
+         /* BB-OWNED-ζ STEP 1 (Claude, this session): L(2) here is role 5's OWN single true-exit -- the i==0
+          * unwind-complete case (reached only via the "jz L(2)" test above when the per-iteration COLLECTION
+          * has been fully popped). Parallel to role 2's new L(9) marker above: this is the ALREADY-EXISTING
+          * label for that reason, not a new one, since renumbering an in-use L(n) here would be pure noise.
+          * v2 does NOT currently call a role2_free()-equivalent at this point -- v2's per-iteration state
+          * lives in the rt_zcol_push COLLECTION (a different, already-working mechanism per this session's
+          * earlier tracing), not the STEP 1 single-carrier alloc/free pair; wiring the two together, if ever
+          * warranted, is separate future work, not attempted here. */
          + x86("mov", "r14d", FR(_.op_off))
          + x86("jmp", "ω");
 }

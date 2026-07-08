@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 #include "emit.h"
 #include "zeta_choices.h"
 extern "C" {
@@ -298,6 +299,19 @@ inline std::string x86_zeta_free_call();
  * deliberately NOT read here for now. */
 inline std::string x86_jmp(int port) {
     std::string pre = x86_port_canary();
+    if (port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE")) {
+        /* Central-hook observability only (Claude, this session, per Lon's ask: trace both enters and both
+         * exits from ONE place, without touching any template).  This fires once PER JMP "ω" SITE COMPILED
+         * (i.e. at emit/codegen time, same as every other x86() call -- NOT a runtime per-execution trace;
+         * this reports which ω sites exist and how each was classified, not how often each one runs). Fires
+         * for EVERY jmp "ω", true-death or internal-alias alike -- op_omega_is_death distinguishes them,
+         * deliberately NOT filtered out of the trace, so a person auditing it sees both classes side by side,
+         * exactly the fact this session's own ARBNO investigation needed and had to reconstruct by hand from
+         * source reading. The free-call this hook COULD make (x86_zeta_free_call) stays OFF regardless of
+         * op_omega_is_death's value, exactly per the STEP 1 STATUS comment immediately above this function --
+         * it frees r12 itself, wrong for ARBNO's carrier-based design; this trace does not change that. */
+        fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
+    }
     return pre + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
                                 : (std::string(" jmp ") + x86_portname(port) + "\n"));
 }
