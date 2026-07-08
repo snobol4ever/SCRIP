@@ -44,7 +44,8 @@ static std::string bcps_bin_arm() {
     bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fptr; { DESCR_t (*fp)(const char *, int) = rt_call_proc_descr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return FOR(0, (int)_.op_ival, [&](int i) {
+    return x86("def",   "α")
+         + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
     })
@@ -90,7 +91,8 @@ static std::string bcps_bin_gen_arm() {
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t callg_fp; { DESCR_t (*fp)(const char *, int) = rt_proc_call_gen; callg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t resumeg_fp; { DESCR_t (*fp)(void) = rt_proc_resume_gen; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    return FOR(0, (int)_.op_ival, [&](int i) {
+    return x86("def",   "α")
+         + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
     })
