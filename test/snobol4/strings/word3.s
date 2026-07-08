@@ -187,9 +187,6 @@ proc_PAT$0_α_body:
  mov dword ptr [r12 + 84], eax
  jmp xchain0_n9_α
  xchain0_n8_β:
- lea rdi, [rip + g_zls2_cur]
- mov rax, qword ptr [r12 + 88]
- mov qword ptr [rdi + 0], rax
  add dword ptr [r12 + 80], 1
  mov eax, dword ptr [r12 + 84]
  add eax, dword ptr [r12 + 80]
