@@ -10,7 +10,7 @@ extern DESCR_t rt_field_var(const char *fname, DESCR_t obj);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_field_get() {
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0) return x86_bomb("bb_field_get: needs own slot + object operand slot");
+    if (_.op_off < 0 || _.op_a_slot < 0) return x86("def", "α") + x86_bomb("bb_field_get: needs own slot + object operand slot");
     int lv = (_.op_node_kind == IR_FIELD_VAR);
     return x86("comment", lv ? "IR_FIELD_GET lv" : "IR_FIELD_GET")
          + x86("def",     "α")

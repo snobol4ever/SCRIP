@@ -15,7 +15,7 @@ DESCR_t rt_keyword_gen(const char *sval, long idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_icon() {
     if (!PLATFORM_X86) return std::string();
-    if (!(_.op_off >= 0)) return x86_bomb("bb_keyword: no slot");
+    if (!(_.op_off >= 0)) return x86("def", "α") + x86_bomb("bb_keyword: no slot");
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
     std::string tail = x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
     if (!strcmp(kw, "subject")) {

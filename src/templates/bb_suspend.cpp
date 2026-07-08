@@ -11,7 +11,7 @@ std::string bb_suspend() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (_.op_sa < 0)
-        return x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
+        return x86("def", "α") + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
     std::string s;
     s += x86("comment", "IR_SUSPEND yield+resume");
     s += x86("def",     "α");

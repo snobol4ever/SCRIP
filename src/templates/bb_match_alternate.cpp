@@ -23,7 +23,7 @@ extern "C" {
 std::string bb_match_alternate() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0) return x86_bomb("IR_MATCH_ALTERNATE: cursor slot not granted (zls)");
+    if (_.op_off < 0) return x86("def", "α") + x86_bomb("IR_MATCH_ALTERNATE: cursor slot not granted (zls)");
     if ((int)_.op_phase == 0)
         return x86("comment", "IR_MATCH_ALT_SAVE")
              + x86("def",     "α")

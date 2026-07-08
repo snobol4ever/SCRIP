@@ -22,7 +22,7 @@ std::string bb_call_bool_str(IR_t * pBB) {
              + x86("def", "β")
              + x86("jmp", "ω");
     int off = _.op_a_slot;
-    if (off < 0) return x86_bomb("bb_call_bool: arg slot not allocated");
+    if (off < 0) return x86("def", "α") + x86_bomb("bb_call_bool: arg slot not allocated");
     return x86("def",     "α")
          + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
          + x86("mov", "rdi", FRQ(off))

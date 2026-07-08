@@ -12,7 +12,7 @@ extern DESCR_t rt_section_var(DESCR_t base, DESCR_t i1, DESCR_t i2);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_section() {
     if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0) return x86_bomb("bb_section: needs own slot + base/i1/i2 operand slots");
+    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0) return x86("def", "α") + x86_bomb("bb_section: needs own slot + base/i1/i2 operand slots");
     if (_.op_sval && _.op_sval[0] == 'l' && _.op_sval[1] == 'v' && !_.op_sval[2])
         return x86("comment", "IR_SUBSCRIPT section VARIABLE (ASSIGN-LV: rt_section_var tvsubs trap; FAIL routes ω)")
              + x86("def",     "α")

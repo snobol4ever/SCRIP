@@ -57,9 +57,9 @@ static std::string bb_subject_lit_arm() {
 std::string bb_subject() {
     x86_begin();
     if (PLATFORM_X86)
-        return _.op_sa < 0 ? x86_bomb("IR_SUBJECT: subject slot not promoted (flat_drive_subject)") :
+        return _.op_sa < 0 ? x86("def", "α") + x86_bomb("IR_SUBJECT: subject slot not promoted (flat_drive_subject)") :
                (!_.op_a_sval && _.op_sval && _.op_sval[0]) ? bb_subject_nv_arm() :
-               !_.op_a_sval ? x86_bomb("IR_SUBJECT: non-literal subject (PB-RB ladder)") :
+               !_.op_a_sval ? x86("def", "α") + x86_bomb("IR_SUBJECT: non-literal subject (PB-RB ladder)") :
                bb_subject_lit_arm();
     return std::string();
 }

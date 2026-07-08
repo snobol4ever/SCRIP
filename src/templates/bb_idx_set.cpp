@@ -10,7 +10,7 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_idx_set() {
     if (!PLATFORM_X86 || !(_.op_a_slot >= 0 && _.op_sb >= 0 && _.op_sc >= 0))
-        return x86_bomb("bb_idx_set: needs base/key/value operand slots ([ζ+off] producers)");
+        return x86("def", "α") + x86_bomb("bb_idx_set: needs base/key/value operand slots ([ζ+off] producers)");
     x86_begin();
     std::string s = x86("def",     "α")
                   + x86("comment", "IR_IDX_SET: base/key/value from [ζ+off]; inline DT_A+int fast path, else subscript_set")

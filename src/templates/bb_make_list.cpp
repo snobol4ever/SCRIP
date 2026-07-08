@@ -12,11 +12,11 @@ std::string bb_make_list() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0)
-        return x86_bomb("bb_make_list: unhandled (needs result slot, descr flat-chain)");
+        return x86("def", "α") + x86_bomb("bb_make_list: unhandled (needs result slot, descr flat-chain)");
     int n = _.op_arg_slot_n;
     for (int i = 0; i < n; i++)
         if (_.op_arg_slot[i] < 0)
-            return x86_bomb("bb_make_list: element slot unfilled");
+            return x86("def", "α") + x86_bomb("bb_make_list: element slot unfilled");
     std::string s = x86("comment", "IR_MAKE_LIST")
                   + x86("def",     "α");
     for (int i = 0; i < n; i++)

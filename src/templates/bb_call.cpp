@@ -519,8 +519,8 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     int resoff  = zoff(_.node);
-    if (resoff < 0) return x86_bomb("bb_call_named_proc: no LOWER slot grant (TMP-ERADICATE)");
-    if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_named_proc: arg count exceeds LOWER grant (TMP-ERADICATE)");
+    if (resoff < 0) return x86("def", "α") + x86_bomb("bb_call_named_proc: no LOWER slot grant (TMP-ERADICATE)");
+    if (_.node && (int)narg > _.node->n_operands) return x86("def", "α") + x86_bomb("bb_call_named_proc: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     if (MEDIUM_TEXT) {
         std::string s = x86("def",     "α")
@@ -612,7 +612,7 @@ static IR_t * relop_arg_simple_operand(IR_graph_t * sg) {
 static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_graph_t ** subs, int relop) {
     x86_begin();
     int resoff = zoff(_.node);
-    if (resoff < 0) return x86_bomb("bb_call_relop_inline: no LOWER slot grant (TMP-ERADICATE)");
+    if (resoff < 0) return x86("def", "α") + x86_bomb("bb_call_relop_inline: no LOWER slot grant (TMP-ERADICATE)");
     IR_t * a = relop_arg_simple_operand(subs[0]);
     IR_t * b = relop_arg_simple_operand(subs[1]);
     int scratch = resoff + 16;
@@ -642,8 +642,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
           && relop_arg_simple_operand(subs[0]) && relop_arg_simple_operand(subs[1]))
           return bb_call_relop_inline_str(pBB, fn, subs, _rl); }
     int resoff  = zoff(_.node);
-    if (resoff < 0) return x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
-    if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
+    if (resoff < 0) return x86("def", "α") + x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
+    if (_.node && (int)narg > _.node->n_operands) return x86("def", "α") + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     if (MEDIUM_TEXT) {
         std::string s = x86("def",     "α")
@@ -694,8 +694,8 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     int resoff  = zoff(_.node);
-    if (resoff < 0) return x86_bomb("bb_call_byname_gen: no LOWER slot grant (TMP-ERADICATE)");
-    if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
+    if (resoff < 0) return x86("def", "α") + x86_bomb("bb_call_byname_gen: no LOWER slot grant (TMP-ERADICATE)");
+    if (_.node && (int)narg > _.node->n_operands) return x86("def", "α") + x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     int genoff  = resoff + 16 * (1 + (int)narg);
     if (MEDIUM_TEXT) {
@@ -763,7 +763,7 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * e = cond ? cond->entry : NULL;
-    if (!e) return x86_bomb("bb_call_bool_truthy: empty cond sub-graph");
+    if (!e) return x86("def", "α") + x86_bomb("bb_call_bool_truthy: empty cond sub-graph");
     std::string s = x86("def",     "α")
                   + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rt_is_truthy -> branch true=γ / false=ω]");
     if (e->op == IR_LIT_INTEGER) {
@@ -772,10 +772,10 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
         s += x86("mov32", "edi", (long)1) + x86_ro_load_q("rsi", 0) + x86_jmp_id(1) + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "") + x86_deflabel_id(1);
     } else if (e->op == IR_VAR && IR_LIT(e).sval) {
         int voff = bb_varslot_peek(IR_LIT(e).sval);
-        if (voff < 0) return x86_bomb("bb_call_bool_truthy: IR_VAR cond names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
+        if (voff < 0) return x86("def", "α") + x86_bomb("bb_call_bool_truthy: IR_VAR cond names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
         s += x86_frame_load64("rdi", voff) + x86_frame_load64("rsi", voff + 8);
     } else {
-        return x86_bomb("bb_call_bool_truthy: unhandled cond entry kind");
+        return x86("def", "α") + x86_bomb("bb_call_bool_truthy: unhandled cond entry kind");
     }
     return s + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
              + x86("test", "eax", "eax") + x86("je", "ω") + x86("jmp", "γ") + x86("def", "β") + x86("jmp", "ω");
@@ -786,12 +786,12 @@ static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * relnd = rkbool_cond_relop(cond);
-    if (!relnd) return x86_bomb("bb_call_bool_jct: no relop in cond sub-graph");
+    if (!relnd) return x86("def", "α") + x86_bomb("bb_call_bool_jct: no relop in cond sub-graph");
     IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
-    if (!ra || !rb) return x86_bomb("bb_call_bool_jct: relop operands unresolved");
+    if (!ra || !rb) return x86("def", "α") + x86_bomb("bb_call_bool_jct: relop operands unresolved");
     int lhs_slot = (zoff(_.node) >= 0) ? zoff(_.node) + 16 : -1;
-    if (lhs_slot < 0) return x86_bomb("bb_call_bool_jct: no LOWER slot grant (TMP-ERADICATE)");
-    if (_.node->n_operands < 2) return x86_bomb("bb_call_bool_jct: grant narrower than 2 slots (TMP-ERADICATE)");
+    if (lhs_slot < 0) return x86("def", "α") + x86_bomb("bb_call_bool_jct: no LOWER slot grant (TMP-ERADICATE)");
+    if (_.node->n_operands < 2) return x86("def", "α") + x86_bomb("bb_call_bool_jct: grant narrower than 2 slots (TMP-ERADICATE)");
     int rhs_slot = lhs_slot + 16;
     std::string s = x86("def",     "α")
                   + x86("comment", "BOX __rk_bool [dval=2 junction relop -> rt_jct_relop -> branch true=γ / false=ω]");
@@ -811,11 +811,11 @@ static std::string bb_call_bool_cond_str(IR_t * pBB) {
     IR_t * relnd = rkbool_cond_relop(cond);
     if (!relnd) return bb_call_bool_truthy_cond_str(pBB);
     IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
-    if (!ra || !rb) return x86_bomb("bb_call_bool_cond: relop operands unresolved");
+    if (!ra || !rb) return x86("def", "α") + x86_bomb("bb_call_bool_cond: relop operands unresolved");
     if (is_jct_call(ra) || is_jct_call(rb)) return bb_call_bool_jct_cond_str(pBB);
-    if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_bool_cond: relop operands unhandled");
+    if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86("def", "α") + x86_bomb("bb_call_bool_cond: relop operands unhandled");
     int scratch = zoff(relnd);
-    if (scratch < 0) return x86_bomb("bb_call_bool_cond: relop has no LOWER slot grant (TMP-ERADICATE)");
+    if (scratch < 0) return x86("def", "α") + x86_bomb("bb_call_bool_cond: relop has no LOWER slot grant (TMP-ERADICATE)");
     return x86("def",     "α")
          + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")
          + arith_opnd_a(cond, ra) + x86_frame_store64(scratch, "rax")
@@ -834,7 +834,7 @@ std::string bb_call(IR_t * pBB) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
         case CALL_ROUTE_BYNAME_GEN:    return bb_call_byname_gen_str(pBB);
         case CALL_ROUTE_RK_BOOL_COND:  return bb_call_bool_cond_str(pBB);
-        case CALL_ROUTE_DVAL2_BOMB:    return x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
+        case CALL_ROUTE_DVAL2_BOMB:    return x86("def", "α") + x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
         case CALL_ROUTE_GVAR_USERPROC: return bb_call_gvar_userproc_str(pBB);
         case CALL_ROUTE_PROC_STAGED:   return bb_call_proc_staged_str(pBB);
         case CALL_ROUTE_RK_BOOL_SLOT:  return bb_call_bool_str(pBB);

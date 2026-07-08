@@ -14,7 +14,7 @@ std::string bb_to_by() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && _.op_sc >= 0))
-        return x86_bomb("bb_to_by: unhandled (needs from/to/by operand slots, descr flat-chain)");
+        return x86("def", "α") + x86_bomb("bb_to_by: unhandled (needs from/to/by operand slots, descr flat-chain)");
     if (_.op_num_real)
         return x86("comment", "IR_TO_BY real")
              + x86("def",     "α")

@@ -10,7 +10,7 @@ DESCR_t NV_GET_fn(const char * name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_global() {
-    if (!(PLATFORM_X86 && _.op_off >= 0)) return x86_bomb("bb_var_global: unhandled (needs descr flat-chain + own slot)");
+    if (!(PLATFORM_X86 && _.op_off >= 0)) return x86("def", "α") + x86_bomb("bb_var_global: unhandled (needs descr flat-chain + own slot)");
     if (g_gva_active && _.op_gva_k >= 0)
         return x86("comment", "IR_VAR gva")
              + x86("def",     "α")

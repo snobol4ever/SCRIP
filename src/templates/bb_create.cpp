@@ -11,10 +11,10 @@ std::string xa_coexpr_body_lea(const char * dst);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_create() {
     x86_begin();
-    if (!PLATFORM_X86) return x86_bomb("bb_create: no x86 platform");
-    if (_.op_off < 0) return x86_bomb("bb_create: op_off < 0 (no slot assigned -- IR_CREATE missing from ir_node_produces_value?)");
+    if (!PLATFORM_X86) return x86("def", "α") + x86_bomb("bb_create: no x86 platform");
+    if (_.op_off < 0) return x86("def", "α") + x86_bomb("bb_create: op_off < 0 (no slot assigned -- IR_CREATE missing from ir_node_produces_value?)");
     if (!_.lbl_t0)
-        return x86_bomb("bb_create: body-entry target (t0 port) is NULL -- codegen_flat_chain_body's IR_CREATE resolution did not thread g_create_body_entry "
+        return x86("def", "α") + x86_bomb("bb_create: body-entry target (t0 port) is NULL -- codegen_flat_chain_body's IR_CREATE resolution did not thread g_create_body_entry "
                          "(operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)");
     int op_off2 = _.op_off + 16;
     std::string s = x86("comment", "IR_CREATE")

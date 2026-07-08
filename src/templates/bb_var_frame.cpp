@@ -10,7 +10,7 @@ extern int g_gvar_flat_chain;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_frame() {
     if (PLATFORM_X86) {
-        if (!(g_gvar_flat_chain && _.op_off >= 0)) return x86_bomb("bb_var_frame: needs gvar flat-chain + own slot");
+        if (!(g_gvar_flat_chain && _.op_off >= 0)) return x86("def", "α") + x86_bomb("bb_var_frame: needs gvar flat-chain + own slot");
         extern int g_emit_frame_caller_dl;
         int hops = (int)_.op_dval;
         int target = g_emit_frame_caller_dl - hops;

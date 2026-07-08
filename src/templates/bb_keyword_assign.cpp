@@ -17,8 +17,8 @@ struct DESCR_t rt_keyword_dump_set(struct DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_assign() {
     if (!PLATFORM_X86) return std::string();
-    if (!(_.op_off >= 0)) return x86_bomb("bb_keyword_assign: no result slot");
-    if (_.op_a_slot < 0) return x86_bomb("bb_keyword_assign: rhs operand slot unresolved");
+    if (!(_.op_off >= 0)) return x86("def", "α") + x86_bomb("bb_keyword_assign: no result slot");
+    if (_.op_a_slot < 0) return x86("def", "α") + x86_bomb("bb_keyword_assign: rhs operand slot unresolved");
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
     if (!strcmp(kw, "pos")) {
         if (g_scan_regs_live)
@@ -106,5 +106,5 @@ std::string bb_keyword_assign() {
              + x86("def",  "β")
              + x86("jmp",  "ω");
     }
-        return x86_bomb("bb_keyword_assign: only &pos/&random assignment implemented (KEYWORD-LVALUE rung; &subject/:=:/<-> are follow-ons)");
+        return x86("def", "α") + x86_bomb("bb_keyword_assign: only &pos/&random assignment implemented (KEYWORD-LVALUE rung; &subject/:=:/<-> are follow-ons)");
 }

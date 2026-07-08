@@ -11,7 +11,7 @@ std::string bb_limit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sc >= 0 && _.lbl_t0))
-        return x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, count slot, gen-β)");
+        return x86("def", "α") + x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, count slot, gen-β)");
     return x86("comment", "IR_LIMIT")
          + x86("def",     "α")
          + x86("mov",   "rax", FRQ(_.op_off + 16))

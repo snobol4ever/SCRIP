@@ -47,7 +47,7 @@ std::string bb_scan_find() {
              + x86("def",     "β")
              + x86("inc",     FRQ(_.op_off + 16))
              + x86("jmp",     L(0));
-    if (!PLATFORM_X86 || !find_admit()) return x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)");
+    if (!PLATFORM_X86 || !find_admit()) return x86("def", "α") + x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_FIND")
          + x86("def",     "α")
          + x86("mov",     FRQ(_.op_off + 16), "r14")
