@@ -262,6 +262,7 @@ xchain0_n14_α:
 bb15_α:
  xchain0_n14_β:
  mov r14d, dword ptr [r12 + 96]
+.Lx22_9:
  jmp xchain0_n8_β
 xchain0_n15_α:
 # IR_MATCH_RPOS
