@@ -203,6 +203,7 @@ xchain0_n12_α:
 bb13_α:
  xchain0_n12_β:
  mov r14d, dword ptr [r12 + 64]
+.Lx20_9:
  jmp xchain0_n6_β
 xchain0_n13_α:
 # IR_MATCH_RPOS
