@@ -61,13 +61,10 @@ proc_PAT$0_α_body:
  jmp proc_PAT$0_ω
 # IR_MATCH_ARB
  xchain0_n2_α:
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, 16
- call rt_zls2_push@PLT
- mov rsp, rbp
- pop rbp
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [rdi + 0]
+ sub rax, 16
+ mov qword ptr [rdi + 0], rax
  mov rcx, qword ptr [r12 + 88]
  mov qword ptr [rax + 0], rcx
  mov qword ptr [r12 + 88], rax
@@ -76,14 +73,9 @@ proc_PAT$0_α_body:
  mov dword ptr [r12 + 84], eax
  jmp xchain0_n3_α
  xchain0_n2_β:
+ lea rdi, [rip + g_zls2_cur]
  mov rax, qword ptr [r12 + 88]
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, rax
- call rt_zls2_release_to@PLT
- mov rsp, rbp
- pop rbp
+ mov qword ptr [rdi + 0], rax
  add dword ptr [r12 + 80], 1
  mov eax, dword ptr [r12 + 84]
  add eax, dword ptr [r12 + 80]
@@ -96,14 +88,9 @@ proc_PAT$0_α_body:
  mov rax, qword ptr [r12 + 88]
  mov rcx, qword ptr [rax + 0]
  mov qword ptr [r12 + 88], rcx
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, rax
- add rdi, 16
- call rt_zls2_release_to@PLT
- mov rsp, rbp
- pop rbp
+ add rax, 16
+ lea rdi, [rip + g_zls2_cur]
+ mov qword ptr [rdi + 0], rax
  jmp xchain0_n1_β
 # IR_MATCH_CAPTURE_COND
  xchain0_n3_α:
@@ -358,7 +345,8 @@ main_α_body:
  xchain19_n6_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 120], rax
- call rt_zls2_mark@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [rdi + 0]
  mov qword ptr [r12 + 128], rax
  mov rdi, qword ptr [r12 + 144]
  mov rsi, qword ptr [r12 + 152]
@@ -385,8 +373,9 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 120]
  call rt_zls_release_to@PLT
- mov rdi, qword ptr [r12 + 128]
- call rt_zls2_release_to@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [r12 + 128]
+ mov qword ptr [rdi + 0], rax
  mov rsp, rbp
  pop rbp
  jmp xchain19_n3_α
@@ -450,8 +439,9 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 120]
  call rt_zls_release_to@PLT
- mov rdi, qword ptr [r12 + 128]
- call rt_zls2_release_to@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [r12 + 128]
+ mov qword ptr [rdi + 0], rax
  mov rsp, rbp
  pop rbp
  jmp xchain19_n3_α
