@@ -63,6 +63,7 @@ proc_MATCHIT_α_body:
  lea rdi, [rip + g_zls2_cur]
  mov rax, qword ptr [r12 + 32]
  mov qword ptr [rdi + 0], rax
+ call rt_dcap_end_fail@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain0_n2_α
@@ -231,6 +232,7 @@ proc_MATCHIT_α_body:
  lea rdi, [rip + g_zls2_cur]
  mov rax, qword ptr [r12 + 32]
  mov qword ptr [rdi + 0], rax
+ call rt_dcap_end_ok@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain0_n15_α
