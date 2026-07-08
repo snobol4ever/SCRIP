@@ -1169,9 +1169,6 @@ inline std::string x86_port_hook(int site, int port) {
                + x86("mov", "rcx", FRQ(_.op_zls2_slot))
                + x86("mov", RDQ("rax", 0), "rcx")
                + x86("mov", FRQ(_.op_zls2_slot), "rax");
-        if (site == X86H_DEF && port == X86P_BETA && (_.op_zls2_ops & ZLS2_RESTORE))
-            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
-               + x86_zls2_release_to_reg("rax", 0);
         if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
             s += x86("mov", "rax", FRQ(_.op_zls2_slot))
                + x86("mov", "rcx", RDQ("rax", 0))
@@ -1182,7 +1179,10 @@ inline std::string x86_port_hook(int site, int port) {
      * calls: raw arithmetic on the exported g_zls2_cur cell (see zeta_choices.h for what the flavor drops).
      * Same sites, same order (BUMP saves AFTER the decrement — the slot holds THIS activation's base), same
      * register contract (rax/rcx/rdi only, dead at DEF sites and before a port jmp; no arm at JCC — the
-     * FLAGS CONTRACT is untouched by construction since these movs are jmp/def-site only). */
+     * FLAGS CONTRACT is untouched by construction since these movs are jmp/def-site only).  ⛔ RULING (Lon,
+     * 2026-07-08 s7, same session): ONLY α AND ω PARTICIPATE — no β arm in either flavor; the ω that lands
+     * on a β has already put the cursor right (its RELEASE fired at death), so a β restore is a no-op by
+     * construction.  ZLS2_RESTORE is never granted (zls2_geom); no hook site keys on it. */
     if (x86_port_mode() == ZC_PORT_INLINE && _.op_zls2_ops && _.op_zls2_slot >= 0) {
         if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
             s += x86_zls2_cur_lea("rdi")
@@ -1192,10 +1192,6 @@ inline std::string x86_port_hook(int site, int port) {
                + x86("mov", "rcx", FRQ(_.op_zls2_slot))
                + x86("mov", RDQ("rax", 0), "rcx")
                + x86("mov", FRQ(_.op_zls2_slot), "rax");
-        if (site == X86H_DEF && port == X86P_BETA && (_.op_zls2_ops & ZLS2_RESTORE))
-            s += x86_zls2_cur_lea("rdi")
-               + x86("mov", "rax", FRQ(_.op_zls2_slot))
-               + x86("mov", RDQ("rdi", 0), "rax");
         if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
             s += x86("mov", "rax", FRQ(_.op_zls2_slot))
                + x86("mov", "rcx", RDQ("rax", 0))

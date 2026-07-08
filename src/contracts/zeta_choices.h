@@ -117,7 +117,7 @@
  *           ω-jumps are statically all activation-death (the grant is the classifier; op_omega_is_death is
  *           recorded broken and never consulted). */
 #define ZLS2_BUMP    1
-#define ZLS2_RESTORE 2
+#define ZLS2_RESTORE 2 /* RETIRED (Lon ruling 2026-07-08 s7): only α and ω participate — the ω landing on a β already adjusted the cursor via its own RELEASE; never granted (zls2_geom), no hook site keys on it; bit kept so the mask meaning stays recorded */
 #define ZLS2_RELEASE 4
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if ZC_ALLOC == ZC_ALLOC_GC
