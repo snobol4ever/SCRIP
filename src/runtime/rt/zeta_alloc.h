@@ -13,4 +13,8 @@ void *rt_zls_arbno_step1_load(void);
  * for overflow diagnostics. */
 void *rt_zls2_init(void);
 void *rt_zls2_lo(void);
+void *rt_zls2_push(long k);
+void  rt_zls2_pop(long k);
+void *rt_zls2_mark(void);
+void  rt_zls2_release_to(void *mark);
 #endif

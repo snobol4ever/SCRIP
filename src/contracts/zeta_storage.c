@@ -86,7 +86,7 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
          * into the SAME zeta arena, whose address-range rooting (rt_zls_alloc's GC_add_roots widening,
          * zeta_alloc.c) already covers them regardless of tag, but the tag is recorded honestly for
          * whichever future consumer reads it, not left as an untagged raw word next to a tagged sibling. */
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer)", nd); return 1;
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (ZC_PORT_ALLOC only: saved rt_zls2_mark() cursor; released by head's own omega-choke on failure / IR_MATCH_RELEASE on success — the ZLS2 twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.pad (unused)", nd); return 2;
     case IR_MATCH_SPAN:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX:
@@ -94,7 +94,7 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_ARB: case IR_MATCH_REM:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_ARBNO:
-        if (IR_LIT(nd).ival == 0) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0])", nd); return 1; }
+        if (IR_LIT(nd).ival == 0) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0]; ZC_PORT_PLAIN state home — under ZC_PORT_ALLOC state moves into the per-activation ZLS2 block and this quad idles)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: current activation's ZLS2 block; block header +0 chains the previous activation's ptr, popped back here at role 2's true exit — the MATCH_HEAD zeta_mark precedent, widened to its own quad because v1's first quad has only 4B of pad)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.pad (unused)", nd); return 2; }
         if (IR_LIT(nd).ival == 3) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno2.owner quad low: entry/yield/i/cap (4x4B; phases 4/5 read via operand[0])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno2.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_rZ, cur_before} + body-subgraph slot range)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno2.pad (unused)", nd); return 2; }
         return 0;
     case IR_MATCH_ASSIGN_SAVE:
