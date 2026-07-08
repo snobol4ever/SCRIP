@@ -16,6 +16,9 @@ long g_anchor = 0;
 long g_trim   = 0;
 long g_maxlngth = 5000000;
 int  g_jcon   = 0;
+long g_stno    = 0;
+long g_stcount = 0;
+long g_lastno  = 0;
 #define KW_CSET_MAX 16
 static struct { const char *ptr; const char *name; int len; } g_kw_cset_names[KW_CSET_MAX];
 static int g_kw_cset_count = 0;
@@ -121,6 +124,11 @@ DESCR_t kw_read(const char *kw) {
       if (!strcmp(kw,"fullscan")) return INTVAL(0);
       if (!strcmp(kw,"stlimit"))  return INTVAL(-1);
     }
+    { extern long g_stno, g_stcount, g_lastno;
+      if (!strcmp(kw,"stno"))     return INTVAL(g_stno);
+      if (!strcmp(kw,"stcount"))  return INTVAL(g_stcount);
+      if (!strcmp(kw,"lastno"))   return INTVAL(g_lastno);
+    }
     if (!strcmp(kw,"col"))     return INTVAL(0);
     if (!strcmp(kw,"row"))     return INTVAL(0);
     if (!strcmp(kw,"x"))       return INTVAL(0);
@@ -190,6 +198,12 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
     return NV_GET_fn(sval);
+}
+/*--- per-statement entry hook: &STNO = current source stmt number, &LASTNO = previous, &STCOUNT = running executed tally (manual p195/p158) ---*/
+void rt_stmt_enter(long stno) {
+    g_lastno = g_stno;
+    g_stno = stno;
+    g_stcount++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_gen(const char *sval, long idx) {

@@ -162,7 +162,7 @@ int rt_builtin_is_known(const char *name)
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET",
-        "EVAL", "SNO$MKEXPR", "SNO$MKPAT",
+        "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
         "$unify",
         NULL
     };
@@ -3845,6 +3845,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
         rt_keyword_write_snobol4(kn ? kn : "", args[1]);
         *out = args[1]; return 1;
+    }
+    if (!strcmp(fn,"SNO$STMT") && nargs == 1) {
+        extern void rt_stmt_enter(long stno);
+        long n = IS_INT(args[0]) ? (long)args[0].i : 0;
+        rt_stmt_enter(n);
+        *out = NULVCL; return 1;
     }
     if (!strcmp(fn,"SNO$MKEXPR") && nargs == 1) {
         const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
