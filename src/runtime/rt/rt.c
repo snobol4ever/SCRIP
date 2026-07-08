@@ -415,7 +415,7 @@ typedef struct { char *frame; bb_box_fn fn; } rt_gen_act_t;
 static rt_gen_act_t g_gen_act[RT_GEN_ACT_MAX];
 static int          g_gen_act_top = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_gen(const char *name, int nargs)
+DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 {
     rt_proc_t *p = (rt_proc_t *)0;
     for (int i = 0; i < g_rt_gen_proc_count; i++)
@@ -427,6 +427,7 @@ DESCR_t rt_proc_call_gen(const char *name, int nargs)
     { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
+    if (hout) *hout = (void *)fb;
     g_gen_act[g_gen_act_top].frame = fb;
     g_gen_act[g_gen_act_top].fn    = p->fn;
     g_gen_act_top++;
@@ -436,6 +437,11 @@ DESCR_t rt_proc_call_gen(const char *name, int nargs)
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_call_gen(const char *name, int nargs)
+{
+    return rt_proc_call_gen_h(name, nargs, (void **)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_resume_gen(void)
 {
     if (g_gen_act_top <= 0) return FAILDESCR;
@@ -443,6 +449,19 @@ DESCR_t rt_proc_resume_gen(void)
     (void)a->fn((void *)a->frame, 1);
     DESCR_t result = *(DESCR_t *)(a->frame + 0);
     if (IS_FAIL(result)) { g_gen_act_top--; rt_zls_release((void *)a->frame); }
+    return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_resume_frame(void *frame)
+{
+    if (!frame) return FAILDESCR;
+    int idx = -1;
+    for (int i = g_gen_act_top - 1; i >= 0; i--) if ((void *)g_gen_act[i].frame == frame) { idx = i; break; }
+    if (idx < 0) return FAILDESCR;
+    rt_gen_act_t *a = &g_gen_act[idx];
+    (void)a->fn((void *)a->frame, 1);
+    DESCR_t result = *(DESCR_t *)(a->frame + 0);
+    if (IS_FAIL(result)) { for (int j = idx; j < g_gen_act_top - 1; j++) g_gen_act[j] = g_gen_act[j + 1]; g_gen_act_top--; rt_zls_release(frame); }
     return result;
 }
 typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;

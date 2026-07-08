@@ -112,7 +112,7 @@ int pl_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
     if (!strcmp(name, "$unify") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
-    if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5)) return 1;
+    if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
@@ -791,6 +791,58 @@ static DESCR_t rt_findall_result(DESCR_t handle) {
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist);
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
+    if (!strncmp(fn, "$ax_", 4)) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+        const char *op = fn + 4;
+        if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } *out = FAILDESCR; return 1; }
+        DESCR_t a = rt_pl_deref_val(args[0]);
+        int ai = (a.v == DT_I), arl = (a.v == DT_R);
+        if (!ai && !arl) { *out = FAILDESCR; return 1; }
+        double ad = arl ? a.r : (double)a.i;
+        if (nargs == 1) {
+            if (!strcmp(op, "neg"))   { *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
+            if (!strcmp(op, "pos"))   { *out = a; return 1; }
+            if (!strcmp(op, "abs"))   { *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
+            if (!strcmp(op, "sign"))  { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
+            if (!strcmp(op, "trunc")) { *out = INTVAL((long long)ad); return 1; }
+            if (!strcmp(op, "intg"))  { *out = ai ? a : INTVAL((long long)llround(ad)); return 1; }
+            if (!strcmp(op, "flt"))   { *out = REALVAL(ad); return 1; }
+            if (!strcmp(op, "floor")) { *out = INTVAL((long long)floor(ad)); return 1; }
+            if (!strcmp(op, "ceil"))  { *out = INTVAL((long long)ceil(ad)); return 1; }
+            if (!strcmp(op, "round")) { *out = INTVAL((long long)llround(ad)); return 1; }
+            if (!strcmp(op, "sqrt"))  { *out = REALVAL(sqrt(ad)); return 1; }
+            if (!strcmp(op, "sin"))   { *out = REALVAL(sin(ad)); return 1; }
+            if (!strcmp(op, "cos"))   { *out = REALVAL(cos(ad)); return 1; }
+            if (!strcmp(op, "atan"))  { *out = REALVAL(atan(ad)); return 1; }
+            if (!strcmp(op, "log"))   { *out = REALVAL(log(ad)); return 1; }
+            if (!strcmp(op, "exp"))   { *out = REALVAL(exp(ad)); return 1; }
+            if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
+            if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
+            if (!strcmp(op, "msb"))   { if (!ai || a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
+            *out = FAILDESCR; return 1;
+        }
+        DESCR_t b = rt_pl_deref_val(args[1]);
+        int bi = (b.v == DT_I), brl = (b.v == DT_R);
+        if (!bi && !brl) { *out = FAILDESCR; return 1; }
+        double bd = brl ? b.r : (double)b.i;
+        if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
+        if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
+        if (!strcmp(op, "gcd")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
+        if (!strcmp(op, "rem")) { if (!ai || !bi || b.i == 0) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i % b.i); return 1; }
+        if (!strcmp(op, "xor")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i ^ b.i); return 1; }
+        if (!strcmp(op, "shl")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i << b.i); return 1; }
+        if (!strcmp(op, "shr")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
+        if (!strcmp(op, "band")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
+        if (!strcmp(op, "bor"))  { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
+        { int code = pl_is_op_code(op); DESCR_t r = rt_num_arith(a, b, code); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
+    }
+    if (!strcmp(fn, "$is_v") && nargs == 2) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        DESCR_t v = rt_pl_deref_val(args[1]);
+        if (v.v != DT_I && v.v != DT_R) { *out = FAILDESCR; return 1; }
+        if (plw_unify_vals(args[0], v)) { *out = v; return 1; }
+        *out = FAILDESCR; return 1;
+    }
     if (!strncmp(fn, "$is_", 4) && nargs == 3) {
         extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
         DESCR_t a = rt_pl_deref_val(args[1]); DESCR_t b = rt_pl_deref_val(args[2]); DESCR_t r = rt_num_arith(a, b, pl_is_op_code(fn + 4));
