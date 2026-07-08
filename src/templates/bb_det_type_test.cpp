@@ -12,7 +12,7 @@ std::string bb_det_type_test() {
     const char *fn = _.op_parts_str[0];
     int slot = (int)_.op_parts_ival[0];
     if (!fn || slot < 0) return x86_bomb("bb_det_type_test: missing fn or slot");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_TYPE_TEST")
          + x86("lea", "rdi", FR(GZ_CELL_OFF(slot)))
          + x86("mov", "rsi", ROQ(0))

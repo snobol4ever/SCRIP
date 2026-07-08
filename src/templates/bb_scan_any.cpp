@@ -13,7 +13,7 @@ std::string bb_scan_any() {
     x86_begin();
     if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) {
         return x86("comment", "IR_SCAN_ANY (var cset)")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     "eax", "r14d")
              + x86("cmp",     "eax", "r15d")
              + x86("jge",     "ω")
@@ -35,7 +35,7 @@ std::string bb_scan_any() {
     }
     if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_any: unhandled (needs literal cset arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_ANY")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "eax", "r14d")
          + x86("cmp",     "eax", "r15d")
          + x86("jge",     "ω")

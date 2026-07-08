@@ -75,7 +75,7 @@ static std::string bcch_beta_dispatch() {
 static std::string bcch_build() {
     std::string seals;
     int ro_id = bcch_N();
-    std::string s = IF(MEDIUM_TEXT, x86("label", _.lbl_α)
+    std::string s = IF(MEDIUM_TEXT, x86("def",     "α")
                      + x86("comment", "BOX CELL_CHOICE  [PL-GZ-4 seed transcription: 1-based cursor + trail-mark in the box's OWN frame row; redo unwinds to entry mark; clause k fail falls"
                        " into clause k+1]"))
         + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)

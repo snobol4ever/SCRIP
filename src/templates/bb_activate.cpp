@@ -14,7 +14,7 @@ std::string bb_activate() {
     if (_.op_off < 0) return x86_bomb("bb_activate: op_off < 0 (no slot assigned -- IR_ACTIVATE missing from ir_node_produces_value?)");
     if (_.op_sa  < 0) return x86_bomb("bb_activate: no coexpression operand slot (operand[0] unregistered -- LOWER/BFS wiring bug)");
     std::string s = x86("comment", "IR_ACTIVATE")
-                  + x86("label",   _.lbl_α)
+                  + x86("def",     "α")
                   + x86("mov",     "rdi", FRQ(_.op_sa));
     if (_.op_sb >= 0)
         s += x86("mov", "rsi", FRQ(_.op_sb))

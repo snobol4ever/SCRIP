@@ -15,11 +15,11 @@ std::string bb_disj() {
     if (PLATFORM_X86) {
         return IF(MEDIUM_TEXT,
                   IF(_.resolve_choice_n <= 0,
-                      x86("label", _.lbl_α)
+                      x86("def",     "α")
                     + x86("jmp", "ω")
                     + x86("def", "β") + x86("jmp", "ω"))
                 + IF(_.resolve_choice_n > 0,
-                      x86("label", _.lbl_α)
+                      x86("def",     "α")
                     + x86("comment", "IR_DISJ")
                     + x86("jmp", disj_lbl(0, "pre").c_str())
                     + x86("label", disj_lbl(0, "pre"))

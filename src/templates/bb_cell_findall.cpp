@@ -50,7 +50,7 @@ std::string bb_cell_findall() {
     if (!PLATFORM_X86) return std::string();
     if (bcfa_acc() < 0 || bcfa_result() < 0) return x86_bomb("bb_cell_findall: unadmitted findall shape reached the emitter");
     const IR_t *tmpl = (const IR_t *)(intptr_t)_.op_parts_ival[9];
-    std::string head = x86("label", _.lbl_α)
+    std::string head = x86("def",     "α")
                      + x86("comment", "IR_CELL_FINDALL")
                      + x86("call", "rt_pl_findall_begin", (uint64_t)(uintptr_t)(void *)rt_pl_findall_begin)
                      + x86("mov", FRQ(GZ_CELL_OFF(bcfa_acc())), "rax");

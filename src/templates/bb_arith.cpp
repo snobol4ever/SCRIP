@@ -9,7 +9,7 @@ extern long rt_arith(int lk, long li, const char *ls, int rk, long ri, const cha
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_arith() {
     return IF(PLATFORM_X86,
-           x86("label", _.lbl_α)
+           x86("def",     "α")
          + x86("comment", "IR_ARITH")
          + IF(_.bb_lk < 0,
               x86("jmp", "γ")

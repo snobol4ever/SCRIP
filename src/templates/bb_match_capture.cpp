@@ -30,7 +30,7 @@ std::string bb_match_capture() {
     if (!(_.op_sval ? _.op_sval : "")[0]) return x86_bomb("IR_MATCH_ASSIGN: empty capture variable name");
     if ((int)_.op_phase == 0)
         return x86("comment", "IR_MATCH_CAPTURE_SAVE push")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("lea",  "rdi", FR(_.op_off))
              + x86("mov",  "esi", "r14d")
              + x86("push", "rbp")
@@ -51,7 +51,7 @@ std::string bb_match_capture() {
              + x86("jmp",  "ω");
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     return x86("comment", (int)_.op_phase == 2 ? "IR_MATCH_CAPTURE_IMM" : "IR_MATCH_CAPTURE_COND")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("push", "rbp")
          + x86("mov",  "rbp", "rsp")
          + x86("and",  "rsp", -16L)

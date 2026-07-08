@@ -12,7 +12,7 @@ std::string bb_scan_match() {
     x86_begin();
     if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0)
         return x86("comment", "IR_SCAN_MATCH (var needle) [fstranl.r match: len=strlen(slot); fail unless Delta-delta>=len && memcmp==0; result {DT_I, delta+1+len}]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     "rdi", FRQ(_.op_sa + 8))
              + x86("push",    "r10")
              + x86("call",    "strlen", (uint64_t)(uintptr_t)(void*)(size_t (*)(const char *))strlen)
@@ -43,7 +43,7 @@ std::string bb_scan_match() {
              + x86("jmp",     "ω");
     if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_match: unhandled (needs literal string arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_MATCH")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rax", "r15")
          + x86("sub",     "rax", "r14")
          + x86("cmp64",   "rax", (long)strlen(_.op_name1))

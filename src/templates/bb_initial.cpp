@@ -11,7 +11,7 @@ std::string bb_initial() {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     return x86("comment", "IR_INITIAL run-once guard")
-         + x86("label", _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",   "rdi", (long)_.op_sc)
          + x86("push",  "r10")
          + x86("push",  "r10")

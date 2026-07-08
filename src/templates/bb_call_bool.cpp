@@ -16,14 +16,14 @@ std::string bb_call_bool_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     IR_t * a0 = ir_call_arg(_.node, 0);
     if (rkbool_arg_is_relop(a0))
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("comment", "BOX __rk_bool [relop pass-through: BINOP already branched γ/ω]")
              + x86("jmp", "γ")
              + x86("def", "β")
              + x86("jmp", "ω");
     int off = _.op_a_slot;
     if (off < 0) return x86_bomb("bb_call_bool: arg slot not allocated");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
          + x86("mov", "rdi", FRQ(off))
          + x86("mov", "rsi", FRQ(off + 8))
@@ -34,7 +34,7 @@ std::string bb_call_bool_str(IR_t * pBB) {
          + x86("def", "β")
          + x86("jmp", "ω");
     if (MEDIUM_BINARY)
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86_frame_load64("rdi", off)
              + x86_frame_load64("rsi", off + 8)
              + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
@@ -44,7 +44,7 @@ std::string bb_call_bool_str(IR_t * pBB) {
              + x86("def", "β")
              + x86("jmp", "ω");
     if (MEDIUM_TEXT)
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
              + x86("mov", "rdi", FRQ(off))
              + x86("mov", "rsi", FRQ(off + 8))

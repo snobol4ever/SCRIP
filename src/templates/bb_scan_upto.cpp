@@ -12,7 +12,7 @@ std::string bb_scan_upto() {
     x86_begin();
     if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0)
         return x86("comment", "IR_SCAN_UPTO (var cset) [fstranl.r upto: generate positions with s[i] in cset-descr@slot; cursor at off+16; beta resumes]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     FRQ(_.op_off + 16), "r14")
              + x86("def",     L(0))
              + x86("mov",     "rax", FRQ(_.op_off + 16))
@@ -41,7 +41,7 @@ std::string bb_scan_upto() {
     if (PLATFORM_X86)
         return !(_.op_off >= 0 && _.op_name1) ? x86_bomb("bb_scan_upto: unhandled (needs literal cset arg + descr flat-chain slot)") :
                x86("comment", "IR_SCAN_UPTO")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     FRQ(_.op_off + 16), "r14")
              + x86("def",     L(0))
              + x86("mov",     "rax", FRQ(_.op_off + 16))

@@ -30,7 +30,7 @@ std::string bb_binop_gvar_arith_slot() {
         else if (_.bb_rk == (int)IR_LIT_INTEGER)
             m += x86("movabs", "rax", (uint64_t)DT_I) + x86("mov", FRQ(_.op_sb), "rax")
                + x86("movabs", "rax", (uint64_t)_.bb_ri) + x86("mov", FRQ(_.op_sb + 8), "rax");
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("comment", "IR_BINOP_GVAR_ARITH (dynamic operands: DESCR-in DESCR-out via rt_num_arith)")
              + m
              + x86("mov", "rdi", FRQ(_.op_sa)) + x86("mov", "rsi", FRQ(_.op_sa + 8))
@@ -45,7 +45,7 @@ std::string bb_binop_gvar_arith_slot() {
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)
                               && (_.bb_rk == (int)IR_LIT_INTEGER || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || _.op_sb >= 0),
-                            x86("label", _.lbl_α)
+                            x86("def",     "α")
                           + x86("comment", "IR_BINOP_GVAR_ARITH_SLOT")
                           + IF(_.bb_lk == (int)IR_LIT_INTEGER, x86("mov", "rax", (long)_.bb_li))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0]))

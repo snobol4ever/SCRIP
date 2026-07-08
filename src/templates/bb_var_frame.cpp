@@ -19,7 +19,7 @@ std::string bb_var_frame() {
             ? x86("mov", "rax", dreg)
             : x86("lea", "rax", FRQ(0)) + FOR(0, hops, [&](int h) { (void) h; return x86("mov", "rax", RDQ("rax", 0)); });
         return x86("comment", "IR_VAR_FRAME")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + reach
              + x86("mov",     "rcx", RDQ("rax", 16 + (int)_.op_ival * 16))
              + x86("mov",     FRQ(_.op_off),     "rcx")

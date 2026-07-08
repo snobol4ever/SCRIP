@@ -18,7 +18,7 @@ std::string bb_make_list() {
         if (_.op_arg_slot[i] < 0)
             return x86_bomb("bb_make_list: element slot unfilled");
     std::string s = x86("comment", "IR_MAKE_LIST")
-                  + x86("label",   _.lbl_α);
+                  + x86("def",     "α");
     for (int i = 0; i < n; i++)
         s += x86("mov", "rax", FRQ(_.op_arg_slot[i]))
            + x86("mov", FRQ(_.op_off + 16 + i * 16), "rax")

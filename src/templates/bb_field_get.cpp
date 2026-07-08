@@ -13,7 +13,7 @@ std::string bb_field_get() {
     if (_.op_off < 0 || _.op_a_slot < 0) return x86_bomb("bb_field_get: needs own slot + object operand slot");
     int lv = (_.op_node_kind == IR_FIELD_VAR);
     return x86("comment", lv ? "IR_FIELD_GET lv" : "IR_FIELD_GET")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86_ro_load_q("rdi", 0)
          + x86("mov",     "rsi", FRQ(_.op_a_slot))
          + x86("mov",     "rdx", FRQ(_.op_a_slot + 8))

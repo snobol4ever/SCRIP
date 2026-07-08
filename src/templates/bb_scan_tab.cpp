@@ -14,7 +14,7 @@ std::string bb_scan_tab() {
     x86_begin();
     if (!PLATFORM_X86 || !tab_admit()) return x86_bomb("bb_scan_tab: no result slot (op_off)");
     return x86("comment", "IR_SCAN_TAB")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))
          + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
          + x86("cmp64",   "rax", (long)1)

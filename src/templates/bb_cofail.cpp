@@ -12,7 +12,7 @@ std::string bb_cofail() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_COFAIL exhausted")
-         + x86("label", _.lbl_α)
+         + x86("def",     "α")
          + x86("call", "scrip_cofail", (uint64_t)(uintptr_t)(void *)scrip_cofail)
          + x86("jmp",  "ω");
 }

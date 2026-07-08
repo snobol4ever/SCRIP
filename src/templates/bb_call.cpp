@@ -523,7 +523,7 @@ static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
     if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_named_proc: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     if (MEDIUM_TEXT) {
-        std::string s = x86("label", _.lbl_α)
+        std::string s = x86("def",     "α")
             + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω.node]", fn));
         uint64_t brm = rt_proc_byref_mask(fn);
         for (int i = 0; i < (int)narg; i++)
@@ -616,7 +616,7 @@ static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_grap
     IR_t * a = relop_arg_simple_operand(subs[0]);
     IR_t * b = relop_arg_simple_operand(subs[1]);
     int scratch = resoff + 16;
-    std::string s = x86("label", _.lbl_α)
+    std::string s = x86("def",     "α")
         + x86("comment", emit_fmt("BOX IR_CALL %s(...) inline integer relop [four-port, FAIL->ω]", fn));
     s += arith_opnd_a(NULL, a, 0);
     s += x86_frame_store64(scratch, "rax");
@@ -646,7 +646,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (_.node && (int)narg > _.node->n_operands) return x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     if (MEDIUM_TEXT) {
-        std::string s = x86("label", _.lbl_α)
+        std::string s = x86("def",     "α")
             + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
@@ -699,7 +699,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     int argbase = resoff + 16;
     int genoff  = resoff + 16 * (1 + (int)narg);
     if (MEDIUM_TEXT) {
-        std::string s = x86("label", _.lbl_α)
+        std::string s = x86("def",     "α")
             + x86("comment", emit_fmt("BOX IR_CALL_BUILTIN_GEN %s(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]", fn));
         for (int i = 0; i < (int)narg; i++)
             s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
@@ -764,7 +764,7 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * e = cond ? cond->entry : NULL;
     if (!e) return x86_bomb("bb_call_bool_truthy: empty cond sub-graph");
-    std::string s = x86("label", _.lbl_α)
+    std::string s = x86("def",     "α")
                   + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rt_is_truthy -> branch true=γ / false=ω]");
     if (e->op == IR_LIT_INTEGER) {
         s += x86("mov32", "edi", (long)6) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
@@ -793,7 +793,7 @@ static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
     if (lhs_slot < 0) return x86_bomb("bb_call_bool_jct: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node->n_operands < 2) return x86_bomb("bb_call_bool_jct: grant narrower than 2 slots (TMP-ERADICATE)");
     int rhs_slot = lhs_slot + 16;
-    std::string s = x86("label", _.lbl_α)
+    std::string s = x86("def",     "α")
                   + x86("comment", "BOX __rk_bool [dval=2 junction relop -> rt_jct_relop -> branch true=γ / false=ω]");
     s += marshal_call_arg(ra, cond, lhs_slot, NULL, 0);
     s += marshal_call_arg(rb, cond, rhs_slot, NULL, 1);
@@ -816,7 +816,7 @@ static std::string bb_call_bool_cond_str(IR_t * pBB) {
     if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_bomb("bb_call_bool_cond: relop operands unhandled");
     int scratch = zoff(relnd);
     if (scratch < 0) return x86_bomb("bb_call_bool_cond: relop has no LOWER slot grant (TMP-ERADICATE)");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")
          + arith_opnd_a(cond, ra) + x86_frame_store64(scratch, "rax")
          + arith_opnd_b(cond, rb) + x86_frame_load64("rax", scratch)

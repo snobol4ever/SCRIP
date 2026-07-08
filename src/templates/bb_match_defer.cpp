@@ -17,10 +17,10 @@ std::string bb_match_defer() {
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     std::string head = inl
         ? ( x86("comment", "IR_MATCH_DEFER inlined frozen head (FZ-5b)")
-          + x86("label", _.lbl_α)
+          + x86("def",     "α")
           + x86("lea",  "rax", "[rip + __]", (uint64_t)(uintptr_t)_.bb_child_fn, _.bb_child_lbl ? _.bb_child_lbl : "") )
         : ( x86("comment", "IR_MATCH_DEFER")
-          + x86("label", _.lbl_α)
+          + x86("def",     "α")
           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
           + x86("xor",  "esi", "esi")
           + x86("push", "rbp")

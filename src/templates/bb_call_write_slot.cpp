@@ -33,7 +33,7 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
     int off = bb_slot_get(ir_call_arg(_.node, 0));
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     if (MEDIUM_BINARY) return bcws_slot_bin(off, beta_tgt);
-    if (MEDIUM_TEXT) return x86("label", _.lbl_α)
+    if (MEDIUM_TEXT) return x86("def",     "α")
                           + x86("comment", "BOX IR_CALL write(op) [GZ-7 flat-chain slot -> rt_write_any_nl]")
                           + x86("mov", "rdi", FRQ(off))
                           + x86("mov", "rsi", FRQ(off + 8))
@@ -74,11 +74,11 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
         std::string tail = x86("label", std::string(_.lbl_β))
                          + x86("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
         if (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT)
-            return x86("label", _.lbl_α)
+            return x86("def",     "α")
                  + x86("mov", "rdi", "[r12 + " + std::to_string(off + 8) + "]")
                  + x86("call",     "rt_write_strz_nl@PLT")
                  + x86("jmp",      _.lbl_γ) + tail;
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("mov", "rdi", "[r12 + " + std::to_string(off) + "]")
              + x86("call",     "rt_write_int_nl@PLT")
              + x86("jmp",      _.lbl_γ) + tail;

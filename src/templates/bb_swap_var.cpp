@@ -12,7 +12,7 @@ std::string bb_swap_var() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) return x86_bomb("bb_swap_var: needs own slot + two variable operand slots");
     return x86("comment", "IR_SWAP_VAR x:=:y through variables (canonical swap, oasgn.r:265)")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
          + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
          + x86("mov",     "rdx", FRQ(_.op_sa))

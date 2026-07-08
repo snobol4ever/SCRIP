@@ -17,7 +17,7 @@ std::string bb_call_value() {
         if (_.op_arg_slot[i] < 0)
             return x86_bomb("bb_call_value: argument slot unfilled");
     std::string s = x86("comment", "IR_CALL_VALUE invoke through a runtime callee value (proc/string/int)")
-                  + x86("label",   _.lbl_α);
+                  + x86("def",     "α");
     for (int i = 0; i < n; i++)
         s += x86("mov", "rax", FRQ(_.op_arg_slot[i]))
            + x86("mov", FRQ(_.op_off + 16 + i * 16), "rax")

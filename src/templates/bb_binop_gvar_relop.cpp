@@ -26,7 +26,7 @@ std::string bb_binop_gvar_relop() {
                   && (_.bb_rk == (int)IR_CALL || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || (_.bb_rk == (int)IR_LIT_STRING && _.op_parts_lbl[1] != 0)));
         return IF(_.op_relop_descr && !D, x86_bomb("bb_binop_gvar_relop: descr arm shape mismatch (op_relop_descr set but operands unexpected)"))
              + IF(D,
-                 x86("label", _.lbl_α)
+                 x86("def",     "α")
                + x86("comment", "IR_BINOP_GVAR_RELOP_DESCR")
                + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0,
                    x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
@@ -64,7 +64,7 @@ std::string bb_binop_gvar_relop() {
                + x86("jmp", "ω"))
              + IF(!_.op_relop_descr && !P, x86_bomb("bb_binop_gvar_relop: shape mismatch (dispatch chose this arm but predicate failed)"))
              + IF(!_.op_relop_descr && P,
-                 x86("label", _.lbl_α)
+                 x86("def",     "α")
                + x86("comment", "IR_BINOP_GVAR_RELOP")
                + IF(_.bb_lk == (int)IR_LIT_INTEGER || _.bb_lk == (int)IR_OP_COUNT, x86("mov", "rax", (long) _.bb_li))
                + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0,

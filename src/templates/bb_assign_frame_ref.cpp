@@ -22,7 +22,7 @@ std::string bb_assign_frame_ref() {
                            + IF(_.bb_lk == 8 && _.op_a_slot < 0, x86_bomb("bb_assign_frame_ref call-result: op_a_slot==-1 (call result slot not promoted)"))
                            + IF(_.bb_lk == 0, x86_bomb("bb_assign_frame_ref: unhandled rhs shape"))
                            + IF(_.bb_lk != 0,
-                             x86("label", _.lbl_α)
+                             x86("def",     "α")
                            + x86("comment", "IR_ASSIGN_FRAME_REF"))
                            + IF(_.bb_lk == 1,
                              frame_reach("rcx", (int) _.op_dval)

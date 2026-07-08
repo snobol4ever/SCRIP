@@ -12,7 +12,7 @@ std::string bb_assign_var() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) return x86_bomb("bb_assign_var: needs own slot + variable/value operand slots");
     return x86("comment", "IR_ASSIGN_VAR write through variable")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
          + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
          + x86("mov",     "rdx", FRQ(_.op_sa))

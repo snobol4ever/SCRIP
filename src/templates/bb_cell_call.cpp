@@ -17,7 +17,7 @@ std::string bb_cell_call() {
     if (PLATFORM_X86) return IF(!bcc_sh(), x86_bomb("bb_cell_call: unadmitted call shape reached the emitter"))
                            + IF(bcc_sh() && !bcc_ar(), x86_bomb("bb_cell_call: non-slot arg reached the emitter"))
                            + IF(bcc_sh() && bcc_ar(),
-                             x86("label", _.lbl_α)
+                             x86("def",     "α")
                            + x86("comment", "IR_CELL_CALL")
                            + x86("lea", "rdi", FR(GZ_CELL_OFF((int)_.op_parts_ival[0])))
                            + x86("mov32", "esi", (long)_.op_parts_ival[2])

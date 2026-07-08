@@ -14,7 +14,7 @@ void rt_gvar_assign_descr(const char * name, int64_t lo, int64_t hi);
 std::string bb_gvar_assign() {
     union { double d; uint64_t q; } _uf; _uf.d = _.op_a_dval; uint64_t _bits_f = _uf.q;
     if (PLATFORM_X86)
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("comment", "IR_ASSIGN")
              + (_.op_a_node_kind == (int)IR_LIT_STRING ?
                     x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), _.bb_ls)

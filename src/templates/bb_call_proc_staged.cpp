@@ -63,7 +63,7 @@ static std::string bcps_bin_arm() {
 static std::string bcps_txt_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     bb_label_t * beta_tgt = bb_call_staged_beta_target(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
@@ -114,7 +114,7 @@ static std::string bcps_bin_gen_arm() {
 static std::string bcps_txt_gen_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")

@@ -14,7 +14,7 @@ std::string bb_unop_gvar_slot() {
     if (PLATFORM_X86) return IF(_.op_off >= 0
                               && (_.op_ival == TT_MNS || _.op_ival == TT_PLS)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0),
-                            x86("label", _.lbl_α)
+                            x86("def",     "α")
                           + x86("comment", "IR_UNOP_GVAR_SLOT")
                           + IF(_.bb_lk == (int)IR_LIT_INTEGER, x86("mov", "rax", (long)_.bb_li))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0]))

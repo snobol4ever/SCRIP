@@ -8,7 +8,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_det_nl() {
     if (!PLATFORM_X86) return std::string();
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_NL")
          + x86("mov32", "edi", 10L)
          + x86("call", "putchar", (uint64_t)(uintptr_t)(void *)putchar)

@@ -23,7 +23,7 @@ std::string bb_match_release() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0) return x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)");
     return x86("comment", "IR_MATCH_RELEASE")
-         + x86("label", _.lbl_α)
+         + x86("def",     "α")
          + x86("push", "rbp")
          + x86("mov",  "rbp", "rsp")
          + x86("and",  "rsp", -16L)

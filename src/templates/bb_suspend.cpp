@@ -14,7 +14,7 @@ std::string bb_suspend() {
         return x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
     std::string s;
     s += x86("comment", "IR_SUSPEND yield+resume");
-    s += x86("label", _.lbl_α);
+    s += x86("def",     "α");
     if (_.op_sb >= 0 && _.lbl_t1_p) {
         if (!MEDIUM_BINARY) {
             char load_β[128];

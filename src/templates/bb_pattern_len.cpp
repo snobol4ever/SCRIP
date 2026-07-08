@@ -10,14 +10,14 @@ std::string bb_pattern_len() {
     if (!PLATFORM_X86) return std::string();
     if (!_.pat_via_dtp)
         return x86("comment", "IR_PATTERN_LEN passthrough (chain entry; builder emitted via DTP_ASSIGN)")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("jmp",  "γ")
              + x86("def",  "β")
              + x86("jmp",  "ω");
     static char b[24];
     strtab_label(b, sizeof b, _.bb_ls ? _.bb_ls : "");
     return x86("comment", "IR_PATTERN_LEN builder")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.bb_ls ? _.bb_ls : ""), b)
          + x86("mov",  "esi", (long)(int)_.op_ival)
          + x86("push", "rbx")

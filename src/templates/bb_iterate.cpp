@@ -19,7 +19,7 @@ std::string bb_iterate(IR_t * pBB) {
     const bool lv  = (_.op_sval && std::string(_.op_sval) == "lv");
     const bool key = (_.op_sval && std::string(_.op_sval) == "key");
     return x86("comment", key ? "IR_ITERATE(key)" : "IR_LIST_BANG")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",  FRQ(_.op_sb), 0L)
          + x86("def",  L(0))
          + x86("mov",  "rdi", FRQ(_.op_sa))

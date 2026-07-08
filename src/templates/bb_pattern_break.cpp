@@ -10,7 +10,7 @@ std::string bb_pattern_break() {
     if (!PLATFORM_X86) return std::string();
     if (!_.pat_via_dtp)
         return x86("comment", "IR_PATTERN_BREAK passthrough (chain entry; builder emitted via DTP_ASSIGN)")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("jmp",  "γ")
              + x86("def",  "β")
              + x86("jmp",  "ω");
@@ -19,7 +19,7 @@ std::string bb_pattern_break() {
     strtab_label(bn, sizeof bn, _.bb_ls ? _.bb_ls : "");
     strtab_label(bc, sizeof bc, _.op_sval ? _.op_sval : "");
     return x86("comment", "IR_PATTERN_BREAK builder")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.bb_ls ? _.bb_ls : ""), bn)
          + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), bc)
          + x86("push", "rbx")

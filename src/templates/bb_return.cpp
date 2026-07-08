@@ -10,7 +10,7 @@ extern "C" {
 std::string bb_return() {
     if (!PLATFORM_X86) return x86_bomb("bb_return: unhandled (needs descr flat-chain)");
     return x86("comment", "IR_RETURN")
-         + x86("label",  _.lbl_α)
+         + x86("def",     "α")
          + IF(_.op_sa >= 0,
                x86("mov", "rax", FRQ(_.op_sa))
              + x86("mov", "rdx", FRQ(_.op_sa + 8))

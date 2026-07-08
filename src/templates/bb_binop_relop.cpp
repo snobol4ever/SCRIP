@@ -16,7 +16,7 @@ DESCR_t rt_str_coerce(DESCR_t d);
 std::string bb_binop_relop() {
     if (PLATFORM_X86) {
         return (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
-                 ? x86("label", _.lbl_α)
+                 ? x86("def",     "α")
                  + x86("comment", "IR_BINOP_TEST")
                  + x86("mov", "eax", FR(_.op_sa))
                  + x86("cmp", "eax", (long)DT_DATA)
@@ -71,7 +71,7 @@ std::string bb_binop_relop() {
                  + x86("jmp", "ω")
              : (_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0
                 && ((_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE) || (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE)))
-                 ? x86("label", _.lbl_α)
+                 ? x86("def",     "α")
                  + x86("comment", "IR_BINOP_TEST")
                  + x86("mov", "rdi", FRQ(_.op_sa))
                  + x86("mov", "rsi", FRQ(_.op_sa + 8))

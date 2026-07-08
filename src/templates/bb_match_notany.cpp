@@ -14,7 +14,7 @@ std::string bb_match_notany() {
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     return x86("comment", "IR_MATCH_NOTANY")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",    "eax", "r14d")
          + x86("cmp",    "eax", "r15d")
          + x86("jge",    "ω")

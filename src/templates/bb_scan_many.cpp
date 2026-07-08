@@ -12,7 +12,7 @@ std::string bb_scan_many() {
     x86_begin();
     if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) {
         return x86("comment", "IR_SCAN_MANY (var cset) [fstranl.r many: advance while s[i] in cset-descr@slot; fail if none consumed]")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("mov",     "eax", "r14d")
              + x86("def",     L(0))
              + x86("cmp",     "eax", "r15d")
@@ -42,7 +42,7 @@ std::string bb_scan_many() {
     }
     if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)");
     return x86("comment", "IR_SCAN_MANY")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",     "eax", "r14d")
          + x86("def",     L(0))
          + x86("cmp",     "eax", "r15d")

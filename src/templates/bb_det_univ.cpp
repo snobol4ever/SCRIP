@@ -12,7 +12,7 @@ std::string bb_det_univ() {
     int sl0 = (int)_.op_parts_ival[0];
     int sl1 = (int)_.op_parts_ival[1];
     if (sl0 < 0 || sl1 < 0) return x86_bomb("bb_det_univ: invalid slot");
-    return x86("label", _.lbl_α)
+    return x86("def",     "α")
          + x86("comment", "IR_DET_UNIV")
          + x86("lea", "rdi", FR(GZ_CELL_OFF(sl0)))
          + x86("lea", "rsi", FR(GZ_CELL_OFF(sl1)))

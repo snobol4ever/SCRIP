@@ -15,7 +15,7 @@ std::string bb_match_lit() {
     const char * s = _.op_sval ? _.op_sval : "";
     long n = (long) strlen(s);
     return x86("comment", "IR_MATCH_LIT")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",    "eax", "r14d")
          + x86("add",    "eax", n)
          + x86("cmp",    "eax", "r15d")

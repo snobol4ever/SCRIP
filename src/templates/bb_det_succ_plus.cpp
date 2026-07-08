@@ -14,7 +14,7 @@ std::string bb_det_succ_plus() {
     return IF(!((arity == 2 && s0 >= 0 && s1 >= 0) || (arity == 3 && s0 >= 0 && s1 >= 0 && s2 >= 0)),
               x86_bomb("bb_det_succ_plus: unadmitted shape reached the emitter"))
          + IF((arity == 2 && s0 >= 0 && s1 >= 0) || (arity == 3 && s0 >= 0 && s1 >= 0 && s2 >= 0),
-              x86("label", _.lbl_α)
+              x86("def",     "α")
             + x86("comment", "IR_DET_SUCC_PLUS")
             + x86("mov", "edi", arity)
             + x86("lea", "rsi", FR(GZ_CELL_OFF(s0)))

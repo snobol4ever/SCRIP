@@ -12,7 +12,7 @@ std::string bb_query_frame() {
     if (!PLATFORM_X86) return std::string();
     return _.op_sa == 0
          ? x86("comment", "IR_QUERY_FRAME")
-             + x86("label",   _.lbl_α)
+             + x86("def",     "α")
              + x86("push",    "r12")
              + x86("mov",     "r12", "rdi")
              + x86("call",    "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)

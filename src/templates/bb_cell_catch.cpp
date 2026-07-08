@@ -19,7 +19,7 @@ std::string bb_cell_catch() {
     if (_.op_parts_ival[0] < 0) return x86_bomb("bb_cell_catch: unadmitted catch shape reached the emitter");
     const IR_t *catcher = (const IR_t *)(intptr_t)_.op_parts_ival[1];
     if (_.op_sa == 0)
-        return x86("label", _.lbl_α)
+        return x86("def",     "α")
              + x86("comment", "IR_CELL_CATCH alpha: mark trail, run goal")
              + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
              + x86("mov", FR(bcc_mark_off()), "eax")

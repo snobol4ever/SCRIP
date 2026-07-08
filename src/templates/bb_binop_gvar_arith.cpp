@@ -30,7 +30,7 @@ std::string bb_binop_gvar_arith() {
              + x86("def", L(lb + 1));
     };
     if (PLATFORM_X86) return IF(_.op_off >= 0 && _.op_kind && !strcmp(_.op_kind, "POW") && !_.op_name1 && !_.op_name2 && _.op_sval,
-                            x86("label", _.lbl_α)
+                            x86("def",     "α")
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
                           + IF(_.bb_lk == (int)IR_LIT_REAL, x86("mov", "rdi", (long)DT_R) + x86("movabs", "rsi", _powl))
                           + IF(_.bb_lk != (int)IR_LIT_REAL, x86("mov", "rdi", (long)DT_I) + x86("mov", "rsi", (long)_.op_sa))
@@ -48,7 +48,7 @@ std::string bb_binop_gvar_arith() {
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && _.op_name1 && _.op_name2,
-                            x86("label", _.lbl_α)
+                            x86("def",     "α")
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
                           + IF(_.op_gva_k1 >= 0 && _.op_gva_k2 >= 0,
                               gva_ld("rcx", _.op_gva_k2, _.op_name2, _.op_parts_lbl[1], 0)
@@ -72,7 +72,7 @@ std::string bb_binop_gvar_arith() {
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && (_.op_name1 || _.op_name2) && !(_.op_name1 && _.op_name2),
-                            x86("label", _.lbl_α)
+                            x86("def",     "α")
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
                           + IF((_.op_name1 ? _.op_gva_k1 : _.op_gva_k2) >= 0,
                               gva_ld("rax", (_.op_name1 ? _.op_gva_k1 : _.op_gva_k2), (_.op_name1 ? _.op_name1 : _.op_name2), (_.op_name1 ? _.op_parts_lbl[0] : _.op_parts_lbl[1]), 0))
@@ -97,7 +97,7 @@ std::string bb_binop_gvar_arith() {
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && !_.op_name1 && !_.op_name2,
-                            x86("label", _.lbl_α)
+                            x86("def",     "α")
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
                           + x86("mov", "rax", (long)_.op_sa)
                           + x86("mov", "rcx", (long)_.op_sb)

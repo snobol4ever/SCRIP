@@ -10,7 +10,7 @@ std::string bb_match_arb() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_MATCH_ARB")
-         + x86("label",   _.lbl_α)
+         + x86("def",     "α")
          + x86("mov",    FR(_.x86_scratch_off), (long)0)
          + x86("mov",    "eax", "r14d")
          + x86("mov",    FR(_.x86_scratch_off + 4), "eax")
