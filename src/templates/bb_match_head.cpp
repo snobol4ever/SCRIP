@@ -8,6 +8,7 @@ typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 void * rt_zls_mark(void);
 void   rt_zls_release_to(void *mark);
+void   rt_dcap_end_fail(void);
 extern long g_anchor;
 }
 #include "x86_asm.h"
@@ -64,6 +65,7 @@ std::string bb_match_head() {
          + x86("mov",  "rdi", FRQ(_.op_off + 8))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
          + x86_zls2_release_to_call(_.op_off + 16)
+         + x86("call", "rt_dcap_end_fail", (uint64_t)(uintptr_t)(void *)rt_dcap_end_fail)
          + x86_align_leave()
          + x86_omega();
 }

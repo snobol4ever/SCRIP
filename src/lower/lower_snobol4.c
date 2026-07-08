@@ -402,11 +402,26 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
 extern int ir_is_generator_kind(IR_e t);
 static void sno_ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_resume_ω_to(IR_t * nd, IR_t * t) {
+static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) {
     /* SN4-PAT-CAPTURE-STACK: re-point nd's exhaust-ω at a left generator t — but a capture COND's ω is
      * ALREADY the capture's inward resume edge (inner generator's β, or SAVE's pop); clobbering it would
      * sever the capture's own chain.  The capture's OUTWARD exhaust is its SAVE's ω (β pops, then ω), so
      * chain through operands[1] instead.  Everything else re-points directly (the pre-stack behaviour). */
+    /* ALT-EXHAUST CHASE (2026-07-08 s7, found via the word1/word3/cap4 capture-then-alternation bracket):
+     * an ALTERNATE construct's leftward exhaust is NOT its first-allocated save's ω (a dead edge) — it is
+     * the trailing T-join's γ ("T reload arm exhausts leftward", TT_ALT), baked to the seq's `fail` at
+     * build time.  Re-pointing save.ω therefore never resumed the left generator: 'A' ARB . V ('B'|'C')
+     * exhausted both alternatives straight to HEAD, ARB never extended, the whole match wrongly failed
+     * (oracle: succeeds, V='Y').  The trailing T is the node allocated immediately after the save
+     * (TT_ALT allocates save then join with nothing between) with operands[0]==save — chase it and
+     * re-point ITS γ, β-aware, exactly the edge TT_ALT itself aimed at `fail`. */
+    if (nd && nd->op == IR_MATCH_ALTERNATE && nd->n_operands == 0 && g && tail_idx + 1 < g->n) {
+        IR_t * T = g->all[tail_idx + 1];
+        if (T && T->op == IR_MATCH_ALTERNATE && T->n_operands > 0 && T->operands[0] == nd) {
+            if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(T, t); else lc_γ_to(T, t);
+            return;
+        }
+    }
     if (nd && nd->op == IR_MATCH_ASSIGN_COND && nd->n_operands > 1 && nd->operands[1]) nd = nd->operands[1];
     sno_ω_to(nd, t);
 }
@@ -721,7 +736,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             int before_l = g->n;
             IR_t * le = sno_pat_node(cx, lc, re, fail);
             IR_t * le_tail = (before_l < g->n) ? g->all[before_l] : le;  /* lc rightmost leaf */
-            if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_resume_ω_to(re_tail, le_tail);
+            if (re_tail && le_tail && ir_is_generator_kind(le_tail->op)) sno_resume_ω_to(g, before_r, re_tail, le_tail);
             return le;
         }
         const tree_t * elems[128]; int ne = 0; const tree_t * rstack[128]; int nr = 0; const tree_t * cur = t;
@@ -730,7 +745,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         for (int i = nr - 1; i >= 0; i--) elems[ne++] = rstack[i];
         int first_fence = ne;
         for (int i = 0; i < ne; i++) if (sno_is_fence(elems[i])) { first_fence = i; break; }
-        IR_t * cur_succ = succ; IR_t * right_tail = NULL; int right_sealed = 0;
+        IR_t * cur_succ = succ; IR_t * right_tail = NULL; int right_tail_idx = -1; int right_sealed = 0;
         for (int i = ne - 1; i >= 0; i--) {
             if (sno_is_fence(elems[i])) {                                           /* seals everything to its right; the element to its left cannot resume into it */
                 right_sealed = 1;
@@ -740,7 +755,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     int before_p = g->n;
                     IR_t * pe = sno_pat_node(cx, inner, cur_succ, fail_p);
                     IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
-                    cur_succ = pe; right_tail = p_tail;
+                    cur_succ = pe; right_tail = p_tail; right_tail_idx = before_p;
                 }
                 continue;
             }
@@ -748,8 +763,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             int before_e = g->n;
             IR_t * ee = sno_pat_node(cx, elems[i], cur_succ, fail_i);
             IR_t * e_tail = (before_e < g->n) ? g->all[before_e] : ee;
-            if (right_tail && !right_sealed && before_e < g->n && ir_is_generator_kind(e_tail->op)) sno_resume_ω_to(right_tail, e_tail);
-            cur_succ = ee; right_tail = e_tail; right_sealed = 0;
+            if (right_tail && !right_sealed && before_e < g->n && ir_is_generator_kind(e_tail->op)) sno_resume_ω_to(g, right_tail_idx, right_tail, e_tail);
+            cur_succ = ee; right_tail = e_tail; right_tail_idx = before_e; right_sealed = 0;
         }
         return cur_succ;
     }
