@@ -85,7 +85,8 @@ main_α_body:
  xchain0_n3_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 56], rax
- call rt_zls2_mark@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [rdi + 0]
  mov qword ptr [r12 + 64], rax
  mov rdi, qword ptr [r12 + 160]
  mov rsi, qword ptr [r12 + 168]
@@ -112,8 +113,9 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 56]
  call rt_zls_release_to@PLT
- mov rdi, qword ptr [r12 + 64]
- call rt_zls2_release_to@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [r12 + 64]
+ mov qword ptr [rdi + 0], rax
  mov rsp, rbp
  pop rbp
  jmp xchain0_n4_α
@@ -184,13 +186,10 @@ main_α_body:
  jmp xchain0_n3_β
 # IR_MATCH_ARBNO gen
  xchain0_n9_α:
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, 32
- call rt_zls2_push@PLT
- mov rsp, rbp
- pop rbp
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [rdi + 0]
+ sub rax, 32
+ mov qword ptr [rdi + 0], rax
  mov rcx, qword ptr [r12 + 128]
  mov qword ptr [rax + 0], rcx
  mov qword ptr [r12 + 128], rax
@@ -198,14 +197,9 @@ main_α_body:
  mov dword ptr [r12 + 116], r14d
  jmp xchain0_n10_α
  xchain0_n9_β:
+ lea rdi, [rip + g_zls2_cur]
  mov rax, qword ptr [r12 + 128]
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, rax
- call rt_zls2_release_to@PLT
- mov rsp, rbp
- pop rbp
+ mov qword ptr [rdi + 0], rax
  mov r14d, dword ptr [r12 + 116]
  mov dword ptr [r12 + 120], r14d
  jmp xchain0_n11_α
@@ -273,14 +267,9 @@ main_α_body:
  mov rax, qword ptr [r12 + 128]
  mov rcx, qword ptr [rax + 0]
  mov qword ptr [r12 + 128], rcx
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, rax
- add rdi, 32
- call rt_zls2_release_to@PLT
- mov rsp, rbp
- pop rbp
+ add rax, 32
+ lea rdi, [rip + g_zls2_cur]
+ mov qword ptr [rdi + 0], rax
  jmp xchain0_n8_β
 # IR_MATCH_RPOS
  xchain0_n15_α:
@@ -299,8 +288,9 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 56]
  call rt_zls_release_to@PLT
- mov rdi, qword ptr [r12 + 64]
- call rt_zls2_release_to@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [r12 + 64]
+ mov qword ptr [rdi + 0], rax
  mov rsp, rbp
  pop rbp
  jmp xchain0_n17_α

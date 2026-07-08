@@ -32,7 +32,8 @@ proc_MATCHIT_α_body:
  xchain0_n1_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 24], rax
- call rt_zls2_mark@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [rdi + 0]
  mov qword ptr [r12 + 32], rax
  mov rdi, qword ptr [r12 + 128]
  mov rsi, qword ptr [r12 + 136]
@@ -59,8 +60,9 @@ proc_MATCHIT_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 24]
  call rt_zls_release_to@PLT
- mov rdi, qword ptr [r12 + 32]
- call rt_zls2_release_to@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [r12 + 32]
+ mov qword ptr [rdi + 0], rax
  mov rsp, rbp
  pop rbp
  jmp xchain0_n2_α
@@ -127,13 +129,10 @@ proc_MATCHIT_α_body:
  jmp xchain0_n1_β
 # IR_MATCH_ARBNO gen
  xchain0_n7_α:
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, 32
- call rt_zls2_push@PLT
- mov rsp, rbp
- pop rbp
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [rdi + 0]
+ sub rax, 32
+ mov qword ptr [rdi + 0], rax
  mov rcx, qword ptr [r12 + 96]
  mov qword ptr [rax + 0], rcx
  mov qword ptr [r12 + 96], rax
@@ -141,14 +140,9 @@ proc_MATCHIT_α_body:
  mov dword ptr [r12 + 84], r14d
  jmp xchain0_n8_α
  xchain0_n7_β:
+ lea rdi, [rip + g_zls2_cur]
  mov rax, qword ptr [r12 + 96]
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, rax
- call rt_zls2_release_to@PLT
- mov rsp, rbp
- pop rbp
+ mov qword ptr [rdi + 0], rax
  mov r14d, dword ptr [r12 + 84]
  mov dword ptr [r12 + 88], r14d
  jmp xchain0_n9_α
@@ -216,14 +210,9 @@ proc_MATCHIT_α_body:
  mov rax, qword ptr [r12 + 96]
  mov rcx, qword ptr [rax + 0]
  mov qword ptr [r12 + 96], rcx
- push rbp
- mov rbp, rsp
- and rsp, -16
- mov rdi, rax
- add rdi, 32
- call rt_zls2_release_to@PLT
- mov rsp, rbp
- pop rbp
+ add rax, 32
+ lea rdi, [rip + g_zls2_cur]
+ mov qword ptr [rdi + 0], rax
  jmp xchain0_n6_β
 # IR_MATCH_RPOS
  xchain0_n13_α:
@@ -242,8 +231,9 @@ proc_MATCHIT_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 24]
  call rt_zls_release_to@PLT
- mov rdi, qword ptr [r12 + 32]
- call rt_zls2_release_to@PLT
+ lea rdi, [rip + g_zls2_cur]
+ mov rax, qword ptr [r12 + 32]
+ mov qword ptr [rdi + 0], rax
  mov rsp, rbp
  pop rbp
  jmp xchain0_n15_α
