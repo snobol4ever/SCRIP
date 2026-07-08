@@ -116,6 +116,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
+    if (!strcmp(name, "$write")) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -787,6 +788,7 @@ static DESCR_t rt_findall_result(DESCR_t handle) {
     return pl_list_from_arr(elems, acc->n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void out_write_descr(FILE *dest, DESCR_t av, int use_gist);
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strncmp(fn, "$is_", 4) && nargs == 3) {
@@ -860,6 +862,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         o[n] = 0; DESCR_t r = pl_mk_atom(o);
         if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$write") && nargs == 1) {
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        out_write_descr(stdout, v, 0);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$findall_new") && nargs == 0) { *out = rt_findall_new(); return 1; }
     if (!strcmp(fn, "$findall_add") && nargs == 2) { rt_findall_add(args[0], args[1]); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }

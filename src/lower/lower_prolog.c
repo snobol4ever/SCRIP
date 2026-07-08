@@ -302,7 +302,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "write") && t->n == 1) {
-            IR_t * call = build(cx, IR_CALL, γnext, ωfail); IR_LIT(call).sval = "writes";
+            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$write";
             IR_t * ae = NULL; IR_t * a = term_e(cx, t->c[0], &ae);
             lc_γ_to(a, call); lc_ω_to(a, ωfail);
             ir_operand_push(call, a);
