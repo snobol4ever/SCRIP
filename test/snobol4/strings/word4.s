@@ -515,6 +515,8 @@ main_α_body:
  xchain28_n6_α:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 120], rax
+ call rt_zls2_mark@PLT
+ mov qword ptr [r12 + 128], rax
  mov rdi, qword ptr [r12 + 144]
  mov rsi, qword ptr [r12 + 152]
  call rt_match_enter@PLT
@@ -540,6 +542,8 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 120]
  call rt_zls_release_to@PLT
+ mov rdi, qword ptr [r12 + 128]
+ call rt_zls2_release_to@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain28_n3_α
@@ -603,6 +607,8 @@ main_α_body:
  and rsp, -16
  mov rdi, qword ptr [r12 + 120]
  call rt_zls_release_to@PLT
+ mov rdi, qword ptr [r12 + 128]
+ call rt_zls2_release_to@PLT
  mov rsp, rbp
  pop rbp
  jmp xchain28_n9_α
