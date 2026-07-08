@@ -107,7 +107,7 @@ proc_PAT$0_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg proc_PAT$0_ω
+ jg xchain0_n4_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S0]
@@ -116,12 +116,12 @@ proc_PAT$0_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne proc_PAT$0_ω
+ jne xchain0_n4_β
  add r14d, 1
  jmp xchain0_n6_α
  xchain0_n5_β:
  sub r14d, 1
- jmp proc_PAT$0_ω
+ jmp xchain0_n4_β
 # IR_MATCH_SPAN
  xchain0_n6_α:
  mov dword ptr [r12 + 96], 0
@@ -143,7 +143,7 @@ proc_PAT$0_α_body:
 .Lx12_1:
  mov eax, dword ptr [r12 + 96]
  test eax, eax
- jle xchain0_n4_β
+ jle proc_PAT$0_ω
  mov edx, r14d
  mov dword ptr [r12 + 100], edx
  add edx, eax
@@ -152,7 +152,7 @@ proc_PAT$0_α_body:
  xchain0_n6_β:
  xchain0_n6_β:
  mov r14d, dword ptr [r12 + 100]
- jmp xchain0_n4_β
+ jmp proc_PAT$0_ω
 # IR_MATCH_CAPTURE_SAVE push
  xchain0_n7_α:
  lea rdi, [r12 + 64]
@@ -225,7 +225,7 @@ proc_PAT$0_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg proc_PAT$0_ω
+ jg xchain0_n9_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S0]
@@ -234,12 +234,12 @@ proc_PAT$0_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne proc_PAT$0_ω
+ jne xchain0_n9_β
  add r14d, 1
  jmp xchain0_n11_α
  xchain0_n10_β:
  sub r14d, 1
- jmp proc_PAT$0_ω
+ jmp xchain0_n9_β
 # IR_MATCH_SPAN
  xchain0_n11_α:
  mov dword ptr [r12 + 48], 0
@@ -261,7 +261,7 @@ proc_PAT$0_α_body:
 .Lx22_1:
  mov eax, dword ptr [r12 + 48]
  test eax, eax
- jle xchain0_n9_β
+ jle proc_PAT$0_ω
  mov edx, r14d
  mov dword ptr [r12 + 52], edx
  add edx, eax
@@ -270,7 +270,7 @@ proc_PAT$0_α_body:
  xchain0_n11_β:
  xchain0_n11_β:
  mov r14d, dword ptr [r12 + 52]
- jmp xchain0_n9_β
+ jmp proc_PAT$0_ω
 # IR_MATCH_CAPTURE_SAVE push
  xchain0_n12_α:
  lea rdi, [r12 + 16]
