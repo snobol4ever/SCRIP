@@ -29,7 +29,7 @@
 #define ZC_PORT_INSTRUMENTED 1
 #define ZC_PORT_ALLOC        2
 #ifndef ZC_PORT
-#define ZC_PORT ZC_PORT_PLAIN
+#define ZC_PORT ZC_PORT_ALLOC
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_INIT_ZERO  0
