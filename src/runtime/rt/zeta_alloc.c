@@ -137,3 +137,29 @@ void rt_zls_release_to(void *mark)
 static void *g_zls_arbno_step1_carrier = (void *)0;
 void rt_zls_arbno_step1_store(void *p) { if (getenv("SCRIP_ARBNO_STEP1_TRACE")) fprintf(stderr, "[ARBNO-S1] STORE %p (prev carrier was %p)\n", p, g_zls_arbno_step1_carrier); g_zls_arbno_step1_carrier = p; }
 void *rt_zls_arbno_step1_load(void) { if (getenv("SCRIP_ARBNO_STEP1_TRACE")) fprintf(stderr, "[ARBNO-S1] LOAD  %p\n", g_zls_arbno_step1_carrier); return g_zls_arbno_step1_carrier; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZLS2 ARENA (Lon directive 2026-07-08) — the DOWN-GROWING bare-bump ζ arena.  No headers, no per-alloc
+ * runtime call, no per-alloc GC-root chunking: emitted code does `sub r12, K` at α and `add r12, K` at the
+ * box's single true-exit ω, K an emit-time constant of the box's OWN frame (down-growth is what makes both
+ * constants the box's own — up-growth would need the runtime predecessor's size).  MAP_NORESERVE reserves
+ * ZC_ZLS2_MB of contiguous virtual space that commits page-by-page on touch — the mmap stand-in for the C
+ * stack's kernel-grown virtue; the discipline itself is backing-agnostic and moves to rsp-on-the-C-stack
+ * when the direct-jmp call convention retires the proc trampoline (no C frame may then interleave above a
+ * live BB frame — Lon's caveat, made true by construction).  GC visibility: the WHOLE reserve is rooted
+ * once at init; libgc scans only committed pages' contents lazily via its dirty logic, and untouched
+ * NORESERVE pages read as zero — acceptable for bring-up, revisit if root-scan cost shows in telemetry. */
+static char *g_zls2_lo = (char *)0;
+static char *g_zls2_hi = (char *)0;
+void *rt_zls2_init(void)
+{
+    if (!g_zls2_hi) {
+        long mb = (long)ZC_ZLS2_MB;
+        g_zls2_lo = (char *)mmap((void *)0, (size_t)mb << 20, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+        if (g_zls2_lo == MAP_FAILED) { fprintf(stderr, "[ZLS2] arena mmap failed (%ld MB) — lower ZC_ZLS2_MB\n", mb); abort(); }
+        g_zls2_hi = g_zls2_lo + ((size_t)mb << 20);
+        GC_add_roots(g_zls2_lo, g_zls2_hi);
+    }
+    return (void *)g_zls2_hi;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_zls2_lo(void) { return (void *)g_zls2_lo; }

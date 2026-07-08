@@ -408,6 +408,15 @@ typedef struct {
      * checks this ONLY when port==OMEGA; every other jump ignores it.  Defaults to 0 (never free) so any
      * node kind this rung hasn't explicitly reasoned through stays inert under ZC_SELFLOAD_ALLOC. */
     int                          op_omega_is_death;
+    /* ZLS2 ARENA (Lon directive 2026-07-08, this session) — per-node self-alloc frame size in BYTES for the
+     * DOWN-GROWING bare-bump ζ arena: α = `sub r12, K`, single-exit ω = `add r12, K`, both emit-time
+     * constants of the box's OWN frame (down-growth is what makes both constants the box's own — up-growth
+     * would need the PREDECESSOR's size, unknowable at emit time).  Read by the α-define central hook in
+     * x86_asm.h ONLY under ZC_PORT_ALLOC (SCRIP_ZETA_PORT=2); the matching free is NOT hooked centrally at
+     * x86_jmp(ω) — the six-decoy-ω finding forbids that — a construct places x86("add","r12",K) at its own
+     * single true-exit label instead.  Defaults to 0 (no self-alloc) at every DRIVE_FILL, so every node this
+     * ladder hasn't explicitly converted stays byte-identical in all port modes. */
+    long                         op_zls2_bytes;
     int                          op_phase;
     int                          op_binop_kind;
     int                          op_gva_k;

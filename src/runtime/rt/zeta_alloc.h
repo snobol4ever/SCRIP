@@ -7,4 +7,10 @@ void  rt_zls_release_to(void *mark);
 /* BB-OWNED-ζ STEP 1 (Lon pivot, this session) — see zeta_alloc.c for full scope/limitation notes. */
 void  rt_zls_arbno_step1_store(void *p);
 void *rt_zls_arbno_step1_load(void);
+/* ZLS2 ARENA (Lon directive 2026-07-08) — the DOWN-GROWING bare-bump ζ arena for emitted-code frame
+ * discipline: no headers, no per-alloc runtime call; α/ω are `sub/add r12, K` in emitted code.  init is
+ * idempotent and returns the initial frame pointer (the HIGH end of the reserve); lo() is the low bound
+ * for overflow diagnostics. */
+void *rt_zls2_init(void);
+void *rt_zls2_lo(void);
 #endif
