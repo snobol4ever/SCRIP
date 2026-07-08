@@ -60,13 +60,10 @@ std::string bb_match_head() {
           * whichever exit the statement actually takes, never both (success and failure are mutually
           * exclusive control-flow paths out of this node, never both reached in one execution). */
          + x86("def", L(1))
-         + x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
+         + x86_align_enter()
          + x86("mov",  "rdi", FRQ(_.op_off + 8))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
          + x86_zls2_release_to_call(_.op_off + 16)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp")
+         + x86_align_leave()
          + x86("jmp",  "ω");
 }

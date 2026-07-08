@@ -231,9 +231,12 @@ inline uint8_t x86_jcc_op(const char * mnem) {
     fprintf(stderr, "[x86] FATAL x86_jcc_op: unknown condition code '%s' (no BINARY opcode; add it)\n", mnem); abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2 };
+inline std::string x86_port_hook(int site, int port);
 inline std::string x86_jcc(const char * mnem, int port) {
-    return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
-                         : (std::string(" ") + mnem + " " + x86_portname(port) + "\n");
+    return x86_port_hook(X86H_JCC, port)
+         + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
+                          : (std::string(" ") + mnem + " " + x86_portname(port) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -244,12 +247,6 @@ inline int x86_port_mode() {
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_port_canary() {
-    if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
-    if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x4D, 0x85, 0xE4) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
-    return std::string(" test r12, r12\n jnz 1f\n ud2\n1:\n");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  x86_selfload_mode() mirrors x86_port_mode()'s env-override
  * pattern but reads ZC_SELFLOAD (the α/β self-load axis), not ZC_PORT.  SCRIP_ZETA_SELFLOAD env var overrides
  * the compile-time default for quick A/B without a rebuild, exactly as SCRIP_ZETA_PORT already does. */
@@ -257,6 +254,78 @@ inline int x86_selfload_mode() {
     static int m = -1;
     if (m < 0) { const char *e = getenv("SCRIP_ZETA_SELFLOAD"); m = e ? atoi(e) : (int)ZC_SELFLOAD; }
     return m;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FRAME REGISTER SWITCH (Lon directive, 2026-07-08 session 2) — WHICH register is the ζ frame base.  Default =
+ * r12 (the ratified GZ3 contract).  ZC_FRAME_RBP is the C-frame-pointer EXPERIMENT from the C-STACK analysis
+ * (GOAL-SNOBOL4-BB.md SESSION STATE: when the proc trampoline retires, rsp becomes the frame and "r12 AND rbp
+ * free up" — this switch lets the rbp half of that end-state be exercised NOW, ahead of the trampoline work).
+ * Env override SCRIP_ZETA_FRAME ("rbp"/"1" selects RBP) mirrors SCRIP_ZETA_PORT's idiom: emit-time decision,
+ * cached once, no rebuild needed for an A/B.  EVERYTHING frame-relative flows through the four accessors
+ * below — the text form (x86_zr), the encoding number (x86_zr_num), the modrm/REX producers further down
+ * (x86_frame_modrm + the conditional-REX helpers), the FR/FRQ operand spellings AND the x86_parse arm that
+ * classifies them back (kept in lockstep via x86_fr32_prefix/x86_fr64_prefix), the port-hook canary/alloc
+ * instructions, and the alignment-dance save register.  KNOWN EXPERIMENT LIMITS under ZC_FRAME_RBP, stated
+ * honestly: (a) any template still hand-spelling a push-rbp alignment dance instead of x86_align_enter/leave
+ * clobbers the frame — the live match-family dances are swept this session, the inert rbx-dance holdouts
+ * (bb_gvar_assign_concat, bb_pattern_break/len, bb_ref_invariant) are pre-existing and unaffected either way;
+ * (b) C code compiled -O0 uses rbp as ITS frame pointer, so a callee's own prologue saving/restoring rbp is
+ * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
+ * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
+ * choice unchanged. */
+inline int x86_frame_mode() {
+    static int m = -1;
+    if (m < 0) { const char *e = getenv("SCRIP_ZETA_FRAME"); m = e ? ((!strcmp(e, "rbp") || atoi(e) == ZC_FRAME_RBP) ? ZC_FRAME_RBP : ZC_FRAME_R12) : (int)ZC_FRAME; }
+    return m;
+}
+inline const char * x86_zr()         { return x86_frame_mode() == ZC_FRAME_RBP ? "rbp" : "r12"; }
+inline int          x86_zr_num()     { return x86_frame_mode() == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_align_save() { return x86_frame_mode() == ZC_FRAME_RBP ? "r12" : "rbp"; }
+inline const char * x86_fr32_prefix() { static char b[32]; static int done; if (!done) { snprintf(b, 32, "dword ptr [%s + ", x86_zr()); done = 1; } return b; }
+inline const char * x86_fr64_prefix() { static char b[32]; static int done; if (!done) { snprintf(b, 32, "qword ptr [%s + ", x86_zr()); done = 1; } return b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* THE PORT HOOK — the ONE seam where per-port emission flavors plug in (Lon directive, 2026-07-08 session 2:
+ * "encapsulate all x86 emission for this through x86 referencing alpha, beta, gamma, and omega ... flexibility
+ * to emit tracing, debugging, assertions, varying garbage collectors, varying stacks").  EVERY port label
+ * define and EVERY jump/conditional-jump to a port already funnels through exactly three functions —
+ * x86_deflabel / x86_jmp / x86_jcc (verified by the XK_PORT dispatch arms in x86(): "def"→deflabel,
+ * "jmp"→jmp, jcc-mnemonics→jcc; audit this session found ZERO templates emitting a port label or port jump
+ * any other way) — plus the DRIVE_PAIR β-define flush in x86_pair_loop().  All four call THIS hook, so a new
+ * flavor (a GC safepoint, a per-port trace, a stack-discipline probe, an allocator) is ONE arm here, zero
+ * template edits, both mediums for free.  Sites:
+ *   X86H_DEF — a port label was just DEFINED here (code at the hook runs on EVERY arrival at that port).
+ *   X86H_JMP — an unconditional jmp to a port is about to be emitted (hook output runs BEFORE the jump).
+ *   X86H_JCC — a CONDITIONAL jump to a port is about to be emitted.
+ * ⛔ THE FLAGS CONTRACT (load-bearing, do not relax): X86H_JCC hook output MUST PRESERVE CPU FLAGS — the jcc
+ * consumes flags set by the caller's own preceding cmp/test, so a flavor that clobbers flags (the canary's
+ * test; the ALLOC sub) silently corrupts every conditional port edge it decorates.  Flavors that need flags
+ * freedom fire at X86H_DEF and X86H_JMP only (arrival at a label kills flag liveness by this codebase's own
+ * convention — the pre-existing α ALLOC sub already relies on that).  This is exactly why the canary was
+ * historically wired at x86_jmp and never x86_jcc; the constraint is now stated instead of implicit.
+ * Current flavors, relocated here verbatim from their former inline homes (byte-identical under defaults):
+ *   INSTRUMENTED canary (X86H_JMP)          — test ZR,ZR / jnz +2 / ud2: the R12-wiring assert, D13's sibling.
+ *   ω compile-time trace (X86H_JMP, env)    — SCRIP_ZETA_OMEGA_TRACE: which ω sites exist + death class.
+ *   ZLS2 α self-alloc (X86H_DEF, ALLOC)     — sub ZR,K from the per-node grant; free NEVER hooked centrally
+ *                                             (six-decoy-ω finding) — a construct places x86_zls2_free() at
+ *                                             its own single true-exit label. */
+inline std::string x86_sub(const char * reg, long imm);
+inline std::string x86_port_canary() {
+    if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
+    if (MEDIUM_BINARY) {
+        int z = x86_zr_num(), lo = z & 7;
+        uint8_t rex = (uint8_t)(0x48 | (z >= 8 ? 0x05 : 0x00)), modrm = (uint8_t)(0xC0 | (lo << 3) | lo);
+        return x86_Lrec(x86_b3(rex, 0x85, modrm) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
+    }
+    return std::string(" test ") + x86_zr() + ", " + x86_zr() + "\n jnz 1f\n ud2\n1:\n";
+}
+inline std::string x86_port_hook(int site, int port) {
+    std::string s;
+    if (site == X86H_JMP) s += x86_port_canary();
+    if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
+        fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
+    if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC)
+        s += x86_sub(x86_zr(), _.op_zls2_bytes);
+    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_free_call() — emits `call rt_zls_release(r12)`, alignment-safe (push rbp/and rsp,-16/restore, the
@@ -297,41 +366,27 @@ inline std::string x86_zeta_free_call();
  * the correct per-construct carrier generically (a later rung, not this one).  op_omega_is_death stays
  * computed (it costs nothing when unused and is exactly the signal a future correct hook would need) but is
  * deliberately NOT read here for now. */
+/* x86_jmp / x86_jcc / x86_deflabel — the three port-emission functions.  ALL per-port flavor code (canary,
+ * traces, allocs, future GC/stack experiments) lives in x86_port_hook above, NOT inline here — one seam, three
+ * callers (+ x86_pair_loop's β-define flush).  The former inline canary/ω-trace/ALLOC-sub bodies moved there
+ * verbatim 2026-07-08 session 2; the STEP-1 op_omega_is_death history comment block that used to sit here is
+ * preserved in git (this file, HEAD^) — its load-bearing conclusions (central ω free stays DISABLED; the
+ * six-decoy-ω finding; op_omega_is_death computed-but-unread) are restated at the hook. */
 inline std::string x86_jmp(int port) {
-    std::string pre = x86_port_canary();
-    if (port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE")) {
-        /* Central-hook observability only (Claude, this session, per Lon's ask: trace both enters and both
-         * exits from ONE place, without touching any template).  This fires once PER JMP "ω" SITE COMPILED
-         * (i.e. at emit/codegen time, same as every other x86() call -- NOT a runtime per-execution trace;
-         * this reports which ω sites exist and how each was classified, not how often each one runs). Fires
-         * for EVERY jmp "ω", true-death or internal-alias alike -- op_omega_is_death distinguishes them,
-         * deliberately NOT filtered out of the trace, so a person auditing it sees both classes side by side,
-         * exactly the fact this session's own ARBNO investigation needed and had to reconstruct by hand from
-         * source reading. The free-call this hook COULD make (x86_zeta_free_call) stays OFF regardless of
-         * op_omega_is_death's value, exactly per the STEP 1 STATUS comment immediately above this function --
-         * it frees r12 itself, wrong for ARBNO's carrier-based design; this trace does not change that. */
-        fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
-    }
-    return pre + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
-                                : (std::string(" jmp ") + x86_portname(port) + "\n"));
+    return x86_port_hook(X86H_JMP, port)
+         + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
+                          : (std::string(" jmp ") + x86_portname(port) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel(int port) {
     std::string s = MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
-    /* ZLS2 ARENA (Lon 2026-07-08): ALLOC flavor of the α port — the box self-allocates its frame with its
-     * OWN emit-time constant on the DOWN-growing arena.  Fires only under SCRIP_ZETA_PORT=2 AND a nonzero
-     * per-node grant (g_emit.op_zls2_bytes, zeroed at every DRIVE_FILL) — dormant everywhere until a
-     * construct's driver arm opts in.  The matching free is NEVER hooked here or at x86_jmp(ω) (six-decoy-ω
-     * finding): a construct places x86_zls2_free() at its own single true-exit label. */
-    if (port == X86P_ALPHA && _.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC)
-        s += x86_sub("r12", _.op_zls2_bytes);
-    return s;
+    return s + x86_port_hook(X86H_DEF, port);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZLS2 ω-side free: the box's own-constant up-bump, placed by the TEMPLATE at its single true-exit label,
- * immediately before the final jmp "ω".  Reads the same per-node grant as the α hook; same dormancy rules. */
+ * immediately before the final jmp "ω".  Reads the same per-node grant as the hook's α arm; same dormancy. */
 inline std::string x86_zls2_free() {
-    if (_.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC) return x86_add("r12", _.op_zls2_bytes);
+    if (_.op_zls2_bytes > 0 && x86_port_mode() == ZC_PORT_ALLOC) return x86_add(x86_zr(), _.op_zls2_bytes);
     return std::string();
 }
 enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
@@ -474,41 +529,65 @@ inline std::string x86_cmp_imm(const char * reg, long imm) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_r12_modrm(int regfield, int off) {
-    std::string s; int rf = regfield & 7;
-    if (off == 0)                       { s += (char)((0 << 6) | (rf << 3) | 4); s += (char)0x24; }
-    else if (off >= -128 && off <= 127) { s += (char)((1 << 6) | (rf << 3) | 4); s += (char)0x24; s += (char)(int8_t)off; }
-    else                                { s += (char)((2 << 6) | (rf << 3) | 4); s += (char)0x24; s += u32le((uint32_t)off); }
+    /* Frame-base modrm, generalized 2026-07-08 session 2 (name kept for grep continuity with its 17 call
+     * sites; "r12" in the name now means "the ζ frame register", x86_zr_num()).  r12 (low3=100): SIB byte
+     * 0x24 mandatory, mod=00 legal at off 0 — byte-identical to the pre-generalization encoder.  rbp
+     * (low3=101): no SIB, and mod=00 is UNAVAILABLE ([rbp] with mod=00 encodes disp32/RIP-relative), so
+     * off==0 must take the disp8 form — one extra byte vs r12, matching exactly what `as` emits for
+     * [rbp + 0] (the R10 BINARY-agrees-with-TEXT law). */
+    std::string s; int rf = regfield & 7; int b = x86_zr_num() & 7; int sib = (b == 4);
+    int mod = (off == 0 && b != 5) ? 0 : (off >= -128 && off <= 127) ? 1 : 2;
+    s += (char)((mod << 6) | (rf << 3) | (sib ? 4 : b));
+    if (sib) s += (char)0x24;
+    if (mod == 1) s += (char)(int8_t)off;
+    else if (mod == 2) s += u32le((uint32_t)off);
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_frame_text_mem(int off) { return std::string("[r12 + ") + std::to_string(off) + "]"; }
+/* x86_frame_rex(w, regfield) — the REX byte for a frame-relative access, emitted ONLY when nonempty (a bare
+ * 0x40 is what `as` omits, so R10 forbids emitting it): W from the caller, R from a high regfield, B from the
+ * frame register itself.  Under r12 the B bit is always set, so every call site's byte is identical to the
+ * old hard-coded 0x49/0x41 forms; under rbp B drops and low-regfield 32-bit ops emit no REX at all. */
+inline std::string x86_frame_rex(int w, int regfield) {
+    uint8_t rex = 0x40; if (w) rex |= 0x08; if (regfield >= 8) rex |= 0x04; if (x86_zr_num() >= 8) rex |= 0x01;
+    std::string s; if (rex != 0x40) s += (char)rex;
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_frame_text_mem(int off) { return std::string("[") + x86_zr() + " + " + std::to_string(off) + "]"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_lea(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x49; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8D; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" lea ") + reg + ", " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_mov_imm(int off, long imm) {
-    if (MEDIUM_BINARY) { std::string c; c += (char)0x41; c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, 0); c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_store(int off, const char * reg) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_add_imm(int off, long imm) {
     if (MEDIUM_BINARY) {
-        std::string c; c += (char)0x41;
+        /* REX via x86_frame_rex (2026-07-08 session 2): this helper's former unconditional 0x41 was the ONE
+         * hard-coded frame REX the generalization sweep missed — under ZC_FRAME_RBP it turned the base-rbp
+         * modrm (low3=101) into base-R13 (same low3, REX.B set), so IR_MATCH_HEAD's β cursor bump wrote
+         * [r13+off] while every reader read [rbp+off]: the anchor never advanced and the simplest literal
+         * match spun forever in mode-3 (found by disassembling the live JIT stream; mode-4 was immune because
+         * the TEXT arm below was always spelled from x86_frame_text_mem). */
+        std::string c; c += x86_frame_rex(0, 0);
         if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_r12_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
         else                           { c += (char)0x81; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
@@ -518,41 +597,41 @@ inline std::string x86_frame_add_imm(int off, long imm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_add_to_reg(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" add ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x41; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x2B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x2B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [r12 + %d]", off); return b[i]; }
+inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
-    int g = x86_rnum(reg); uint8_t rex = 0x49; if (g >= 8) rex |= 0x04;
-    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov ") + reg + ", qword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_store64(int off, const char * reg) {
-    int g = x86_rnum(reg); uint8_t rex = 0x49; if (g >= 8) rex |= 0x04;
-    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_frame64(int off) {
-    if (MEDIUM_BINARY) { std::string c; c += (char)0x49; c += (char)0xFF; c += x86_r12_modrm(4, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xFF; c += x86_r12_modrm(4, off); return x86_Lrec(c); }
     return std::string(" jmp qword ptr ") + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_mov_imm64(int off, long imm) {
-    if (MEDIUM_BINARY) { std::string c; c += (char)0x49; c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [r12 + %d]", off); return b[i]; }
+inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off); return b[i]; }
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
@@ -600,6 +679,26 @@ inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long 
         return x86_Lrec(c);
     }
     return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_reg_disp32_store_imm32 — the dword sibling of store_imm64 above (Claude Sonnet 5, 2026-07-08 session 2).
+ * Added because x86("mov", RDD(base, off), imm) previously had NO dispatch arm and the mov dispatcher's
+ * fall-through SILENTLY emitted nothing — found the hard way: bb_match_arb.cpp's ZLS2 α wrote its len=0 field
+ * with exactly this shape, the instruction vanished from the emitted stream, and the first activation still
+ * worked only because a virgin MAP_NORESERVE page reads as zero (every later activation inherited stale len —
+ * the word2 PORT=2 regression, proven by gdb disassembly of the live stream, not inferred).  The mov
+ * fall-through is now a loud bomb (see the dispatch block) so this class of silent drop cannot recur.
+ * Encoding: optional REX.B (no REX.W — 32-bit op), C7 /0, mod10 rm=base, disp32, imm32 — mod10+disp32
+ * unconditionally, matching every sibling in the reg_disp32 family (they trade a shorter disp8 form for one
+ * uniform shape; `as` agreement is irrelevant here because RDD text spells the same disp the binary encodes). */
+inline std::string x86_reg_disp32_store_imm32(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if ((b & 7) == 4) { fprintf(stderr, "FATAL x86_reg_disp32_store_imm32: base '%s' needs a SIB byte this encoder does not produce (whole reg_disp32 family limitation) — use a different base register\n", base); abort(); }
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x40; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0xC7; c += (char)(0x80 | (b & 7)); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
+        return x86_Lrec(c);
+    }
+    return std::string(" mov dword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
@@ -650,7 +749,7 @@ inline std::string x86_load_indexed8(const char * dst, const char * base, const 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_inc64(int off) {
-    std::string code; code += (char)0x49; code += (char)0xFF; code += x86_r12_modrm(0, off);
+    std::string code; code += x86_frame_rex(1, 0); code += (char)0xFF; code += x86_r12_modrm(0, off);
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" inc qword ptr ") + x86_frame_text_mem(off) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -715,8 +814,8 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (p >= 0 && (s[2] == 0)) { o.kind = XK_PORT; o.port = p; return; }
     if (s[0] == 'L' && s[1] >= '0' && s[1] <= '9') { int n = atoi(s + 1); o.kind = XK_ILBL; o.lbl = n; return; }
     if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
-    if (!strncmp(s, "dword ptr [r12 + ", 17)) { o.kind = XK_FR32;  o.off = atoi(s + 17); return; }
-    if (!strncmp(s, "qword ptr [r12 + ", 17)) { o.kind = XK_FR64;  o.off = atoi(s + 17); return; }
+    if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32;  o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
+    if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64;  o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
     if (!strncmp(s, "dword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP32; o.off = (int)d; return; } } }
@@ -836,13 +935,22 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_REGDISP && b.kind == XK_IMM)  return x86_reg_disp32_store_imm64(a.base, a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REGDISP)  return x86_reg_disp32_load64(a.txt, b.base, b.off);
         if (a.kind == XK_REGDISP32 && b.kind == XK_REG)  return x86_reg_disp32_store32(a.base, a.off, b.txt);
+        if (a.kind == XK_REGDISP32 && b.kind == XK_IMM)  return x86_reg_disp32_store_imm32(a.base, a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REGDISP32)  return x86_reg_disp32_load32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_MEMIDX8)  return x86_load_indexed8(a.txt, b.base, b.idx);
         if (a.kind == XK_REG && b.kind == XK_MEMIND)   return x86_load_mem64(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)  return x86_load_ro(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && b.kind == XK_REG)      return x86_mov(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM)      return x86_movimm(a.txt, b.imm);
-        return std::string();
+        /* No silent fall-through (2026-07-08 session 2): an unhandled mov operand pair previously returned the
+         * EMPTY STRING — the instruction vanished from the emitted stream with zero diagnostics.  That exact
+         * failure shipped: bb_match_arb.cpp's ZLS2 α len=0 store (REGDISP32 dest, IMM src — the arm two lines
+         * up, which did not exist) was dropped, and the program still PASSED its first activation because a
+         * virgin arena page reads as zero; only re-entry exposed it (the word2 PORT=2 regression, root-caused
+         * by gdb disassembly).  A mov that emits nothing is never legitimate; die with both operands named. */
+        fprintf(stderr, "FATAL x86(\"mov\"): no dispatch arm for operand pair kinds (%d, %d) — dest '%s', src '%s'.  Add the encoder + dispatch case here (R7); never let a mov emit nothing.\n",
+                a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+        abort();
     }
     if (!strcmp(mnem, "mov32")) { if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movimm32(a.txt, b.imm); return std::string(); }
     if (!strcmp(mnem, "stk32")) { if (a.kind == XK_IMM && b.kind == XK_IMM) return x86_rsp_store32_imm((int)a.imm, b.imm); return std::string(); }
@@ -894,16 +1002,30 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_align_enter() / x86_align_leave() — THE alignment dance for C calls from emitted code, centralized
+ * (2026-07-08 session 2).  Saves rsp in a callee-saved register, 16-aligns, restores.  The save register is
+ * ALWAYS the other member of the {r12, rbp} pair (x86_align_save): rbp when the frame is r12 — today's exact
+ * bytes at every existing dance site — and r12 when the frame is rbp, which is precisely what makes the dance
+ * FRAME-SAFE under ZC_FRAME_RBP (a hand-spelled push-rbp dance would clobber an rbp frame; that hazard is why
+ * this pair exists and why templates must use it instead of spelling the dance).  The pair leaves flags
+ * meaningless across it (push/and both touch or depend on rsp) — callers already treat a C call as a full
+ * clobber, so nothing new. */
+inline std::string x86_align_enter() {
+    const char * sv = x86_align_save();
+    return x86("push", sv) + x86("mov", sv, "rsp") + x86("and", "rsp", -16L);
+}
+inline std::string x86_align_leave() {
+    const char * sv = x86_align_save();
+    return x86("mov", "rsp", sv) + x86("pop", sv);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_free_call() definition (forward-declared above x86_jmp; see that declaration's comment for why
  * this must live here, after x86() itself is defined). */
 inline std::string x86_zeta_free_call() {
-    return x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
-         + x86("mov",  "rdi", "r12")
+    return x86_align_enter()
+         + x86("mov",  "rdi", x86_zr())
          + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp");
+         + x86_align_leave();
 }
 extern "C" void *rt_zls_mark(void);
 extern "C" void  rt_zls_release_to(void *);
@@ -930,6 +1052,31 @@ inline std::string x86_zls2_release_to_call(int off) {
          + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void *rt_zls2_push(long k);
+extern "C" void  rt_zls2_pop(long k);
+/* x86_zls2_push_call(k) / x86_zls2_pop_call(k) — the ZLS2 arena's per-ACTIVATION bump pair (promoted from
+ * bb_match_arbno.cpp's private statics of the same name to here, 2nd consumer session, so bb_match_arb.cpp can
+ * share them without duplicating the alignment-dance idiom — RULES.md's NO-DUPLICATED-LOGIC rule; zero
+ * behavior change for ARBNO, confirmed by the byte-identical rebuild this same edit's commit records). Bare
+ * alignment-safe call (push rbp/and rsp,-16/restore, the x86_zeta_free_call convention) wrapping rt_zls2_push/
+ * pop (zeta_alloc.c): push returns the new block pointer in rax; pop needs no return value, no size lookup, no
+ * header — k is always the CALLER's own emit-time frame constant. Not gated on x86_port_mode() itself (unlike
+ * x86_zls2_mark_save/release_to_call above) because every caller already lives inside its own
+ * `if (x86_port_mode() == ZC_PORT_ALLOC)` branch — gating here too would be a redundant, silently-correct-but-
+ * confusing second check. */
+inline std::string x86_zls2_push_call(long k) {
+    return x86_align_enter()
+         + x86("mov",  "rdi", k)
+         + x86("call", "rt_zls2_push", (uint64_t)(uintptr_t)(void *)(void * (*)(long))rt_zls2_push)
+         + x86_align_leave();
+}
+inline std::string x86_zls2_pop_call(long k) {
+    return x86_align_enter()
+         + x86("mov",  "rdi", k)
+         + x86("call", "rt_zls2_pop", (uint64_t)(uintptr_t)(void *)(void (*)(long))rt_zls2_pop)
+         + x86_align_leave();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,
  * pure x86() concatenation, same as x86_zeta_free_call above and every other encoder in this file: zero
  * manual MEDIUM_* branching in these two functions themselves. rt_zls_mark's return (rax) is stashed at
@@ -943,24 +1090,18 @@ inline std::string x86_zls2_release_to_call(int off) {
  * finding bb_emit_x86's actual tag loop, the same consumer every ordinary bb_*.cpp template already uses.) */
 inline std::string x86_zeta_mark_call(int off) {
     return x86("push", "rsi")
-         + x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
+         + x86_align_enter()
          + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_zls_mark)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp")
+         + x86_align_leave()
          + x86("mov",  FRQ(off), "rax")
          + x86("pop",  "rsi");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zeta_release_to_call(int off) {
-    return x86("push", "rbp")
-         + x86("mov",  "rbp", "rsp")
-         + x86("and",  "rsp", -16L)
+    return x86_align_enter()
          + x86("mov",  "rdi", FRQ(off))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release_to)
-         + x86("mov",  "rsp", "rbp")
-         + x86("pop",  "rbp");
+         + x86_align_leave();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_bomb(const char * msg);
@@ -980,14 +1121,20 @@ inline std::string x86_pair_jmp(int idx) {
     return std::string(" jmp ") + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_pair_loop — the DRIVE_PAIR define/jmp flush, the FOURTH port-emission site (the other three are
+ * x86_deflabel/x86_jmp/x86_jcc).  Each flushed define is a β label: the hook fires with (X86H_DEF, β) so
+ * future DEF-site flavors reach pair-flushed β defines with zero extra wiring.  The explicit x86_port_canary
+ * line predates the hook (D13's β-arrival assert, INSTRUMENTED mode) and is kept as this site's own flavor —
+ * folding it into the hook's DEF arm would ADD the canary to every α/γ/ω define under INSTRUMENTED, a
+ * behavior expansion deliberately not made today. */
 inline std::string x86_pair_loop() {
     std::string r;
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
         if (MEDIUM_BINARY) {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; r += x86_port_canary(); }
+            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA); }
             if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
         } else {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_port_canary(); }
+            if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA); }
             if (g_emit.xa_bb_emit_pair_jmp[i])    r += std::string(" jmp ") + g_emit.xa_bb_emit_pair_jmp[i]->name + "\n";
         }
     }

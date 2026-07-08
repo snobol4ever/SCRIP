@@ -38,6 +38,24 @@ static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, boo
     for (; pos < (int)out.size(); pos++) bb_emit_byte((uint8_t)(unsigned char)out[pos]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Frame-register byte fragments (2026-07-08 session 2, ZC_FRAME switch).  These five helpers are the ONLY
+ * frame-dependent machine bytes in this file; everything routes through x86_zr_num() so the r12 default is
+ * byte-identical to the former hard-coded \x41\x54 / \x49\x89\xFC / \x4D\x89\xE5-family / \x41\x5C /
+ * \x49\xC7\x84\x24 forms, and ZC_FRAME_RBP gets 0x55 / 48 89 FD / 49 89 ED-family / 0x5D / 48 C7 85 (shorter:
+ * no REX.B on push/pop, no SIB on the store).  Patch-site offsets below are COMPUTED from the built string's
+ * actual length, never hand-counted — hand counts break the moment fragment sizes become frame-dependent
+ * (and hand-counting bytes is this repo's named bb_bin_t-era debt anyway). */
+static std::string xaf_push_frame(void)  { int z = x86_zr_num(); std::string c; if (z >= 8) c += (char)0x41; c += (char)(0x50 | (z & 7)); return c; }
+static std::string xaf_pop_frame(void)   { int z = x86_zr_num(); std::string c; if (z >= 8) c += (char)0x41; c += (char)(0x58 | (z & 7)); return c; }
+static std::string xaf_mov_frame_rdi(void) { int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | (7 << 3) | (z & 7)); return c; }
+static std::string xaf_mov_dreg_frame(int d) { int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00) | (d >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((z & 7) << 3) | (d & 7)); return c; }
+static std::string xaf_frame_store_imm32(uint32_t disp, uint32_t imm) {
+    int z = x86_zr_num(), lo = z & 7; std::string c;
+    c += (char)(0x48 | (z >= 8 ? 0x01 : 0x00)); c += (char)0xC7;
+    c += (char)(0x80 | (lo == 4 ? 4 : lo)); if (lo == 4) c += (char)0x24;
+    c += u32le(disp); c += u32le(imm); return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
@@ -47,15 +65,16 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 std::string disp;
-                if      (g_emit_frame_caller_dl == 1) disp = bytes(2, "\x41\x55") + bytes(3, "\x4D\x89\xE5") + bytes(4, "\x48\x83\xEC\x08");
-                else if (g_emit_frame_caller_dl == 2) disp = bytes(2, "\x41\x56") + bytes(3, "\x4D\x89\xE6") + bytes(4, "\x48\x83\xEC\x08");
-                else if (g_emit_frame_caller_dl == 3) disp = bytes(2, "\x41\x57") + bytes(3, "\x4D\x89\xE7") + bytes(4, "\x48\x83\xEC\x08");
-                out_site = 10 + (int)disp.size(); out_lbl = g_emit.flat_β_p; out_def = false;
-                return bytes(2, "\x41\x54")
-                     + bytes(3, "\x49\x89\xFC")
-                     + disp
-                     + bytes(3, "\x83\xFE\x00")
-                     + bytes(2, "\x0F\x85") + u32le(0);
+                if      (g_emit_frame_caller_dl == 1) disp = bytes(2, "\x41\x55") + xaf_mov_dreg_frame(13) + bytes(4, "\x48\x83\xEC\x08");
+                else if (g_emit_frame_caller_dl == 2) disp = bytes(2, "\x41\x56") + xaf_mov_dreg_frame(14) + bytes(4, "\x48\x83\xEC\x08");
+                else if (g_emit_frame_caller_dl == 3) disp = bytes(2, "\x41\x57") + xaf_mov_dreg_frame(15) + bytes(4, "\x48\x83\xEC\x08");
+                std::string r = xaf_push_frame()
+                              + xaf_mov_frame_rdi()
+                              + disp
+                              + bytes(3, "\x83\xFE\x00")
+                              + bytes(2, "\x0F\x85") + u32le(0);
+                out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
+                return r;
             }
             out_site = 9; out_lbl = g_emit.flat_β_p; out_def = false;
             return bytes(4, "\x48\x83\xEC\x08")
@@ -80,8 +99,8 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
-                std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", r12\n  sub rsp, 8\n") : std::string();
-                std::string pro = banner + "push r12\n  mov r12, rdi\n" + disp;
+                std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", " + x86_zr() + "\n  sub rsp, 8\n") : std::string();
+                std::string pro = banner + "push " + std::string(x86_zr()) + "\n  mov " + x86_zr() + ", rdi\n" + disp;
                 if (g_gen_proc_active)
                     pro += std::string("  cmp esi, 0\n")
                          + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
@@ -109,7 +128,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             if      (g_frame_active && g_emit_frame_caller_dl == 1) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5D");
             else if (g_frame_active && g_emit_frame_caller_dl == 2) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5E");
             else if (g_frame_active && g_emit_frame_caller_dl == 3) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5F");
-            std::string unwind = g_frame_active ? (dpop + bytes(2, "\x41\x5C")) : bytes(4, "\x48\x83\xC4\x08");
+            std::string unwind = g_frame_active ? (dpop + xaf_pop_frame()) : bytes(4, "\x48\x83\xC4\x08");
             std::string succ_half = g_frame_active
                  ? ( bytes(1, "\xB8") + u32le(1)
                    + bytes(2, "\x31\xD2")
@@ -124,8 +143,8 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                    + unwind
                    + bytes(1, "\xC3") );
             std::string fail_half = g_frame_active
-                 ? ( bytes(4, "\x49\xC7\x84\x24") + u32le(0u) + u32le(99u)
-                   + bytes(4, "\x49\xC7\x84\x24") + u32le(8u) + u32le(0u)
+                 ? ( xaf_frame_store_imm32(0u, 99u)
+                   + xaf_frame_store_imm32(8u, 0u)
                    + bytes(1, "\xB8") + u32le(99)
                    + bytes(2, "\x31\xD2")
                    + unwind
@@ -153,17 +172,17 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                 std::string succ_half = std::string("mov eax, 1\n")
                      + "xor edx, edx\n"
                      + dpop
-                     + "pop r12\n"
+                     + "pop " + x86_zr() + "\n"
                      + "ret\n";
                 std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
                      + "# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure\n"
-                     + "mov dword ptr [r12+0], 99\n"
-                     + "mov dword ptr [r12+4], 0\n"
-                     + "mov qword ptr [r12+8], 0\n"
+                     + "mov dword ptr [" + x86_zr() + "+0], 99\n"
+                     + "mov dword ptr [" + x86_zr() + "+4], 0\n"
+                     + "mov qword ptr [" + x86_zr() + "+8], 0\n"
                      + "mov eax, 99\n"
                      + "xor edx, edx\n"
                      + dpop
-                     + "pop r12\n"
+                     + "pop " + x86_zr() + "\n"
                      + "ret\n";
                 if (out_succ) *out_succ = succ_half;
                 if (out_fail) *out_fail = fail_half;

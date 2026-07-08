@@ -91,7 +91,16 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "break.cnt/cur", nd); return 1;
-    case IR_MATCH_ARB: case IR_MATCH_REM:
+    case IR_MATCH_ARB:
+        /* ZLS2 second consumer (Claude Sonnet 5, 2026-07-08) -- the "natural sibling" GOAL-SNOBOL4-BB.md names
+         * for extending BB-OWNED-zeta past ARBNO. ARB's existing 16B grant already carried 8B of unused pad
+         * (bytes 0-3 = matched-length counter, 4-7 = saved start position, 8-15 = pad) -- the SAME shape
+         * IR_MATCH_HEAD's zeta_mark reuse found above, so the ZLS2 activation-block save-slot fits in the
+         * EXISTING quad with zero widening: no later node's offset shifts, the safest possible way to add the
+         * field (mirrors head.zeta_mark, not ARBNO's wider 2-quad case -- ARB only ever used 8B of its 16B and
+         * already had exactly 8B of pad to spend). */
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: reuses this node's existing pad, same reuse precedent as IR_MATCH_HEAD.zeta_mark; block itself is a separate ZLS2 allocation, header +0 chains the previous activation's ptr)", nd); return 1;
+    case IR_MATCH_REM:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_ARBNO:
         if (IR_LIT(nd).ival == 0) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0]; ZC_PORT_PLAIN state home — under ZC_PORT_ALLOC state moves into the per-activation ZLS2 block and this quad idles)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: current activation's ZLS2 block; block header +0 chains the previous activation's ptr, popped back here at role 2's true exit — the MATCH_HEAD zeta_mark precedent, widened to its own quad because v1's first quad has only 4B of pad)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.pad (unused)", nd); return 2; }
