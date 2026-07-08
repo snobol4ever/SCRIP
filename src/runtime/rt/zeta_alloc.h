@@ -16,5 +16,6 @@ void *rt_zls2_lo(void);
 void *rt_zls2_push(long k);
 void  rt_zls2_pop(long k);
 void *rt_zls2_mark(void);
+extern char *g_zls2_cur;
 void  rt_zls2_release_to(void *mark);
 #endif

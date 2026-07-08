@@ -175,7 +175,7 @@ void *rt_zls2_lo(void) { return (void *)g_zls2_lo; }
  * per-block header, NO GC-root chunking (whole reserve rooted once at init, see rt_zls2_init above).
  * LIFO enforcement: pop past hi aborts loudly; push past lo aborts loudly (exhaustion).  SCRIP_ZLS2_TRACE=1
  * prints every push/pop with the cursor so alloc/free balance is auditable event-by-event. */
-static char *g_zls2_cur = (char *)0;
+char *g_zls2_cur = (char *)0;
 void *rt_zls2_push(long k)
 {
     if (!g_zls2_cur) { rt_zls2_init(); g_zls2_cur = g_zls2_hi; }
