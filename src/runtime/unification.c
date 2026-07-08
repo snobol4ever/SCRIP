@@ -10,17 +10,6 @@
 #define PL_CELL_ALLOC(n) GC_MALLOC(n)
 #include "../parser/prolog/pl_cell_conv.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_node_to_term(int kind, long ival, const char *sval, double dval)
-{
-    switch (kind) {
-    case IR_LOGICVAR: { int slot = (int)ival; return term_new_var(slot); }
-    case IR_ATOM:  return term_new_atom(prolog_atom_intern(sval ? sval : "[]"));
-    case IR_LIT_REAL: return term_new_float(dval);
-    case IR_LIT_INTEGER: return term_new_int(ival);
-    default:       return term_new_int(ival);
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unify_terms(void *l, void *r)
 {
     extern pl_trail_t g_pl_trail;
@@ -61,21 +50,6 @@ void * rt_enter(void **slot, int nslots)
     return *slot;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_cell_const(void *cell, int kind, long ival, const char *sval)
-{
-    extern pl_trail_t g_pl_trail;
-    pl_cell_t *c = (pl_cell_t *)cell; if (!c) return 0;
-    pl_cell_t w;
-    switch (kind) {
-    case IR_ATOM:  w = pl_make_atom(prolog_atom_intern(sval ? sval : "[]")); break;
-    case IR_LIT_INTEGER: w = pl_make_int(ival); break;
-    default:       w = pl_make_int(ival); break;
-    }
-    int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify(c, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_cell_float(void *cell, double dval)
 {
     extern pl_trail_t g_pl_trail;
@@ -84,18 +58,6 @@ int rt_pl_unify_cell_float(void *cell, double dval)
     int mark = pl_trail_mark(&g_pl_trail);
     if (!pl_unify(c, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_lit_cell(int kind, long ival, const char *sval, double dval)
-{
-    pl_cell_t *c = (pl_cell_t *)GC_MALLOC(sizeof(pl_cell_t));
-    switch (kind) {
-    case IR_ATOM:  *c = pl_make_atom(prolog_atom_intern(sval ? sval : "[]")); break;
-    case IR_LIT_INTEGER: *c = pl_make_int(ival); break;
-    case IR_LIT_REAL: *c = pl_make_float(dval); break;
-    default:       *c = pl_make_int(ival); break;
-    }
-    return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words)

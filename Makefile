@@ -205,6 +205,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_pascal.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
+    $(SRC)/runtime/unification.c \
     $(SRC)/runtime/builtins/resolution.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/contracts/scrip_ir.c \
@@ -459,6 +460,7 @@ scrip:
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -c $(SRC)/parser/rebus/rebus_lower.c  -o $(OBJ)/rebus_lower.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/gen_runtime.c -o $(OBJ)/gen_runtime.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/by_name_dispatch.c -o $(OBJ)/by_name_dispatch.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/unification.c -o $(OBJ)/unification.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/builtins/resolution.c  -o $(OBJ)/resolution.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/core/coerce.c      -o $(OBJ)/coerce.o
 	$(CC) $(CRT)   -c $(SRC)/contracts/scrip_ir.c     -o $(OBJ)/scrip_ir.o
