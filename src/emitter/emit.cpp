@@ -654,6 +654,7 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_BUILTIN_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (k == IR_CALL_BUILTIN_PROLOG && fn[0] && pl_builtin_is_known(fn)) return CALL_ROUTE_FN;
+    if (!strcmp(fn, "__rk_bool") && narg >= 1) return CALL_ROUTE_RK_BOOL_SLOT;
     if (dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;

@@ -804,6 +804,7 @@ static DESCR_t rt_findall_result(DESCR_t handle) {
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist);
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
+    if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
     if (!strncmp(fn, "$ax_", 4)) {
         extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
         const char *op = fn + 4;
