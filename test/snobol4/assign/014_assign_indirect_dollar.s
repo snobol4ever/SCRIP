@@ -99,7 +99,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "hello"
-# IR_VAR gva
+# IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

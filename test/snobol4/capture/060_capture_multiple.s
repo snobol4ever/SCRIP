@@ -80,7 +80,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -293,7 +293,7 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n14_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n14_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -326,7 +326,7 @@ main_α_body:
  jmp xchain0_n17_α
  xchain0_n16_β:
  jmp main_γ
-# IR_VAR gva
+# IR_VAR
  xchain0_n17_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]

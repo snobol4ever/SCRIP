@@ -225,7 +225,7 @@ xchain0_n9_β:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "aabbdd"
-# IR_VAR gva
+# IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -346,7 +346,7 @@ xchain0_n16_β:
  jmp main_γ
  xchain0_n18_β:
  jmp main_γ
-# IR_VAR gva
+# IR_VAR
  xchain0_n19_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]

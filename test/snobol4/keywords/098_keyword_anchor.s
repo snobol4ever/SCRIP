@@ -125,7 +125,7 @@ main_α_body:
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp xchain0_n5_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -265,7 +265,7 @@ main_α_body:
  .quad .Lx17_0_s
 .Lx17_0_s:
  .string "OUTPUT"
-# IR_VAR gva
+# IR_VAR
  xchain0_n13_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

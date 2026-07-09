@@ -24,7 +24,7 @@ push r12
  mov qword ptr [r12 + 144], rax
  pop rsi
 proc_bumpit_α_body:
-# IR_VAR gva
+# IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]

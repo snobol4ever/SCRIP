@@ -290,7 +290,7 @@ xchain0_n11_β:
  .quad .Lx18_0_s
 .Lx18_0_s:
  .string "alphabet"
-# IR_VAR gva
+# IR_VAR
  xchain0_n15_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]

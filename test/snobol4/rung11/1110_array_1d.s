@@ -100,7 +100,7 @@ xchain0_n1_β:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -119,7 +119,7 @@ xchain0_n1_β:
  jmp xchain0_n5_α
 .Lx6_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -152,7 +152,7 @@ xchain0_n1_β:
  jmp xchain0_n8_α
 .Lx9_0:
  .quad 2
-# IR_VAR gva
+# IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -197,7 +197,7 @@ xchain0_n1_β:
  jmp xchain0_n12_α
 .Lx13_0:
  .quad 2
-# IR_VAR gva
+# IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -262,7 +262,7 @@ xchain0_n13_β:
  jmp xchain0_n17_α
 .Lx19_0:
  .quad 4
-# IR_VAR gva
+# IR_VAR
  xchain0_n17_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -333,7 +333,7 @@ xchain0_n13_β:
  jmp xchain0_n23_α
 .Lx25_0:
  .quad 0
-# IR_VAR gva
+# IR_VAR
  xchain0_n23_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -581,7 +581,7 @@ xchain0_n38_β:
  jmp xchain0_n40_α
  xchain0_n39_β:
  jmp xchain0_n40_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n40_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -634,7 +634,7 @@ xchain0_n38_β:
  jmp xchain0_n45_α
 .Lx51_0:
  .quad 2
-# IR_VAR gva
+# IR_VAR
  xchain0_n45_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -678,7 +678,7 @@ xchain0_n38_β:
  jmp xchain0_n49_α
 .Lx55_0:
  .quad 2
-# IR_VAR gva
+# IR_VAR
  xchain0_n49_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -735,7 +735,7 @@ xchain0_n38_β:
  jmp xchain0_n56_α
 xchain0_n52_β:
  jmp xchain0_n53_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n53_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -792,7 +792,7 @@ xchain0_n52_β:
  jmp xchain0_n58_α
 .Lx65_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain0_n58_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -864,7 +864,7 @@ xchain0_n60_β:
  jmp xchain0_n63_α
 .Lx71_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain0_n63_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -946,7 +946,7 @@ xchain0_n64_β:
  jmp xchain0_n69_α
 .Lx78_0:
  .quad 3
-# IR_VAR gva
+# IR_VAR
  xchain0_n69_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

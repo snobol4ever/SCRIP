@@ -24,7 +24,7 @@ push r12
  mov qword ptr [r12 + 576], rax
  pop rsi
 proc_fib_α_body:
-# IR_VAR gva
+# IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -43,7 +43,7 @@ proc_fib_α_body:
  jmp xchain0_n2_α
 .Lx2_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -89,7 +89,7 @@ proc_fib_α_body:
  jmp proc_fib_γ
 .Lx6_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -174,7 +174,7 @@ proc_fib_α_body:
  jmp xchain0_n9_α
 xchain0_n8_β:
  jmp proc_fib_γ
-# IR_VAR gva
+# IR_VAR
  xchain0_n9_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]

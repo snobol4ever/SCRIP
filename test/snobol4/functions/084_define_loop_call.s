@@ -24,7 +24,7 @@ push r12
  mov qword ptr [r12 + 448], rax
  pop rsi
 proc_bump_α_body:
-# IR_VAR gva
+# IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -258,7 +258,7 @@ main_α_body:
  jmp xchain5_n4_α
  xchain5_n3_β:
  jmp xchain5_n4_α
-# IR_VAR gva
+# IR_VAR
  xchain5_n4_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -277,7 +277,7 @@ main_α_body:
  jmp xchain5_n6_α
 .Lx11_0:
  .quad 2
-# IR_VAR gva
+# IR_VAR
  xchain5_n6_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -286,7 +286,7 @@ main_α_body:
  jmp xchain5_n8_α
  xchain5_n6_β:
  jmp xchain5_n9_α
-# IR_VAR gva
+# IR_VAR
  xchain5_n7_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -305,7 +305,7 @@ main_α_body:
  jmp xchain5_n9_α
 .Lx14_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain5_n9_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -416,7 +416,7 @@ main_α_body:
  jmp xchain5_n13_α
 .Lx18_0:
  .quad 5
-# IR_VAR gva
+# IR_VAR
  xchain5_n13_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]

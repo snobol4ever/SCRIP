@@ -752,7 +752,7 @@ xchain0_n40_β:
  jmp xchain0_n43_α
 xchain0_n42_β:
  jmp xchain0_n43_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n43_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -816,7 +816,7 @@ xchain0_n45_β:
  jmp xchain0_n48_α
  xchain0_n47_β:
  jmp xchain0_n48_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n48_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -1073,7 +1073,7 @@ xchain0_n45_β:
  .string "subject"
 .Lx93_1:
  jmp xchain0_n62_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n62_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -1104,7 +1104,7 @@ xchain0_n45_β:
  jmp xchain0_n64_α
 xchain0_n63_β:
  jmp xchain0_n64_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n64_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]

@@ -102,7 +102,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -123,7 +123,7 @@ main_α_body:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "cat"
-# IR_VAR gva
+# IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -158,7 +158,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "cat"
-# IR_VAR gva
+# IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -205,7 +205,7 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "cat"
-# IR_VAR gva
+# IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -272,7 +272,7 @@ xchain0_n13_β:
  jmp xchain0_n17_α
 .Lx19_0:
  .quad 7
-# IR_VAR gva
+# IR_VAR
  xchain0_n17_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -343,7 +343,7 @@ xchain0_n13_β:
  jmp xchain0_n23_α
 .Lx25_0:
  .quad 7
-# IR_VAR gva
+# IR_VAR
  xchain0_n23_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -411,7 +411,7 @@ xchain0_n13_β:
  .quad .Lx31_0_s
 .Lx31_0_s:
  .string "cat"
-# IR_VAR gva
+# IR_VAR
  xchain0_n29_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -499,7 +499,7 @@ xchain0_n30_β:
  .quad .Lx38_0_s
 .Lx38_0_s:
  .string "array"
-# IR_VAR gva
+# IR_VAR
  xchain0_n35_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -591,7 +591,7 @@ xchain0_n39_β:
  jmp xchain0_n46_α
 xchain0_n40_β:
  jmp xchain0_n41_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n41_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -685,7 +685,7 @@ xchain0_n43_β:
  .quad .Lx54_0_s
 .Lx54_0_s:
  .string "table"
-# IR_VAR gva
+# IR_VAR
  xchain0_n48_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -797,7 +797,7 @@ xchain0_n52_β:
  jmp xchain0_n54_α
 .Lx63_0:
  .quad 7
-# IR_VAR gva
+# IR_VAR
  xchain0_n54_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -878,7 +878,7 @@ xchain0_n52_β:
  .quad .Lx70_0_s
 .Lx70_0_s:
  .string "cat"
-# IR_VAR gva
+# IR_VAR
  xchain0_n61_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -947,7 +947,7 @@ xchain0_n52_β:
  .quad .Lx76_0_s
 .Lx76_0_s:
  .string "cat"
-# IR_VAR gva
+# IR_VAR
  xchain0_n67_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

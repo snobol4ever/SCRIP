@@ -96,7 +96,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -115,7 +115,7 @@ main_α_body:
  jmp xchain0_n5_α
 .Lx6_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -148,7 +148,7 @@ main_α_body:
  jmp xchain0_n8_α
 .Lx9_0:
  .quad 3
-# IR_VAR gva
+# IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -193,7 +193,7 @@ main_α_body:
  jmp xchain0_n12_α
 .Lx13_0:
  .quad 5
-# IR_VAR gva
+# IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -252,7 +252,7 @@ main_α_body:
  jmp xchain0_n17_α
 .Lx18_0:
  .quad 1
-# IR_VAR gva
+# IR_VAR
  xchain0_n17_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -311,7 +311,7 @@ main_α_body:
  jmp xchain0_n22_α
 .Lx23_0:
  .quad 3
-# IR_VAR gva
+# IR_VAR
  xchain0_n22_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
