@@ -1007,6 +1007,8 @@ int main(int argc, char **argv)
             printf("  push rdi\n");
             printf("  push rsi\n");
             if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
+            printf("  call core_lib_init@PLT\n");
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 printf("  call proc_startup\n");
             if (n_gva_icn > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn);
