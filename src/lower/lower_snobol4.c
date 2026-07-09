@@ -1292,6 +1292,12 @@ static void sno_fragment_reject_define(const tree_t ** st, int nst) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
+    /* The zls_* compile-metadata tables (zeta_storage.c) are process-global and sized for the driver's
+     * one-compile-per-process life; runtime fragment compiles would exhaust them (~24 EVALs hit the
+     * za[1024] geometry cap — the eval_dynamic benchmark found it).  Every graph compiled so far is
+     * sealed before any fragment lowers (main + procs emit before main runs, in both modes), so its
+     * zls entries are dead weight; recycle the tables per fragment compile. */
+    { extern void zls_reset(void); zls_reset(); }
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
     if (nst == 0 || entry_idx < 0 || entry_idx >= nst) return NULL;
