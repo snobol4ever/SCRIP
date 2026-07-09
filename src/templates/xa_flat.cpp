@@ -56,6 +56,59 @@ static std::string xaf_frame_store_imm32(uint32_t disp, uint32_t imm) {
     c += u32le(disp); c += u32le(imm); return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* C-STACK ANCHOR fragments (ZC_PORT_CSTACK rung, Lon 2026-07-09).  Under CSTACK the ζ cursor IS rsp, and a
+ * flat graph's γ/ω landing can arrive with rsp anywhere at-or-below chain start (a blob's granted construct
+ * that γ-succeeds hands its live frame down and RETURNS — the 075 crash: pop/ret at a bumped rsp, r12=0,
+ * pc=0x10000).  Cross-unit reclamation is impossible on the C stack, so every C-callable emitted unit must
+ * restore its entry rsp at its own ret: the prologue pushes the align-save register, snapshots rsp into it,
+ * and drops 8 more (net 16 — call-site alignment parity preserved); the epilogue restores rsp from it FIRST,
+ * then the existing pops run at their expected positions.  INNERMOST wrapper: placed after every existing
+ * prologue push, restored before every existing epilogue pop.  The per-dance push/pop of the same register
+ * preserves the anchor value across every alignment window, including the CSTACK release arm's
+ * leave/re-enter (x86_asm.h).  Frame-active arms only: grants and the statement backstop are FRQ-keyed, so
+ * rsp never moves in a frame-less graph.  Mode read inside the fragment helper follows this file's own
+ * ZC_FRAME precedent (the five xaf_ helpers above). */
+static std::string xaf_anchor_enter_bin(void) {
+    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    int v = x86_rnum(x86_align_save()); std::string c;
+    if (v >= 8) c += (char)0x41; c += (char)(0x50 | (v & 7));
+    c += (char)(0x48 | (v >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | (4 << 3) | (v & 7));
+    c += (char)0x48; c += (char)0x83; c += (char)0xEC; c += (char)0x08; return c;
+}
+static std::string xaf_anchor_leave_bin(void) {
+    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    int v = x86_rnum(x86_align_save()); std::string c;
+    c += (char)(0x48 | (v >= 8 ? 0x04 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((v & 7) << 3) | 4);
+    if (v >= 8) c += (char)0x41; c += (char)(0x58 | (v & 7)); return c;
+}
+static std::string xaf_anchor_enter_text(void) {
+    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    return std::string("  push ") + x86_align_save() + "\n  mov " + x86_align_save() + ", rsp\n  sub rsp, 8\n";
+}
+static std::string xaf_anchor_leave_text(void) {
+    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    return std::string("mov rsp, ") + x86_align_save() + "\npop " + x86_align_save() + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GVA-BASE RELOAD fragments (ZC_PORT_CSTACK rung, same session).  The rbx=GVA-slab contract previously
+ * survived C trampolines by ACCIDENT of -O0 codegen (C functions rarely allocated rbx); the CSTACK alloca in
+ * rt_call_named_proc made GCC's stack-clash probe loop use rbx (div rbx) — callee-saved correctly at the C
+ * boundary, but p->fn runs INSIDE the window, and the proc body read [rbx+k*16] = garbage (083 segfault,
+ * fault pc in the BB arena on mov rax,[rbx+0x10]).  Durable contract: under CSTACK every frame-active graph
+ * self-loads rbx from the exported g_gva_base cell (set by gva_register — the one seam both m3 driver and m4
+ * main registration flow through).  Medium split is the sanctioned R10 RO-load exception, the g_zls2_cur
+ * precedent: TEXT rip-relative lea resolved by the -no-pie link, BINARY movabs of the in-process cell. */
+extern "C" void *g_gva_base;
+static std::string xaf_gva_reload_bin(void) {
+    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    std::string c; c += (char)0x48; c += (char)0xB8; c += u64le((uint64_t)(uintptr_t)&g_gva_base);
+    c += (char)0x48; c += (char)0x8B; c += (char)0x18; return c;
+}
+static std::string xaf_gva_reload_text(void) {
+    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    return std::string("  lea rax, [rip + g_gva_base]\n  mov rbx, qword ptr [rax]\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
@@ -70,7 +123,9 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 else if (g_emit_frame_caller_dl == 3) disp = bytes(2, "\x41\x57") + xaf_mov_dreg_frame(15) + bytes(4, "\x48\x83\xEC\x08");
                 std::string r = xaf_push_frame()
                               + xaf_mov_frame_rdi()
+                              + xaf_gva_reload_bin()
                               + disp
+                              + xaf_anchor_enter_bin()
                               + bytes(3, "\x83\xFE\x00")
                               + bytes(2, "\x0F\x85") + u32le(0);
                 out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
@@ -100,7 +155,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 extern int g_emit_frame_caller_dl;
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
                 std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", " + x86_zr() + "\n  sub rsp, 8\n") : std::string();
-                std::string pro = banner + "push " + std::string(x86_zr()) + "\n  mov " + x86_zr() + ", rdi\n" + disp;
+                std::string pro = banner + "push " + std::string(x86_zr()) + "\n  mov " + x86_zr() + ", rdi\n" + xaf_gva_reload_text() + disp + xaf_anchor_enter_text();
                 if (g_gen_proc_active)
                     pro += std::string("  cmp esi, 0\n")
                          + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
@@ -128,7 +183,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             if      (g_frame_active && g_emit_frame_caller_dl == 1) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5D");
             else if (g_frame_active && g_emit_frame_caller_dl == 2) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5E");
             else if (g_frame_active && g_emit_frame_caller_dl == 3) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5F");
-            std::string unwind = g_frame_active ? (dpop + xaf_pop_frame()) : bytes(4, "\x48\x83\xC4\x08");
+            std::string unwind = g_frame_active ? (xaf_anchor_leave_bin() + dpop + xaf_pop_frame()) : bytes(4, "\x48\x83\xC4\x08");
             std::string succ_half = g_frame_active
                  ? ( bytes(1, "\xB8") + u32le(1)
                    + bytes(2, "\x31\xD2")
@@ -168,7 +223,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
-                std::string dpop = dreg ? (std::string("add rsp, 8\npop ") + dreg + "\n") : std::string();
+                std::string dpop = xaf_anchor_leave_text() + (dreg ? (std::string("add rsp, 8\npop ") + dreg + "\n") : std::string());
                 std::string succ_half = std::string("mov eax, 1\n")
                      + "xor edx, edx\n"
                      + dpop

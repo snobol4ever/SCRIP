@@ -1,4 +1,5 @@
 #include "rt.h"
+#include <alloca.h>
 #include "gc_heap.h"
 #include "core.h"
 #include "descr.h"
@@ -24,6 +25,7 @@ extern int Σlen;
 #include <string.h>
 #include <math.h>
 extern void    core_lib_init(void);
+extern int     rt_zeta_cstack(void);
 extern int     exec_stmt(const char *subj_name, DESCR_t *subj_var,
                          DESCR_t pat, DESCR_t *repl, int has_repl);
 extern DESCR_t NV_GET_fn(const char *name);
@@ -270,8 +272,10 @@ int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
 const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
 void rt_proc_reset(void) { g_rt_gen_proc_count = 0; rt_proc_cache_clear(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *g_gva_base = (DESCR_t *)0;
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
+    g_gva_base = cells;
     for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
     return cells;
 }
@@ -391,13 +395,13 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     if (p->dyn_scope) return rt_call_named_proc(name, g_call_args, nargs > CALL_ARGS_MAX ? CALL_ARGS_MAX : nargs);
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    char *fb = (char *)rt_zls2_push((long)fbytes);
+    char *fb; if (rt_zeta_cstack()) fb = (char *)alloca((size_t)fbytes); else fb = (char *)rt_zls2_push((long)fbytes);
     { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    rt_zls2_release_to((void *)(fb + fbytes));
+    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)(fb + fbytes));
     return result;
 }
 #define RT_INITIAL_MAX 8192
@@ -551,13 +555,13 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    void *fb = rt_zls2_push((long)fbytes);
+    void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
     memset(fb, 0, (size_t)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    rt_zls2_release_to((void *)((char *)fb + fbytes));
+    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
@@ -581,13 +585,13 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    void *fb = rt_zls2_push((long)fbytes);
+    void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
     memset(fb, 0, (size_t)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    rt_zls2_release_to((void *)((char *)fb + fbytes));
+    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
@@ -675,7 +679,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     int save_base = g_name_save_top;
     rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    void *fb = rt_zls2_push((long)fbytes);
+    void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
     ((void **)fb)[0] = sl;
     DESCR_t *slots = (DESCR_t *)((char *)fb + 16);
     for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
@@ -683,7 +687,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     if (g_monitor_bin) mon_emit_call_bin(name);
     DESCR_t fret = p->fn(fb, 0);
     Σ = save_Σ; Σlen = save_Σlen;
-    rt_zls2_release_to((void *)((char *)fb + fbytes));
+    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
