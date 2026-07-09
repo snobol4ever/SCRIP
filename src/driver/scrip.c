@@ -1045,6 +1045,8 @@ int main(int argc, char **argv)
             stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
+            if (is_pascal) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            drive_slots_all(s2);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
@@ -1111,6 +1113,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
+                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", pname); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
@@ -1136,7 +1139,7 @@ int main(int argc, char **argv)
                     printf("  mov edx, %d\n", pe->nparams);
                     printf("  call rt_proc_register@PLT\n");
                     printf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    printf("  lea rsi, [rip + %s_\xce\xb1]\n", pe->name);
+                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", pe->name);
                     printf("  call rt_proc_set_fn@PLT\n");
                     int _fidx = pe->bb_idx;
                     if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {
@@ -1191,6 +1194,7 @@ int main(int argc, char **argv)
             printf("  call flat_\xce\xb1\n");
             printf("  xor eax, eax\n  mov rsp, rbp\n  pop rbp\n  ret\n");
             g_gva_active = (n_gva > 0) ? 1 : 0;
+            { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
             g_gva_active = 0;
             g_proc_direct_active = 0;
@@ -1369,6 +1373,7 @@ int main(int argc, char **argv)
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
+                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, "proc_flat");
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
@@ -1378,6 +1383,7 @@ int main(int argc, char **argv)
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
             if (sbbg && sbbg->entry) {
                 g_frame_active = 1;
+                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
                 bb_box_fn fn = emit_chain(sbbg->entry, NULL, "pat_flat");
                 g_frame_active = 0;
                 ir_delete_all(s2);
