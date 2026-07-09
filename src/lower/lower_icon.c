@@ -396,11 +396,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         }
         *res = ini; return ini; }
     case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
-        IR_t * ev = NULL; IR_t * e_entry = sn;
-        if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, cx->pfail ? cx->pfail : ω, &ev); }
+        IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
+        if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, cx->pfail ? cx->pfail : ω, &ev); if (is_resumable(t->c[0])) eβ = cx->beta; }
         ir_operand_push(sn, ev);
-        if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; IR_t * d_entry = lower(cx, t->c[1], γ, γ, &dv); ir_operand_push(sn, d_entry); }
-        else ir_operand_push(sn, γ);
+        if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; IR_t * d_entry = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); ir_operand_push(sn, d_entry); }
+        else ir_operand_push(sn, eβ ? eβ : γ);
         *res = sn; return e_entry; }
     case TT_CASE: {
         if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
