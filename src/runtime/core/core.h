@@ -158,6 +158,7 @@ typedef DESCR_t (*FNCPTR_t)(DESCR_t *args, int nargs);
 void    DEFINE_fn(const char *spec, FNCPTR_t fn);
 void    DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label);
 void    register_fn_alias(const char *newname, const char *oldname);
+int     core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out);
 DESCR_t  APPLY_fn(const char *name, DESCR_t *args, int nargs);
 int     FNCEX_fn(const char *name);
 int         FUNC_NPARAMS_fn(const char *fname);

@@ -2511,6 +2511,22 @@ void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* OPSYN operator dispatch (s10): the by-name chain consults the core fn table for operator-symbol names
+ * (non-identifier lead char) so an OPSYN-aliased operator like `@` reaches the aliased C builtin.  Returns
+ * 0 when the name is absent or carries no C fn (SNOBOL-defined synonym targets are a follow-on). */
+int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
+    if (!name || !*name) return 0;
+    _func_init();
+    unsigned h = _func_hash(name);
+    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+        if (strcmp(e->name, name) == 0) {
+            if (!e->fn) return 0;
+            *out = e->fn(args, nargs);
+            return 1;
+        }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn_alias(const char *newname, const char *oldname) {
     _func_init();
     char *nn = GC_strdup(newname);
