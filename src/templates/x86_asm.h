@@ -446,24 +446,32 @@ inline std::string x86_lea_tgt(const char * dst, int t) {
     return std::string(" lea ") + dst + ", [rip + " + nm + "]\n";
 }
 #define X86_INTERNAL_BASE 6
-#define X86_INTERNAL_MAX  16
+#define X86_INTERNAL_MAX  250
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int x86_internal_id(int n) {
+    if (n < 0 || n >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL x86_asm: internal label L(%d) out of range [0,%d) -- the one-byte record id would corrupt or truncate; split the box or raise X86_INTERNAL_MAX\n", n, X86_INTERNAL_MAX); abort(); }
+    return X86_INTERNAL_BASE + n;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * L(int n) { static char b[8][8]; static int i; i = (i + 1) & 7; snprintf(b[i], 8, "L%d", n); return b[i]; }
 inline std::string x86_internal_name(int n) { return std::string(".Lx") + std::to_string(_.x86_uid) + "_" + std::to_string(n); }
 inline std::string LS(int n) { return x86_internal_name(n) + "_s"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_id(int n) {
-    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(X86_INTERNAL_BASE + n))
+    int id = x86_internal_id(n);
+    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(id))
                          : (std::string(" jmp ") + x86_internal_name(n) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_id(const char * mnem, int n) {
-    return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(X86_INTERNAL_BASE + n))
+    int id = x86_internal_id(n);
+    return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(id))
                          : (std::string(" ") + mnem + " " + x86_internal_name(n) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel_id(int n) {
-    return MEDIUM_BINARY ? x86_Drec(X86_INTERNAL_BASE + n) : (x86_internal_name(n) + ":\n");
+    int id = x86_internal_id(n);
+    return MEDIUM_BINARY ? x86_Drec(id) : (x86_internal_name(n) + ":\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_jmp_ext / x86_jcc_ext — jump (unconditional / conditional) to an EXTERNALLY-supplied bb_label_t*, e.g.
@@ -492,7 +500,8 @@ inline std::string x86_lea_rip_id(const char * reg, int n) {
     /* lea r64, [rip + L(n)] — materialize an internal label's code address (ALT-RESUME continuation cells).  REX.W 8D /r mod=00 rm=101; the rel32 is the instruction's last 4 bytes, so the same
      * J-record fixup that resolves jmp/jcc rel32 resolves this (rel32 is relative to next-instruction in both). */
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += (char)(0x05 | ((g & 7) << 3)); return x86_Lrec(c) + x86_Jrec(X86_INTERNAL_BASE + n); }
+    int id = x86_internal_id(n);
+    if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += (char)(0x05 | ((g & 7) << 3)); return x86_Lrec(c) + x86_Jrec(id); }
     return std::string(" lea ") + reg + ", [rip + " + x86_internal_name(n) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1331,13 +1340,15 @@ inline std::string x86_lit_bytes(const std::string & b) {
 inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
     if (id == X86T_TGT0) return _.lbl_t0_p;
     if (id == X86T_TGT1) return _.lbl_t1_p;
-    return id < X86_INTERNAL_BASE ? x86_portlbl(id) : &internal[id - X86_INTERNAL_BASE];
+    if (id < X86_INTERNAL_BASE) return x86_portlbl(id);
+    if (id - X86_INTERNAL_BASE >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL bb_emit_x86: record label id %d exceeds internal[%d] -- refusing the out-of-bounds stack write\n", id, X86_INTERNAL_MAX); abort(); }
+    { bb_label_t * l = &internal[id - X86_INTERNAL_BASE]; if (l->name[0] == '\0') snprintf(l->name, BB_LABEL_NAME_MAX, ".Lxi%d", id - X86_INTERNAL_BASE); return l; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void bb_emit_x86(const std::string & s) {
     if (!MEDIUM_BINARY) { if (!s.empty()) emit_text_n(s.data(), s.size()); return; }
     bb_label_t internal[X86_INTERNAL_MAX];
-    for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; snprintf(internal[k].name, BB_LABEL_NAME_MAX, ".Lxi%d", k); }
+    for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name[0] = '\0'; }
     size_t i = 0, n = s.size();
     while (i < n) {
         char tag = s[i++];
