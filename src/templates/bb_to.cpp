@@ -12,11 +12,10 @@ int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
-    if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0))
-        return x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)");
-    if (_.op_num_real) {
-        return x86("comment", "IR_TO real")
+    if (PLATFORM_X86)
+        return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
+               _.op_num_real ?
+               x86("comment", "IR_TO")
              + x86_alpha()
              + x86("mov",     "rax", FRQ(_.op_sa))
              + x86("mov",     FRQ(_.op_off + 16), "rax")
@@ -46,22 +45,24 @@ std::string bb_to() {
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("mov",     FRQ(_.op_off + 24), "rdx")
              + x86("jmp",     L(10))
-             + x86_ro_seal_q(0, (uint64_t)(int64_t)DT_R)
-             + x86_ro_seal_q(1, (uint64_t)(int64_t)1);
-    }
-    return x86("comment", "IR_TO")
-         + x86_alpha()
-         + x86("mov",     "rax", FRQ(_.op_sa + 8))
-         + x86("mov",     FRQ(_.op_off + 16), "rax")
-         + x86("def",     L(0))
-         + x86("mov",     "rax", FRQ(_.op_off + 16))
-         + x86("mov",     "rcx", FRQ(_.op_sb + 8))
-         + x86("cmp",     "rax", "rcx")
-         + x86_omega("jg")
-         + x86("mov",     FRQ(_.op_off),     (long)DT_I)
-         + x86("mov",     FRQ(_.op_off + 8), "rax")
-         + x86_gamma()
-         + x86_beta()
-         + x86("inc",     FRQ(_.op_off + 16))
-         + x86("jmp",     L(0));
+             + x86("def",     L(0))
+             + x86(".quad",   (uint64_t)(int64_t)DT_R)
+             + x86("def",     L(1))
+             + x86(".quad",   (uint64_t)(int64_t)1) :
+               x86("comment", "IR_TO")
+             + x86_alpha()
+             + x86("mov",     "rax", FRQ(_.op_sa + 8))
+             + x86("mov",     FRQ(_.op_off + 16), "rax")
+             + x86("def",     L(0))
+             + x86("mov",     "rax", FRQ(_.op_off + 16))
+             + x86("mov",     "rcx", FRQ(_.op_sb + 8))
+             + x86("cmp",     "rax", "rcx")
+             + x86_omega("jg")
+             + x86("mov",     FRQ(_.op_off),     (long)DT_I)
+             + x86("mov",     FRQ(_.op_off + 8), "rax")
+             + x86_gamma()
+             + x86_beta()
+             + x86("inc",     FRQ(_.op_off + 16))
+             + x86("jmp",     L(0));
+    return std::string();
 }
