@@ -383,6 +383,9 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
     for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_g_ret_by_name = 0;
+int rt_g_want_name = 0;
+static DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) r = (r.slen == 0) ? NV_GET_fn(r.s) : *(DESCR_t *)r.ptr; } rt_g_want_name = wn; return r; }
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = (rt_proc_t *)0;
@@ -393,6 +396,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         abort();
     }
     if (p->dyn_scope) return rt_call_named_proc(name, g_call_args, nargs > CALL_ARGS_MAX ? CALL_ARGS_MAX : nargs);
+    int _wn = rt_g_want_name; rt_g_want_name = 0;
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     char *fb; if (rt_zeta_cstack()) fb = (char *)alloca((size_t)fbytes); else fb = (char *)rt_zls2_push((long)fbytes);
@@ -400,7 +404,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     (void)p->fn((void *)fb, 0);
-    DESCR_t result = *(DESCR_t *)(fb + 0);
+    DESCR_t result = rt_nret_fix(*(DESCR_t *)(fb + 0), _wn);
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)(fb + fbytes));
     return result;
 }
@@ -542,6 +546,7 @@ void mon_emit_return_bin(const char *fname, DESCR_t retval) {
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
     if (!name) return FAILDESCR;
+    int _wn = rt_g_want_name; rt_g_want_name = 0;
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
     rt_proc_resolve_cells(p);
@@ -563,6 +568,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     Σ = save_Σ; Σlen = save_Σlen;
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
+    result = rt_nret_fix(result, _wn);
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
     return result;
@@ -573,6 +579,7 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     if (idx < 0 || idx >= g_rt_gen_proc_count) return FAILDESCR;
     rt_proc_t *p = &g_rt_gen_procs[idx];
     if (!p->fn) return FAILDESCR;
+    int _wn = rt_g_want_name; rt_g_want_name = 0;
     rt_proc_resolve_cells(p);
     int np = p->nparams;
     const char **pn = p->pnames;
@@ -593,6 +600,7 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     Σ = save_Σ; Σlen = save_Σlen;
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
+    result = rt_nret_fix(result, _wn);
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);
     return result;

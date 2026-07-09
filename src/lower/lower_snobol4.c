@@ -946,7 +946,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     bb_label_registry_add(lp_strdup("END"), exitnd);
     if (!bb_label_landing("RETURN"))  bb_label_registry_add(lp_strdup("RETURN"),  exitnd);
     if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), failnd);
-    if (!bb_label_landing("NRETURN")) bb_label_registry_add(lp_strdup("NRETURN"), exitnd);
+    if (!bb_label_landing("NRETURN")) { IR_t * nrl = lc_build(g, IR_LIT_STRING, NULL, failnd); IR_LIT(nrl).sval = (char *) ""; IR_t * nnd = lc_build(g, IR_CALL, exitnd, failnd); IR_LIT(nnd).sval = (char *) "SNO$NRET"; lc_γ_to(nrl, nnd); ir_operand_push(nnd, nrl); bb_label_registry_add(lp_strdup("NRETURN"), nrl); }
     g->entry = (nst > 0) ? anchor[entry_idx] : exitnd;
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i];
@@ -1055,6 +1055,20 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             lc_γ_to(vv, mk);
             ir_operand_push(mk, nl); ir_operand_push(mk, vv);
             lc_γ_to(anchor[i], nl);
+            continue;
+        }
+        if (subj->t == TT_FNC) {
+            IR_t * wl = lc_build(g, IR_LIT_STRING, NULL, fJ); IR_LIT(wl).sval = (char *) "";
+            IR_t * mk = lc_build(g, IR_CALL, sJ, fJ); IR_LIT(mk).sval = (char *) "SNO$WANTNM";
+            lc_γ_to(wl, mk); ir_operand_push(mk, wl);
+            IR_t * cv = NULL; IR_t * e1 = sx_lower(&cx, subj, NULL, fJ, &cv);
+            lc_γ_to(mk, e1);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+            lc_γ_to(cv, e2);
+            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, cv); ir_operand_push(asn, vv);
+            lc_γ_to(anchor[i], wl);
             continue;
         }
         sno_fatal("assignment subject form not in the landed subset", NULL);
