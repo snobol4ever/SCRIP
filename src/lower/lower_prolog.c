@@ -340,22 +340,45 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "aggregate_all") && t->n == 3) {
+            const tree_t * spec = t->c[0]; const tree_t * goal_ast = t->c[1]; const tree_t * res_ast = t->c[2];
+            const char * op = NULL; const tree_t * tmpl_ast = NULL;
+            if (spec && spec->t == TT_QLIT && spec->v.sval && !strcmp(spec->v.sval, "count")) { op = "$agg_count"; }
+            else if (spec && spec->t == TT_FNC && spec->n == 1 && spec->v.sval) {
+                if (!strcmp(spec->v.sval, "sum")) op = "$agg_sum";
+                else if (!strcmp(spec->v.sval, "max")) op = "$agg_max";
+                else if (!strcmp(spec->v.sval, "min")) op = "$agg_min";
+                tmpl_ast = spec->c[0];
+            }
+            if (op) {
+                IR_t * hnew = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(hnew).sval = "$findall_new";
+                IR_t * res = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(res).sval = op;
+                IR_t * res_e = NULL; IR_t * res_lv = term_lval_e(cx, res_ast, &res_e);
+                lc_γ_to(res_lv, res); lc_ω_to(res_lv, ωfail);
+                ir_operand_push(res, hnew); ir_operand_push(res, res_lv);
+                IR_t * addnd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(addnd).sval = "$findall_add";
+                IR_t * tmpl_e = NULL; IR_t * tmpl_val;
+                if (tmpl_ast) tmpl_val = term_e(cx, tmpl_ast, &tmpl_e);
+                else { tmpl_val = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(tmpl_val).ival = 1; }
+                IR_t * tmpl_entry = tmpl_e ? tmpl_e : tmpl_val;
+                lc_γ_to(tmpl_val, addnd); lc_ω_to(tmpl_val, ωfail);
+                ir_operand_push(addnd, hnew); ir_operand_push(addnd, tmpl_val);
+                cx->beta = NULL;
+                IR_t * goal_entry = NULL;
+                IR_t * goal_nd = thread1(cx, goal_ast, tmpl_entry, res_e ? res_e : res_lv, &goal_entry);
+                IR_t * goal_beta = cx->beta;
+                IR_t * forced_fail;
+                if (goal_beta) {
+                    forced_fail = build(cx, IR_GOTO, NULL, NULL);
+                    if (goal_beta->op == IR_CALL) { lc_γ_to_β(forced_fail, goal_beta); lc_ω_to_β(forced_fail, goal_beta); }
+                    else { lc_γ_to(forced_fail, goal_beta); lc_ω_to(forced_fail, goal_beta); }
+                } else forced_fail = build(cx, IR_GOTO, res_e ? res_e : res_lv, res_e ? res_e : res_lv);
+                lc_γ_to(addnd, forced_fail);
+                lc_γ_to(hnew, goal_entry ? goal_entry : goal_nd);
+                if (entry_out) *entry_out = hnew;
+                cx->beta = NULL;
+                return res;
+            }
             IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm;
-            bb_findall_state_t * fs = (bb_findall_state_t *) calloc(1, sizeof *fs);
-            fs->tmpl = term(cx, t->c[0]);
-            IR_graph_t * sub = IR_alloc(256);
-            lcx_t scx; scx.g = sub; scx.tω = NULL; scx.beta = NULL;
-            IR_t * ssucc = build(&scx, IR_SUCCEED, NULL, NULL);
-            IR_t * sfail = build(&scx, IR_FAIL, NULL, NULL);
-            const tree_t * gone[1] = { t->c[1] };
-            tree_t blkw; memset(&blkw, 0, sizeof blkw); blkw.n = 1; blkw.c = (tree_t **) gone;
-            IR_t * sentry = NULL;
-            thread_goals(&scx, &blkw, 0, 1, ssucc, sfail, &sentry, NULL);
-            sub->entry = sentry ? sentry : ssucc;
-            fs->gcfg = sub;
-            fs->result = term(cx, t->c[2]);
-            fs->goal_node = nd;
-            IR_LIT(nd).ival = (long long)(intptr_t) fs;
             return nd;
         }
         if (!strcmp(nm, "write") && t->n == 1) {
@@ -433,6 +456,37 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             cx->beta = NULL;
             return hnew;
         }
+        { static const struct { const char * nm; int ar; const char * tgt; } g_pl_det_tab[] = {
+              { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "numbervars", 3, "$numbervars" }, { "copy_term", 2, "$copy_term" },
+              { "char_type", 2, "$char_type" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
+              { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" },
+              { "compound", 1, "$tt_compound" }, { "callable", 1, "$tt_callable" }, { "ground", 1, "$tt_ground" }, { "is_list", 1, "$tt_is_list" },
+              { "var", 1, "$tt_var" }, { "nonvar", 1, "$tt_nonvar" }, { "atom", 1, "$tt_atom" }, { "number", 1, "$tt_number" },
+              { "integer", 1, "$tt_integer" }, { "float", 1, "$tt_float" }, { "atomic", 1, "$tt_atomic" },
+              { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" },
+              { "format", 1, "$format1" }, { "format", 2, "$format2" },
+              { "atom_string", 2, "$aop_atom_string" }, { "number_string", 2, "$aop_number_string" }, { "atom_number", 2, "$aop_atom_number" },
+              { "string_upper", 2, "$aop_string_upper" }, { "string_lower", 2, "$aop_string_lower" },
+              { "string_concat", 3, "$aop_string_concat" }, { "string_length", 2, "$aop_string_length" }, { "string_to_atom", 2, "$aop_string_to_atom" },
+              { "atomic_list_concat", 2, "$aop_atomic_list_concat" }, { "atomic_list_concat", 3, "$aop_atomic_list_concat" },
+              { "concat_atom", 2, "$aop_concat_atom" }, { "concat_atom", 3, "$aop_concat_atom" },
+              { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
+              { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
+              { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
+              { 0, 0, 0 } };
+          for (int di = 0; g_pl_det_tab[di].nm; di++) if (!strcmp(nm, g_pl_det_tab[di].nm) && t->n == g_pl_det_tab[di].ar) {
+              IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = g_pl_det_tab[di].tgt;
+              IR_t * prev = NULL; IR_t * first = NULL;
+              for (int i = 0; i < t->n; i++) {
+                  IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
+                  if (prev) lc_γ_to(prev, en); else first = en;
+                  lc_ω_to(a, ωfail);
+                  prev = a; ir_operand_push(nd, a);
+              }
+              if (prev) lc_γ_to(prev, nd);
+              if (entry_out) *entry_out = first ? first : nd;
+              return nd;
+          } }
         if (is_builtin_exec(nm)) {
             IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n;
             IR_t * sav = cx->tω; if (is_builtin_argw(nm)) cx->tω = ωfail;

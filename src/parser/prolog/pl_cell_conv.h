@@ -10,9 +10,10 @@
 static inline Term *pl_cell_to_term(pl_cell_t *c) {
     pl_cell_t *d = pl_deref(c);
     int t = (int)d->v;
-    if (t == DT_PLVAR) return term_new_var((int)d->slen);
+    if (pl_cell_unbound(d)) return term_new_var((int)((t == DT_PLVAR) ? d->slen : 0));
     if (t == DT_I)     return term_new_int((long)d->i);
     if (t == DT_A)     return term_new_atom((int)d->i);
+    if (t == DT_S)     { extern int prolog_atom_intern(const char *); return term_new_atom(prolog_atom_intern(d->s ? d->s : "")); }
     if (t == DT_R)     return term_new_float(d->r);
     if (t == DT_PLREF) {
         int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
@@ -35,7 +36,8 @@ static inline pl_cell_t pl_term_to_cell_word_m(Term *t, Term **vk, pl_cell_t **v
         return *v;
     }
     if (t->tag == TERM_INT)   return pl_make_int((int64_t)t->ival);
-    if (t->tag == TERM_ATOM)  return pl_make_atom(t->atom_id);
+    if (t->tag == TERM_ATOM)  { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name(t->atom_id);
+                                pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(nm ? strlen(nm) : 0); c.s = nm ? nm : ""; return c; }
     if (t->tag == TERM_FLOAT) return pl_make_float(t->fval);
     if (t->tag == TERM_COMPOUND) {
         int fn = t->compound.functor, ar = t->compound.arity;
