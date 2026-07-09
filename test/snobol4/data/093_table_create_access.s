@@ -193,7 +193,7 @@ main_α_body:
  jmp xchain0_n15_α
  xchain0_n11_β:
  jmp xchain0_n16_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n12_α:
  mov rdi, qword ptr [r12 + 80]
  mov rsi, qword ptr [r12 + 88]
@@ -252,7 +252,7 @@ main_α_body:
  jmp xchain0_n20_α
  xchain0_n16_β:
  jmp xchain0_n21_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n17_α:
  mov rdi, qword ptr [r12 + 160]
  mov rsi, qword ptr [r12 + 168]
@@ -313,7 +313,7 @@ main_α_body:
  jmp xchain0_n25_α
  xchain0_n21_β:
  jmp main_γ
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n22_α:
  mov rdi, qword ptr [r12 + 240]
  mov rsi, qword ptr [r12 + 248]
