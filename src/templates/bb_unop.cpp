@@ -12,32 +12,13 @@ struct DESCR_t rt_cset_compl(struct DESCR_t a);
 struct DESCR_t rt_deref(struct DESCR_t d);
 }
 #include "x86_asm.h"
-enum unop_op { UO_NEG, UO_POS, UO_SIZE, UO_NONNULL, UO_NULL_TEST, UO_CSET_COMPL, UO_UNHANDLED };
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static unop_op bb_unop_resolve(int kind, int64_t sub) {
-    switch (kind) {
-    case IR_UNOP: case IR_UNOP_TEST:
-        switch ((int)sub) {
-        case TT_MNS:     return UO_NEG;
-        case TT_PLS:     return UO_POS;
-        case TT_SIZE:    return UO_SIZE;
-        case TT_NONNULL: return UO_NONNULL;
-        case TT_NULL:    return UO_NULL_TEST;
-        case TT_CSET_COMPL: return UO_CSET_COMPL;
-        default:         return UO_UNHANDLED;
-        }
-    default: return UO_UNHANDLED;
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline unop_op uop() { return bb_unop_resolve(_.op_node_kind, _.op_ival); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {
     if (PLATFORM_X86)
         return !(_.op_off >= 0) ? std::string() :
                _.op_node_kind == IR_NULLTEST_VAR ?
                (_.op_sa < 0 ? x86_bomb("bb_unop lv: operand slot unresolved") :
-               x86("comment", "IR_UNOP_TEST lv")
+               x86("comment", "IR_NULLTEST_VAR")
              + x86_alpha()
              + x86("mov", "eax", FR(_.op_sa))
              + x86("cmp", "eax", (long)99)
@@ -56,9 +37,11 @@ std::string bb_unop() {
              + x86_gamma()
              + x86_beta()
              + x86_omega()) :
-               uop() == UO_UNHANDLED ? std::string() :
+               _.op_node_kind != IR_UNOP && _.op_node_kind != IR_UNOP_TEST ? std::string() :
+               (int)_.op_ival != TT_MNS && (int)_.op_ival != TT_PLS && (int)_.op_ival != TT_SIZE
+                   && (int)_.op_ival != TT_NONNULL && (int)_.op_ival != TT_NULL && (int)_.op_ival != TT_CSET_COMPL ? std::string() :
                _.op_sa < 0 ? x86_bomb("bb_unop: operand slot unresolved (LIT_F/NUL or non-slot producer)") :
-               uop() == UO_NONNULL ?
+               (int)_.op_ival == TT_NONNULL ?
                x86("comment", "IR_UNOP")
              + x86_alpha()
              + x86("mov", "eax", FR(_.op_sa))
@@ -73,7 +56,7 @@ std::string bb_unop() {
              + x86_gamma()
              + x86_beta()
              + x86_omega() :
-               uop() == UO_NULL_TEST ?
+               (int)_.op_ival == TT_NULL ?
                x86("comment", "IR_UNOP")
              + x86_alpha()
              + x86("mov", "eax", FR(_.op_sa))
@@ -86,7 +69,7 @@ std::string bb_unop() {
              + x86_gamma()
              + x86_beta()
              + x86_omega() :
-               uop() == UO_CSET_COMPL ?
+               (int)_.op_ival == TT_CSET_COMPL ?
                x86("comment", "IR_UNOP")
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
@@ -97,7 +80,7 @@ std::string bb_unop() {
              + x86_gamma()
              + x86_beta()
              + x86_omega() :
-               uop() == UO_SIZE ?
+               (int)_.op_ival == TT_SIZE ?
                x86("comment", "IR_UNOP")
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
@@ -112,8 +95,8 @@ std::string bb_unop() {
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
-             + IF(uop() == UO_NEG, x86("call", "rt_num_neg", (uint64_t)(uintptr_t)(void *)rt_num_neg))
-             + IF(uop() != UO_NEG, x86("call", "rt_num_pos", (uint64_t)(uintptr_t)(void *)rt_num_pos))
+             + IF((int)_.op_ival == TT_MNS, x86("call", "rt_num_neg", (uint64_t)(uintptr_t)(void *)rt_num_neg))
+             + IF((int)_.op_ival != TT_MNS, x86("call", "rt_num_pos", (uint64_t)(uintptr_t)(void *)rt_num_pos))
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
