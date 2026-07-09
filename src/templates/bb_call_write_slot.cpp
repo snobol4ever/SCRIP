@@ -78,11 +78,11 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
                          + x86("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
         if (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT)
             return x86_alpha()
-                 + x86("mov", "rdi", "[r12 + " + std::to_string(off + 8) + "]")
+                 + x86("mov", "rdi", "[" + std::string(x86_zr()) + " + " + std::to_string(off + 8) + "]")
                  + x86("call",     "rt_write_strz_nl@PLT")
                  + x86("jmp",      _.lbl_γ) + tail;
         return x86_alpha()
-             + x86("mov", "rdi", "[r12 + " + std::to_string(off) + "]")
+             + x86("mov", "rdi", "[" + std::string(x86_zr()) + " + " + std::to_string(off) + "]")
              + x86("call",     "rt_write_int_nl@PLT")
              + x86("jmp",      _.lbl_γ) + tail;
     }

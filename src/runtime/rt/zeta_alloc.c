@@ -227,3 +227,11 @@ void rt_zls2_release_to(void *mark)
     if (m != g_zls2_cur && rt_zls2_poison()) memset(g_zls2_cur, 0xDD, (size_t)(m - g_zls2_cur));
     g_zls2_cur = m;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZETA SUBSYSTEM SELECTOR (Lon directive 2026-07-09) — the mode the --zeta CLI flag selects.  ONE variable,
+ * both worlds: scrip's driver sets it after argv parse (covers mode 3 and all emit-time x86_zeta_mode()
+ * reads); mode 4 binaries re-set it at entry via the call xa_file_header BAKES when the flag overrode the
+ * ZC_ZETA default (no flag = no bake = byte-identical output).  RUNG-0: nothing allocates by it yet. */
+static int g_zeta_mode = (int)ZC_ZETA;
+void rt_zeta_set_mode(int m) { g_zeta_mode = (m == ZC_ZETA_ZLS) ? ZC_ZETA_ZLS : ZC_ZETA_ZLS2; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] mode=%s\n", g_zeta_mode == ZC_ZETA_ZLS ? "zls" : "zls2"); }
+int  rt_zeta_mode(void) { return g_zeta_mode; }
