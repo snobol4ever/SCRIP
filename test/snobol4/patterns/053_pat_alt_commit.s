@@ -285,7 +285,7 @@ main_α_body:
  jmp xchain15_n5_α
  xchain15_n4_β:
  jmp xchain15_n5_α
-# IR_VAR gva
+# IR_VAR
  xchain15_n5_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -468,7 +468,7 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  jmp xchain15_n13_α
-# IR_VAR gva
+# IR_VAR
  xchain15_n13_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]

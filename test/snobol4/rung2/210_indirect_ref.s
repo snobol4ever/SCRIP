@@ -136,7 +136,7 @@ main_α_body:
  .quad .Lx7_0_s
 .Lx7_0_s:
  .string "bal"
-# IR_VAR gva
+# IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -230,7 +230,7 @@ xchain0_n8_β:
  .quad .Lx15_0_s
 .Lx15_0_s:
  .string "FAIL 210/001: $string lookup"
-# IR_VAR gva
+# IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

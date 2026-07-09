@@ -34,7 +34,7 @@ proc_double_α_body:
  jmp proc_double_γ
 .Lx1_0:
  .quad 2
-# IR_VAR gva
+# IR_VAR
  xchain0_n1_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]

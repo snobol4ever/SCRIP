@@ -433,7 +433,7 @@ main_α_body:
  jmp xchain25_n5_α
  xchain25_n4_β:
  jmp main_γ
-# IR_VAR gva
+# IR_VAR
  xchain25_n5_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -552,7 +552,7 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  jmp xchain25_n9_α
-# IR_VAR gva
+# IR_VAR
  xchain25_n9_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -585,7 +585,7 @@ main_α_body:
  jmp xchain25_n12_α
  xchain25_n11_β:
  jmp xchain25_n3_α
-# IR_VAR gva
+# IR_VAR
  xchain25_n12_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -630,7 +630,7 @@ main_α_body:
  jmp xchain25_n16_α
  xchain25_n15_β:
  jmp xchain25_n3_α
-# IR_VAR gva
+# IR_VAR
  xchain25_n16_α:
  mov rax, qword ptr [rbx + 64]
  mov rdx, qword ptr [rbx + 72]

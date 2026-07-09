@@ -24,7 +24,7 @@ push r12
  mov qword ptr [r12 + 288], rax
  pop rsi
 proc_swap_α_body:
-# IR_VAR gva
+# IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -44,7 +44,7 @@ proc_swap_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -64,7 +64,7 @@ proc_swap_α_body:
  jmp xchain0_n4_α
  xchain0_n3_β:
  jmp xchain0_n4_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -84,7 +84,7 @@ proc_swap_α_body:
  jmp xchain0_n6_α
  xchain0_n5_β:
  jmp xchain0_n6_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -117,7 +117,7 @@ proc_swap_α_body:
  jmp xchain0_n9_α
  xchain0_n8_β:
  jmp proc_swap_γ
-# IR_VAR gva
+# IR_VAR
  xchain0_n9_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]

@@ -122,7 +122,7 @@ push r12
  mov qword ptr [r12 + 48], rax
  pop rsi
 proc_EXPR$1_α_body:
-# IR_VAR gva
+# IR_VAR
  xchain5_n0_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
@@ -456,7 +456,7 @@ main_α_body:
  jmp xchain14_n3_α
  xchain14_n2_β:
  jmp xchain14_n3_α
-# IR_VAR gva
+# IR_VAR
  xchain14_n3_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -617,7 +617,7 @@ xchain14_n8_β:
  jmp xchain14_n14_α
  xchain14_n13_β:
  jmp xchain14_n14_α
-# IR_VAR gva
+# IR_VAR
  xchain14_n14_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -732,7 +732,7 @@ xchain14_n19_β:
  jmp xchain14_n21_α
  xchain14_n20_β:
  jmp xchain14_n21_α
-# IR_VAR gva
+# IR_VAR
  xchain14_n21_α:
  mov rax, qword ptr [rbx + 64]
  mov rdx, qword ptr [rbx + 72]

@@ -24,7 +24,7 @@ push r12
  mov qword ptr [r12 + 272], rax
  pop rsi
 proc_add_α_body:
-# IR_VAR gva
+# IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
@@ -33,7 +33,7 @@ proc_add_α_body:
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp proc_add_γ
-# IR_VAR gva
+# IR_VAR
  xchain0_n1_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]

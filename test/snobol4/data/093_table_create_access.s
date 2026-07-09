@@ -81,7 +81,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -102,7 +102,7 @@ main_α_body:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "name"
-# IR_VAR gva
+# IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -137,7 +137,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "age"
-# IR_VAR gva
+# IR_VAR
  xchain0_n7_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -184,7 +184,7 @@ main_α_body:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "lang"
-# IR_VAR gva
+# IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -243,7 +243,7 @@ main_α_body:
  .quad .Lx17_0_s
 .Lx17_0_s:
  .string "name"
-# IR_VAR gva
+# IR_VAR
  xchain0_n16_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -304,7 +304,7 @@ main_α_body:
  .quad .Lx22_0_s
 .Lx22_0_s:
  .string "age"
-# IR_VAR gva
+# IR_VAR
  xchain0_n21_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

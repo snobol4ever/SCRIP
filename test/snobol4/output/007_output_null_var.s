@@ -53,7 +53,7 @@ push r12
  mov qword ptr [r12 + 48], rax
  pop rsi
 main_α_body:
-# IR_VAR gva
+# IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

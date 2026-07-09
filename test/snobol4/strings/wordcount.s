@@ -271,7 +271,7 @@ main_α_body:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "'-"
-# IR_VAR gva
+# IR_VAR
  xchain5_n6_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -401,7 +401,7 @@ main_α_body:
  jmp xchain5_n18_α
  xchain5_n15_β:
  jmp xchain5_n16_α
-# IR_VAR gva
+# IR_VAR
  xchain5_n16_α:
  mov rax, qword ptr [rbx + 64]
  mov rdx, qword ptr [rbx + 72]
@@ -422,7 +422,7 @@ main_α_body:
  jmp xchain5_n20_α
  xchain5_n17_β:
  jmp xchain5_n8_α
-# IR_VAR gva
+# IR_VAR
  xchain5_n18_α:
  mov rax, qword ptr [rbx + 48]
  mov rdx, qword ptr [rbx + 56]
@@ -635,7 +635,7 @@ main_α_body:
  .string "LINE"
 .Lx39_1:
  jmp xchain5_n29_α
-# IR_VAR gva
+# IR_VAR
  xchain5_n29_α:
  mov rax, qword ptr [rbx + 64]
  mov rdx, qword ptr [rbx + 72]

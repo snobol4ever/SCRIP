@@ -98,7 +98,7 @@ xchain0_n1_β:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
-# IR_VAR gva
+# IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]
@@ -117,7 +117,7 @@ xchain0_n1_β:
  jmp xchain0_n5_α
 .Lx6_0:
  .quad 2
-# IR_VAR gva
+# IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [rbx + 0]
  mov rdx, qword ptr [rbx + 8]

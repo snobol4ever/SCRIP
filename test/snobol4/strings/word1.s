@@ -339,7 +339,7 @@ main_α_body:
  jmp xchain19_n5_α
  xchain19_n4_β:
  jmp main_γ
-# IR_VAR gva
+# IR_VAR
  xchain19_n5_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
