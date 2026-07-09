@@ -129,6 +129,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$functor") || !strcmp(name, "$arg") || !strcmp(name, "$univ")) return 1;
     if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
     if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
+    if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter")) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1036,6 +1037,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                : (!strcmp(fn + 5, "sum"))   ? rt_pl_agg_sum_finish(acc, rc)
                : (!strcmp(fn + 5, "max"))   ? rt_pl_agg_max_finish(acc, rc)
                :                              rt_pl_agg_min_finish(acc, rc);
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if ((!strcmp(fn, "$dyn_assertz") || !strcmp(fn, "$dyn_asserta")) && nargs == 1) {
+        extern int rt_pl_dyn_assertz_cell(void *, int);
+        DESCR_t t0 = args[0];
+        int ok = rt_pl_dyn_assertz_cell((void *)plw_det_cell(&t0), fn[11] == 'a');
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$retract") && nargs == 1) {
+        extern int rt_pl_dyn_retract_cell(void *);
+        DESCR_t t0 = args[0];
+        int ok = rt_pl_dyn_retract_cell((void *)plw_det_cell(&t0));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$abolish") && nargs == 2) {
+        extern int rt_pl_dyn_abolish_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_dyn_abolish_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
     if ((!strcmp(fn, "$nb_setval") || !strcmp(fn, "$nb_getval")) && nargs == 2) {
@@ -2325,6 +2344,11 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) {
     DESCR_t out = FAILDESCR;
+    if (fn && resume && !strcmp(fn, "$dyn_iter") && nargs >= 1) {
+        extern DESCR_t rt_pl_dyn_iter_gen(DESCR_t *, int, int64_t *);
+        { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
+        return rt_pl_dyn_iter_gen(args, nargs, resume);
+    }
     if (fn && resume && nargs == 2 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
         DESCR_t a3[3]; a3[0] = args[0]; a3[1] = args[1]; a3[2] = INTVAL((*resume > 0) ? *resume : 1);
         if (try_call_builtin_by_name(fn, a3, 3, &out) && !IS_FAIL_fn(out)) { *resume = out.i + 1; return out; }

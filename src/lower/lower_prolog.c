@@ -83,6 +83,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     }
     case TT_FNC: {
         int nk = t->n;
+        if (nk == 0) { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?"; return nd; }
         IR_t ** kids = (IR_t **) calloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
         IR_t ** kes  = (IR_t **) calloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
         for (int i = 0; i < nk; i++) kids[i] = term_lval_e(cx, t->c[i], &kes[i]);
@@ -456,6 +457,19 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             cx->beta = NULL;
             return hnew;
         }
+        if (!strcmp(nm, "abolish") && t->n == 1 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "/") && t->c[0]->n == 2) {
+            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$abolish";
+            IR_t * prev = NULL; IR_t * first = NULL;
+            for (int i = 0; i < 2; i++) {
+                IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[0]->c[i], &ae); IR_t * en = ae ? ae : a;
+                if (prev) lc_γ_to(prev, en); else first = en;
+                lc_ω_to(a, ωfail);
+                prev = a; ir_operand_push(nd, a);
+            }
+            if (prev) lc_γ_to(prev, nd);
+            if (entry_out) *entry_out = first ? first : nd;
+            return nd;
+        }
         { static const struct { const char * nm; int ar; const char * tgt; } g_pl_det_tab[] = {
               { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "numbervars", 3, "$numbervars" }, { "copy_term", 2, "$copy_term" },
               { "char_type", 2, "$char_type" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
@@ -472,6 +486,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
               { "concat_atom", 2, "$aop_concat_atom" }, { "concat_atom", 3, "$aop_concat_atom" },
               { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
               { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
+              { "assertz", 1, "$dyn_assertz" }, { "assert", 1, "$dyn_assertz" }, { "asserta", 1, "$dyn_asserta" }, { "retract", 1, "$retract" },
               { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
               { 0, 0, 0 } };
           for (int di = 0; g_pl_det_tab[di].nm; di++) if (!strcmp(nm, g_pl_det_tab[di].nm) && t->n == g_pl_det_tab[di].ar) {
@@ -498,16 +513,21 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             const tree_t * gt = t->c[0];
             const char * callee = (gt && gt->v.sval) ? gt->v.sval : "?";
             int base_n = (gt && gt->t == TT_FNC) ? gt->n : 0;
-            int total = base_n + 2;
-            IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = callee;
-            bb_goal_state_t * z = (bb_goal_state_t *) calloc(1, sizeof *z);
-            z->callee = strdup(callee); z->arity = total; z->nargs = total;
-            z->args = (IR_t **) calloc((size_t) total, sizeof(IR_t *));
-            for (int i = 0; i < base_n; i++) z->args[i] = term(cx, gt->c[i]);
-            z->args[base_n] = term(cx, t->c[1]);
-            if (t->n == 3) z->args[base_n + 1] = term(cx, t->c[2]);
-            else { IR_t * nil = build(cx, IR_OP_COUNT, NULL, cx->tω); IR_LIT(nil).sval = "[]"; z->args[base_n + 1] = nil; }
-            IR_LIT(nd).ival = (long long)(intptr_t) z;
+            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(callee);
+            IR_t * prev = NULL; IR_t * first = NULL;
+            for (int i = 0; i < base_n + 2; i++) {
+                const tree_t * at = (i < base_n) ? gt->c[i] : (i == base_n) ? t->c[1] : (t->n == 3 ? t->c[2] : (const tree_t *)0);
+                IR_t * ae = NULL; IR_t * a;
+                if (at) a = term_lval_e(cx, at, &ae);
+                else { a = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(a).sval = "[]"; }
+                IR_t * en = ae ? ae : a;
+                if (prev) lc_γ_to(prev, en); else first = en;
+                lc_ω_to(a, ωfail);
+                prev = a; ir_operand_push(nd, a);
+            }
+            if (prev) lc_γ_to(prev, nd);
+            if (entry_out) *entry_out = first ? first : nd;
+            cx->beta = nd;
             return nd;
         }
         IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(nm);
@@ -543,9 +563,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
     case TT_IF:
         return lower_ite(cx, (t->n > 0) ? t->c[0] : NULL, (t->n > 1) ? t->c[1] : NULL, (t->n > 2) ? t->c[2] : NULL, γnext, ωfail, entry_out);
     case TT_UNIFY: {
-        IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail);
-        ir_operand_push(nd, term(cx, t->c[0]));
-        ir_operand_push(nd, term(cx, t->c[1]));
+        IR_t * e = NULL;
+        IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e);
+        if (entry_out) *entry_out = e ? e : nd;
         return nd;
     }
     case TT_CUT: return build(cx, IR_CUT, γnext, ωfail);
@@ -763,18 +783,23 @@ static void pl_dyn_mark_prepass(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_pl_dyniter_graph(const char *name, int arity) {
-    IR_graph_t *g = IR_alloc(8);
+    IR_graph_t *g = IR_alloc(64);
     if (!g) return -1;
-    IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
-    IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *nd = IR_node_alloc(g, IR_OP_COUNT);
-    if (!nd) return -1;
-    pl_gz_dyniter_state_t *st = (pl_gz_dyniter_state_t *)GC_MALLOC(sizeof *st);
-    if (!st) return -1;
-    st->functor_atom = prolog_atom_intern(name); st->functor_name = prolog_atom_name(st->functor_atom); st->arity = arity; st->cursor_slot = arity; st->mark_slot = arity + 1;
-    IR_LIT(nd).ival = (int64_t)(intptr_t)st;
-    nd->γ.node = PSUCC; memcpy(nd->γ.sz, "α", 3); nd->ω.node = PFAIL; memcpy(nd->ω.sz, "α", 3);
-    g->entry = nd; g->body_root = nd; g->nslots = arity + 2;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL;
+    g->nparams = arity;
+    if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
+    IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
+    IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
+    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, succeed, fail); IR_LIT(gen).sval = "$dyn_iter";
+    IR_t * nmop = build(&cx, IR_LIT_STRING, NULL, NULL); IR_LIT(nmop).sval = strdup(name);
+    ir_operand_push(gen, nmop);
+    IR_t * prev = nmop;
+    for (int i = 0; i < arity; i++) {
+        IR_t * vr = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(vr).sval = pl_param_name(i);
+        lc_γ_to(prev, vr); prev = vr; ir_operand_push(gen, vr);
+    }
+    lc_γ_to(prev, gen);
+    g->entry = nmop; g->body_root = NULL;
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -801,7 +826,7 @@ static void lower_pl_register_all_preds(void) {
             }
             if (bb_idx >= 0) {
                 resolve_bb_register(key, ar, bb_idx);
-                if (!dyn) {
+                {
                     static char nmp[200]; int kl2 = slash ? (int)(slash - key) : (int)strlen(key); if (kl2 > 199) kl2 = 199; memcpy(nmp, key, kl2); nmp[kl2] = 0;
                     int pi = stage2_proc_grow(&g_stage2);
                     g_stage2.proc_table[pi].name         = strdup(nmp);
