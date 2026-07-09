@@ -50,6 +50,8 @@ extern int         Δ;
 #include "../runtime/builtins/resolution.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
+#include "../contracts/zeta_choices.h"
+#include "../runtime/rt/zeta_alloc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;
@@ -380,6 +382,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
+        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : -1; /* 0/1 = ZC_ZETA_ZLS/ZC_ZETA_ZLS2 (zeta_choices.h) */ if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;
     }
@@ -1003,6 +1006,7 @@ int main(int argc, char **argv)
             printf("  mov rbp, rsp\n");
             printf("  push rdi\n");
             printf("  push rsi\n");
+            if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 printf("  call proc_startup\n");
             if (n_gva_icn > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn);
@@ -1172,6 +1176,7 @@ int main(int argc, char **argv)
                 printf("  .section .text\n  .intel_syntax noprefix\n");
             }
             printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n  push rdi\n  push rsi\n");
+            if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);

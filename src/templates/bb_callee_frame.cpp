@@ -15,8 +15,8 @@ std::string bb_callee_frame() {
         return (_.op_parts_n == 0 || _.op_parts_ival[0] < 0 || _.op_parts_ival[1] < 0) ? x86_bomb("bb_callee_frame: unadmitted callee shape reached the emitter")
              : IF(_.op_sa == 0,
                    x86("comment", "IR_CALLEE_FRAME")
-                 + x86("push", "r12")
-                 + x86("mov", "r12", "rdi")
+                 + x86("push", x86_zr())
+                 + x86("mov", x86_zr(), "rdi")
                  + FOR(0, ((int)_.op_parts_ival[0] < 4 ? (int)_.op_parts_ival[0] : 4), [&](int i) {
                      return x86("mov", "r11", RDQ(bcf_areg(i), 0)) + x86("mov", FRQ(GZ_CELL_OFF(i)), "r11")
                           + x86("mov", "r11", RDQ(bcf_areg(i), 8)) + x86("mov", FRQ(GZ_CELL_OFF(i) + 8), "r11");
@@ -33,17 +33,17 @@ std::string bb_callee_frame() {
                    x86("comment", "IR_CALLEE_FRAME")
                  + x86("def", "γ")
                  + x86("mov32", "eax", 1L)
-                 + x86("pop", "r12")
+                 + x86("pop", x86_zr())
                  + x86("ret")
                  + x86("def", "ω")
                  + x86("mov", "edi", FR(0))
                  + x86("call", "rt_trail_unwind", (uint64_t)(uintptr_t)(void *)rt_trail_unwind)
                  + x86("mov32", "eax", 0L)
-                 + x86("pop", "r12")
+                 + x86("pop", x86_zr())
                  + x86("ret")
                  + x86("def", "β")
-                 + x86("push", "r12")
-                 + x86("mov", "r12", "rdi")
+                 + x86("push", x86_zr())
+                 + x86("mov", x86_zr(), "rdi")
                  + IF(_.op_parts_ival[2] <= 1, x86_jmp_tgt(X86T_TGT0)))
              + IF(_.op_sa == 2,
                    x86("mov", "eax", FR(4))

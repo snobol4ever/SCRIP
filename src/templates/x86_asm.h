@@ -260,8 +260,10 @@ inline int x86_selfload_mode() {
  * r12 (the ratified GZ3 contract).  ZC_FRAME_RBP is the C-frame-pointer EXPERIMENT from the C-STACK analysis
  * (GOAL-SNOBOL4-BB.md SESSION STATE: when the proc trampoline retires, rsp becomes the frame and "r12 AND rbp
  * free up" — this switch lets the rbp half of that end-state be exercised NOW, ahead of the trampoline work).
- * Env override SCRIP_ZETA_FRAME ("rbp"/"1" selects RBP) mirrors SCRIP_ZETA_PORT's idiom: emit-time decision,
- * cached once, no rebuild needed for an A/B.  EVERYTHING frame-relative flows through the four accessors
+ * COMPILE-TIME ONLY (Lon directive 2026-07-09: "We will never flip the R12 to RSP or RBP at runtime") — the
+ * SCRIP_ZETA_FRAME env override is DELETED, enforcement by deletion; ZC_FRAME is a BUILD CONSTANT
+ * (zeta_choices.h default, or -DZC_FRAME=…) and every selector below constant-folds to a literal.
+ * EVERYTHING frame-relative flows through the four accessors
  * below — the text form (x86_zr), the encoding number (x86_zr_num), the modrm/REX producers further down
  * (x86_frame_modrm + the conditional-REX helpers), the FR/FRQ operand spellings AND the x86_parse arm that
  * classifies them back (kept in lockstep via x86_fr32_prefix/x86_fr64_prefix), the port-hook canary/alloc
@@ -273,16 +275,17 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline int x86_frame_mode() {
-    static int m = -1;
-    if (m < 0) { const char *e = getenv("SCRIP_ZETA_FRAME"); m = e ? ((!strcmp(e, "rbp") || atoi(e) == ZC_FRAME_RBP) ? ZC_FRAME_RBP : ZC_FRAME_R12) : (int)ZC_FRAME; }
-    return m;
-}
-inline const char * x86_zr()         { return x86_frame_mode() == ZC_FRAME_RBP ? "rbp" : "r12"; }
-inline int          x86_zr_num()     { return x86_frame_mode() == ZC_FRAME_RBP ? 5 : 12; }
-inline const char * x86_align_save() { return x86_frame_mode() == ZC_FRAME_RBP ? "r12" : "rbp"; }
-inline const char * x86_fr32_prefix() { static char b[32]; static int done; if (!done) { snprintf(b, 32, "dword ptr [%s + ", x86_zr()); done = 1; } return b; }
-inline const char * x86_fr64_prefix() { static char b[32]; static int done; if (!done) { snprintf(b, 32, "qword ptr [%s + ", x86_zr()); done = 1; } return b; }
+inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }
+inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_align_save() { return ZC_FRAME == ZC_FRAME_RBP ? "r12" : "rbp"; }
+inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "dword ptr [rsp + " : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
+inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "qword ptr [rsp + " : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZETA SUBSYSTEM accessor — runtime-selectable BY DESIGN (Lon 2026-07-09, contrast the ZC_FRAME build
+ * constant above); see zeta_choices.h ZC_ZETA block for the rung map.  RUNG-1 seams read THIS, never getenv,
+ * never argv. */
+extern "C" int rt_zeta_mode(void);
+inline int x86_zeta_mode() { return rt_zeta_mode(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE PORT HOOK — the ONE seam where per-port emission flavors plug in (Lon directive, 2026-07-08 session 2:
  * "encapsulate all x86 emission for this through x86 referencing alpha, beta, gamma, and omega ... flexibility

@@ -18,4 +18,7 @@ void  rt_zls2_pop(long k);
 void *rt_zls2_mark(void);
 extern char *g_zls2_cur;
 void  rt_zls2_release_to(void *mark);
+/* ZETA SUBSYSTEM SELECTOR (Lon directive 2026-07-09) — see zeta_choices.h ZC_ZETA block. */
+void rt_zeta_set_mode(int m);
+int  rt_zeta_mode(void);
 #endif

@@ -19,13 +19,13 @@ std::string bb_suspend() {
         if (!MEDIUM_BINARY) {
             char load_β[128];
             snprintf(load_β, sizeof load_β,
-                " lea rax, [rip + %s]\n mov qword ptr [r12 + %d], rax\n",
-                _.lbl_t1_p->name, _.op_sb);
+                " lea rax, [rip + %s]\n mov qword ptr [%s + %d], rax\n",
+                _.lbl_t1_p->name, x86_zr(), _.op_sb);
             s += std::string(load_β);
         } else {
             uint32_t slotv = (uint32_t)(unsigned)_.op_sb;
             s += x86_Lrec(x86_b3(0x48, 0x8D, 0x05)) + x86_Jrec(X86T_TGT1);
-            std::string mov_insn; mov_insn += (char)0x49; mov_insn += (char)0x89; mov_insn += (char)0x84; mov_insn += (char)0x24;
+            std::string mov_insn; mov_insn += (char)(0x48 | (x86_zr_num() >= 8 ? 0x01 : 0x00)); /* REX.W + B-from-ζ (was hardcoded 0x49=r12-only; byte-identical under ZC_FRAME_R12) */ mov_insn += (char)0x89; mov_insn += (char)0x84; mov_insn += (char)0x24;
             mov_insn += (char)(slotv); mov_insn += (char)(slotv>>8); mov_insn += (char)(slotv>>16); mov_insn += (char)(slotv>>24);
             s += x86_Lrec(mov_insn);
         }

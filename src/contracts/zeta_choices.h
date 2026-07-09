@@ -86,8 +86,26 @@
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_FRAME_R12 0
 #define ZC_FRAME_RBP 1
+#define ZC_FRAME_RSP 2 /* rsp-as-ζ (Lon directive 2026-07-09): EMIT-side switch only today — runnable only after the
+ * proc trampoline retires (no C frame above a live BB frame, zeta_alloc.c ZLS2 note) and escaping
+ * activations (suspends/coexprs) live off-spine.  Selectable at BUILD TIME ONLY — set ZC_FRAME here or -DZC_FRAME=…; the env/runtime
+ * switch is deleted (Lon 2026-07-09: never flipped at runtime). */
 #ifndef ZC_FRAME
 #define ZC_FRAME ZC_FRAME_R12
+#endif
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZETA SUBSYSTEM SELECTOR (Lon directive 2026-07-09: "we will want a command line switch to select the ZETA
+ * mode") — WHICH zeta subsystem backs BB activation storage: ZLS (header-chained v1) vs ZLS2 (bare-bump down
+ * arena), later the C-stack mode.  Runtime-selectable BY DESIGN via scrip --zeta=zls|zls2 (contrast ZC_FRAME
+ * above, a build constant by the same day's directive); ZC_ZETA is only the DEFAULT when the flag is absent.
+ * RUNG-0 (this change) = the selector spine only — flag → rt_zeta_set_mode → x86_zeta_mode(), zero seams
+ * flipped, default output byte-identical.  RUNG-1 flips the dual-ready seams (ALLOC port flavor, generator
+ * activations, statement backstop) on x86_zeta_mode(); the v1-bound pattern frames + graph-scope release are
+ * NOT selectable until v1/v2 convergence — today the subsystems are co-resident, not alternatives. */
+#define ZC_ZETA_ZLS  0
+#define ZC_ZETA_ZLS2 1
+#ifndef ZC_ZETA
+#define ZC_ZETA ZC_ZETA_ZLS2
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_HEAP_LIBGC 0

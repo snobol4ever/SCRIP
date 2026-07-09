@@ -21,12 +21,12 @@ std::string bb_create() {
                    + x86_alpha();
     static const char *contract_regs[6] = {"r12", "r13", "r14", "r15", "rbx", "rbp"};
     for (int k = 0; k < 6; k++) {
-        s += x86("mov", "qword ptr [r12 + " + std::to_string(op_off2 + k * 8) + "]", contract_regs[k]);
+        s += x86("mov", "qword ptr [" + std::string(x86_zr()) + " + " + std::to_string(op_off2 + k * 8) + "]", contract_regs[k]);
     }
     s += xa_coexpr_body_lea("rdi");
     s += x86_frame_lea("rsi", op_off2)
        + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
-       + x86("mov",  "qword ptr [r12 + " + std::to_string(_.op_off) + "]", "rax")
+       + x86("mov",  "qword ptr [" + std::string(x86_zr()) + " + " + std::to_string(_.op_off) + "]", "rax")
        + x86_gamma()
        + x86_beta()
        + x86_omega();
