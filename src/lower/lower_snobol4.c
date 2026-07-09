@@ -201,6 +201,15 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         ir_operand_push(dr, cur);
         if (res) *res = dr; return entry;
     }
+    case TT_OPSYN: {
+        /* 1015 (s10): a user-redefinable operator (`@`/`|`/`&`/`~` after OPSYN('@', .DUPL, 2)) — the parser
+         * hands the symbol in v.sval and the 1 (unary) or 2 (binary) operands as children.  Runtime `opsyn()`
+         * (pattern_match.c) registers the symbol as a FUNCTION ALIAS, so the whole lowering is a by-name call
+         * on the symbol itself; an unregistered symbol faults at call time exactly like an undefined function. */
+        const char * name = t->v.sval;
+        if (!name || !*name) sno_fatal("OPSYN operator expression with no symbol", NULL);
+        return sx_call_named(cx, name, t, 0, γ, ω, res);
+    }
     case TT_FNC: {
         const char * name = t->v.sval; int argbase = 0;
         if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
