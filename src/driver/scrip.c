@@ -659,12 +659,6 @@ int main(int argc, char **argv)
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2);
-            if (is_raku && !graph_native_emittable(s2)) {
-                fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
-                                "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
-                return 0;
-            }
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             int main_bb_idx = -1;
@@ -687,6 +681,12 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
+            }
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2);
+            if (is_raku && !graph_native_emittable(s2)) {
+                fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
+                                "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
+                return 0;
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
                 fprintf(stderr, "[IBB] FATAL: mode-4 driver: main BB graph not found\n");
