@@ -4,6 +4,55 @@
 #include "../snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * icn_read_file(const char * path) {
+    FILE * f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
+    char * buf = (char *) malloc((size_t) sz + 1);
+    if (!buf) { fclose(f); return NULL; }
+    size_t got = fread(buf, 1, (size_t) sz, f); fclose(f); buf[got] = '\0';
+    return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * icn_stmt_subject(const tree_t * s) {
+    if (!s) return NULL;
+    if (s->t != TT_STMT) return s;
+    for (int i = 0; i < s->n; i++) { const tree_t * a = s->c[i]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) return (a->n > 0) ? a->c[0] : NULL; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_resolve_links(tree_t * prog, const char * filename) {
+    if (!prog) return;
+    char dir[1024]; const char * slash = strrchr(filename, '/');
+    if (slash) { size_t dl = (size_t)(slash - filename); if (dl >= sizeof dir) dl = sizeof dir - 1; memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
+    const char * loaded[64]; int nloaded = 0;
+    { const char * base = slash ? slash + 1 : filename; const char * dot = strrchr(base, '.'); size_t bl = dot ? (size_t)(dot - base) : strlen(base);
+      char * own = (char *) malloc(bl + 1); memcpy(own, base, bl); own[bl] = '\0'; loaded[nloaded++] = own; }
+    for (int scan = 0; scan < prog->n; scan++) {
+        const tree_t * subj = icn_stmt_subject(prog->c[scan]);
+        if (!subj || subj->t != TT_LINK) continue;
+        for (int k = 0; k < subj->n; k++) {
+            const char * nm = (subj->c[k] && subj->c[k]->v.sval) ? subj->c[k]->v.sval : NULL;
+            if (!nm) continue;
+            int dup = 0; for (int d = 0; d < nloaded; d++) if (!strcmp(loaded[d], nm)) { dup = 1; break; }
+            if (dup) continue;
+            if (nloaded >= 64) { fprintf(stderr, "icon: link: more than 64 linked files (at %s)\n", nm); exit(1); }
+            loaded[nloaded++] = nm;
+            char path[1200]; snprintf(path, sizeof path, "%s/%s.icn", dir, nm);
+            char * src = icn_read_file(path);
+            if (!src) { fprintf(stderr, "icon: link: cannot open %s (linked from %s)\n", path, filename); exit(1); }
+            IcnLexer lx2; icn_lex_init(&lx2, src);
+            IcnParser p2; icn_parse_init(&p2, &lx2);
+            tree_t * sub_ast = NULL;
+            CODE_t * sp = icn_parse_file(&p2, &sub_ast);
+            if (p2.had_error) { fprintf(stderr, "icon: parse error in linked file %s: %s\n", path, p2.errmsg); exit(1); }
+            free(sp);
+            if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) ast_push(prog, sub_ast->c[j]);
+        }
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     if (!filename) filename = "<stdin>";
@@ -20,4 +69,5 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
         exit(1);
     }
     (void)prog;
+    if (out_ast && *out_ast) icn_resolve_links(*out_ast, filename);
 }
