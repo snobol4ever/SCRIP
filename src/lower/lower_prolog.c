@@ -799,7 +799,7 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
         lc_γ_to(prev, vr); prev = vr; ir_operand_push(gen, vr);
     }
     lc_γ_to(prev, gen);
-    g->entry = nmop; g->body_root = NULL;
+    g->entry = nmop; g->body_root = gen;
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
