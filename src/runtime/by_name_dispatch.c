@@ -4045,7 +4045,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!dat_find_type(nb)) dat_register(sp);
         *out = NULVCL; return 1;
     }
-    if (!strcmp(fn,"OPSYN") && nargs >= 2) { *out = NULVCL; return 1; }
     if (!strcmp(fn,"SNO$KWSET") && nargs == 2) {
         extern void rt_keyword_write_snobol4(const char *sval, DESCR_t v);
         char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
@@ -4070,6 +4069,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
         DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = pf;
         *out = pd; return 1;
+    }
+    if (!strcmp(fn,"OPSYN") && nargs >= 2) {
+        extern DESCR_t opsyn(DESCR_t, DESCR_t, DESCR_t);
+        *out = opsyn(args[0], args[1], nargs > 2 ? args[2] : NULVCL); return 1;
     }
     if (!strcmp(fn,"CODE") && nargs == 1) {
         extern DESCR_t code(const char *);
@@ -4250,6 +4253,13 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     { extern const char *rt_builtin_synonym(const char *);
       const char *syn = rt_builtin_synonym(fn);
       if (syn) return try_call_builtin_by_name(syn, args, nargs, out); }
+    /* OPSYN operator dispatch (s10): operator-symbol names (non-identifier lead char) fall through to the
+     * core fn table, where OPSYN's register_fn_alias installs them; identifier names keep their existing
+     * routing untouched. */
+    { extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
+      char c0 = fn[0];
+      if (c0 && !((c0 >= 'A' && c0 <= 'Z') || (c0 >= 'a' && c0 <= 'z') || c0 == '_')
+          && core_call_registered_fn(fn, args, nargs, out)) return 1; }
     return 0;
 }
 
