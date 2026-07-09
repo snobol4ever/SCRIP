@@ -79,7 +79,7 @@ main_α_body:
  .string "complex(real,imag)"
  xchain0_n1_α:
 # BOX IR_CALL DATA(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+48] -> [r12+32]
+# marshal arg0 = producer-box slot [zr+48] -> [zr+32]
  mov rax, qword ptr [r12 + 48]
  mov qword ptr [r12 + 32], rax
  mov rax, qword ptr [r12 + 56]
@@ -131,12 +131,12 @@ main_α_body:
  jmp xchain0_n6_α
  xchain0_n5_α:
 # BOX IR_CALL complex(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+128] -> [r12+96]
+# marshal arg0 = producer-box slot [zr+128] -> [zr+96]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [r12 + 96], rax
  mov rax, qword ptr [r12 + 136]
  mov qword ptr [r12 + 104], rax
-# marshal arg1 = producer-box slot [r12+144] -> [r12+112]
+# marshal arg1 = producer-box slot [zr+144] -> [zr+112]
  mov rax, qword ptr [r12 + 144]
  mov qword ptr [r12 + 112], rax
  mov rax, qword ptr [r12 + 152]
@@ -178,7 +178,7 @@ main_α_body:
  jmp xchain0_n6_α
  xchain0_n8_α:
 # BOX IR_CALL real(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+224] -> [r12+208]
+# marshal arg0 = producer-box slot [zr+224] -> [zr+208]
  mov rax, qword ptr [r12 + 224]
  mov qword ptr [r12 + 208], rax
  mov rax, qword ptr [r12 + 232]
@@ -224,7 +224,7 @@ main_α_body:
  .string "OUTPUT"
  xchain0_n11_α:
 # BOX IR_CALL imag(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+288] -> [r12+272]
+# marshal arg0 = producer-box slot [zr+288] -> [zr+272]
  mov rax, qword ptr [r12 + 288]
  mov qword ptr [r12 + 272], rax
  mov rax, qword ptr [r12 + 296]

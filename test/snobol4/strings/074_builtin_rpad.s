@@ -62,12 +62,12 @@ main_α_body:
  .quad 6
  xchain0_n2_α:
 # BOX IR_CALL RPAD(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+112] -> [r12+80]
+# marshal arg0 = producer-box slot [zr+112] -> [zr+80]
  mov rax, qword ptr [r12 + 112]
  mov qword ptr [r12 + 80], rax
  mov rax, qword ptr [r12 + 120]
  mov qword ptr [r12 + 88], rax
-# marshal arg1 = producer-box slot [r12+128] -> [r12+96]
+# marshal arg1 = producer-box slot [zr+128] -> [zr+96]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [r12 + 96], rax
  mov rax, qword ptr [r12 + 136]
@@ -89,7 +89,7 @@ main_α_body:
  jmp main_γ
  xchain0_n3_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+64] -> [r12+48]
+# marshal arg0 = producer-box slot [zr+64] -> [zr+48]
  mov rax, qword ptr [r12 + 64]
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 72]

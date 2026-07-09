@@ -52,7 +52,7 @@ main_α_body:
  .string "42"
  xchain0_n1_α:
 # BOX IR_CALL INTEGER(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+48] -> [r12+32]
+# marshal arg0 = producer-box slot [zr+48] -> [zr+32]
  mov rax, qword ptr [r12 + 48]
  mov qword ptr [r12 + 32], rax
  mov rax, qword ptr [r12 + 56]
@@ -140,7 +140,7 @@ main_α_body:
  .string "abc"
  xchain0_n7_α:
 # BOX IR_CALL INTEGER(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+160] -> [r12+144]
+# marshal arg0 = producer-box slot [zr+160] -> [zr+144]
  mov rax, qword ptr [r12 + 160]
  mov qword ptr [r12 + 144], rax
  mov rax, qword ptr [r12 + 168]

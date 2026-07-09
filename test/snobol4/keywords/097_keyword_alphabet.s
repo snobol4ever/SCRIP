@@ -53,7 +53,7 @@ main_α_body:
  .string "ALPHABET"
  xchain0_n1_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+64] -> [r12+48]
+# marshal arg0 = producer-box slot [zr+64] -> [zr+48]
  mov rax, qword ptr [r12 + 64]
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 72]
@@ -103,7 +103,7 @@ main_α_body:
  .string "UCASE"
  xchain0_n4_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+128] -> [r12+112]
+# marshal arg0 = producer-box slot [zr+128] -> [zr+112]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [r12 + 112], rax
  mov rax, qword ptr [r12 + 136]
@@ -153,7 +153,7 @@ main_α_body:
  .string "LCASE"
  xchain0_n7_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+192] -> [r12+176]
+# marshal arg0 = producer-box slot [zr+192] -> [zr+176]
  mov rax, qword ptr [r12 + 192]
  mov qword ptr [r12 + 176], rax
  mov rax, qword ptr [r12 + 200]

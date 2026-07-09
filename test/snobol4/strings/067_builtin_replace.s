@@ -76,17 +76,17 @@ main_α_body:
  .string "AEIOU"
  xchain0_n3_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+96] -> [r12+48]
+# marshal arg0 = producer-box slot [zr+96] -> [zr+48]
  mov rax, qword ptr [r12 + 96]
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 104]
  mov qword ptr [r12 + 56], rax
-# marshal arg1 = producer-box slot [r12+112] -> [r12+64]
+# marshal arg1 = producer-box slot [zr+112] -> [zr+64]
  mov rax, qword ptr [r12 + 112]
  mov qword ptr [r12 + 64], rax
  mov rax, qword ptr [r12 + 120]
  mov qword ptr [r12 + 72], rax
-# marshal arg2 = producer-box slot [r12+128] -> [r12+80]
+# marshal arg2 = producer-box slot [zr+128] -> [zr+80]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [r12 + 80], rax
  mov rax, qword ptr [r12 + 136]
