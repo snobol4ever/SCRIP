@@ -175,7 +175,7 @@ int rt_builtin_is_known(const char *name)
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
         "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME",
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
-        "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET",
+        "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM",
         "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
         "$unify",
         NULL
@@ -4095,6 +4095,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         const char *nm = VARVAL_fn(args[0]); if (!nm || !*nm) { *out = FAILDESCR; return 1; }
         *out = NV_GET_fn(nm); return 1;
     }
+    if (!strcmp(fn,"SNO$NRET")) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 1; *out = NULVCL; return 1; }
+    if (!strcmp(fn,"SNO$WANTNM")) { extern int rt_g_want_name; rt_g_want_name = 1; *out = NULVCL; return 1; }
     if (!strcmp(fn,"APPLY") && nargs >= 1) {
         const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
         if (!pn || !*pn) { *out = FAILDESCR; return 1; }
