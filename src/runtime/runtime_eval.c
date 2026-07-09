@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <alloca.h>
 #include <math.h>
 #include "core.h"
 #include "sil_macros.h"
@@ -193,6 +194,8 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
 static void run_code_chain(eval_chain_fn fn)
 {
     if (!fn) return;
+    extern int rt_zeta_cstack(void);
+    if (rt_zeta_cstack()) { void *frame = alloca((size_t)GOTO_FRAME_BYTES); memset(frame, 0, (size_t)GOTO_FRAME_BYTES); rt_eval_run(fn, frame); return; }
     extern void *GC_malloc_uncollectable(size_t);
     void *frame = GC_malloc_uncollectable(GOTO_FRAME_BYTES);
     if (!frame) { fprintf(stderr, "[SNO] rt_goto_transfer: transfer frame allocation failed\n"); exit(1); }

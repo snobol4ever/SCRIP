@@ -235,3 +235,19 @@ void rt_zls2_release_to(void *mark)
 static int g_zeta_mode = (int)ZC_ZETA;
 void rt_zeta_set_mode(int m) { g_zeta_mode = (m == ZC_ZETA_ZLS) ? ZC_ZETA_ZLS : ZC_ZETA_ZLS2; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] mode=%s\n", g_zeta_mode == ZC_ZETA_ZLS ? "zls" : "zls2"); }
 int  rt_zeta_mode(void) { return g_zeta_mode; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_zeta_cstack (ZC_PORT_CSTACK rung, Lon 2026-07-09) — the ONE runtime-side reader of the C-stack zeta
+ * choice, the twin of x86_asm.h's emit-time x86_port_mode(): when the port flavor is CSTACK, the C-side
+ * exact-bracket frames (rt_call_proc_descr / rt_call_named_proc / rt_call_proc_direct / rt_call_named_proc_sl
+ * in rt.c, run_code_chain's fragment frame in runtime_eval.c) allocate with alloca on the caller's own C
+ * activation instead of the ZLS2 arena — identical lifetime by construction (the bracket IS the C call),
+ * conservatively GC-scanned for free, and the fragment frame's recorded 64KB-per-crossing leak closes.
+ * Emit-side and C-side disciplines are independent, so an env/default mismatch is safe, just unmixed.
+ * Survive-return frames (rt_proc_call_gen* suspended activations — the s6 long-lived class) never consult
+ * this and stay on their heap provider. */
+int rt_zeta_cstack(void)
+{
+    static int m = -1;
+    if (m < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); m = ((e ? atoi(e) : (int)ZC_PORT) == ZC_PORT_CSTACK) ? 1 : 0; }
+    return m;
+}

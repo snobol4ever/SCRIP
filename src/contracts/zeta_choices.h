@@ -42,13 +42,31 @@
  * faults; the ZC_OVF_GUARD idea for free).  ALLOC remains the proving flavor; INLINE is the perf flavor.
  * Select with SCRIP_ZETA_PORT=3. */
 #define ZC_PORT_INLINE       3
-/* DEFAULT RULING (Lon session directive 2026-07-08 s7: "Finish optimized BB memory allocation where it's all
- * routed through x86_*() port hooks"): INLINE is the compiled default — proven watermark-EXACT both modes,
- * Icon/Prolog crosschecks clean, zero gate regressions, adversarial ARBNO micro 2150ms→419ms (5.2×, parity
- * with PLAIN), pattern_bt outputs identical.  SCRIP_ZETA_PORT=2 remains the ALLOC proving flavor (poison,
- * telemetry, LIFO aborts); =0 PLAIN; =1 INSTRUMENTED. */
+/* ZC_PORT_CSTACK (C-STACK rung, Lon directive 2026-07-09: "implement all ZETA storage for SNOBOL4 on the C
+ * stack"): the SAME grant-keyed BUMP/RELEASE protocol as INLINE with the cursor CELL RETIRED — the cursor IS
+ * rsp, so the activation block lives on the machine C stack.  Everything below rsp is dead by the platform's
+ * own contract, so C calls, signals, and libgc's conservative C-stack scan all compose for free (the mmap
+ * arena carried none of those guarantees and needed explicit GC rooting).  Bumps round up to 16 so the
+ * ambient call-site alignment mod 16 is preserved for the bare-call idiom; the statement backstop
+ * (x86_zls2_mark_save / x86_zls2_release_to_call) collapses to ONE mov each (mark: FRQ(off)=rsp; release:
+ * rsp=FRQ(off)), which is also what keeps rsp net-balanced at graph exit — every match statement brackets.
+ * INHERITED STRUCTURAL LIMIT, stated honestly: a block that must SURVIVE a C return (suspended generator
+ * activations, the s6 long-lived class) cannot ride the C stack; rt_proc_call_gen and the COLLECTION
+ * provider are deliberately untouched.  Select with SCRIP_ZETA_PORT=4. */
+#define ZC_PORT_CSTACK       4
+/* DEFAULT RULING (Lon directive 2026-07-09: "implement all ZETA storage for SNOBOL4 on the C stack. Then
+ * make it the default."): CSTACK is the compiled default — proven watermark-EXACT both modes (m3 263/17,
+ * m4 262/6/12, DIVERGE=1(1017), fail lists byte-identical to the INLINE baseline), with the emitted-side
+ * cursor = rsp (hook arms + statement backstop), C-side exact-bracket frames = alloca (4 proc sites +
+ * the EVAL/CODE fragment frame, whose 64KB-per-crossing leak thereby closes), the graph entry/exit anchor
+ * (xa_flat), and the rbx=GVA self-load at graph entry (the flow-through-C assumption was codegen luck; see
+ * xa_flat.cpp).  The memoized MAIN frame (rt_frame, rt.c:87) deliberately stays on the arena: allocated
+ * once, never freed, shared across driver re-entries — it participates in no alloc/free discipline; moving
+ * it is a mapped follow-on (sites scrip.c :1010/:1180 emitted, :1290-1302/:1307-1379 driver).  Suspended
+ * generator activations (s6 long-lived class) stay on the heap provider by construction.  SCRIP_ZETA_PORT=3
+ * remains the INLINE arena flavor; =2 ALLOC (poison/telemetry proving); =0 PLAIN; =1 INSTRUMENTED. */
 #ifndef ZC_PORT
-#define ZC_PORT ZC_PORT_INLINE
+#define ZC_PORT ZC_PORT_CSTACK
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_INIT_ZERO  0

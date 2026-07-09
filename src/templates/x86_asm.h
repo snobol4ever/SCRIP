@@ -1077,6 +1077,8 @@ inline std::string x86_zls2_cur_lea(const char * reg) {
     return x86_load_ro(reg, "g_zls2_cur", (uint64_t)(uintptr_t)(void *)&g_zls2_cur);
 }
 inline std::string x86_zls2_mark_save(int off) {
+    if (x86_port_mode() == ZC_PORT_CSTACK)
+        return x86("mov", FRQ(off), "rsp");
     if (x86_port_mode() == ZC_PORT_INLINE)
         return x86_zls2_cur_lea("rdi")
              + x86("mov", "rax", RDQ("rdi", 0))
@@ -1086,6 +1088,18 @@ inline std::string x86_zls2_mark_save(int off) {
          + x86("mov", FRQ(off), "rax");
 }
 inline std::string x86_zls2_release_to_call(int off) {
+    /* CSTACK: this helper is spliced INSIDE the caller's open alignment-dance window (both consumers:
+     * bb_match_head fail arm, bb_match_release success arm), with another C call between this fragment and
+     * the caller's dance-leave.  A bare `mov rsp, FRQ(off)` here is (a) clobbered by the caller's leave and
+     * (b) worse, leaves the intervening C call pushing its return address just below the MARK — on top of
+     * live stack (the first CSTACK cut segfaulted exactly there, 038_pat_literal m4).  So: CLOSE the
+     * caller's window, restore rsp to the mark, RE-OPEN a fresh window at the new position — the caller's
+     * remaining call runs safely below the re-based window, and the caller's own dance-leave then lands rsp
+     * exactly at the mark. */
+    if (x86_port_mode() == ZC_PORT_CSTACK)
+        return x86_align_leave()
+             + x86("mov", "rsp", FRQ(off))
+             + x86_align_enter();
     if (x86_port_mode() == ZC_PORT_INLINE)
         return x86_zls2_cur_lea("rdi")
              + x86("mov", "rax", FRQ(off))
@@ -1202,6 +1216,26 @@ inline std::string x86_port_hook(int site, int port) {
                + x86_add("rax", _.op_zls2_bytes)
                + x86_zls2_cur_lea("rdi")
                + x86("mov", RDQ("rdi", 0), "rax");
+    }
+    /* ZC_PORT_CSTACK (C-STACK rung, Lon 2026-07-09) — the INLINE protocol with the cursor cell RETIRED: the
+     * cursor IS rsp.  Same grants, same sites, same order (BUMP saves AFTER the decrement), same register
+     * contract (rax/rcx only, dead at DEF sites and before a port jmp; no arm at JCC — FLAGS CONTRACT holds
+     * by construction).  Bumps round to 16 (k16) so ambient call-site alignment mod 16 survives for the
+     * bare-call idiom; RELEASE pops with lea rsp,[block+k16] — the same wholesale semantics as the arena's
+     * release_to (everything at and below block dies).  See zeta_choices.h ZC_PORT_CSTACK for the design
+     * record and the inherited suspended-frame limit. */
+    if (x86_port_mode() == ZC_PORT_CSTACK && _.op_zls2_ops && _.op_zls2_slot >= 0) {
+        long k16 = (_.op_zls2_bytes + 15L) & ~15L;
+        if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
+            s += x86_sub("rsp", k16)
+               + x86("mov", "rcx", FRQ(_.op_zls2_slot))
+               + x86("mov", RSP(0), "rcx")
+               + x86("mov", FRQ(_.op_zls2_slot), "rsp");
+        if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
+            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
+               + x86("mov", "rcx", RDQ("rax", 0))
+               + x86("mov", FRQ(_.op_zls2_slot), "rcx")
+               + x86_reg_disp32_lea64("rsp", "rax", (int)k16);
     }
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);
