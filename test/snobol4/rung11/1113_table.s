@@ -293,7 +293,7 @@ xchain0_n13_β:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "FAIL 1113/001: absent key is null"
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n19_α:
  mov rdi, qword ptr [r12 + 240]
  mov rsi, qword ptr [r12 + 248]
@@ -447,7 +447,7 @@ xchain0_n13_β:
  jmp xchain0_n36_α
 xchain0_n30_β:
  jmp xchain0_n12_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n31_α:
  mov rdi, qword ptr [r12 + 480]
  mov rsi, qword ptr [r12 + 488]
@@ -1131,7 +1131,7 @@ xchain0_n73_β:
  jmp xchain0_n83_α
 xchain0_n79_β:
  jmp xchain0_n61_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n80_α:
  mov rdi, qword ptr [r12 + 1536]
  mov rsi, qword ptr [r12 + 1544]

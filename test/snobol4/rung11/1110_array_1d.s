@@ -283,7 +283,7 @@ xchain0_n13_β:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "FAIL 1110/001: array element init null"
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n19_α:
  mov rdi, qword ptr [r12 + 240]
  mov rsi, qword ptr [r12 + 248]
@@ -744,7 +744,7 @@ xchain0_n52_β:
  jmp xchain0_n57_α
  xchain0_n53_β:
  jmp xchain0_n58_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n54_α:
  mov rdi, qword ptr [r12 + 880]
  mov rsi, qword ptr [r12 + 888]
@@ -978,7 +978,7 @@ xchain0_n64_β:
  jmp main_γ
  xchain0_n71_β:
  jmp main_γ
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n72_α:
  mov rdi, qword ptr [r12 + 1264]
  mov rsi, qword ptr [r12 + 1272]
@@ -1125,7 +1125,7 @@ xchain0_n64_β:
  jmp xchain0_n85_α
 xchain0_n82_β:
  jmp xchain0_n63_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n83_α:
  mov rdi, qword ptr [r12 + 1504]
  mov rsi, qword ptr [r12 + 1512]

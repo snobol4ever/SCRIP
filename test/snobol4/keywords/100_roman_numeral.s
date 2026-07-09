@@ -194,7 +194,7 @@ proc_roman_α_body:
  jmp xchain0_n18_α
  xchain0_n14_β:
  jmp xchain0_n19_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n15_α:
  mov rdi, qword ptr [r12 + 144]
  mov rsi, qword ptr [r12 + 152]
@@ -251,7 +251,7 @@ proc_roman_α_body:
  jmp xchain0_n23_α
  xchain0_n19_β:
  jmp xchain0_n24_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n20_α:
  mov rdi, qword ptr [r12 + 224]
  mov rsi, qword ptr [r12 + 232]
@@ -308,7 +308,7 @@ proc_roman_α_body:
  jmp xchain0_n28_α
  xchain0_n24_β:
  jmp xchain0_n29_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n25_α:
  mov rdi, qword ptr [r12 + 304]
  mov rsi, qword ptr [r12 + 312]
@@ -365,7 +365,7 @@ proc_roman_α_body:
  jmp xchain0_n33_α
  xchain0_n29_β:
  jmp xchain0_n34_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n30_α:
  mov rdi, qword ptr [r12 + 384]
  mov rsi, qword ptr [r12 + 392]
@@ -422,7 +422,7 @@ proc_roman_α_body:
  jmp xchain0_n38_α
  xchain0_n34_β:
  jmp xchain0_n39_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n35_α:
  mov rdi, qword ptr [r12 + 464]
  mov rsi, qword ptr [r12 + 472]
@@ -479,7 +479,7 @@ proc_roman_α_body:
  jmp xchain0_n43_α
  xchain0_n39_β:
  jmp xchain0_n44_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n40_α:
  mov rdi, qword ptr [r12 + 544]
  mov rsi, qword ptr [r12 + 552]
@@ -536,7 +536,7 @@ proc_roman_α_body:
  jmp xchain0_n48_α
  xchain0_n44_β:
  jmp xchain0_n49_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n45_α:
  mov rdi, qword ptr [r12 + 624]
  mov rsi, qword ptr [r12 + 632]
@@ -593,7 +593,7 @@ proc_roman_α_body:
  jmp xchain0_n53_α
  xchain0_n49_β:
  jmp xchain0_n54_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n50_α:
  mov rdi, qword ptr [r12 + 704]
  mov rsi, qword ptr [r12 + 712]
@@ -650,7 +650,7 @@ proc_roman_α_body:
  jmp xchain0_n58_α
  xchain0_n54_β:
  jmp xchain0_n59_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n55_α:
  mov rdi, qword ptr [r12 + 784]
  mov rsi, qword ptr [r12 + 792]
@@ -707,7 +707,7 @@ proc_roman_α_body:
  jmp xchain0_n63_α
  xchain0_n59_β:
  jmp xchain0_n64_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n60_α:
  mov rdi, qword ptr [r12 + 864]
  mov rsi, qword ptr [r12 + 872]
@@ -765,7 +765,7 @@ proc_roman_α_body:
  jmp xchain0_n72_α
 .Lx66_0:
  .quad 13
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n65_α:
  mov rdi, qword ptr [r12 + 944]
  mov rsi, qword ptr [r12 + 952]
@@ -825,7 +825,7 @@ proc_roman_α_body:
  jmp xchain0_n71_α
  xchain0_n68_β:
  jmp xchain0_n72_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n69_α:
  mov rdi, qword ptr [r12 + 1024]
  mov rsi, qword ptr [r12 + 1032]
@@ -869,7 +869,7 @@ proc_roman_α_body:
  jmp xchain0_n74_α
  xchain0_n72_β:
  jmp xchain0_n75_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n73_α:
  mov rdi, qword ptr [r12 + 1104]
  mov rsi, qword ptr [r12 + 1112]
@@ -980,7 +980,7 @@ proc_roman_α_body:
  jmp xchain0_n86_α
  xchain0_n82_β:
  jmp xchain0_n87_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n83_α:
  mov rdi, qword ptr [r12 + 1248]
  mov rsi, qword ptr [r12 + 1256]
@@ -1039,7 +1039,7 @@ proc_roman_α_body:
  jmp xchain0_n91_α
  xchain0_n87_β:
  jmp xchain0_n92_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n88_α:
  mov rdi, qword ptr [r12 + 1328]
  mov rsi, qword ptr [r12 + 1336]
@@ -1098,7 +1098,7 @@ proc_roman_α_body:
  jmp xchain0_n96_α
  xchain0_n92_β:
  jmp xchain0_n97_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n93_α:
  mov rdi, qword ptr [r12 + 1408]
  mov rsi, qword ptr [r12 + 1416]
@@ -1157,7 +1157,7 @@ proc_roman_α_body:
  jmp xchain0_n101_α
  xchain0_n97_β:
  jmp xchain0_n102_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n98_α:
  mov rdi, qword ptr [r12 + 1488]
  mov rsi, qword ptr [r12 + 1496]
@@ -1216,7 +1216,7 @@ proc_roman_α_body:
  jmp xchain0_n106_α
  xchain0_n102_β:
  jmp xchain0_n107_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n103_α:
  mov rdi, qword ptr [r12 + 1568]
  mov rsi, qword ptr [r12 + 1576]
@@ -1275,7 +1275,7 @@ proc_roman_α_body:
  jmp xchain0_n111_α
  xchain0_n107_β:
  jmp xchain0_n112_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n108_α:
  mov rdi, qword ptr [r12 + 1648]
  mov rsi, qword ptr [r12 + 1656]
@@ -1334,7 +1334,7 @@ proc_roman_α_body:
  jmp xchain0_n116_α
  xchain0_n112_β:
  jmp xchain0_n117_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n113_α:
  mov rdi, qword ptr [r12 + 1728]
  mov rsi, qword ptr [r12 + 1736]
@@ -1393,7 +1393,7 @@ proc_roman_α_body:
  jmp xchain0_n121_α
  xchain0_n117_β:
  jmp xchain0_n122_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n118_α:
  mov rdi, qword ptr [r12 + 1808]
  mov rsi, qword ptr [r12 + 1816]
@@ -1452,7 +1452,7 @@ proc_roman_α_body:
  jmp xchain0_n126_α
  xchain0_n122_β:
  jmp xchain0_n127_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n123_α:
  mov rdi, qword ptr [r12 + 1888]
  mov rsi, qword ptr [r12 + 1896]
@@ -1511,7 +1511,7 @@ proc_roman_α_body:
  jmp xchain0_n131_α
  xchain0_n127_β:
  jmp xchain0_n132_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n128_α:
  mov rdi, qword ptr [r12 + 1968]
  mov rsi, qword ptr [r12 + 1976]
@@ -1571,7 +1571,7 @@ proc_roman_α_body:
  jmp xchain0_n139_α
 .Lx135_0:
  .quad 1
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n133_α:
  mov rdi, qword ptr [r12 + 2048]
  mov rsi, qword ptr [r12 + 2056]
@@ -1622,7 +1622,7 @@ proc_roman_α_body:
  jmp xchain0_n139_α
  xchain0_n136_β:
  jmp xchain0_n139_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n137_α:
  mov rdi, qword ptr [r12 + 2128]
  mov rsi, qword ptr [r12 + 2136]
@@ -1657,7 +1657,7 @@ proc_roman_α_body:
  jmp xchain0_n141_α
  xchain0_n139_β:
  jmp xchain0_n142_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n140_α:
  mov rdi, qword ptr [r12 + 2208]
  mov rsi, qword ptr [r12 + 2216]

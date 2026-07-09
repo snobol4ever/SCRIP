@@ -352,7 +352,7 @@ xchain0_n19_β:
  jmp xchain0_n25_α
  xchain0_n21_β:
  jmp xchain0_n26_α
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n22_α:
  mov rdi, qword ptr [r12 + 144]
  mov rsi, qword ptr [r12 + 152]
@@ -717,7 +717,7 @@ xchain0_n32_β:
  jmp xchain0_n42_α
 .Lx58_0:
  .quad 1
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n53_α:
  mov rdi, qword ptr [r12 + 672]
  mov rsi, qword ptr [r12 + 680]

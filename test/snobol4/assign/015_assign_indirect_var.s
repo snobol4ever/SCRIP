@@ -145,7 +145,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "OUTPUT"
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n7_α:
  mov rdi, qword ptr [r12 + 48]
  mov rsi, qword ptr [r12 + 56]

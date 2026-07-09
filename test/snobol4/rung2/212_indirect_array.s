@@ -199,7 +199,7 @@ xchain0_n1_β:
  jmp main_γ
  xchain0_n11_β:
  jmp main_γ
-# IR_ASSIGN_VAR write through variable
+# IR_ASSIGN_VAR
  xchain0_n12_α:
  mov rdi, qword ptr [r12 + 112]
  mov rsi, qword ptr [r12 + 120]
