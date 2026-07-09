@@ -77,7 +77,7 @@ int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg
     pl_cell_t *src = (pl_cell_t *)arg_words; if (!dst) return 0;
     pl_cell_t *D = pl_deref((pl_cell_t *)dst);
     int fid = prolog_atom_intern(functor_name ? functor_name : "[]");
-    if ((int)D->v == DT_PLVAR) {
+    if (pl_cell_unbound(D)) {
         pl_cell_t *blk = (pl_cell_t *)GC_MALLOC((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
         for (int i = 0; i < arity; i++) blk[i] = src[i];
         pl_bind(D, pl_make_compound(fid, arity, blk), &g_pl_trail); return 1;
@@ -505,8 +505,8 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
         if (!pl_unify_term_into_cell(inner, out, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
-    if ((int)td->v != DT_A) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    const char *ty = prolog_atom_name(pl_atom_id(td));
+    if ((int)td->v != DT_A && (int)td->v != DT_S) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    const char *ty = ((int)td->v == DT_S) ? (td->s ? td->s : "") : prolog_atom_name(pl_atom_id(td));
     if (!ty) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     int ok = 0;
     if      (!strcmp(ty, "alpha"))        ok = isalpha(ch);
@@ -558,6 +558,21 @@ static int rt_pl_term_compare(Term *a, Term *b) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap);
+int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
+{
+    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
+    Term *ta = pl_cell_copy_walk((pl_cell_t *)a_cell, vaddr, vterm, &vn, 256);
+    Term *tb = pl_cell_copy_walk((pl_cell_t *)b_cell, vaddr, vterm, &vn, 256);
+    int c = rt_pl_term_compare(ta, tb);
+    if (op == 0) return c < 0;
+    if (op == 1) return c <= 0;
+    if (op == 2) return c > 0;
+    if (op == 3) return c >= 0;
+    if (op == 4) return c == 0;
+    return c != 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -592,7 +607,7 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
 static long pl_numbervars_walk(pl_cell_t *c, long counter, int var_id, pl_trail_t *trail)
 {
     pl_cell_t *d = pl_deref(c);
-    if ((int)d->v == DT_PLVAR) {
+    if (pl_cell_unbound(d)) {
         pl_cell_t *a = (pl_cell_t *)GC_MALLOC(sizeof(pl_cell_t));
         *a = pl_make_int(counter++);
         pl_bind(d, pl_make_compound(var_id, 1, a), trail);
@@ -665,7 +680,7 @@ static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, in
 {
     pl_cell_t *d = pl_deref(c);
     int t = (int)d->v;
-    if (t == DT_PLVAR) {
+    if (pl_cell_unbound(d)) {
         for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return vterm[i];
         Term *fresh = term_new_var(-1);
         if (*vn < cap) { vaddr[*vn] = d; vterm[*vn] = fresh; (*vn)++; }
@@ -673,6 +688,7 @@ static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, in
     }
     if (t == DT_I) return term_new_int((long)d->i);
     if (t == DT_A) return term_new_atom((int)d->i);
+    if (t == DT_S) { extern int prolog_atom_intern(const char *); return term_new_atom(prolog_atom_intern(d->s ? d->s : "")); }
     if (t == DT_R) return term_new_float(d->r);
     if (t == DT_PLREF) {
         int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);

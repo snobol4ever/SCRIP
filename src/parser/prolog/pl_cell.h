@@ -24,11 +24,16 @@ static inline pl_cell_t pl_make_ref(pl_cell_t *target, int slot) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_cell_t *pl_deref(pl_cell_t *c) {
-    while ((int)c->v == DT_PLVAR && c->p != (void *)c) c = (pl_cell_t *)c->p;
-    return c;
+    for (;;) {
+        if ((int)c->v == DT_PLVAR && c->p != (void *)c) { c = (pl_cell_t *)c->p; continue; }
+        if (c->v == DT_N && c->slen == 1 && c->p) { c = (pl_cell_t *)c->p; continue; }
+        if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) { c = ((VCELL_t *)c->p)->cellp; continue; }
+        return c;
+    }
 }
+static inline int pl_cell_unbound(const pl_cell_t *d) { return (int)d->v == DT_PLVAR || d->v == DT_SNUL || d->v == DT_FAIL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int pl_is_var(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_PLVAR; }
+static inline int pl_is_var(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return pl_cell_unbound(d); }
 static inline int pl_is_int(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_I; }
 static inline int pl_is_atom(pl_cell_t *c)     { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_A; }
 static inline int plc_is_float(pl_cell_t *c)    { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_R; }
@@ -71,13 +76,18 @@ static inline void pl_bind(pl_cell_t *cell, pl_cell_t word, pl_trail_t *trail) {
 static inline int pl_unify(pl_cell_t *a, pl_cell_t *b, pl_trail_t *trail) {
     pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
     if (A == B) return 1;
-    int av = (int)A->v == DT_PLVAR, bv = (int)B->v == DT_PLVAR;
+    int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
     if (av && bv) { pl_bind(A, pl_make_ref(B, (int)A->slen), trail); return 1; }
     if (av) { pl_bind(A, *B, trail); return 1; }
     if (bv) { pl_bind(B, *A, trail); return 1; }
+    if (((int)A->v == DT_S || (int)A->v == DT_A) && ((int)B->v == DT_S || (int)B->v == DT_A)) {
+        extern const char *prolog_atom_name(int);
+        const char *as = ((int)A->v == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
+        const char *bs = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
+        return as && bs && !strcmp(as, bs);
+    }
     if (A->v != B->v) return 0;
     if ((int)A->v == DT_I) return A->i == B->i;
-    if ((int)A->v == DT_A) return A->i == B->i;
     if ((int)A->v == DT_R) return A->r == B->r;
     if ((int)A->v == DT_PLREF) {
         if (A->slen != B->slen) return 0;

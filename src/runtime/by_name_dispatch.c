@@ -106,6 +106,12 @@ static int plw_unify_vals(DESCR_t va, DESCR_t vb) {
     DESCR_t ta = va, tb = vb;
     return plw_unify_cells(plw_entry(&ta), plw_entry(&tb));
 }
+static DESCR_t *plw_det_cell(DESCR_t *tmp) {
+    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
+    DESCR_t *c = plw_cell_deref(plw_entry(tmp));
+    if (c->v == DT_SNUL || c->v == DT_FAIL) { c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; }
+    return c;
+}
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_builtin_is_known(const char *name)
@@ -117,6 +123,12 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
     if (!strcmp(name, "$write")) return 1;
+    if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
+    if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
+    if (!strcmp(name, "$format1") || !strcmp(name, "$format2") || !strcmp(name, "$copy_term")) return 1;
+    if (!strcmp(name, "$functor") || !strcmp(name, "$arg") || !strcmp(name, "$univ")) return 1;
+    if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
+    if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -923,6 +935,117 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "$findall_new") && nargs == 0) { *out = rt_findall_new(); return 1; }
     if (!strcmp(fn, "$findall_add") && nargs == 2) { rt_findall_add(args[0], args[1]); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
     if (!strcmp(fn, "$findall_result") && nargs == 1) { *out = rt_findall_result(args[0]); return 1; }
+    if ((!strcmp(fn, "$sort") || !strcmp(fn, "$msort")) && nargs == 2) {
+        extern int rt_pl_sort_cell(int, void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_sort_cell(fn[1] == 'm', (void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strncmp(fn, "$atop_", 6) && nargs == 2) {
+        extern int rt_pl_atop_cell(int, void *, void *);
+        int op = (!strcmp(fn + 6, "lt")) ? 0 : (!strcmp(fn + 6, "le")) ? 1 : (!strcmp(fn + 6, "gt")) ? 2 : (!strcmp(fn + 6, "ge")) ? 3 : (!strcmp(fn + 6, "eq")) ? 4 : 5;
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_atop_cell(op, (void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$char_type") && nargs == 2) {
+        extern int rt_pl_char_type_cell(void *, void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_char_type_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)0);
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$numbervars") && nargs == 3) {
+        extern int rt_pl_numbervars_cell(void *, void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1], t2 = args[2];
+        int ok = rt_pl_numbervars_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if ((!strcmp(fn, "$writeq") || !strcmp(fn, "$print")) && nargs == 1) {
+        extern void rt_pl_writeq_cell(void *);
+        DESCR_t t0 = args[0];
+        rt_pl_writeq_cell((void *)plw_det_cell(&t0));
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$write_canonical") && nargs == 1) {
+        extern void rt_pl_write_canonical_cell(void *);
+        DESCR_t t0 = args[0];
+        rt_pl_write_canonical_cell((void *)plw_det_cell(&t0));
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if ((!strcmp(fn, "$format1") && nargs == 1) || (!strcmp(fn, "$format2") && nargs == 2)) {
+        extern void rt_pl_format_cell(const char *, void *);
+        const char *fmt = pl_atom_str(rt_pl_deref_val(args[0]));
+        if (!fmt) { *out = FAILDESCR; return 1; }
+        if (nargs == 2) { DESCR_t t1 = args[1]; rt_pl_format_cell(fmt, (void *)plw_det_cell(&t1)); }
+        else rt_pl_format_cell(fmt, (void *)0);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$copy_term") && nargs == 2) {
+        extern int rt_pl_copy_term_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_copy_term_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strncmp(fn, "$tt_", 4) && nargs == 1) {
+        extern int rt_pl_type_test_cell(void *, const char *);
+        DESCR_t t0 = args[0];
+        int ok = rt_pl_type_test_cell((void *)plw_det_cell(&t0), fn + 4);
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$functor") && nargs == 3) {
+        extern int rt_pl_functor_cell(void *, void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1], t2 = args[2];
+        int ok = rt_pl_functor_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$arg") && nargs == 3) {
+        extern int rt_pl_arg_cell(void *, void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1], t2 = args[2];
+        int ok = rt_pl_arg_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$univ") && nargs == 2) {
+        extern int rt_pl_univ_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_univ_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strncmp(fn, "$aop_", 5) && nargs >= 1 && nargs <= 3) {
+        extern int rt_pl_atom_op_cell(const char *, void *, void *, void *);
+        DESCR_t t0 = args[0], t1, t2;
+        void *c0 = (void *)plw_det_cell(&t0), *c1 = (void *)0, *c2 = (void *)0;
+        if (nargs > 1) { t1 = args[1]; c1 = (void *)plw_det_cell(&t1); }
+        if (nargs > 2) { t2 = args[2]; c2 = (void *)plw_det_cell(&t2); }
+        int ok = rt_pl_atom_op_cell(fn + 5, c0, c1, c2);
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$term_string") && nargs == 2) {
+        extern int rt_pl_term_string_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_term_string_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strncmp(fn, "$agg_", 5) && nargs == 2) {
+        extern int rt_pl_agg_count_finish(void *, void *);
+        extern int rt_pl_agg_sum_finish(void *, void *);
+        extern int rt_pl_agg_max_finish(void *, void *);
+        extern int rt_pl_agg_min_finish(void *, void *);
+        void *acc = (void *)(intptr_t)args[0].i;
+        DESCR_t t1 = args[1]; void *rc = (void *)plw_det_cell(&t1);
+        int ok = (!strcmp(fn + 5, "count")) ? rt_pl_agg_count_finish(acc, rc)
+               : (!strcmp(fn + 5, "sum"))   ? rt_pl_agg_sum_finish(acc, rc)
+               : (!strcmp(fn + 5, "max"))   ? rt_pl_agg_max_finish(acc, rc)
+               :                              rt_pl_agg_min_finish(acc, rc);
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if ((!strcmp(fn, "$nb_setval") || !strcmp(fn, "$nb_getval")) && nargs == 2) {
+        extern int rt_pl_nb_setval_cell(void *, void *);
+        extern int rt_pl_nb_getval_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        void *c0 = (void *)plw_det_cell(&t0), *c1 = (void *)plw_det_cell(&t1);
+        int ok = (fn[4] == 's') ? rt_pl_nb_setval_cell(c0, c1) : rt_pl_nb_getval_cell(c0, c1);
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
     if (!strcmp(fn, "$unify") && nargs == 2) {
         if (plw_unify_vals(args[0], args[1])) { *out = rt_pl_deref_val(args[0]); return 1; }
         *out = FAILDESCR; return 1;
