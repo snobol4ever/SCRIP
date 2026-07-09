@@ -155,7 +155,7 @@ static IR_t * thread_goals(lcx_t * cx, const tree_t * blk, int from, int to, IR_
         if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else γ_to(gn[i], last_res); }
         else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else ω_to(gn[i], last_res);
-        if (rz[i]) { last_res = rz[i]; last_res_beta = (rz[i]->op == IR_CALL); }
+        if (rz[i]) { last_res = rz[i]; last_res_beta = (rz[i]->op == IR_CALL || rz[i]->op == IR_CALL_PROC_STAGED); }
     }
     free(rz);
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
@@ -370,7 +370,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 IR_t * forced_fail;
                 if (goal_beta) {
                     forced_fail = build(cx, IR_GOTO, NULL, NULL);
-                    if (goal_beta->op == IR_CALL) { lc_γ_to_β(forced_fail, goal_beta); lc_ω_to_β(forced_fail, goal_beta); }
+                    if (goal_beta->op == IR_CALL || goal_beta->op == IR_CALL_PROC_STAGED) { lc_γ_to_β(forced_fail, goal_beta); lc_ω_to_β(forced_fail, goal_beta); }
                     else { lc_γ_to(forced_fail, goal_beta); lc_ω_to(forced_fail, goal_beta); }
                 } else forced_fail = build(cx, IR_GOTO, res_e ? res_e : res_lv, res_e ? res_e : res_lv);
                 lc_γ_to(addnd, forced_fail);
@@ -448,7 +448,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * forced_fail;
             if (goal_beta) {
                 forced_fail = build(cx, IR_GOTO, NULL, NULL);
-                if (goal_beta->op == IR_CALL) { lc_γ_to_β(forced_fail, goal_beta); lc_ω_to_β(forced_fail, goal_beta); }
+                if (goal_beta->op == IR_CALL || goal_beta->op == IR_CALL_PROC_STAGED) { lc_γ_to_β(forced_fail, goal_beta); lc_ω_to_β(forced_fail, goal_beta); }
                 else { lc_γ_to(forced_fail, goal_beta); lc_ω_to(forced_fail, goal_beta); }
             } else forced_fail = build(cx, IR_GOTO, res, res);
             lc_γ_to(addnd, forced_fail);
@@ -513,7 +513,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             const tree_t * gt = t->c[0];
             const char * callee = (gt && gt->v.sval) ? gt->v.sval : "?";
             int base_n = (gt && gt->t == TT_FNC) ? gt->n : 0;
-            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(callee);
+            IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = strdup(callee);
             IR_t * prev = NULL; IR_t * first = NULL;
             for (int i = 0; i < base_n + 2; i++) {
                 const tree_t * at = (i < base_n) ? gt->c[i] : (i == base_n) ? t->c[1] : (t->n == 3 ? t->c[2] : (const tree_t *)0);
@@ -530,7 +530,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             cx->beta = nd;
             return nd;
         }
-        IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(nm);
+        IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = strdup(nm);
         IR_t * prev = NULL; IR_t * first = NULL;
         for (int i = 0; i < t->n; i++) {
             IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
@@ -555,7 +555,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return call;
         }
         if (is_builtin_exec(nm)) { IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; return nd; }
-        IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(nm);
+        IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = strdup(nm);
         if (entry_out) *entry_out = nd;
         cx->beta = nd;
         return nd;
@@ -678,7 +678,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity) {
         IR_t * ce = NULL; IR_t * redo = NULL;
         lower_pl_clause_into(&cx, clauses[k], arity, ml, next_fail, &ce, &redo);
         IR_t * ab = redo ? redo : next_fail;
-        IR_LIT(ml).ival = (ab && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL)) ? 1 : 0;
+        IR_LIT(ml).ival = (ab && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;
         ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, NULL);
         centry[k] = ce;
         if (k > 0) { IR_t * u = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, fail); IR_LIT(u).sval = "$trail_unwind"; ir_operand_push(u, mk); uw[k] = u; }
