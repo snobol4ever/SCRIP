@@ -961,8 +961,41 @@ void *rt_pl_dyn_iter_begin(const char *name, long arity)
     return cur;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity)
+typedef struct { dyn_clause_t *cur; int mark; } pl_dyn_it_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dyn_iter_gen(DESCR_t *args, int nargs, int64_t *resume)
 {
+    extern pl_trail_t g_pl_trail;
+    extern const char *prolog_atom_name(int);
+    long arity = nargs - 1;
+    if (*resume == 0) {
+        const char *nm = (args[0].v == DT_S) ? args[0].s : ((int)args[0].v == DT_A) ? prolog_atom_name((int)args[0].i) : (const char *)0;
+        dyn_pred_row_t *row = nm ? dyn_pred_find(nm, arity) : (dyn_pred_row_t *)0;
+        pl_dyn_it_t *it = (pl_dyn_it_t *)GC_MALLOC(sizeof *it);
+        it->cur = row ? row->head : (dyn_clause_t *)0;
+        it->mark = pl_trail_mark(&g_pl_trail);
+        *resume = (int64_t)(intptr_t)it;
+    }
+    pl_dyn_it_t *it = (pl_dyn_it_t *)(intptr_t)*resume;
+    while (it->cur) {
+        pl_trail_unwind(&g_pl_trail, it->mark);
+        dyn_clause_t *c = it->cur;
+        it->cur = c->next;
+        Term *var_map[256]; int var_cap = 256, var_n = 0;
+        Term *h = copy_term_deep(c->head, var_map, &var_cap, &var_n);
+        int ok = 1;
+        if (arity == 0) ok = (h != (Term *)0);
+        else if (h && h->tag == TERM_COMPOUND && h->compound.arity == arity) {
+            for (long i = 0; ok && i < arity; i++)
+                ok = pl_unify_term_into_cell((pl_cell_t *)&args[1 + i], h->compound.args[i], &g_pl_trail);
+        } else ok = 0;
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     extern pl_trail_t g_pl_trail;
     dyn_cursor_t *cur = (dyn_cursor_t *)cursor;
     if (!cur) return 0;
