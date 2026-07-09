@@ -185,12 +185,12 @@ main_α_body:
  .string "PASS 411_arith_unary (2/2)"
  xchain0_n9_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+64] -> [r12+32]
+# marshal arg0 = producer-box slot [zr+64] -> [zr+32]
  mov rax, qword ptr [r12 + 64]
  mov qword ptr [r12 + 32], rax
  mov rax, qword ptr [r12 + 72]
  mov qword ptr [r12 + 40], rax
-# marshal arg1 = producer-box slot [r12+96] -> [r12+48]
+# marshal arg1 = producer-box slot [zr+96] -> [zr+48]
  mov rax, qword ptr [r12 + 96]
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 104]
@@ -212,12 +212,12 @@ xchain0_n9_β:
  jmp xchain0_n3_α
  xchain0_n10_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+224] -> [r12+192]
+# marshal arg0 = producer-box slot [zr+224] -> [zr+192]
  mov rax, qword ptr [r12 + 224]
  mov qword ptr [r12 + 192], rax
  mov rax, qword ptr [r12 + 232]
  mov qword ptr [r12 + 200], rax
-# marshal arg1 = producer-box slot [r12+256] -> [r12+208]
+# marshal arg1 = producer-box slot [zr+256] -> [zr+208]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 208], rax
  mov rax, qword ptr [r12 + 264]

@@ -167,12 +167,12 @@ main_α_body:
  .string "PASS 312_concat_null (2/2)"
  xchain0_n10_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+96] -> [r12+64]
+# marshal arg0 = producer-box slot [zr+96] -> [zr+64]
  mov rax, qword ptr [r12 + 96]
  mov qword ptr [r12 + 64], rax
  mov rax, qword ptr [r12 + 104]
  mov qword ptr [r12 + 72], rax
-# marshal arg1 = producer-box slot [r12+144] -> [r12+80]
+# marshal arg1 = producer-box slot [zr+144] -> [zr+80]
  mov rax, qword ptr [r12 + 144]
  mov qword ptr [r12 + 80], rax
  mov rax, qword ptr [r12 + 152]
@@ -226,12 +226,12 @@ xchain0_n10_β:
  .string "FAIL 312/001: null right identity"
  xchain0_n14_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+240] -> [r12+208]
+# marshal arg0 = producer-box slot [zr+240] -> [zr+208]
  mov rax, qword ptr [r12 + 240]
  mov qword ptr [r12 + 208], rax
  mov rax, qword ptr [r12 + 248]
  mov qword ptr [r12 + 216], rax
-# marshal arg1 = producer-box slot [r12+288] -> [r12+224]
+# marshal arg1 = producer-box slot [zr+288] -> [zr+224]
  mov rax, qword ptr [r12 + 288]
  mov qword ptr [r12 + 224], rax
  mov rax, qword ptr [r12 + 296]

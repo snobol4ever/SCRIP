@@ -89,7 +89,7 @@ main_α_body:
  jmp xchain0_n4_α
  xchain0_n3_α:
 # BOX IR_CALL SNO$NAME(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+80] -> [r12+64]
+# marshal arg0 = producer-box slot [zr+80] -> [zr+64]
  mov rax, qword ptr [r12 + 80]
  mov qword ptr [r12 + 64], rax
  mov rax, qword ptr [r12 + 88]

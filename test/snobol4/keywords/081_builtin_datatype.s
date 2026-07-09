@@ -52,7 +52,7 @@ main_α_body:
  .string "hello"
  xchain0_n1_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+128] -> [r12+112]
+# marshal arg0 = producer-box slot [zr+128] -> [zr+112]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [r12 + 112], rax
  mov rax, qword ptr [r12 + 136]
@@ -110,7 +110,7 @@ main_α_body:
  .string "UCASE"
  xchain0_n5_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+288] -> [r12+272]
+# marshal arg0 = producer-box slot [zr+288] -> [zr+272]
  mov rax, qword ptr [r12 + 288]
  mov qword ptr [r12 + 272], rax
  mov rax, qword ptr [r12 + 296]
@@ -132,17 +132,17 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n6_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+96] -> [r12+48]
+# marshal arg0 = producer-box slot [zr+96] -> [zr+48]
  mov rax, qword ptr [r12 + 96]
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 104]
  mov qword ptr [r12 + 56], rax
-# marshal arg1 = producer-box slot [r12+144] -> [r12+64]
+# marshal arg1 = producer-box slot [zr+144] -> [zr+64]
  mov rax, qword ptr [r12 + 144]
  mov qword ptr [r12 + 64], rax
  mov rax, qword ptr [r12 + 152]
  mov qword ptr [r12 + 72], rax
-# marshal arg2 = producer-box slot [r12+160] -> [r12+80]
+# marshal arg2 = producer-box slot [zr+160] -> [zr+80]
  mov rax, qword ptr [r12 + 160]
  mov qword ptr [r12 + 80], rax
  mov rax, qword ptr [r12 + 168]
@@ -215,7 +215,7 @@ main_α_body:
  .string "UCASE"
  xchain0_n11_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+448] -> [r12+432]
+# marshal arg0 = producer-box slot [zr+448] -> [zr+432]
  mov rax, qword ptr [r12 + 448]
  mov qword ptr [r12 + 432], rax
  mov rax, qword ptr [r12 + 456]
@@ -237,17 +237,17 @@ main_α_body:
  jmp main_γ
  xchain0_n12_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+256] -> [r12+208]
+# marshal arg0 = producer-box slot [zr+256] -> [zr+208]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 208], rax
  mov rax, qword ptr [r12 + 264]
  mov qword ptr [r12 + 216], rax
-# marshal arg1 = producer-box slot [r12+304] -> [r12+224]
+# marshal arg1 = producer-box slot [zr+304] -> [zr+224]
  mov rax, qword ptr [r12 + 304]
  mov qword ptr [r12 + 224], rax
  mov rax, qword ptr [r12 + 312]
  mov qword ptr [r12 + 232], rax
-# marshal arg2 = producer-box slot [r12+320] -> [r12+240]
+# marshal arg2 = producer-box slot [zr+320] -> [zr+240]
  mov rax, qword ptr [r12 + 320]
  mov qword ptr [r12 + 240], rax
  mov rax, qword ptr [r12 + 328]
@@ -310,17 +310,17 @@ main_α_body:
  .string "UCASE"
  xchain0_n16_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [r12+416] -> [r12+368]
+# marshal arg0 = producer-box slot [zr+416] -> [zr+368]
  mov rax, qword ptr [r12 + 416]
  mov qword ptr [r12 + 368], rax
  mov rax, qword ptr [r12 + 424]
  mov qword ptr [r12 + 376], rax
-# marshal arg1 = producer-box slot [r12+464] -> [r12+384]
+# marshal arg1 = producer-box slot [zr+464] -> [zr+384]
  mov rax, qword ptr [r12 + 464]
  mov qword ptr [r12 + 384], rax
  mov rax, qword ptr [r12 + 472]
  mov qword ptr [r12 + 392], rax
-# marshal arg2 = producer-box slot [r12+480] -> [r12+400]
+# marshal arg2 = producer-box slot [zr+480] -> [zr+400]
  mov rax, qword ptr [r12 + 480]
  mov qword ptr [r12 + 400], rax
  mov rax, qword ptr [r12 + 488]

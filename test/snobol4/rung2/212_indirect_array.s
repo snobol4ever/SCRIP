@@ -67,7 +67,7 @@ main_α_body:
  .quad 3
  xchain0_n1_α:
 # BOX IR_CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+64] -> [r12+48]
+# marshal arg0 = producer-box slot [zr+64] -> [zr+48]
  mov rax, qword ptr [r12 + 64]
  mov qword ptr [r12 + 48], rax
  mov rax, qword ptr [r12 + 72]
@@ -239,12 +239,12 @@ xchain0_n1_β:
  .string "x"
  xchain0_n15_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [r12+208] -> [r12+176]
+# marshal arg0 = producer-box slot [zr+208] -> [zr+176]
  mov rax, qword ptr [r12 + 208]
  mov qword ptr [r12 + 176], rax
  mov rax, qword ptr [r12 + 216]
  mov qword ptr [r12 + 184], rax
-# marshal arg1 = producer-box slot [r12+272] -> [r12+192]
+# marshal arg1 = producer-box slot [zr+272] -> [zr+192]
  mov rax, qword ptr [r12 + 272]
  mov qword ptr [r12 + 192], rax
  mov rax, qword ptr [r12 + 280]
