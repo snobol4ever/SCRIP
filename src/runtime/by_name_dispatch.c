@@ -2873,7 +2873,21 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     if (!fn) return out;
     if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
         extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+        if (nargs == 1) {
+            extern DESCR_t rt_random_var(DESCR_t); extern DESCR_t rt_deref(DESCR_t);
+            DESCR_t a = args[0];
+            if (!strcmp(fn, "-"))  return rt_num_arith(INTVAL(0), a, BINOP_SUB);
+            if (!strcmp(fn, "+"))  return rt_num_arith(INTVAL(0), a, BINOP_ADD);
+            if (!strcmp(fn, "*"))  { extern DESCR_t rt_call_arr(const char *, DESCR_t *, int); DESCR_t _a = a; return try_call_builtin_by_name("*", &_a, 1, &out) ? out : FAILDESCR; }
+            if (!strcmp(fn, "/"))  return (a.v == DT_SNUL || a.v == 0) ? a : FAILDESCR;
+            if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
+            if (!strcmp(fn, "?"))  return rt_deref(rt_random_var(a));
+        }
         DESCR_t a = (nargs > 0) ? args[0] : NULVCL, b = (nargs > 1) ? args[1] : NULVCL;
+        if (!strcmp(fn, "[]")) { extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); DESCR_t v = rt_subscript_var(a, b); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
+        if (!strcmp(fn, "++")) return rt_num_arith(a, b, BINOP_CUNION);
+        if (!strcmp(fn, "--")) return rt_num_arith(a, b, BINOP_CDIFF);
+        if (!strcmp(fn, "**")) return rt_num_arith(a, b, BINOP_CINTER);
         if (!strcmp(fn, "+")) return rt_num_arith(a, b, BINOP_ADD);
         if (!strcmp(fn, "-")) return rt_num_arith(a, b, BINOP_SUB);
         if (!strcmp(fn, "*")) return rt_num_arith(a, b, BINOP_MUL);
