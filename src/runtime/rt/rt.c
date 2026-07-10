@@ -213,6 +213,7 @@ long        g_subject_dbg_len  = -1;
 typedef struct { DESCR_t slot[RT_FRAME_SLOT_MAX]; int nslots; } rt_frame_t;
 static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
+int rt_k_level = 1;
 #define PROC_FRAME_QWORDS 512
 #define CALL_ARGS_MAX     64
 typedef struct {
@@ -406,7 +407,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
-    (void)p->fn((void *)fb, 0);
+    rt_k_level++; (void)p->fn((void *)fb, 0); rt_k_level--;
     DESCR_t result = rt_nret_fix(*(DESCR_t *)(fb + 0), _wn);
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)(fb + fbytes));
     return result;
@@ -439,7 +440,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
         rt_frame_bind_args(fb, p, nargs);
         if (hout) *hout = (void *)(uintptr_t)h;
-        (void)p->fn((void *)fb, 0);
+        rt_k_level++; (void)p->fn((void *)fb, 0); rt_k_level--;
         fb = (char *)rt_zh_deref(h) + 16;
         DESCR_t result = *(DESCR_t *)(fb + 0);
         rt_zh_unpin(h);
@@ -454,7 +455,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     if (hout) *hout = (void *)fb;
-    (void)p->fn((void *)fb, 0);
+    rt_k_level++; (void)p->fn((void *)fb, 0); rt_k_level--;
     DESCR_t result = *(DESCR_t *)(fb + 0);
     if (IS_FAIL(result)) { if (hout) *hout = (void *)0; ((void **)base)[0] = (void *)0; rt_zls_release((void *)base); }
     return result;
@@ -468,7 +469,7 @@ DESCR_t rt_proc_resume_frame(void *frame)
     bb_box_fn fn = (bb_box_fn)((void **)base)[0];
     long total = ((long *)base)[1];
     if (!fn) return FAILDESCR;
-    (void)fn((void *)fb, 1);
+    rt_k_level++; (void)fn((void *)fb, 1); rt_k_level--;
     DESCR_t result = *(DESCR_t *)(fb + 0);
     if (IS_FAIL(result)) { (void)total; ((void **)base)[0] = (void *)0; rt_zls_release((void *)base); }
     return result;
@@ -484,7 +485,7 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
         char *fb = (char *)rt_zh_deref(h) + 16;
         bb_box_fn fn = (bb_box_fn)((void **)(fb - 16))[0];
         if (!fn) { rt_zh_unpin(h); return FAILDESCR; }
-        (void)fn((void *)fb, 1);
+        rt_k_level++; (void)fn((void *)fb, 1); rt_k_level--;
         fb = (char *)rt_zh_deref(h) + 16;
         DESCR_t result = *(DESCR_t *)(fb + 0);
         rt_zh_unpin(h);
@@ -606,7 +607,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     memset(fb, 0, (size_t)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
-    DESCR_t fret = p->fn(fb, 0);
+    rt_k_level++; DESCR_t fret = p->fn(fb, 0); rt_k_level--;
     Σ = save_Σ; Σlen = save_Σlen;
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
@@ -638,7 +639,7 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     memset(fb, 0, (size_t)fbytes);
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
-    DESCR_t fret = p->fn(fb, 0);
+    rt_k_level++; DESCR_t fret = p->fn(fb, 0); rt_k_level--;
     Σ = save_Σ; Σlen = save_Σlen;
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
@@ -735,7 +736,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
-    DESCR_t fret = p->fn(fb, 0);
+    rt_k_level++; DESCR_t fret = p->fn(fb, 0); rt_k_level--;
     Σ = save_Σ; Σlen = save_Σlen;
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));

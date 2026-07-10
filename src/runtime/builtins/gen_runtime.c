@@ -133,6 +133,32 @@ DESCR_t rt_keyword_pos_set(DESCR_t v) {
     scan_pos = (int)p; return INTVAL((int64_t)p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
+    if (kind == 0) return vp ? *vp : NULVCL;
+    if (kind == 1) return INTVAL(spill ? spill[0] + 1 : (int64_t)scan_pos);
+    fprintf(stderr, "[REVSWAP] FATAL: <-> read of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind); abort();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
+    if (kind == 0) { if (vp) *vp = v; return 1; }
+    if (kind == 1) { long len = spill ? (long)spill[1] : (scan_subj ? (long)strlen(scan_subj) : 0); int ok; long p = cvpos_of(v, len, &ok); if (!ok) return 0; if (spill) spill[0] = (int64_t)(p - 1); else scan_pos = (int)p; return 1; }
+    fprintf(stderr, "[REVSWAP] FATAL: <-> write of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind); abort();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_rev_swap_fwd(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR_t *save, int64_t *spill) {
+    DESCR_t old_l = rsw_get(lkind, lp, spill); DESCR_t old_r = rsw_get(rkind, rp, spill);
+    save[0] = old_l; save[1] = old_r;
+    if (!rsw_set(lkind, lp, spill, old_r)) return FAILDESCR;
+    if (!rsw_set(rkind, rp, spill, old_l)) return FAILDESCR;
+    return old_r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_rev_swap_undo(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR_t *save, int64_t *spill) {
+    if (!rsw_set(lkind, lp, spill, save[0])) return FAILDESCR;
+    rsw_set(rkind, rp, spill, save[1]);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);

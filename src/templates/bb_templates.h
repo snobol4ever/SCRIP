@@ -98,6 +98,7 @@ std::string bb_swap_var();
 std::string bb_proc_value();
 std::string bb_call_value();
 std::string bb_rev_assign();
+std::string bb_rev_swap();
 std::string bb_case_arm();
 std::string bb_var_frame();
 std::string bb_var_frame_ref();

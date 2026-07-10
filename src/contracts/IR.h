@@ -64,6 +64,7 @@ typedef enum {
     IR_REPALT,
     IR_REV_ASSIGN,
     IR_REV_ASSIGN_VAR,
+    IR_REV_SWAP,
     IR_SCAN,
     IR_SCAN_ENTER,
     IR_SCAN_ANY,
