@@ -265,7 +265,7 @@ push r12
  call rt_zls_mark@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 224], rax
  pop rsi
 main_α_body:
 # IR_LIT_STRING
@@ -343,8 +343,8 @@ main_α_body:
  xchain19_n5_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
- mov qword ptr [r12 + 192], rax
- mov qword ptr [r12 + 200], rdx
+ mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 216], rdx
  jmp xchain19_n6_α
  xchain19_n5_β:
  jmp xchain19_n3_α
@@ -353,8 +353,8 @@ main_α_body:
  call rt_zls_mark@PLT
  mov qword ptr [r12 + 168], rax
  mov qword ptr [r12 + 176], rsp
- mov rdi, qword ptr [r12 + 192]
- mov rsi, qword ptr [r12 + 200]
+ mov rdi, qword ptr [r12 + 208]
+ mov rsi, qword ptr [r12 + 216]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
@@ -388,16 +388,9 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  jmp xchain19_n3_α
-# IR_MATCH_DEFER
+# IR_MATCH_DEFER inlined frozen head (FZ-5b)
  xchain19_n7_α:
- lea rdi, [rip + .S4]
- xor esi, esi
- push rbp
- mov rbp, rsp
- and rsp, -16
- call rt_defer_get_pat_fn@PLT
- mov rsp, rbp
- pop rbp
+ lea rax, [rip + proc_PAT$0_α]
  test rax, rax
  jz .Lx29_0
  push rax
@@ -470,7 +463,7 @@ ret
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 208]
+ mov rdi, qword ptr [r12 + 224]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
