@@ -47,6 +47,11 @@ static const char * g_pl_nl_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", 
     "upcase_atom", "var", "write_canonical", "writeln", "writeq", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_builtin_exec(const char * s) { if (!s) return 0; if (is_builtin_visible(s)) return 1; for (int i = 0; g_pl_nl_builtins[i]; i++) if (!strcmp(s, g_pl_nl_builtins[i])) return 1; return 0; }
+static void pl_ensure_call_bridge(int nparams);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_synth_qlit(const char * s) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) s; return q; }
+static tree_t * pl_synth_fnc1(const char * f, const tree_t * a) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, (tree_t *) a); return n; }
+static tree_t * pl_synth_fnc2(const char * f, const tree_t * a, const tree_t * b) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, (tree_t *) a); ast_push(n, (tree_t *) b); return n; }
 static int is_builtin_argw(const char * s) { return s && (!strcmp(s, "is") || !strcmp(s, "<") || !strcmp(s, ">") || !strcmp(s, "=<") || !strcmp(s, ">=") || !strcmp(s, "=:=") || !strcmp(s, "=\\=")); }
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -339,6 +344,29 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = marknd;
             return checknd;
         }
+        if (!strcmp(nm, "call") && t->n >= 1 && t->n <= 8) {
+            pl_ensure_call_bridge(t->n);
+            IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name("$call", t->n);
+            IR_t * prev = NULL; IR_t * first = NULL;
+            for (int i = 0; i < t->n; i++) {
+                IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
+                if (prev) lc_γ_to(prev, en); else first = en;
+                lc_ω_to(a, ωfail);
+                prev = a; ir_operand_push(nd, a);
+            }
+            if (prev) lc_γ_to(prev, nd);
+            if (entry_out) *entry_out = first ? first : nd;
+            cx->beta = nd;
+            return nd;
+        }
+        if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("fail"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "once") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), NULL, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "ignore") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "setup_call_cleanup") && t->n == 3) {
+            tree_t * ite = pl_synth_fnc2(";", pl_synth_fnc2("->", t->c[1], pl_synth_fnc1("once", t->c[2])), pl_synth_fnc2(",", pl_synth_fnc1("once", t->c[2]), pl_synth_qlit("fail")));
+            tree_t * whole = pl_synth_fnc2(",", pl_synth_fnc1("once", t->c[0]), ite);
+            return goal(cx, whole, γnext, ωfail, entry_out);
+        }
         if (!strcmp(nm, "aggregate_all") && t->n == 3) {
             const tree_t * spec = t->c[0]; const tree_t * goal_ast = t->c[1]; const tree_t * res_ast = t->c[2];
             const char * op = NULL; const tree_t * tmpl_ast = NULL;
@@ -469,28 +497,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = first ? first : nd;
             return nd;
         }
-        { static const struct { const char * nm; int ar; const char * tgt; } g_pl_det_tab[] = {
-              { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "numbervars", 3, "$numbervars" }, { "copy_term", 2, "$copy_term" },
-              { "char_type", 2, "$char_type" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
-              { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" },
-              { "compound", 1, "$tt_compound" }, { "callable", 1, "$tt_callable" }, { "ground", 1, "$tt_ground" }, { "is_list", 1, "$tt_is_list" },
-              { "var", 1, "$tt_var" }, { "nonvar", 1, "$tt_nonvar" }, { "atom", 1, "$tt_atom" }, { "number", 1, "$tt_number" },
-              { "integer", 1, "$tt_integer" }, { "float", 1, "$tt_float" }, { "atomic", 1, "$tt_atomic" },
-              { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" },
-              { "format", 1, "$format1" }, { "format", 2, "$format2" },
-              { "atom_string", 2, "$aop_atom_string" }, { "number_string", 2, "$aop_number_string" }, { "atom_number", 2, "$aop_atom_number" },
-              { "string_upper", 2, "$aop_string_upper" }, { "string_lower", 2, "$aop_string_lower" },
-              { "string_concat", 3, "$aop_string_concat" }, { "string_length", 2, "$aop_string_length" }, { "string_to_atom", 2, "$aop_string_to_atom" },
-              { "atomic_list_concat", 2, "$aop_atomic_list_concat" }, { "atomic_list_concat", 3, "$aop_atomic_list_concat" },
-              { "concat_atom", 2, "$aop_concat_atom" }, { "concat_atom", 3, "$aop_concat_atom" },
-              { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
-              { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
-              { "assertz", 1, "$dyn_assertz" }, { "assert", 1, "$dyn_assertz" }, { "asserta", 1, "$dyn_asserta" }, { "retract", 1, "$retract" },
-              { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
-              { "throw", 1, "$throw" },
-              { 0, 0, 0 } };
-          for (int di = 0; g_pl_det_tab[di].nm; di++) if (!strcmp(nm, g_pl_det_tab[di].nm) && t->n == g_pl_det_tab[di].ar) {
-              IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = g_pl_det_tab[di].tgt;
+        { extern const char * rt_pl_det_builtin_target(const char * nm2, int ar2);
+          const char * det_tgt = rt_pl_det_builtin_target(nm, t->n);
+          if (det_tgt) {
+              IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = det_tgt;
               IR_t * prev = NULL; IR_t * first = NULL;
               for (int i = 0; i < t->n; i++) {
                   IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
@@ -571,6 +581,16 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
     case TT_CUT: return build(cx, IR_CUT, γnext, ωfail);
     case TT_PROGRAM:
         return thread_goals(cx, t, 0, t->n, γnext, ωfail, entry_out, NULL);
+    case TT_VAR: {
+        pl_ensure_call_bridge(1);
+        IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name("$call", 1);
+        IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t, &ae);
+        lc_γ_to(a, nd); lc_ω_to(a, ωfail);
+        ir_operand_push(nd, a);
+        if (entry_out) *entry_out = ae ? ae : a;
+        cx->beta = nd;
+        return nd;
+    }
     default: return build(cx, IR_SUCCEED, γnext, ωfail);
     }
 }
@@ -798,6 +818,39 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_pl_call_bridge_done[9];
+static void pl_ensure_call_bridge(int nparams) {
+    if (nparams < 1 || nparams > 8 || g_pl_call_bridge_done[nparams]) return;
+    IR_graph_t * g = IR_alloc(64);
+    if (!g) return;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL;
+    g->nparams = nparams;
+    g->pnames = (const char **) calloc((size_t) nparams, sizeof(const char *)); for (int i = 0; i < nparams; i++) g->pnames[i] = pl_param_name(i);
+    IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
+    IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
+    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, succeed, fail); IR_LIT(gen).sval = "$call";
+    IR_t * prev = NULL; IR_t * first = NULL;
+    for (int i = 0; i < nparams; i++) {
+        IR_t * vr = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(vr).sval = pl_param_name(i);
+        if (prev) lc_γ_to(prev, vr); else first = vr;
+        prev = vr; ir_operand_push(gen, vr);
+    }
+    lc_γ_to(prev, gen);
+    g->entry = first; g->body_root = gen;
+    int bb_idx = bb_program_add(&g_stage2.bbp, g);
+    if (bb_idx < 0) return;
+    { char key[24]; snprintf(key, sizeof key, "$call/%d", nparams);
+      resolve_bb_register(strdup(key), nparams, bb_idx);
+      int pi = stage2_proc_grow(&g_stage2);
+      g_stage2.proc_table[pi].name         = strdup(key);
+      g_stage2.proc_table[pi].proc         = NULL;
+      g_stage2.proc_table[pi].entry_pc     = -1;
+      g_stage2.proc_table[pi].bb_idx       = bb_idx;
+      g_stage2.proc_table[pi].nparams      = nparams;
+      g_stage2.proc_table[pi].is_generator = 1; }
+    g_pl_call_bridge_done[nparams] = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void lower_pl_register_all_preds(void) {
     for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++) {
         for (Resolve_PredEntry *pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
@@ -862,6 +915,7 @@ static void pl_ll_maybe_lift(tree_t *fa) {
     if (strcmp(fa->v.sval, "findall") && strcmp(fa->v.sval, "aggregate_all")) return;
     tree_t *tmpl = fa->c[0], *g = fa->c[1];
     if (!g) return;
+    if (g->t == TT_VAR) return;
     int need;
     if (g->t == TT_QLIT) need = 0;
     else if (g->t == TT_FNC && g->v.sval && strcmp(g->v.sval, ",") && strcmp(g->v.sval, ";")) {
