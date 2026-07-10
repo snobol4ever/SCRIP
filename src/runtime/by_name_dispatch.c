@@ -2871,6 +2871,26 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     rt_gc_point_arr(args, nargs, (const char **)0);
     if (!fn) return out;
+    if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
+        extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+        DESCR_t a = (nargs > 0) ? args[0] : NULVCL, b = (nargs > 1) ? args[1] : NULVCL;
+        if (!strcmp(fn, "+")) return rt_num_arith(a, b, BINOP_ADD);
+        if (!strcmp(fn, "-")) return rt_num_arith(a, b, BINOP_SUB);
+        if (!strcmp(fn, "*")) return rt_num_arith(a, b, BINOP_MUL);
+        if (!strcmp(fn, "/")) return rt_num_arith(a, b, BINOP_DIV);
+        if (!strcmp(fn, "%")) return rt_num_arith(a, b, BINOP_MOD);
+        if (!strcmp(fn, "^")) return rt_num_arith(a, b, BINOP_POW);
+        if (!strcmp(fn, "||")) { const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); if (!x) x = ""; if (!y) y = ""; size_t lx = strlen(x), ly = strlen(y); char *o = rt_str_alloc((int)(lx + ly)); memcpy(o, x, lx); memcpy(o + lx, y, ly); o[lx + ly] = 0; return STRVAL(o); }
+        { int oc = -1;
+          if      (!strcmp(fn, "="))    oc = BINOP_EQ;  else if (!strcmp(fn, "~="))   oc = BINOP_NE;
+          else if (!strcmp(fn, "<"))    oc = BINOP_LT;  else if (!strcmp(fn, "<="))   oc = BINOP_LE;
+          else if (!strcmp(fn, ">"))    oc = BINOP_GT;  else if (!strcmp(fn, ">="))   oc = BINOP_GE;
+          else if (!strcmp(fn, "=="))   oc = BINOP_SEQ; else if (!strcmp(fn, "~=="))  oc = BINOP_SNE;
+          else if (!strcmp(fn, "<<"))   oc = BINOP_SLT; else if (!strcmp(fn, "<<="))  oc = BINOP_SLE;
+          else if (!strcmp(fn, ">>"))   oc = BINOP_SGT; else if (!strcmp(fn, ">>="))  oc = BINOP_SGE;
+          else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
+          if (oc >= 0) return rt_jct_relop(a, b, oc) ? b : FAILDESCR; }
+    }
     if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
     out = APPLY_fn(fn, args, nargs);
     return out;
@@ -3427,6 +3447,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = GC_strdup(pname); *out = bv; return 1;
         }
+        { static const char *op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===", 0 };
+          static const char *op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
+          const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1) ? op1 : 0;
+          if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = GC_strdup(pname); *out = bv; return 1; } }
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn,"image") && nargs == 1) {
@@ -3540,7 +3564,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         outs[o] = '\0';
         *out = STRVAL(outs); return 1;
     }
-    if (!strcmp(fn,"image") && nargs == 2) {
+    if (!strcmp(fn,"image") && nargs >= 2) {
         DESCR_t av = args[0];
         if (IS_STR_fn(av) && av.s) {
             char *buf = GC_malloc(64);
