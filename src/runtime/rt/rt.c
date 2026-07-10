@@ -222,20 +222,68 @@ static const char * rt_coerce_errmsg(int code) {
     case 182: return "rtab argument is negative or too large";
     case 184: return "tab argument is negative or too large";
     case 186: return "rpos argument is negative or too large";
+    case 101: return "eq first argument is not numeric";  case 102: return "eq second argument is not numeric";
+    case 109: return "ge first argument is not numeric";  case 110: return "ge second argument is not numeric";
+    case 111: return "gt first argument is not numeric";  case 112: return "gt second argument is not numeric";
+    case 118: return "le first argument is not numeric";  case 119: return "le second argument is not numeric";
+    case 147: return "lt first argument is not numeric";  case 148: return "lt second argument is not numeric";
+    case 149: return "ne first argument is not numeric";  case 150: return "ne second argument is not numeric";
+    case 122: return "leq first argument is not a string"; case 123: return "leq second argument is not a string";
+    case 124: return "lge first argument is not a string"; case 125: return "lge second argument is not a string";
+    case 126: return "lgt first argument is not a string"; case 127: return "lgt second argument is not a string";
+    case 128: return "lle first argument is not a string"; case 129: return "lle second argument is not a string";
+    case 130: return "llt first argument is not a string"; case 131: return "llt second argument is not a string";
+    case 132: return "lne first argument is not a string"; case 133: return "lne second argument is not a string";
     default:  return "pattern primitive argument coercion failed"; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
-    int ec = (int)(codes & 0xffff);
+    int tc = (int)(codes & 0xffff);
+    int nc = (int)((codes >> 16) & 0xffff);
     DESCR_t v = *in;
     if (v.v == DT_S && v.s && v.s[0]) { *out = v; out->slen = (uint32_t)strlen(v.s); return; }
+    if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return; }
     if (v.v == DT_I || v.v == DT_R) {
         char *s = VARVAL_fn(v);
-        if ((!s || !s[0]) && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
+        if ((!s || !s[0]) && nc) core_runtime_error(nc, rt_coerce_errmsg(nc));
         out->v = DT_S; out->s = s ? s : (char *)""; out->slen = (uint32_t)strlen(out->s); return; }
-    if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
+    if (tc) core_runtime_error(tc, rt_coerce_errmsg(tc));
     out->v = DT_S; out->s = (char *)""; out->slen = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal) {
+    if (v->v == DT_I) { *iv = v->i; *isreal = 0; return 1; }
+    if (v->v == DT_R) { *rv = v->r; *isreal = 1; return 1; }
+    if (v->v == DT_SNUL) { *iv = 0; *isreal = 0; return 1; }
+    if (v->v == DT_S && v->s) {
+        const char *p = v->s; while (*p == ' ') p++;
+        if (!*p) { *iv = 0; *isreal = 0; return 1; }
+        { char *ep = NULL; long long t = strtoll(p, &ep, 10);
+          if (ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { *iv = (int64_t)t; *isreal = 0; return 1; } } }
+        { char *ep = NULL; double d = strtod(p, &ep);
+          if (ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { *rv = d; *isreal = 1; return 1; } } } }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes) {
+    extern void core_runtime_error(int code, const char *msg);
+    int ec = (int)(codes & 0xffff);
+    int64_t si = 0, oi = 0; double sr = 0, orr = 0; int sreal = 0, oreal = 0;
+    if (!rt_parse_num_d(self, &si, &sr, &sreal)) { if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec)); si = 0; sreal = 0; }
+    int ook = rt_parse_num_d(other, &oi, &orr, &oreal);
+    (void)ook; (void)oi; (void)orr;
+    if (sreal || oreal) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; }
+    else { out->v = DT_I; out->slen = 0; out->i = si; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_cmp_d(const DESCR_t *a, const DESCR_t *b) {
+    if ((a->v == DT_S || a->v == DT_SNUL) && (b->v == DT_S || b->v == DT_SNUL)) {
+        int c = strcmp((a->v == DT_S && a->s) ? a->s : "", (b->v == DT_S && b->s) ? b->s : "");
+        return (c < 0) ? -1 : (c > 0) ? 1 : 0; }
+    if (a->v == DT_I && b->v == DT_I) return (a->i < b->i) ? -1 : (a->i > b->i) ? 1 : 0;
+    { double x = (a->v == DT_R) ? a->r : (double)a->i; double y = (b->v == DT_R) ? b->r : (double)b->i;
+      return (x < y) ? -1 : (x > y) ? 1 : 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {

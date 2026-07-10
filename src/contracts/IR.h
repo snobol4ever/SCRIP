@@ -89,6 +89,8 @@ typedef enum {
     IR_VAR_REF,
     IR_COERCE_STRING,       /* operand-edge coercion (2026-07-10 GEM/operand rung): operand[0] = value node; own slot gets a DT_S DESCR; ival = SPITBOL error code raised on null/non-string (0 = permissive) */
     IR_COERCE_INTEGER,      /* operand[0] = value node; own slot gets a DT_I DESCR; ival = nonint_errcode | (negative_errcode << 16); neg code 0 = negatives allowed */
+    IR_COERCE_NUMERIC,      /* SNOBOL4 predicate arg (2026-07-10): operands[0]=self [1]=other; joint INTEGER-vs-REAL decision needs BOTH (either real -> both real); own slot DT_I or DT_R; ival = positional errcode */
+    IR_CMP_TEST,            /* predicate compare: operands[0]/[1] = the two coerced values; ival = relop 0..5 (EQ NE LT LE GT GE); gamma = succeed (own slot := null string), omega = fail */
     /* ---- SNOBOL4 pattern family (SN4-PAT) ---------------------------------------------------
      * Re-added onto the post-GZ#5 spine. Amputated wholesale by 8de0fb46 (GZ#5 ENUM-AMPUTATION);
      * design recovered from parent 41b53078. Two families + one sealed-blob ref, mirroring SPITBOL:

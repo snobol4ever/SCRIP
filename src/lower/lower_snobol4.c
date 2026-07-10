@@ -121,6 +121,49 @@ static int sno_tree_has_define_call(const tree_t * t) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pred_relop(const char * n, int * lex, long * c1, long * c2) {
+    if (!n) return -1;
+    *lex = 0;
+    if (!strcmp(n, "EQ")) { *c1 = 101; *c2 = 102; return 0; }
+    if (!strcmp(n, "NE")) { *c1 = 149; *c2 = 150; return 1; }
+    if (!strcmp(n, "LT")) { *c1 = 147; *c2 = 148; return 2; }
+    if (!strcmp(n, "LE")) { *c1 = 118; *c2 = 119; return 3; }
+    if (!strcmp(n, "GT")) { *c1 = 111; *c2 = 112; return 4; }
+    if (!strcmp(n, "GE")) { *c1 = 109; *c2 = 110; return 5; }
+    *lex = 1;
+    if (!strcmp(n, "LEQ")) { *c1 = 122; *c2 = 123; return 0; }
+    if (!strcmp(n, "LNE")) { *c1 = 132; *c2 = 133; return 1; }
+    if (!strcmp(n, "LLT")) { *c1 = 130; *c2 = 131; return 2; }
+    if (!strcmp(n, "LLE")) { *c1 = 128; *c2 = 129; return 3; }
+    if (!strcmp(n, "LGT")) { *c1 = 126; *c2 = 127; return 4; }
+    if (!strcmp(n, "LGE")) { *c1 = 124; *c2 = 125; return 5; }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sx_pred_cmp(scx_t * cx, const tree_t * t, int argbase, int lex, int rk, long c1, long c2, IR_t * γ, IR_t * ω, IR_t ** res) {
+    /* SNOBOL4 relational predicate decomposition (Lon directive 2026-07-10): argX chain -> argY chain ->
+     * COERCE(self,other) x2 -> CMP_TEST.  Numeric coercion is a JOINT decision (either operand real -> both
+     * real; strings parse int-then-real; null = 0); each coerce validates only SELF and raises its own
+     * oracle-pinned POSITIONAL error code, first position first (GT('x','y') -> 111 not 112).  Lexical family
+     * rides the existing IR_COERCE_STRING with empty allowed (typecode only).  Success value = null string. */
+    IR_graph_t * g = cx->g;
+    IR_t * cmp = lc_build(g, IR_CMP_TEST, γ, ω); IR_LIT(cmp).ival = rk;
+    IR_t * cb = lc_build(g, lex ? IR_COERCE_STRING : IR_COERCE_NUMERIC, cmp, ω); IR_LIT(cb).ival = c2;
+    IR_t * ca = lc_build(g, lex ? IR_COERCE_STRING : IR_COERCE_NUMERIC, cb, ω); IR_LIT(ca).ival = c1;
+    const tree_t * ax = (t->n > argbase + 0) ? t->c[argbase + 0] : NULL;
+    const tree_t * bx = (t->n > argbase + 1) ? t->c[argbase + 1] : NULL;
+    IR_t * ar = NULL; IR_t * br = NULL; IR_t * be; IR_t * ae;
+    if (bx) be = sx_lower(cx, bx, ca, ω, &br);
+    else { br = lc_build(g, IR_LIT_STRING, ca, ω); IR_LIT(br).sval = (char *) ""; be = br; }
+    if (ax) ae = sx_lower(cx, ax, be, ω, &ar);
+    else { ar = lc_build(g, IR_LIT_STRING, be, ω); IR_LIT(ar).sval = (char *) ""; ae = ar; }
+    ir_operand_push(ca, ar); if (!lex) ir_operand_push(ca, br);
+    ir_operand_push(cb, br); if (!lex) ir_operand_push(cb, ar);
+    ir_operand_push(cmp, ca); ir_operand_push(cmp, cb);
+    if (res) *res = cmp;
+    return ae;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbase, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
     int nargs = t ? (t->n - argbase) : 0;
@@ -287,6 +330,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (fnb[0] && sno_predef_registered(fnb)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
             sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
         }
+        { int lex = 0; long c1 = 0, c2 = 0; int rk = sno_pred_relop(name, &lex, &c1, &c2);
+          if (rk >= 0 && t->n - argbase >= 1 && t->n - argbase <= 2) return sx_pred_cmp(cx, t, argbase, lex, rk, c1, c2, γ, ω, res); }
         return sx_call_named(cx, name, t, argbase, γ, ω, res);
     }
     case TT_WHILE: case TT_UNTIL: {
@@ -784,7 +829,7 @@ static void sno_fz_build_table(const tree_t ** st, int nst) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long sno_prearg_codes(int tt) {
     switch (tt) {
-    case TT_ANY: return 59; case TT_BREAK: return 69; case TT_BREAKX: return 70; case TT_NOTANY: return 151; case TT_SPAN: return 188;
+    case TT_ANY: return 59L | (59L << 16); case TT_BREAK: return 69L | (69L << 16); case TT_BREAKX: return 70L | (70L << 16); case TT_NOTANY: return 151L | (151L << 16); case TT_SPAN: return 188L | (188L << 16);
     case TT_LEN: return 120L | (121L << 16); case TT_POS: return 162L | (163L << 16); case TT_RTAB: return 181L | (182L << 16); case TT_TAB: return 183L | (184L << 16); case TT_RPOS: return 185L | (186L << 16);
     default: return 0; }
 }
