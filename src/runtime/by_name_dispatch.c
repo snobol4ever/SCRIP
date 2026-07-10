@@ -2911,6 +2911,22 @@ DESCR_t rt_str_coerce(DESCR_t d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
+    if (op == BINOP_EQV || op == BINOP_NEQV) {
+        int eq = 0;
+        int lcs = (lhs.v == DT_S && lhs.slen == 0xFFFFFFFFu), rcs = (rhs.v == DT_S && rhs.slen == 0xFFFFFFFFu);
+        if (lhs.v == rhs.v && lhs.i == rhs.i) eq = 1;
+        else if (lcs || rcs) {
+            if (lcs && rcs) { const char *ca, *cb; int la, lb; eq = cset_resolve(lhs, &ca, &la) && cset_resolve(rhs, &cb, &lb) && la == lb && memcmp(ca, cb, (size_t)la) == 0; }
+        }
+        else if ((lhs.v == DT_S || lhs.v == DT_SNUL) && (rhs.v == DT_S || rhs.v == DT_SNUL)) {
+            const char *a = lhs.s ? lhs.s : ""; const char *b = rhs.s ? rhs.s : "";
+            long la = lhs.slen ? (long)lhs.slen : (long)strlen(a); long lb = rhs.slen ? (long)rhs.slen : (long)strlen(b);
+            eq = (la == lb) && memcmp(a, b, (size_t)la) == 0;
+        }
+        else if (lhs.v == rhs.v && lhs.v == DT_I) eq = (lhs.i == rhs.i);
+        else if (lhs.v == rhs.v && lhs.v == DT_R) eq = (lhs.r == rhs.r);
+        return (op == BINOP_EQV) ? eq : !eq;
+    }
     int lj = junction_is(lhs), rj = junction_is(rhs);
     int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
     int str_rel = (op == BINOP_SEQ || op == BINOP_SNE || op == BINOP_SLT || op == BINOP_SLE || op == BINOP_SGT || op == BINOP_SGE);

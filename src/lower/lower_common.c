@@ -201,7 +201,8 @@ int lc_binop_code(tree_e tt) {
     case TT_EQ: return 9; case TT_NE: return 10; case TT_CAT: return 11;
     case TT_LLT: return 12; case TT_LLE: return 13; case TT_LGT: return 14; case TT_LGE: return 15;
     case TT_LEQ: return 16; case TT_LNE: return 17; case TT_POW: return 18;
-    case TT_CSET_UNION: return 19; case TT_CSET_DIFF: return 20; case TT_CSET_INTER: return 21; default: return 0; }
+    case TT_CSET_UNION: return 19; case TT_CSET_DIFF: return 20; case TT_CSET_INTER: return 21;
+    case TT_IDENTICAL: return 22; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lc_is_binop(tree_e tt) {
@@ -209,6 +210,7 @@ int lc_is_binop(tree_e tt) {
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_LT: case TT_LE: case TT_GT: case TT_GE:
     case TT_EQ: case TT_NE: case TT_CAT: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE: return 1;
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER: return 1;
+    case TT_IDENTICAL: return 1;
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
