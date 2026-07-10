@@ -121,10 +121,10 @@ main_α_body:
  mov rax, qword ptr [r12 + 168]
  mov qword ptr [r12 + 104], rax
   .section .rodata
-  .Lbynamefn7: .string "differ"
+  .Lbynamefn6: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn7]
+ lea rdi, [rip + .Lbynamefn6]
  lea rsi, [r12 + 80]
  mov edx, 2
  call rt_call_arr@PLT
@@ -133,29 +133,29 @@ main_α_body:
  cmp eax, 99
  je xchain0_n4_α
  jmp xchain0_n7_α
-xchain0_n5_β:
+ xchain0_n5_β:
  jmp xchain0_n4_α
 # IR_LIT_INTEGER
  xchain0_n6_α:
  mov qword ptr [r12 + 288], 6
- mov rax, qword ptr [rip + .Lx8_0]
+ mov rax, qword ptr [rip + .Lx7_0]
  mov qword ptr [r12 + 296], rax
  jmp xchain0_n8_α
  xchain0_n6_β:
  jmp xchain0_n11_α
-.Lx8_0:
+.Lx7_0:
  .quad 2
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [r12 + 192], 1
- mov rax, qword ptr [rip + .Lx9_0]
+ mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [r12 + 200], rax
  jmp xchain0_n9_α
  xchain0_n7_β:
  jmp main_γ
-.Lx9_0:
- .quad .Lx9_0_s
-.Lx9_0_s:
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
  .string "FAIL 413/001: int+real promotes to real"
  xchain0_n8_α:
 # IR_BINOP_ARITH_REAL
@@ -186,24 +186,24 @@ xchain0_n5_β:
 # IR_LIT_REAL
  xchain0_n10_α:
  mov qword ptr [r12 + 304], 7
- mov rax, qword ptr [rip + .Lx12_0]
+ mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 312], rax
  jmp xchain0_n12_α
  xchain0_n10_β:
  jmp xchain0_n11_α
-.Lx12_0:
+.Lx11_0:
  .quad 4609434218613702656
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [r12 + 368], 1
- mov rax, qword ptr [rip + .Lx13_0]
+ mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 376], rax
  jmp xchain0_n13_α
  xchain0_n11_β:
  jmp main_γ
-.Lx13_0:
- .quad .Lx13_0_s
-.Lx13_0_s:
+.Lx12_0:
+ .quad .Lx12_0_s
+.Lx12_0_s:
  .string "PASS 413_arith_mixed (2/2)"
  xchain0_n12_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -218,10 +218,10 @@ xchain0_n5_β:
  mov rax, qword ptr [r12 + 312]
  mov qword ptr [r12 + 248], rax
   .section .rodata
-  .Lbynamefn15: .string "differ"
+  .Lbynamefn13: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn15]
+ lea rdi, [rip + .Lbynamefn13]
  lea rsi, [r12 + 224]
  mov edx, 2
  call rt_call_arr@PLT
@@ -230,7 +230,7 @@ xchain0_n5_β:
  cmp eax, 99
  je xchain0_n11_α
  jmp xchain0_n14_α
-xchain0_n12_β:
+ xchain0_n12_β:
  jmp xchain0_n11_α
 # IR_ASSIGN gva
  xchain0_n13_α:
@@ -246,14 +246,14 @@ xchain0_n12_β:
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [r12 + 336], 1
- mov rax, qword ptr [rip + .Lx17_0]
+ mov rax, qword ptr [rip + .Lx15_0]
  mov qword ptr [r12 + 344], rax
  jmp xchain0_n15_α
  xchain0_n14_β:
  jmp main_γ
-.Lx17_0:
- .quad .Lx17_0_s
-.Lx17_0_s:
+.Lx15_0:
+ .quad .Lx15_0_s
+.Lx15_0_s:
  .string "FAIL 413/002: real/int promotes to real"
 # IR_ASSIGN gva
  xchain0_n15_α:

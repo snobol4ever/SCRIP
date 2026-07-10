@@ -180,10 +180,10 @@ main_α_body:
  mov rax, qword ptr [r12 + 216]
  mov qword ptr [r12 + 136], rax
   .section .rodata
-  .Lbynamefn12: .string "differ"
+  .Lbynamefn9: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn12]
+ lea rdi, [rip + .Lbynamefn9]
  lea rsi, [r12 + 112]
  mov edx, 2
  call rt_call_arr@PLT
@@ -192,7 +192,7 @@ main_α_body:
  cmp eax, 99
  je xchain0_n5_α
  jmp xchain0_n11_α
-xchain0_n8_β:
+ xchain0_n8_β:
  jmp xchain0_n5_α
 # IR_DEREF variable -> value
  xchain0_n9_α:
@@ -209,26 +209,26 @@ xchain0_n8_β:
 # IR_LIT_STRING
  xchain0_n10_α:
  mov qword ptr [r12 + 432], 1
- mov rax, qword ptr [rip + .Lx14_0]
+ mov rax, qword ptr [rip + .Lx13_0]
  mov qword ptr [r12 + 440], rax
  jmp xchain0_n13_α
  xchain0_n10_β:
  jmp main_γ
-.Lx14_0:
- .quad .Lx14_0_s
-.Lx14_0_s:
+.Lx13_0:
+ .quad .Lx13_0_s
+.Lx13_0_s:
  .string "PASS 210_indirect_ref (2/2)"
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [r12 + 240], 1
- mov rax, qword ptr [rip + .Lx15_0]
+ mov rax, qword ptr [rip + .Lx14_0]
  mov qword ptr [r12 + 248], rax
  jmp xchain0_n14_α
  xchain0_n11_β:
  jmp main_γ
-.Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
+.Lx14_0:
+ .quad .Lx14_0_s
+.Lx14_0_s:
  .string "FAIL 210/001: $string lookup"
 # IR_VAR
  xchain0_n12_α:
@@ -274,10 +274,10 @@ xchain0_n8_β:
  mov rax, qword ptr [r12 + 376]
  mov qword ptr [r12 + 296], rax
   .section .rodata
-  .Lbynamefn20: .string "differ"
+  .Lbynamefn16: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn20]
+ lea rdi, [rip + .Lbynamefn16]
  lea rsi, [r12 + 272]
  mov edx, 2
  call rt_call_arr@PLT
@@ -286,19 +286,19 @@ xchain0_n8_β:
  cmp eax, 99
  je xchain0_n10_α
  jmp xchain0_n16_α
-xchain0_n15_β:
+ xchain0_n15_β:
  jmp xchain0_n10_α
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [r12 + 400], 1
- mov rax, qword ptr [rip + .Lx21_0]
+ mov rax, qword ptr [rip + .Lx19_0]
  mov qword ptr [r12 + 408], rax
  jmp xchain0_n17_α
  xchain0_n16_β:
  jmp main_γ
-.Lx21_0:
- .quad .Lx21_0_s
-.Lx21_0_s:
+.Lx19_0:
+ .quad .Lx19_0_s
+.Lx19_0_s:
  .string "FAIL 210/002: $.var lookup"
 # IR_ASSIGN gva
  xchain0_n17_α:

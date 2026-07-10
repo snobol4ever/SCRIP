@@ -83,10 +83,10 @@ main_α_body:
  mov rax, qword ptr [r12 + 104]
  mov qword ptr [r12 + 88], rax
   .section .rodata
-  .Lbynamefn3: .string "define"
+  .Lbynamefn2: .string "define"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn3]
+ lea rdi, [rip + .Lbynamefn2]
  lea rsi, [r12 + 80]
  mov edx, 1
  call rt_call_arr@PLT
@@ -95,17 +95,17 @@ main_α_body:
  cmp eax, 99
  je xchain0_n2_α
  jmp xchain0_n2_α
-xchain0_n1_β:
+ xchain0_n1_β:
  jmp xchain0_n2_α
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [r12 + 448], 6
- mov rax, qword ptr [rip + .Lx4_0]
+ mov rax, qword ptr [rip + .Lx3_0]
  mov qword ptr [r12 + 456], rax
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n5_α
-.Lx4_0:
+.Lx3_0:
  .quad 5
  xchain0_n3_α:
 # BOX IR_CALL fact(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -115,10 +115,10 @@ xchain0_n1_β:
  mov rax, qword ptr [r12 + 456]
  mov qword ptr [r12 + 440], rax
   .section .rodata
-  .Lbynamefn6: .string "fact"
+  .Lbynamefn4: .string "fact"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn6]
+ lea rdi, [rip + .Lbynamefn4]
  lea rsi, [r12 + 432]
  mov edx, 1
  call rt_call_arr@PLT
@@ -127,29 +127,29 @@ xchain0_n1_β:
  cmp eax, 99
  je xchain0_n5_α
  jmp xchain0_n4_α
-xchain0_n3_β:
+ xchain0_n3_β:
  jmp xchain0_n5_α
 # IR_LIT_INTEGER
  xchain0_n4_α:
  mov qword ptr [r12 + 464], 6
- mov rax, qword ptr [rip + .Lx7_0]
+ mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 472], rax
  jmp xchain0_n6_α
  xchain0_n4_β:
  jmp xchain0_n5_α
-.Lx7_0:
+.Lx5_0:
  .quad 120
 # IR_LIT_STRING
  xchain0_n5_α:
  mov qword ptr [r12 + 624], 1
- mov rax, qword ptr [rip + .Lx8_0]
+ mov rax, qword ptr [rip + .Lx6_0]
  mov qword ptr [r12 + 632], rax
  jmp xchain0_n7_α
  xchain0_n5_β:
  jmp xchain0_n10_α
-.Lx8_0:
- .quad .Lx8_0_s
-.Lx8_0_s:
+.Lx6_0:
+ .quad .Lx6_0_s
+.Lx6_0_s:
  .string "facto"
  xchain0_n6_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -164,10 +164,10 @@ xchain0_n3_β:
  mov rax, qword ptr [r12 + 472]
  mov qword ptr [r12 + 408], rax
   .section .rodata
-  .Lbynamefn10: .string "ne"
+  .Lbynamefn7: .string "ne"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn10]
+ lea rdi, [rip + .Lbynamefn7]
  lea rsi, [r12 + 384]
  mov edx, 2
  call rt_call_arr@PLT
@@ -176,7 +176,7 @@ xchain0_n3_β:
  cmp eax, 99
  je xchain0_n5_α
  jmp xchain0_n8_α
-xchain0_n6_β:
+ xchain0_n6_β:
  jmp xchain0_n5_α
  xchain0_n7_α:
 # BOX IR_CALL SNO$NAME(...) -> rt_call_arr [operand-marshal, FAIL->ω]
@@ -186,10 +186,10 @@ xchain0_n6_β:
  mov rax, qword ptr [r12 + 632]
  mov qword ptr [r12 + 616], rax
   .section .rodata
-  .Lrkfn12: .string "SNO$NAME"
+  .Lrkfn9: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn12]
+   lea rdi, [rip + .Lrkfn9]
  lea rsi, [r12 + 608]
  mov edx, 1
  call rt_call_arr@PLT
@@ -203,36 +203,36 @@ xchain0_n6_β:
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [r12 + 496], 1
- mov rax, qword ptr [rip + .Lx13_0]
+ mov rax, qword ptr [rip + .Lx10_0]
  mov qword ptr [r12 + 504], rax
  jmp xchain0_n11_α
  xchain0_n8_β:
  jmp main_γ
-.Lx13_0:
- .quad .Lx13_0_s
-.Lx13_0_s:
+.Lx10_0:
+ .quad .Lx10_0_s
+.Lx10_0_s:
  .string "FAIL 1010/001: fact(5)=120"
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [r12 + 640], 1
- mov rax, qword ptr [rip + .Lx14_0]
+ mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 648], rax
  jmp xchain0_n12_α
  xchain0_n9_β:
  jmp xchain0_n10_α
-.Lx14_0:
- .quad .Lx14_0_s
-.Lx14_0_s:
+.Lx11_0:
+ .quad .Lx11_0_s
+.Lx11_0_s:
  .string "fact"
 # IR_LIT_INTEGER
  xchain0_n10_α:
  mov qword ptr [r12 + 768], 6
- mov rax, qword ptr [rip + .Lx15_0]
+ mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 776], rax
  jmp xchain0_n13_α
  xchain0_n10_β:
  jmp xchain0_n16_α
-.Lx15_0:
+.Lx12_0:
  .quad 4
 # IR_ASSIGN gva
  xchain0_n11_α:
@@ -258,10 +258,10 @@ xchain0_n6_β:
  mov rax, qword ptr [r12 + 648]
  mov qword ptr [r12 + 584], rax
   .section .rodata
-  .Lbynamefn18: .string "opsyn"
+  .Lbynamefn13: .string "opsyn"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn18]
+ lea rdi, [rip + .Lbynamefn13]
  lea rsi, [r12 + 560]
  mov edx, 2
  call rt_call_arr@PLT
@@ -270,7 +270,7 @@ xchain0_n6_β:
  cmp eax, 99
  je xchain0_n10_α
  jmp xchain0_n14_α
-xchain0_n12_β:
+ xchain0_n12_β:
  jmp xchain0_n10_α
  xchain0_n13_α:
 # BOX IR_CALL facto(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -280,10 +280,10 @@ xchain0_n12_β:
  mov rax, qword ptr [r12 + 776]
  mov qword ptr [r12 + 760], rax
   .section .rodata
-  .Lbynamefn20: .string "facto"
+  .Lbynamefn14: .string "facto"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn20]
+ lea rdi, [rip + .Lbynamefn14]
  lea rsi, [r12 + 752]
  mov edx, 1
  call rt_call_arr@PLT
@@ -292,7 +292,7 @@ xchain0_n12_β:
  cmp eax, 99
  je xchain0_n16_α
  jmp xchain0_n15_α
-xchain0_n13_β:
+ xchain0_n13_β:
  jmp xchain0_n16_α
  xchain0_n14_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -302,10 +302,10 @@ xchain0_n13_β:
  mov rax, qword ptr [r12 + 552]
  mov qword ptr [r12 + 536], rax
   .section .rodata
-  .Lbynamefn22: .string "differ"
+  .Lbynamefn15: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn22]
+ lea rdi, [rip + .Lbynamefn15]
  lea rsi, [r12 + 528]
  mov edx, 1
  call rt_call_arr@PLT
@@ -314,41 +314,41 @@ xchain0_n13_β:
  cmp eax, 99
  je xchain0_n10_α
  jmp xchain0_n17_α
-xchain0_n14_β:
+ xchain0_n14_β:
  jmp xchain0_n10_α
 # IR_LIT_INTEGER
  xchain0_n15_α:
  mov qword ptr [r12 + 784], 6
- mov rax, qword ptr [rip + .Lx23_0]
+ mov rax, qword ptr [rip + .Lx17_0]
  mov qword ptr [r12 + 792], rax
  jmp xchain0_n18_α
  xchain0_n15_β:
  jmp xchain0_n16_α
-.Lx23_0:
+.Lx17_0:
  .quad 24
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [r12 + 880], 1
- mov rax, qword ptr [rip + .Lx24_0]
+ mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [r12 + 888], rax
  jmp xchain0_n19_α
  xchain0_n16_β:
  jmp xchain0_n25_α
-.Lx24_0:
- .quad .Lx24_0_s
-.Lx24_0_s:
+.Lx18_0:
+ .quad .Lx18_0_s
+.Lx18_0_s:
  .string "fact2(n)"
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [r12 + 672], 1
- mov rax, qword ptr [rip + .Lx25_0]
+ mov rax, qword ptr [rip + .Lx19_0]
  mov qword ptr [r12 + 680], rax
  jmp xchain0_n20_α
  xchain0_n17_β:
  jmp main_γ
-.Lx25_0:
- .quad .Lx25_0_s
-.Lx25_0_s:
+.Lx19_0:
+ .quad .Lx19_0_s
+.Lx19_0_s:
  .string "FAIL 1010/002: opsyn alias"
  xchain0_n18_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -363,10 +363,10 @@ xchain0_n14_β:
  mov rax, qword ptr [r12 + 792]
  mov qword ptr [r12 + 728], rax
   .section .rodata
-  .Lbynamefn27: .string "ne"
+  .Lbynamefn19: .string "ne"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn27]
+ lea rdi, [rip + .Lbynamefn19]
  lea rsi, [r12 + 704]
  mov edx, 2
  call rt_call_arr@PLT
@@ -375,19 +375,19 @@ xchain0_n14_β:
  cmp eax, 99
  je xchain0_n16_α
  jmp xchain0_n21_α
-xchain0_n18_β:
+ xchain0_n18_β:
  jmp xchain0_n16_α
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [r12 + 928], 1
- mov rax, qword ptr [rip + .Lx28_0]
+ mov rax, qword ptr [rip + .Lx21_0]
  mov qword ptr [r12 + 936], rax
  jmp xchain0_n22_α
  xchain0_n19_β:
  jmp xchain0_n25_α
-.Lx28_0:
- .quad .Lx28_0_s
-.Lx28_0_s:
+.Lx21_0:
+ .quad .Lx21_0_s
+.Lx21_0_s:
  .string "fact2_entry"
 # IR_ASSIGN gva
  xchain0_n20_α:
@@ -403,14 +403,14 @@ xchain0_n18_β:
 # IR_LIT_STRING
  xchain0_n21_α:
  mov qword ptr [r12 + 816], 1
- mov rax, qword ptr [rip + .Lx30_0]
+ mov rax, qword ptr [rip + .Lx23_0]
  mov qword ptr [r12 + 824], rax
  jmp xchain0_n23_α
  xchain0_n21_β:
  jmp main_γ
-.Lx30_0:
- .quad .Lx30_0_s
-.Lx30_0_s:
+.Lx23_0:
+ .quad .Lx23_0_s
+.Lx23_0_s:
  .string "FAIL 1010/003: facto(4)=24 via alias"
  xchain0_n22_α:
 # BOX IR_CALL SNO$NAME(...) -> rt_call_arr [operand-marshal, FAIL->ω]
@@ -420,10 +420,10 @@ xchain0_n18_β:
  mov rax, qword ptr [r12 + 936]
  mov qword ptr [r12 + 920], rax
   .section .rodata
-  .Lrkfn32: .string "SNO$NAME"
+  .Lrkfn25: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn32]
+   lea rdi, [rip + .Lrkfn25]
  lea rsi, [r12 + 912]
  mov edx, 1
  call rt_call_arr@PLT
@@ -458,10 +458,10 @@ xchain0_n18_β:
  mov rax, qword ptr [r12 + 904]
  mov qword ptr [r12 + 872], rax
   .section .rodata
-  .Lbynamefn35: .string "define"
+  .Lbynamefn25: .string "define"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn35]
+ lea rdi, [rip + .Lbynamefn25]
  lea rsi, [r12 + 848]
  mov edx, 2
  call rt_call_arr@PLT
@@ -470,17 +470,17 @@ xchain0_n18_β:
  cmp eax, 99
  je xchain0_n25_α
  jmp xchain0_n25_α
-xchain0_n24_β:
+ xchain0_n24_β:
  jmp xchain0_n25_α
 # IR_LIT_INTEGER
  xchain0_n25_α:
  mov qword ptr [r12 + 1280], 6
- mov rax, qword ptr [rip + .Lx36_0]
+ mov rax, qword ptr [rip + .Lx28_0]
  mov qword ptr [r12 + 1288], rax
  jmp xchain0_n26_α
  xchain0_n25_β:
  jmp xchain0_n28_α
-.Lx36_0:
+.Lx28_0:
  .quad 6
  xchain0_n26_α:
 # BOX IR_CALL fact2(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -490,10 +490,10 @@ xchain0_n24_β:
  mov rax, qword ptr [r12 + 1288]
  mov qword ptr [r12 + 1272], rax
   .section .rodata
-  .Lbynamefn38: .string "fact2"
+  .Lbynamefn27: .string "fact2"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn38]
+ lea rdi, [rip + .Lbynamefn27]
  lea rsi, [r12 + 1264]
  mov edx, 1
  call rt_call_arr@PLT
@@ -502,29 +502,29 @@ xchain0_n24_β:
  cmp eax, 99
  je xchain0_n28_α
  jmp xchain0_n27_α
-xchain0_n26_β:
+ xchain0_n26_β:
  jmp xchain0_n28_α
 # IR_LIT_INTEGER
  xchain0_n27_α:
  mov qword ptr [r12 + 1296], 6
- mov rax, qword ptr [rip + .Lx39_0]
+ mov rax, qword ptr [rip + .Lx30_0]
  mov qword ptr [r12 + 1304], rax
  jmp xchain0_n29_α
  xchain0_n27_β:
  jmp xchain0_n28_α
-.Lx39_0:
+.Lx30_0:
  .quad 720
 # IR_LIT_STRING
  xchain0_n28_α:
  mov qword ptr [r12 + 1360], 1
- mov rax, qword ptr [rip + .Lx40_0]
+ mov rax, qword ptr [rip + .Lx31_0]
  mov qword ptr [r12 + 1368], rax
  jmp xchain0_n30_α
  xchain0_n28_β:
  jmp main_γ
-.Lx40_0:
- .quad .Lx40_0_s
-.Lx40_0_s:
+.Lx31_0:
+ .quad .Lx31_0_s
+.Lx31_0_s:
  .string "PASS 1010_func_recursion (4/4)"
  xchain0_n29_α:
 # BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -539,10 +539,10 @@ xchain0_n26_β:
  mov rax, qword ptr [r12 + 1304]
  mov qword ptr [r12 + 1240], rax
   .section .rodata
-  .Lbynamefn42: .string "ne"
+  .Lbynamefn30: .string "ne"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn42]
+ lea rdi, [rip + .Lbynamefn30]
  lea rsi, [r12 + 1216]
  mov edx, 2
  call rt_call_arr@PLT
@@ -551,7 +551,7 @@ xchain0_n26_β:
  cmp eax, 99
  je xchain0_n28_α
  jmp xchain0_n31_α
-xchain0_n29_β:
+ xchain0_n29_β:
  jmp xchain0_n28_α
 # IR_ASSIGN gva
  xchain0_n30_α:
@@ -567,14 +567,14 @@ xchain0_n29_β:
 # IR_LIT_STRING
  xchain0_n31_α:
  mov qword ptr [r12 + 1328], 1
- mov rax, qword ptr [rip + .Lx44_0]
+ mov rax, qword ptr [rip + .Lx34_0]
  mov qword ptr [r12 + 1336], rax
  jmp xchain0_n32_α
  xchain0_n31_β:
  jmp main_γ
-.Lx44_0:
- .quad .Lx44_0_s
-.Lx44_0_s:
+.Lx34_0:
+ .quad .Lx34_0_s
+.Lx34_0_s:
  .string "FAIL 1010/004: fact2(6)=720 alt entry"
 # IR_ASSIGN gva
  xchain0_n32_α:
