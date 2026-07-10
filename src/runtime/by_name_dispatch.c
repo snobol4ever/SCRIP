@@ -830,6 +830,46 @@ static DESCR_t rt_findall_result(DESCR_t handle) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist);
+static DESCR_t plc_iso_atom(const char *nm) { extern int prolog_atom_intern(const char *); DESCR_t c; int id = prolog_atom_intern(nm); c.v = (DTYPE_t)DT_A; c.slen = (uint32_t)id; c.i = id; return c; }
+static DESCR_t plc_iso_comp(const char *fn, int ar, DESCR_t *kids) {
+    extern int prolog_atom_intern(const char *);
+    DESCR_t *h = (DESCR_t *)GC_MALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+    for (int i = 0; i < ar; i++) h[i] = kids[i];
+    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fn)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)h; return c;
+}
+static DESCR_t plc_iso_fresh(void) { DESCR_t *j = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
+static void plc_iso_ball(DESCR_t formal) {
+    extern void rt_pl_throw_set(void *); extern int rt_pl_throw_pending(void);
+    if (rt_pl_throw_pending()) return;
+    DESCR_t kids[2]; kids[0] = formal; kids[1] = plc_iso_fresh();
+    DESCR_t ball = plc_iso_comp("error", 2, kids);
+    rt_pl_throw_set((void *)&ball);
+}
+void rt_pl_iso_throw_instantiation(void) { plc_iso_ball(plc_iso_atom("instantiation_error")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_iso_throw_pi(const char *errfn, const char *what, const char *nm, int ar) {
+    DESCR_t pia[2]; pia[0] = plc_iso_atom(nm ? nm : "?"); pia[1].v = (DTYPE_t)DT_I; pia[1].slen = 0; pia[1].i = ar;
+    DESCR_t kids[2]; kids[0] = plc_iso_atom(what); kids[1] = plc_iso_comp("/", 2, pia);
+    plc_iso_ball(plc_iso_comp(errfn, 2, kids));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_iso_throw_existence_key(const char *key) {
+    char nm[200]; int ar = 0;
+    const char *sl = key ? strrchr(key, '/') : (const char *)0;
+    if (sl) { int kl = (int)(sl - key); if (kl > 199) kl = 199; memcpy(nm, key, (size_t)kl); nm[kl] = 0; ar = atoi(sl + 1); }
+    else { snprintf(nm, sizeof nm, "%s", key ? key : "?"); ar = 0; }
+    rt_pl_iso_throw_pi("existence_error", "procedure", nm, ar);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_iso_evaluable(DESCR_t v) {
+    extern const char *prolog_atom_name(int);
+    if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); return; }
+    if ((int)v.v == DT_A) { rt_pl_iso_throw_pi("type_error", "evaluable", prolog_atom_name((int)v.i), 0); return; }
+    if (v.v == DT_S) { rt_pl_iso_throw_pi("type_error", "evaluable", v.s, 0); return; }
+    if ((int)v.v == DT_PLREF) { rt_pl_iso_throw_pi("type_error", "evaluable", prolog_atom_name((int)(v.slen >> 16)), (int)(v.slen & 0xFFFFu)); return; }
+    rt_pl_iso_throw_pi("type_error", "evaluable", "?", 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
@@ -839,7 +879,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } *out = FAILDESCR; return 1; }
         DESCR_t a = rt_pl_deref_val(args[0]);
         int ai = (a.v == DT_I), arl = (a.v == DT_R);
-        if (!ai && !arl) { *out = FAILDESCR; return 1; }
+        if (!ai && !arl) { plc_iso_evaluable(a); *out = FAILDESCR; return 1; }
         double ad = arl ? a.r : (double)a.i;
         if (nargs == 1) {
             if (!strcmp(op, "neg"))   { *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
@@ -865,8 +905,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         DESCR_t b = rt_pl_deref_val(args[1]);
         int bi = (b.v == DT_I), brl = (b.v == DT_R);
-        if (!bi && !brl) { *out = FAILDESCR; return 1; }
+        if (!bi && !brl) { plc_iso_evaluable(b); *out = FAILDESCR; return 1; }
         double bd = brl ? b.r : (double)b.i;
+        if (!strcmp(op, "fpow")) { *out = REALVAL(pow(ad, bd)); return 1; }
         if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
         if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
         if (!strcmp(op, "gcd")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
@@ -881,7 +922,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "$is_v") && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
         DESCR_t v = rt_pl_deref_val(args[1]);
-        if (v.v != DT_I && v.v != DT_R) { *out = FAILDESCR; return 1; }
+        if (v.v != DT_I && v.v != DT_R) { plc_iso_evaluable(v); *out = FAILDESCR; return 1; }
         if (plw_unify_vals(args[0], v)) { *out = v; return 1; }
         *out = FAILDESCR; return 1;
     }
@@ -2409,7 +2450,7 @@ const char *rt_pl_ax_suffix(const char *s, int ar) {
     if (ar == 2) {
         if (!strcmp(s, "+")) return "add"; if (!strcmp(s, "-")) return "sub"; if (!strcmp(s, "*")) return "mul";
         if (!strcmp(s, "/")) return "div"; if (!strcmp(s, "//")) return "idiv"; if (!strcmp(s, "div")) return "idiv";
-        if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "rem")) return "rem"; if (!strcmp(s, "**")) return "pow"; if (!strcmp(s, "^")) return "pow";
+        if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "rem")) return "rem"; if (!strcmp(s, "**")) return "fpow"; if (!strcmp(s, "^")) return "pow";
         if (!strcmp(s, "min")) return "min"; if (!strcmp(s, "max")) return "max"; if (!strcmp(s, "gcd")) return "gcd"; if (!strcmp(s, "xor")) return "xor";
         if (!strcmp(s, ">>")) return "shr"; if (!strcmp(s, "<<")) return "shl"; if (!strcmp(s, "/\\")) return "band"; if (!strcmp(s, "\\/")) return "bor";
         return (const char *)0;
@@ -2476,9 +2517,10 @@ static int plc_eval(DESCR_t *c, DESCR_t *out) {
     extern const char *prolog_atom_name(int);
     DESCR_t *d = plw_cell_deref(c);
     if (d->v == DT_I || d->v == DT_R) { *out = *d; return 1; }
+    if (plw_unbound_tag(d)) { rt_pl_iso_throw_instantiation(); return 0; }
     if ((int)d->v == DT_A) {
         const char *nm = prolog_atom_name((int)d->i); const char *sf = nm ? rt_pl_ax_suffix(nm, 0) : (const char *)0;
-        if (!sf) return 0;
+        if (!sf) { plc_iso_evaluable(*d); return 0; }
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf);
         DESCR_t o; if (!script_try_call_builtin_by_name(nb, (DESCR_t *)0, 0, &o) || o.v == DT_FAIL) return 0;
         *out = o; return 1;
@@ -2486,7 +2528,7 @@ static int plc_eval(DESCR_t *c, DESCR_t *out) {
     if ((int)d->v == DT_PLREF) {
         int ar = (int)(d->slen & 0xFFFFu); const char *nm = prolog_atom_name((int)(d->slen >> 16));
         const char *sf = (nm && ar >= 1 && ar <= 2) ? rt_pl_ax_suffix(nm, ar) : (const char *)0;
-        if (!sf) return 0;
+        if (!sf) { plc_iso_evaluable(*d); return 0; }
         DESCR_t in[2]; DESCR_t *hh = (DESCR_t *)d->p;
         for (int i = 0; i < ar; i++) if (!plc_eval(&hh[i], &in[i])) return 0;
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf);
@@ -2556,7 +2598,7 @@ static plc_slv_t *plc_build_resolved(DESCR_t *d, DESCR_t **xav, int nx, int *cut
       if (dt) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'd'; s->det = dt; s->av = argv; s->nav = n; return s; } }
     { char pib[224]; if (n == 0 && !strcmp(nm, "main")) snprintf(pib, sizeof pib, "main"); else snprintf(pib, sizeof pib, "%s/%d", nm, n);
       if (rt_proc_is_generator(pib)) { plc_slv_t *s = plc_new(PLCK_PRED, cut); s->pi = strdup(pib); s->av = argv; s->nav = n; return s; } }
-    fprintf(stderr, "[PL] call: unknown procedure %s/%d\n", nm, n);
+    rt_pl_iso_throw_pi("existence_error", "procedure", nm, n);
     return plc_new(PLCK_FAILK, cut);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

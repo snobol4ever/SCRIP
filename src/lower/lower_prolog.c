@@ -193,7 +193,7 @@ static const char * pl_arith_op_suffix(const char * s) {
     if (!s) return NULL;
     if (!strcmp(s, "+")) return "add"; if (!strcmp(s, "-")) return "sub"; if (!strcmp(s, "*")) return "mul";
     if (!strcmp(s, "/")) return "div"; if (!strcmp(s, "//")) return "idiv"; if (!strcmp(s, "div")) return "idiv";
-    if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "**")) return "pow"; if (!strcmp(s, "^")) return "pow";
+    if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "**")) return "fpow"; if (!strcmp(s, "^")) return "pow";
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -209,7 +209,7 @@ static const char * pl_ax_suffix(const char * s, int ar) {
     if (ar == 2) {
         if (!strcmp(s, "+")) return "add"; if (!strcmp(s, "-")) return "sub"; if (!strcmp(s, "*")) return "mul";
         if (!strcmp(s, "/")) return "div"; if (!strcmp(s, "//")) return "idiv"; if (!strcmp(s, "div")) return "idiv";
-        if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "rem")) return "rem"; if (!strcmp(s, "**")) return "pow"; if (!strcmp(s, "^")) return "pow";
+        if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "rem")) return "rem"; if (!strcmp(s, "**")) return "fpow"; if (!strcmp(s, "^")) return "pow";
         if (!strcmp(s, "min")) return "min"; if (!strcmp(s, "max")) return "max"; if (!strcmp(s, "gcd")) return "gcd"; if (!strcmp(s, "xor")) return "xor";
         if (!strcmp(s, ">>")) return "shr"; if (!strcmp(s, "<<")) return "shl"; if (!strcmp(s, "/\\")) return "band"; if (!strcmp(s, "\\/")) return "bor";
         return NULL;
@@ -326,8 +326,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "catch") && t->n == 3) {
-            IR_t * marknd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(marknd).sval = "$trail_mark";
             IR_t * ce = NULL; IR_t * cnode = term_lval_e(cx, t->c[1], &ce);
+            IR_t * marknd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(marknd).sval = "$trail_mark";
             IR_t * checknd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(checknd).sval = "$catch_check";
             ir_operand_push(checknd, marknd);
             ir_operand_push(checknd, cnode);
@@ -338,10 +338,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * gentry = NULL;
             IR_t * gnode = thread1(cx, t->c[0], γnext, checknd, &gentry);
             cx->beta = NULL;
-            lc_γ_to(marknd, ce ? ce : cnode);
-            lc_γ_to(cnode, gentry ? gentry : gnode);
+            lc_γ_to(cnode, marknd);
+            lc_γ_to(marknd, gentry ? gentry : gnode);
             lc_ω_to(cnode, ωfail);
-            if (entry_out) *entry_out = marknd;
+            if (entry_out) *entry_out = ce ? ce : cnode;
             return checknd;
         }
         if (!strcmp(nm, "call") && t->n >= 1 && t->n <= 8) {
