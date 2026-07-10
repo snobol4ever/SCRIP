@@ -1442,6 +1442,98 @@ for 1..3 -> $v { say($v); }
 say('done');
 EOF
 
+# --- try/CATCH (Rakudo RakuAST::StatementPrefix::Try + LexicalScope CATCH handler semantics, SCRIP subset).
+#     die under try rides the four-port ω spine outward (die returns FAILDESCR when g_script_try_depth>0);
+#     per-statement exc_check polls (γ=exception→handler, ω=clean→continue) thread through every block lowered
+#     under the try via cx->try_catch, so loop pumps cannot swallow a die. Handler: $_ ← exc_get, exc_clear,
+#     then body; a die inside the handler propagates to the enclosing try (Rakudo rethrow) or halts at depth 0. ---
+raku "try_die_skips_rest" "after" << 'EOF'
+sub main() {
+    try { die('boom'); say('inside-after'); }
+    say('after');
+}
+EOF
+raku "try_catch_topic" "$(printf 'boom\nafter')" << 'EOF'
+sub main() {
+    try { die('boom'); } CATCH { say($_); }
+    say('after');
+}
+EOF
+raku "try_success_no_catch_fire" "$(printf 'ok\nafter')" << 'EOF'
+sub main() {
+    try { say('ok'); } CATCH { say('never'); }
+    say('after');
+}
+EOF
+raku "try_catch_inside_block" "$(printf 'caught\nafter')" << 'EOF'
+sub main() {
+    try { die('boom'); CATCH { say('caught'); } }
+    say('after');
+}
+EOF
+raku "try_die_in_sub_unwinds" "$(printf 'deep\nafter')" << 'EOF'
+sub boomer() { die('deep'); say('sub-after'); }
+sub main() {
+    try { boomer(); say('body-after'); } CATCH { say($_); }
+    say('after');
+}
+EOF
+raku "try_die_in_loop_first_iter" "$(printf '1\nlp\nafter')" << 'EOF'
+sub main() {
+    try { for 1..3 -> $i { say($i); die('lp'); } } CATCH { say($_); }
+    say('after');
+}
+EOF
+raku "try_while_die_halts_loop" "$(printf '1\n2\nw\nafter')" << 'EOF'
+sub main() {
+    my $i = 0;
+    try {
+        while ($i < 5) { $i = $i + 1; say($i); if ($i == 2) { die('w'); } }
+    } CATCH { say($_); }
+    say('after');
+}
+EOF
+raku "try_if_arm_die" "$(printf 'cond\nafter')" << 'EOF'
+sub main() {
+    my $n = 2;
+    try { if ($n > 1) { die('cond'); } say('no'); } CATCH { say($_); }
+    say('after');
+}
+EOF
+raku "try_nested_inner_outer" "$(printf 'in:inner\nmid\nout:outer\nafter')" << 'EOF'
+sub main() {
+    try {
+        try { die('inner'); } CATCH { say('in:' ~ $_); }
+        say('mid');
+        die('outer');
+    } CATCH { say('out:' ~ $_); }
+    say('after');
+}
+EOF
+raku "try_handler_rethrow_outer" "$(printf 'outer:b\nafter')" << 'EOF'
+sub main() {
+    try {
+        try { die('a'); } CATCH { die('b'); }
+        say('unreached');
+    } CATCH { say('outer:' ~ $_); }
+    say('after');
+}
+EOF
+raku "try_sequential_state_clean" "$(printf 'a\nb\nafter')" << 'EOF'
+sub main() {
+    try { die('a'); } CATCH { say($_); }
+    try { say('b'); } CATCH { say('no'); }
+    say('after');
+}
+EOF
+raku "try_die_in_handler_uncaught_halts" "pre" << 'EOF'
+sub main() {
+    say('pre');
+    try { die('a'); } CATCH { die('fatal-in-handler'); }
+    say('unreached');
+}
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
