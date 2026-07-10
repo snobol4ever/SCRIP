@@ -367,6 +367,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1
   call rt_proc_set_nparams@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 640
+  call rt_proc_set_frame_bytes@PLT
   pop rbp
   ret
   .section .rodata
