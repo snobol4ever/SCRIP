@@ -437,7 +437,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     if (hout) *hout = (void *)fb;
     (void)p->fn((void *)fb, 0);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    if (IS_FAIL(result)) { if (hout) *hout = (void *)0; rt_zls_release((void *)base); }
+    if (IS_FAIL(result)) { if (hout) *hout = (void *)0; ((void **)base)[0] = (void *)0; rt_zls_release((void *)base); }
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -448,9 +448,19 @@ DESCR_t rt_proc_resume_frame(void *frame)
     char *base = fb - 16;
     bb_box_fn fn = (bb_box_fn)((void **)base)[0];
     long total = ((long *)base)[1];
+    if (!fn) return FAILDESCR;
     (void)fn((void *)fb, 1);
     DESCR_t result = *(DESCR_t *)(fb + 0);
-    if (IS_FAIL(result)) { (void)total; rt_zls_release((void *)base); }
+    if (IS_FAIL(result)) { (void)total; ((void **)base)[0] = (void *)0; rt_zls_release((void *)base); }
+    return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_resume_frame_h(void **hslot)
+{
+    void *frame = hslot ? *hslot : (void *)0;
+    if (!frame) return FAILDESCR;
+    DESCR_t result = rt_proc_resume_frame(frame);
+    if (IS_FAIL(result) && hslot) *hslot = (void *)0;
     return result;
 }
 typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;
