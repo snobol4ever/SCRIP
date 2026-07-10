@@ -429,7 +429,6 @@ int bb_varslot_peek(const char *name) {
     return ir_varslot_of(g_emit_cfg, name);
 }
 int g_proc_direct_active = 0;
-int g_gvar_flat_chain = 0;
 int g_gva_active = 0;
 int g_gvar_callarg_live = 0;
 int g_emit_frame_caller_dl = -1;
@@ -660,10 +659,7 @@ int bb_call_route_classify(IR_t * nd) {
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
-    if (g_gvar_flat_chain && (dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_GVAR_USERPROC;
     if (fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_PROC_STAGED;
-    if (g_gvar_flat_chain && dv == 3.0 && fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
-    if (g_gvar_flat_chain && dv == 2.0 && fn[0] && !rt_proc_is_registered(fn) && !rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (!strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
     switch (g_emit.op_write_route) {
     case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP;

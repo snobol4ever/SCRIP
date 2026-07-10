@@ -323,9 +323,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_return.cpp             -o $(OBJ)/bb_return.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign.cpp        -o $(OBJ)/bb_gvar_assign.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_frame.cpp          -o $(OBJ)/bb_var_frame.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_frame.cpp       -o $(OBJ)/bb_assign_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_frame_ref.cpp      -o $(OBJ)/bb_var_frame_ref.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_assign_frame_ref.cpp   -o $(OBJ)/bb_assign_frame_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_keyword_icon.cpp -o $(OBJ)/bb_keyword_icon.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_keyword_snobol4.cpp -o $(OBJ)/bb_keyword_snobol4.o
@@ -380,11 +378,9 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_relop.cpp       -o $(OBJ)/bb_binop_relop.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_arith.cpp       -o $(OBJ)/bb_binop_arith.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_arith.cpp  -o $(OBJ)/bb_binop_gvar_arith.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_relop.cpp  -o $(OBJ)/bb_binop_gvar_relop.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_arith_slot.cpp -o $(OBJ)/bb_binop_gvar_arith_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_unop_gvar_slot.cpp -o $(OBJ)/bb_unop_gvar_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_concat.cpp -o $(OBJ)/bb_binop_gvar_concat.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_lit_s.cpp -o $(OBJ)/bb_gvar_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_lit_s.cpp -o $(OBJ)/bb_indirect_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
