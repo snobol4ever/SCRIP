@@ -736,6 +736,26 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     return rt_call_arr(nm, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
+    if (hslot) *hslot = (void *)0;
+    if (IS_INT_fn(callee)) { long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
+    const char *nm = procval_name(callee);
+    if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    if (!nm) return FAILDESCR;
+    if (rt_proc_is_registered(nm)) {
+        extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
+        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k];
+        return rt_proc_call_gen_h(nm, n, hslot);
+    }
+    return rt_call_value(callee, argv, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_value_resume_h(void **hslot) {
+    extern DESCR_t rt_proc_resume_frame_h(void **hslot);
+    if (!hslot || !*hslot) return FAILDESCR;
+    return rt_proc_resume_frame_h(hslot);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_descr_equal(DESCR_t a, DESCR_t b) {
     if (a.v == DT_I && b.v == DT_I) return a.i == b.i;
     if (a.v == DT_R && b.v == DT_R) return a.r == b.r;

@@ -160,7 +160,7 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
         zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
         return 2 + nd->n_operands;
-    case IR_PROC_GEN:
+    case IR_PROC_GEN: case IR_CALL_VALUE:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
         zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
