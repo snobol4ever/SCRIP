@@ -126,8 +126,13 @@
  * pinned while executing.  Rung 0 flips ONE seam: generator-procedure activations (rt_proc_call_gen_h / rt_proc_resume_frame_h, rt.c) route through zeta_heap.c when --zeta=zh; the
  * bounded-leave mass-kill primitive (rt_zh_kill_since) is built + unit-proven but its emit-side hook placement is the NEXT rung (the Icon twin of the SNOBOL4 statement backstop). */
 #define ZC_ZETA_ZH   2
+/* DEFAULT RULING (Lon directive 2026-07-10 s16: "Use the dual ZETA storage, stack for main spine and heap for
+ * co-expressions and generator procedures"): ZH is the compiled default.  The dual storage is therefore the
+ * default execution model — control-flow-lifetime zeta rides the C stack (ZC_PORT_CSTACK above), long-lived
+ * activations (suspended generator frames; coexpr-side allocations, whose threads the ZH mutex already
+ * serializes) ride the BB-marked sliding heap.  --zeta=zls2 / =zls remain selectable for A/B. */
 #ifndef ZC_ZETA
-#define ZC_ZETA ZC_ZETA_ZLS2
+#define ZC_ZETA ZC_ZETA_ZH
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_HEAP_LIBGC 0
