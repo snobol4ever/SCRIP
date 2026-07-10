@@ -133,6 +133,17 @@ DESCR_t rt_keyword_pos_set(DESCR_t v) {
     scan_pos = (int)p; return INTVAL((int64_t)p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
+    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    if (!(IS_STR_fn(sv) || IS_NULL_fn(sv))) { ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; }
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+    if (!s) s = "";
+    scan_subj = s; scan_pos = 1;
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_random_set(DESCR_t v) {
     extern long g_random;
     long i;
