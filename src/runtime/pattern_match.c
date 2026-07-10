@@ -136,10 +136,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         return array_get(arr.arr, (int)to_int(idx));
     }
     if (arr.v == DT_T) {
-        char kb[64]; const char *ks;
-        if (IS_INT_fn(idx))       { snprintf(kb,sizeof kb,"%lld",(long long)idx.i); ks=kb; }
-        else if (IS_REAL_fn(idx)) { snprintf(kb,sizeof kb,"%g",idx.r); ks=kb; }
-        else                      { ks = VARVAL_fn(idx); if (!ks) ks=""; }
+        char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
         int found; DESCR_t hit = table_get_found(arr.tbl, ks, &found);
         if (found) return hit;
         if (arr.tbl->dflt.v != DT_FAIL && arr.tbl->dflt.v != 0)
@@ -203,8 +200,8 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         return 1;
     }
     if (arr.v == DT_T) {
-        const char *k = VARVAL_fn(idx);
-        table_set_descr(arr.tbl, k ? k : "", idx, val);
+        char kb[64];
+        table_set_descr(arr.tbl, tbl_key_str(idx, kb, sizeof kb), idx, val);
         return 1;
     }
     if (arr.v == DT_DATA) {
@@ -730,10 +727,7 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     }
     if (base.v == DT_T) {
         TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
-        char kb[64]; const char *ks;
-        if (IS_INT_fn(idx))       { snprintf(kb, sizeof kb, "%lld", (long long)idx.i); ks = kb; }
-        else if (IS_REAL_fn(idx)) { snprintf(kb, sizeof kb, "%g", idx.r); ks = kb; }
-        else                      { ks = VARVAL_fn(idx); if (!ks) ks = ""; }
+        char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
         VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = GC_strdup(ks); vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
