@@ -255,7 +255,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], op, lβ, &rr);
         IR_t * rβ = cx->beta;
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
-        if ((IR_LIT(op).ival >= 5 && IR_LIT(op).ival <= 10) && opfail) ω_to(op, opfail);
+        if (is_relop && opfail) ω_to(op, opfail);
         lc_γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
         cx->beta = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : ω);
         *res = op; return ea; }
