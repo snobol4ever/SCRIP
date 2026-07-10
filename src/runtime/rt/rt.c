@@ -488,7 +488,7 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
-static DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) r = (r.slen == 0) ? NV_GET_fn(r.s) : *(DESCR_t *)r.ptr; } rt_g_want_name = wn; return r; }
+static DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = (rt_proc_t *)0;
