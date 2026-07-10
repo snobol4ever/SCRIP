@@ -70,11 +70,14 @@ void *rt_pl_pred_alpha(const char *key) { for (int i = 0; i < g_plw_pred_n; i++)
 void *rt_pl_pred_beta(const char *key)  { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].beta;  fprintf(stderr, "rt_pl_pred_beta: unknown predicate %s\n", key);  abort(); }
 int rt_pl_pred_nslots_rt(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].nslots; return 8; }
 static int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
+static int plw_poison_trap(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_PL_POISON_TRAP"); p = e ? (atoi(e) != 0) : 0; } return p; }
 static DESCR_t *plw_cell_deref(DESCR_t *c) {
+    DESCR_t *prev = (DESCR_t *)0;
     for (int guard = 0; guard < 4096; guard++) {
-        if (c->v == DT_N && c->slen == 1 && c->p) { c = (DESCR_t *)c->p; continue; }
-        if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) { c = ((VCELL_t *)c->p)->cellp; continue; }
-        if (c->v == (DTYPE_t)DT_PLVAR && c->p && c->p != (void *)c) { c = (DESCR_t *)c->p; continue; }
+        if (plw_poison_trap() && *(unsigned int *)c == 0xDDDDDDDDu) { fprintf(stderr, "[POISON-READ] c=%p prev=%p prev={v=%d slen=%u p=%p}\n", (void *)c, (void *)prev, prev ? (int)prev->v : -1, prev ? prev->slen : 0u, prev ? prev->p : (void *)0); fflush(stderr); abort(); }
+        if (c->v == DT_N && c->slen == 1 && c->p) { prev = c; c = (DESCR_t *)c->p; continue; }
+        if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) { prev = c; c = ((VCELL_t *)c->p)->cellp; continue; }
+        if (c->v == (DTYPE_t)DT_PLVAR && c->p && c->p != (void *)c) { prev = c; c = (DESCR_t *)c->p; continue; }
         return c;
     }
     return c;
@@ -84,7 +87,7 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
     DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
     if (A == B) return 1;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
-    if (av && bv) { DESCR_t *hi = ((uintptr_t)A >= (uintptr_t)B) ? A : B, *lo = ((uintptr_t)A >= (uintptr_t)B) ? B : A; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)lo; plw_bind(hi, r); return 1; }
+    if (av && bv) { DESCR_t *j = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r); plw_bind(B, r); return 1; }
     if (av) { plw_bind(A, *B); return 1; }
     if (bv) { plw_bind(B, *A); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -1084,7 +1087,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int ar = nargs - 1;
         extern int prolog_atom_intern(const char *);
         DESCR_t *kids = (DESCR_t *)GC_MALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
-        for (int i = 0; i < ar; i++) kids[i] = args[1 + i];
+        for (int i = 0; i < ar; i++) {
+            DESCR_t t = args[1 + i];
+            DESCR_t *F = plw_cell_deref(plw_entry(&t));
+            if (plw_unbound_tag(F)) {
+                DESCR_t *j = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
+                DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j;
+                plw_bind(F, r);
+                kids[i] = r;
+            } else kids[i] = *F;
+        }
         DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
         *out = c; return 1;
     }
