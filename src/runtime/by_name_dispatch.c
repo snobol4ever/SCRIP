@@ -1610,6 +1610,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         g_script_exception[0] = '\0';
         *out = STRVAL(GC_strdup("")); return 1;
     }
+    if (!strcmp(fn, "try_enter") && nargs == 0) {
+        extern char g_script_exception[512]; extern int g_script_try_depth;
+        g_script_try_depth++; g_script_exception[0] = '\0';
+        *out = STRVAL(GC_strdup("")); return 1;
+    }
+    if (!strcmp(fn, "try_exit") && nargs == 0) {
+        extern int g_script_try_depth;
+        if (g_script_try_depth > 0) g_script_try_depth--;
+        *out = STRVAL(GC_strdup("")); return 1;
+    }
     if (!strcmp(fn, "exc_check") && nargs == 0) {
         extern char g_script_exception[512];
         if (g_script_exception[0] != '\0') { *out = INTVAL(1); return 1; }

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "lower.h"
-typedef struct { IR_graph_t * g; } rcx_t;
+typedef struct { IR_graph_t * g; IR_t * try_catch; } rcx_t;
 #define RK_GRAM_MAX 64
 static const char * g_rk_gram_names[RK_GRAM_MAX];
 static int          g_rk_gram_n = 0;
@@ -83,7 +83,14 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     for (int i = t->n - 1; i >= 0; i--) {
         const tree_t * s = t->c[i];
         if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-        IR_t * r = NULL; IR_t * e = lower_rv(cx, s, succ, ω, &r);
+        if (s && s->t == TT_CATCH) continue;
+        IR_t * gs = succ, * gw = ω;
+        if (cx->try_catch) {
+            IR_t * pγ = build(cx, IR_CALL, cx->try_catch, succ); IR_LIT(pγ).sval = "exc_check";
+            IR_t * pω = build(cx, IR_CALL, cx->try_catch, ω); IR_LIT(pω).sval = "exc_check";
+            gs = pγ; gw = pω;
+        }
+        IR_t * r = NULL; IR_t * e = lower_rv(cx, s, gs, gw, &r);
         if (e && ir_is_generator_kind(e->op)) { IR_t * tramp = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(tramp, e); lc_ω_to(tramp, e); e = tramp; }
         if (e) { entry = e; succ = e; }
     }
@@ -209,7 +216,29 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_SAY: case TT_SAY_FH: return lower_rcall(cx, t, "write", 0, γ, ω, res);
     case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "writes", 0, γ, ω, res);
     case TT_DIE: return lower_rcall(cx, t, "die", 0, γ, ω, res);
-    case TT_TRY: return rk_excise(cx, γ, ω, res);
+    case TT_TRY: {
+        const tree_t * body = (t->n > 0) ? t->c[0] : NULL; const tree_t * handler = (t->n > 1) ? t->c[1] : NULL;
+        if (!handler && body && (body->t == TT_SEQ || body->t == TT_SEQ_EXPR || body->t == TT_PROGRAM))
+            for (int i = 0; i < body->n; i++) { const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (sub) s = sub; }
+                if (s && s->t == TT_CATCH && s->n > 0) { handler = s->c[0]; break; } }
+        IR_t * kexit = build(cx, IR_CALL, γ, ω); IR_LIT(kexit).sval = "try_exit";
+        IR_t * save = cx->try_catch; cx->try_catch = NULL;
+        IR_t * centry;
+        if (handler) {
+            IR_t * hentry = lower_rblock(cx, handler, γ, ω);
+            IR_t * clr = build(cx, IR_CALL, hentry, ω); IR_LIT(clr).sval = "exc_clear";
+            IR_t * asg = build(cx, IR_ASSIGN, clr, ω); IR_LIT(asg).sval = "_";
+            IR_t * eg = build(cx, IR_CALL, asg, ω); IR_LIT(eg).sval = "exc_get"; ir_operand_push(asg, eg);
+            IR_t * tx = build(cx, IR_CALL, eg, ω); IR_LIT(tx).sval = "try_exit"; centry = tx;
+        } else {
+            IR_t * clr = build(cx, IR_CALL, γ, ω); IR_LIT(clr).sval = "exc_clear";
+            IR_t * tx = build(cx, IR_CALL, clr, ω); IR_LIT(tx).sval = "try_exit"; centry = tx;
+        }
+        cx->try_catch = centry;
+        IR_t * bentry = lower_rblock(cx, body, kexit, ω);
+        cx->try_catch = save;
+        IR_t * te = build(cx, IR_CALL, bentry, ω); IR_LIT(te).sval = "try_enter";
+        *res = kexit; return te; }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
         if (nm && rk_is_multi_name(nm)) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
@@ -551,7 +580,7 @@ static void rk_discover_procs(const tree_t * prog) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
-    IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g;
+    IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g; cx.try_catch = NULL;
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * sentry = succ; IR_t * entry = succ;
     for (int i = (pd ? pd->n : 0) - 1; i >= 1; i--) {
