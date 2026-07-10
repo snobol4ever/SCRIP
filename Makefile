@@ -66,6 +66,7 @@ libscrip_rt: out/libscrip_rt.so
 RT_PIC_SRCS := \
     $(RT)/rt/rt.c \
     $(RT)/rt/zeta_alloc.c \
+    $(RT)/rt/zeta_heap.c \
     $(RT)/rt/gc_heap.c \
     $(RT)/rt/rt_protected.c \
     $(RT)/rt/pat_pool.c \
@@ -482,6 +483,7 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/zeta_alloc.c -o $(OBJ)/zeta_alloc.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/rt/zeta_heap.c -o $(OBJ)/zeta_heap.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/gc_heap.c -o $(OBJ)/gc_heap.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o

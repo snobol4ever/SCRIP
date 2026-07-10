@@ -122,6 +122,10 @@
  * NOT selectable until v1/v2 convergence — today the subsystems are co-resident, not alternatives. */
 #define ZC_ZETA_ZLS  0
 #define ZC_ZETA_ZLS2 1
+/* ZH (Lon directive 2026-07-10): the BB-marked SLIDING heap for long-lived activations — alpha bumps, omega marks, the collector slides; handles not pointers across activations; frames
+ * pinned while executing.  Rung 0 flips ONE seam: generator-procedure activations (rt_proc_call_gen_h / rt_proc_resume_frame_h, rt.c) route through zeta_heap.c when --zeta=zh; the
+ * bounded-leave mass-kill primitive (rt_zh_kill_since) is built + unit-proven but its emit-side hook placement is the NEXT rung (the Icon twin of the SNOBOL4 statement backstop). */
+#define ZC_ZETA_ZH   2
 #ifndef ZC_ZETA
 #define ZC_ZETA ZC_ZETA_ZLS2
 #endif

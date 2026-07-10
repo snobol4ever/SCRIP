@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <gc.h>
 #include "zeta_alloc.h"
+#include "zeta_heap.h"
+#include "zeta_choices.h"
 extern const char *Σ;
 extern int Σlen;
 #define STACKLESS_ABORT(fn) \
@@ -427,6 +429,22 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     long total = 16L + (long)fbytes;
+    if (rt_zeta_mode() == ZC_ZETA_ZH) {
+        void *ub = (void *)0; unsigned h = rt_zh_alloc(total, &ub);
+        char *base = (char *)ub; char *fb = base + 16;
+        ((void **)base)[0] = (void *)p->fn;
+        ((long *)base)[1] = total;
+        { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; }
+        if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
+        rt_frame_bind_args(fb, p, nargs);
+        if (hout) *hout = (void *)(uintptr_t)h;
+        (void)p->fn((void *)fb, 0);
+        fb = (char *)rt_zh_deref(h) + 16;
+        DESCR_t result = *(DESCR_t *)(fb + 0);
+        rt_zh_unpin(h);
+        if (IS_FAIL(result)) { if (hout) *hout = (void *)0; rt_zh_mark_dead(h); }
+        return result;
+    }
     char *base = (char *)rt_zls_alloc(total);
     char *fb = base + 16;
     ((void **)base)[0] = (void *)p->fn;
@@ -459,6 +477,19 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
 {
     void *frame = hslot ? *hslot : (void *)0;
     if (!frame) return FAILDESCR;
+    if (rt_zeta_mode() == ZC_ZETA_ZH) {
+        unsigned h = (unsigned)(uintptr_t)frame;
+        rt_zh_pin(h);
+        char *fb = (char *)rt_zh_deref(h) + 16;
+        bb_box_fn fn = (bb_box_fn)((void **)(fb - 16))[0];
+        if (!fn) { rt_zh_unpin(h); return FAILDESCR; }
+        (void)fn((void *)fb, 1);
+        fb = (char *)rt_zh_deref(h) + 16;
+        DESCR_t result = *(DESCR_t *)(fb + 0);
+        rt_zh_unpin(h);
+        if (IS_FAIL(result)) { rt_zh_mark_dead(h); *hslot = (void *)0; }
+        return result;
+    }
     DESCR_t result = rt_proc_resume_frame(frame);
     if (IS_FAIL(result) && hslot) *hslot = (void *)0;
     return result;
