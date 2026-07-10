@@ -529,9 +529,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (bv) ir_operand_push(leave_succ, bv);
         icn_retag_scan_body(cx->g, 0);
         lc_γ_to(enter, b_entry);
+        cx->beta = ω;
         IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);
         ir_operand_push(enter, sr);
-        cx->beta = ω; *res = leave_succ; return s_entry; }
+        IR_t * subj_beta = cx->beta;
+        if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
+        cx->beta = (subj_beta && subj_beta != ω) ? subj_beta : ω; *res = leave_succ; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CREATE: {
         IR_t * nd = build(cx, IR_CREATE, γ, ω);
