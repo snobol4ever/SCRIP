@@ -4112,6 +4112,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = GC_strdup(nm);
         *out = xd; return 1;
     }
+    if (!strcmp(fn,"SNO$PBK") && nargs == 2) { extern DESCR_t pat_mk_cset(int, const char *); *out = pat_mk_cset((int)to_int(args[0]), VARVAL_fn(args[1])); return 1; }
+    if (!strcmp(fn,"SNO$PBN") && nargs == 2) { extern DESCR_t pat_mk_num(int, int64_t); *out = pat_mk_num((int)to_int(args[0]), to_int(args[1])); return 1; }
+    if (!strcmp(fn,"SNO$PB0") && nargs == 1) { extern DESCR_t pat_mk_nil(int); *out = pat_mk_nil((int)to_int(args[0])); return 1; }
+    if (!strcmp(fn,"SNO$PBC") && nargs == 3) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); *out = pat_mk_capt((int)to_int(args[0]), VARVAL_fn(args[1]), args[2]); return 1; }
     if (!strcmp(fn,"SNO$PBALT") && nargs == 2) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); *out = pat_alt(args[0], args[1]); return 1; }
     if (!strcmp(fn,"SNO$MKPAT") && nargs == 1) {
         extern void *rt_proc_get_fn(const char *name);

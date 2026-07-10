@@ -16,12 +16,13 @@
          abort(); } while (0)
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct dtp_rcp { int k; const char *s; uint32_t slen; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
+typedef struct dtp_rcp { int tt; const char *s; uint32_t slen; int64_t ival; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
 typedef struct DTP { void *fn; dtp_rcp_t *rcp; } DTP_t;
 static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)GC_malloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; return h; }
 void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
-static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { dtp_rcp_t *r = (dtp_rcp_t *)GC_malloc(sizeof *r); r->k = 0; r->s = s ? s : ""; r->slen = n; r->l = r->r = (dtp_rcp_t *)0; return r; }
-static dtp_rcp_t *rcp_bin(int k, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)GC_malloc(sizeof *r); r->k = k; r->s = (const char *)0; r->slen = 0; r->l = l; r->r = rr; return r; }
+static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)GC_malloc(sizeof *r); r->tt = tt; r->s = s; r->slen = n; r->ival = iv; r->l = l; r->r = rr; return r; }
+static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { return rcp_node(TT_QLIT, s ? s : "", n, 0, 0, 0); }
+static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node(tt, 0, 0, 0, l, rr); }
 static dtp_rcp_t *rcp_of(DESCR_t d) {
     if (d.v == DT_P && d.p) {
         DTP_t *h = (DTP_t *)d.p;
@@ -37,10 +38,17 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
 extern tree_t *ast_stmt_new(tree_e kind);
 static tree_t *dtp_rcp_tree(dtp_rcp_t *r) {
     if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
-    if (r->k == 0) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)r->s; return t; }
-    tree_t *t = ast_stmt_new(r->k == 1 ? TT_SEQ : TT_ALT);
-    ast_push(t, dtp_rcp_tree(r->l));
-    ast_push(t, dtp_rcp_tree(r->r));
+    tree_t *t = ast_stmt_new((tree_e)r->tt);
+    switch (r->tt) {
+    case TT_QLIT: t->v.sval = (char *)(r->s ? r->s : ""); break;
+    case TT_SEQ: case TT_ALT: ast_push(t, dtp_rcp_tree(r->l)); ast_push(t, dtp_rcp_tree(r->r)); break;
+    case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: { tree_t *c = ast_stmt_new(TT_QLIT); c->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, c); break; }
+    case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: { tree_t *c = ast_stmt_new(TT_ILIT); c->v.ival = r->ival; ast_push(t, c); break; }
+    case TT_ARBNO: ast_push(t, dtp_rcp_tree(r->l)); break;
+    case TT_FENCE: if (r->ival) ast_push(t, dtp_rcp_tree(r->l)); break;
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: { ast_push(t, dtp_rcp_tree(r->l)); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
+    default: break;
+    }
     return t;
 }
 void *dtp_fn_of(void *headv) {
@@ -56,112 +64,117 @@ DESCR_t pat_lit(const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_span(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_span: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_SPAN, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_break_(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_break_: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_BREAK, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_breakx(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_breakx: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_BREAKX, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_any_cs(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_any_cs: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_ANY, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_notany(const char *chars) {
-    fprintf(stderr, "[B0] BOMB pat_notany: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_NOTANY, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_len(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_len: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_LEN, 0, 0, n, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_pos(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_pos: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_POS, 0, 0, n, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rpos(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_rpos: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_RPOS, 0, 0, n, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_tab(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_tab: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_TAB, 0, 0, n, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rtab(int64_t n) {
-    fprintf(stderr, "[B0] BOMB pat_rtab: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_RTAB, 0, 0, n, 0, 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_arb(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_ARB, 0, 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_arbno(DESCR_t inner) {
-    fprintf(stderr, "[B0] BOMB pat_arbno: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_ARBNO, 0, 0, 0, rcp_of(inner), 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_rem(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_REM, 0, 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_fence_p(DESCR_t inner) {
-    fprintf(stderr, "[B0] BOMB pat_fence_p: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_FENCE, 0, 0, 1, rcp_of(inner), 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_fence(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_FENCE, 0, 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_fail(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_FAIL, 0, 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_abort(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_ABORT, 0, 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_succeed(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_SUCCEED, 0, 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_bal(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_BAL, 0, 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_epsilon(void) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = NULL;
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_lit("", 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pat_mk_cset(int tt, const char *cs) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, cs ? cs : "", cs ? (uint32_t)strlen(cs) : 0, 0, 0, 0)); return v; }
+DESCR_t pat_mk_num(int tt, int64_t n) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, n, 0, 0)); return v; }
+DESCR_t pat_mk_nil(int tt) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_mk_capt(int tt, const char *name, DESCR_t sub) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, rcp_of(sub), 0)); return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(1, rcp_of(left), rcp_of(right)));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_alt(DESCR_t left, DESCR_t right) {
-    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(2, rcp_of(left), rcp_of(right)));
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(TT_ALT, rcp_of(left), rcp_of(right)));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
