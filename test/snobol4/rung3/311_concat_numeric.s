@@ -108,7 +108,7 @@ main_α_body:
 .Lx5_0:
  .quad 2
  xchain0_n5_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+112] -> [zr+80]
  mov rax, qword ptr [r12 + 112]
  mov qword ptr [r12 + 80], rax
@@ -246,7 +246,7 @@ main_α_body:
  xchain0_n15_β:
  jmp xchain0_n18_α
  xchain0_n16_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+256] -> [zr+224]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 224], rax
@@ -309,7 +309,7 @@ main_α_body:
 .Lx20_0_s:
  .string "FAIL 311/002: three int concat"
  xchain0_n20_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+432] -> [zr+400]
  mov rax, qword ptr [r12 + 432]
  mov qword ptr [r12 + 400], rax

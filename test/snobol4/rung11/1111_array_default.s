@@ -76,7 +76,7 @@ main_α_body:
 .Lx2_0:
  .quad 10
  xchain0_n2_α:
-# BOX IR_CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+128] -> [zr+96]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [r12 + 96], rax
@@ -237,7 +237,7 @@ main_α_body:
  xchain0_n14_β:
  jmp xchain0_n9_α
  xchain0_n15_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+256] -> [zr+176]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 176], rax
@@ -286,7 +286,7 @@ main_α_body:
 .Lx18_0_s:
  .string "FAIL 1111/001: array default value"
  xchain0_n18_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+416] -> [zr+336]
  mov rax, qword ptr [r12 + 416]
  mov qword ptr [r12 + 336], rax

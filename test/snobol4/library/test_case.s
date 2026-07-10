@@ -121,7 +121,7 @@ main_α_body:
 .Lx5_0_s:
  .string "HELLO WORLD"
  xchain0_n4_α:
-# BOX IR_CALL lwr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL lwr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+192] -> [zr+176]
  mov rax, qword ptr [r12 + 192]
  mov qword ptr [r12 + 176], rax
@@ -170,7 +170,7 @@ main_α_body:
 .Lx8_0_s:
  .string "hello world"
  xchain0_n7_α:
-# BOX IR_CALL upr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL upr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+256] -> [zr+240]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 240], rax
@@ -219,7 +219,7 @@ main_α_body:
 .Lx11_0_s:
  .string "hELLO wORLD"
  xchain0_n10_α:
-# BOX IR_CALL cap(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL cap(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+320] -> [zr+304]
  mov rax, qword ptr [r12 + 320]
  mov qword ptr [r12 + 304], rax
@@ -268,7 +268,7 @@ main_α_body:
 .Lx14_0_s:
  .string "hello"
  xchain0_n13_α:
-# BOX IR_CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+384] -> [zr+368]
  mov rax, qword ptr [r12 + 384]
  mov qword ptr [r12 + 368], rax
@@ -325,7 +325,7 @@ main_α_body:
 .Lx18_0_s:
  .string "Hello"
  xchain0_n17_α:
-# BOX IR_CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+528] -> [zr+512]
  mov rax, qword ptr [r12 + 528]
  mov qword ptr [r12 + 512], rax
@@ -475,7 +475,7 @@ main_α_body:
 .Lx25_0_s:
  .string "HELLO"
  xchain0_n23_α:
-# BOX IR_CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+672] -> [zr+656]
  mov rax, qword ptr [r12 + 672]
  mov qword ptr [r12 + 656], rax
@@ -654,7 +654,7 @@ main_α_body:
 .Lx35_0_s:
  .string "HeLLo"
  xchain0_n31_α:
-# BOX IR_CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL icase(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+816] -> [zr+800]
  mov rax, qword ptr [r12 + 816]
  mov qword ptr [r12 + 800], rax

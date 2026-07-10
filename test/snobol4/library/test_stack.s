@@ -109,7 +109,7 @@ main_α_body:
  xchain0_n2_β:
  jmp xchain0_n3_α
  xchain0_n3_α:
-# BOX IR_CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn4: .string "stack_init"
   .section .text
@@ -138,7 +138,7 @@ main_α_body:
 .Lx6_0_s:
  .string "a"
  xchain0_n5_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+192] -> [zr+176]
  mov rax, qword ptr [r12 + 192]
  mov qword ptr [r12 + 176], rax
@@ -172,7 +172,7 @@ main_α_body:
 .Lx8_0_s:
  .string "b"
  xchain0_n7_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+240] -> [zr+224]
  mov rax, qword ptr [r12 + 240]
  mov qword ptr [r12 + 224], rax
@@ -206,7 +206,7 @@ main_α_body:
 .Lx10_0_s:
  .string "c"
  xchain0_n9_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+288] -> [zr+272]
  mov rax, qword ptr [r12 + 288]
  mov qword ptr [r12 + 272], rax
@@ -228,7 +228,7 @@ main_α_body:
  xchain0_n9_β:
  jmp xchain0_n10_α
  xchain0_n10_α:
-# BOX IR_CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn11: .string "stack_depth"
   .section .text
@@ -260,7 +260,7 @@ main_α_body:
 .Lx13_0_s:
  .string "OUTPUT"
  xchain0_n12_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn13: .string "stack_pop"
   .section .text
@@ -292,7 +292,7 @@ main_α_body:
 .Lx15_0_s:
  .string "OUTPUT"
  xchain0_n14_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn15: .string "stack_pop"
   .section .text
@@ -324,7 +324,7 @@ main_α_body:
 .Lx17_0_s:
  .string "OUTPUT"
  xchain0_n16_α:
-# BOX IR_CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn17: .string "stack_depth"
   .section .text
@@ -356,7 +356,7 @@ main_α_body:
 .Lx19_0_s:
  .string "OUTPUT"
  xchain0_n18_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn19: .string "stack_pop"
   .section .text
@@ -388,7 +388,7 @@ main_α_body:
 .Lx21_0_s:
  .string "OUTPUT"
  xchain0_n20_α:
-# BOX IR_CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn21: .string "stack_depth"
   .section .text
@@ -420,7 +420,7 @@ main_α_body:
 .Lx23_0_s:
  .string "OUTPUT"
  xchain0_n22_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn23: .string "stack_pop"
   .section .text
@@ -491,7 +491,7 @@ main_α_body:
 .Lx28_0_s:
  .string "OUTPUT"
  xchain0_n27_α:
-# BOX IR_CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn28: .string "stack_init"
   .section .text
@@ -520,7 +520,7 @@ main_α_body:
 .Lx30_0_s:
  .string "x"
  xchain0_n29_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+624] -> [zr+608]
  mov rax, qword ptr [r12 + 624]
  mov qword ptr [r12 + 608], rax
@@ -542,7 +542,7 @@ main_α_body:
  xchain0_n29_β:
  jmp xchain0_n30_α
  xchain0_n30_α:
-# BOX IR_CALL stack_peek(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_peek(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn31: .string "stack_peek"
   .section .text
@@ -574,7 +574,7 @@ main_α_body:
 .Lx33_0_s:
  .string "OUTPUT"
  xchain0_n32_α:
-# BOX IR_CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_depth(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn33: .string "stack_depth"
   .section .text
@@ -606,7 +606,7 @@ main_α_body:
 .Lx35_0_s:
  .string "OUTPUT"
  xchain0_n34_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn35: .string "stack_pop"
   .section .text
@@ -638,7 +638,7 @@ main_α_body:
 .Lx37_0_s:
  .string "OUTPUT"
  xchain0_n36_α:
-# BOX IR_CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn37: .string "stack_init"
   .section .text
@@ -665,7 +665,7 @@ main_α_body:
 .Lx39_0:
  .quad 42
  xchain0_n38_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+784] -> [zr+768]
  mov rax, qword ptr [r12 + 784]
  mov qword ptr [r12 + 768], rax
@@ -697,7 +697,7 @@ main_α_body:
 .Lx41_0:
  .quad 99
  xchain0_n40_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+832] -> [zr+816]
  mov rax, qword ptr [r12 + 832]
  mov qword ptr [r12 + 816], rax
@@ -731,7 +731,7 @@ main_α_body:
 .Lx43_0_s:
  .string "myvar"
  xchain0_n42_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+880] -> [zr+864]
  mov rax, qword ptr [r12 + 880]
  mov qword ptr [r12 + 864], rax
@@ -777,7 +777,7 @@ main_α_body:
 .Lx46_0_s:
  .string "OUTPUT"
  xchain0_n45_α:
-# BOX IR_CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_init(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn46: .string "stack_init"
   .section .text
@@ -1083,7 +1083,7 @@ main_α_body:
  xchain0_n62_β:
  jmp xchain0_n64_α
  xchain0_n63_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1136] -> [zr+1120]
  mov rax, qword ptr [r12 + 1136]
  mov qword ptr [r12 + 1120], rax
@@ -1114,7 +1114,7 @@ main_α_body:
  xchain0_n64_β:
  jmp xchain0_n66_α
  xchain0_n65_α:
-# BOX IR_CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_push(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1184] -> [zr+1168]
  mov rax, qword ptr [r12 + 1184]
  mov qword ptr [r12 + 1168], rax
@@ -1136,7 +1136,7 @@ main_α_body:
  xchain0_n65_β:
  jmp xchain0_n66_α
  xchain0_n66_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn67: .string "stack_pop"
   .section .text
@@ -1168,7 +1168,7 @@ main_α_body:
 .Lx78_0_s:
  .string "OUTPUT"
  xchain0_n68_α:
-# BOX IR_CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL stack_pop(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn69: .string "stack_pop"
   .section .text
