@@ -223,6 +223,13 @@ int ir_varslot_of(const IR_graph_t * g, const char * name) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int graph_has_local(const IR_graph_t * g, const char * name) {
+    if (!g || !name) return 0;
+    for (int i = 0; i < g->nparams; i++) if (g->pnames && g->pnames[i] && strcmp(g->pnames[i], name) == 0) return 1;
+    for (int i = 0; i < g->nlocals; i++) if (g->lnames && g->lnames[i] && strcmp(g->lnames[i], name) == 0) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_drive_slot_assign(IR_graph_t * g) {
     if (!g) return;
     extern void zls_build(IR_graph_t *);

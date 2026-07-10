@@ -239,7 +239,7 @@ void zls_build(IR_graph_t * g) {
         if (nd->op == IR_ASSIGN) vn = IR_LIT(nd).sval;
         else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vn = IR_LIT(nd->operands[1]).sval;
         else if (nd->op == IR_VAR || nd->op == IR_VAR_REF) vn = IR_LIT(nd).sval;
-        if (!vn || vn[0] == '&' || is_global(vn)) continue;
+        if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
         int have = 0; for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
         if (have) continue;
         if (zv_n >= ZLS_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", ZLS_MAX_VSLOTS); abort(); }

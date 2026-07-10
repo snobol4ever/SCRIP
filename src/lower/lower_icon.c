@@ -1074,6 +1074,13 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
                 const char ** _pn = (const char **)calloc((size_t)np, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < np && k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
             }
+            { const tree_t *body = (proc->n > 2) ? proc->c[2] : NULL; int nl = 0;
+              for (int i = 0; body && i < body->n; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
+                  if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) nl++; }
+              if (nl > 0) { const char ** _ln = (const char **)calloc((size_t)nl, sizeof(const char *)); int w = 0;
+                  for (int i = 0; body && i < body->n && _ln; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
+                      if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval); }
+                  if (_ln) { g_stage2.bbp.table[bb_idx]->lnames = _ln; g_stage2.bbp.table[bb_idx]->nlocals = w; } } }
         }
     }
     lower_icon_resolve_call_kinds();
