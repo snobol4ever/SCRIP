@@ -533,6 +533,45 @@ static int sno_pat_v2_ok(const tree_t * t) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_fence_inner_ok(const tree_t * t) {
+    /* v1-FENCE inner admission (2026-07-10): what may live INSIDE a FENCE(P) riding as an ARBNO body element.
+     * Forward alternation (ALT), internal generator retry (ARB), SEQ, and every deterministic leaf are fine —
+     * the v1 shared-slot frame provides the seal STRUCTURALLY (each extension re-enters the body α fresh; no
+     * resume edge is ever stamped into the body from outside, so a committed iteration's ALT dispatch slot is
+     * unreachable — SPITBOL manual Ch.19 FENCE(P): alternatives visible only moving forward, backup passes
+     * through).  REFUSED (park, not fake): nested ARBNO (slot interaction unproven), nested/bare FENCE (bare
+     * FENCE's backup semantics = whole-match fail, a DIFFERENT target), captures (capture-stack x seal unproven). */
+    if (!t) return 0;
+    if (t->t == TT_ARBNO || sno_is_fence(t)) return 0;
+    if (t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN || t->t == TT_CAPT_CURSOR) return 0;
+    if (t->t == TT_ALT || t->t == TT_SEQ) { for (int i = 0; i < t->n; i++) if (!sno_fence_inner_ok(t->c[i])) return 0; return 1; }
+    if (t->t == TT_ARB || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB"))) return 1;
+    return sno_pat_deterministic(t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_v1_fenced_ok(const tree_t * t) {
+    /* v1-FENCE ARBNO body admission (2026-07-10, closes 116/142/151): a body whose ONLY non-deterministic
+     * element is a single FENCE(P) function-form in RIGHTMOST position rides ARBNO v1 (phases 0/1/2)
+     * UNCHANGED.  WHY v1 IS THE FENCE'S HOME: FENCE(P) commit semantics is EXACTLY v1's structural property —
+     * one shared body frame, completed iterations unreachable; the v2 COLLECTION exists to enable the resume
+     * the fence must PREVENT (v2's F.β body-resume is the leak, so fenced bodies must NOT ride v2).  This
+     * answers the standing design question (which fail-target does a sealed element inside iteration N point
+     * at): NEITHER the statement fJ NOR a local retry — the fenced group is deterministic-from-outside (β≡ω),
+     * so its exhaust points where every v1 body element's fail already points: F (extend-failed = ARBNO
+     * exhausted, shorter yields were already offered).  RIGHTMOST-ONLY because the TT_SEQ spine points
+     * elements right of a fence at cx->pat_fail (statement fail) — correct at statement level, wrong inside a
+     * body (must be F); parameterizing that seal target is the follow-on rung for fence-not-last bodies,
+     * which stay loudly refused. */
+    const tree_t * elems[128]; int ne = 0;
+    if (!t) return 0;
+    sno_seq_flatten_pat(t, elems, &ne);
+    if (ne < 1) return 0;
+    for (int i = 0; i < ne - 1; i++) if (!sno_pat_deterministic(elems[i])) return 0;
+    { const tree_t * last = elems[ne - 1];
+      if (last && last->t == TT_FENCE && last->n > 0 && last->c[0]) return sno_fence_inner_ok(last->c[0]); }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SNO_CCONST_MAX 256
 static const char * sno_cset_fold(const tree_t * a);
 static struct { const char * name; const char * val; int total; int clean; } g_sno_cconst[SNO_CCONST_MAX];
@@ -699,8 +738,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * Deterministic bodies exhaust totally (a completed iteration cannot re-choose), so NO per-iteration
          * COLLECTION is needed — that is the generator-body v2 requirement (ALT/ARB/ARBNO/FENCE inside). */
         if (!(t->n > 0) || !t->c[0]) sno_fatal("ARBNO requires a pattern argument", NULL);
-        int a2 = !sno_pat_deterministic(t->c[0]);
-        if (a2 && !(sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0]))) sno_fatal("ARBNO body outside the ZB-5 v2 subset (generator body needs a rightmost ALT/ARB/capture leaf; nested ARBNO, FENCE inside, and a generator inside an alternative are v3)", NULL);
+        int v1f = sno_pat_v1_fenced_ok(t->c[0]);
+        int a2 = v1f ? 0 : !sno_pat_deterministic(t->c[0]);
+        if (a2 && !(sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0]))) sno_fatal("ARBNO body outside the ZB-5 v2 subset (generator body needs a rightmost ALT/ARB/capture leaf; fenced generator bodies ride v1 only as a single rightmost FENCE(P); nested ARBNO and a generator inside an alternative are v3)", NULL);
         /* v2 (a2): phases 3/4/5 — per-iteration COLLECTION (ARCH-ZETA-LOCAL-STORAGE.md section 5f).  G.β pushes a
          * zeroed element {prev_rZ, cur_before} + body slot range and REPOINTS rZ into it, so body boxes' [r12+off]
          * become per-iteration; K reads the header, restores rZ, counts and yields (zero-advance → F.α, which
@@ -882,7 +922,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_REM || t->t == TT_ARB) return 1;
-    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_pat_deterministic(t->c[0]) || (sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0])));
+    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_pat_deterministic(t->c[0]) || sno_pat_v1_fenced_ok(t->c[0]) || (sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0])));
     if (t->t == TT_VAR) return t->v.sval != NULL;
     if (t->t == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
