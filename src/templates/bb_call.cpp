@@ -58,14 +58,14 @@ static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
     if (lf->op == IR_OP_COUNT) {
         int hops = (int) IR_LIT(lf).dval;
         int voff = 16 + (int) IR_LIT(lf).ival * 16;
-        if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM cell addr of frame slot=%d hops=%d -> [zr+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
+        s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM cell addr of frame slot=%d hops=%d -> [zr+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
         s += x86_reg_disp32_lea64("rax", "rax", voff);
     } else if (lf->op == IR_OP_COUNT) {
         int hops = (int) IR_LIT(lf).dval;
         int voff = 16 + (int) IR_LIT(lf).ival * 16;
-        if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM forward cell addr from ref slot=%d hops=%d -> [zr+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
+        s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM forward cell addr from ref slot=%d hops=%d -> [zr+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
         s += x86_frame_lea("rax", 0);
         for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
         s += x86_reg_disp32_load64("rax", "rax", voff + 8);
@@ -141,11 +141,8 @@ static const char * relop_fail_mnem(IR_t * nd) {
 static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
     std::string s;
     if (a->op == IR_VAR && IR_LIT(a).sval) {
-        std::string slow;
-        if (MEDIUM_TEXT) {
-            char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT");
-        }
-        else { slow = x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(a).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+        char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval);
+        std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(a).sval, b1) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
         if (k >= 0)
             s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rax", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1))
@@ -179,11 +176,8 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
 static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
     std::string s;
     if (b->op == IR_VAR && IR_LIT(b).sval) {
-        std::string slow;
-        if (MEDIUM_TEXT) {
-            char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval); slow = x86("directive", (std::string(" lea rdi, [rip + ") + b2 + "]").c_str()) + x86("call", "rt_gvar_get_int@PLT");
-        }
-        else { slow = x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(b).sval) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int); }
+        char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval);
+        std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(b).sval, b2) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
         slow += x86("mov", "rcx", "rax");
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
         if (k >= 0)
@@ -251,38 +245,29 @@ static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
     const char * rsym = isreg ? (nmig ? "rt_call_named_proc_sl" : "rt_call_named_proc") : "rt_call_arr";
     std::string s;
     for (int j = 0; j < nn; j++) s += ((nbrm >> j) & 1ull) ? marshal_varparam_addr(nsubs[j]->entry, avbase + j * 16, j) : marshal_call_arg(nsubs[j]->entry, nsubs[j], avbase + j * 16, lf, j);
-    if (MEDIUM_TEXT) {
-        std::string fl = emit_fmt(".Lcallfn%d", g_flat_node_id++);
-        s += x86("directive", ".section .rodata")
-           + x86("directive", (fl + ": .string \"" + nfn + "\"").c_str())
-           + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
-        s += x86("lea", "rsi", FRQ(avbase));
-        s += x86("mov", "edx", emit_fmt("%d", nn));
-        if (nmig) s += pas_sl_setup(nfn);
-        s += x86("call", emit_fmt("%s@PLT", rsym));
-        s += x86("mov", FRQ(aoff), "rax");
-        s += x86("mov", FRQ(aoff + 8), "rdx");
-    } else if (MEDIUM_BINARY) {
-        uint64_t fptr;
-        if (nmig)       { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        else if (isreg) { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        else            { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr;        fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)nfn);
-        s += x86_frame_lea("rsi", avbase);
-        s += x86("mov32", "edx", (long)nn);
-        if (nmig) s += pas_sl_setup(nfn);
-        s += x86_call_ro(rsym, fptr);
-        s += x86_frame_store64(aoff, "rax");
-        s += x86_frame_store64(aoff + 8, "rdx");
-    }
+    uint64_t fptr;
+    if (nmig)       { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    else if (isreg) { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    else            { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr;        fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    std::string fl = std::string(".Lcallfn") + std::to_string(lblid);
+    s += x86("directive", ".section .rodata");
+    s += x86("directive", (fl + ": .string \"" + nfn + "\"").c_str());
+    s += x86("directive", ".section .text");
+    s += x86("directive", ".intel_syntax noprefix");
+    s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)nfn, fl.c_str());
+    s += x86("lea", "rsi", FRQ(avbase));
+    s += x86("mov32", "edx", (long)nn);
+    s += IF(nmig, pas_sl_setup(nfn));
+    s += x86("call", rsym, fptr);
+    s += x86("mov", FRQ(aoff), "rax");
+    s += x86("mov", FRQ(aoff + 8), "rdx");
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
         int ps = _.op_arg_slot[idx];
-        std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff)));
+        std::string s = x86("comment", emit_fmt("marshal arg%d = producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
         s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
         s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
         return s;
@@ -301,7 +286,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             int oka = ra2 && (ra2->op == IR_LIT_INTEGER || ra2->op == IR_LIT_REAL), okb = rb2 && (rb2->op == IR_LIT_INTEGER || rb2->op == IR_LIT_REAL);
             if (is_ar && fin != lf && (af || bf) && oka && okb) {
                 std::string s;
-                if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = inline gvar-real subexpr -> [zr+%d]", idx, aoff));
+                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-real subexpr -> [zr+%d]", idx, aoff));
                 if (af) { uint64_t bv; double d = IR_LIT(ra2).dval; memcpy(&bv, &d, 8); s += x86("mov", "rdi", (long)DT_R) + x86_movabs_r64("rsi", bv); }
                 else    { s += x86("mov", "rdi", (long)DT_I) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(ra2).ival); }
                 if (bf) { uint64_t bv; double d = IR_LIT(rb2).dval; memcpy(&bv, &d, 8); s += x86("mov", "rdx", (long)DT_R) + x86_movabs_r64("rcx", bv); }
@@ -315,7 +300,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         }
         if (fin && fin != lf && fin_arith && arith_kind_ok(fa) && arith_kind_ok(fb)) {
             std::string s;
-            if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = inline gvar-arith subexpr -> [zr+%d]", idx, aoff));
+            s += x86("comment", emit_fmt("marshal arg%d = inline gvar-arith subexpr -> [zr+%d]", idx, aoff));
             s += marshal_arith_rax(sg, fin);
             s += x86("mov", FRQ(aoff), (long)6);
             s += x86_frame_store64(aoff + 8, "rax");
@@ -331,7 +316,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
                 if (p == e || is_int) {
                     long long v = (p == e) ? 0 : strtoll(p, NULL, 10); if (IR_LIT(fin).ival == TT_MNS) v = -v;
                     std::string s;
-                    if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop numstr -> [zr+%d]", idx, aoff));
+                    s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop numstr -> [zr+%d]", idx, aoff));
                     s += x86("mov", FRQ(aoff), (long)6);
                     s += x86_movabs_r64("rax", (uint64_t)v);
                     s += x86_frame_store64(aoff + 8, "rax");
@@ -342,7 +327,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
                 double d = IR_LIT(ua).dval; if (IR_LIT(fin).ival == TT_MNS) d = -d;
                 uint64_t bits; memcpy(&bits, &d, 8);
                 std::string s;
-                if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop real -> [zr+%d]", idx, aoff));
+                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop real -> [zr+%d]", idx, aoff));
                 s += x86("mov", FRQ(aoff), (long)7);
                 s += x86_movabs_r64("rax", bits);
                 s += x86_frame_store64(aoff + 8, "rax");
@@ -350,7 +335,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             }
             if (ua && arith_kind_ok(ua)) {
                 std::string s;
-                if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop subexpr -> [zr+%d]", idx, aoff));
+                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop subexpr -> [zr+%d]", idx, aoff));
                 s += arith_opnd_a(sg, ua);
                 if (IR_LIT(fin).ival == TT_MNS) s += x86("neg", "rax");
                 s += x86("mov", FRQ(aoff), (long)6);
@@ -362,7 +347,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             IR_t * pa = NULL, * pb = NULL; arith_operands(sg, fin, &pa, &pb);
             if (pa && pb && pa->op == IR_LIT_INTEGER && pb->op == IR_LIT_INTEGER) {
                 std::string s;
-                if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = inline gvar-pow subexpr -> [zr+%d]", idx, aoff));
+                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-pow subexpr -> [zr+%d]", idx, aoff));
                 s += x86("mov", "rdi", (long)DT_I);
                 s += x86_movabs_r64("rsi", (uint64_t)IR_LIT(pa).ival);
                 s += x86("mov", "rdx", (long)DT_I);
@@ -388,7 +373,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             if (ra && rb && arith_kind_ok(ra) && arith_kind_ok(rb)) {
                 if (idx * 2 + 1 >= X86_INTERNAL_MAX) return x86_bomb("marshal boolean-relop: arg index exceeds internal label capacity");
                 std::string s;
-                if (MEDIUM_TEXT) s += x86("comment", emit_fmt("marshal arg%d = boolean relop value INTVAL(0/1) -> [zr+%d]", idx, aoff));
+                s += x86("comment", emit_fmt("marshal arg%d = boolean relop value INTVAL(0/1) -> [zr+%d]", idx, aoff));
                 int scratch = zoff(relnd);
                 if (scratch < 0) return x86_bomb("marshal boolean-relop: relop has no LOWER slot grant (TMP-ERADICATE)");
                 s += arith_opnd_a(sg, ra);
@@ -419,23 +404,18 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         }
     }
     if (g_gvar_flat_chain && lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&') {
+        char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
         std::string s;
-        if (MEDIUM_TEXT) {
-            char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
-            s += x86("comment", emit_fmt("marshal arg%d = gvar NV_GET -> [zr+%d]", idx, aoff));
-            s += x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str());
-            s += x86("call", "NV_GET_fn@PLT");
-        } else {
-            s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(lf).sval);
-            s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
-        }
-        s += x86_frame_store64(aoff, "rax");
-        s += x86_frame_store64(aoff + 8, "rdx");
+        s += x86("comment", emit_fmt("marshal arg%d = gvar NV_GET -> [zr+%d]", idx, aoff));
+        s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(lf).sval, b1);
+        s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
+        s += x86("mov", FRQ(aoff), "rax");
+        s += x86("mov", FRQ(aoff + 8), "rdx");
         return s;
     }
     if (lf->op == IR_LIT_INTEGER) {
         std::string s;
-        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_I -> [zr+%d]", idx, aoff)));
+        s += x86("comment", emit_fmt("marshal arg%d = LIT_I -> [zr+%d]", idx, aoff));
         s += x86("mov", FRQ(aoff), (long)6);
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(lf).ival);
         s += x86_frame_store64(aoff + 8, "rax");
@@ -444,7 +424,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     if (lf->op == IR_LIT_REAL) {
         uint64_t bits; double d = IR_LIT(lf).dval; memcpy(&bits, &d, 8);
         std::string s;
-        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_F -> [zr+%d]", idx, aoff)));
+        s += x86("comment", emit_fmt("marshal arg%d = LIT_F -> [zr+%d]", idx, aoff));
         s += x86("mov", FRQ(aoff), (long)7);
         s += x86_movabs_r64("rax", bits);
         s += x86_frame_store64(aoff + 8, "rax");
@@ -452,7 +432,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     }
     if (lf->op == IR_OP_COUNT) {
         std::string s;
-        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_NUL -> [zr+%d]", idx, aoff)));
+        s += x86("comment", emit_fmt("marshal arg%d = LIT_NUL -> [zr+%d]", idx, aoff));
         s += x86("mov", FRQ(aoff), (long)0);
         s += x86("mov", FRQ(aoff + 8), (long)0);
         return s;
@@ -460,7 +440,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     if (lf->op == IR_LIT_STRING) {
         int nseal = idx * 2, nskip = idx * 2 + 1;
         std::string s;
-        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = LIT_S (string REG-RO sealed in-band) -> [zr+%d]", idx, aoff)));
+        s += x86("comment", emit_fmt("marshal arg%d = LIT_S (string REG-RO sealed in-band) -> [zr+%d]", idx, aoff));
         s += x86("mov", FRQ(aoff), (long)1);
         s += x86_ro_load_q("rax", nseal);
         s += x86_frame_store64(aoff + 8, "rax");
@@ -472,7 +452,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_OP_COUNT || ir_is_call_kind(lf->op)) {
         int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_PROC_GEN);
         if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) {
-            int ps = bb_slot_get(lf); std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = spine call-result slot [zr+%d] -> [zr+%d]", idx, ps, aoff)));
+            int ps = bb_slot_get(lf); std::string s = x86("comment", emit_fmt("marshal arg%d = spine call-result slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
             s += x86_frame_load64("rax", ps) + x86_frame_store64(aoff, "rax"); s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax"); return s;
         } return marshal_single_call(lf, aoff, bb_node_id(lf));
     }
@@ -496,7 +476,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         int ps = is_local_var ? -1 : bb_slot_get(lf);
         if (ps < 0 && !is_local_var) ps = zoff(lf);
         if (ps >= 0) {
-            std::string s = IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff)));
+            std::string s = x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
             s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
             s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
             return s;
@@ -506,7 +486,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         int voff = bb_varslot_peek(IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
         if (voff < 0) return x86_bomb("bb_call marshal: IR_VAR arg names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
         std::string s;
-        s += IF(MEDIUM_TEXT, x86("comment", emit_fmt("marshal arg%d = varslot [zr+%d] -> [zr+%d]", idx, voff, aoff)));
+        s += x86("comment", emit_fmt("marshal arg%d = varslot [zr+%d] -> [zr+%d]", idx, voff, aoff));
         s += x86_frame_load64("rax", voff)     + x86_frame_store64(aoff, "rax");
         s += x86_frame_load64("rax", voff + 8) + x86_frame_store64(aoff + 8, "rax");
         return s;
