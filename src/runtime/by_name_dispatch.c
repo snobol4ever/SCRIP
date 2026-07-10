@@ -118,6 +118,7 @@ int pl_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
     if (!strcmp(name, "$unify") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
+    if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
@@ -1089,6 +1090,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "$trail_mark") && nargs == 0) { DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); *out = m; return 1; }
     if (!strcmp(fn, "$trail_unwind") && nargs == 1) { pl_trail_unwind(&g_pl_trail, (int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
+    if (!strcmp(fn, "$throw") && nargs == 1) { extern void rt_pl_throw_set(void *); DESCR_t t0 = args[0]; rt_pl_throw_set((void *)plw_det_cell(&t0)); *out = FAILDESCR; return 1; }
+    if (!strcmp(fn, "$unwind_nothrow") && nargs == 1) {
+        extern int rt_pl_throw_pending(void);
+        pl_trail_unwind(&g_pl_trail, (int)args[0].i);
+        if (rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$catch_check") && nargs == 2) {
+        extern int rt_pl_throw_pending(void); extern int rt_pl_throw_match(void *);
+        if (!rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
+        pl_trail_unwind(&g_pl_trail, (int)args[0].i);
+        DESCR_t t1 = args[1];
+        if (rt_pl_throw_match((void *)plw_det_cell(&t1))) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR;
+        return 1;
+    }
     if (!strcmp(fn, "__multi_call") && nargs >= 1) {
         const char *base = VARVAL_fn(args[0]); if (!base) { *out = FAILDESCR; return 1; }
         int na = nargs - 1; DESCR_t *aa = &args[1];
