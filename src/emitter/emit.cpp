@@ -1296,6 +1296,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_SCAN_ENTER: {
         IR_t * subj = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = subj ? bb_slot_get(subj) : -1;
+        if (sa < 0 && subj) sa = nd_slot(subj);
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = 1;
         g_emit.op_off = drive_value_slot(nd);
