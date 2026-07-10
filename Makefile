@@ -124,6 +124,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_break.cpp \
     $(SRC)/templates/bb_match_breakx.cpp \
     $(SRC)/templates/bb_match_tab.cpp \
+    $(SRC)/templates/bb_coerce_string.cpp \
+    $(SRC)/templates/bb_coerce_integer.cpp \
     $(SRC)/templates/bb_match_rtab.cpp \
     $(SRC)/templates/bb_match_pos.cpp \
     $(SRC)/templates/bb_match_rem.cpp \
@@ -341,6 +343,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_break.cpp  -o $(OBJ)/bb_match_break.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_breakx.cpp -o $(OBJ)/bb_match_breakx.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_tab.cpp     -o $(OBJ)/bb_match_tab.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_coerce_string.cpp  -o $(OBJ)/bb_coerce_string.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_coerce_integer.cpp -o $(OBJ)/bb_coerce_integer.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rtab.cpp    -o $(OBJ)/bb_match_rtab.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_pos.cpp     -o $(OBJ)/bb_match_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rem.cpp     -o $(OBJ)/bb_match_rem.o

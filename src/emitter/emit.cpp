@@ -722,6 +722,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         else if (_vn && ((is_global(_vn) && !graph_has_local(g_emit_cfg, _vn)) || _vn_reassignable_builtin)) bb_emit_x86(bb_var_global());
         else bb_emit_x86(bb_var()); } return 0;
     case IR_VAR_REF:              bb_emit_x86(bb_var_ref());        return 0;
+    case IR_COERCE_STRING:        { bb_prepare(nd); bb_emit_x86(bb_coerce_string()); }  return 0;
+    case IR_COERCE_INTEGER:       { bb_prepare(nd); bb_emit_x86(bb_coerce_integer()); } return 0;
     case IR_ASSIGN: {
         extern int is_global(const char *);
         const char * _an = IR_LIT(nd).sval;
@@ -1020,8 +1022,17 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         else      { g_emit.op_off = drive_value_slot(nd);   g_emit.op_phase = 0; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_COERCE_STRING: case IR_COERCE_INTEGER: {
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        int sa = a0 ? bb_slot_get(a0) : -1;
+        if (sa < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
     case IR_MATCH_LEN: {
-        g_emit.op_sa = -1; g_emit.op_off = -1;
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_sa = a0 ? bb_slot_get(a0) : -1; g_emit.op_off = -1;
+        if (a0 && g_emit.op_sa < 0) { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LIT: {
@@ -1033,14 +1044,22 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ANY: case IR_MATCH_NOTANY: {
-        g_emit.op_sa = -1; g_emit.op_off = -1;
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_sa = a0 ? bb_slot_get(a0) : -1; g_emit.op_off = -1;
+        if (a0 && g_emit.op_sa < 0) { drive_unowned(nd); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_SPAN: {
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_sa = a0 ? bb_slot_get(a0) : -1;
+        if (a0 && g_emit.op_sa < 0) { drive_unowned(nd); break; }
         g_emit.x86_scratch_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX: {
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_sa = a0 ? bb_slot_get(a0) : -1;
+        if (a0 && g_emit.op_sa < 0) { drive_unowned(nd); break; }
         g_emit.x86_scratch_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1454,7 +1473,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < CH_MAX)
@@ -1478,7 +1497,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
         if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < CH_MAX)

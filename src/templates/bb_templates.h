@@ -23,6 +23,8 @@ std::string bb_gvar_assign_call();
 std::string bb_gvar_assign_descr();
 std::string bb_match_pos();
 std::string bb_match_tab();
+std::string bb_coerce_string();
+std::string bb_coerce_integer();
 std::string bb_match_atp();
 std::string bb_match_len();
 std::string bb_match_rem();
