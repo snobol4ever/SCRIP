@@ -53,6 +53,8 @@ extern int         Δ;
 #include "../contracts/zeta_choices.h"
 #include "../runtime/rt/zeta_alloc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *asm_sym_name(const char *nm) { static char b[256]; snprintf(b, sizeof b, "%s", nm ? nm : ""); for (char *c = b; *c; c++) if (*c == '/') *c = '$'; return b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;
     if (kw[0] == '&') kw++;
@@ -722,7 +724,7 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", pname); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); }
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
@@ -978,7 +980,7 @@ int main(int argc, char **argv)
                         }
                     }
                     printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", proc_names_buf[i]);
+                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
                     printf("  call rt_proc_set_fn@PLT\n");
                     printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                     printf("  mov esi, %d\n", proc_nparams_buf[i]);
@@ -1115,7 +1117,7 @@ int main(int argc, char **argv)
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", pname); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); }
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
                 pidx_buf[n_procs++] = _pi;
@@ -1140,7 +1142,7 @@ int main(int argc, char **argv)
                     printf("  mov edx, %d\n", pe->nparams);
                     printf("  call rt_proc_register@PLT\n");
                     printf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", pe->name);
+                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(pe->name));
                     printf("  call rt_proc_set_fn@PLT\n");
                     int _fidx = pe->bb_idx;
                     if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {

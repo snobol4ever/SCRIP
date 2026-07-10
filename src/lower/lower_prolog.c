@@ -15,6 +15,13 @@ static const char * pl_var_name(int slot) {
     snprintf(buf, sizeof buf, "G%d", slot); return strdup(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_pi_name(const char * nm, int ar) {
+    static char buf[264];
+    if (!nm) return strdup("?");
+    if (ar == 0 && strcmp(nm, "main") == 0) return strdup(nm);
+    snprintf(buf, sizeof buf, "%s/%d", nm, ar); return strdup(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_fact_choice_lookup(const char * nm, int arity) {
     extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
     extern stage2_t g_stage2;
@@ -513,7 +520,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             const tree_t * gt = t->c[0];
             const char * callee = (gt && gt->v.sval) ? gt->v.sval : "?";
             int base_n = (gt && gt->t == TT_FNC) ? gt->n : 0;
-            IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = strdup(callee);
+            IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(callee, base_n + 2);
             IR_t * prev = NULL; IR_t * first = NULL;
             for (int i = 0; i < base_n + 2; i++) {
                 const tree_t * at = (i < base_n) ? gt->c[i] : (i == base_n) ? t->c[1] : (t->n == 3 ? t->c[2] : (const tree_t *)0);
@@ -530,7 +537,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             cx->beta = nd;
             return nd;
         }
-        IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = strdup(nm);
+        IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, t->n);
         IR_t * prev = NULL; IR_t * first = NULL;
         for (int i = 0; i < t->n; i++) {
             IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
@@ -555,7 +562,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return call;
         }
         if (is_builtin_exec(nm)) { IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; return nd; }
-        IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = strdup(nm);
+        IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, 0);
         if (entry_out) *entry_out = nd;
         cx->beta = nd;
         return nd;
@@ -827,9 +834,8 @@ static void lower_pl_register_all_preds(void) {
             if (bb_idx >= 0) {
                 resolve_bb_register(key, ar, bb_idx);
                 {
-                    static char nmp[200]; int kl2 = slash ? (int)(slash - key) : (int)strlen(key); if (kl2 > 199) kl2 = 199; memcpy(nmp, key, kl2); nmp[kl2] = 0;
                     int pi = stage2_proc_grow(&g_stage2);
-                    g_stage2.proc_table[pi].name         = strdup(nmp);
+                    g_stage2.proc_table[pi].name         = (strcmp(key, "main/0") == 0) ? strdup("main") : strdup(key);
                     g_stage2.proc_table[pi].proc         = NULL;
                     g_stage2.proc_table[pi].entry_pc     = -1;
                     g_stage2.proc_table[pi].bb_idx       = bb_idx;
@@ -901,7 +907,7 @@ static void pl_ll_maybe_lift(tree_t *fa) {
     if (bb_idx < 0) return;
     resolve_bb_register(key, nhead, bb_idx);
     { int pi = stage2_proc_grow(&g_stage2);
-      g_stage2.proc_table[pi].name         = strdup(nm);
+      g_stage2.proc_table[pi].name         = strdup(key);
       g_stage2.proc_table[pi].proc         = NULL;
       g_stage2.proc_table[pi].entry_pc     = -1;
       g_stage2.proc_table[pi].bb_idx       = bb_idx;
