@@ -321,33 +321,23 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "catch") && t->n == 3) {
-            IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail);
-            bb_catch_state_t * zc = (bb_catch_state_t *) calloc(1, sizeof *zc);
-            IR_graph_t * sub = IR_alloc(256);
-            lcx_t scx; scx.g = sub; scx.tω = NULL; scx.beta = NULL;
-            IR_t * ssucc = build(&scx, IR_SUCCEED, NULL, NULL);
-            IR_t * sfail = build(&scx, IR_FAIL, NULL, NULL);
-            const tree_t * gone[1] = { t->c[0] };
-            tree_t blkw; memset(&blkw, 0, sizeof blkw); blkw.n = 1; blkw.c = (tree_t **) gone;
-            IR_t * sentry = NULL;
-            thread_goals(&scx, &blkw, 0, 1, ssucc, sfail, &sentry, NULL);
-            sub->entry = sentry ? sentry : ssucc;
-            zc->goal_g = sub;
-            IR_t * cnode = term(cx, t->c[1]);
-            zc->catcher = cnode;
-            ir_operand_push(nd, cnode);
-            IR_graph_t * rsub = IR_alloc(256);
-            lcx_t rcx; rcx.g = rsub; rcx.tω = NULL; rcx.beta = NULL;
-            IR_t * rsucc = build(&rcx, IR_SUCCEED, NULL, NULL);
-            IR_t * rfail = build(&rcx, IR_FAIL, NULL, NULL);
-            const tree_t * rone[1] = { t->c[2] };
-            tree_t rblkw; memset(&rblkw, 0, sizeof rblkw); rblkw.n = 1; rblkw.c = (tree_t **) rone;
+            IR_t * marknd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(marknd).sval = "$trail_mark";
+            IR_t * ce = NULL; IR_t * cnode = term_lval_e(cx, t->c[1], &ce);
+            IR_t * checknd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(checknd).sval = "$catch_check";
+            ir_operand_push(checknd, marknd);
+            ir_operand_push(checknd, cnode);
             IR_t * rentry = NULL;
-            thread_goals(&rcx, &rblkw, 0, 1, rsucc, rfail, &rentry, NULL);
-            rsub->entry = rentry ? rentry : rsucc;
-            zc->rec_g = rsub;
-            IR_LIT(nd).ival = (long long)(intptr_t) zc;
-            return nd;
+            IR_t * rnode = thread1(cx, t->c[2], γnext, checknd, &rentry);
+            cx->beta = NULL;
+            lc_γ_to(checknd, rentry ? rentry : rnode);
+            IR_t * gentry = NULL;
+            IR_t * gnode = thread1(cx, t->c[0], γnext, checknd, &gentry);
+            cx->beta = NULL;
+            lc_γ_to(marknd, ce ? ce : cnode);
+            lc_γ_to(cnode, gentry ? gentry : gnode);
+            lc_ω_to(cnode, ωfail);
+            if (entry_out) *entry_out = marknd;
+            return checknd;
         }
         if (!strcmp(nm, "aggregate_all") && t->n == 3) {
             const tree_t * spec = t->c[0]; const tree_t * goal_ast = t->c[1]; const tree_t * res_ast = t->c[2];
@@ -497,6 +487,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
               { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
               { "assertz", 1, "$dyn_assertz" }, { "assert", 1, "$dyn_assertz" }, { "asserta", 1, "$dyn_asserta" }, { "retract", 1, "$retract" },
               { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
+              { "throw", 1, "$throw" },
               { 0, 0, 0 } };
           for (int di = 0; g_pl_det_tab[di].nm; di++) if (!strcmp(nm, g_pl_det_tab[di].nm) && t->n == g_pl_det_tab[di].ar) {
               IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = g_pl_det_tab[di].tgt;
@@ -685,7 +676,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity) {
         IR_LIT(ml).ival = (ab && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;
         ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, NULL);
         centry[k] = ce;
-        if (k > 0) { IR_t * u = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, fail); IR_LIT(u).sval = "$trail_unwind"; ir_operand_push(u, mk); uw[k] = u; }
+        if (k > 0) { IR_t * u = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, fail); IR_LIT(u).sval = "$unwind_nothrow"; ir_operand_push(u, mk); uw[k] = u; }
         maxlocal = max_var_slot(clauses[k], maxlocal);
     }
     lc_γ_to(mk, centry[0]);
