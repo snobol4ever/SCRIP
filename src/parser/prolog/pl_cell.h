@@ -77,7 +77,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b, pl_trail_t *trail) {
     pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
     if (A == B) return 1;
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
-    if (av && bv) { pl_bind(A, pl_make_ref(B, (int)A->slen), trail); return 1; }
+    if (av && bv) { extern void *GC_malloc(size_t); pl_cell_t *j = (pl_cell_t *)GC_malloc(sizeof(pl_cell_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r, trail); pl_bind(B, r, trail); return 1; }
     if (av) { pl_bind(A, *B, trail); return 1; }
     if (bv) { pl_bind(B, *A, trail); return 1; }
     if (((int)A->v == DT_S || (int)A->v == DT_A) && ((int)B->v == DT_S || (int)B->v == DT_A)) {
