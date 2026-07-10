@@ -8,6 +8,8 @@ extern "C" {
 extern int g_scan_regs_live;
 int64_t rt_cvpos_pos(struct DESCR_t v, int64_t len);
 struct DESCR_t rt_keyword_pos_set(struct DESCR_t v);
+typedef struct { uint64_t ptr; uint64_t len; } KwSubjRegs_t;
+KwSubjRegs_t rt_keyword_subject_set(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_keyword_random_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_error_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_trace_set(struct DESCR_t v);
@@ -46,6 +48,24 @@ std::string bb_keyword_assign() {
              + x86_omega("je")
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
+    }
+    if (!strcmp(kw, "subject")) {
+        return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN subject [oasgn.r kywdsubj: cnv:str fail->omega; scan_subj=s, &pos=1; in-scan also r13=ptr r15=len r14=0; result {DT_S,ptr}]")
+             + x86_alpha()
+             + x86("mov",  "rdi", FRQ(_.op_a_slot))
+             + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
+             + x86("call", "rt_keyword_subject_set", (uint64_t)(uintptr_t)(void *)rt_keyword_subject_set)
+             + x86("test", "rax", "rax")
+             + x86_omega("je")
+             + x86("mov",  FRQ(_.op_off),     (long)DT_S)
+             + x86("mov",  FRQ(_.op_off + 8), "rax")
+             + IF(g_scan_regs_live != 0,
+                   x86("mov", "r13", "rax")
+                 + x86("mov", "r15", "rdx")
+                 + x86("mov", "r14", (long)0))
              + x86_gamma()
              + x86_beta()
              + x86_omega();
