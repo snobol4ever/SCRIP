@@ -1147,6 +1147,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUSPEND: {
         IR_t * ev = bb_child0(nd); int sa = ev ? bb_slot_get(ev) : -1;
+        if (sa < 0 && ev) sa = nd_slot(ev);
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.lbl_t0 = g_suspend_dobody_beta ? g_suspend_dobody_beta->name : NULL; g_emit.lbl_t0_p = g_suspend_dobody_beta;
         g_emit.lbl_t1_p = lbl_β;

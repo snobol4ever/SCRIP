@@ -588,6 +588,17 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&';
         int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
         int kw_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval && rt2->v.sval[0] == '&';
+        if (kw_l && kw_r) {
+            /* kw <-> kw (&pos :=: &subject): both reads via IR_KEYWORD_ICON, both writes via
+             * IR_KEYWORD_ASSIGN, canonical oasgn.r order lhs := rhs_old first, then rhs := lhs_old. */
+            IR_t * lv_old = build(cx, IR_KEYWORD_ICON, NULL, ω); IR_LIT(lv_old).sval = (char *) lt->v.sval;
+            IR_t * rv_old = build(cx, IR_KEYWORD_ICON, NULL, ω); IR_LIT(rv_old).sval = (char *) rt2->v.sval;
+            lc_γ_to(lv_old, rv_old);
+            IR_t * write_l = build(cx, IR_KEYWORD_ASSIGN, NULL, ω); IR_LIT(write_l).sval = (char *) lt->v.sval;  ir_operand_push(write_l, rv_old);
+            IR_t * write_r = build(cx, IR_KEYWORD_ASSIGN, γ,    ω); IR_LIT(write_r).sval = (char *) rt2->v.sval; ir_operand_push(write_r, lv_old);
+            lc_γ_to(rv_old, write_l); lc_γ_to(write_l, write_r);
+            *res = write_r; return lv_old;
+        }
         if (kw_l || kw_r) {
             /* Keyword operand: emit sequential read-old/write-new per canonical oasgn.r :=: swap.
              * Canonical order from oasgn.r: lhs := rhs_old FIRST, then rhs := lhs_old.
