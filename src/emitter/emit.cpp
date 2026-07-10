@@ -810,6 +810,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG:
     case IR_PROC_GEN:
     case IR_CALL: {
+        g_emit.op_call_route = bb_call_route_classify(nd);
         bb_emit_x86(bb_call(nd));
         return 0;
     }
