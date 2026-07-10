@@ -1,6 +1,8 @@
 #include "core.h"
 #include "builtins/gen_runtime.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 const char *global_names[GLOBAL_MAX];
 int         global_count = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -11,7 +13,8 @@ int is_global(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void global_register(const char *name) {
-    if (!name || is_global(name) || global_count >= GLOBAL_MAX) return;
+    if (!name || is_global(name)) return;
+    if (global_count >= GLOBAL_MAX) { fprintf(stderr, "scrip: BOMB — global_register: GLOBAL_MAX (%d) exceeded at '%s' — silent drop would misclassify globals as locals\n", GLOBAL_MAX, name); abort(); }
     global_names[global_count++] = name;
 }
 typedef struct {

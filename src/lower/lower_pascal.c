@@ -46,7 +46,9 @@ static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(pcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 extern void global_register(const char * name);
 static void pas_reg_var(const char * nm) { if (nm && nm[0]) global_register(lp_strdup(nm)); }
+static int pas_in_real_proc(const pcx_t * cx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_in_real_proc(const pcx_t * cx) { return cx && cx->sc.proc_name && strcmp(cx->sc.proc_name, "main") != 0; }
 static int scope_slot(const pas_scope_t * sc, const char * name) {
     if (!name) return -1;
     for (int i = 0; i < sc->n; i++) if (sc->names[i] && !strcmp(sc->names[i], name)) return i;
@@ -81,7 +83,7 @@ static const char * pas_resolve_name(pcx_t * cx, const char * name, int * slot_o
 static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     int slot = -1;
     const char * rn = pas_resolve_name(cx, name, &slot);
-    if (slot < 0 && rn == name) pas_reg_var(name);
+    if (slot < 0 && rn == name && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
     IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = rn; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -103,7 +105,7 @@ static IR_t * lower_var_r(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω, I
 static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
     int slot = -1;
     const char * rn = pas_resolve_name(cx, name, &slot);
-    if (slot < 0 && rn == name) pas_reg_var(name);
+    if (slot < 0 && rn == name && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
     IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = rn; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

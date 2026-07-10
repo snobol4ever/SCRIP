@@ -14,7 +14,7 @@
 #define FRAME_STACK_MAX      256
 #define EVERY_GEN_SLOT_MAX    16
 #define SCAN_STACK_MAX  16
-#define GLOBAL_MAX      64
+#define GLOBAL_MAX      4096
 struct GeneratorState;
 typedef struct { tree_t *node; long cur; const char *sval; } ScopeEntry;
 typedef struct GenFrame GenFrame;
