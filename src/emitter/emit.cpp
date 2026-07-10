@@ -687,7 +687,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
-                       || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
+                       || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_REV_SWAP || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
                        || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_ASSIGN_IMM || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
                        || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP || nd->op == IR_MATCH_REPLACE || nd->op == IR_GOTO_DEFERRED
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
@@ -777,6 +777,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_RANDOM:               bb_emit_x86(bb_random());         return 0;
     case IR_ASSIGN_VAR:           bb_emit_x86(bb_assign_var());     return 0;
     case IR_REV_ASSIGN:                bb_emit_x86(bb_rev_assign());          return 0;
+    case IR_REV_SWAP:                  bb_emit_x86(bb_rev_swap());            return 0;
     case IR_REV_ASSIGN_VAR:            bb_emit_x86(bb_rev_assign_var()); return 0;
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
     case IR_SWAP_VAR:             bb_emit_x86(bb_swap_var());       return 0;
@@ -1115,6 +1116,17 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
           g_emit.op_sb = voff; }
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_REV_SWAP: {
+        const char * ln = IR_LIT(nd).sval;
+        const char * rn = (nd->n_operands > 0 && nd->operands[0]) ? IR_LIT(nd->operands[0]).sval : NULL;
+        if (!ln || !rn) { drive_unowned(nd); break; }
+        g_emit.op_sval = ln; g_emit.op_name2 = rn;
+        g_emit.op_sb = -1; g_emit.op_sa = -1;
+        if (ln[0] != '&') { int voff = bb_varslot_peek(ln); if (voff < 0) { fprintf(stderr, "[TE-4] IR_REV_SWAP lhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", ln); abort(); } g_emit.op_sb = voff; }
+        if (rn[0] != '&') { int voff = bb_varslot_peek(rn); if (voff < 0) { fprintf(stderr, "[TE-4] IR_REV_SWAP rhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", rn); abort(); } g_emit.op_sa = voff; }
+        g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_REV_ASSIGN_VAR: {

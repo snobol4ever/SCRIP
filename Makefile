@@ -162,6 +162,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_limit.cpp \
     $(SRC)/templates/bb_section.cpp \
     $(SRC)/templates/bb_rev_assign.cpp \
+    $(SRC)/templates/bb_rev_swap.cpp \
     $(SRC)/templates/bb_swap.cpp \
     $(SRC)/templates/bb_swap_var.cpp \
     $(SRC)/templates/bb_proc_value.cpp \
@@ -419,6 +420,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_pos.cpp   -o $(OBJ)/bb_scan_pos.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_bal.cpp   -o $(OBJ)/bb_scan_bal.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rev_assign.cpp -o $(OBJ)/bb_rev_assign.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rev_swap.cpp -o $(OBJ)/bb_rev_swap.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_case_arm.cpp -o $(OBJ)/bb_case_arm.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -c $(SRC)/templates/xa_stubs.cpp -o $(OBJ)/xa_stubs.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter/SM_templates -c $(SRC)/templates/xa_macro_library.cpp -o $(OBJ)/xa_macro_library.o

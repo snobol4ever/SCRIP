@@ -129,6 +129,8 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "repalt.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "repalt.yielded flag (clear/yield/test)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "repalt.pad (unused)", nd); return 2;
     case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "revasg.value", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revasg.saved old value (beta restore; LIVE across suspension — GC must trace)", nd); return 2;
+    case IR_REV_SWAP:
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "revswap.value", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revswap.saved lhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 32, 16, ZK_DESCR, 0, "revswap.saved rhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "revswap.delta spill (in-scan r14 round-trip)", nd); zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "revswap.Delta spill (in-scan r15, read-only len)", nd); return 4;
     case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "kw.value", nd); zls_field(scope_id, off + 16, 16, ZK_RAW, 0, "kw.gen counter", nd); return 2;
     case IR_KEYWORD_SNOBOL4:

@@ -150,7 +150,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"row"))     return INTVAL(0);
     if (!strcmp(kw,"x"))       return INTVAL(0);
     if (!strcmp(kw,"y"))       return INTVAL(0);
-    { extern int frame_depth; if (!strcmp(kw,"level")) return INTVAL(frame_depth); }
+    { extern int rt_k_level; if (!strcmp(kw,"level")) return INTVAL(rt_k_level); }
     if (!strcmp(kw,"lpress"))   return INTVAL(-1);
     if (!strcmp(kw,"mpress"))   return INTVAL(-2);
     if (!strcmp(kw,"rpress"))   return INTVAL(-3);

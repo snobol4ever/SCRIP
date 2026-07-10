@@ -673,6 +673,24 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * lr = NULL; lower(cx, lhs, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, rhs, nd, ω, &rr);
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
+    case TT_REVSWAP: {
+        const tree_t * lt = (t->n > 0) ? t->c[0] : NULL; const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
+        int name_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval;
+        int name_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval;
+        if (name_l && name_r) {
+            /* x <-> y (oasgn.r rswap): ONE box; alpha = save both olds + forward swap in canonical order
+             * (lhs := rhs_old first, fail -> omega with rhs untouched; then rhs := lhs_old, fail -> omega
+             * with lhs committed); beta = restore lhs first (fail -> omega skipping rhs), then rhs, omega.
+             * rhs name rides a dangling IR_LIT_STRING carrier (operands[0], control-unreachable, data only). */
+            IR_t * nd = build(cx, IR_REV_SWAP, γ, ω); IR_LIT(nd).sval = (char *) lt->v.sval;
+            IR_t * rc = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(rc).sval = (char *) rt2->v.sval;
+            ir_operand_push(nd, rc);
+            cx->beta = nd; *res = nd; return nd;
+        }
+        IR_t * nd = build(cx, IR_FAIL, γ, ω);
+        IR_t * lr = NULL; lower(cx, lt, nd, ω, &lr);
+        IR_t * rr = NULL; lower(cx, rt2, nd, ω, &rr);
+        ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     case TT_RECORD: {
         extern void record_register(const char *spec);
         const char * rname = t->v.sval;
