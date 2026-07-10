@@ -149,7 +149,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$functor") || !strcmp(name, "$arg") || !strcmp(name, "$univ")) return 1;
     if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
     if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
-    if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter")) return 1;
+    if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter") || !strcmp(name, "$call")) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2404,6 +2404,250 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
 #undef STX
 #undef SOH
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_pl_ax_suffix(const char *s, int ar) {
+    if (!s) return (const char *)0;
+    if (ar == 2) {
+        if (!strcmp(s, "+")) return "add"; if (!strcmp(s, "-")) return "sub"; if (!strcmp(s, "*")) return "mul";
+        if (!strcmp(s, "/")) return "div"; if (!strcmp(s, "//")) return "idiv"; if (!strcmp(s, "div")) return "idiv";
+        if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "rem")) return "rem"; if (!strcmp(s, "**")) return "pow"; if (!strcmp(s, "^")) return "pow";
+        if (!strcmp(s, "min")) return "min"; if (!strcmp(s, "max")) return "max"; if (!strcmp(s, "gcd")) return "gcd"; if (!strcmp(s, "xor")) return "xor";
+        if (!strcmp(s, ">>")) return "shr"; if (!strcmp(s, "<<")) return "shl"; if (!strcmp(s, "/\\")) return "band"; if (!strcmp(s, "\\/")) return "bor";
+        return (const char *)0;
+    }
+    if (ar == 1) {
+        if (!strcmp(s, "-")) return "neg"; if (!strcmp(s, "+")) return "pos"; if (!strcmp(s, "abs")) return "abs"; if (!strcmp(s, "sign")) return "sign";
+        if (!strcmp(s, "truncate")) return "trunc"; if (!strcmp(s, "integer")) return "intg"; if (!strcmp(s, "float")) return "flt";
+        if (!strcmp(s, "floor")) return "floor"; if (!strcmp(s, "ceiling")) return "ceil"; if (!strcmp(s, "round")) return "round";
+        if (!strcmp(s, "sqrt")) return "sqrt"; if (!strcmp(s, "msb")) return "msb"; if (!strcmp(s, "sin")) return "sin"; if (!strcmp(s, "cos")) return "cos";
+        if (!strcmp(s, "atan")) return "atan"; if (!strcmp(s, "log")) return "log"; if (!strcmp(s, "exp")) return "exp";
+        if (!strcmp(s, "float_integer_part")) return "fip"; if (!strcmp(s, "float_fractional_part")) return "ffp";
+        return (const char *)0;
+    }
+    if (ar == 0) { if (!strcmp(s, "pi")) return "pi"; return (const char *)0; }
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_pl_cmp_suffix(const char *s) {
+    if (!s) return (const char *)0;
+    if (!strcmp(s, "<")) return "lt"; if (!strcmp(s, ">")) return "gt"; if (!strcmp(s, "=<")) return "le";
+    if (!strcmp(s, ">=")) return "ge"; if (!strcmp(s, "=:=")) return "eq"; if (!strcmp(s, "=\\=")) return "ne";
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_pl_det_builtin_target(const char *nm, int ar) {
+    static const struct { const char *nm; int ar; const char *tgt; } tab[] = {
+        { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "numbervars", 3, "$numbervars" }, { "copy_term", 2, "$copy_term" },
+        { "char_type", 2, "$char_type" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
+        { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" },
+        { "compound", 1, "$tt_compound" }, { "callable", 1, "$tt_callable" }, { "ground", 1, "$tt_ground" }, { "is_list", 1, "$tt_is_list" },
+        { "var", 1, "$tt_var" }, { "nonvar", 1, "$tt_nonvar" }, { "atom", 1, "$tt_atom" }, { "number", 1, "$tt_number" },
+        { "integer", 1, "$tt_integer" }, { "float", 1, "$tt_float" }, { "atomic", 1, "$tt_atomic" },
+        { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" },
+        { "format", 1, "$format1" }, { "format", 2, "$format2" },
+        { "atom_string", 2, "$aop_atom_string" }, { "number_string", 2, "$aop_number_string" }, { "atom_number", 2, "$aop_atom_number" },
+        { "string_upper", 2, "$aop_string_upper" }, { "string_lower", 2, "$aop_string_lower" },
+        { "string_concat", 3, "$aop_string_concat" }, { "string_length", 2, "$aop_string_length" }, { "string_to_atom", 2, "$aop_string_to_atom" },
+        { "atomic_list_concat", 2, "$aop_atomic_list_concat" }, { "atomic_list_concat", 3, "$aop_atomic_list_concat" },
+        { "concat_atom", 2, "$aop_concat_atom" }, { "concat_atom", 3, "$aop_concat_atom" },
+        { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
+        { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
+        { "assertz", 1, "$dyn_assertz" }, { "assert", 1, "$dyn_assertz" }, { "asserta", 1, "$dyn_asserta" }, { "retract", 1, "$retract" },
+        { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
+        { "throw", 1, "$throw" },
+        { "succ", 2, "$succ" }, { "plus", 3, "$plus" }, { "atom_length", 2, "$atom_length" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" },
+        { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "write", 1, "$write" },
+        { 0, 0, 0 } };
+    if (!nm) return (const char *)0;
+    for (int i = 0; tab[i].nm; i++) if (!strcmp(nm, tab[i].nm) && ar == tab[i].ar) return tab[i].tgt;
+    return (const char *)0;
+}
+enum { PLCK_TRUE, PLCK_FAILK, PLCK_CUT, PLCK_CONJ, PLCK_DISJ, PLCK_ITE, PLCK_NAF, PLCK_META, PLCK_PRED, PLCK_DET };
+typedef struct plc_slv { int kind; int phase; int mark; int op; struct plc_slv *a, *b, *c; DESCR_t *gcell; DESCR_t **av; int nav; const char *pi; const char *det; void *h; int *cut; } plc_slv_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static plc_slv_t *plc_new(int kind, int *cut) { plc_slv_t *s = (plc_slv_t *)GC_MALLOC(sizeof *s); memset(s, 0, sizeof *s); s->kind = kind; s->cut = cut; return s; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t *plc_cell_persist(DESCR_t *v, DESCR_t *arr, int narr) {
+    DESCR_t *c = plw_cell_deref(plw_entry(v));
+    if (arr && c >= arr && c < arr + narr) { DESCR_t *cp = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t)); *cp = *c; return cp; }
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_eval(DESCR_t *c, DESCR_t *out) {
+    extern const char *prolog_atom_name(int);
+    DESCR_t *d = plw_cell_deref(c);
+    if (d->v == DT_I || d->v == DT_R) { *out = *d; return 1; }
+    if ((int)d->v == DT_A) {
+        const char *nm = prolog_atom_name((int)d->i); const char *sf = nm ? rt_pl_ax_suffix(nm, 0) : (const char *)0;
+        if (!sf) return 0;
+        char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf);
+        DESCR_t o; if (!script_try_call_builtin_by_name(nb, (DESCR_t *)0, 0, &o) || o.v == DT_FAIL) return 0;
+        *out = o; return 1;
+    }
+    if ((int)d->v == DT_PLREF) {
+        int ar = (int)(d->slen & 0xFFFFu); const char *nm = prolog_atom_name((int)(d->slen >> 16));
+        const char *sf = (nm && ar >= 1 && ar <= 2) ? rt_pl_ax_suffix(nm, ar) : (const char *)0;
+        if (!sf) return 0;
+        DESCR_t in[2]; DESCR_t *hh = (DESCR_t *)d->p;
+        for (int i = 0; i < ar; i++) if (!plc_eval(&hh[i], &in[i])) return 0;
+        char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf);
+        DESCR_t o; if (!script_try_call_builtin_by_name(nb, in, ar, &o) || o.v == DT_FAIL) return 0;
+        *out = o; return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_det_exec(plc_slv_t *s) {
+    switch (s->op) {
+    case 'u': return plw_unify_cells(s->av[0], s->av[1]);
+    case 'n': { int m = pl_trail_mark(&g_pl_trail); int r = plw_unify_cells(s->av[0], s->av[1]); pl_trail_unwind(&g_pl_trail, m); plw_zh_kill_to(m); return !r; }
+    case 'i': { DESCR_t v; if (!plc_eval(s->av[1], &v)) return 0; DESCR_t *tv = (DESCR_t *)GC_MALLOC(sizeof(DESCR_t)); *tv = v; return plw_unify_cells(s->av[0], tv); }
+    case 'c': { DESCR_t a2, b2, o; if (!plc_eval(s->av[0], &a2) || !plc_eval(s->av[1], &b2)) return 0; char nb[24]; snprintf(nb, sizeof nb, "$cmp_%s", s->det); DESCR_t in[2]; in[0] = a2; in[1] = b2;
+                if (!script_try_call_builtin_by_name(nb, in, 2, &o)) return 0; return o.v != DT_FAIL; }
+    case 'l': { fputc('\n', stdout); return 1; }
+    case 'W': { DESCR_t rv; rv.v = (DTYPE_t)DT_PLVAR; rv.slen = 0; rv.p = (void *)s->av[0]; DESCR_t o; script_try_call_builtin_by_name("$write", &rv, 1, &o); fputc('\n', stdout); return 1; }
+    case 'd': { DESCR_t in[16]; int n = s->nav > 16 ? 16 : s->nav;
+                for (int i = 0; i < n; i++) { in[i].v = (DTYPE_t)DT_PLVAR; in[i].slen = 0; in[i].p = (void *)s->av[i]; }
+                DESCR_t o; if (!script_try_call_builtin_by_name(s->det, in, n, &o)) return 0; return o.v != DT_FAIL; }
+    }
+    return 0;
+}
+static plc_slv_t *plc_build(DESCR_t *gc, DESCR_t **xav, int nx, int *cut);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static plc_slv_t *plc_build_resolved(DESCR_t *d, DESCR_t **xav, int nx, int *cut) {
+    extern const char *prolog_atom_name(int); extern int rt_proc_is_generator(const char *);
+    const char *nm = (const char *)0; DESCR_t *heap = (DESCR_t *)0; int ar = 0;
+    if ((int)d->v == DT_A) nm = prolog_atom_name((int)d->i);
+    else if (d->v == DT_S) nm = d->s;
+    else if ((int)d->v == DT_PLREF) { nm = prolog_atom_name((int)(d->slen >> 16)); heap = (DESCR_t *)d->p; ar = (int)(d->slen & 0xFFFFu); }
+    if (!nm) { fprintf(stderr, "[PL] call: goal is not callable\n"); return plc_new(PLCK_FAILK, cut); }
+    int n = ar + nx; if (n > 15) n = 15;
+    if (n == 0) {
+        if (!strcmp(nm, "true")) return plc_new(PLCK_TRUE, cut);
+        if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return plc_new(PLCK_FAILK, cut);
+        if (!strcmp(nm, "!")) return plc_new(PLCK_CUT, cut);
+        if (!strcmp(nm, "nl")) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'l'; return s; }
+    }
+    if (heap && nx == 0) {
+        if (!strcmp(nm, ",") && ar == 2) { plc_slv_t *s = plc_new(PLCK_CONJ, cut); s->a = plc_build(&heap[0], (DESCR_t **)0, 0, cut); s->b = plc_build(&heap[1], (DESCR_t **)0, 0, cut); return s; }
+        if (!strcmp(nm, ";") && ar == 2) {
+            DESCR_t *l = plw_cell_deref(&heap[0]);
+            if ((int)l->v == DT_PLREF && (int)(l->slen & 0xFFFFu) == 2 && prolog_atom_name((int)(l->slen >> 16)) && !strcmp(prolog_atom_name((int)(l->slen >> 16)), "->")) {
+                DESCR_t *lh = (DESCR_t *)l->p;
+                plc_slv_t *s = plc_new(PLCK_ITE, cut); s->a = plc_build(&lh[0], (DESCR_t **)0, 0, cut); s->b = plc_build(&lh[1], (DESCR_t **)0, 0, cut); s->c = plc_build(&heap[1], (DESCR_t **)0, 0, cut); return s;
+            }
+            plc_slv_t *s = plc_new(PLCK_DISJ, cut); s->a = plc_build(&heap[0], (DESCR_t **)0, 0, cut); s->b = plc_build(&heap[1], (DESCR_t **)0, 0, cut); return s;
+        }
+        if (!strcmp(nm, "->") && ar == 2) { plc_slv_t *s = plc_new(PLCK_ITE, cut); s->a = plc_build(&heap[0], (DESCR_t **)0, 0, cut); s->b = plc_build(&heap[1], (DESCR_t **)0, 0, cut); s->c = plc_new(PLCK_FAILK, cut); return s; }
+        if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && ar == 1) { plc_slv_t *s = plc_new(PLCK_NAF, cut); s->a = plc_build(&heap[0], (DESCR_t **)0, 0, cut); return s; }
+        if (!strcmp(nm, "once") && ar == 1) { plc_slv_t *s = plc_new(PLCK_ITE, cut); s->a = plc_build(&heap[0], (DESCR_t **)0, 0, cut); s->b = plc_new(PLCK_TRUE, cut); s->c = plc_new(PLCK_FAILK, cut); return s; }
+        if (!strcmp(nm, "ignore") && ar == 1) { plc_slv_t *s = plc_new(PLCK_ITE, cut); s->a = plc_build(&heap[0], (DESCR_t **)0, 0, cut); s->b = plc_new(PLCK_TRUE, cut); s->c = plc_new(PLCK_TRUE, cut); return s; }
+    }
+    DESCR_t **argv = (DESCR_t **)GC_MALLOC((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t *));
+    for (int i = 0; i < ar && i < n; i++) argv[i] = &heap[i];
+    for (int j = 0; j < nx && ar + j < n; j++) argv[ar + j] = xav[j];
+    if (!strcmp(nm, "call") && n >= 1) { plc_slv_t *s = plc_new(PLCK_META, cut); s->gcell = argv[0]; s->av = argv + 1; s->nav = n - 1; return s; }
+    if (!strcmp(nm, "=") && n == 2) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'u'; s->av = argv; s->nav = 2; return s; }
+    if (!strcmp(nm, "\\=") && n == 2) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'n'; s->av = argv; s->nav = 2; return s; }
+    if (!strcmp(nm, "is") && n == 2) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'i'; s->av = argv; s->nav = 2; return s; }
+    { const char *cs = (n == 2) ? rt_pl_cmp_suffix(nm) : (const char *)0;
+      if (cs) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'c'; s->det = cs; s->av = argv; s->nav = 2; return s; } }
+    if (!strcmp(nm, "writeln") && n == 1) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'W'; s->av = argv; s->nav = 1; return s; }
+    { const char *dt = rt_pl_det_builtin_target(nm, n);
+      if (dt) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'd'; s->det = dt; s->av = argv; s->nav = n; return s; } }
+    { char pib[224]; if (n == 0 && !strcmp(nm, "main")) snprintf(pib, sizeof pib, "main"); else snprintf(pib, sizeof pib, "%s/%d", nm, n);
+      if (rt_proc_is_generator(pib)) { plc_slv_t *s = plc_new(PLCK_PRED, cut); s->pi = strdup(pib); s->av = argv; s->nav = n; return s; } }
+    fprintf(stderr, "[PL] call: unknown procedure %s/%d\n", nm, n);
+    return plc_new(PLCK_FAILK, cut);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static plc_slv_t *plc_build(DESCR_t *gc, DESCR_t **xav, int nx, int *cut) {
+    DESCR_t *d = plw_cell_deref(gc);
+    if (plw_unbound_tag(d)) { plc_slv_t *s = plc_new(PLCK_META, cut); s->gcell = gc; s->av = xav; s->nav = nx; return s; }
+    return plc_build_resolved(d, xav, nx, cut);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_reset(plc_slv_t *s) {
+    if (!s) return;
+    s->phase = 0; s->h = (void *)0;
+    if (s->kind == PLCK_META) { s->a = (plc_slv_t *)0; return; }
+    plc_reset(s->a); plc_reset(s->b); plc_reset(s->c);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_next(plc_slv_t *s) {
+    extern int rt_pl_throw_pending(void);
+    if (!s || rt_pl_throw_pending()) return 0;
+    switch (s->kind) {
+    case PLCK_TRUE: if (s->phase) return 0; s->phase = 1; return 1;
+    case PLCK_FAILK: return 0;
+    case PLCK_CUT: if (s->phase) return 0; s->phase = 1; *s->cut = 1; return 1;
+    case PLCK_DET: if (s->phase) return 0; s->phase = 1; return plc_det_exec(s);
+    case PLCK_CONJ:
+        if (s->phase == 0) { if (!plc_next(s->a)) return 0; s->mark = pl_trail_mark(&g_pl_trail); s->phase = 1; }
+        for (;;) {
+            if (plc_next(s->b)) return 1;
+            if (rt_pl_throw_pending() || *s->cut) return 0;
+            pl_trail_unwind(&g_pl_trail, s->mark); plw_zh_kill_to(s->mark);
+            plc_reset(s->b);
+            if (!plc_next(s->a)) { s->phase = 0; return 0; }
+            s->mark = pl_trail_mark(&g_pl_trail);
+        }
+    case PLCK_DISJ:
+        if (s->phase == 0) { s->mark = pl_trail_mark(&g_pl_trail); s->phase = 1; }
+        if (s->phase == 1) { if (plc_next(s->a)) return 1; if (rt_pl_throw_pending() || *s->cut) return 0; pl_trail_unwind(&g_pl_trail, s->mark); plw_zh_kill_to(s->mark); s->phase = 2; }
+        if (s->phase == 2) { if (plc_next(s->b)) return 1; s->phase = 3; }
+        return 0;
+    case PLCK_ITE:
+        if (s->phase == 0) {
+            s->mark = pl_trail_mark(&g_pl_trail);
+            if (plc_next(s->a)) s->phase = 1;
+            else { if (rt_pl_throw_pending()) return 0; pl_trail_unwind(&g_pl_trail, s->mark); plw_zh_kill_to(s->mark); s->phase = 2; }
+        }
+        return plc_next(s->phase == 1 ? s->b : s->c);
+    case PLCK_NAF:
+        if (s->phase) return 0;
+        s->phase = 1; s->mark = pl_trail_mark(&g_pl_trail);
+        if (plc_next(s->a)) { pl_trail_unwind(&g_pl_trail, s->mark); plw_zh_kill_to(s->mark); return 0; }
+        if (rt_pl_throw_pending()) return 0;
+        return 1;
+    case PLCK_META:
+        if (s->phase == 0) {
+            s->phase = 1;
+            DESCR_t *d2 = plw_cell_deref(s->gcell);
+            if (plw_unbound_tag(d2)) { fprintf(stderr, "[PL] call: unbound goal\n"); s->a = plc_new(PLCK_FAILK, s->cut); }
+            else s->a = plc_build_resolved(d2, s->av, s->nav, s->cut);
+        }
+        return plc_next(s->a);
+    case PLCK_PRED:
+        if (s->phase == 0) {
+            extern void rt_arg_stage(int, DESCR_t); extern DESCR_t rt_proc_call_gen_h(const char *, int, void **);
+            s->phase = 1;
+            for (int i = 0; i < s->nav; i++) { DESCR_t rv; rv.v = (DTYPE_t)DT_PLVAR; rv.slen = 0; rv.p = (void *)s->av[i]; rt_arg_stage(i, rv); }
+            { DESCR_t r = rt_proc_call_gen_h(s->pi, s->nav, &s->h); return r.v != DT_FAIL; }
+        }
+        if (!s->h) return 0;
+        { extern DESCR_t rt_proc_resume_frame_h(void **); DESCR_t r = rt_proc_resume_frame_h(&s->h); return r.v != DT_FAIL; }
+    }
+    return 0;
+}
+typedef struct { plc_slv_t *root; int mark; int cut; } plc_top_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_call_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
+    if (*resume == 0) {
+        plc_top_t *tp = (plc_top_t *)GC_MALLOC(sizeof *tp);
+        tp->mark = pl_trail_mark(&g_pl_trail); tp->cut = 0;
+        int nx = nargs - 1; if (nx < 0) nx = 0;
+        DESCR_t **xav = (DESCR_t **)GC_MALLOC((size_t)(nx > 0 ? nx : 1) * sizeof(DESCR_t *));
+        for (int j = 0; j < nx; j++) xav[j] = plc_cell_persist(&args[1 + j], args, nargs);
+        tp->root = plc_build(plc_cell_persist(&args[0], args, nargs), xav, nx, &tp->cut);
+        *resume = (int64_t)(intptr_t)tp;
+    }
+    plc_top_t *tp = (plc_top_t *)(intptr_t)*resume;
+    if (plc_next(tp->root)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    pl_trail_unwind(&g_pl_trail, tp->mark); plw_zh_kill_to(tp->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
@@ -2421,6 +2665,7 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
         { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
         return rt_pl_dyn_iter_gen(args, nargs, resume);
     }
+    if (fn && resume && !strcmp(fn, "$call") && nargs >= 1) return rt_pl_call_gen(args, nargs, resume);
     if (fn && resume && nargs == 2 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
         DESCR_t a3[3]; a3[0] = args[0]; a3[1] = args[1]; a3[2] = INTVAL((*resume > 0) ? *resume : 1);
         if (try_call_builtin_by_name(fn, a3, 3, &out) && !IS_FAIL_fn(out)) { *resume = out.i + 1; return out; }
