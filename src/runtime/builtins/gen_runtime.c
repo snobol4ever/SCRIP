@@ -43,6 +43,15 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t de
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
+    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+    if (!s) s = "";
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_leave(uint64_t *out3) {
     if (scan_depth > 0) {
         scan_depth--;
