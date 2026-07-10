@@ -1173,6 +1173,7 @@ int main(int argc, char **argv)
             extern int proc_slot_count(void); extern int g_proc_direct_active;
             gva_collect_reset();
             gva_collect_graph(sbbg);
+            if (is_pascal) for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); }
             int n_gva = gva_count();
             if (n_gva > 0) {
                 printf("  .section .rodata\n");
@@ -1344,6 +1345,7 @@ int main(int argc, char **argv)
                 gva_collect_reset();
                 IR_graph_t *_mg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : (IR_graph_t *)0;
                 if (_mg) gva_collect_graph(_mg);
+                for (int _pi = 0; _pi < s2->proc_count; _pi++) { int _pgi = s2->proc_table[_pi].bb_idx; if (_pgi >= 0 && _pgi < s2->bbp.count && s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != _mg) gva_collect_graph(s2->bbp.table[_pgi]); }
                 int n_gva_m3 = getenv("MONITOR_BIN") ? 0 : gva_count();
                 if (n_gva_m3 > 0) {
                     m3_gva_arena = GC_MALLOC_UNCOLLECTABLE((size_t)n_gva_m3 * sizeof(DESCR_t));

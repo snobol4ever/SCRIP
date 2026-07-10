@@ -1754,7 +1754,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gva_collect_graph(IR_graph_t *g) { if (!g) return; for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; if ((nd->op == IR_VAR || nd->op == IR_ASSIGN) && IR_LIT(nd).sval) (void)gva_collect_var(IR_LIT(nd).sval); } }
+void gva_collect_graph(IR_graph_t *g) { if (!g) return; for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; if ((nd->op == IR_VAR || nd->op == IR_ASSIGN || nd->op == IR_VAR_REF) && IR_LIT(nd).sval) (void)gva_collect_var(IR_LIT(nd).sval); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
     extern const char *global_names[]; extern int global_count;
