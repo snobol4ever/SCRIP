@@ -181,6 +181,7 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn)
     return rt_type_test_term(fn, pl_cell_to_term((pl_cell_t *)cell_term));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int g_pl_functor_slot_ctr = 0;
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
 {
     extern int rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
@@ -207,8 +208,9 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
     if (ar == 0) { built = t1 ? t1 : term_new_atom(prolog_atom_intern("[]")); }
     else {
         if (!t1 || t1->tag != TERM_ATOM) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        extern int g_pl_functor_slot_ctr;
         Term **args = (Term **)GC_MALLOC((size_t)ar * sizeof(Term *));
-        for (long i = 0; i < ar; i++) args[i] = term_new_var(-1);
+        for (long i = 0; i < ar; i++) args[i] = term_new_var(g_pl_functor_slot_ctr++);
         built = term_new_compound(t1->atom_id, (int)ar, args);
     }
     if (!pl_unify_term_into_cell((pl_cell_t *)t0_cell, built, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
@@ -681,8 +683,9 @@ static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, in
     pl_cell_t *d = pl_deref(c);
     int t = (int)d->v;
     if (pl_cell_unbound(d)) {
+        extern int g_pl_copy_slot_mode; extern int g_pl_copy_slot_ctr;
         for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return vterm[i];
-        Term *fresh = term_new_var(-1);
+        Term *fresh = term_new_var(g_pl_copy_slot_mode ? g_pl_copy_slot_ctr++ : -1);
         if (*vn < cap) { vaddr[*vn] = d; vterm[*vn] = fresh; (*vn)++; }
         return fresh;
     }
@@ -700,12 +703,16 @@ static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, in
     return term_new_var(-1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int g_pl_copy_slot_mode = 0;
+int g_pl_copy_slot_ctr = 1048576;
 int rt_pl_copy_term_cell(void *term_cell, void *copy_cell)
 {
     extern pl_trail_t g_pl_trail;
     int mark = pl_trail_mark(&g_pl_trail);
     pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
+    g_pl_copy_slot_mode = 1; g_pl_copy_slot_ctr = 1048576;
     Term *copy = pl_cell_copy_walk((pl_cell_t *)term_cell, vaddr, vterm, &vn, 256);
+    g_pl_copy_slot_mode = 0;
     if (!copy) copy = term_new_var(-1);
     if (!pl_unify_term_into_cell((pl_cell_t *)copy_cell, copy, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;

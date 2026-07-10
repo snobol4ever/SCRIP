@@ -48,6 +48,7 @@ static const char * g_pl_nl_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_builtin_exec(const char * s) { if (!s) return 0; if (is_builtin_visible(s)) return 1; for (int i = 0; g_pl_nl_builtins[i]; i++) if (!strcmp(s, g_pl_nl_builtins[i])) return 1; return 0; }
 static void pl_ensure_call_bridge(int nparams);
+static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm, int nparams);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_synth_qlit(const char * s) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) s; return q; }
 static tree_t * pl_synth_fnc1(const char * f, const tree_t * a) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, (tree_t *) a); return n; }
@@ -359,6 +360,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             cx->beta = nd;
             return nd;
         }
+        if (!strcmp(nm, "sub_atom") && t->n == 5) pl_ensure_gen_builtin_pred("$sub_atom", "sub_atom", 5);
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("fail"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
@@ -818,9 +820,8 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int g_pl_call_bridge_done[9];
-static void pl_ensure_call_bridge(int nparams) {
-    if (nparams < 1 || nparams > 8 || g_pl_call_bridge_done[nparams]) return;
+static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm, int nparams) {
+    { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (resolve_bb_lookup(key, nparams)) return; }
     IR_graph_t * g = IR_alloc(64);
     if (!g) return;
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL;
@@ -828,7 +829,7 @@ static void pl_ensure_call_bridge(int nparams) {
     g->pnames = (const char **) calloc((size_t) nparams, sizeof(const char *)); for (int i = 0; i < nparams; i++) g->pnames[i] = pl_param_name(i);
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
-    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, succeed, fail); IR_LIT(gen).sval = "$call";
+    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, succeed, fail); IR_LIT(gen).sval = gen_sval;
     IR_t * prev = NULL; IR_t * first = NULL;
     for (int i = 0; i < nparams; i++) {
         IR_t * vr = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(vr).sval = pl_param_name(i);
@@ -839,7 +840,7 @@ static void pl_ensure_call_bridge(int nparams) {
     g->entry = first; g->body_root = gen;
     int bb_idx = bb_program_add(&g_stage2.bbp, g);
     if (bb_idx < 0) return;
-    { char key[24]; snprintf(key, sizeof key, "$call/%d", nparams);
+    { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams);
       resolve_bb_register(strdup(key), nparams, bb_idx);
       int pi = stage2_proc_grow(&g_stage2);
       g_stage2.proc_table[pi].name         = strdup(key);
@@ -848,8 +849,9 @@ static void pl_ensure_call_bridge(int nparams) {
       g_stage2.proc_table[pi].bb_idx       = bb_idx;
       g_stage2.proc_table[pi].nparams      = nparams;
       g_stage2.proc_table[pi].is_generator = 1; }
-    g_pl_call_bridge_done[nparams] = 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ensure_call_bridge(int nparams) { if (nparams >= 1 && nparams <= 8) pl_ensure_gen_builtin_pred("$call", "$call", nparams); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void lower_pl_register_all_preds(void) {
     for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++) {
