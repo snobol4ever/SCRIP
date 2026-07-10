@@ -47,8 +47,8 @@ static std::string pas_sl_setup(const char * fn) {
     if (g_emit_frame_caller_dl < 0 || callee_dl < 1) return x86("mov32", "ecx", (long)0);
     int h = (g_emit_frame_caller_dl + 1) - callee_dl;
     if (h < 0) h = 0;
-    std::string s = x86_frame_lea("rcx", 0);
-    for (int i = 0; i < h; i++) s += x86_reg_disp32_load64("rcx", "rcx", 0);
+    std::string s = x86("lea", "rcx", FRQ(0));
+    for (int i = 0; i < h; i++) s += x86("mov", "rcx", RDQ("rcx", 0));
     return s;
 }
 extern std::string bb_call_proc_staged_str(IR_t *);
@@ -110,14 +110,14 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
                + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
         else s += slow;
     } else if (a->op == IR_OP_COUNT) {
-        s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(a).ival * 16 + 8);
+        s += x86("lea", "rax", FRQ(0));
+        for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
+        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(a).ival * 16 + 8));
     } else if (a->op == IR_OP_COUNT) {
-        s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(a).ival * 16 + 8);
-        s += x86_reg_disp32_load64("rax", "rax", 8);
+        s += x86("lea", "rax", FRQ(0));
+        for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
+        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(a).ival * 16 + 8));
+        s += x86("mov", "rax", RDQ("rax", 8));
     } else if (a->op == IR_LIT_INTEGER) {
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(a).ival);
     } else if (a->op == IR_LIT_STRING) {
@@ -127,7 +127,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
         int sc = zoff(a);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
         s += marshal_single_call(a, sc, bb_node_id(a));
-        s += x86_frame_load64("rax", sc + 8);
+        s += x86("mov", "rax", FRQ(sc + 8));
     } else if (arith_is_arith_binop(a)) {
         s += marshal_arith_rax(sg, a);
     } else return x86_bomb("marshal inline-arith: unhandled left operand shape");
@@ -146,15 +146,15 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
                + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
         else s += slow;
     } else if (b->op == IR_OP_COUNT) {
-        s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(b).ival * 16 + 8);
+        s += x86("lea", "rax", FRQ(0));
+        for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
+        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(b).ival * 16 + 8));
         s += x86("mov", "rcx", "rax");
     } else if (b->op == IR_OP_COUNT) {
-        s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_load64("rax", "rax", 16 + (int) IR_LIT(b).ival * 16 + 8);
-        s += x86_reg_disp32_load64("rax", "rax", 8);
+        s += x86("lea", "rax", FRQ(0));
+        for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
+        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(b).ival * 16 + 8));
+        s += x86("mov", "rax", RDQ("rax", 8));
         s += x86("mov", "rcx", "rax");
     } else if (b->op == IR_LIT_INTEGER) {
         s += x86("mov", "rcx", (long)IR_LIT(b).ival);
@@ -165,7 +165,7 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
         int sc = zoff(b);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
         s += marshal_single_call(b, sc, bb_node_id(b));
-        s += x86_frame_load64("rcx", sc + 8);
+        s += x86("mov", "rcx", FRQ(sc + 8));
     } else if (arith_is_arith_binop(b)) {
         s += marshal_arith_rax(sg, b);
         s += x86("mov", "rcx", "rax");
@@ -180,9 +180,9 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
     int scratch = zoff(nd);
     if (scratch < 0) return x86_bomb("marshal inline-arith: binop has no LOWER slot grant (TMP-ERADICATE)");
     std::string s = arith_opnd_a(sg, a);
-    s += x86_frame_store64(scratch, "rax");
+    s += x86("mov", FRQ(scratch), "rax");
     s += arith_opnd_b(sg, b);
-    s += x86_frame_load64("rax", scratch);
+    s += x86("mov", "rax", FRQ(scratch));
     switch ((int)IR_LIT(nd).ival) {
     case BINOP_ADD: s += x86("add",  "rax", "rcx"); break;
     case BINOP_SUB: s += x86("sub",  "rax", "rcx"); break;
@@ -227,8 +227,10 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
         int ps = _.op_arg_slot[idx];
         std::string s = x86("comment", emit_fmt("marshal arg%d = producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
-        s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
-        s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
+        s += x86("mov", "rax", FRQ(ps));
+        s += x86("mov", FRQ(aoff), "rax");
+        s += x86("mov", "rax", FRQ(ps + 8));
+        s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }
     if (!lf) return std::string();
@@ -237,7 +239,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("comment", emit_fmt("marshal arg%d = LIT_I -> [zr+%d]", idx, aoff));
         s += x86("mov", FRQ(aoff), (long)6);
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(lf).ival);
-        s += x86_frame_store64(aoff + 8, "rax");
+        s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }
     if (lf->op == IR_LIT_REAL) {
@@ -246,7 +248,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("comment", emit_fmt("marshal arg%d = LIT_F -> [zr+%d]", idx, aoff));
         s += x86("mov", FRQ(aoff), (long)7);
         s += x86_movabs_r64("rax", bits);
-        s += x86_frame_store64(aoff + 8, "rax");
+        s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }
     if (lf->op == IR_OP_COUNT) {
@@ -261,8 +263,8 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         std::string s;
         s += x86("comment", emit_fmt("marshal arg%d = LIT_S (string REG-RO sealed in-band) -> [zr+%d]", idx, aoff));
         s += x86("mov", FRQ(aoff), (long)1);
-        s += x86_ro_load_q("rax", nseal);
-        s += x86_frame_store64(aoff + 8, "rax");
+        s += x86("mov", "rax", ROQ(nseal));
+        s += x86("mov", FRQ(aoff + 8), "rax");
         s += x86_jmp_id(nskip);
         s += x86_ro_seal_str(nseal, IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
         s += x86_deflabel_id(nskip);
@@ -272,7 +274,11 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_PROC_GEN);
         if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) {
             int ps = bb_slot_get(lf); std::string s = x86("comment", emit_fmt("marshal arg%d = spine call-result slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
-            s += x86_frame_load64("rax", ps) + x86_frame_store64(aoff, "rax"); s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax"); return s;
+            s += x86("mov", "rax", FRQ(ps));
+            s += x86("mov", FRQ(aoff), "rax");
+            s += x86("mov", "rax", FRQ(ps + 8));
+            s += x86("mov", FRQ(aoff + 8), "rax");
+            return s;
         } return marshal_single_call(lf, aoff, bb_node_id(lf));
     }
     if (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && is_global(IR_LIT(lf).sval)) {
@@ -281,8 +287,8 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("comment", emit_fmt("marshal arg%d = global VAR NV_GET -> [zr+%d]", idx, aoff));
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(lf).sval, b1);
         s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
-        s += x86_frame_store64(aoff, "rax");
-        s += x86_frame_store64(aoff + 8, "rdx");
+        s += x86("mov", FRQ(aoff), "rax");
+        s += x86("mov", FRQ(aoff + 8), "rdx");
         return s;
     }
     {
@@ -291,8 +297,10 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         if (ps < 0 && !is_local_var) ps = zoff(lf);
         if (ps >= 0) {
             std::string s = x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
-            s += x86_frame_load64("rax", ps)     + x86_frame_store64(aoff, "rax");
-            s += x86_frame_load64("rax", ps + 8) + x86_frame_store64(aoff + 8, "rax");
+            s += x86("mov", "rax", FRQ(ps));
+            s += x86("mov", FRQ(aoff), "rax");
+            s += x86("mov", "rax", FRQ(ps + 8));
+            s += x86("mov", FRQ(aoff + 8), "rax");
             return s;
         }
     }
@@ -301,8 +309,10 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         if (voff < 0) return x86_bomb("bb_call marshal: IR_VAR arg names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
         std::string s;
         s += x86("comment", emit_fmt("marshal arg%d = varslot [zr+%d] -> [zr+%d]", idx, voff, aoff));
-        s += x86_frame_load64("rax", voff)     + x86_frame_store64(aoff, "rax");
-        s += x86_frame_load64("rax", voff + 8) + x86_frame_store64(aoff + 8, "rax");
+        s += x86("mov", "rax", FRQ(voff));
+        s += x86("mov", FRQ(aoff), "rax");
+        s += x86("mov", "rax", FRQ(voff + 8));
+        s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }
 }
@@ -339,11 +349,11 @@ static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_grap
     std::string s = x86_alpha()
         + x86("comment", emit_fmt("BOX CALL %s(...) inline integer relop [four-port, FAIL->ω]", fn));
     s += arith_opnd_a(NULL, a, 0);
-    s += x86_frame_store64(scratch, "rax");
+    s += x86("mov", FRQ(scratch), "rax");
     s += arith_opnd_b(NULL, b, 2);
     s += x86("mov", FRQ(resoff), (long)DT_SNUL);
     s += x86("mov", FRQ(resoff + 8), (long)0);
-    s += x86_frame_load64("rax", scratch);
+    s += x86("mov", "rax", FRQ(scratch));
     s += x86("cmp", "rax", "rcx");
     s += x86_omega(relop_idx_fail_mnem(relop));
     s += x86_gamma();
@@ -442,11 +452,12 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     if (e->op == IR_LIT_INTEGER) {
         s += x86("mov32", "edi", (long)6) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
     } else if (e->op == IR_LIT_STRING) {
-        s += x86("mov32", "edi", (long)1) + x86_ro_load_q("rsi", 0) + x86_jmp_id(1) + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "") + x86_deflabel_id(1);
+        s += x86("mov32", "edi", (long)1) + x86("mov", "rsi", ROQ(0)) + x86_jmp_id(1) + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "") + x86_deflabel_id(1);
     } else if (e->op == IR_VAR && IR_LIT(e).sval) {
         int voff = bb_varslot_peek(IR_LIT(e).sval);
         if (voff < 0) return x86_alpha() + x86_bomb("bb_call_bool_truthy: IR_VAR cond names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
-        s += x86_frame_load64("rdi", voff) + x86_frame_load64("rsi", voff + 8);
+        s += x86("mov", "rdi", FRQ(voff));
+        s += x86("mov", "rsi", FRQ(voff + 8));
     } else {
         return x86_alpha() + x86_bomb("bb_call_bool_truthy: unhandled cond entry kind");
     }
@@ -470,8 +481,10 @@ static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
                   + x86("comment", "BOX __rk_bool [dval=2 junction relop -> rt_jct_relop -> branch true=γ / false=ω]");
     s += marshal_call_arg(ra, cond, lhs_slot, NULL, 0);
     s += marshal_call_arg(rb, cond, rhs_slot, NULL, 1);
-    s += x86_frame_load64("rdi", lhs_slot) + x86_frame_load64("rsi", lhs_slot + 8);
-    s += x86_frame_load64("rdx", rhs_slot) + x86_frame_load64("rcx", rhs_slot + 8);
+    s += x86("mov", "rdi", FRQ(lhs_slot));
+    s += x86("mov", "rsi", FRQ(lhs_slot + 8));
+    s += x86("mov", "rdx", FRQ(rhs_slot));
+    s += x86("mov", "rcx", FRQ(rhs_slot + 8));
     s += x86("mov32", "r8d", (long)IR_LIT(relnd).ival);
     return s + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void *)rt_jct_relop)
              + x86("test", "eax", "eax") + x86_omega("je") + x86_gamma() + x86_beta() + x86_omega();
@@ -491,8 +504,8 @@ static std::string bb_call_bool_cond_str(IR_t * pBB) {
     if (scratch < 0) return x86_alpha() + x86_bomb("bb_call_bool_cond: relop has no LOWER slot grant (TMP-ERADICATE)");
     return x86_alpha()
          + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")
-         + arith_opnd_a(cond, ra) + x86_frame_store64(scratch, "rax")
-         + arith_opnd_b(cond, rb) + x86_frame_load64("rax", scratch)
+         + arith_opnd_a(cond, ra) + x86("mov", FRQ(scratch), "rax")
+         + arith_opnd_b(cond, rb) + x86("mov", "rax", FRQ(scratch))
          + x86("cmp", "rax", "rcx")
          + x86_omega(relop_fail_mnem(relnd))
          + x86_gamma()
