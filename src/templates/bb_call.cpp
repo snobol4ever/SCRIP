@@ -658,53 +658,30 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     int genoff  = resoff + 16 * (1 + (int)narg);
-    if (MEDIUM_TEXT) {
-        std::string s = x86_alpha()
-            + x86("comment", emit_fmt("BOX IR_CALL_BUILTIN_GEN %s(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]", fn));
-        for (int i = 0; i < (int)narg; i++)
-            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
-        s += x86("mov", FRQ(genoff), (long)0);
-        s += x86("def", L(60));
-        std::string fl = emit_fmt(".Lbynamegenfn%d", g_flat_node_id++);
-        s += x86("directive", ".section .rodata")
-           + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-           + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
-        s += x86("lea", "rsi", FRQ(argbase));
-        s += x86("mov32", "edx", (long)(narg));
-        s += x86("lea", "rcx", FRQ(genoff));
-        s += x86("call", "rt_call_arr_gen@PLT");
-        s += x86("mov", FRQ(resoff), "rax");
-        s += x86("mov", FRQ(resoff + 8), "rdx");
-        s += x86("cmp", "eax", "99");
-        s += x86_omega("je");
-        s += x86_gamma();
-        s += x86("label", emit_fmt("%s", _.lbl_β));
-        s += x86("jmp", L(60));
-        return s;
-    }
-    if (MEDIUM_BINARY) {
-        std::string s = x86_alpha();
-        for (int i = 0; i < (int)narg; i++)
-            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
-        s += x86("mov", FRQ(genoff), (long)0);
-        s += x86("def", L(60));
-        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
-        s += x86("lea", "rsi", FRQ(argbase));
-        s += x86("mov32", "edx", (long)narg);
-        s += x86("lea", "rcx", FRQ(genoff));
-        s += x86("call", "rt_call_arr_gen", fptr);
-        s += x86("mov", FRQ(resoff), "rax");
-        s += x86("mov", FRQ(resoff + 8), "rdx");
-        s += x86("cmp", "eax", (long)99);
-        s += x86_omega("je");
-        s += x86_gamma();
-        s += x86_beta();
-        s += x86("jmp", L(60));
-        return s;
-    }
-    return std::string();
+    std::string fl = std::string(".Lbynamegenfn") + std::to_string((long long)_.nid);
+    uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    std::string s = x86_alpha()
+        + x86("comment", emit_fmt("BOX IR_CALL_BUILTIN_GEN %s(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]", fn));
+    for (int i = 0; i < (int)narg; i++)
+        s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
+    s += x86("mov", FRQ(genoff), (long)0);
+    s += x86("def", L(60));
+    s += x86("directive", ".section .rodata")
+       + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
+       + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
+    s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
+    s += x86("lea", "rsi", FRQ(argbase));
+    s += x86("mov32", "edx", (long)narg);
+    s += x86("lea", "rcx", FRQ(genoff));
+    s += x86("call", "rt_call_arr_gen", fptr);
+    s += x86("mov", FRQ(resoff), "rax");
+    s += x86("mov", FRQ(resoff + 8), "rdx");
+    s += x86("cmp", "eax", (long)99);
+    s += x86_omega("je");
+    s += x86_gamma();
+    s += x86_beta();
+    s += x86("jmp", L(60));
+    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rkbool_cond_relop(IR_graph_t * cond) {
