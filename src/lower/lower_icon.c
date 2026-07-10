@@ -861,7 +861,11 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         ir_operand_push(to, br); last_op = br;
         if ((lr && lr->op == IR_LIT_REAL) || (mr && mr->op == IR_LIT_REAL) || (br && br->op == IR_LIT_REAL)) IR_LIT(to).sval = (char *) "ar";
     } else if (mr && ir_is_generator_kind(to->op)) lc_γ_to(mr, to);
-    if (last_op && ir_is_generator_kind(last_op->op)) lc_ω_to_β(to, last_op); /* range-exhausted resumes the rightmost operand WHEN it is itself a generator, re-pumping it for a fresh bound; a literal bound leaves ω at the threaded caller edge (nothing to resume) — fixes nested (E1 to E2) backtrack without disturbing the literal-bound every-loop exit */
+    { IR_t * resume_op = NULL;
+      if (by && last_op && ir_is_generator_kind(last_op->op)) resume_op = last_op;
+      else if (mr && ir_is_generator_kind(mr->op)) resume_op = mr;
+      else if (lr && ir_is_generator_kind(lr->op)) resume_op = lr;
+      if (resume_op) lc_ω_to_β(to, resume_op); } /* range-exhausted resumes the RIGHTMOST GENERATOR operand (right-to-left over by/hi/lo), re-pumping it for a fresh bound; operand-fail edges already cascade leftward (mid ω=lβ, by ω=mβ), so resuming any operand replays the full cross-product; all-literal bounds leave ω at the threaded caller edge — extends the prior rightmost-only wiring to generator LOWER bounds ((1 to 2) to 3) without disturbing the literal-bound every-loop exit */
     cx->beta = to; *res = to; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
