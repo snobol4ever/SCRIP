@@ -301,6 +301,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 0
   call rt_proc_set_nparams@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 96
+  call rt_proc_set_frame_bytes@PLT
   .section .rodata
   .Lstartup_pname1: .string "EXPR$1"
   .align 8
@@ -321,6 +324,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname1]
   mov esi, 0
   call rt_proc_set_nparams@PLT
+  lea rdi, [rip + .Lstartup_pname1]
+  mov esi, 64
+  call rt_proc_set_frame_bytes@PLT
   .section .rodata
   .Lstartup_pname2: .string "EXPR$2"
   .align 8
@@ -341,6 +347,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname2]
   mov esi, 0
   call rt_proc_set_nparams@PLT
+  lea rdi, [rip + .Lstartup_pname2]
+  mov esi, 128
+  call rt_proc_set_frame_bytes@PLT
   pop rbp
   ret
   .section .rodata
