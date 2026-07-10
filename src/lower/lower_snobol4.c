@@ -175,6 +175,42 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         sno_fatal("name operator over this form is outside the landed subset", NULL);
     }
+    case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: {
+        if (t->n < 1) sno_fatal("charset pattern function with missing operand", NULL);
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBK";
+        IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, NULL, ω); IR_LIT(kt).ival = (int64_t) t->t;
+        IR_t * va = NULL; IR_t * ea = sx_lower(cx, t->c[0], NULL, ω, &va);
+        lc_γ_to(kt, ea); lc_γ_to(va, mk);
+        ir_operand_push(mk, kt); ir_operand_push(mk, va);
+        if (res) *res = mk; return kt;
+    }
+    case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: {
+        if (t->n < 1) sno_fatal("integer pattern function with missing operand", NULL);
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBN";
+        IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, NULL, ω); IR_LIT(kt).ival = (int64_t) t->t;
+        IR_t * va = NULL; IR_t * ea = sx_lower(cx, t->c[0], NULL, ω, &va);
+        lc_γ_to(kt, ea); lc_γ_to(va, mk);
+        ir_operand_push(mk, kt); ir_operand_push(mk, va);
+        if (res) *res = mk; return kt;
+    }
+    case TT_ARB: case TT_REM: case TT_BAL: case TT_FAIL: case TT_SUCCEED: case TT_ABORT: {
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PB0";
+        IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, mk, ω); IR_LIT(kt).ival = (int64_t) t->t;
+        ir_operand_push(mk, kt);
+        if (res) *res = mk; return kt;
+    }
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: {
+        const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        if (!vn) sno_fatal("capture target in a runtime-built pattern is not a simple variable", NULL);
+        sno_reg_var(vn);
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBC";
+        IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, NULL, ω); IR_LIT(kt).ival = (int64_t) t->t;
+        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(nl).sval = (char *) vn;
+        IR_t * vs = NULL; IR_t * es = sx_lower(cx, t->c[0], NULL, ω, &vs);
+        lc_γ_to(kt, nl); lc_γ_to(nl, es); lc_γ_to(vs, mk);
+        ir_operand_push(mk, kt); ir_operand_push(mk, nl); ir_operand_push(mk, vs);
+        if (res) *res = mk; return kt;
+    }
     case TT_ALT: {
         if (t->n < 2) sno_fatal("alternation with missing operand", NULL);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBALT";
@@ -762,6 +798,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         else sno_fatal("ANY/NOTANY with a non-literal charset is outside the SN4-PAT subset", NULL);
         return nd;
     }
+    case TT_FAIL:    { IR_t * j = lc_build(g, IR_GOTO, NULL, NULL); sno_ω_to(j, fail); lc_γ_to(j, fail); return j; }
+    case TT_SUCCEED: { IR_t * j = lc_build(g, IR_GOTO, succ, NULL); return j; }
+    case TT_ABORT:   { IR_t * j = lc_build(g, IR_GOTO, cx->pat_seal ? cx->pat_seal : fail, NULL); return j; }
     case TT_SPAN: {
         IR_t * nd = lc_build(g, IR_MATCH_SPAN, succ, NULL);
         sno_ω_to(nd, fail);
@@ -1116,7 +1155,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     bb_label_registry_reset();
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
-        if (getenv("MONITOR_BIN")) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) IR_LIT(anchor[i]).ival = _sa->c[0]->v.ival; }
+        if (getenv("MONITOR_BIN")) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(anchor[i]).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
         const char * lbl = sfind_str(st[i], ":lbl");
         if (lbl && lbl[0]) bb_label_registry_add(lp_strdup(lbl), anchor[i]);
     }
@@ -1145,7 +1184,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (subj && subj->t == TT_SCAN) {
             const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
             if (!sno_pat_supported(ptt)) {
-                if (ptt && ptt->t == TT_FNC) {
+                if (ptt && (ptt->t == TT_FNC || sno_is_pattern_rhs(ptt))) {
                     extern tree_t *ast_stmt_new(tree_e kind);
                     static int g_pattmp_n = 0;
                     char nmb[24]; snprintf(nmb, sizeof nmb, "PATTMP$%d", g_pattmp_n++);
