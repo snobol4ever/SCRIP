@@ -11,8 +11,8 @@ const char * rt_nv_cstr(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_any() {
     x86_begin();
-    if (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) {
-        return x86("comment", "IR_SCAN_ANY (var cset)")
+    return (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
+           x86("comment", "IR_SCAN_ANY (var cset)")
              + x86_alpha()
              + x86("mov",     "eax", "r14d")
              + x86("cmp",     "eax", "r15d")
@@ -31,10 +31,9 @@ std::string bb_scan_any() {
              + x86("mov",     FRQ(_.op_off + 8), "rax")
              + x86_gamma()
              + x86_beta()
-             + x86_omega();
-    }
-    if (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) return x86_alpha() + x86_bomb("bb_scan_any: unhandled (needs literal cset arg + descr flat-chain slot)");
-    return x86("comment", "IR_SCAN_ANY")
+             + x86_omega() :
+           (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) ? x86_alpha() + x86_bomb("bb_scan_any: unhandled (needs literal cset arg + descr flat-chain slot)") :
+           x86("comment", "IR_SCAN_ANY")
          + x86_alpha()
          + x86("mov",     "eax", "r14d")
          + x86("cmp",     "eax", "r15d")
