@@ -132,7 +132,7 @@
  * activations (suspended generator frames; coexpr-side allocations, whose threads the ZH mutex already
  * serializes) ride the BB-marked sliding heap.  --zeta=zls2 / =zls remain selectable for A/B. */
 #ifndef ZC_ZETA
-#define ZC_ZETA ZC_ZETA_ZH
+#define ZC_ZETA ZC_ZETA_ZLS2 /* ZH is opt-in (--zeta=zh) until the det/nondet split rung lands (det-success accumulation: fib/tak/queens never cross a fail edge, so --zeta=zh never reclaims them; 22/22 bench only holds under ZLS2 default) */
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_HEAP_LIBGC 0

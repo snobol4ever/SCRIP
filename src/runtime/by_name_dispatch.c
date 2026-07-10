@@ -117,6 +117,22 @@ static DESCR_t *plw_det_cell(DESCR_t *tmp) {
 }
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int m; unsigned bm; } plw_zhpair_t;
+static plw_zhpair_t *g_plw_zhp = 0; static int g_plw_zhp_n = 0, g_plw_zhp_cap = 0;
+static void plw_zh_mark_push(int m) {
+    extern int rt_zeta_mode(void); extern unsigned rt_zh_birthmark(void);
+    if (rt_zeta_mode() != 2) return;
+    while (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m >= m) g_plw_zhp_n--;
+    if (g_plw_zhp_n >= g_plw_zhp_cap) { g_plw_zhp_cap = g_plw_zhp_cap ? g_plw_zhp_cap * 2 : 64; g_plw_zhp = (plw_zhpair_t *)realloc(g_plw_zhp, (size_t)g_plw_zhp_cap * sizeof(plw_zhpair_t)); if (!g_plw_zhp) abort(); }
+    g_plw_zhp[g_plw_zhp_n].m = m; g_plw_zhp[g_plw_zhp_n].bm = rt_zh_birthmark(); g_plw_zhp_n++;
+}
+static void plw_zh_kill_to(int m) {
+    extern int rt_zeta_mode(void); extern void rt_zh_kill_since(unsigned);
+    if (rt_zeta_mode() != 2) return;
+    while (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m > m) g_plw_zhp_n--;
+    if (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m == m) rt_zh_kill_since(g_plw_zhp[g_plw_zhp_n - 1].bm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
@@ -1100,12 +1116,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
         *out = c; return 1;
     }
-    if (!strcmp(fn, "$trail_mark") && nargs == 0) { DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); *out = m; return 1; }
-    if (!strcmp(fn, "$trail_unwind") && nargs == 1) { pl_trail_unwind(&g_pl_trail, (int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
+    if (!strcmp(fn, "$trail_mark") && nargs == 0) { DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); plw_zh_mark_push((int)m.i); *out = m; return 1; }
+    if (!strcmp(fn, "$trail_unwind") && nargs == 1) { pl_trail_unwind(&g_pl_trail, (int)args[0].i); plw_zh_kill_to((int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
     if (!strcmp(fn, "$throw") && nargs == 1) { extern void rt_pl_throw_set(void *); DESCR_t t0 = args[0]; rt_pl_throw_set((void *)plw_det_cell(&t0)); *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "$unwind_nothrow") && nargs == 1) {
         extern int rt_pl_throw_pending(void);
         pl_trail_unwind(&g_pl_trail, (int)args[0].i);
+        plw_zh_kill_to((int)args[0].i);
         if (rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
@@ -1113,6 +1130,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern int rt_pl_throw_pending(void); extern int rt_pl_throw_match(void *);
         if (!rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
         pl_trail_unwind(&g_pl_trail, (int)args[0].i);
+        plw_zh_kill_to((int)args[0].i);
         DESCR_t t1 = args[1];
         if (rt_pl_throw_match((void *)plw_det_cell(&t1))) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR;
         return 1;
