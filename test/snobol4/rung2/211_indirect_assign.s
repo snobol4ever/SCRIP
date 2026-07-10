@@ -161,10 +161,10 @@ main_α_body:
  mov rax, qword ptr [r12 + 216]
  mov qword ptr [r12 + 184], rax
   .section .rodata
-  .Lbynamefn10: .string "differ"
+  .Lbynamefn8: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn10]
+ lea rdi, [rip + .Lbynamefn8]
  lea rsi, [r12 + 160]
  mov edx, 2
  call rt_call_arr@PLT
@@ -173,7 +173,7 @@ main_α_body:
  cmp eax, 99
  je xchain0_n6_α
  jmp xchain0_n9_α
-xchain0_n7_β:
+ xchain0_n7_β:
  jmp xchain0_n6_α
  xchain0_n8_α:
 # BOX IR_CALL SNO$NAME(...) -> rt_call_arr [operand-marshal, FAIL->ω]
@@ -183,10 +183,10 @@ xchain0_n7_β:
  mov rax, qword ptr [r12 + 344]
  mov qword ptr [r12 + 328], rax
   .section .rodata
-  .Lrkfn12: .string "SNO$NAME"
+  .Lrkfn11: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn12]
+   lea rdi, [rip + .Lrkfn11]
  lea rsi, [r12 + 320]
  mov edx, 1
  call rt_call_arr@PLT
@@ -200,14 +200,14 @@ xchain0_n7_β:
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [r12 + 240], 1
- mov rax, qword ptr [rip + .Lx13_0]
+ mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 248], rax
  jmp xchain0_n12_α
  xchain0_n9_β:
  jmp main_γ
-.Lx13_0:
- .quad .Lx13_0_s
-.Lx13_0_s:
+.Lx12_0:
+ .quad .Lx12_0_s
+.Lx12_0_s:
  .string "FAIL 211/001: indirect assign sets named var"
 # IR_DEREF variable -> value
  xchain0_n10_α:
@@ -224,14 +224,14 @@ xchain0_n7_β:
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [r12 + 400], 1
- mov rax, qword ptr [rip + .Lx15_0]
+ mov rax, qword ptr [rip + .Lx14_0]
  mov qword ptr [r12 + 408], rax
  jmp xchain0_n14_α
  xchain0_n11_β:
  jmp main_γ
-.Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
+.Lx14_0:
+ .quad .Lx14_0_s
+.Lx14_0_s:
  .string "PASS 211_indirect_assign (2/2)"
 # IR_ASSIGN gva
  xchain0_n12_α:
@@ -252,10 +252,10 @@ xchain0_n7_β:
  mov rax, qword ptr [r12 + 296]
  mov qword ptr [r12 + 280], rax
   .section .rodata
-  .Lbynamefn18: .string "differ"
+  .Lbynamefn14: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn18]
+ lea rdi, [rip + .Lbynamefn14]
  lea rsi, [r12 + 272]
  mov edx, 1
  call rt_call_arr@PLT
@@ -264,7 +264,7 @@ xchain0_n7_β:
  cmp eax, 99
  je xchain0_n11_α
  jmp xchain0_n15_α
-xchain0_n13_β:
+ xchain0_n13_β:
  jmp xchain0_n11_α
 # IR_ASSIGN gva
  xchain0_n14_α:
@@ -280,14 +280,14 @@ xchain0_n13_β:
 # IR_LIT_STRING
  xchain0_n15_α:
  mov qword ptr [r12 + 368], 1
- mov rax, qword ptr [rip + .Lx20_0]
+ mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [r12 + 376], rax
  jmp xchain0_n16_α
  xchain0_n15_β:
  jmp main_γ
-.Lx20_0:
- .quad .Lx20_0_s
-.Lx20_0_s:
+.Lx18_0:
+ .quad .Lx18_0_s
+.Lx18_0_s:
  .string "FAIL 211/002: undefined indirect is null"
 # IR_ASSIGN gva
  xchain0_n16_α:

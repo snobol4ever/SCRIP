@@ -73,10 +73,10 @@ main_α_body:
  mov rax, qword ptr [r12 + 104]
  mov qword ptr [r12 + 88], rax
   .section .rodata
-  .Lbynamefn3: .string "define"
+  .Lbynamefn2: .string "define"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn3]
+ lea rdi, [rip + .Lbynamefn2]
  lea rsi, [r12 + 80]
  mov edx, 1
  call rt_call_arr@PLT
@@ -85,15 +85,15 @@ main_α_body:
  cmp eax, 99
  je xchain0_n2_α
  jmp xchain0_n2_α
-xchain0_n1_β:
+ xchain0_n1_β:
  jmp xchain0_n2_α
  xchain0_n2_α:
 # BOX IR_CALL always_fail(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
-  .Lbynamefn5: .string "always_fail"
+  .Lbynamefn3: .string "always_fail"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn5]
+ lea rdi, [rip + .Lbynamefn3]
  lea rsi, [r12 + 128]
  mov edx, 0
  call rt_call_arr@PLT
@@ -102,31 +102,31 @@ xchain0_n1_β:
  cmp eax, 99
  je xchain0_n4_α
  jmp xchain0_n3_α
-xchain0_n2_β:
+ xchain0_n2_β:
  jmp xchain0_n4_α
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [r12 + 144], 1
- mov rax, qword ptr [rip + .Lx6_0]
+ mov rax, qword ptr [rip + .Lx4_0]
  mov qword ptr [r12 + 152], rax
  jmp xchain0_n5_α
  xchain0_n3_β:
  jmp main_γ
-.Lx6_0:
- .quad .Lx6_0_s
-.Lx6_0_s:
+.Lx4_0:
+ .quad .Lx4_0_s
+.Lx4_0_s:
  .string "FAIL 1014/001: freturn should cause statement failure"
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [r12 + 176], 1
- mov rax, qword ptr [rip + .Lx7_0]
+ mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [r12 + 184], rax
  jmp xchain0_n6_α
  xchain0_n4_β:
  jmp main_γ
-.Lx7_0:
- .quad .Lx7_0_s
-.Lx7_0_s:
+.Lx5_0:
+ .quad .Lx5_0_s
+.Lx5_0_s:
  .string "PASS 1014_func_freturn (1/1)"
 # IR_ASSIGN gva
  xchain0_n5_α:

@@ -126,10 +126,10 @@ main_α_body:
  mov rax, qword ptr [r12 + 168]
  mov qword ptr [r12 + 104], rax
   .section .rodata
-  .Lbynamefn7: .string "differ"
+  .Lbynamefn6: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn7]
+ lea rdi, [rip + .Lbynamefn6]
  lea rsi, [r12 + 80]
  mov edx, 2
  call rt_call_arr@PLT
@@ -138,31 +138,31 @@ main_α_body:
  cmp eax, 99
  je xchain0_n4_α
  jmp xchain0_n7_α
-xchain0_n5_β:
+ xchain0_n5_β:
  jmp xchain0_n4_α
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [r12 + 304], 1
- mov rax, qword ptr [rip + .Lx8_0]
+ mov rax, qword ptr [rip + .Lx7_0]
  mov qword ptr [r12 + 312], rax
  jmp xchain0_n8_α
  xchain0_n6_β:
  jmp xchain0_n11_α
-.Lx8_0:
- .quad .Lx8_0_s
-.Lx8_0_s:
+.Lx7_0:
+ .quad .Lx7_0_s
+.Lx7_0_s:
  .string "b"
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [r12 + 192], 1
- mov rax, qword ptr [rip + .Lx9_0]
+ mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [r12 + 200], rax
  jmp xchain0_n9_α
  xchain0_n7_β:
  jmp main_γ
-.Lx9_0:
- .quad .Lx9_0_s
-.Lx9_0_s:
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
  .string "FAIL 310/001: two-string concat"
  xchain0_n8_α:
 # IR_BINOP_CONCAT
@@ -190,26 +190,26 @@ xchain0_n5_β:
 # IR_LIT_STRING
  xchain0_n10_α:
  mov qword ptr [r12 + 320], 1
- mov rax, qword ptr [rip + .Lx12_0]
+ mov rax, qword ptr [rip + .Lx11_0]
  mov qword ptr [r12 + 328], rax
  jmp xchain0_n12_α
  xchain0_n10_β:
  jmp xchain0_n11_α
-.Lx12_0:
- .quad .Lx12_0_s
-.Lx12_0_s:
+.Lx11_0:
+ .quad .Lx11_0_s
+.Lx11_0_s:
  .string "c"
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [r12 + 464], 1
- mov rax, qword ptr [rip + .Lx13_0]
+ mov rax, qword ptr [rip + .Lx12_0]
  mov qword ptr [r12 + 472], rax
  jmp xchain0_n13_α
  xchain0_n11_β:
  jmp xchain0_n18_α
-.Lx13_0:
- .quad .Lx13_0_s
-.Lx13_0_s:
+.Lx12_0:
+ .quad .Lx12_0_s
+.Lx12_0_s:
  .string "hello"
  xchain0_n12_α:
 # IR_BINOP_CONCAT
@@ -226,26 +226,26 @@ xchain0_n5_β:
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [r12 + 480], 1
- mov rax, qword ptr [rip + .Lx15_0]
+ mov rax, qword ptr [rip + .Lx14_0]
  mov qword ptr [r12 + 488], rax
  jmp xchain0_n15_α
  xchain0_n13_β:
  jmp xchain0_n18_α
-.Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
+.Lx14_0:
+ .quad .Lx14_0_s
+.Lx14_0_s:
  .string " "
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [r12 + 336], 1
- mov rax, qword ptr [rip + .Lx16_0]
+ mov rax, qword ptr [rip + .Lx15_0]
  mov qword ptr [r12 + 344], rax
  jmp xchain0_n16_α
  xchain0_n14_β:
  jmp xchain0_n11_α
-.Lx16_0:
- .quad .Lx16_0_s
-.Lx16_0_s:
+.Lx15_0:
+ .quad .Lx15_0_s
+.Lx15_0_s:
  .string "abc"
  xchain0_n15_α:
 # IR_BINOP_CONCAT
@@ -272,10 +272,10 @@ xchain0_n5_β:
  mov rax, qword ptr [r12 + 344]
  mov qword ptr [r12 + 248], rax
   .section .rodata
-  .Lbynamefn19: .string "differ"
+  .Lbynamefn17: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn19]
+ lea rdi, [rip + .Lbynamefn17]
  lea rsi, [r12 + 224]
  mov edx, 2
  call rt_call_arr@PLT
@@ -284,43 +284,43 @@ xchain0_n5_β:
  cmp eax, 99
  je xchain0_n11_α
  jmp xchain0_n19_α
-xchain0_n16_β:
+ xchain0_n16_β:
  jmp xchain0_n11_α
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [r12 + 496], 1
- mov rax, qword ptr [rip + .Lx20_0]
+ mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [r12 + 504], rax
  jmp xchain0_n20_α
  xchain0_n17_β:
  jmp xchain0_n18_α
-.Lx20_0:
- .quad .Lx20_0_s
-.Lx20_0_s:
+.Lx18_0:
+ .quad .Lx18_0_s
+.Lx18_0_s:
  .string "world"
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [r12 + 576], 1
- mov rax, qword ptr [rip + .Lx21_0]
+ mov rax, qword ptr [rip + .Lx19_0]
  mov qword ptr [r12 + 584], rax
  jmp xchain0_n21_α
  xchain0_n18_β:
  jmp main_γ
-.Lx21_0:
- .quad .Lx21_0_s
-.Lx21_0_s:
+.Lx19_0:
+ .quad .Lx19_0_s
+.Lx19_0_s:
  .string "PASS 310_concat_strings (3/3)"
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [r12 + 368], 1
- mov rax, qword ptr [rip + .Lx22_0]
+ mov rax, qword ptr [rip + .Lx20_0]
  mov qword ptr [r12 + 376], rax
  jmp xchain0_n22_α
  xchain0_n19_β:
  jmp main_γ
-.Lx22_0:
- .quad .Lx22_0_s
-.Lx22_0_s:
+.Lx20_0:
+ .quad .Lx20_0_s
+.Lx20_0_s:
  .string "FAIL 310/002: three-string concat"
  xchain0_n20_α:
 # IR_BINOP_CONCAT
@@ -359,14 +359,14 @@ xchain0_n16_β:
 # IR_LIT_STRING
  xchain0_n23_α:
  mov qword ptr [r12 + 512], 1
- mov rax, qword ptr [rip + .Lx26_0]
+ mov rax, qword ptr [rip + .Lx24_0]
  mov qword ptr [r12 + 520], rax
  jmp xchain0_n24_α
  xchain0_n23_β:
  jmp xchain0_n18_α
-.Lx26_0:
- .quad .Lx26_0_s
-.Lx26_0_s:
+.Lx24_0:
+ .quad .Lx24_0_s
+.Lx24_0_s:
  .string "hello world"
  xchain0_n24_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -381,10 +381,10 @@ xchain0_n16_β:
  mov rax, qword ptr [r12 + 520]
  mov qword ptr [r12 + 424], rax
   .section .rodata
-  .Lbynamefn28: .string "differ"
+  .Lbynamefn25: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn28]
+ lea rdi, [rip + .Lbynamefn25]
  lea rsi, [r12 + 400]
  mov edx, 2
  call rt_call_arr@PLT
@@ -393,19 +393,19 @@ xchain0_n16_β:
  cmp eax, 99
  je xchain0_n18_α
  jmp xchain0_n25_α
-xchain0_n24_β:
+ xchain0_n24_β:
  jmp xchain0_n18_α
 # IR_LIT_STRING
  xchain0_n25_α:
  mov qword ptr [r12 + 544], 1
- mov rax, qword ptr [rip + .Lx29_0]
+ mov rax, qword ptr [rip + .Lx26_0]
  mov qword ptr [r12 + 552], rax
  jmp xchain0_n26_α
  xchain0_n25_β:
  jmp main_γ
-.Lx29_0:
- .quad .Lx29_0_s
-.Lx29_0_s:
+.Lx26_0:
+ .quad .Lx26_0_s
+.Lx26_0_s:
  .string "FAIL 310/003: left-associative concat"
 # IR_ASSIGN gva
  xchain0_n26_α:

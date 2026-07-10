@@ -196,10 +196,10 @@ main_α_body:
  mov rax, qword ptr [r12 + 152]
  mov qword ptr [r12 + 104], rax
   .section .rodata
-  .Lbynamefn11: .string "differ"
+  .Lbynamefn10: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn11]
+ lea rdi, [rip + .Lbynamefn10]
  lea rsi, [r12 + 80]
  mov edx, 2
  call rt_call_arr@PLT
@@ -208,7 +208,7 @@ main_α_body:
  cmp eax, 99
  je xchain0_n3_α
  jmp xchain0_n12_α
-xchain0_n9_β:
+ xchain0_n9_β:
  jmp xchain0_n3_α
  xchain0_n10_α:
 # BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -223,10 +223,10 @@ xchain0_n9_β:
  mov rax, qword ptr [r12 + 312]
  mov qword ptr [r12 + 264], rax
   .section .rodata
-  .Lbynamefn13: .string "differ"
+  .Lbynamefn11: .string "differ"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lbynamefn13]
+ lea rdi, [rip + .Lbynamefn11]
  lea rsi, [r12 + 240]
  mov edx, 2
  call rt_call_arr@PLT
@@ -235,7 +235,7 @@ xchain0_n9_β:
  cmp eax, 99
  je xchain0_n8_α
  jmp xchain0_n13_α
-xchain0_n10_β:
+ xchain0_n10_β:
  jmp xchain0_n8_α
 # IR_ASSIGN gva
  xchain0_n11_α:
@@ -251,26 +251,26 @@ xchain0_n10_β:
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [r12 + 208], 1
- mov rax, qword ptr [rip + .Lx15_0]
+ mov rax, qword ptr [rip + .Lx13_0]
  mov qword ptr [r12 + 216], rax
  jmp xchain0_n14_α
  xchain0_n12_β:
  jmp main_γ
-.Lx15_0:
- .quad .Lx15_0_s
-.Lx15_0_s:
+.Lx13_0:
+ .quad .Lx13_0_s
+.Lx13_0_s:
  .string "FAIL 411/001: unary minus"
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [r12 + 336], 1
- mov rax, qword ptr [rip + .Lx16_0]
+ mov rax, qword ptr [rip + .Lx14_0]
  mov qword ptr [r12 + 344], rax
  jmp xchain0_n15_α
  xchain0_n13_β:
  jmp main_γ
-.Lx16_0:
- .quad .Lx16_0_s
-.Lx16_0_s:
+.Lx14_0:
+ .quad .Lx14_0_s
+.Lx14_0_s:
  .string "FAIL 411/002: unary plus string->int"
 # IR_ASSIGN gva
  xchain0_n14_α:
