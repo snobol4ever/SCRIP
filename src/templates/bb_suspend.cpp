@@ -9,33 +9,17 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_suspend() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
-    if (_.op_sa < 0)
-        return x86_alpha() + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
-    std::string s;
-    s += x86("comment", "IR_SUSPEND yield+resume");
-    s += x86_alpha();
-    if (_.op_sb >= 0 && _.lbl_t1_p) {
-        if (!MEDIUM_BINARY) {
-            char load_β[128];
-            snprintf(load_β, sizeof load_β,
-                " lea rax, [rip + %s]\n mov qword ptr [%s + %d], rax\n",
-                _.lbl_t1_p->name, x86_zr(), _.op_sb);
-            s += std::string(load_β);
-        } else {
-            uint32_t slotv = (uint32_t)(unsigned)_.op_sb;
-            s += x86_Lrec(x86_b3(0x48, 0x8D, 0x05)) + x86_Jrec(X86T_TGT1);
-            std::string mov_insn; mov_insn += (char)(0x48 | (x86_zr_num() >= 8 ? 0x01 : 0x00)); /* REX.W + B-from-ζ (was hardcoded 0x49=r12-only; byte-identical under ZC_FRAME_R12) */ mov_insn += (char)0x89; mov_insn += (char)0x84; mov_insn += (char)0x24;
-            mov_insn += (char)(slotv); mov_insn += (char)(slotv>>8); mov_insn += (char)(slotv>>16); mov_insn += (char)(slotv>>24);
-            s += x86_Lrec(mov_insn);
-        }
-    }
-    s += x86("mov", "rax", FRQ(_.op_sa));
-    s += x86("mov", FRQ(0), "rax");
-    s += x86("mov", "rax", FRQ(_.op_sa + 8));
-    s += x86("mov", FRQ(8), "rax");
-    s += x86_gamma();
-    s += x86_beta();
-    s += _.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega();
-    return s;
+    if (PLATFORM_X86)
+        return (_.op_sa < 0) ? x86_alpha() + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)") :
+               x86("comment", "IR_SUSPEND yield+resume")
+             + x86_alpha()
+             + (_.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
+             + x86("mov", "rax", FRQ(_.op_sa))
+             + x86("mov", FRQ(0), "rax")
+             + x86("mov", "rax", FRQ(_.op_sa + 8))
+             + x86("mov", FRQ(8), "rax")
+             + x86_gamma()
+             + x86_beta()
+             + (_.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega());
+    return std::string();
 }
