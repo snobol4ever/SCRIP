@@ -70,7 +70,7 @@ std::string bb_binop_relop() {
                  + x86_beta()
                  + x86_omega()
              : (_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0
-                && ((_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE) || (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE)))
+                && ((_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE) || (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE) || _.op_ival == BINOP_EQV || _.op_ival == BINOP_NEQV))
                  ? x86_alpha()
                  + x86("comment", "IR_BINOP_TEST")
                  + x86("mov", "rdi", FRQ(_.op_sa))
@@ -81,7 +81,7 @@ std::string bb_binop_relop() {
                  + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void*)rt_jct_relop)
                  + x86("test", "eax", "eax")
                  + x86_omega("jz")
-                 + (_.op_ival >= BINOP_SLT
+                 + (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE
                      ? x86("mov", "rdi", FRQ(_.op_sb))
                      + x86("mov", "rsi", FRQ(_.op_sb + 8))
                      + x86("call", "rt_str_coerce", (uint64_t)(uintptr_t)(void*)rt_str_coerce)
