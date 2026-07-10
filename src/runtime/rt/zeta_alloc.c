@@ -40,9 +40,8 @@ void *rt_zls_alloc(long bytes)
     if (g_gc_pending) { g_gc_pending = 0; rt_gc_collect(); }
     if (!g_zls_report_reg) { g_zls_report_reg = 1; atexit(rt_zls_report); }
 #if ZC_ALLOC == ZC_ALLOC_MALLOC
-    base = (char *)malloc((size_t)(ZLS_HDR + sz));
-    if (!base) { fprintf(stderr, "[ZLS] malloc-mode activation alloc failed (%ld bytes)\n", ZLS_HDR + sz); abort(); }
-    GC_add_roots(base, base + ZLS_HDR + sz);
+    base = (char *)GC_MALLOC((size_t)(ZLS_HDR + sz));
+    if (!base) { fprintf(stderr, "[ZLS] GC-mode activation alloc failed (%ld bytes)\n", ZLS_HDR + sz); abort(); }
 #else
     if (!g_zls_arena) rt_zls_arena_init();
     base = g_zls_top;
@@ -80,8 +79,7 @@ void rt_zls_release(void *fb)
     g_zls_releases += 1;
     g_zls_cur = ((void **)base)[0];
 #if ZC_ALLOC == ZC_ALLOC_MALLOC
-    { long sz = ((long *)base)[1]; GC_remove_roots(base, base + ZLS_HDR + sz); }
-    free(base);
+    GC_FREE(base);
 #elif ZC_ALLOC == ZC_ALLOC_BUMP_LIFO
     if (base >= g_zls_arena && base < g_zls_top) {
 #if ZC_POISON == ZC_POISON_FILL

@@ -79,6 +79,7 @@ TBBLK_t *table_new(void) {
     t->size = 0;
     t->init = 10;
     t->inc  = 10;
+    t->is_set = 0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -87,6 +88,16 @@ TBBLK_t *table_new_args(int init, int inc) {
     t->init = (init > 0) ? init : 10;
     t->inc  = (inc  > 0) ? inc  : 10;
     return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
+    switch (kd.v) {
+        case DT_SNUL: return "\001n";
+        case DT_S:    return kd.s ? kd.s : "";
+        case DT_I:    snprintf(buf, bufn, "\001i%lld", (long long)kd.i); return buf;
+        case DT_R:    snprintf(buf, bufn, "\001r%.17g", kd.r); return buf;
+        default:      snprintf(buf, bufn, "\001p%p", kd.ptr); return buf;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t table_get(TBBLK_t *tbl, const char *key) {
@@ -121,6 +132,14 @@ void table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) 
     tbl->size++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int table_delete(TBBLK_t *tbl, const char *key) {
+    if (!tbl || !key) return 0;
+    unsigned h = _tbl_hash(key);
+    for (TBPAIR_t **pp = &tbl->buckets[h]; *pp; pp = &(*pp)->next)
+        if (strcmp((*pp)->key, key) == 0) { *pp = (*pp)->next; tbl->size--; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int table_has(TBBLK_t *tbl, const char *key) {
     if (!tbl || !key) return 0;
     unsigned h = _tbl_hash(key);
@@ -131,12 +150,12 @@ int table_has(TBBLK_t *tbl, const char *key) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_table_idx_get(DESCR_t base, DESCR_t key) {
     if (base.v != DT_T || !base.tbl) return NULVCL;
-    const char *ks = VARVAL_fn(key);
-    return table_get(base.tbl, ks ? ks : "");
+    char kb[64];
+    return table_get(base.tbl, tbl_key_str(key, kb, sizeof kb));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_table_idx_set(DESCR_t base, DESCR_t key, DESCR_t val) {
     if (base.v != DT_T || !base.tbl) return;
-    const char *ks = VARVAL_fn(key);
-    table_set_descr(base.tbl, ks ? ks : "", key, val);
+    char kb[64];
+    table_set_descr(base.tbl, tbl_key_str(key, kb, sizeof kb), key, val);
 }
