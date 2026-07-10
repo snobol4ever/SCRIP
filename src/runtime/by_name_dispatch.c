@@ -1142,6 +1142,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char key[32]; g_pas_heap_ctr++; snprintf(key, 32, "__heap_%ld", g_pas_heap_ctr);
         NV_SET_fn(key, STRVAL(seg)); *out = INTVAL(g_pas_heap_ctr); return 1;
     }
+    if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) {
+        const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
+        long lo = IS_INT_fn(args[1]) ? (long)args[1].i : 0; if (lo < 0) lo = 0;
+        size_t sl = strlen(sa); char *o = GC_malloc(sl + 2); size_t oi = 0; const char *pp = sa; long k = 0;
+        while (*pp) { char *ep = NULL; long v = strtol(pp, &ep, 10); if (ep == pp) break; if (k >= lo) o[oi++] = (char)v; k++; pp = ep; if (*pp == SOH) pp++; else break; }
+        o[oi] = '\0'; *out = STRVAL(o); return 1;
+    }
     if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[2]; return 1; }
         char key[32]; snprintf(key, 32, "__heap_%ld", n);
@@ -2629,7 +2636,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
             int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i >= 0 ? (int)aw.i : -1)) : -1;
-            if (w == -3) continue;
+            if (w == -3) { double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
+                long _fw2 = 0, _fp2 = 0;
+                if (_pi + 3 < nargs) { if (IS_INT_fn(args[_pi+2])) _fw2 = (long)args[_pi+2].i; if (IS_INT_fn(args[_pi+3])) _fp2 = (long)args[_pi+3].i; }
+                if (_fw2 < 0) _fw2 = 0; if (_fp2 < 0) _fp2 = 0; if (_fp2 > 16) _fp2 = 16;
+                fprintf(_dest, "%*.*f", (int)_fw2, (int)_fp2, _rv); _pi += 2; continue; }
             if (IS_INT_fn(av)) {
                 char _pb[32];
                 int _pfmtlen = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);

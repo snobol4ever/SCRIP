@@ -649,8 +649,19 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     int is_func = (pd->n > 3) && pd->c[3] && (pd->c[3]->t == TT_VAR);
     IR_t * top = succ;
     if (is_func) { IR_t * ret = build(&cx, IR_RETURN, succ, succ); IR_t * rv = build(&cx, IR_VAR, ret, fail); IR_LIT(rv).sval = pd->v.sval; ir_operand_push(ret, rv); top = rv; }
-    IR_t * entry = lower(&cx, body, top, fail, NULL);
-    if (!entry) entry = build(&cx, IR_GOTO, top, top);
+    IR_t * body_gamma = top;
+    if (cx.sc.proc_name) for (int ci = 0; ci < g_pas_captured_n; ci++) {
+        if (!g_pas_captured[ci].proc || strcmp(g_pas_captured[ci].proc, cx.sc.proc_name)) continue;
+        const char * vn = g_pas_captured[ci].var;
+        const char * mg = pas_cap_mangle(cx.sc.proc_name, vn); pas_reg_var(mg);
+        char * sv = (char *) malloc(64); snprintf(sv, 64, "__upsv_%s_%s", cx.sc.proc_name, vn);
+        IR_t * ra = build(&cx, IR_ASSIGN, body_gamma, fail); IR_LIT(ra).sval = mg;
+        IR_t * rs = build(&cx, IR_VAR, ra, fail); IR_LIT(rs).sval = sv;
+        ir_operand_push(ra, rs);
+        body_gamma = rs;
+    }
+    IR_t * entry = lower(&cx, body, body_gamma, fail, NULL);
+    if (!entry) entry = build(&cx, IR_GOTO, body_gamma, body_gamma);
     if (cx.sc.proc_name) for (int ci = 0; ci < g_pas_captured_n; ci++) {
         if (!g_pas_captured[ci].proc || strcmp(g_pas_captured[ci].proc, cx.sc.proc_name)) continue;
         const char * vn = g_pas_captured[ci].var;
@@ -659,6 +670,16 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
         IR_t * pv = build(&cx, IR_VAR, ga, fail); IR_LIT(pv).sval = vn;
         ir_operand_push(ga, pv);
         entry = pv;
+    }
+    if (cx.sc.proc_name) for (int ci = 0; ci < g_pas_captured_n; ci++) {
+        if (!g_pas_captured[ci].proc || strcmp(g_pas_captured[ci].proc, cx.sc.proc_name)) continue;
+        const char * vn = g_pas_captured[ci].var;
+        const char * mg = pas_cap_mangle(cx.sc.proc_name, vn);
+        char * sv = (char *) malloc(64); snprintf(sv, 64, "__upsv_%s_%s", cx.sc.proc_name, vn);
+        IR_t * sa = build(&cx, IR_ASSIGN, entry, fail); IR_LIT(sa).sval = sv;
+        IR_t * gv = build(&cx, IR_VAR, sa, fail); IR_LIT(gv).sval = mg;
+        ir_operand_push(sa, gv);
+        entry = gv;
     }
     g->entry = entry; return g;
 }
