@@ -204,6 +204,8 @@ struct IR_graph_t {
     int            jcon_value_region;
     int            nparams;
     const char  ** pnames;
+    int            nlocals;
+    const char  ** lnames;
     struct IR_vslot_t { const char * name; int off; } * vslots;
     int            n_vslots;
     int            resume_slot;
@@ -216,6 +218,7 @@ struct IR_graph_t {
 };
 IR_graph_t * IR_alloc(int max_nodes);
 int ir_varslot_of(const IR_graph_t * g, const char * name);
+int graph_has_local(const IR_graph_t * g, const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t * ir_call_arg(const IR_t * nd, int j) {
     if (!nd || j < 0) return NULL;

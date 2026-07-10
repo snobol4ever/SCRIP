@@ -3843,7 +3843,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = args[0]; return 1;
     }
     if (!strcmp(fn,"read") && nargs == 1) {
-        FILE *fp = (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
+        FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
         char buf[4096];
         if (!fgets(buf, sizeof buf, fp)) { *out = FAILDESCR; return 1; }
@@ -3853,7 +3853,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = STRVAL(GC_strdup(buf)); return 1;
     }
     if (!strcmp(fn,"reads") && nargs == 2) {
-        FILE *fp = (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
+        FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
         int n = (int)to_int(args[1]);
         if (n <= 0) { *out = FAILDESCR; return 1; }
