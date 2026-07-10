@@ -35,14 +35,14 @@ push r12
  call rt_zls_mark@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 48], rax
+ mov qword ptr [r12 + 96], rax
  pop rsi
 main_α_body:
 # IR_LIT_REAL
  xchain0_n0_α:
- mov qword ptr [r12 + 32], 7
+ mov qword ptr [r12 + 80], 7
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [r12 + 40], rax
+ mov qword ptr [r12 + 88], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp main_γ
@@ -50,12 +50,12 @@ main_α_body:
  .quad 4614253070214989087
 # IR_ASSIGN global
  xchain0_n1_α:
- mov rsi, qword ptr [r12 + 32]
- mov rdx, qword ptr [r12 + 40]
+ mov rsi, qword ptr [r12 + 80]
+ mov rdx, qword ptr [r12 + 88]
  mov rdi, qword ptr [rip + .Lx2_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 16], rax
- mov qword ptr [r12 + 24], rdx
+ mov qword ptr [r12 + 64], rax
+ mov qword ptr [r12 + 72], rdx
  jmp main_γ
  xchain0_n1_β:
  jmp main_γ
@@ -75,7 +75,7 @@ ret
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 48]
+ mov rdi, qword ptr [r12 + 96]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
