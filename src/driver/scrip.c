@@ -711,6 +711,7 @@ int main(int argc, char **argv)
             const char **proc_names_buf = (const char **)malloc((size_t)_pnbcap * sizeof(const char *));
             int *proc_nparams_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_pidx_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
+            int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -727,6 +728,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
+                { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = g_last_flat_frame_bytes; }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
                 proc_names_buf[n_procs++] = pname;
@@ -986,6 +988,11 @@ int main(int argc, char **argv)
                     printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                     printf("  mov esi, %d\n", proc_nparams_buf[i]);
                     printf("  call rt_proc_set_nparams@PLT\n");
+                    if (proc_fb_buf[i] > 0) {
+                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        printf("  mov esi, %d\n", proc_fb_buf[i]);
+                        printf("  call rt_proc_set_frame_bytes@PLT\n");
+                    }
                     if (pe->is_variadic) {
                         printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                         printf("  mov esi, 1\n");
@@ -995,7 +1002,7 @@ int main(int argc, char **argv)
                 printf("  pop rbp\n");
                 printf("  ret\n");
             }
-            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf);
+            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf);
             if (n_gva_icn > 0) {
                 printf("  .section .rodata\n");
                 for (int k = 0; k < n_gva_icn; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1294,6 +1301,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
+                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph not found\n");
