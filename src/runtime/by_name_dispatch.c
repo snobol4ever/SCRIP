@@ -736,6 +736,14 @@ static int pl_num_cmp(const char *s, DESCR_t a, DESCR_t b) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_arith2(const char *op, DESCR_t a, DESCR_t b) {
+    extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+    int ai = (a.v == DT_I), bi = (b.v == DT_I);
+    if (ai && bi && !strcmp(op, "idiv")) { if (b.i == 0) return FAILDESCR; return INTVAL(a.i / b.i); }
+    if (ai && bi && !strcmp(op, "mod"))  { if (b.i == 0) return FAILDESCR; long long m = a.i % b.i; if (m && ((m < 0) != (b.i < 0))) m += b.i; return INTVAL(m); }
+    return rt_num_arith(a, b, pl_is_op_code(op));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pl_atom_str(DESCR_t v) {
     if (v.v == DT_S) return v.s ? v.s : "";
     if (v.v == (DTYPE_t)DT_A) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm ? nm : ""; }
@@ -848,7 +856,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(op, "shr")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
         if (!strcmp(op, "band")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
         if (!strcmp(op, "bor"))  { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
-        { int code = pl_is_op_code(op); DESCR_t r = rt_num_arith(a, b, code); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
+        { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
     }
     if (!strcmp(fn, "$is_v") && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
@@ -859,7 +867,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strncmp(fn, "$is_", 4) && nargs == 3) {
         extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
-        DESCR_t a = rt_pl_deref_val(args[1]); DESCR_t b = rt_pl_deref_val(args[2]); DESCR_t r = rt_num_arith(a, b, pl_is_op_code(fn + 4));
+        DESCR_t a = rt_pl_deref_val(args[1]); DESCR_t b = rt_pl_deref_val(args[2]); DESCR_t r = pl_arith2(fn + 4, a, b);
         if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; }
         if (plw_unify_vals(args[0], r)) { *out = r; return 1; }
         *out = FAILDESCR; return 1;
