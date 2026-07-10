@@ -11,10 +11,11 @@ extern DESCR_t rt_section_var(DESCR_t base, DESCR_t i1, DESCR_t i2);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_section() {
-    if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0) return x86_alpha() + x86_bomb("bb_section: needs own slot + base/i1/i2 operand slots");
-    if (_.op_sval && _.op_sval[0] == 'l' && _.op_sval[1] == 'v' && !_.op_sval[2])
-        return x86("comment", "IR_SUBSCRIPT section VARIABLE (ASSIGN-LV: rt_section_var tvsubs trap; FAIL routes ω)")
+    if (PLATFORM_X86)
+        return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0)
+             ? x86_alpha() + x86_bomb("bb_section: needs own slot + base/i1/i2 operand slots")
+             : (_.op_sval && _.op_sval[0] == 'l' && _.op_sval[1] == 'v' && !_.op_sval[2])
+             ? x86("comment", "IR_SUBSCRIPT section VARIABLE (ASSIGN-LV: rt_section_var tvsubs trap; FAIL routes ω)")
              + x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_a_slot))
              + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
@@ -29,9 +30,9 @@ std::string bb_section() {
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86_beta()
-             + x86_omega();
-    if (_.op_sval && (_.op_sval[0] == '+' || _.op_sval[0] == '-'))
-        return x86("comment", "IR_SUBSCRIPT section extended (x[i+:n]/x[i-:n]; end pre-computed by IR_BINOP; wraparound→ω)")
+             + x86_omega()
+             : (_.op_sval && (_.op_sval[0] == '+' || _.op_sval[0] == '-'))
+             ? x86("comment", "IR_SUBSCRIPT section extended (x[i+:n]/x[i-:n]; end pre-computed by IR_BINOP; wraparound→ω)")
              + x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_a_slot))
              + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
@@ -46,19 +47,20 @@ std::string bb_section() {
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86_beta()
+             + x86_omega()
+             : x86("comment", "IR_SUBSCRIPT section")
+             + x86_alpha()
+             + x86("mov",     "rdi", FRQ(_.op_a_slot))
+             + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
+             + x86("mov",     "rdx", FRQ(_.op_sa))
+             + x86("mov",     "rcx", FRQ(_.op_sa + 8))
+             + x86("mov",     "r8",  FRQ(_.op_sb))
+             + x86("mov",     "r9",  FRQ(_.op_sb + 8))
+             + x86("call",    "subscript_get2", (uint64_t)(uintptr_t)(void *)subscript_get2)
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_gamma()
+             + x86_beta()
              + x86_omega();
-    return x86("comment", "IR_SUBSCRIPT section")
-         + x86_alpha()
-         + x86("mov",     "rdi", FRQ(_.op_a_slot))
-         + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
-         + x86("mov",     "rdx", FRQ(_.op_sa))
-         + x86("mov",     "rcx", FRQ(_.op_sa + 8))
-         + x86("mov",     "r8",  FRQ(_.op_sb))
-         + x86("mov",     "r9",  FRQ(_.op_sb + 8))
-         + x86("call",    "subscript_get2", (uint64_t)(uintptr_t)(void *)subscript_get2)
-         + x86("mov",     FRQ(_.op_off),     "rax")
-         + x86("mov",     FRQ(_.op_off + 8), "rdx")
-         + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+    return std::string();
 }
