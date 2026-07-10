@@ -51,45 +51,6 @@ static std::string pas_sl_setup(const char * fn) {
     for (int i = 0; i < h; i++) s += x86_reg_disp32_load64("rcx", "rcx", 0);
     return s;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string marshal_varparam_addr(IR_t * lf, int aoff, int idx) {
-    if (!lf) return x86_bomb("marshal_varparam_addr: null arg head");
-    std::string s;
-    if (lf->op == IR_OP_COUNT) {
-        int hops = (int) IR_LIT(lf).dval;
-        int voff = 16 + (int) IR_LIT(lf).ival * 16;
-        s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM cell addr of frame slot=%d hops=%d -> [zr+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
-        s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_lea64("rax", "rax", voff);
-    } else if (lf->op == IR_OP_COUNT) {
-        int hops = (int) IR_LIT(lf).dval;
-        int voff = 16 + (int) IR_LIT(lf).ival * 16;
-        s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM forward cell addr from ref slot=%d hops=%d -> [zr+%d]", idx, (int) IR_LIT(lf).ival, hops, aoff));
-        s += x86_frame_lea("rax", 0);
-        for (int h = 0; h < hops; h++) s += x86_reg_disp32_load64("rax", "rax", 0);
-        s += x86_reg_disp32_load64("rax", "rax", voff + 8);
-    } else if (lf->op == IR_VAR && IR_LIT(lf).sval) {
-        if (MEDIUM_TEXT) {
-            char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
-            s += x86("comment", emit_fmt("marshal arg%d = VAR-PARAM cell addr of gvar -> [zr+%d]", idx, aoff))
-               + x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str()) + x86("call", "rt_gvar_cell@PLT");
-        } else {
-            uint64_t fptr; { DESCR_t * (*fp)(const char *) = rt_gvar_cell; fptr = (uint64_t)(uintptr_t)(void *) fp; }
-            s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(lf).sval) + x86_call_ro("rt_gvar_cell", fptr);
-        }
-    } else {
-        return x86_bomb("marshal_varparam_addr: var-param arg is not a variable");
-    }
-    if (MEDIUM_TEXT) {
-        s += x86("mov", FRQ(aoff), (long)0);
-        s += x86("mov", FRQ(aoff + 8), "rax");
-    } else {
-        s += x86("mov", FRQ(aoff), (long)0);
-        s += x86_frame_store64(aoff + 8, "rax");
-    }
-    return s;
-}
 extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_write_slot_str(IR_t *);
 extern std::string bb_call_write_binop_str(IR_t *);
@@ -235,16 +196,14 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
 static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
     const char * nfn = IR_LIT(lf).sval ? IR_LIT(lf).sval : "";
     int nn = (int) IR_LIT(lf).ival;
-    IR_graph_t ** nsubs = (IR_graph_t **)0;
     int avbase = zoff(lf);
     if (avbase < 0 || nn > (lf ? lf->n_operands : 0)) return x86_bomb("marshal_single_call: no/short LOWER slot grant (TMP-ERADICATE)");
     avbase += 16;
     int isreg = (nfn[0] && rt_proc_is_registered(nfn));
     int nmig  = isreg && rt_proc_frame_nslots(nfn) >= 0;
-    uint64_t nbrm = isreg ? rt_proc_byref_mask(nfn) : 0;
     const char * rsym = isreg ? (nmig ? "rt_call_named_proc_sl" : "rt_call_named_proc") : "rt_call_arr";
     std::string s;
-    for (int j = 0; j < nn; j++) s += ((nbrm >> j) & 1ull) ? marshal_varparam_addr(nsubs[j]->entry, avbase + j * 16, j) : marshal_call_arg(nsubs[j]->entry, nsubs[j], avbase + j * 16, lf, j);
+    if (nn > 0) return x86_bomb("marshal_single_call: arg marshal gouged, no sub-graph source (TMP-ERADICATE)");
     uint64_t fptr;
     if (nmig)       { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     else if (isreg) { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
