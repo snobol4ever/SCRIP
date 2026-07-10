@@ -625,47 +625,27 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
-    if (MEDIUM_TEXT) {
-        std::string s = x86_alpha()
-            + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
-        for (int i = 0; i < (int)narg; i++)
-            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
-        std::string fl = emit_fmt(".Lbynamefn%d", g_flat_node_id++);
-        s += x86("directive", ".section .rodata")
-           + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-           + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
-        s += x86("lea", "rsi", FRQ(argbase));
-        s += x86("mov32", "edx", (long)(narg));
-        s += x86("call", "rt_call_arr@PLT");
-        s += x86("mov", FRQ(resoff), "rax");
-        s += x86("mov", FRQ(resoff + 8), "rdx");
-        s += x86("cmp", "eax", "99");
-        s += x86_omega("je");
-        s += x86_gamma();
-        s += x86("label", emit_fmt("%s", _.lbl_β));
-        s += x86_omega();
-        return s;
-    }
-    if (MEDIUM_BINARY) {
-        std::string s = x86_alpha();
-        for (int i = 0; i < (int)narg; i++)
-            s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
-        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
-        s += x86("lea", "rsi", FRQ(argbase));
-        s += x86("mov32", "edx", (long)narg);
-        s += x86("call", "rt_call_arr", fptr);
-        s += x86("mov", FRQ(resoff), "rax");
-        s += x86("mov", FRQ(resoff + 8), "rdx");
-        s += x86("cmp", "eax", (long)99);
-        s += x86_omega("je");
-        s += x86_gamma();
-        s += x86_beta();
-        s += x86_omega();
-        return s;
-    }
-    return std::string();
+    std::string fl = std::string(".Lbynamefn") + std::to_string((long long)_.nid);
+    uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    std::string s = x86_alpha()
+        + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
+    for (int i = 0; i < (int)narg; i++)
+        s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
+    s += x86("directive", ".section .rodata")
+       + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
+       + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
+    s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
+    s += x86("lea", "rsi", FRQ(argbase));
+    s += x86("mov32", "edx", (long)narg);
+    s += x86("call", "rt_call_arr", fptr);
+    s += x86("mov", FRQ(resoff), "rax");
+    s += x86("mov", FRQ(resoff + 8), "rdx");
+    s += x86("cmp", "eax", (long)99);
+    s += x86_omega("je");
+    s += x86_gamma();
+    s += x86_beta();
+    s += x86_omega();
+    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_gen_str(IR_t * pBB) {
