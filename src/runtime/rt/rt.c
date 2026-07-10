@@ -761,7 +761,7 @@ DESCR_t rt_size_d(uint64_t lo, uint64_t hi)
     if (IS_FAIL_fn(v)) return FAILDESCR;
     if (v.v == DT_SNUL) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
     if (v.v == DT_T) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
-    if (IS_CSET_fn(v)) { size_t n = v.s ? strlen(v.s) : 0; DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
+    if (IS_CSET_fn(v)) { extern int kw_cset_len(const char *); int kn = v.s ? kw_cset_len(v.s) : -1; size_t n = (kn >= 0) ? (size_t)kn : (v.s ? strlen(v.s) : 0); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
     if (v.v == DT_S) {
         size_t n = v.slen ? (size_t)v.slen : (v.s ? strlen(v.s) : 0);
         DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;
