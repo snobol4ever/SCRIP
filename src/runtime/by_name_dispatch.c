@@ -3651,7 +3651,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
         char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
         if (!table_has(td.tbl,ks)) { *out=FAILDESCR; return 1; }
-        *out = kd; return 1;
+        *out = table_get(td.tbl, ks); return 1;
     }
     if (!strcmp(fn,"key") && nargs == 1) {
         DESCR_t td = args[0];
