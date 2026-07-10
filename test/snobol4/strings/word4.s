@@ -245,7 +245,7 @@ proc_PAT$0_α_body:
  pop rbp
  jmp xchain0_n10_α
  xchain0_n9_β:
- jmp xchain0_n7_β
+ jmp xchain0_n8_β
 # IR_MATCH_LIT
  xchain0_n10_α:
  mov eax, r14d
