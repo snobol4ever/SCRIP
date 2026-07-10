@@ -70,15 +70,18 @@ void *rt_zls_frame_prev(void *fb) { return fb ? ((void **)((char *)fb - ZLS_HDR)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_zls_frame_size(void *fb) { return fb ? ((long *)((char *)fb - ZLS_HDR))[1] : 0L; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_zls_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); p = e ? (atoi(e) != 0) : (ZC_POISON == ZC_POISON_FILL); } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zls_release(void *fb)
 {
     char *base;
     if (!fb) return;
-    if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-RELEASE] fb=%p (call #%ld)\n", fb, g_zls_releases + 1);
     base = (char *)fb - ZLS_HDR;
+    if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-RELEASE] fb=%p sz=%ld fn=%p (call #%ld)\n", fb, ((long *)base)[1], ((void **)fb)[0], g_zls_releases + 1);
     g_zls_releases += 1;
     g_zls_cur = ((void **)base)[0];
 #if ZC_ALLOC == ZC_ALLOC_MALLOC
+    if (rt_zls_poison()) { long psz = ((long *)base)[1]; memset(base, 0xDD, (size_t)(ZLS_HDR + psz)); return; }
     GC_FREE(base);
 #elif ZC_ALLOC == ZC_ALLOC_BUMP_LIFO
     if (base >= g_zls_arena && base < g_zls_top) {
