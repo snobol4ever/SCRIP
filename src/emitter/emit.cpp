@@ -842,6 +842,7 @@ extern IR_graph_t *  g_emit_cfg;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
+extern "C" void * rt_proc_get_fn(const char * name);
 static int drive_value_slot(IR_t *nd) {
     int e = bb_slot_get(nd);
     if (e >= 0) return e;
@@ -1060,6 +1061,16 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     }
     case IR_MATCH_DEFER: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
+        g_emit.bb_child_fn = (void *) 0; g_emit.bb_child_lbl = (const char *) 0;
+        IR_t * fz0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *) 0;   /* FZ-5b (re-port): lower marks a once-assigned-invariant stored-pattern defer with a LIT_STRING operand naming its AOT proc */
+        if (fz0 && fz0->op == IR_LIT_STRING && IR_LIT(fz0).sval && IR_LIT(fz0).sval[0]) {
+            void * fzfn = rt_proc_get_fn(IR_LIT(fz0).sval);
+            if (fzfn || MEDIUM_TEXT) {
+                static char fzlb[280];
+                snprintf(fzlb, sizeof fzlb, "proc_%s_α", IR_LIT(fz0).sval);
+                g_emit.bb_child_fn = fzfn; g_emit.bb_child_lbl = fzlb;
+            }
+        }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ARBNO: {   /* ZB-5: roles 0/3 own the slot; 1/2/4/5 read it via operand[0] (the owner).  v2 roles 3-5 additionally stage the COLLECTION geometry (op_sa=min_off, op_sb=elem_sz). */
