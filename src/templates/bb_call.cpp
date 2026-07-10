@@ -829,8 +829,7 @@ static std::string bb_call_bool_cond_str(IR_t * pBB) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    g_emit.op_call_route = bb_call_route_classify(_.node);
-    switch (g_emit.op_call_route) {
+    switch (_.op_call_route) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
         case CALL_ROUTE_BYNAME_GEN:    return bb_call_byname_gen_str(pBB);
         case CALL_ROUTE_RK_BOOL_COND:  return bb_call_bool_cond_str(pBB);
