@@ -175,6 +175,16 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         sno_fatal("name operator over this form is outside the landed subset", NULL);
     }
+    case TT_ALT: {
+        if (t->n < 2) sno_fatal("alternation with missing operand", NULL);
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBALT";
+        IR_t * vl = NULL; IR_t * el = sx_lower(cx, t->c[0], NULL, ω, &vl);
+        IR_t * vr = NULL; IR_t * er = sx_lower(cx, t->c[1], NULL, ω, &vr);
+        lc_γ_to(vl, er); lc_γ_to(vr, mk);
+        ir_operand_push(mk, vl); ir_operand_push(mk, vr);
+        if (res) *res = mk;
+        return el;
+    }
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_POW: case TT_SEQ: case TT_CAT:
         if (t->n < 2) sno_fatal("binary operator with missing operand", NULL);
         return sx_binop(cx, t, sno_binop_code(t->t), γ, ω, res);
@@ -1106,6 +1116,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     bb_label_registry_reset();
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
+        if (getenv("MONITOR_BIN")) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) IR_LIT(anchor[i]).ival = _sa->c[0]->v.ival; }
         const char * lbl = sfind_str(st[i], ":lbl");
         if (lbl && lbl[0]) bb_label_registry_add(lp_strdup(lbl), anchor[i]);
     }
@@ -1133,7 +1144,25 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (pat) sno_fatal("statement has a separate :pat field (stored-pattern form) — SN4-PAT-2 handles TT_SCAN match subjects only", NULL);
         if (subj && subj->t == TT_SCAN) {
             const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
-            if (!sno_pat_supported(ptt)) sno_fatal("pattern shape outside the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
+            if (!sno_pat_supported(ptt)) {
+                if (ptt && ptt->t == TT_FNC) {
+                    extern tree_t *ast_stmt_new(tree_e kind);
+                    static int g_pattmp_n = 0;
+                    char nmb[24]; snprintf(nmb, sizeof nmb, "PATTMP$%d", g_pattmp_n++);
+                    char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
+                    IR_t * asn = lc_build(g, IR_ASSIGN, NULL, fJ); IR_LIT(asn).sval = tmpn;
+                    IR_t * vr = NULL; IR_t * ec = sx_lower(&cx, ptt, asn, fJ, &vr);
+                    ir_operand_push(asn, vr);
+                    tree_t * dv = ast_stmt_new(TT_VAR); dv->v.sval = tmpn;
+                    tree_t * dd = ast_stmt_new(TT_DEFER); ast_push(dd, dv);
+                    tree_t * sc2 = ast_stmt_new(TT_SCAN); ast_push(sc2, (tree_t *) subj->c[0]); ast_push(sc2, dd);
+                    IR_t * e2 = sno_lower_match(&cx, sc2, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ);
+                    lc_γ_to(asn, e2);
+                    lc_γ_to(anchor[i], ec);
+                    continue;
+                }
+                sno_fatal("pattern shape outside the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
+            }
             IR_t * e = sno_lower_match(&cx, subj, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ);
             lc_γ_to(anchor[i], e);
             continue;
@@ -1501,6 +1530,18 @@ static void sno_fragment_reject_define(const tree_t ** st, int nst) {
         if (sno_stmt_define(st[i], NULL)) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
         if (sno_tree_has_define_call(st[i])) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
+    IR_graph_t * gp = IR_alloc(512);
+    scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL;
+    IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
+    IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
+    px.pat_fail = no; px.pat_seal = no;
+    IR_t * pe = sno_pat_node(&px, pat, ok, no);
+    gp->entry = pe;
+    return gp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {

@@ -1237,7 +1237,7 @@ int main(int argc, char **argv)
                 extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
                 gva_collect_reset();
                 gva_collect_icon_globals();
-                int n_gva_m3 = gva_count();
+                int n_gva_m3 = getenv("MONITOR_BIN") ? 0 : gva_count();
                 if (n_gva_m3 > 0) {
                     m3_gva_arena = GC_MALLOC_UNCOLLECTABLE((size_t)n_gva_m3 * sizeof(DESCR_t));
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
@@ -1292,6 +1292,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 bb_box_fn pfn = emit_chain(s2->bbp.table[idx]->entry, NULL, "proc_flat");
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
+                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
@@ -1335,7 +1336,7 @@ int main(int argc, char **argv)
                 gva_collect_reset();
                 IR_graph_t *_mg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : (IR_graph_t *)0;
                 if (_mg) gva_collect_graph(_mg);
-                int n_gva_m3 = gva_count();
+                int n_gva_m3 = getenv("MONITOR_BIN") ? 0 : gva_count();
                 if (n_gva_m3 > 0) {
                     m3_gva_arena = GC_MALLOC_UNCOLLECTABLE((size_t)n_gva_m3 * sizeof(DESCR_t));
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));

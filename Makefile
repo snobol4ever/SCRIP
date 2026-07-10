@@ -92,6 +92,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_io.c \
     $(SRC)/templates/bb_lit.cpp \
+    $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/templates/bb_conjunction.cpp \
     $(SRC)/templates/bb_subscript.cpp \
     $(SRC)/templates/bb_deref.cpp \
@@ -300,6 +301,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/emitter/emit.cpp                   -o $(OBJ)/emit.o
 	$(CC) $(CRT)   -c $(SRC)/emitter/emit_io.c                 -o $(OBJ)/emit_io.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_lit.cpp        -o $(OBJ)/bb_lit.o
+	$(CXX) $(CXXRT) -c $(SRC)/runtime/rt/bb_pat_build.cpp  -o $(OBJ)/bb_pat_build.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_arith.cpp     -o $(OBJ)/bb_arith.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_conjunction.cpp       -o $(OBJ)/bb_conjunction.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_subscript.cpp       -o $(OBJ)/bb_subscript.o

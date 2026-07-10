@@ -14,6 +14,7 @@ static int so_is_list(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
+    if (a.v == DT_P || b.v == DT_P) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return pat_cat(a, b); }
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
     if (IS_NULL_fn(a)) return b;

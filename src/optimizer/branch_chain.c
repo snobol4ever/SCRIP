@@ -4,6 +4,8 @@
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bc_is_passthrough(IR_e op) { return op == IR_SUCCEED || op == IR_GOTO; }
+static int bc_mon(void) { static int m = -1; if (m < 0) m = getenv("MONITOR_BIN") ? 1 : 0; return m; }
+static int bc_stamped(const IR_t *nd) { return bc_mon() && nd->op == IR_GOTO && IR_LIT(nd).ival > 0; }
 static int bc_index_of(IR_graph_t *g, IR_t *p) { for (int i = 0; i < g->n; i++) if (g->all[i] == p) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * bc_build_protect(IR_graph_t *g) {
@@ -20,7 +22,7 @@ static char * bc_build_protect(IR_graph_t *g) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * bc_chase(IR_graph_t *g, const char *prot, IR_t *node, char sz[4]) {
     IR_t *seen[512]; int ns = 0; int guard = 0;
-    while (node && bc_is_passthrough(node->op) && node->γ.node && guard++ < 512) {
+    while (node && bc_is_passthrough(node->op) && !bc_stamped(node) && node->γ.node && guard++ < 512) {
         int j = bc_index_of(g, node);
         if (j >= 0 && prot[j]) break;
         int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == node) { dup = 1; break; }

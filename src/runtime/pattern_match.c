@@ -16,9 +16,43 @@
          abort(); } while (0)
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct dtp_rcp { int k; const char *s; uint32_t slen; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
+typedef struct DTP { void *fn; dtp_rcp_t *rcp; } DTP_t;
+static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)GC_malloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; return h; }
+void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
+static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { dtp_rcp_t *r = (dtp_rcp_t *)GC_malloc(sizeof *r); r->k = 0; r->s = s ? s : ""; r->slen = n; r->l = r->r = (dtp_rcp_t *)0; return r; }
+static dtp_rcp_t *rcp_bin(int k, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)GC_malloc(sizeof *r); r->k = k; r->s = (const char *)0; r->slen = 0; r->l = l; r->r = rr; return r; }
+static dtp_rcp_t *rcp_of(DESCR_t d) {
+    if (d.v == DT_P && d.p) {
+        DTP_t *h = (DTP_t *)d.p;
+        if (h->rcp) return h->rcp;
+        fprintf(stderr, "[B-RE] runtime pattern composition over an opaque compiled pattern (recipe-less DT_P) would mint the nested-blob-defer class (124/143/147) — refused, park until that class lands\n");
+        abort();
+    }
+    if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
+    if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
+    if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); gcvt(d.r, 14, b); return rcp_lit(b, (uint32_t)strlen(b)); }
+    { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
+}
+extern tree_t *ast_stmt_new(tree_e kind);
+static tree_t *dtp_rcp_tree(dtp_rcp_t *r) {
+    if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
+    if (r->k == 0) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)r->s; return t; }
+    tree_t *t = ast_stmt_new(r->k == 1 ? TT_SEQ : TT_ALT);
+    ast_push(t, dtp_rcp_tree(r->l));
+    ast_push(t, dtp_rcp_tree(r->r));
+    return t;
+}
+void *dtp_fn_of(void *headv) {
+    DTP_t *h = (DTP_t *)headv;
+    if (!h) return (void *)0;
+    if (!h->fn && h->rcp) { extern void *bb_compile_pat_tree(const void *tv); h->fn = bb_compile_pat_tree((const void *)dtp_rcp_tree(h->rcp)); }
+    return h->fn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_lit(const char *s) {
-    fprintf(stderr, "[B0] BOMB pat_lit: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_span(const char *chars) {
@@ -122,13 +156,13 @@ DESCR_t pat_epsilon(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
-    fprintf(stderr, "[B0] BOMB pat_cat: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(1, rcp_of(left), rcp_of(right)));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_alt(DESCR_t left, DESCR_t right) {
-    fprintf(stderr, "[B0] BOMB pat_alt: pattern construction needs DT_P builders (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
+    DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(2, rcp_of(left), rcp_of(right)));
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
@@ -711,7 +745,7 @@ void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
         else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
     }
-    if (val.v == DT_P && val.p) return val.p;
+    if (val.v == DT_P && val.p) { extern void *dtp_fn_of(void *); return dtp_fn_of(val.p); }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
