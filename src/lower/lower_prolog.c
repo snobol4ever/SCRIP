@@ -135,6 +135,7 @@ static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t 
 static void collect_conj(const tree_t * t, lc_vec * out) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ",")) { for (int i = 0; i < t->n; i++) collect_conj(t->c[i], out); return; }
+    if (t->t == TT_PROGRAM) { for (int i = 0; i < t->n; i++) collect_conj(t->c[i], out); return; }
     lc_vec_push(out, &t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -576,13 +577,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         return nd;
     }
     case TT_CUT: return build(cx, IR_CUT, γnext, ωfail);
-    case TT_PROGRAM: {
-        IR_t * bg = build(cx, IR_OP_COUNT, γnext, ωfail);
-        IR_t * e = NULL;
-        thread_goals(cx, t, 0, t->n, bg, ωfail, &e, bg);
-        if (entry_out) *entry_out = e ? e : bg;
-        return bg;
-    }
+    case TT_PROGRAM:
+        return thread_goals(cx, t, 0, t->n, γnext, ωfail, entry_out, NULL);
     default: return build(cx, IR_SUCCEED, γnext, ωfail);
     }
 }
