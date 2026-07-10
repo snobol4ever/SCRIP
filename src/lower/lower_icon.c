@@ -138,9 +138,9 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
     } else if (b0->t == TT_IDX) {
         entry = lower_idx_var(cx, b0, ω, &br);
     } else entry = lower(cx, b0, NULL, ω, &br);
-    IR_t * cur = br; IR_t * hook = br;
+    IR_t * cur = br; IR_t * hook = br; IR_t * prevβ = cx->beta;
     for (int k = 1; k < t->n; k++) {
-        IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, ω, &ir);
+        IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, prevβ ? prevβ : ω, &ir); prevβ = cx->beta;
         γ_to(hook, ie);
         IR_t * sub = build(cx, IR_SUBSCRIPT, NULL, ω);
         γ_to(ir, sub);
@@ -178,13 +178,16 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω); IR_LIT(sec).ival = 0; IR_LIT(sec).sval = "lv";
         IR_t * ar = NULL; IR_t * ae; const tree_t * b0 = t->c[0];
         if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
+        else if (b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX) ae = lower_lvalue_var(cx, b0, ω, &ar);
         else ae = lower(cx, b0, NULL, ω, &ar);
         IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ω, &br); γ_to(ar, be);
-        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ω, &cr); γ_to(br, ce);
+        IR_t * i1β = cx->beta;
+        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, i1β, &cr); γ_to(br, ce);
         if (sec_variant) {
-            IR_t * op = build(cx, IR_BINOP, sec, ω); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op;
+            IR_t * op = build(cx, IR_BINOP, sec, i1β); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op;
         }
         ir_operand_push(sec, ar); ir_operand_push(sec, br); ir_operand_push(sec, cr);
+        lc_γ_to(cr, sec);
         *var_res = sec; return ae;
     }
     if (t->t == TT_FIELD && t->n > 0 && t->c[0]) {
@@ -641,9 +644,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     case TT_REVASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
-        if (lhs && lhs->t == TT_IDX) {
+        if (lhs && (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM)) {
             IR_t * b4 = cx->beta;
-            IR_t * vr = NULL; IR_t * entry = lower_idx_var(cx, lhs, ω, &vr);
+            IR_t * vr = NULL; IR_t * entry = lower_lvalue_var(cx, lhs, ω, &vr);
             IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
             IR_t * nd = build(cx, IR_REV_ASSIGN_VAR, γ, lvbeta ? lvbeta : ω);
             IR_t * b5 = cx->beta;

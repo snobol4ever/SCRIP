@@ -324,9 +324,10 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
             DESCR_t ea = FIELD_GET_fn(arr,"frame_elems");
             DESCR_t *elems = (ea.v==DT_DATA) ? (DESCR_t*)ea.ptr : NULL;
             int ii = (int)to_int(i), jj = (int)to_int(j);
-            if (ii == 0) ii = n + 1; else if (ii < 0) ii = n + ii + 1;
-            if (jj == 0) jj = n + 1; else if (jj < 0) jj = n + jj + 1;
-            if (ii < 1) ii = 1; if (jj > n+1) jj = n+1;
+            if (ii < -n || ii > n + 1) return FAILDESCR;
+            if (jj < -n || jj > n + 1) return FAILDESCR;
+            if (ii <= 0) ii = n + ii + 1;
+            if (jj <= 0) jj = n + jj + 1;
             if (ii > jj) { int t = ii; ii = jj; jj = t; }
             int rlen = jj - ii;
             if (rlen <= 0) {
@@ -347,9 +348,10 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         const char *s = arr.s ? arr.s : "";
         int slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
         int ii = (int)to_int(i), jj = (int)to_int(j);
-        if (ii == 0) ii = slen + 1; else if (ii < 0) ii = slen + ii + 1;
-        if (jj == 0) jj = slen + 1; else if (jj < 0) jj = slen + jj + 1;
-        if (ii < 1) ii = 1; if (jj > slen+1) jj = slen+1;
+        if (ii < -slen || ii > slen + 1) return FAILDESCR;
+        if (jj < -slen || jj > slen + 1) return FAILDESCR;
+        if (ii <= 0) ii = slen + ii + 1;
+        if (jj <= 0) jj = slen + jj + 1;
         if (ii > jj) { int t = ii; ii = jj; jj = t; }
         int len = jj - ii;
         char *buf = rt_str_alloc(len); memcpy(buf, s+ii-1, len); buf[len]='\0';
@@ -921,9 +923,10 @@ DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
     if ((base.v == DT_S || base.v == DT_SNUL) && IS_NAMETRAP_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         long ii = (long)to_int(i1d), jj = (long)to_int(i2d);
-        if (ii == 0) ii = slen + 1; else if (ii < 0) ii = slen + ii + 1;
-        if (jj == 0) jj = slen + 1; else if (jj < 0) jj = slen + jj + 1;
-        if (ii < 1) ii = 1; if (jj > slen + 1) jj = slen + 1;
+        if (ii < -slen || ii > slen + 1) return FAILDESCR;
+        if (jj < -slen || jj > slen + 1) return FAILDESCR;
+        if (ii <= 0) ii = slen + ii + 1;
+        if (jj <= 0) jj = slen + jj + 1;
         if (ii > jj) { long t = ii; ii = jj; jj = t; }
         VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
         return NAMETRAP(vc);

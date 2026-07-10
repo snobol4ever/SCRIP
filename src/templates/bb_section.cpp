@@ -57,6 +57,8 @@ std::string bb_section() {
              + x86("mov",     "r8",  FRQ(_.op_sb))
              + x86("mov",     "r9",  FRQ(_.op_sb + 8))
              + x86("call",    "subscript_get2", (uint64_t)(uintptr_t)(void *)subscript_get2)
+             + x86("cmp",     "eax", (long)DT_FAIL)
+             + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
