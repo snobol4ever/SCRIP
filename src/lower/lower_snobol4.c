@@ -217,6 +217,18 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (γ) lc_γ_to(vr, γ);
             if (res) *res = vr; return entry;
         }
+        if (t->c[0]->t == TT_FNC) {
+            const tree_t * fn = t->c[0]; const char * fname = fn->v.sval; int argbase = 0;
+            if (!fname && fn->n > 0 && fn->c[0] && fn->c[0]->t == TT_VAR) { fname = fn->c[0]->v.sval; argbase = 1; }
+            extern int rt_dat_field_of_any(const char *);
+            if (fname && (fn->n - argbase) == 1 && rt_dat_field_of_any(fname)) {
+                IR_t * br = NULL; IR_t * ea = sx_lower(cx, fn->c[argbase], NULL, ω, &br);
+                IR_t * fv = lc_build(cx->g, IR_FIELD_VAR, γ, ω); IR_LIT(fv).sval = (char *) lp_strdup(fname);
+                lc_γ_to(br, fv);
+                ir_operand_push(fv, br);
+                if (res) *res = fv; return ea;
+            }
+        }
         sno_fatal("name operator over this form is outside the landed subset", NULL);
     }
     case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: {
