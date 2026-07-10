@@ -299,45 +299,54 @@ Frames are **immutable plain JS arrays** — transitions create new arrays,
 old ones are GC'd. No `memcpy`, no snapshot/restore, no arena. The GC *is*
 the stack allocator.
 
-### Benchmark: SCRIP vs SPITBOL vs CSNOBOL4
+### Benchmark: SCRIP vs SPITBOL
 
-Corpus benchmarks (`corpus/benchmarks/snobol4/*.sno`) run head-to-head
-against the two reference oracles — SPITBOL x64 (official `spitbol/x64`)
-and CSNOBOL4 2.3.4 (Phil Budne). Each figure is the program's own `TIME()`
-compute loop in milliseconds (process startup and compile time excluded).
-SCRIP is the mode-4 `--compile` native binary, gcc `-O0`. Lower is faster.
+Corpus benchmarks (`corpus/benchmarks/snobol4/*.sno`) run head-to-head against
+the SPITBOL x64 fork oracle (`snobol4ever/x64`). Each figure is the program's
+own `TIME()` compute loop in milliseconds unless marked † (wall time; the
+harness's TIME() capture truncates past its timeout). SCRIP is the mode-4
+`--compile` native binary, gcc `-O0`. Measured 2026-07-10 (sandbox CPU —
+absolute ms are not comparable to the 2026-06-24 table; the vs-SPITBOL ratio
+is, since both engines ran on the same box each time). **All 16 benchmarks are
+now green** — `roman`, `eval_fixed`/`eval_dynamic`, and `indirect_dispatch`,
+excluded in June, all run ref-correct today. Lower is faster.
 
-| Benchmark | SPITBOL | CSNOBOL4 | SCRIP native | vs SPITBOL | vs CSNOBOL4 |
-|-----------|--------:|---------:|-------------:|-----------:|------------:|
-| arith_loop | 24 | 131 | 1,604 | 68× slower | 12× slower |
-| fibonacci | 94 | 534 | 6,191 | 66× slower | 12× slower |
-| func_call | 424 | 2,440 | 32,371 | 76× slower | 13× slower |
-| func_call_overhead | 425 | 2,454 | 32,542 | 77× slower | 13× slower |
-| mixed_workload | 99 | 455 | 4,034 | 41× slower | 8.9× slower |
-| op_dispatch | 67 | 369 | 3,515 | 53× slower | 9.5× slower |
-| pattern_bt | 485 | 549 | 963 | **2.0× slower** | **1.8× slower** |
-| string_concat | 138 | 311 | 1,618 | 12× slower | 5.2× slower |
-| string_manip | 391 | 1,672 | 21,220 | 54× slower | 13× slower |
-| string_pattern | 380 | 1,822 | 8,047 | 21× slower | 4.4× slower |
-| table_access | 202 | 1,969 | 11,327 | 56× slower | 5.8× slower |
-| var_access | 702 | 3,529 | 44,766 | 64× slower | 13× slower |
+| Benchmark | SPITBOL | SCRIP native | vs SPITBOL | vs SPITBOL on 2026-06-24 |
+|-----------|--------:|-------------:|-----------:|-------------------------:|
+| indirect_dispatch | 5† | 10† | 2.1× slower | — (was excluded) |
+| var_access | 1,318 | 6,680 | 5.1× slower | 64× |
+| eval_fixed | 270 | 2,240 | 8.3× slower | — (was excluded) |
+| func_call | 918 | 8,398 | 9.1× slower | 76× |
+| func_call_overhead | 884 | 8,440 | 9.5× slower | 77× |
+| op_dispatch | 117 | 1,405 | 12.0× slower | 53× |
+| fibonacci | 171 | 2,259 | 13.2× slower | 66× |
+| string_concat | 145 | 1,925 | 13.3× slower | 12× |
+| table_access | 340 | 4,575 | 13.5× slower | 56× |
+| arith_loop | 47 | 645 | 13.7× slower | 68× |
+| string_manip | 651 | 11,386 | 17.5× slower | 54× |
+| roman | 172 | 3,432 | 20.0× slower | — (was excluded) |
+| mixed_workload | 170 | 15,539 | 91× slower | 41× |
+| eval_dynamic | 480 | 82,443† | ~172× slower | — (was excluded) |
+| string_pattern | 689 | 151,600† | ~220× slower | 21× |
+| pattern_bt | 230 | 137,700† | ~599× slower | **2.0×** |
 
-*milliseconds (compute loop) · 12/16 benchmarks green; `roman` (recursion
-bug), `eval_fixed`/`eval_dynamic` (EVAL/CODE unimplemented), and
-`indirect_dispatch` (undefined-function call in the program — SPITBOL
-errors on it too) excluded.*
-
-These are honest current numbers, not the target. SCRIP native code today
-runs roughly **40–77× slower than SPITBOL** and **5–13× slower than
-CSNOBOL4** on whole-program workloads — the "ten times faster" goal is not
-yet met and is presently inverted against the SPITBOL oracle. The lone
-bright spot is `pattern_bt` (≈2× off SPITBOL), the one benchmark dominated
-by pattern-match backtracking — the Byrd-box path the native templates
-implement directly. The gap elsewhere reflects the `-O0` build, a
-descriptor-heavy runtime over libgc, and per-call overhead in
-`rt_call_named_proc` (linear proc-table scan + name save/restore).
-Re-grounding this claim is tracked under the REC-COV / RC-5 rung.
-
+These are honest current numbers, and the story since the 2026-06-24 table
+splits cleanly in two. **The scalar engine got dramatically better:** the
+call/dispatch/variable/table cluster closed its gap 3–13× (direct-call
+protocol DCR-1/2/3, the GVA register slab, RPF, table double-walk
+elimination) — June's 40–77× band is now a 5–18× band. **The pattern engine
+traded its crown jewel for correctness:** June's `pattern_bt` at 2.0× was
+produced by the original FZ-optimized pattern engine at its peak, the day
+before GZ#5 amputated it; SN4-PAT rebuilt patterns from scratch on the
+defer-callout architecture — oracle-verified and far more complete (EVAL/CODE,
+replacement splice, FENCE/ARBNO ladders all landed since) — but paying a
+per-match `rt_zls_alloc(65536)`/release pair that the old engine never did.
+The FZ-5 frozen-head inline was re-ported 2026-07-10 (eliminating the
+per-match pattern fetch, ~4% on pattern_bt), which proved the fetch was never
+the cost: **DEFER-ZLS** (killing the per-match arena churn) is the tracked
+rung for the pattern tail, alongside the `-O0` build and the CSTACK-default
+A/B. CSNOBOL4 column dropped pending re-measurement on current hardware.
+Re-grounding headline claims stays tracked under REC-COV / RC-5.
 
 ## Prolog Benchmark — SCRIP vs GNU Prolog vs SWI-Prolog
 
