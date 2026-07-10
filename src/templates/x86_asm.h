@@ -241,11 +241,11 @@ inline std::string x86_jcc(const char * mnem, int port) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_port_mode() {
-    static int m = -1;
-    if (m < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); m = e ? atoi(e) : (int)ZC_PORT; }
-    return m;
-}
+/* ZC_PORT accessor — runtime-selectable (Lon 2026-07-10, --zeta-port flag) via the ONE variable in
+ * zeta_alloc.c (flag > SCRIP_ZETA_PORT env > ZC_PORT default), exactly the x86_zeta_mode() pattern below.
+ * Emit-side seams read THIS, never getenv, never argv. */
+extern "C" int rt_zeta_port_mode(void);
+inline int x86_port_mode() { return rt_zeta_port_mode(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  x86_selfload_mode() mirrors x86_port_mode()'s env-override
  * pattern but reads ZC_SELFLOAD (the α/β self-load axis), not ZC_PORT.  SCRIP_ZETA_SELFLOAD env var overrides
