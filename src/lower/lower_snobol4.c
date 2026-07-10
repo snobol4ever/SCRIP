@@ -483,6 +483,23 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
             return;
         }
     }
+    /* ARBNO-EXHAUST CHASE (2026-07-10 s14, found via the capture-then-ARBNO bracket, minimal probe
+     * `'ab' ? POS(0) LEN(1) . V ARBNO(LEN(1)) RPOS(0)` — oracle succeeds V='a', SCRIP wrongly failed):
+     * an ARBNO construct's first-allocated node is G, and G's ω is the REPURPOSED body-entry edge (the
+     * TT_ARBNO arm's own comment) — the direct fallthrough repoint below CLOBBERED the body entry, so an
+     * extension attempt jumped into the left generator's β instead of the body and the ARBNO could never
+     * grow past its null yield (capture-then-ARB was fine: ARB's ω is a true fail edge — the discriminating
+     * probe).  ARBNO's true leftward exhaust is F.ω (phase-2/5 exhaust box, allocated immediately after G
+     * with operands[0]==G, mirroring the ALT arm's T identification) — chase and re-point THAT, β-aware,
+     * exactly the edge the TT_ARBNO arm itself aimed at `fail`.  This is the third member of the class the
+     * two arms above founded: constructs whose first-allocated ω is not their leftward exhaust. */
+    if (nd && nd->op == IR_MATCH_ARBNO && g && tail_idx + 1 < g->n) {
+        IR_t * Fx = g->all[tail_idx + 1];
+        if (Fx && Fx->op == IR_MATCH_ARBNO && Fx->n_operands > 0 && Fx->operands[0] == nd) {
+            sno_ω_to(Fx, t);
+            return;
+        }
+    }
     if (nd && nd->op == IR_MATCH_ASSIGN_COND && nd->n_operands > 1 && nd->operands[1]) nd = nd->operands[1];
     sno_ω_to(nd, t);
 }
