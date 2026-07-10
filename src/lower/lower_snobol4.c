@@ -7,7 +7,7 @@
 #include "parser/icon/icon_lex.h"
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
-typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; } scx_t;
+typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; } scx_t;
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
@@ -550,26 +550,27 @@ static int sno_fence_inner_ok(const tree_t * t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_v1_fenced_ok(const tree_t * t) {
-    /* v1-FENCE ARBNO body admission (2026-07-10, closes 116/142/151): a body whose ONLY non-deterministic
-     * element is a single FENCE(P) function-form in RIGHTMOST position rides ARBNO v1 (phases 0/1/2)
+    /* v1-FENCE ARBNO body admission (2026-07-10, closes 116/142/151; any-position 145-shape same day): a body
+     * whose non-deterministic elements are ALL FENCE(P) function-forms rides ARBNO v1 (phases 0/1/2)
      * UNCHANGED.  WHY v1 IS THE FENCE'S HOME: FENCE(P) commit semantics is EXACTLY v1's structural property —
      * one shared body frame, completed iterations unreachable; the v2 COLLECTION exists to enable the resume
      * the fence must PREVENT (v2's F.β body-resume is the leak, so fenced bodies must NOT ride v2).  This
      * answers the standing design question (which fail-target does a sealed element inside iteration N point
      * at): NEITHER the statement fJ NOR a local retry — the fenced group is deterministic-from-outside (β≡ω),
      * so its exhaust points where every v1 body element's fail already points: F (extend-failed = ARBNO
-     * exhausted, shorter yields were already offered).  RIGHTMOST-ONLY because the TT_SEQ spine points
-     * elements right of a fence at cx->pat_fail (statement fail) — correct at statement level, wrong inside a
-     * body (must be F); parameterizing that seal target is the follow-on rung for fence-not-last bodies,
-     * which stay loudly refused. */
-    const tree_t * elems[128]; int ne = 0;
+     * exhausted, shorter yields were already offered).  Fences may sit at ANY body position: the spine's seal
+     * target is cx->pat_seal (== cx->pat_fail at statement level, == F while lowering an ARBNO body — set and
+     * restored in the TT_ARBNO arm), so an element right of an in-body fence fails to F, not the statement. */
+    const tree_t * elems[128]; int ne = 0; int nf = 0;
     if (!t) return 0;
     sno_seq_flatten_pat(t, elems, &ne);
     if (ne < 1) return 0;
-    for (int i = 0; i < ne - 1; i++) if (!sno_pat_deterministic(elems[i])) return 0;
-    { const tree_t * last = elems[ne - 1];
-      if (last && last->t == TT_FENCE && last->n > 0 && last->c[0]) return sno_fence_inner_ok(last->c[0]); }
-    return 0;
+    for (int i = 0; i < ne; i++) {
+        const tree_t * e = elems[i];
+        if (e && e->t == TT_FENCE && e->n > 0 && e->c[0]) { if (!sno_fence_inner_ok(e->c[0])) return 0; nf++; continue; }
+        if (!sno_pat_deterministic(e)) return 0;
+    }
+    return nf > 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SNO_CCONST_MAX 256
@@ -751,7 +752,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * F = lc_build(g, IR_MATCH_ARBNO, NULL, NULL); IR_LIT(F).ival = a2 ? 5 : 2; ir_operand_push(F, G); sno_ω_to(F, fail);
         IR_t * K = lc_build(g, IR_MATCH_ARBNO, succ, F);    IR_LIT(K).ival = a2 ? 4 : 1; ir_operand_push(K, G);
         int bi0 = g->n;
+        /* v1-FENCE seal scope (2026-07-10): while the body lowers, an in-body fence's seal target is F —
+         * a sealed element failing rightward exhausts THIS ARBNO (correct: shorter yields were already
+         * offered), never the statement's pat_fail (the line-528 bug this replaces).  Save/restore, so
+         * fences in the statement spine around the ARBNO keep the statement-level target. */
+        IR_t * prev_seal = cx->pat_seal; cx->pat_seal = F;
         IR_t * be = sno_pat_node(cx, t->c[0], K, F);
+        cx->pat_seal = prev_seal;
         lc_ω_to(G, be);
         if (a2) {
             if (bi0 >= g->n) sno_fatal("ARBNO v2 internal: body lowered to zero nodes", NULL);
@@ -849,7 +856,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 right_sealed = 1;
                 const tree_t * inner = (elems[i]->t == TT_FENCE && elems[i]->n > 0) ? elems[i]->c[0] : NULL;
                 if (inner) {                                                        /* FENCE(P): lower P with the pre-seal fail so P retries normally on forward-fail; the seal blocks re-entry after success */
-                    IR_t * fail_p = (i > first_fence) ? cx->pat_fail : fail;
+                    IR_t * fail_p = (i > first_fence) ? cx->pat_seal : fail;
                     int before_p = g->n;
                     IR_t * pe = sno_pat_node(cx, inner, cur_succ, fail_p);
                     IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
@@ -857,7 +864,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 }
                 continue;
             }
-            IR_t * fail_i = (i > first_fence) ? cx->pat_fail : fail;                 /* right of the fence: cut to statement-fail, never HEAD */
+            IR_t * fail_i = (i > first_fence) ? cx->pat_seal : fail;                 /* right of the fence: cut to the SEAL target (== statement-fail at top level, == F/exhaust inside an ARBNO body), never HEAD */
             int before_e = g->n;
             IR_t * ee = sno_pat_node(cx, elems[i], cur_succ, fail_i);
             IR_t * e_tail = (before_e < g->n) ? g->all[before_e] : ee;
@@ -959,7 +966,7 @@ static const char * sno_pat_collect(const tree_t * pat) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ) {
     IR_graph_t * g = cx->g;
-    cx->pat_fail = fJ;
+    cx->pat_fail = fJ; cx->pat_seal = fJ;
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
     IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
@@ -998,7 +1005,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
-    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL;
+    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
@@ -1334,7 +1341,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     }
     for (int xi = 0; xi < g_sno_nexpr; xi++) {
         IR_graph_t * gx = IR_alloc(256);
-        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = g_sno_exprs[xi].name; ex.pat_fail = NULL;
+        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = g_sno_exprs[xi].name; ex.pat_fail = NULL; ex.pat_seal = NULL;
         IR_t * ok = lc_build(gx, IR_SUCCEED, NULL, NULL);
         IR_t * no = lc_build(gx, IR_FAIL, NULL, NULL);
         IR_t * sJ = lc_build(gx, IR_GOTO, ok, NULL);
@@ -1357,10 +1364,10 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     }
     for (int pi2 = 0; pi2 < g_sno_npat; pi2++) {
         IR_graph_t * gp = IR_alloc(512);
-        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL;
+        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL;
         IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
         IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
-        px.pat_fail = no;
+        px.pat_fail = no; px.pat_seal = no;
         IR_t * pe = sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no);
         gp->entry = pe;
         int ppi = stage2_proc_grow(&g_stage2);
