@@ -166,7 +166,7 @@ main_α_body:
 .Lx10_0_s:
  .string "PASS 312_concat_null (2/2)"
  xchain0_n10_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+144] -> [zr+112]
  mov rax, qword ptr [r12 + 144]
  mov qword ptr [r12 + 112], rax
@@ -225,7 +225,7 @@ main_α_body:
 .Lx14_0_s:
  .string "FAIL 312/001: null right identity"
  xchain0_n14_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+288] -> [zr+256]
  mov rax, qword ptr [r12 + 288]
  mov qword ptr [r12 + 256], rax

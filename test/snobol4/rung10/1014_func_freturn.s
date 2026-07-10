@@ -66,7 +66,7 @@ main_α_body:
 .Lx1_0_s:
  .string "always_fail()"
  xchain0_n1_α:
-# BOX IR_CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+96] -> [zr+80]
  mov rax, qword ptr [r12 + 96]
  mov qword ptr [r12 + 80], rax
@@ -88,7 +88,7 @@ main_α_body:
  xchain0_n1_β:
  jmp xchain0_n2_α
  xchain0_n2_α:
-# BOX IR_CALL always_fail(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL always_fail(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn3: .string "always_fail"
   .section .text

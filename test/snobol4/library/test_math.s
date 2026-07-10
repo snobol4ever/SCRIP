@@ -403,7 +403,7 @@ main_α_body:
 .Lx30_0_s:
  .string "OUTPUT"
  xchain0_n24_α:
-# BOX IR_CALL sign(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL sign(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+656] -> [zr+640]
  mov rax, qword ptr [r12 + 656]
  mov qword ptr [r12 + 640], rax
@@ -450,7 +450,7 @@ main_α_body:
 .Lx33_0:
  .quad 5
  xchain0_n27_α:
-# BOX IR_CALL sign(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL sign(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+720] -> [zr+704]
  mov rax, qword ptr [r12 + 720]
  mov qword ptr [r12 + 704], rax
@@ -507,7 +507,7 @@ main_α_body:
  xchain0_n30_β:
  jmp xchain0_n32_α
  xchain0_n31_α:
-# BOX IR_CALL sign(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL sign(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+784] -> [zr+768]
  mov rax, qword ptr [r12 + 784]
  mov qword ptr [r12 + 768], rax
@@ -564,7 +564,7 @@ main_α_body:
 .Lx41_0:
  .quad 8
  xchain0_n35_α:
-# BOX IR_CALL gcd(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL gcd(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+880] -> [zr+848]
  mov rax, qword ptr [r12 + 880]
  mov qword ptr [r12 + 848], rax
@@ -626,7 +626,7 @@ main_α_body:
 .Lx45_0:
  .quad 75
  xchain0_n39_α:
-# BOX IR_CALL gcd(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL gcd(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+976] -> [zr+944]
  mov rax, qword ptr [r12 + 976]
  mov qword ptr [r12 + 944], rax
@@ -688,7 +688,7 @@ main_α_body:
 .Lx49_0:
  .quad 6
  xchain0_n43_α:
-# BOX IR_CALL lcm(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL lcm(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1072] -> [zr+1040]
  mov rax, qword ptr [r12 + 1072]
  mov qword ptr [r12 + 1040], rax

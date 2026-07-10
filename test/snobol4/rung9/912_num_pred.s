@@ -74,7 +74,7 @@ main_α_body:
 .Lx2_0:
  .quad 4
  xchain0_n2_α:
-# BOX IR_CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+112] -> [zr+80]
  mov rax, qword ptr [r12 + 112]
  mov qword ptr [r12 + 80], rax
@@ -144,7 +144,7 @@ main_α_body:
 .Lx7_0:
  .quad 4
  xchain0_n7_α:
-# BOX IR_CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+224] -> [zr+192]
  mov rax, qword ptr [r12 + 224]
  mov qword ptr [r12 + 192], rax
@@ -214,7 +214,7 @@ main_α_body:
 .Lx12_0:
  .quad 5
  xchain0_n12_α:
-# BOX IR_CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL lt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+336] -> [zr+304]
  mov rax, qword ptr [r12 + 336]
  mov qword ptr [r12 + 304], rax
@@ -284,7 +284,7 @@ main_α_body:
  xchain0_n16_β:
  jmp main_γ
  xchain0_n17_α:
-# BOX IR_CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+448] -> [zr+416]
  mov rax, qword ptr [r12 + 448]
  mov qword ptr [r12 + 416], rax
@@ -354,7 +354,7 @@ main_α_body:
 .Lx22_0:
  .quad 4
  xchain0_n22_α:
-# BOX IR_CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+560] -> [zr+528]
  mov rax, qword ptr [r12 + 560]
  mov qword ptr [r12 + 528], rax
@@ -424,7 +424,7 @@ main_α_body:
  xchain0_n26_β:
  jmp main_γ
  xchain0_n27_α:
-# BOX IR_CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL le(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+672] -> [zr+640]
  mov rax, qword ptr [r12 + 672]
  mov qword ptr [r12 + 640], rax
@@ -494,7 +494,7 @@ main_α_body:
  xchain0_n31_β:
  jmp main_γ
  xchain0_n32_α:
-# BOX IR_CALL eq(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL eq(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+784] -> [zr+752]
  mov rax, qword ptr [r12 + 784]
  mov qword ptr [r12 + 752], rax
@@ -564,7 +564,7 @@ main_α_body:
 .Lx37_0:
  .quad 5
  xchain0_n37_α:
-# BOX IR_CALL eq(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL eq(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+896] -> [zr+864]
  mov rax, qword ptr [r12 + 896]
  mov qword ptr [r12 + 864], rax
@@ -634,7 +634,7 @@ main_α_body:
  xchain0_n41_β:
  jmp main_γ
  xchain0_n42_α:
-# BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1008] -> [zr+976]
  mov rax, qword ptr [r12 + 1008]
  mov qword ptr [r12 + 976], rax
@@ -704,7 +704,7 @@ main_α_body:
 .Lx47_0:
  .quad 6
  xchain0_n47_α:
-# BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1120] -> [zr+1088]
  mov rax, qword ptr [r12 + 1120]
  mov qword ptr [r12 + 1088], rax
@@ -774,7 +774,7 @@ main_α_body:
  xchain0_n51_β:
  jmp main_γ
  xchain0_n52_α:
-# BOX IR_CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1232] -> [zr+1200]
  mov rax, qword ptr [r12 + 1232]
  mov qword ptr [r12 + 1200], rax
@@ -844,7 +844,7 @@ main_α_body:
 .Lx57_0:
  .quad 4
  xchain0_n57_α:
-# BOX IR_CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1344] -> [zr+1312]
  mov rax, qword ptr [r12 + 1344]
  mov qword ptr [r12 + 1312], rax
@@ -914,7 +914,7 @@ main_α_body:
 .Lx62_0:
  .quad 2
  xchain0_n62_α:
-# BOX IR_CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL gt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1456] -> [zr+1424]
  mov rax, qword ptr [r12 + 1456]
  mov qword ptr [r12 + 1424], rax
@@ -984,7 +984,7 @@ main_α_body:
  xchain0_n66_β:
  jmp main_γ
  xchain0_n67_α:
-# BOX IR_CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1568] -> [zr+1536]
  mov rax, qword ptr [r12 + 1568]
  mov qword ptr [r12 + 1536], rax
@@ -1054,7 +1054,7 @@ main_α_body:
 .Lx72_0:
  .quad 4
  xchain0_n72_α:
-# BOX IR_CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1680] -> [zr+1648]
  mov rax, qword ptr [r12 + 1680]
  mov qword ptr [r12 + 1648], rax
@@ -1124,7 +1124,7 @@ main_α_body:
  xchain0_n76_β:
  jmp main_γ
  xchain0_n77_α:
-# BOX IR_CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ge(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1792] -> [zr+1760]
  mov rax, qword ptr [r12 + 1792]
  mov qword ptr [r12 + 1760], rax
@@ -1250,7 +1250,7 @@ main_α_body:
  xchain0_n83_β:
  jmp xchain0_n85_α
  xchain0_n84_α:
-# BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1904] -> [zr+1872]
  mov rax, qword ptr [r12 + 1904]
  mov qword ptr [r12 + 1872], rax
@@ -1322,7 +1322,7 @@ main_α_body:
  xchain0_n88_β:
  jmp main_γ
  xchain0_n89_α:
-# BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+2048] -> [zr+2016]
  mov rax, qword ptr [r12 + 2048]
  mov qword ptr [r12 + 2016], rax

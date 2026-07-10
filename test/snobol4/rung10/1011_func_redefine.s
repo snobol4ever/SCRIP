@@ -70,7 +70,7 @@ main_α_body:
 .Lx1_0_s:
  .string "myfunc(n)"
  xchain0_n1_α:
-# BOX IR_CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+96] -> [zr+80]
  mov rax, qword ptr [r12 + 96]
  mov qword ptr [r12 + 80], rax
@@ -102,7 +102,7 @@ main_α_body:
 .Lx3_0:
  .quad 3
  xchain0_n3_α:
-# BOX IR_CALL myfunc(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL myfunc(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+256] -> [zr+240]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 240], rax
@@ -146,7 +146,7 @@ main_α_body:
 .Lx6_0_s:
  .string "myfunc(myfunc)"
  xchain0_n6_α:
-# BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+224] -> [zr+192]
  mov rax, qword ptr [r12 + 224]
  mov qword ptr [r12 + 192], rax
@@ -197,7 +197,7 @@ main_α_body:
 .Lx9_0_s:
  .string "FAIL 1011/001: first definition myfunc(3)=6"
  xchain0_n9_α:
-# BOX IR_CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+400] -> [zr+368]
  mov rax, qword ptr [r12 + 400]
  mov qword ptr [r12 + 368], rax
@@ -235,7 +235,7 @@ main_α_body:
  xchain0_n10_β:
  jmp main_γ
  xchain0_n11_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+352] -> [zr+336]
  mov rax, qword ptr [r12 + 352]
  mov qword ptr [r12 + 336], rax
@@ -279,7 +279,7 @@ main_α_body:
 .Lx14_0_s:
  .string "FAIL 1011/002: define returns function name"
  xchain0_n14_α:
-# BOX IR_CALL myfunc(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL myfunc(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+768] -> [zr+752]
  mov rax, qword ptr [r12 + 768]
  mov qword ptr [r12 + 752], rax
@@ -334,7 +334,7 @@ main_α_body:
 .Lx18_0_s:
  .string "PASS 1011_func_redefine (3/3)"
  xchain0_n18_α:
-# BOX IR_CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ne(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+736] -> [zr+704]
  mov rax, qword ptr [r12 + 736]
  mov qword ptr [r12 + 704], rax

@@ -74,7 +74,7 @@ main_α_body:
 .Lx2_0:
  .quad 3
  xchain0_n2_α:
-# BOX IR_CALL remdr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL remdr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+160] -> [zr+128]
  mov rax, qword ptr [r12 + 160]
  mov qword ptr [r12 + 128], rax
@@ -121,7 +121,7 @@ main_α_body:
 .Lx5_0:
  .quad 11
  xchain0_n5_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+112] -> [zr+80]
  mov rax, qword ptr [r12 + 112]
  mov qword ptr [r12 + 80], rax
@@ -170,7 +170,7 @@ main_α_body:
 .Lx8_0_s:
  .string "FAIL 414/001: remdr(10,3)"
  xchain0_n8_α:
-# BOX IR_CALL remdr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL remdr(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+336] -> [zr+304]
  mov rax, qword ptr [r12 + 336]
  mov qword ptr [r12 + 304], rax
@@ -230,7 +230,7 @@ main_α_body:
 .Lx12_0_s:
  .string "PASS 414_remdr (2/2)"
  xchain0_n12_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+288] -> [zr+256]
  mov rax, qword ptr [r12 + 288]
  mov qword ptr [r12 + 256], rax

@@ -214,7 +214,7 @@ proc_EXPR$2_α_body:
 .Lx10_0:
  .quad 2
  xchain8_n2_α:
-# BOX IR_CALL ident(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ident(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+80] -> [zr+48]
  mov rax, qword ptr [r12 + 80]
  mov qword ptr [r12 + 48], rax
@@ -475,7 +475,7 @@ main_α_body:
  xchain13_n3_β:
  jmp xchain13_n5_α
  xchain13_n4_α:
-# BOX IR_CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+208] -> [zr+192]
  mov rax, qword ptr [r12 + 208]
  mov qword ptr [r12 + 192], rax
@@ -532,7 +532,7 @@ main_α_body:
  xchain13_n7_β:
  jmp xchain13_n9_α
  xchain13_n8_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+176] -> [zr+144]
  mov rax, qword ptr [r12 + 176]
  mov qword ptr [r12 + 144], rax
@@ -636,7 +636,7 @@ main_α_body:
  xchain13_n14_β:
  jmp xchain13_n16_α
  xchain13_n15_α:
-# BOX IR_CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+448] -> [zr+432]
  mov rax, qword ptr [r12 + 448]
  mov qword ptr [r12 + 432], rax
@@ -704,7 +704,7 @@ main_α_body:
  xchain13_n18_β:
  jmp xchain13_n21_α
  xchain13_n19_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+416] -> [zr+384]
  mov rax, qword ptr [r12 + 416]
  mov qword ptr [r12 + 384], rax
@@ -763,7 +763,7 @@ main_α_body:
 .Lx39_0_s:
  .string "FAIL 1016/002: eval var ref"
  xchain13_n23_α:
-# BOX IR_CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL eval(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+608] -> [zr+592]
  mov rax, qword ptr [r12 + 608]
  mov qword ptr [r12 + 592], rax

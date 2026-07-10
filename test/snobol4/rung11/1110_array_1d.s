@@ -68,7 +68,7 @@ main_α_body:
 .Lx1_0:
  .quad 3
  xchain0_n1_α:
-# BOX IR_CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+112] -> [zr+96]
  mov rax, qword ptr [r12 + 112]
  mov qword ptr [r12 + 96], rax
@@ -207,7 +207,7 @@ main_α_body:
  xchain0_n12_β:
  jmp xchain0_n17_α
  xchain0_n13_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+208] -> [zr+144]
  mov rax, qword ptr [r12 + 208]
  mov qword ptr [r12 + 144], rax
@@ -390,7 +390,7 @@ main_α_body:
  xchain0_n27_β:
  jmp xchain0_n23_α
  xchain0_n28_α:
-# BOX IR_CALL prototype(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL prototype(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+768] -> [zr+752]
  mov rax, qword ptr [r12 + 768]
  mov qword ptr [r12 + 752], rax
@@ -424,7 +424,7 @@ main_α_body:
 .Lx30_0_s:
  .string "3"
  xchain0_n30_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+432] -> [zr+352]
  mov rax, qword ptr [r12 + 432]
  mov qword ptr [r12 + 352], rax
@@ -487,7 +487,7 @@ main_α_body:
 .Lx34_0_s:
  .string "3"
  xchain0_n34_α:
-# BOX IR_CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+880] -> [zr+864]
  mov rax, qword ptr [r12 + 880]
  mov qword ptr [r12 + 864], rax
@@ -544,7 +544,7 @@ main_α_body:
 .Lx38_0_s:
  .string "FAIL 1110/004: OOB zero should fail"
  xchain0_n38_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+736] -> [zr+704]
  mov rax, qword ptr [r12 + 736]
  mov qword ptr [r12 + 704], rax
@@ -714,7 +714,7 @@ main_α_body:
  xchain0_n51_β:
  jmp xchain0_n49_α
  xchain0_n52_α:
-# BOX IR_CALL prototype(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL prototype(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1216] -> [zr+1200]
  mov rax, qword ptr [r12 + 1216]
  mov qword ptr [r12 + 1200], rax
@@ -814,7 +814,7 @@ main_α_body:
 .Lx60_0_s:
  .string "x"
  xchain0_n60_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1184] -> [zr+1152]
  mov rax, qword ptr [r12 + 1184]
  mov qword ptr [r12 + 1152], rax
@@ -874,7 +874,7 @@ main_α_body:
  xchain0_n63_β:
  jmp xchain0_n69_α
  xchain0_n64_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1072] -> [zr+992]
  mov rax, qword ptr [r12 + 1072]
  mov qword ptr [r12 + 992], rax
@@ -1099,7 +1099,7 @@ main_α_body:
  xchain0_n81_β:
  jmp main_γ
  xchain0_n82_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1456] -> [zr+1376]
  mov rax, qword ptr [r12 + 1456]
  mov qword ptr [r12 + 1376], rax
@@ -1187,7 +1187,7 @@ main_α_body:
  xchain0_n87_β:
  jmp main_γ
  xchain0_n88_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1696] -> [zr+1616]
  mov rax, qword ptr [r12 + 1696]
  mov qword ptr [r12 + 1616], rax

@@ -76,7 +76,7 @@ main_α_body:
 .Lx2_0:
  .quad 2
  xchain0_n2_α:
-# BOX IR_CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+160] -> [zr+128]
  mov rax, qword ptr [r12 + 160]
  mov qword ptr [r12 + 128], rax
@@ -127,7 +127,7 @@ main_α_body:
 .Lx5_0_s:
  .string ""
  xchain0_n5_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+112] -> [zr+80]
  mov rax, qword ptr [r12 + 112]
  mov qword ptr [r12 + 80], rax
@@ -176,7 +176,7 @@ main_α_body:
 .Lx8_0_s:
  .string "FAIL 812/001: dupl string x2"
  xchain0_n8_α:
-# BOX IR_CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+336] -> [zr+304]
  mov rax, qword ptr [r12 + 336]
  mov qword ptr [r12 + 304], rax
@@ -238,7 +238,7 @@ main_α_body:
 .Lx12_0_s:
  .string "abcdefg"
  xchain0_n12_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+288] -> [zr+256]
  mov rax, qword ptr [r12 + 288]
  mov qword ptr [r12 + 256], rax
@@ -287,7 +287,7 @@ main_α_body:
 .Lx15_0_s:
  .string "FAIL 812/002: dupl null is null"
  xchain0_n15_α:
-# BOX IR_CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+512] -> [zr+480]
  mov rax, qword ptr [r12 + 512]
  mov qword ptr [r12 + 480], rax
@@ -347,7 +347,7 @@ main_α_body:
 .Lx19_0:
  .quad 1
  xchain0_n19_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+464] -> [zr+432]
  mov rax, qword ptr [r12 + 464]
  mov qword ptr [r12 + 432], rax
@@ -396,7 +396,7 @@ main_α_body:
 .Lx22_0_s:
  .string "FAIL 812/003: dupl x0 is null"
  xchain0_n22_α:
-# BOX IR_CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL dupl(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+688] -> [zr+656]
  mov rax, qword ptr [r12 + 688]
  mov qword ptr [r12 + 656], rax
@@ -458,7 +458,7 @@ main_α_body:
 .Lx26_0_s:
  .string "PASS 812_dupl (4/4)"
  xchain0_n26_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+640] -> [zr+608]
  mov rax, qword ptr [r12 + 640]
  mov qword ptr [r12 + 608], rax

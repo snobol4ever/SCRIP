@@ -70,7 +70,7 @@ main_α_body:
 .Lx1_0_s:
  .string "ref_a()"
  xchain0_n1_α:
-# BOX IR_CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+96] -> [zr+80]
  mov rax, qword ptr [r12 + 96]
  mov qword ptr [r12 + 80], rax
@@ -113,7 +113,7 @@ main_α_body:
  xchain0_n3_β:
  jmp xchain0_n4_α
  xchain0_n4_α:
-# BOX IR_CALL ref_a(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ref_a(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn5: .string "ref_a"
   .section .text
@@ -152,7 +152,7 @@ main_α_body:
 .Lx7_0_s:
  .string ""
  xchain0_n7_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+256] -> [zr+224]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 224], rax
@@ -213,7 +213,7 @@ main_α_body:
 .Lx11_0_s:
  .string "FAIL 1013/001: nreturn read gives value"
  xchain0_n10_α:
-# BOX IR_CALL ref_a(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL ref_a(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
   .Lbynamefn11: .string "ref_a"
   .section .text
@@ -319,7 +319,7 @@ main_α_body:
 .Lx20_0_s:
  .string "PASS 1013_func_nreturn (3/3)"
  xchain0_n19_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+496] -> [zr+464]
  mov rax, qword ptr [r12 + 496]
  mov qword ptr [r12 + 464], rax

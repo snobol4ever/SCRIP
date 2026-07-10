@@ -126,7 +126,7 @@ main_α_body:
 .Lx6_0_s:
  .string "a"
  xchain0_n5_α:
-# BOX IR_CALL opsyn(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL opsyn(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+128] -> [zr+80]
  mov rax, qword ptr [r12 + 128]
  mov qword ptr [r12 + 80], rax
@@ -168,7 +168,7 @@ main_α_body:
 .Lx8_0:
  .quad 4
  xchain0_n7_α:
-# BOX IR_CALL @(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL @(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+304] -> [zr+272]
  mov rax, qword ptr [r12 + 304]
  mov qword ptr [r12 + 272], rax
@@ -219,7 +219,7 @@ main_α_body:
 .Lx11_0_s:
  .string "|"
  xchain0_n10_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+256] -> [zr+224]
  mov rax, qword ptr [r12 + 256]
  mov qword ptr [r12 + 224], rax
@@ -325,7 +325,7 @@ main_α_body:
 .Lx19_0_s:
  .string "string"
  xchain0_n17_α:
-# BOX IR_CALL opsyn(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL opsyn(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+448] -> [zr+400]
  mov rax, qword ptr [r12 + 448]
  mov qword ptr [r12 + 400], rax
@@ -357,7 +357,7 @@ main_α_body:
  xchain0_n17_β:
  jmp xchain0_n16_α
  xchain0_n18_α:
-# BOX IR_CALL |(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL |(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+608] -> [zr+592]
  mov rax, qword ptr [r12 + 608]
  mov qword ptr [r12 + 592], rax
@@ -401,7 +401,7 @@ main_α_body:
 .Lx23_0_s:
  .string "PASS 1015_opsyn (2/2)"
  xchain0_n21_α:
-# BOX IR_CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
+# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+576] -> [zr+544]
  mov rax, qword ptr [r12 + 576]
  mov qword ptr [r12 + 544], rax
