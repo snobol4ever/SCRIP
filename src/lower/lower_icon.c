@@ -309,15 +309,18 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
         }
         IR_t * cr = NULL; IR_t * ce = lower(cx, fn, NULL, ω, &cr);
-        IR_t * nd = build(cx, IR_CALL_VALUE, γ, ω);
+        IR_t * prevβ = cx->beta;
+        IR_t * nd = build(cx, IR_CALL_VALUE, γ, NULL);
         IR_t * prev = cr;
         ir_operand_push(nd, cr);
         for (int i = 1; i < t->n; i++) {
-            IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[i], NULL, ω, &ar);
+            IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar); prevβ = cx->beta;
             lc_γ_to(prev, ae); prev = ar;
             ir_operand_push(nd, ar);
         }
+        ω_to(nd, prevβ ? prevβ : ω);
         lc_γ_to(prev, nd);
+        cx->beta = nd;
         *res = nd; return ce; }
     case TT_RANDOM: {
         IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
@@ -919,7 +922,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
-    IR_t * succ = icn_subtree_has_suspend(body) ? PFAIL : PSUCC; IR_t * fail = PFAIL;
+    IR_t * succ = PFAIL; IR_t * fail = PFAIL;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
