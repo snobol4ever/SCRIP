@@ -249,7 +249,6 @@ extern "C" {
 int  bb_call_route_classify(IR_t * nd);
 bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
 int  bb_varslot_peek(const char * name);
-extern int g_gvar_flat_chain;
 void lower_flat_set_intern_str(const char * (*fn)(const char *));
 const char * emit_intern_str(const char * s);
 void lower_flat_reset        (void);
@@ -352,7 +351,7 @@ extern "C" {
 #endif
 #include "IR.h"
 enum {
-    CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_RK_BOOL_COND = 2, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_GVAR_USERPROC = 4, CALL_ROUTE_PROC_STAGED = 5,
+    CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_RK_BOOL_COND = 2, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_PROC_STAGED = 5,
     CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_WRITE_SLOT = 7, CALL_ROUTE_WRITE_BINOP = 8, CALL_ROUTE_WRITE_LEGACY = 9, CALL_ROUTE_WRITE_EMPTY = 10, CALL_ROUTE_FN = 11, CALL_ROUTE_BYNAME_GEN = 12
 };
 struct SrcLines;

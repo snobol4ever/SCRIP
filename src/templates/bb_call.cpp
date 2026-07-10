@@ -273,146 +273,6 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         return s;
     }
     if (!lf) return std::string();
-    if (g_gvar_flat_chain) {
-        IR_t * fin = lf; int gg = 0;
-        while (fin && fin->γ.node && fin->γ.node->op != IR_SUCCEED && fin->γ.node->op != IR_FAIL && gg++ < 256) fin = fin->γ.node;
-        int fin_arith = arith_is_arith_binop(fin);
-        IR_t * fa = NULL, * fb = NULL;
-        if (fin_arith) arith_operands(sg, fin, &fa, &fb);
-        {
-            int is_ar = arith_is_arith_binop(fin) || (fin && fin->op == IR_BINOP && IR_LIT(fin).ival == BINOP_POW);
-            IR_t * ra2 = NULL, * rb2 = NULL; if (is_ar) arith_operands(sg, fin, &ra2, &rb2);
-            int af = ra2 && ra2->op == IR_LIT_REAL, bf = rb2 && rb2->op == IR_LIT_REAL;
-            int oka = ra2 && (ra2->op == IR_LIT_INTEGER || ra2->op == IR_LIT_REAL), okb = rb2 && (rb2->op == IR_LIT_INTEGER || rb2->op == IR_LIT_REAL);
-            if (is_ar && fin != lf && (af || bf) && oka && okb) {
-                std::string s;
-                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-real subexpr -> [zr+%d]", idx, aoff));
-                if (af) { uint64_t bv; double d = IR_LIT(ra2).dval; memcpy(&bv, &d, 8); s += x86("mov", "rdi", (long)DT_R) + x86_movabs_r64("rsi", bv); }
-                else    { s += x86("mov", "rdi", (long)DT_I) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(ra2).ival); }
-                if (bf) { uint64_t bv; double d = IR_LIT(rb2).dval; memcpy(&bv, &d, 8); s += x86("mov", "rdx", (long)DT_R) + x86_movabs_r64("rcx", bv); }
-                else    { s += x86("mov", "rdx", (long)DT_I) + x86_movabs_r64("rcx", (uint64_t)IR_LIT(rb2).ival); }
-                s += x86("mov", "r8d", (long)IR_LIT(fin).ival);
-                s += x86("call", "rt_num_arith", (uint64_t)(uintptr_t)(void *)rt_num_arith);
-                s += x86_frame_store64(aoff, "rax");
-                s += x86_frame_store64(aoff + 8, "rdx");
-                return s;
-            }
-        }
-        if (fin && fin != lf && fin_arith && arith_kind_ok(fa) && arith_kind_ok(fb)) {
-            std::string s;
-            s += x86("comment", emit_fmt("marshal arg%d = inline gvar-arith subexpr -> [zr+%d]", idx, aoff));
-            s += marshal_arith_rax(sg, fin);
-            s += x86("mov", FRQ(aoff), (long)6);
-            s += x86_frame_store64(aoff + 8, "rax");
-            return s;
-        }
-        if (fin && fin->op == IR_OP_COUNT && (IR_LIT(fin).ival == TT_MNS || IR_LIT(fin).ival == TT_PLS)) {
-            IR_t * ua = ir_pair_arg(fin, 0);
-            if (ua && ua->op == IR_LIT_STRING && IR_LIT(ua).sval) {
-                const char * p = IR_LIT(ua).sval; while (*p == ' ' || *p == '\t') p++;
-                const char * e = p + strlen(p); while (e > p && (e[-1] == ' ' || e[-1] == '\t')) e--;
-                const char * q = p; if (q < e && (*q == '+' || *q == '-')) q++;
-                int is_int = (q < e); for (const char * r = q; r < e; r++) if (*r < '0' || *r > '9') { is_int = 0; break; }
-                if (p == e || is_int) {
-                    long long v = (p == e) ? 0 : strtoll(p, NULL, 10); if (IR_LIT(fin).ival == TT_MNS) v = -v;
-                    std::string s;
-                    s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop numstr -> [zr+%d]", idx, aoff));
-                    s += x86("mov", FRQ(aoff), (long)6);
-                    s += x86_movabs_r64("rax", (uint64_t)v);
-                    s += x86_frame_store64(aoff + 8, "rax");
-                    return s;
-                }
-            }
-            if (ua && ua->op == IR_LIT_REAL) {
-                double d = IR_LIT(ua).dval; if (IR_LIT(fin).ival == TT_MNS) d = -d;
-                uint64_t bits; memcpy(&bits, &d, 8);
-                std::string s;
-                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop real -> [zr+%d]", idx, aoff));
-                s += x86("mov", FRQ(aoff), (long)7);
-                s += x86_movabs_r64("rax", bits);
-                s += x86_frame_store64(aoff + 8, "rax");
-                return s;
-            }
-            if (ua && arith_kind_ok(ua)) {
-                std::string s;
-                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-unop subexpr -> [zr+%d]", idx, aoff));
-                s += arith_opnd_a(sg, ua);
-                if (IR_LIT(fin).ival == TT_MNS) s += x86("neg", "rax");
-                s += x86("mov", FRQ(aoff), (long)6);
-                s += x86_frame_store64(aoff + 8, "rax");
-                return s;
-            }
-        }
-        if (fin && fin->op == IR_BINOP && IR_LIT(fin).ival == BINOP_POW) {
-            IR_t * pa = NULL, * pb = NULL; arith_operands(sg, fin, &pa, &pb);
-            if (pa && pb && pa->op == IR_LIT_INTEGER && pb->op == IR_LIT_INTEGER) {
-                std::string s;
-                s += x86("comment", emit_fmt("marshal arg%d = inline gvar-pow subexpr -> [zr+%d]", idx, aoff));
-                s += x86("mov", "rdi", (long)DT_I);
-                s += x86_movabs_r64("rsi", (uint64_t)IR_LIT(pa).ival);
-                s += x86("mov", "rdx", (long)DT_I);
-                s += x86_movabs_r64("rcx", (uint64_t)IR_LIT(pb).ival);
-                s += x86("call", "POWER_fn", (uint64_t)(uintptr_t)(void *)POWER_fn);
-                s += x86_frame_store64(aoff, "rax");
-                s += x86_frame_store64(aoff + 8, "rdx");
-                return s;
-            }
-        }
-        IR_t * relnd = NULL;
-        {
-            IR_t * rp = lf; int rg = 0;
-            while (rp && rg++ < 256) {
-                if (arith_is_relop(rp)) { relnd = rp; break; }
-                if (!rp->γ.node || rp->γ.node->op == IR_SUCCEED || rp->γ.node->op == IR_FAIL) break;
-                rp = rp->γ.node;
-            }
-        }
-        if (relnd && fin && fin->op == IR_LIT_INTEGER && IR_LIT(fin).ival == 1 && relnd->ω.node && relnd->ω.node->op == IR_LIT_INTEGER && IR_LIT(relnd->ω.node).ival == 0) {
-            IR_t * ra = NULL, * rb = NULL;
-            arith_operands(sg, relnd, &ra, &rb);
-            if (ra && rb && arith_kind_ok(ra) && arith_kind_ok(rb)) {
-                if (idx * 2 + 1 >= X86_INTERNAL_MAX) return x86_bomb("marshal boolean-relop: arg index exceeds internal label capacity");
-                std::string s;
-                s += x86("comment", emit_fmt("marshal arg%d = boolean relop value INTVAL(0/1) -> [zr+%d]", idx, aoff));
-                int scratch = zoff(relnd);
-                if (scratch < 0) return x86_bomb("marshal boolean-relop: relop has no LOWER slot grant (TMP-ERADICATE)");
-                s += arith_opnd_a(sg, ra);
-                s += x86_frame_store64(scratch, "rax");
-                s += arith_opnd_b(sg, rb);
-                s += x86("mov", FRQ(aoff), (long)6);
-                s += x86_frame_load64("rax", scratch);
-                s += x86("cmp", "rax", "rcx");
-                if (MEDIUM_TEXT) {
-                    std::string tl = emit_fmt(".Lbrel%d_f", bb_node_id(relnd));
-                    std::string el = emit_fmt(".Lbrel%d_e", bb_node_id(relnd));
-                    s += x86(relop_fail_mnem(relnd), tl.c_str());
-                    s += x86("mov", FRQ(aoff + 8), (long)1);
-                    s += x86("jmp", el.c_str());
-                    s += x86("label", tl.c_str());
-                    s += x86("mov", FRQ(aoff + 8), (long)0);
-                    s += x86("label", el.c_str());
-                } else {
-                    s += x86_jcc_id(relop_fail_mnem(relnd), idx * 2);
-                    s += x86("mov", FRQ(aoff + 8), (long)1);
-                    s += x86_jmp_id(idx * 2 + 1);
-                    s += x86_deflabel_id(idx * 2);
-                    s += x86("mov", FRQ(aoff + 8), (long)0);
-                    s += x86_deflabel_id(idx * 2 + 1);
-                }
-                return s;
-            }
-        }
-    }
-    if (g_gvar_flat_chain && lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&') {
-        char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
-        std::string s;
-        s += x86("comment", emit_fmt("marshal arg%d = gvar NV_GET -> [zr+%d]", idx, aoff));
-        s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(lf).sval, b1);
-        s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
-        s += x86("mov", FRQ(aoff), "rax");
-        s += x86("mov", FRQ(aoff + 8), "rdx");
-        return s;
-    }
     if (lf->op == IR_LIT_INTEGER) {
         std::string s;
         s += x86("comment", emit_fmt("marshal arg%d = LIT_I -> [zr+%d]", idx, aoff));
@@ -457,16 +317,11 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         } return marshal_single_call(lf, aoff, bb_node_id(lf));
     }
     if (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && is_global(IR_LIT(lf).sval)) {
+        char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
         std::string s;
-        if (MEDIUM_TEXT) {
-            char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
-            s += x86("comment", emit_fmt("marshal arg%d = global VAR NV_GET -> [zr+%d]", idx, aoff));
-            s += x86("directive", (std::string(" lea rdi, [rip + ") + b1 + "]").c_str());
-            s += x86("call", "NV_GET_fn@PLT");
-        } else {
-            s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)IR_LIT(lf).sval);
-            s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
-        }
+        s += x86("comment", emit_fmt("marshal arg%d = global VAR NV_GET -> [zr+%d]", idx, aoff));
+        s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(lf).sval, b1);
+        s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
         s += x86_frame_store64(aoff, "rax");
         s += x86_frame_store64(aoff + 8, "rdx");
         return s;
@@ -491,80 +346,6 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_frame_load64("rax", voff + 8) + x86_frame_store64(aoff + 8, "rax");
         return s;
     }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_gvar_userproc_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
-    const char * fn   = _.op_sval ? _.op_sval : "";
-    int64_t      narg = _.op_ival;
-    IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    int resoff  = zoff(_.node);
-    if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_named_proc: no LOWER slot grant (TMP-ERADICATE)");
-    if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_named_proc: arg count exceeds LOWER grant (TMP-ERADICATE)");
-    int argbase = resoff + 16;
-    if (MEDIUM_TEXT) {
-        std::string s = x86_alpha()
-            + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_named_proc [four-port, FAIL->ω.node]", fn));
-        uint64_t brm = rt_proc_byref_mask(fn);
-        for (int i = 0; i < (int)narg; i++)
-            s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, subs[i], argbase + i * 16, _.node, i);
-        if (_.op_proc_k >= 0) {
-            s += x86("directive", (std::string(" mov rdi, [rip + __proc + ") + std::to_string(_.op_proc_k * 8) + "]").c_str());
-            s += x86("lea", "rsi", FRQ(argbase));
-            s += x86("mov32", "edx", (long)(narg));
-            s += x86("call", "rt_call_proc_direct@PLT");
-            s += x86("mov", FRQ(resoff), "rax");
-            s += x86("mov", FRQ(resoff + 8), "rdx");
-            s += x86("cmp", "eax", "99");
-            s += x86_omega("je");
-            s += x86_gamma();
-            s += x86("label", emit_fmt("%s", _.lbl_β));
-            s += x86_omega();
-            return s;
-        }
-        std::string fl = emit_fmt(".Lprocfn%d", g_flat_node_id++);
-        s += x86("directive", ".section .rodata")
-           + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-           + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
-        s += x86("lea", "rsi", FRQ(argbase));
-        s += x86("mov32", "edx", (long)(narg));
-        int mig = rt_proc_frame_nslots(fn) >= 0;
-        if (mig) s += pas_sl_setup(fn);
-        s += x86("call", mig ? "rt_call_named_proc_sl@PLT" : "rt_call_named_proc@PLT");
-        s += x86("mov", FRQ(resoff), "rax");
-        s += x86("mov", FRQ(resoff + 8), "rdx");
-        s += x86("cmp", "eax", "99");
-        s += x86_omega("je");
-        s += x86_gamma();
-        s += x86("label", emit_fmt("%s", _.lbl_β));
-        s += x86_omega();
-        return s;
-    }
-    if (MEDIUM_BINARY) {
-        std::string s = x86_alpha();
-        uint64_t brm = rt_proc_byref_mask(fn);
-        for (int i = 0; i < (int)narg; i++)
-            s += ((brm >> i) & 1ull) ? marshal_varparam_addr(subs[i]->entry, argbase + i * 16, i) : marshal_call_arg(subs[i]->entry, subs[i], argbase + i * 16, _.node, i);
-        int mig = rt_proc_frame_nslots(fn) >= 0;
-        uint64_t fptr;
-        if (mig) { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        else     { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-        s += x86_load_ro("rdi", "??", (uint64_t)(uintptr_t)fn);
-        s += x86_frame_lea("rsi", argbase);
-        s += x86("mov32", "edx", (long)narg);
-        if (mig) s += pas_sl_setup(fn);
-        s += x86_call_ro(mig ? "rt_call_named_proc_sl" : "rt_call_named_proc", fptr);
-        s += x86_frame_store64(resoff, "rax");
-        s += x86_frame_store64(resoff + 8, "rdx");
-        s += x86("cmp", "eax", (long)99);
-        s += x86_omega("je");
-        s += x86_gamma();
-        s += x86_beta();
-        s += x86_omega();
-        return s;
-    }
-    return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int relop_call_fail_idx(const char * fn) {
@@ -597,7 +378,7 @@ static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_grap
     IR_t * b = relop_arg_simple_operand(subs[1]);
     int scratch = resoff + 16;
     std::string s = x86_alpha()
-        + x86("comment", emit_fmt("BOX IR_CALL %s(...) inline integer relop [four-port, FAIL->ω]", fn));
+        + x86("comment", emit_fmt("BOX CALL %s(...) inline integer relop [four-port, FAIL->ω]", fn));
     s += arith_opnd_a(NULL, a, 0);
     s += x86_frame_store64(scratch, "rax");
     s += arith_opnd_b(NULL, b, 2);
@@ -617,10 +398,6 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    { int _rl = relop_call_fail_idx(fn);
-      if (g_gvar_flat_chain && _rl >= 0 && narg == 2 && subs && subs[0] && subs[1]
-          && relop_arg_simple_operand(subs[0]) && relop_arg_simple_operand(subs[1]))
-          return bb_call_relop_inline_str(pBB, fn, subs, _rl); }
     int resoff  = zoff(_.node);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
@@ -628,7 +405,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     std::string fl = std::string(".Lbynamefn") + std::to_string((long long)_.nid);
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
-        + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
+        + x86("comment", emit_fmt("BOX CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
     for (int i = 0; i < (int)narg; i++)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     s += x86("directive", ".section .rodata")
@@ -661,7 +438,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     std::string fl = std::string(".Lbynamegenfn") + std::to_string((long long)_.nid);
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
-        + x86("comment", emit_fmt("BOX IR_CALL_BUILTIN_GEN %s(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]", fn));
+        + x86("comment", emit_fmt("BOX CALL_GEN %s(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]", fn));
     for (int i = 0; i < (int)narg; i++)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     s += x86("mov", FRQ(genoff), (long)0);
@@ -770,8 +547,7 @@ std::string bb_call(IR_t * pBB) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
         case CALL_ROUTE_BYNAME_GEN:    return bb_call_byname_gen_str(pBB);
         case CALL_ROUTE_RK_BOOL_COND:  return bb_call_bool_cond_str(pBB);
-        case CALL_ROUTE_DVAL2_BOMB:    return x86_alpha() + x86_bomb("IR_CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
-        case CALL_ROUTE_GVAR_USERPROC: return bb_call_gvar_userproc_str(pBB);
+        case CALL_ROUTE_DVAL2_BOMB:    return x86_alpha() + x86_bomb("CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
         case CALL_ROUTE_PROC_STAGED:   return bb_call_proc_staged_str(pBB);
         case CALL_ROUTE_RK_BOOL_SLOT:  return bb_call_bool_str(pBB);
         case CALL_ROUTE_WRITE_SLOT:    return bb_call_write_slot_str(pBB);
