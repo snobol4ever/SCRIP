@@ -386,6 +386,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
         else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : -1; /* 0/1 = ZC_ZETA_ZLS/ZC_ZETA_ZLS2 (zeta_choices.h) */ if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
+        else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { const char *z = argv[argi] + 12; int pm = strcmp(z, "plain") == 0 ? 0 : strcmp(z, "instrumented") == 0 ? 1 : strcmp(z, "alloc") == 0 ? 2 : strcmp(z, "inline") == 0 ? 3 : strcmp(z, "cstack") == 0 ? 4 : -1; /* 0..4 = ZC_PORT_* (zeta_choices.h): inline = old arena, cstack = ζ on the C stack */ if (pm < 0) { fprintf(stderr, "scrip: bad --zeta-port=%s (valid: plain, instrumented, alloc, inline, cstack)\n", z); return 2; } rt_zeta_port_set_mode(pm); argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;
     }
@@ -1010,6 +1011,7 @@ int main(int argc, char **argv)
             printf("  push rdi\n");
             printf("  push rsi\n");
             if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
+            if (rt_zeta_port_mode() != (int)ZC_PORT) printf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
             printf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
@@ -1185,6 +1187,7 @@ int main(int argc, char **argv)
             }
             printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n  push rdi\n  push rsi\n");
             if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
+            if (rt_zeta_port_mode() != (int)ZC_PORT) printf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);

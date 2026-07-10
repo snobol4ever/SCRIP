@@ -21,4 +21,7 @@ void  rt_zls2_release_to(void *mark);
 /* ZETA SUBSYSTEM SELECTOR (Lon directive 2026-07-09) — see zeta_choices.h ZC_ZETA block. */
 void rt_zeta_set_mode(int m);
 int  rt_zeta_mode(void);
+/* ZETA PORT SELECTOR (Lon directive 2026-07-10) — the ZC_PORT axis (--zeta-port flag); see zeta_alloc.c. */
+void rt_zeta_port_set_mode(int m);
+int  rt_zeta_port_mode(void);
 #endif

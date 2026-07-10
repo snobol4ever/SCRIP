@@ -243,9 +243,20 @@ int  rt_zeta_mode(void) { return g_zeta_mode; }
  * Emit-side and C-side disciplines are independent, so an env/default mismatch is safe, just unmixed.
  * Survive-return frames (rt_proc_call_gen* suspended activations — the s6 long-lived class) never consult
  * this and stay on their heap provider. */
+/* ZETA PORT SELECTOR (Lon directive 2026-07-10: switch back and forth between the C-stack mode and the old
+ * arena mode at runtime for testing) — the ZC_PORT axis twin of rt_zeta_set_mode/rt_zeta_mode above, the mode
+ * the --zeta-port CLI flag selects.  ONE variable, both worlds: scrip's driver sets it after argv parse
+ * (covers mode 3 and every emit-time x86_port_mode() read); mode 4 binaries re-set it at entry via the call
+ * the main wrapper BAKES when the resolved mode differs from the ZC_PORT build default (no override = no bake
+ * = byte-identical output).  UNSET (-1) resolves lazily: the pre-existing SCRIP_ZETA_PORT env, else ZC_PORT —
+ * precedence flag > env > default.  The bake also closes the M4 coherence hazard the env alone carried: a .s
+ * emitted under one port mode is mode-COMMITTED (CSTACK emits rsp arithmetic, INLINE emits arena-cursor
+ * arithmetic), so its runtime side (rt_zeta_cstack's alloca-vs-arena proc frames) must self-select the SAME
+ * mode regardless of the executing shell's env. */
+static int g_zeta_port = -1;
+void rt_zeta_port_set_mode(int m) { g_zeta_port = (m >= ZC_PORT_PLAIN && m <= ZC_PORT_CSTACK) ? m : (int)ZC_PORT; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] port=%d\n", g_zeta_port); }
+int  rt_zeta_port_mode(void) { if (g_zeta_port < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); g_zeta_port = e ? atoi(e) : (int)ZC_PORT; } return g_zeta_port; }
 int rt_zeta_cstack(void)
 {
-    static int m = -1;
-    if (m < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); m = ((e ? atoi(e) : (int)ZC_PORT) == ZC_PORT_CSTACK) ? 1 : 0; }
-    return m;
+    return rt_zeta_port_mode() == ZC_PORT_CSTACK ? 1 : 0;
 }
