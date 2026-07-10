@@ -1434,6 +1434,13 @@ EOF
 raku "op_overload_relop_int_unaffected" "$(printf '9\n9')" << 'EOF'
 sub main() { say(3 < 9); say(5 < 9); }
 EOF
+raku "for_range_pointy" "$(printf '1\n2\n3\ndone')" << 'EOF'
+sub main() { for 1..3 -> $v { say($v); } say('done'); }
+EOF
+raku "for_range_pointy_toplevel" "$(printf '1\n2\n3\ndone')" << 'EOF'
+for 1..3 -> $v { say($v); }
+say('done');
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
