@@ -204,6 +204,57 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
     NV_SET_fn(name ? name : "", d);
     if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rt_coerce_errmsg(int code) {
+    switch (code) {
+    case  59: return "any argument is not a string or expression";
+    case  69: return "break argument is not a string or expression";
+    case  70: return "breakx argument is not a string or expression";
+    case 151: return "notany argument is not a string or expression";
+    case 188: return "span argument is not a string or expression";
+    case 120: return "len argument is not integer or expression";
+    case 162: return "pos argument is not integer or expression";
+    case 181: return "rtab argument is not integer or expression";
+    case 183: return "tab argument is not integer or expression";
+    case 185: return "rpos argument is not integer or expression";
+    case 121: return "len argument is negative or too large";
+    case 163: return "pos argument is negative or too large";
+    case 182: return "rtab argument is negative or too large";
+    case 184: return "tab argument is negative or too large";
+    case 186: return "rpos argument is negative or too large";
+    default:  return "pattern primitive argument coercion failed"; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
+    extern void core_runtime_error(int code, const char *msg);
+    int ec = (int)(codes & 0xffff);
+    DESCR_t v = *in;
+    if (v.v == DT_S && v.s && v.s[0]) { *out = v; out->slen = (uint32_t)strlen(v.s); return; }
+    if (v.v == DT_I || v.v == DT_R) {
+        char *s = VARVAL_fn(v);
+        if ((!s || !s[0]) && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
+        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = (uint32_t)strlen(out->s); return; }
+    if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
+    out->v = DT_S; out->s = (char *)""; out->slen = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
+    extern void core_runtime_error(int code, const char *msg);
+    int ec = (int)(codes & 0xffff);
+    int en = (int)((codes >> 16) & 0xffff);
+    DESCR_t v = *in;
+    int64_t r = 0; int ok = 0;
+    if (v.v == DT_I) { r = v.i; ok = 1; }
+    else if (v.v == DT_R) { double d = v.r; if (d == floor(d) && d >= -9.2e18 && d <= 9.2e18) { r = (int64_t)d; ok = 1; } }
+    else if (v.v == DT_SNUL) { r = 0; ok = 1; }
+    else if (v.v == DT_S && v.s) {
+        if (!v.s[0]) { r = 0; ok = 1; }
+        else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
+               if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = (int64_t)t; ok = 1; } } } }
+    if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
+    if (r < 0 && en) core_runtime_error(en, rt_coerce_errmsg(en));
+    out->v = DT_I; out->slen = 0; out->i = r;
+}
 extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
 const char *g_subject_dbg_base = 0;

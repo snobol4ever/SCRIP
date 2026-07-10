@@ -7,7 +7,8 @@
 #include "parser/icon/icon_lex.h"
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
-typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; } scx_t;
+typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; } sprearg_t;
+typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; } scx_t;
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
@@ -564,7 +565,7 @@ static int sno_pat_deterministic(const tree_t * t) {
      * re-choice a completed iteration would need) makes ARBNO backtrack non-total — that needs the
      * per-iteration COLLECTION (v2).  Deterministic subtrees exhaust totally, so no iteration state is kept. */
     if (!t) return 1;
-    if (t->t == TT_ALT || t->t == TT_ARB || t->t == TT_ARBNO || sno_is_fence(t)) return 0;
+    if (t->t == TT_ALT || t->t == TT_ARB || t->t == TT_ARBNO || t->t == TT_BREAKX || sno_is_fence(t)) return 0;
     if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB")) return 0;
     for (int i = 0; i < t->n; i++) if (!sno_pat_deterministic(t->c[i])) return 0;
     return 1;
@@ -780,6 +781,23 @@ static void sno_fz_build_table(const tree_t ** st, int nst) {
         for (int i = 0; i < g_sno_nfz; i++) fprintf(stderr, "[FZ5]  %s -> %s\n", g_sno_fz[i].var, g_sno_fz[i].procname); }
 }
 
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long sno_prearg_codes(int tt) {
+    switch (tt) {
+    case TT_ANY: return 59; case TT_BREAK: return 69; case TT_BREAKX: return 70; case TT_NOTANY: return 151; case TT_SPAN: return 188;
+    case TT_LEN: return 120L | (121L << 16); case TT_POS: return 162L | (163L << 16); case TT_RTAB: return 181L | (182L << 16); case TT_TAB: return 183L | (184L << 16); case TT_RPOS: return 185L | (186L << 16);
+    default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
+    const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
+    if (!arg || arg->t == TT_DEFER) sno_fatal("pattern primitive argument outside the operand-edge subset (missing or deferred *expr argument)", NULL);
+    if (cx->npre >= 64) sno_fatal("too many runtime pattern-primitive arguments in one statement (operand-edge pre-chain limit 64)", NULL);
+    cx->pre[cx->npre].arg = arg; cx->pre[cx->npre].prim = prim;
+    cx->pre[cx->npre].str = (t->t == TT_ANY || t->t == TT_NOTANY || t->t == TT_SPAN || t->t == TT_BREAK || t->t == TT_BREAKX);
+    cx->pre[cx->npre].codes = sno_prearg_codes(t->t); cx->npre++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -795,7 +813,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
         if (cs) IR_LIT(nd).sval = (char *) cs;
-        else sno_fatal("ANY/NOTANY with a non-literal charset is outside the SN4-PAT subset", NULL);
+        else sno_pre_req(cx, t, nd);
         return nd;
     }
     case TT_FAIL:    { IR_t * j = lc_build(g, IR_GOTO, NULL, NULL); sno_ω_to(j, fail); lc_γ_to(j, fail); return j; }
@@ -806,7 +824,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
         if (cs) IR_LIT(nd).sval = (char *) cs;
-        else sno_fatal("SPAN with a non-literal charset is outside the SN4-PAT subset", NULL);
+        else sno_pre_req(cx, t, nd);
         return nd;
     }
     case TT_BREAK: case TT_BREAKX: {
@@ -814,27 +832,25 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
         if (cs) IR_LIT(nd).sval = (char *) cs;
-        else sno_fatal("BREAK/BREAKX with a non-literal charset is outside the SN4-PAT subset", NULL);
+        else sno_pre_req(cx, t, nd);
         return nd;
     }
     case TT_TAB: case TT_RTAB: {
         IR_t * nd = lc_build(g, (t->t == TT_TAB) ? IR_MATCH_TAB : IR_MATCH_RTAB, succ, NULL);
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("TAB/RTAB requires a count argument", NULL);
-        IR_t * argval = NULL;
-        IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval);
-        ir_operand_push(nd, argval);
-        return arg_entry;
+        if (t->c[0]->t == TT_ILIT || t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
+        sno_pre_req(cx, t, nd);
+        return nd;
     }
     case TT_POS: case TT_RPOS: {
         IR_t * nd = lc_build(g, IR_MATCH_POS, succ, NULL);
         sno_ω_to(nd, fail);
         if (t->t == TT_RPOS) IR_LIT(nd).sval = (char *) "r";
         if (t->n <= 0 || !t->c[0]) sno_fatal("POS/RPOS requires a position argument", NULL);
-        IR_t * argval = NULL;
-        IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval);
-        ir_operand_push(nd, argval);
-        return arg_entry;
+        if (t->c[0]->t == TT_ILIT || t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
+        sno_pre_req(cx, t, nd);
+        return nd;
     }
     case TT_FENCE:
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
@@ -916,7 +932,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         long long n = 0;
         if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT) n = t->c[0]->v.ival;
-        else sno_fatal("LEN with a non-literal count is outside the SN4-PAT-2 subset", NULL);
+        else if (t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER) sno_pre_req(cx, t, nd);
+        else sno_fatal("LEN with a deferred or missing count is outside the operand-edge subset", NULL);
         IR_LIT(nd).ival = n;
         return nd;
     }
@@ -1066,16 +1083,16 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
     if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE")) return 1;
     if (t->t == TT_QLIT) return 1;
-    if (t->t == TT_ANY || t->t == TT_NOTANY) return sno_cset_fold((t->n > 0) ? t->c[0] : NULL) != NULL;
-    if (t->t == TT_SPAN) return sno_cset_fold((t->n > 0) ? t->c[0] : NULL) != NULL;
-    if (t->t == TT_BREAK || t->t == TT_BREAKX) return sno_cset_fold((t->n > 0) ? t->c[0] : NULL) != NULL;
+    if (t->t == TT_ANY || t->t == TT_NOTANY) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
+    if (t->t == TT_SPAN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
+    if (t->t == TT_BREAK || t->t == TT_BREAKX) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
     if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_REM || t->t == TT_ARB) return 1;
     if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_pat_deterministic(t->c[0]) || sno_pat_v1_fenced_ok(t->c[0]) || (sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0])));
     if (t->t == TT_VAR) return t->v.sval != NULL;
     if (t->t == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
-    if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
+    if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
     if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
     if (t->t == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
     if (t->t == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
@@ -1109,7 +1126,7 @@ static const char * sno_pat_collect(const tree_t * pat) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ) {
     IR_graph_t * g = cx->g;
-    cx->pat_fail = fJ; cx->pat_seal = fJ;
+    cx->pat_fail = fJ; cx->pat_seal = fJ; cx->npre = 0;
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
     IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
@@ -1139,8 +1156,26 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     ir_operand_push(release, head);
     IR_t * pat_entry = sno_pat_node(cx, ptt, release, head);
     lc_γ_to(head, pat_entry);
+    /* OPERAND-EDGE HOIST (2026-07-10, SEMANTIC PIN 1 — manual p85-86: primitive args are captured at pattern
+     * CONSTRUCTION, once per statement execution, BEFORE the scan begins; only *V defers).  Every runtime-arg
+     * primitive collected by sno_pre_req gets: arg-expression chain → IR_COERCE_STRING/_INTEGER (SPITBOL error
+     * codes on null cset / non-numeric / negative, oracle-pinned) → operand edge into the primitive's node.
+     * Chains splice between the subject chain and head; SEQ lowers right-first so forward iteration here yields
+     * left-to-right construction order.  The pre-chain runs ONCE per statement entry — never per anchor, never
+     * per element α — so LEN(1) $ V BREAK(V) sees the PRE-statement V (oracle probe p5). */
+    IR_t * after = head;
+    for (int pi = 0; pi < cx->npre; pi++) {
+        IR_t * co = lc_build(g, cx->pre[pi].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, after, fJ);
+        IR_LIT(co).ival = cx->pre[pi].codes;
+        IR_t * av = NULL;
+        IR_t * ae = sx_lower(cx, cx->pre[pi].arg, co, fJ, &av);
+        ir_operand_push(co, av);
+        ir_operand_push(cx->pre[pi].prim, co);
+        after = ae;
+    }
+    cx->npre = 0;
     IR_t * subjval = NULL;
-    IR_t * subj_entry = sx_lower(cx, svt, head, fJ, &subjval);
+    IR_t * subj_entry = sx_lower(cx, svt, after, fJ, &subjval);
     ir_operand_push(head, subjval);
     if (splice) ir_operand_push(splice, subjval);
     return subj_entry;
@@ -1148,7 +1183,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
-    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL;
+    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
@@ -1574,11 +1609,12 @@ static void sno_fragment_reject_define(const tree_t ** st, int nst) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_graph_t * gp = IR_alloc(512);
-    scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL;
+    scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;
     IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
     IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
     px.pat_fail = no; px.pat_seal = no;
     IR_t * pe = sno_pat_node(&px, pat, ok, no);
+    if (px.npre > 0) sno_fatal("runtime-operand primitive reached the RT recipe graph builder — recipes must bake literal args (B-RE contract)", NULL);
     gp->entry = pe;
     return gp;
 }
