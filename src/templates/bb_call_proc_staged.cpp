@@ -7,6 +7,7 @@ extern "C" {
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame(void *act);
+DESCR_t rt_proc_resume_frame_h(void **hslot);
 int  rt_proc_is_generator(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 int  rt_proc_is_registered(const char *name);
@@ -91,7 +92,7 @@ static std::string bcps_bin_gen_arm() {
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t callg_fp; { DESCR_t (*fp)(const char *, int, void **) = rt_proc_call_gen_h; callg_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t resumeg_fp; { DESCR_t (*fp)(void *) = rt_proc_resume_frame; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t resumeg_fp; { DESCR_t (*fp)(void **) = rt_proc_resume_frame_h; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return x86_alpha()
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
@@ -107,8 +108,8 @@ static std::string bcps_bin_gen_arm() {
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
-         + x86_frame_load64("rdi", act)
-         + x86("call", "rt_proc_resume_frame", resumeg_fp)
+         + x86_frame_lea("rdi", act)
+         + x86("call", "rt_proc_resume_frame_h", resumeg_fp)
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
          + x86("cmp", "eax", (long)99)
@@ -139,8 +140,8 @@ static std::string bcps_txt_gen_arm() {
          + x86_omega("je")
          + x86_gamma()
          + x86("label", _.lbl_β)
-         + x86("mov", "rdi", FRQ(act))
-         + x86("call", "rt_proc_resume_frame@PLT")
+         + x86_frame_lea("rdi", act)
+         + x86("call", "rt_proc_resume_frame_h@PLT")
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", "99")
