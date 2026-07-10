@@ -49,8 +49,23 @@ static void zh_handle_put(unsigned h)
     g_zh_tab[h] = 0; g_zh_free[g_zh_free_n++] = h;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zh_nomove(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZH_NOMOVE"); p = e ? (atoi(e) != 0) : 1; } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zh_slide(void)
 {
+    if (zh_nomove()) {
+        char *src = g_zh_base, *last_live_end = g_zh_base;
+        while (src < g_zh_cur) {
+            zh_hdr_t *hd = (zh_hdr_t *)src; long tot = (long)hd->total;
+            if (hd->state == ZH_LIVE) last_live_end = src + tot;
+            else { if (hd->handle) { zh_handle_put(hd->handle); hd->handle = 0; } g_zh_deads++; }
+            src += tot;
+        }
+        if (last_live_end < g_zh_cur) memset(last_live_end, ZH_POISON, (size_t)(g_zh_cur - last_live_end));
+        g_zh_cur = last_live_end; g_zh_slides++;
+        if (zh_telem()) fprintf(stderr, "[ZH] slide(nomove) #%ld: used=%ld/%ld\n", g_zh_slides, (long)(g_zh_cur - g_zh_base), g_zh_cap);
+        return;
+    }
     char *src = g_zh_base, *dst = g_zh_base;
     while (src < g_zh_cur) {
         zh_hdr_t *hd = (zh_hdr_t *)src; long tot = (long)hd->total;
