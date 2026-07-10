@@ -105,6 +105,21 @@ static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t *
     if (res) *res = op; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * g_sno_predef[SNO_DEF_MAX]; static int g_sno_npredef = 0;
+static void sno_predef_note(const char * fname) { for (int k = 0; k < g_sno_npredef; k++) if (!strcmp(g_sno_predef[k], fname)) return; if (g_sno_npredef < SNO_DEF_MAX) g_sno_predef[g_sno_npredef++] = fname; }
+static int sno_predef_registered(const char * fname) { if (!fname) return 0; for (int k = 0; k < g_sno_npredef; k++) if (!strcmp(g_sno_predef[k], fname)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_tree_has_define_call(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC) {
+        const char * name = t->v.sval;
+        if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) name = t->c[0]->v.sval;
+        if (name && !strcmp(name, "DEFINE")) return 1;
+    }
+    for (int i = 0; i < t->n; i++) if (sno_tree_has_define_call(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbase, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
     int nargs = t ? (t->n - argbase) : 0;
@@ -214,7 +229,17 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         const char * name = t->v.sval; int argbase = 0;
         if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
         if (!name) sno_fatal("call with no resolvable name", NULL);
-        if (!strcmp(name, "DEFINE")) sno_fatal("DEFINE in expression position is outside the landed subset (statement-level literal DEFINE only)", NULL);
+        if (!strcmp(name, "DEFINE")) {
+            /* the prescan (sno_prescan_expr) hoist-registered this def iff it sits in a subject expression with a literal prototype; the call itself is then the null string and always succeeds (manual p219) */
+            char fnb[128]; fnb[0] = 0;
+            if (t->n > argbase && t->c[argbase] && t->c[argbase]->t == TT_QLIT && t->c[argbase]->v.sval) {
+                const char * sp = t->c[argbase]->v.sval; int k = 0;
+                for (; sp[k] && sp[k] != '(' && sp[k] != ' ' && k < 127; k++) fnb[k] = sp[k];
+                fnb[k] = 0;
+            }
+            if (fnb[0] && sno_predef_registered(fnb)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
+            sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
+        }
         return sx_call_named(cx, name, t, argbase, γ, ω, res);
     }
     case TT_WHILE: case TT_UNTIL: {
@@ -1131,6 +1156,23 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs) {
                 else { extern void rt_builtin_synonym_add(const char *, const char *); rt_builtin_synonym_add(lp_strdup(an), lp_strdup(on)); }
             }
         }
+        if (name && !strcmp(name, "DEFINE") && t->n > argbase && t->c[argbase] && t->c[argbase]->t == TT_QLIT && t->c[argbase]->v.sval) {
+            /* expression-position DEFINE (e.g. DIFFER(DEFINE('f(n)','entry'))) — hoist-register identically to the statement path (last-define-wins, the standing compile-time deviation); sx_lower then folds the call to null */
+            const char * entry_opt = NULL;
+            if (t->n > argbase + 1 && t->c[argbase + 1]) {
+                const tree_t * ea = t->c[argbase + 1];
+                if (ea->t == TT_QLIT && ea->v.sval) entry_opt = ea->v.sval;
+                else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
+            }
+            sno_def_t d; sno_parse_define(t->c[argbase]->v.sval, entry_opt, &d);
+            sno_cconst_note_define_names(&d);
+            sno_predef_note(d.fname);
+            int fo = -1;
+            for (int k = 0; k < *ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { fo = k; break; }
+            if (fo >= 0) defs[fo] = d;
+            else if (*ndefs < SNO_DEF_MAX) defs[(*ndefs)++] = d;
+            else sno_fatal("too many DEFINEs in one program", d.fname);
+        }
     }
     for (int i = 0; i < t->n; i++) sno_prescan_expr(t->c[i], defs, ndefs);
 }
@@ -1149,7 +1191,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_cconst_build_table(st, nst);
-    sno_def_t defs[SNO_DEF_MAX]; int ndefs = 0;
+    sno_def_t defs[SNO_DEF_MAX]; int ndefs = 0; g_sno_npredef = 0;
     const tree_t * def_body[SNO_DEF_MAX]; for (int _k = 0; _k < SNO_DEF_MAX; _k++) def_body[_k] = NULL;
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
     for (int i = 0; i < nst; i++) {
@@ -1306,10 +1348,12 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
  * about timing, not a dependency).  DEFINE inside a fragment is a loud fatal: lower would build the body
  * graph but nothing emits or registers it on this path — flagged, not faked. */
 static void sno_fragment_reject_define(const tree_t ** st, int nst) {
+    g_sno_npredef = 0;
     for (int i = 0; i < nst; i++) {
         const tree_t * dfn = lc_stmt_subj(st[i]);
         if (dfn && dfn->t == TT_DEFINE) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
         if (sno_stmt_define(st[i], NULL)) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
+        if (sno_tree_has_define_call(st[i])) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
