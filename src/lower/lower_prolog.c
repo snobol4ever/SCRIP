@@ -165,6 +165,7 @@ static IR_t * thread_goals(lcx_t * cx, const tree_t * blk, int from, int to, IR_
         else ω_to(gn[i], last_res);
         if (rz[i]) { last_res = rz[i]; last_res_beta = (rz[i]->op == IR_CALL || rz[i]->op == IR_CALL_PROC_STAGED); }
     }
+    cx->beta = last_res_beta ? last_res : NULL;
     free(rz);
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
     IR_t * first = (ng > 0) ? gn[0] : NULL;
