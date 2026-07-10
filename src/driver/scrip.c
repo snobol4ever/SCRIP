@@ -385,7 +385,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
-        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : -1; /* 0/1 = ZC_ZETA_ZLS/ZC_ZETA_ZLS2 (zeta_choices.h) */ if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
+        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : strcmp(z, "zh") == 0 ? 2 : -1; /* 0/1/2 = ZC_ZETA_ZLS/ZC_ZETA_ZLS2/ZC_ZETA_ZH (zeta_choices.h) */ if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2, zh)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
         else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { const char *z = argv[argi] + 12; int pm = strcmp(z, "plain") == 0 ? 0 : strcmp(z, "instrumented") == 0 ? 1 : strcmp(z, "alloc") == 0 ? 2 : strcmp(z, "inline") == 0 ? 3 : strcmp(z, "cstack") == 0 ? 4 : -1; /* 0..4 = ZC_PORT_* (zeta_choices.h): inline = old arena, cstack = ζ on the C stack */ if (pm < 0) { fprintf(stderr, "scrip: bad --zeta-port=%s (valid: plain, instrumented, alloc, inline, cstack)\n", z); return 2; } rt_zeta_port_set_mode(pm); argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;

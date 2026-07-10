@@ -234,7 +234,7 @@ void rt_zls2_release_to(void *mark)
  * reads); mode 4 binaries re-set it at entry via the call xa_file_header BAKES when the flag overrode the
  * ZC_ZETA default (no flag = no bake = byte-identical output).  RUNG-0: nothing allocates by it yet. */
 static int g_zeta_mode = (int)ZC_ZETA;
-void rt_zeta_set_mode(int m) { g_zeta_mode = (m == ZC_ZETA_ZLS) ? ZC_ZETA_ZLS : ZC_ZETA_ZLS2; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] mode=%s\n", g_zeta_mode == ZC_ZETA_ZLS ? "zls" : "zls2"); }
+void rt_zeta_set_mode(int m) { g_zeta_mode = (m == ZC_ZETA_ZLS) ? ZC_ZETA_ZLS : (m == ZC_ZETA_ZH) ? ZC_ZETA_ZH : ZC_ZETA_ZLS2; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] mode=%s\n", g_zeta_mode == ZC_ZETA_ZLS ? "zls" : g_zeta_mode == ZC_ZETA_ZH ? "zh" : "zls2"); }
 int  rt_zeta_mode(void) { return g_zeta_mode; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* rt_zeta_cstack (ZC_PORT_CSTACK rung, Lon 2026-07-09) — the ONE runtime-side reader of the C-stack zeta
