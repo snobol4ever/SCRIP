@@ -938,6 +938,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
             if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
             if (!strcmp(op, "msb"))   { if (!ai || a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
+            if (!strcmp(op, "bnot"))  { if (!ai) { plc_iso_evaluable(a); *out = FAILDESCR; return 1; } *out = INTVAL(~a.i); return 1; }
             *out = FAILDESCR; return 1;
         }
         DESCR_t b = rt_pl_deref_val(args[1]);
@@ -1046,7 +1047,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if ((!strcmp(fn, "$number_chars") || !strcmp(fn, "$number_codes")) && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
-        int codes = (fn[8] == 'o');
+        int codes = (fn[9] == 'o');
         DESCR_t n0 = rt_pl_deref_val(args[0]);
         if (n0.v == DT_I || n0.v == DT_R) {
             char buf[64]; if (n0.v == DT_I) snprintf(buf, sizeof buf, "%lld", (long long)n0.i); else snprintf(buf, sizeof buf, "%g", n0.r);
@@ -2573,7 +2574,7 @@ const char *rt_pl_ax_suffix(const char *s, int ar) {
         if (!strcmp(s, "-")) return "neg"; if (!strcmp(s, "+")) return "pos"; if (!strcmp(s, "abs")) return "abs"; if (!strcmp(s, "sign")) return "sign";
         if (!strcmp(s, "truncate")) return "trunc"; if (!strcmp(s, "integer")) return "intg"; if (!strcmp(s, "float")) return "flt";
         if (!strcmp(s, "floor")) return "floor"; if (!strcmp(s, "ceiling")) return "ceil"; if (!strcmp(s, "round")) return "round";
-        if (!strcmp(s, "sqrt")) return "sqrt"; if (!strcmp(s, "msb")) return "msb"; if (!strcmp(s, "sin")) return "sin"; if (!strcmp(s, "cos")) return "cos";
+        if (!strcmp(s, "sqrt")) return "sqrt"; if (!strcmp(s, "msb")) return "msb"; if (!strcmp(s, "\\")) return "bnot"; if (!strcmp(s, "sin")) return "sin"; if (!strcmp(s, "cos")) return "cos";
         if (!strcmp(s, "atan")) return "atan"; if (!strcmp(s, "log")) return "log"; if (!strcmp(s, "exp")) return "exp";
         if (!strcmp(s, "float_integer_part")) return "fip"; if (!strcmp(s, "float_fractional_part")) return "ffp";
         return (const char *)0;
