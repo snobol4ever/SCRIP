@@ -48,18 +48,12 @@ proc_bumpit_α_body:
  mov eax, dword ptr [r12 + 96]
  cmp eax, 100
  je .Lx3_0
- mov eax, dword ptr [r12 + 112]
- cmp eax, 100
- je .Lx3_0
  mov eax, dword ptr [r12 + 96]
- cmp eax, 6
- jne .Lx3_2
- mov eax, dword ptr [r12 + 112]
  cmp eax, 6
  jne .Lx3_2
 .Lx3_1:
  mov rax, qword ptr [r12 + 104]
- mov rcx, qword ptr [r12 + 120]
+ mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 80], 6
  mov qword ptr [r12 + 88], rax

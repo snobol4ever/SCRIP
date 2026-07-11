@@ -75,21 +75,9 @@ main_α_body:
  .quad 2
  xchain0_n2_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 128]
- cmp eax, 100
- je .Lx3_0
- mov eax, dword ptr [r12 + 144]
- cmp eax, 100
- je .Lx3_0
- mov eax, dword ptr [r12 + 128]
- cmp eax, 6
- jne .Lx3_2
- mov eax, dword ptr [r12 + 144]
- cmp eax, 6
- jne .Lx3_2
 .Lx3_1:
- mov rax, qword ptr [r12 + 136]
- mov rcx, qword ptr [r12 + 152]
+ mov rax, 3
+ mov rcx, 2
  add rax, rcx
  mov qword ptr [r12 + 112], 6
  mov qword ptr [r12 + 120], rax
@@ -190,21 +178,9 @@ main_α_body:
  .string "FAIL 410/001: 3+2"
  xchain0_n8_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 272]
- cmp eax, 100
- je .Lx9_0
- mov eax, dword ptr [r12 + 288]
- cmp eax, 100
- je .Lx9_0
- mov eax, dword ptr [r12 + 272]
- cmp eax, 6
- jne .Lx9_2
- mov eax, dword ptr [r12 + 288]
- cmp eax, 6
- jne .Lx9_2
 .Lx9_1:
- mov rax, qword ptr [r12 + 280]
- mov rcx, qword ptr [r12 + 296]
+ mov rax, 3
+ mov rcx, 2
  sub rax, rcx
  mov qword ptr [r12 + 256], 6
  mov qword ptr [r12 + 264], rax
@@ -316,21 +292,9 @@ main_α_body:
  .string "FAIL 410/002: 3-2"
  xchain0_n15_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 416]
- cmp eax, 100
- je .Lx16_0
- mov eax, dword ptr [r12 + 432]
- cmp eax, 100
- je .Lx16_0
- mov eax, dword ptr [r12 + 416]
- cmp eax, 6
- jne .Lx16_2
- mov eax, dword ptr [r12 + 432]
- cmp eax, 6
- jne .Lx16_2
 .Lx16_1:
- mov rax, qword ptr [r12 + 424]
- mov rcx, qword ptr [r12 + 440]
+ mov rax, 3
+ mov rcx, 2
  imul rax, rcx
  mov qword ptr [r12 + 400], 6
  mov qword ptr [r12 + 408], rax
@@ -442,21 +406,9 @@ main_α_body:
  .string "FAIL 410/003: 3*2"
  xchain0_n22_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 560]
- cmp eax, 100
- je .Lx23_0
- mov eax, dword ptr [r12 + 576]
- cmp eax, 100
- je .Lx23_0
- mov eax, dword ptr [r12 + 560]
- cmp eax, 6
- jne .Lx23_2
- mov eax, dword ptr [r12 + 576]
- cmp eax, 6
- jne .Lx23_2
 .Lx23_1:
- mov rax, qword ptr [r12 + 568]
- mov rcx, qword ptr [r12 + 584]
+ mov rax, 5
+ mov rcx, 2
  cqo
  idiv rcx
  mov qword ptr [r12 + 544], 6
@@ -669,18 +621,12 @@ main_α_body:
  mov eax, dword ptr [r12 + 848]
  cmp eax, 100
  je .Lx37_0
- mov eax, dword ptr [r12 + 864]
- cmp eax, 100
- je .Lx37_0
  mov eax, dword ptr [r12 + 848]
- cmp eax, 6
- jne .Lx37_2
- mov eax, dword ptr [r12 + 864]
  cmp eax, 6
  jne .Lx37_2
 .Lx37_1:
  mov rax, qword ptr [r12 + 856]
- mov rcx, qword ptr [r12 + 872]
+ mov rcx, 2
  add rax, rcx
  mov qword ptr [r12 + 832], 6
  mov qword ptr [r12 + 840], rax
@@ -794,20 +740,14 @@ main_α_body:
  .string "FAIL 410/006: string+int coerce"
  xchain0_n43_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 992]
- cmp eax, 100
- je .Lx44_0
  mov eax, dword ptr [r12 + 1008]
  cmp eax, 100
  je .Lx44_0
- mov eax, dword ptr [r12 + 992]
- cmp eax, 6
- jne .Lx44_2
  mov eax, dword ptr [r12 + 1008]
  cmp eax, 6
  jne .Lx44_2
 .Lx44_1:
- mov rax, qword ptr [r12 + 1000]
+ mov rax, 3
  mov rcx, qword ptr [r12 + 1016]
  add rax, rcx
  mov qword ptr [r12 + 976], 6
@@ -1052,20 +992,14 @@ main_α_body:
  .string "FAIL 410/008: string+string coerce"
  xchain0_n57_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 1280]
- cmp eax, 100
- je .Lx58_0
  mov eax, dword ptr [r12 + 1296]
  cmp eax, 100
  je .Lx58_0
- mov eax, dword ptr [r12 + 1280]
- cmp eax, 6
- jne .Lx58_2
  mov eax, dword ptr [r12 + 1296]
  cmp eax, 6
  jne .Lx58_2
 .Lx58_1:
- mov rax, qword ptr [r12 + 1288]
+ mov rax, 5
  mov rcx, qword ptr [r12 + 1304]
  add rax, rcx
  mov qword ptr [r12 + 1264], 6

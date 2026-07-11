@@ -297,18 +297,12 @@ main_α_body:
  mov eax, dword ptr [r12 + 272]
  cmp eax, 100
  je .Lx19_0
- mov eax, dword ptr [r12 + 288]
- cmp eax, 100
- je .Lx19_0
  mov eax, dword ptr [r12 + 272]
- cmp eax, 6
- jne .Lx19_2
- mov eax, dword ptr [r12 + 288]
  cmp eax, 6
  jne .Lx19_2
 .Lx19_1:
  mov rax, qword ptr [r12 + 280]
- mov rcx, qword ptr [r12 + 296]
+ mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 256], 6
  mov qword ptr [r12 + 264], rax

@@ -298,18 +298,12 @@ main_α_body:
  mov eax, dword ptr [r12 + 288]
  cmp eax, 100
  je .Lx24_0
- mov eax, dword ptr [r12 + 304]
- cmp eax, 100
- je .Lx24_0
  mov eax, dword ptr [r12 + 288]
- cmp eax, 6
- jne .Lx24_2
- mov eax, dword ptr [r12 + 304]
  cmp eax, 6
  jne .Lx24_2
 .Lx24_1:
  mov rax, qword ptr [r12 + 296]
- mov rcx, qword ptr [r12 + 312]
+ mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 272], 6
  mov qword ptr [r12 + 280], rax

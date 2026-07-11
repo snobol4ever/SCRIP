@@ -60,21 +60,9 @@ main_α_body:
  .quad 4
  xchain0_n2_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 96]
- cmp eax, 100
- je .Lx3_0
- mov eax, dword ptr [r12 + 112]
- cmp eax, 100
- je .Lx3_0
- mov eax, dword ptr [r12 + 96]
- cmp eax, 6
- jne .Lx3_2
- mov eax, dword ptr [r12 + 112]
- cmp eax, 6
- jne .Lx3_2
 .Lx3_1:
- mov rax, qword ptr [r12 + 104]
- mov rcx, qword ptr [r12 + 120]
+ mov rax, 10
+ mov rcx, 4
  cqo
  idiv rcx
  mov qword ptr [r12 + 80], 6

@@ -215,20 +215,14 @@ main_α_body:
  jmp xchain0_n14_α
  xchain0_n12_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 336]
- cmp eax, 100
- je .Lx15_0
  mov eax, dword ptr [r12 + 352]
  cmp eax, 100
  je .Lx15_0
- mov eax, dword ptr [r12 + 336]
- cmp eax, 6
- jne .Lx15_2
  mov eax, dword ptr [r12 + 352]
  cmp eax, 6
  jne .Lx15_2
 .Lx15_1:
- mov rax, qword ptr [r12 + 344]
+ mov rax, 80
  mov rcx, qword ptr [r12 + 360]
  sub rax, rcx
  mov qword ptr [r12 + 320], 6
@@ -293,18 +287,12 @@ main_α_body:
  mov eax, dword ptr [r12 + 512]
  cmp eax, 100
  je .Lx19_0
- mov eax, dword ptr [r12 + 528]
- cmp eax, 100
- je .Lx19_0
  mov eax, dword ptr [r12 + 512]
- cmp eax, 6
- jne .Lx19_2
- mov eax, dword ptr [r12 + 528]
  cmp eax, 6
  jne .Lx19_2
 .Lx19_1:
  mov rax, qword ptr [r12 + 520]
- mov rcx, qword ptr [r12 + 536]
+ mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 496], 6
  mov qword ptr [r12 + 504], rax
@@ -349,18 +337,12 @@ main_α_body:
  mov eax, dword ptr [r12 + 320]
  cmp eax, 100
  je .Lx21_0
- mov eax, dword ptr [r12 + 400]
- cmp eax, 100
- je .Lx21_0
  mov eax, dword ptr [r12 + 320]
- cmp eax, 6
- jne .Lx21_2
- mov eax, dword ptr [r12 + 400]
  cmp eax, 6
  jne .Lx21_2
 .Lx21_1:
  mov rax, qword ptr [r12 + 328]
- mov rcx, qword ptr [r12 + 408]
+ mov rcx, 2
  cqo
  idiv rcx
  mov qword ptr [r12 + 304], 6

@@ -117,21 +117,9 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n6_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 160]
- cmp eax, 100
- je .Lx7_0
- mov eax, dword ptr [r12 + 176]
- cmp eax, 100
- je .Lx7_0
- mov eax, dword ptr [r12 + 160]
- cmp eax, 6
- jne .Lx7_2
- mov eax, dword ptr [r12 + 176]
- cmp eax, 6
- jne .Lx7_2
 .Lx7_1:
- mov rax, qword ptr [r12 + 168]
- mov rcx, qword ptr [r12 + 184]
+ mov rax, 0
+ mov rcx, 5
  sub rax, rcx
  mov qword ptr [r12 + 144], 6
  mov qword ptr [r12 + 152], rax

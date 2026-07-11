@@ -1205,21 +1205,9 @@ main_α_body:
  .quad 1
  xchain0_n83_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 1936]
- cmp eax, 100
- je .Lx84_0
- mov eax, dword ptr [r12 + 1952]
- cmp eax, 100
- je .Lx84_0
- mov eax, dword ptr [r12 + 1936]
- cmp eax, 6
- jne .Lx84_2
- mov eax, dword ptr [r12 + 1952]
- cmp eax, 6
- jne .Lx84_2
 .Lx84_1:
- mov rax, qword ptr [r12 + 1944]
- mov rcx, qword ptr [r12 + 1960]
+ mov rax, 5
+ mov rcx, 1
  sub rax, rcx
  mov qword ptr [r12 + 1920], 6
  mov qword ptr [r12 + 1928], rax
