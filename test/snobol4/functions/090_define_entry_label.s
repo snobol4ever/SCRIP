@@ -218,38 +218,59 @@ main_α_body:
 .Lx6_0:
  .quad 41
  xchain5_n1_α:
-  .section .rodata
-  .Lcall6_pname: .string "bumpit"
-  .section .text
-  .intel_syntax noprefix
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 176]
  mov rdx, qword ptr [r12 + 184]
  call rt_arg_stage@PLT
-   lea rdi, [rip + .Lcall6_pname]
+ mov rdi, qword ptr [rip + .Lx8_0]
  mov esi, 1
- call rt_call_proc_descr@PLT
+ call rt_proc_call_open@PLT
+ test rax, rax
+ je .Lx8_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_proc_call_epilogue@PLT
+ jmp .Lx8_2
+.Lx8_1:
+ call rt_faildescr@PLT
+.Lx8_2:
+ mov rsp, rbp
+ pop rbp
  mov qword ptr [r12 + 144], rax
  mov qword ptr [r12 + 152], rdx
  cmp eax, 99
  je main_γ
  jmp xchain5_n2_α
-xchain5_n1_β:
+ xchain5_n1_β:
  jmp main_γ
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
+ .string "bumpit"
 # IR_ASSIGN global
  xchain5_n2_α:
  mov rsi, qword ptr [r12 + 144]
  mov rdx, qword ptr [r12 + 152]
- mov rdi, qword ptr [rip + .Lx8_0]
+ mov rdi, qword ptr [rip + .Lx9_0]
  call NV_SET_fn@PLT
  mov qword ptr [r12 + 128], rax
  mov qword ptr [r12 + 136], rdx
  jmp main_γ
  xchain5_n2_β:
  jmp main_γ
-.Lx8_0:
- .quad .Lx8_0_s
-.Lx8_0_s:
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
  .string "OUTPUT"
 main_β:
 jmp main_ω

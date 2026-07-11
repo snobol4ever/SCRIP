@@ -299,10 +299,9 @@ main_α_body:
 .Lx15_0_s:
  .string "world"
  xchain13_n2_α:
-  .section .rodata
-  .Lcall15_pname: .string "swap"
-  .section .text
-  .intel_syntax noprefix
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 304]
  mov rdx, qword ptr [r12 + 312]
@@ -311,16 +310,38 @@ main_α_body:
  mov rsi, qword ptr [r12 + 320]
  mov rdx, qword ptr [r12 + 328]
  call rt_arg_stage@PLT
-   lea rdi, [rip + .Lcall15_pname]
+ mov rdi, qword ptr [rip + .Lx17_0]
  mov esi, 2
- call rt_call_proc_descr@PLT
+ call rt_proc_call_open@PLT
+ test rax, rax
+ je .Lx17_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_proc_call_epilogue@PLT
+ jmp .Lx17_2
+.Lx17_1:
+ call rt_faildescr@PLT
+.Lx17_2:
+ mov rsp, rbp
+ pop rbp
  mov qword ptr [r12 + 256], rax
  mov qword ptr [r12 + 264], rdx
  cmp eax, 99
  je main_γ
  jmp main_γ
-xchain13_n2_β:
+ xchain13_n2_β:
  jmp main_γ
+.Lx17_0:
+ .quad .Lx17_0_s
+.Lx17_0_s:
+ .string "swap"
 main_β:
 jmp main_ω
 main_γ:

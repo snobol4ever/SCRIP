@@ -394,38 +394,59 @@ main_α_body:
 .Lx27_0_s:
  .string "aaa"
  xchain26_n1_α:
-  .section .rodata
-  .Lcall19_pname: .string "MATCHIT"
-  .section .text
-  .intel_syntax noprefix
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 304]
  mov rdx, qword ptr [r12 + 312]
  call rt_arg_stage@PLT
-   lea rdi, [rip + .Lcall19_pname]
+ mov rdi, qword ptr [rip + .Lx29_0]
  mov esi, 1
- call rt_call_proc_descr@PLT
+ call rt_proc_call_open@PLT
+ test rax, rax
+ je .Lx29_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_proc_call_epilogue@PLT
+ jmp .Lx29_2
+.Lx29_1:
+ call rt_faildescr@PLT
+.Lx29_2:
+ mov rsp, rbp
+ pop rbp
  mov qword ptr [r12 + 272], rax
  mov qword ptr [r12 + 280], rdx
  cmp eax, 99
  je main_γ
  jmp xchain26_n2_α
-xchain26_n1_β:
+ xchain26_n1_β:
  jmp main_γ
+.Lx29_0:
+ .quad .Lx29_0_s
+.Lx29_0_s:
+ .string "MATCHIT"
 # IR_ASSIGN global
  xchain26_n2_α:
  mov rsi, qword ptr [r12 + 272]
  mov rdx, qword ptr [r12 + 280]
- mov rdi, qword ptr [rip + .Lx29_0]
+ mov rdi, qword ptr [rip + .Lx30_0]
  call NV_SET_fn@PLT
  mov qword ptr [r12 + 256], rax
  mov qword ptr [r12 + 264], rdx
  jmp main_γ
  xchain26_n2_β:
  jmp main_γ
-.Lx29_0:
- .quad .Lx29_0_s
-.Lx29_0_s:
+.Lx30_0:
+ .quad .Lx30_0_s
+.Lx30_0_s:
  .string "OUTPUT"
 main_β:
 jmp main_ω
