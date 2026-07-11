@@ -25,9 +25,6 @@ int64_t rt_gvar_get_int(const char * name);
 extern int g_gva_active;
 int gva_index_of(const char * name);
 DESCR_t rt_gvar_get_descr(const char * name);
-DESCR_t rt_call_named_proc(const char * name, DESCR_t * args, int nargs);
-DESCR_t rt_call_named_proc_sl(const char * name, DESCR_t * args, int nargs, void * sl);
-DESCR_t rt_call_proc_direct(long idx, DESCR_t * args, int nargs);
 int  rt_proc_index_of(const char * name);
 int  rt_proc_frame_nslots(const char * name);
 int  rt_proc_decl_level(const char * name);
@@ -58,7 +55,6 @@ extern std::string bb_call_write_legacy_str(IR_t *, int);
 extern std::string bb_call_fn_str(IR_t *);
 extern std::string bb_call_bool_str(IR_t *);
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
-static std::string marshal_single_call(IR_t * lf, int aoff, int lblid);
 static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void arith_operands(IR_graph_t * sg, IR_t * nd, IR_t ** a, IR_t ** b) {
@@ -126,7 +122,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
     } else if (a->op == IR_CALL || a->op == IR_OP_COUNT || ir_is_call_kind(a->op)) {
         int sc = zoff(a);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
-        s += marshal_single_call(a, sc, bb_node_id(a));
+        return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
         s += x86("mov", "rax", FRQ(sc + 8));
     } else if (arith_is_arith_binop(a)) {
         s += marshal_arith_rax(sg, a);
@@ -164,7 +160,7 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
     } else if (b->op == IR_CALL || b->op == IR_OP_COUNT || ir_is_call_kind(b->op)) {
         int sc = zoff(b);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
-        s += marshal_single_call(b, sc, bb_node_id(b));
+        return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
         s += x86("mov", "rcx", FRQ(sc + 8));
     } else if (arith_is_arith_binop(b)) {
         s += marshal_arith_rax(sg, b);
@@ -193,35 +189,6 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string marshal_single_call(IR_t * lf, int aoff, int lblid) {
-    const char * nfn = IR_LIT(lf).sval ? IR_LIT(lf).sval : "";
-    int nn = (int) IR_LIT(lf).ival;
-    int avbase = zoff(lf);
-    if (avbase < 0 || nn > (lf ? lf->n_operands : 0)) return x86_bomb("marshal_single_call: no/short LOWER slot grant (TMP-ERADICATE)");
-    avbase += 16;
-    int isreg = (nfn[0] && rt_proc_is_registered(nfn));
-    int nmig  = isreg && rt_proc_frame_nslots(nfn) >= 0;
-    const char * rsym = isreg ? (nmig ? "rt_call_named_proc_sl" : "rt_call_named_proc") : "rt_call_arr";
-    std::string s;
-    if (nn > 0) return x86_bomb("marshal_single_call: arg marshal gouged, no sub-graph source (TMP-ERADICATE)");
-    uint64_t fptr;
-    if (nmig)       { DESCR_t (*fp)(const char *, DESCR_t *, int, void *) = rt_call_named_proc_sl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    else if (isreg) { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_named_proc; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    else            { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr;        fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    std::string fl = std::string(".Lcallfn") + std::to_string(lblid);
-    s += x86("directive", ".section .rodata");
-    s += x86("directive", (fl + ": .string \"" + nfn + "\"").c_str());
-    s += x86("directive", ".section .text");
-    s += x86("directive", ".intel_syntax noprefix");
-    s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)nfn, fl.c_str());
-    s += x86("lea", "rsi", FRQ(avbase));
-    s += x86("mov32", "edx", (long)nn);
-    s += IF(nmig, pas_sl_setup(nfn));
-    s += x86("call", rsym, fptr);
-    s += x86("mov", FRQ(aoff), "rax");
-    s += x86("mov", FRQ(aoff + 8), "rdx");
-    return s;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
@@ -279,7 +246,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
             s += x86("mov", "rax", FRQ(ps + 8));
             s += x86("mov", FRQ(aoff + 8), "rax");
             return s;
-        } return marshal_single_call(lf, aoff, bb_node_id(lf));
+        } return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
     }
     if (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && is_global(IR_LIT(lf).sval)) {
         char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);

@@ -28,6 +28,15 @@ GLOB="${1:-*.icn}"
 CHECK="${CHECK:-0}"
 [ -x "$SCRIP" ] || { echo "FATAL: $SCRIP not built (run scripts/build_scrip.sh)"; exit 2; }
 [ -d "$CORPUS" ] || { echo "FATAL: corpus dir $CORPUS not found"; exit 2; }
+case "$CORPUS" in
+  */programs/icon|*/programs/icon/*)
+    echo "REFUSED: $CORPUS is the Icon rung TEST-PROGRAM suite, not a .s-artifact tree."
+    echo "         Lon directive 2026-07-11: .s artifacts are maintained for the DEMO and BENCHMARK"
+    echo "         corpora ONLY, never for the ~299 rung test programs. Pointing ICON_CORPUS here is"
+    echo "         what minted 294 stale artifacts that then LIED about the compiler's real output."
+    echo "         Sweep the COMPILER (scrip --compile), not the artifacts. See PROC-ICON-BENCH-ASM.md."
+    exit 2 ;;
+esac
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 canon_pl="$TMP/canon.pl"
 cat > "$canon_pl" <<'PERL'
