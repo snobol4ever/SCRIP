@@ -21,6 +21,7 @@ std::string bb_coerce_string();
 std::string bb_coerce_numeric();
 std::string bb_cmp_test();
 std::string bb_coerce_integer();
+std::string bb_coerce_real();
 std::string bb_match_atp();
 std::string bb_match_len();
 std::string bb_match_rem();
