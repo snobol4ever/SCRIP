@@ -70,21 +70,9 @@ main_α_body:
  .quad 4
  xchain0_n3_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 128]
- cmp eax, 100
- je .Lx4_0
- mov eax, dword ptr [r12 + 144]
- cmp eax, 100
- je .Lx4_0
- mov eax, dword ptr [r12 + 128]
- cmp eax, 6
- jne .Lx4_2
- mov eax, dword ptr [r12 + 144]
- cmp eax, 6
- jne .Lx4_2
 .Lx4_1:
- mov rax, qword ptr [r12 + 136]
- mov rcx, qword ptr [r12 + 152]
+ mov rax, 3
+ mov rcx, 4
  imul rax, rcx
  mov qword ptr [r12 + 112], 6
  mov qword ptr [r12 + 120], rax
@@ -116,20 +104,14 @@ main_α_body:
  jmp main_γ
  xchain0_n4_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 96]
- cmp eax, 100
- je .Lx5_0
  mov eax, dword ptr [r12 + 112]
  cmp eax, 100
  je .Lx5_0
- mov eax, dword ptr [r12 + 96]
- cmp eax, 6
- jne .Lx5_2
  mov eax, dword ptr [r12 + 112]
  cmp eax, 6
  jne .Lx5_2
 .Lx5_1:
- mov rax, qword ptr [r12 + 104]
+ mov rax, 2
  mov rcx, qword ptr [r12 + 120]
  add rax, rcx
  mov qword ptr [r12 + 80], 6

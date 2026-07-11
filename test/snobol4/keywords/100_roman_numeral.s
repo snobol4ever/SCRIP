@@ -1798,18 +1798,12 @@ proc_roman_α_body:
  mov eax, dword ptr [r12 + 2800]
  cmp eax, 100
  je .Lx159_0
- mov eax, dword ptr [r12 + 2816]
- cmp eax, 100
- je .Lx159_0
  mov eax, dword ptr [r12 + 2800]
- cmp eax, 6
- jne .Lx159_2
- mov eax, dword ptr [r12 + 2816]
  cmp eax, 6
  jne .Lx159_2
 .Lx159_1:
  mov rax, qword ptr [r12 + 2808]
- mov rcx, qword ptr [r12 + 2824]
+ mov rcx, 1
  add rax, rcx
  mov qword ptr [r12 + 2784], 6
  mov qword ptr [r12 + 2792], rax
