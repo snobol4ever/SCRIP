@@ -753,20 +753,57 @@ extern int exec_stmt(const char *sname, DESCR_t *sv, DESCR_t pat, DESCR_t *repl,
 extern const char *Σ;
 extern int Σlen;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_defer_match(const char *varname, int ival_flag, int cur_delta)
+/* NCB-1c M1 (2026-07-11): rt_defer_match split into strict leaves — the *X / DT_X transfers move OUT of C into
+ * bb_match_defer (the NCB-1b arm, looped).  Manual p.85-86: *X re-fetches at EVERY match-time reference; the
+ * Expression datatype (DT_X) is evaluated only when referenced in a match, and its evaluation may itself run a
+ * match — hence the LIFO, and hence the box (not C) must own the transfer.  Round discipline mirrors the old
+ * body EXACTLY: one '*'-triggered call and at most one DT_X-triggered call (dtx_used); a second DT_X result is
+ * stored, not re-called, and falls out of close as -1 (it is neither S nor I nor R).
+ *   rt_defer_open  -> fbytes (a call is owed) | 0 (resolved or failed)
+ *   rt_defer_step  -> fbytes (another call owed) | 0 (resolved or failed)   [after each transfer]
+ *   rt_defer_close -> new cursor | -1 */
+typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
+static rt_dfx_t *g_dfx; static int g_dfx_top, g_dfx_cap;
+static rt_dfx_t *rt_dfx_push(void) {
+    if (g_dfx_top >= g_dfx_cap) { int nc = g_dfx_cap ? g_dfx_cap * 2 : 64; rt_dfx_t *np = (rt_dfx_t *)realloc(g_dfx, (size_t)nc * sizeof(rt_dfx_t)); if (!np) return (rt_dfx_t *)0; g_dfx = np; g_dfx_cap = nc; }
+    rt_dfx_t *s = &g_dfx[g_dfx_top++]; s->val = NULVCL; s->failed = 0; s->dtx_used = 0; return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_defer_open(const char *varname, int ival_flag)
 {
-    extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
-    DESCR_t val;
-    if (varname && !strcmp(varname, "FAIL")) return -1;
-    if (varname && varname[0] == '*') val = rt_call_named_proc(varname + 1, (DESCR_t *)0, 0);
-    else {
-        val = NV_GET_fn(varname ? varname : "");
-        if (ival_flag) {
-            if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
-            else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
-        }
+    extern long rt_proc_call_open(const char *name, int nargs);
+    rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
+    if (varname && !strcmp(varname, "FAIL")) { s->failed = 1; return 0; }
+    if (varname && varname[0] == '*') { long fb = rt_proc_call_open(varname + 1, 0); if (!fb) s->failed = 1; return fb; }
+    DESCR_t val = NV_GET_fn(varname ? varname : "");
+    if (ival_flag) {
+        if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
+        else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
     }
-    if (val.v == DT_X) val = rt_call_named_proc(val.s ? val.s : "", (DESCR_t *)0, 0);
+    if (val.v == DT_X) { s->dtx_used = 1; long fb = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb) s->failed = 1; return fb; }
+    s->val = val;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_defer_step(DESCR_t fret)
+{
+    extern DESCR_t rt_proc_call_epilogue(DESCR_t fret);
+    extern long rt_proc_call_open(const char *name, int nargs);
+    if (g_dfx_top <= 0) return 0;
+    rt_dfx_t *s = &g_dfx[g_dfx_top - 1];
+    DESCR_t val = rt_proc_call_epilogue(fret);
+    if (IS_FAIL_fn(val)) { s->failed = 1; return 0; }
+    if (val.v == DT_X && !s->dtx_used) { s->dtx_used = 1; long fb = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb) s->failed = 1; return fb; }
+    s->val = val;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_defer_close(int cur_delta)
+{
+    if (g_dfx_top <= 0) return -1;
+    rt_dfx_t s = g_dfx[--g_dfx_top];
+    if (s.failed) return -1;
+    DESCR_t val = s.val;
     if (IS_FAIL_fn(val)) return -1;
     char nb[40];
     if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
