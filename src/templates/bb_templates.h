@@ -90,7 +90,6 @@ std::string bb_goto_dyn();
 std::string bb_scan_stmt();
 std::string bb_scan_splice_empty();
 std::string bb_gen_scan();
-std::string bb_gvar_assign();
 std::string bb_assign_local();
 std::string bb_assign_global();
 std::string bb_field_get();

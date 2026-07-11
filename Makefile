@@ -108,7 +108,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_var.cpp \
     $(SRC)/templates/bb_var_global.cpp \
     $(SRC)/templates/bb_return.cpp \
-    $(SRC)/templates/bb_gvar_assign.cpp \
     $(SRC)/templates/bb_keyword_icon.cpp \
     $(SRC)/templates/bb_keyword_snobol4.cpp \
     $(SRC)/templates/bb_keyword_assign.cpp \
@@ -325,7 +324,6 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var.cpp               -o $(OBJ)/bb_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_global.cpp        -o $(OBJ)/bb_var_global.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_return.cpp             -o $(OBJ)/bb_return.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign.cpp        -o $(OBJ)/bb_gvar_assign.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_frame.cpp          -o $(OBJ)/bb_var_frame.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_frame_ref.cpp      -o $(OBJ)/bb_var_frame_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gen_scan.cpp          -o $(OBJ)/bb_gen_scan.o
