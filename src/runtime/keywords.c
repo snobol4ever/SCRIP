@@ -212,6 +212,7 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     char lk[64]; size_t li = 0;
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
+    if (!strcmp(lk, "alphabet")) { extern char alphabet[257]; return BSTRVAL(alphabet, 256); }
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
     return NV_GET_fn(sval);
