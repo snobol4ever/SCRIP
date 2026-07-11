@@ -101,7 +101,20 @@ proc_PAT$0_α_body:
  mov esi, eax
  mov edx, r14d
  mov ecx, 0
- call rt_cap_assign_cursor@PLT
+ call rt_cap_open@PLT
+ test rax, rax
+ je .Lx8_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_cap_finish@PLT
+.Lx8_1:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n5_α
@@ -220,7 +233,20 @@ proc_PAT$0_α_body:
  mov esi, eax
  mov edx, r14d
  mov ecx, 0
- call rt_cap_assign_cursor@PLT
+ call rt_cap_open@PLT
+ test rax, rax
+ je .Lx18_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_cap_finish@PLT
+.Lx18_1:
  mov rsp, rbp
  pop rbp
  jmp xchain0_n10_α
@@ -322,7 +348,20 @@ proc_PAT$0_α_body:
  mov esi, eax
  mov edx, r14d
  mov ecx, 0
- call rt_cap_assign_cursor@PLT
+ call rt_cap_open@PLT
+ test rax, rax
+ je .Lx27_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_cap_finish@PLT
+.Lx27_1:
  mov rsp, rbp
  pop rbp
  jmp proc_PAT$0_γ
