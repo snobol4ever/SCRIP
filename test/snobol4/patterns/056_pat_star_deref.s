@@ -268,6 +268,12 @@ main_α_body:
  pop rbp
  jmp xchain0_n11_α
  xchain0_n10_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n7_β
 # IR_MATCH_RELEASE
  xchain0_n11_α:
