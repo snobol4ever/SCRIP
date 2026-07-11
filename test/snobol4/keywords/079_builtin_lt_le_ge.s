@@ -60,21 +60,53 @@ main_α_body:
  .quad 5
 # IR_COERCE_NUMERIC
  xchain0_n2_α:
+ mov eax, dword ptr [r12 + 128]
+ cmp eax, 7
+ je .Lx4_1
+ cmp eax, 6
+ jne .Lx4_0
+ mov eax, dword ptr [r12 + 112]
+ cmp eax, 6
+ jne .Lx4_0
+.Lx4_1:
+ mov rax, qword ptr [r12 + 128]
+ mov qword ptr [r12 + 96], rax
+ mov rax, qword ptr [r12 + 136]
+ mov qword ptr [r12 + 104], rax
+ jmp .Lx4_2
+.Lx4_0:
  lea rdi, [r12 + 128]
  lea rsi, [r12 + 112]
  lea rdx, [r12 + 96]
  mov rcx, 147
  call rt_coerce_num2_d@PLT
+.Lx4_2:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp main_γ
 # IR_COERCE_NUMERIC
  xchain0_n3_α:
+ mov eax, dword ptr [r12 + 112]
+ cmp eax, 7
+ je .Lx6_1
+ cmp eax, 6
+ jne .Lx6_0
+ mov eax, dword ptr [r12 + 128]
+ cmp eax, 6
+ jne .Lx6_0
+.Lx6_1:
+ mov rax, qword ptr [r12 + 112]
+ mov qword ptr [r12 + 80], rax
+ mov rax, qword ptr [r12 + 120]
+ mov qword ptr [r12 + 88], rax
+ jmp .Lx6_2
+.Lx6_0:
  lea rdi, [r12 + 112]
  lea rsi, [r12 + 128]
  lea rdx, [r12 + 80]
  mov rcx, 148
  call rt_coerce_num2_d@PLT
+.Lx6_2:
  jmp xchain0_n4_α
  xchain0_n3_β:
  jmp main_γ
@@ -139,21 +171,53 @@ main_α_body:
  .quad 5
 # IR_COERCE_NUMERIC
  xchain0_n9_α:
+ mov eax, dword ptr [r12 + 240]
+ cmp eax, 7
+ je .Lx14_1
+ cmp eax, 6
+ jne .Lx14_0
+ mov eax, dword ptr [r12 + 224]
+ cmp eax, 6
+ jne .Lx14_0
+.Lx14_1:
+ mov rax, qword ptr [r12 + 240]
+ mov qword ptr [r12 + 208], rax
+ mov rax, qword ptr [r12 + 248]
+ mov qword ptr [r12 + 216], rax
+ jmp .Lx14_2
+.Lx14_0:
  lea rdi, [r12 + 240]
  lea rsi, [r12 + 224]
  lea rdx, [r12 + 208]
  mov rcx, 118
  call rt_coerce_num2_d@PLT
+.Lx14_2:
  jmp xchain0_n10_α
  xchain0_n9_β:
  jmp main_γ
 # IR_COERCE_NUMERIC
  xchain0_n10_α:
+ mov eax, dword ptr [r12 + 224]
+ cmp eax, 7
+ je .Lx16_1
+ cmp eax, 6
+ jne .Lx16_0
+ mov eax, dword ptr [r12 + 240]
+ cmp eax, 6
+ jne .Lx16_0
+.Lx16_1:
+ mov rax, qword ptr [r12 + 224]
+ mov qword ptr [r12 + 192], rax
+ mov rax, qword ptr [r12 + 232]
+ mov qword ptr [r12 + 200], rax
+ jmp .Lx16_2
+.Lx16_0:
  lea rdi, [r12 + 224]
  lea rsi, [r12 + 240]
  lea rdx, [r12 + 192]
  mov rcx, 119
  call rt_coerce_num2_d@PLT
+.Lx16_2:
  jmp xchain0_n11_α
  xchain0_n10_β:
  jmp main_γ
@@ -218,21 +282,53 @@ main_α_body:
  .quad 5
 # IR_COERCE_NUMERIC
  xchain0_n16_α:
+ mov eax, dword ptr [r12 + 352]
+ cmp eax, 7
+ je .Lx24_1
+ cmp eax, 6
+ jne .Lx24_0
+ mov eax, dword ptr [r12 + 336]
+ cmp eax, 6
+ jne .Lx24_0
+.Lx24_1:
+ mov rax, qword ptr [r12 + 352]
+ mov qword ptr [r12 + 320], rax
+ mov rax, qword ptr [r12 + 360]
+ mov qword ptr [r12 + 328], rax
+ jmp .Lx24_2
+.Lx24_0:
  lea rdi, [r12 + 352]
  lea rsi, [r12 + 336]
  lea rdx, [r12 + 320]
  mov rcx, 109
  call rt_coerce_num2_d@PLT
+.Lx24_2:
  jmp xchain0_n17_α
  xchain0_n16_β:
  jmp main_γ
 # IR_COERCE_NUMERIC
  xchain0_n17_α:
+ mov eax, dword ptr [r12 + 336]
+ cmp eax, 7
+ je .Lx26_1
+ cmp eax, 6
+ jne .Lx26_0
+ mov eax, dword ptr [r12 + 352]
+ cmp eax, 6
+ jne .Lx26_0
+.Lx26_1:
+ mov rax, qword ptr [r12 + 336]
+ mov qword ptr [r12 + 304], rax
+ mov rax, qword ptr [r12 + 344]
+ mov qword ptr [r12 + 312], rax
+ jmp .Lx26_2
+.Lx26_0:
  lea rdi, [r12 + 336]
  lea rsi, [r12 + 352]
  lea rdx, [r12 + 304]
  mov rcx, 110
  call rt_coerce_num2_d@PLT
+.Lx26_2:
  jmp xchain0_n18_α
  xchain0_n17_β:
  jmp main_γ
