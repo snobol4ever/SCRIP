@@ -580,7 +580,7 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int ir_is_generator_kind(IR_e t);
-static void sno_ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
+static void sno_ω_to(IR_t * nd, IR_t * t) { if (t) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) {
     /* SN4-PAT-CAPTURE-STACK: re-point nd's exhaust-ω at a left generator t — but a capture COND's ω is
@@ -598,7 +598,7 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
     if (nd && nd->op == IR_MATCH_ALTERNATE && nd->n_operands == 0 && g && tail_idx + 1 < g->n) {
         IR_t * T = g->all[tail_idx + 1];
         if (T && T->op == IR_MATCH_ALTERNATE && T->n_operands > 0 && T->operands[0] == nd) {
-            if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(T, t); else lc_γ_to(T, t);
+            if (t) lc_γ_to_β(T, t); else lc_γ_to(T, t);
             return;
         }
     }
@@ -995,7 +995,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             if (bi0 >= g->n) sno_fatal("ARBNO v2 internal: body lowered to zero nodes", NULL);
             ir_operand_push(G, g->all[bi0]); ir_operand_push(G, g->all[g->n - 1]);
             IR_t * btail = g->all[bi0];
-            if (ir_is_generator_kind(btail->op)) lc_γ_to_β(F, btail); else lc_γ_to(F, btail);
+            lc_γ_to_β(F, btail);
         }
         return G;
     }
@@ -1032,7 +1032,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * pe = sno_pat_node(cx, t->c[0], nd, save);           /* inner pattern, γ → COND, fail → SAVE.β */
         IR_t * itail = (before_i < g->n) ? g->all[before_i] : pe;  /* inner rightmost leaf (first allocated) */
         lc_γ_to(save, pe);                                         /* SAVE.γ → inner entry */
-        sno_ω_to(nd, ir_is_generator_kind(itail->op) ? itail : save); /* COND backtrack-in: resume or pop */
+        sno_ω_to(nd, itail); /* COND backtrack-in: resume or pop */
         ir_operand_push(nd, pe);                                   /* [0] inner entry */
         ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's slot */
         return save;                                               /* capture entry is the SAVE node */
@@ -1055,7 +1055,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * pe = sno_pat_node(cx, t->c[0], nd, save);
         IR_t * itail = (before_i < g->n) ? g->all[before_i] : pe;
         lc_γ_to(save, pe);
-        sno_ω_to(nd, ir_is_generator_kind(itail->op) ? itail : save);
+        sno_ω_to(nd, itail);
         ir_operand_push(nd, pe);
         ir_operand_push(nd, save);
         return save;
@@ -1102,7 +1102,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             int before_e = g->n;
             IR_t * ee = sno_pat_node(cx, elems[i], cur_succ, fail_i);
             IR_t * e_tail = (before_e < g->n) ? g->all[before_e] : ee;
-            if (right_tail && !right_sealed && before_e < g->n && ir_is_generator_kind(e_tail->op)) sno_resume_ω_to(g, right_tail_idx, right_tail, e_tail);
+            if (right_tail && !right_sealed && before_e < g->n) sno_resume_ω_to(g, right_tail_idx, right_tail, e_tail);
             cur_succ = ee; right_tail = e_tail; right_tail_idx = before_e; right_sealed = 0;
         }
         return cur_succ;
@@ -1135,7 +1135,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * save = lc_build(g, IR_MATCH_ALTERNATE, NULL, NULL);    /* phase-0 (n_operands==0): save cursor + resume dispatch */
         IR_t * join = lc_build(g, IR_MATCH_ALTERNATE, NULL, succ);    /* trailing T = J_n: ω→outer succ (MARK exit) */
         ir_operand_push(join, save);
-        if (fail && ir_is_generator_kind(fail->op)) lc_γ_to_β(join, fail); else lc_γ_to(join, fail); /* T reload arm exhausts leftward */
+        if (fail) lc_γ_to_β(join, fail); else lc_γ_to(join, fail); /* T reload arm exhausts leftward */
         for (int i = na - 1; i >= 1; i--) {
             IR_t * ei = sno_pat_node(cx, alts[i], join, join);        /* succ → J_{i+1}.α (MARK); fail → J_{i+1}.β (reload+try-next, β via sno_ω_to) */
             IR_t * ji = lc_build(g, IR_MATCH_ALTERNATE, ei, succ);    /* J_i: γ→alternative i's entry (its reload arm's target), ω→outer succ (MARK exit) */
