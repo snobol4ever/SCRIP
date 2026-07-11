@@ -1547,6 +1547,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { g_suspend_resume_slot = g_emit_cfg->resume_slot; break; }
     int id = g_flat_node_id++;
+    /* RUNG ZB-OWN-0 (Lon 2026-07-11): per-chain statement mark = HEAD's zls entry +16 (head.zls2_mark quad);
+     * -1 when the chain has no HEAD (non-match chains carry no per-box shadow at rung 0 -- recorded scope cut). */
+    int own_mark = -1;
+    { extern int zls_off(const IR_t *); for (int _oi = 0; _oi < n; _oi++) if (nodes[_oi]->op == IR_MATCH_HEAD) { int _ho = zls_off(nodes[_oi]); if (_ho >= 0) own_mark = _ho + 16; break; } }
     for (int i = 0; i < n; i++) {
         lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
@@ -1583,6 +1587,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          * the SAME single call site β already uses.  Scope: this fixes ONLY the per-node α/β def-mechanism
          * asymmetry; it does not audit or touch any other TEXT/BINARY-branching site in this file. */
         emit_zeta_selfload();
+        { extern int zls_off(const IR_t *); extern int zls_node_bytes(const IR_t *); int _zo = zls_off(nodes[i]);
+          g_emit.op_own_mark = own_mark; g_emit.op_own_ci = (_zo >= 0) ? _zo + zls_node_bytes(nodes[i]) : 0; }
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
         IR_t *gtgt = nodes[i]->γ.node;
