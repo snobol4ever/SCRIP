@@ -9,8 +9,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_indirect_goto() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
-    if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_indirect_goto: no label-variable slot (op_off<0)");
+    if (!PLATFORM_X86 || _.op_off < 0) return x86_alpha() + x86_bomb("bb_indirect_goto: no label-variable slot (op_off<0)");
     return x86("comment", "IR_INDIRECT_GOTO alt-resume: jmp *t")
          + x86_alpha()
          + x86("jmp", FRQ(_.op_off + 16))
