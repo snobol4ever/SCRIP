@@ -546,17 +546,28 @@ static int rt_dcap_scope_base(void) { int d = g_rt_dcap_depth; if (d > RT_DCAP_D
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_dcap_record(const char *vname, const char *base, int len) {
     if (!vname || !*vname) return;
-    if (vname[0] != '*') for (int i = rt_dcap_scope_base(); i < g_rt_dcap_n; i++) {
-        if (g_rt_dcap[i].varname && strcmp(g_rt_dcap[i].varname, vname) == 0) {
-            g_rt_dcap[i].base = base; g_rt_dcap[i].len = len; return;
-        }
-    }
     if (g_rt_dcap_n < RT_DCAP_MAX) {
         g_rt_dcap[g_rt_dcap_n].varname = vname;
         g_rt_dcap[g_rt_dcap_n].base    = base;
         g_rt_dcap[g_rt_dcap_n].len     = len;
         g_rt_dcap_n++;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_dcap_pop(void) {
+    if (!g_rt_dcap_active) return;
+    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] pop n=%d base=%d\n", g_rt_dcap_n, rt_dcap_scope_base());
+    if (g_rt_dcap_n > rt_dcap_scope_base()) g_rt_dcap_n--;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_dcap_height(void) { return g_rt_dcap_n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_dcap_restore_to(int h) {
+    if (!g_rt_dcap_active) return;
+    int b = rt_dcap_scope_base();
+    if (h < b) h = b;
+    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] restore n=%d -> %d\n", g_rt_dcap_n, h);
+    if (h <= g_rt_dcap_n) g_rt_dcap_n = h;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_dcap_flush_from(int m) {

@@ -9,7 +9,7 @@ extern "C" void rt_cap_assign_cursor(const char *varname, int saved_delta, int c
 extern "C" void rt_cap_push(void *slot, int delta);
 extern "C" void rt_cap_pop(void *slot);
 extern "C" int rt_cap_top(void *slot);
-extern "C" void rt_cap_unpend(const char *varname);
+extern "C" void rt_dcap_pop(void);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05).  Capture frames live on a per-box stack in the SAVE
@@ -58,12 +58,16 @@ std::string bb_match_capture() {
          + x86_align_leave()
          + x86_gamma()
          + x86_beta()
-         /* NOTE (2026-07-08 s7): an unpend-on-β (dead-trial discard) was tried here and REVERTED — ALT's
-          * try-next-alternative edge routes through this β, so it discarded captures still on the winning
-          * thread ('A' ARB . V ('B'|'C') lost V; proven on /tmp/cap4 vs oracle).  The ring's per-scope
-          * by-name overwrite already collapses generator-extend re-yields; the residual overcommit (a
-          * matched-then-abandoned capture branch whose statement later succeeds elsewhere) is accepted for
-          * this slice — a correct discard needs LOWER to distinguish backtrack-past from alternative-switch
-          * at this edge.  rt_cap_unpend stays in the runtime for that future wiring. */
+         /* PUSH/POP MODEL (Lon directive 2026-07-11, s21): the pend ring is a pure stack — COND.α pushes a
+          * pend (rt_dcap_record, upsert deleted), COND.β pops it (the Python Δ model: pop after yield fires
+          * exactly when the match backtracks in to re-pump the subpattern; oracle p5 'AXB'?'A' ARB . OUTPUT
+          * ('B'|'C') prints X only — the abandoned trial's pend must NOT survive a re-yield).  Phase 2 (IMM)
+          * bypasses the ring, so no pop.  s7's unpend-on-β revert note is SUPERSEDED: that experiment failed
+          * because ALT's try-next-alternative edge routes through this β — if p3-class probes regress, the
+          * fix is in LOWER (alt-switch must restore its own cursor, not ride the capture's β), not here. */
+         + IF((int)_.op_phase == 1,
+               x86_align_enter()
+             + x86("call", "rt_dcap_pop", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_pop)
+             + x86_align_leave())
          + x86_omega();
 }
