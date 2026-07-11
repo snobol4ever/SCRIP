@@ -1052,6 +1052,155 @@ static PlClause *parse_clause(Parser *p) {
     return cl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *PL_PRELUDE_SRC =
+    "member(X,[X|_]).\n"
+    "member(X,[_|T]):-member(X,T).\n"
+    "append([],L,L).\n"
+    "append([H|T],L,[H|R]):-append(T,L,R).\n"
+    "reverse(L,R):-'$reverse_'(L,[],R).\n"
+    "'$reverse_'([],A,A).\n"
+    "'$reverse_'([H|T],A,R):-'$reverse_'(T,[H|A],R).\n"
+    "length(L,N):-'$length_'(L,0,N).\n"
+    "'$length_'([],N,N).\n"
+    "'$length_'([_|T],A,N):-A1 is A+1,'$length_'(T,A1,N).\n"
+    "numlist(L,H,R):-'$numlist_'(L,H,R).\n"
+    "'$numlist_'(L,H,[]):-L>H,!.\n"
+    "'$numlist_'(L,H,[L|T]):-L=<H,L1 is L+1,'$numlist_'(L1,H,T).\n"
+    "last([X],X):- !.\n"
+    "last([_|T],X):-last(T,X).\n"
+    "nth0(N,L,E):-'$nth_'(L,0,N,E).\n"
+    "nth1(N,L,E):-'$nth_'(L,1,N,E).\n"
+    "'$nth_'([H|_],I,I,H).\n"
+    "'$nth_'([_|T],I,N,E):-I1 is I+1,'$nth_'(T,I1,N,E).\n"
+    "sum_list(L,S):-'$sum_list_'(L,0,S).\n"
+    "sumlist(L,S):-'$sum_list_'(L,0,S).\n"
+    "'$sum_list_'([],S,S).\n"
+    "'$sum_list_'([H|T],A,S):-A1 is A+H,'$sum_list_'(T,A1,S).\n"
+    "max_list([H|T],M):-'$max_list_'(T,H,M).\n"
+    "'$max_list_'([],M,M).\n"
+    "'$max_list_'([H|T],A,M):-(H>A->A1=H;A1=A),'$max_list_'(T,A1,M).\n"
+    "min_list([H|T],M):-'$min_list_'(T,H,M).\n"
+    "'$min_list_'([],M,M).\n"
+    "'$min_list_'([H|T],A,M):-(H<A->A1=H;A1=A),'$min_list_'(T,A1,M).\n"
+    "select(X,[X|T],T).\n"
+    "select(X,[H|T],[H|R]):-select(X,T,R).\n"
+    "subtract([],_,[]).\n"
+    "subtract([H|T],L,R):-(member(H,L)->R=R1;R=[H|R1]),subtract(T,L,R1).\n"
+    "intersection([],_,[]).\n"
+    "intersection([H|T],L,R):-(member(H,L)->R=[H|R1];R=R1),intersection(T,L,R1).\n"
+    "union([],L,L).\n"
+    "union([H|T],L,R):-(member(H,L)->R=R1;R=[H|R1]),union(T,L,R1).\n"
+    "exclude(_,[],[]).\n"
+    "exclude(P,[H|T],R):-(call(P,H)->R=R1;R=[H|R1]),exclude(P,T,R1).\n"
+    "include(_,[],[]).\n"
+    "include(P,[H|T],R):-(call(P,H)->R=[H|R1];R=R1),include(P,T,R1).\n"
+    "list_to_set(L,S):-'$lts_'(L,[],S).\n"
+    "'$lts_'([],_,[]).\n"
+    "'$lts_'([H|T],Seen,R):-(member(H,Seen)->R=R1;R=[H|R1]),'$lts_'(T,[H|Seen],R1).\n";
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_clause_key(PlClause *cl, const char **name_out, int *ar_out) {
+    if (!cl) return 0;
+    if (cl->head) {
+        Term *h = term_deref(cl->head);
+        if (h && h->tag == TERM_ATOM)     { *name_out = prolog_atom_name(h->atom_id);          *ar_out = 0;                 return 1; }
+        if (h && h->tag == TERM_COMPOUND) { *name_out = prolog_atom_name(h->compound.functor); *ar_out = h->compound.arity; return 1; }
+    }
+    if (cl->tr && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL) {
+        tree_t *hd = cl->tr->c[0];
+        if (hd->t == TT_QLIT && hd->v.sval) { *name_out = hd->v.sval; *ar_out = 0;      return 1; }
+        if (hd->t == TT_FNC  && hd->v.sval) { *name_out = hd->v.sval; *ar_out = hd->n;  return 1; }
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_word_referenced(const char *src, const char *w) {
+    size_t wl = strlen(w);
+    for (const char *p = src; (p = strstr(p, w)) != NULL; p += wl) {
+        char before = (p == src) ? ' ' : p[-1];
+        char after  = p[wl];
+        int bok = !(before == '_' || isalnum((unsigned char)before));
+        int aok = !(after  == '_' || isalnum((unsigned char)after));
+        if (bok && aok) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_tree_collect_calls(tree_t *t, char names[][96], int *nn, int cap) {
+    if (!t) return;
+    if ((t->t == TT_FNC || t->t == TT_QLIT) && t->v.sval) {
+        int seen = 0;
+        for (int i = 0; i < *nn; i++) if (!strcmp(names[i], t->v.sval)) { seen = 1; break; }
+        if (!seen && *nn < cap) { snprintf(names[*nn], 96, "%s", t->v.sval); (*nn)++; }
+    }
+    for (int i = 0; i < t->n; i++) pl_tree_collect_calls(t->c[i], names, nn, cap);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
+    if (!prog || !user_src) return;
+    char user_defined[512][96];
+    int nud = 0;
+    for (PlClause *cl = prog->head; cl; cl = cl->next) {
+        const char *nm; int ar;
+        if (pl_clause_key(cl, &nm, &ar) && nm && nud < 512) { snprintf(user_defined[nud], 96, "%s/%d", nm, ar); nud++; }
+    }
+    PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
+    if (!pre || !pre->head) { if (pre) free(pre); return; }
+    char wanted[256][96];
+    int nwant = 0;
+    for (PlClause *cl = pre->head; cl; cl = cl->next) {
+        const char *nm; int ar;
+        if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
+        if (nm[0] == '$') continue;
+        if (!pl_word_referenced(user_src, nm)) continue;
+        char key[96]; snprintf(key, 96, "%s/%d", nm, ar);
+        int is_user = 0;
+        for (int i = 0; i < nud; i++) if (!strcmp(user_defined[i], key)) { is_user = 1; break; }
+        if (is_user) continue;
+        int seen = 0;
+        for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], key)) { seen = 1; break; }
+        if (!seen && nwant < 256) { snprintf(wanted[nwant], 96, "%s/%d", nm, ar); nwant++; }
+    }
+    int changed = 1;
+    while (changed) {
+        changed = 0;
+        for (PlClause *cl = pre->head; cl; cl = cl->next) {
+            const char *nm; int ar;
+            if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
+            char key[96]; snprintf(key, 96, "%s/%d", nm, ar);
+            int in_want = 0;
+            for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], key)) { in_want = 1; break; }
+            if (!in_want) continue;
+            char calls[64][96]; int ncalls = 0;
+            if (cl->tr && cl->tr->n > 1 && cl->tr->c[1]) pl_tree_collect_calls(cl->tr->c[1], calls, &ncalls, 64);
+            for (int ci = 0; ci < ncalls; ci++) {
+                for (PlClause *d = pre->head; d; d = d->next) {
+                    const char *dn; int dar;
+                    if (!pl_clause_key(d, &dn, &dar) || !dn) continue;
+                    if (strcmp(dn, calls[ci])) continue;
+                    char dk[96]; snprintf(dk, 96, "%s/%d", dn, dar);
+                    int have = 0;
+                    for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], dk)) { have = 1; break; }
+                    int du = 0;
+                    for (int i = 0; i < nud; i++) if (!strcmp(user_defined[i], dk)) { du = 1; break; }
+                    if (!have && !du && nwant < 256) { snprintf(wanted[nwant], 96, "%s/%d", dn, dar); nwant++; changed = 1; }
+                }
+            }
+        }
+    }
+    PlClause *nextc = NULL;
+    for (PlClause *cl = pre->head; cl; cl = nextc) {
+        nextc = cl->next;
+        const char *nm; int ar;
+        int keep = 0;
+        if (pl_clause_key(cl, &nm, &ar) && nm) {
+            char key[96]; snprintf(key, 96, "%s/%d", nm, ar);
+            for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], key)) { keep = 1; break; }
+        }
+        if (keep) { cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
+    }
+    free(pre);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PlProgram *prolog_parse(const char *src, const char *filename) {
     prolog_atom_init();
     Parser p;
@@ -1094,5 +1243,6 @@ PlProgram *prolog_parse(const char *src, const char *filename) {
         p.nerrors++;
     }
     prog->nerrors = p.nerrors;
+    if (!filename || strcmp(filename, "<prelude>") != 0) prolog_inject_prelude(prog, src);
     return prog;
 }
