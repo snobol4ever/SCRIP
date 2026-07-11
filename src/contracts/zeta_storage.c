@@ -105,6 +105,8 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: reuses this node's existing pad, same reuse precedent as IR_MATCH_HEAD.zeta_mark; block itself is a separate ZLS2 allocation, header +0 chains the previous activation's ptr)", nd); return 1;
     case IR_MATCH_REM:
         zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
+    case IR_MATCH_DEFER:
+        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "defer.blob fn (+0 8B: compiled DT_P entry stashed at α; 0 = non-blob/callout activation or exhausted — β's jz→ω guard)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "defer.blob zeta frame (+8 8B: rt_zls_alloc'd blob frame, LIVE across β resumes; released on exhaust — NCB-2/SZ-1)", nd); return 1;
     case IR_MATCH_TAB: case IR_MATCH_RTAB:
         /* UNIFORM-BETA WIRING (Claude, this session, per Lon "EVERY BB must be wired properly"): TAB/RTAB
          * OVERWRITE r14d (mov, not add) — the only match primitives whose cursor effect is unrecoverable by
@@ -236,6 +238,12 @@ void zls_build(IR_graph_t * g) {
         zls_field(root, r->resume_off, 8, ZK_PTR_CODE, 0, "gen-proc resume continuation", (const IR_t *)0);
         zls_field(root, r->resume_off + 8, 8, ZK_RAW, 0, "resume.pad (unused)", (const IR_t *)0);
         k += 1; break;
+    }
+    if (r->resume_off < 0 && g->resumable_callable) {
+        r->resume_off = base + k * 16;
+        zls_field(root, r->resume_off, 8, ZK_PTR_CODE, 0, "resumable-callable blob β continuation (NCB-2/SZ-1: α-init = tail element's β; esi=1 re-entry dispatches jmp [slot] — the graph-level twin of alt.resume)", (const IR_t *)0);
+        zls_field(root, r->resume_off + 8, 8, ZK_RAW, 0, "resume.pad (unused)", (const IR_t *)0);
+        k += 1;
     }
     r->zeta_mark_off = base + k * 16;
     zls_field(root, r->zeta_mark_off, 8, ZK_RAW, 0, "graph-scope zeta mark (rt_zls_mark snapshot, prologue-stashed, epilogue-released)", (const IR_t *)0);
