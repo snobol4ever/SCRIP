@@ -546,7 +546,7 @@ static int rt_dcap_scope_base(void) { int d = g_rt_dcap_depth; if (d > RT_DCAP_D
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_dcap_record(const char *vname, const char *base, int len) {
     if (!vname || !*vname) return;
-    for (int i = rt_dcap_scope_base(); i < g_rt_dcap_n; i++) {
+    if (vname[0] != '*') for (int i = rt_dcap_scope_base(); i < g_rt_dcap_n; i++) {
         if (g_rt_dcap[i].varname && strcmp(g_rt_dcap[i].varname, vname) == 0) {
             g_rt_dcap[i].base = base; g_rt_dcap[i].len = len; return;
         }
@@ -565,6 +565,16 @@ static void rt_dcap_flush_from(int m) {
         char *copy = rt_str_alloc(len);
         if (copy) { if (len > 0 && g_rt_dcap[i].base) memcpy(copy, g_rt_dcap[i].base, (size_t)len); copy[len] = '\0'; }
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+        if (g_rt_dcap[i].varname && g_rt_dcap[i].varname[0] == '*') {
+            extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
+            extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+            extern int rt_g_want_name;
+            rt_g_want_name = 1;
+            DESCR_t nm = rt_call_named_proc(g_rt_dcap[i].varname + 1, (DESCR_t *)0, 0);
+            rt_g_want_name = 0;
+            if (!IS_FAIL_fn(nm)) rt_assign_var(nm, d);
+            continue;
+        }
         NV_SET_fn(g_rt_dcap[i].varname, d);
     }
     g_rt_dcap_n = m;
@@ -639,6 +649,16 @@ void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, i
     char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+    if (varname[0] == '*') {
+        extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
+        extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+        extern int rt_g_want_name;
+        rt_g_want_name = 1;
+        DESCR_t nm = rt_call_named_proc(varname + 1, (DESCR_t *)0, 0);
+        rt_g_want_name = 0;
+        if (!IS_FAIL_fn(nm)) rt_assign_var(nm, matched);
+        return;
+    }
     NV_SET_fn(varname, matched);
 }
 extern const char *Σ;
