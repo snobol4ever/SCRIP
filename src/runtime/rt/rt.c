@@ -505,6 +505,11 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
 int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
 static DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
+/* NCB-1 leaves (defined below, beside the dyn trampolines they were split out of). */
+long    rt_proc_call_open(const char *name, int nargs);
+void   *rt_frame_prep(void *fb, long fbytes);
+DESCR_t rt_proc_call_epilogue(DESCR_t fret);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = (rt_proc_t *)0;
@@ -516,16 +521,16 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return FAILDESCR;
     }
-    if (p->dyn_scope) return rt_call_named_proc(name, g_call_args, nargs > CALL_ARGS_MAX ? CALL_ARGS_MAX : nargs);
-    int _wn = rt_g_want_name; rt_g_want_name = 0;
-    int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    char *fb; if (rt_zeta_cstack()) fb = (char *)alloca((size_t)fbytes); else fb = (char *)rt_zls2_push((long)fbytes);
-    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; *(DESCR_t *)(fb + 0) = NULVCL; }
-    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-    rt_frame_bind_args(fb, p, nargs);
-    rt_k_level++; (void)p->fn((void *)fb, 0); rt_k_level--;
-    DESCR_t result = rt_nret_fix(*(DESCR_t *)(fb + 0), _wn);
+    /* NCB-1: this body is now EXACTLY the sequence the emitted call site will run — open leaf, frame, transfer,
+     * epilogue leaf — with the frame still made by C (alloca / zls2) rather than by an rsp bump, and the
+     * transfer still a C indirect call rather than an emitted one.  The open leaf selects the protocol, so the
+     * dyn_scope delegation to rt_call_named_proc is gone: dyn and lexical now differ only INSIDE the leaves. */
+    long fbytes = rt_proc_call_open(name, nargs);
+    if (!fbytes) return FAILDESCR;
+    char *fb; if (rt_zeta_cstack()) fb = (char *)alloca((size_t)fbytes); else fb = (char *)rt_zls2_push(fbytes);
+    DESCR_t (*fn)(void *, int) = (DESCR_t (*)(void *, int))rt_frame_prep((void *)fb, fbytes);
+    DESCR_t fret = fn((void *)fb, 0);
+    DESCR_t result = rt_proc_call_epilogue(fret);
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)(fb + fbytes));
     return result;
 }
@@ -703,35 +708,154 @@ void mon_emit_return_bin(const char *fname, DESCR_t retval) {
     memcpy(kw_rtntype, saved_rt, sizeof(saved_rt));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* NCB-1 LEAF SPLIT (Lon one-entry convention).  The dyn-scope call trampoline (V1 rt_call_named_proc, V2
+ * rt_call_proc_direct — identical 16 steps, differing only in how p is found) is decomposed into two STRICT
+ * LEAVES with the frame + the p->fn transfer between them, in exactly the shape the emitted call site will
+ * take at the next step:
+ *
+ *     prologue leaf  →  frame (rsp bump)  →  call p->fn(fb, 0)  →  release  →  epilogue leaf
+ *
+ * The state that must survive across the transfer (save_base, Σ, want-name, rname, p) rides a LIFO context
+ * stack rather than C locals, so the emitted site needs no ζ grant to hold it.  LIFO is sound BY THE LANGUAGE
+ * DEFINITION, not by luck: SPITBOL's DEFINE saves formals AND locals on a pushdown stack and restores them on
+ * RETURN/FRETURN/NRETURN (manual Ch.8, "Local variables"), so call nesting and save/restore nesting are the
+ * same nesting — which is precisely why an assembly call/ret may carry it.  Depth-safe: grows like g_name_save.
+ * Behaviour is preserved EXACTLY, including each caller's own pre-existing want-name clear ordering on the
+ * not-found path (hence wn is passed IN rather than captured in the prologue). */
+typedef struct {
+    rt_proc_t  *p;
+    const char *rname;
+    const char *save_Σ;
+    int         save_Σlen;
+    int         save_base;
+    int         wn;
+    int         lex;        /* 0 = dyn-scope protocol (SNOBOL4 DEFINE), 1 = lexical (frame-bound args) */
+    int         nargs;      /* lexical only: args to bind at frame_prep time */
+    void       *fb;         /* lexical only: the frame, for the [fb+0] result read */
+} rt_pcall_t;
+static rt_pcall_t *g_pcall;
+static int         g_pcall_top, g_pcall_cap;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_pcall_grow(void)
+{
+    if (g_pcall_top < g_pcall_cap) return;
+    int nc = g_pcall_cap ? g_pcall_cap * 2 : 1024;
+    rt_pcall_t *np = (rt_pcall_t *)realloc(g_pcall, (size_t)nc * sizeof(rt_pcall_t));
+    if (!np) return;
+    g_pcall = np; g_pcall_cap = nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PROLOGUE LEAF — everything from resolve_cells through the monitor call event.  Returns the 16-aligned frame
+ * byte count the caller must make available at fb; pushes the call context.  Strict leaf: calls no BB. */
+int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
+{
+    rt_proc_resolve_cells(p);
+    int np = p->nparams;
+    const char **pn = p->pnames;
+    const char *rname = p->result_name ? p->result_name : p->name;
+    int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
+    if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
+    int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
+    { int rn_shadow = 0;
+      for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
+      if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
+    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    rt_pcall_grow();
+    if (g_pcall_top < g_pcall_cap) {
+        rt_pcall_t *c = &g_pcall[g_pcall_top];
+        c->p = p; c->rname = rname; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = save_base; c->wn = wn;
+        c->lex = 0; c->nargs = 0; c->fb = (void *)0;
+    }
+    g_pcall_top++;
+    if (g_monitor_bin) mon_emit_call_bin(p->name);
+    rt_k_level++;
+    return fbytes;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* EPILOGUE LEAF — everything from the Σ restore through the monitor return event.  Takes the callee's raw
+ * return descriptor, yields the call's result.  Strict leaf: calls no BB. */
+DESCR_t rt_proc_call_epilogue(DESCR_t fret)
+{
+    rt_k_level--;
+    if (g_pcall_top <= 0) return FAILDESCR;
+    rt_pcall_t c = g_pcall[--g_pcall_top];
+    if (c.lex) return rt_nret_fix(*(DESCR_t *)c.fb, c.wn);
+    Σ = c.save_Σ; Σlen = c.save_Σlen;
+    DESCR_t *rcell = rt_call_fastpath_ok() ? c.p->rcell : (DESCR_t *)0;
+    DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c.rname));
+    result = rt_nret_fix(result, c.wn);
+    rt_name_restore(c.save_base);
+    if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
+    return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* LEXICAL PROLOGUE LEAF — the rt_call_proc_descr protocol: no name saves, args bound INTO the frame, result
+ * read back from [fb+0].  Kept behind the same ctx as the dyn protocol so the EMITTED call site is
+ * protocol-agnostic: open → frame → call → epilogue, with the leaves knowing which discipline applies. */
+static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
+{
+    int fbytes = (int)(PROC_FRAME_QWORDS * 8);
+    if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
+    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
+    rt_pcall_grow();
+    if (g_pcall_top < g_pcall_cap) {
+        rt_pcall_t *c = &g_pcall[g_pcall_top];
+        c->p = p; c->rname = p->name; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = 0; c->wn = wn;
+        c->lex = 1; c->nargs = nargs; c->fb = (void *)0;
+    }
+    g_pcall_top++;
+    rt_k_level++;
+    return fbytes;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* OPEN LEAF — the one entry the emitted call site uses.  Finds the proc, selects the protocol, runs the
+ * matching prologue.  Returns the 16-aligned frame byte count the site must make available at fb, or 0 if the
+ * proc has no body (the site's FAIL arm).  Args are read from the staged g_call_args, as the C trampolines do. */
+long rt_proc_call_open(const char *name, int nargs)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p || !p->fn) return 0;
+    int wn = rt_g_want_name; rt_g_want_name = 0;
+    /* NB: cells are resolved ONLY on the dyn path (rt_proc_call_prologue does it).  The lexical path must not
+     * touch them: NV_PTR_fn interns a global cell per name, so resolving there would mint spurious globals for
+     * the lexically-scoped frontends' formals. */
+    if (p->dyn_scope) return (long)rt_proc_call_prologue(p, g_call_args, nargs, wn);
+    return (long)rt_proc_call_prologue_lex(p, nargs, wn);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FRAME-PREP LEAF — the site has just made fbytes of frame available at fb (an rsp bump, once the call site is
+ * emitted; an alloca while it is still C).  Fill it per the open protocol, record it, and hand back the entry
+ * to transfer to.  Returning fn is what lets the site do a single medium-symmetric `call rax` — no proc-symbol
+ * or table-index encoding is needed in either medium. */
+void *rt_frame_prep(void *fb, long fbytes)
+{
+    if (g_pcall_top <= 0) return (void *)0;
+    rt_pcall_t *c = &g_pcall[g_pcall_top - 1];
+    c->fb = fb;
+    if (c->lex) {
+        DESCR_t *zf = (DESCR_t *)fb;
+        for (long zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL;
+        rt_frame_bind_args((char *)fb, c->p, c->nargs);
+    } else {
+        memset(fb, 0, (size_t)fbytes);
+        if (g_monitor_bin) { /* dyn monitor call event already fired in the dyn prologue */ }
+    }
+    return (void *)c->p->fn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
     if (!name) return FAILDESCR;
     int _wn = rt_g_want_name; rt_g_want_name = 0;
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
-    rt_proc_resolve_cells(p);
-    int np = p->nparams;
-    const char **pn = p->pnames;
-    int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
-    if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    const char *rname = p->result_name ? p->result_name : name;
-    int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
-    { int rn_shadow = 0;
-      for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
-      if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
-    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    int fbytes = rt_proc_call_prologue(p, args, nargs, _wn);
     void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
     memset(fb, 0, (size_t)fbytes);
-    const char *save_Σ = Σ; int save_Σlen = Σlen;
-    if (g_monitor_bin) mon_emit_call_bin(name);
-    rt_k_level++; DESCR_t fret = p->fn(fb, 0); rt_k_level--;
-    Σ = save_Σ; Σlen = save_Σlen;
+    DESCR_t fret = p->fn(fb, 0);
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
-    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
-    result = rt_nret_fix(result, _wn);
-    rt_name_restore(save_base);
-    if (g_monitor_bin) mon_emit_return_bin(name, result);
-    return result;
+    return rt_proc_call_epilogue(fret);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
@@ -740,30 +864,12 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     rt_proc_t *p = &g_rt_gen_procs[idx];
     if (!p->fn) return FAILDESCR;
     int _wn = rt_g_want_name; rt_g_want_name = 0;
-    rt_proc_resolve_cells(p);
-    int np = p->nparams;
-    const char **pn = p->pnames;
-    const char *name = p->name;
-    int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
-    if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    const char *rname = p->result_name ? p->result_name : name;
-    int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
-    { int rn_shadow = 0;
-      for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
-      if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
-    fbytes = (int)(((long)fbytes + 15L) & ~15L);
+    int fbytes = rt_proc_call_prologue(p, args, nargs, _wn);
     void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
     memset(fb, 0, (size_t)fbytes);
-    const char *save_Σ = Σ; int save_Σlen = Σlen;
-    if (g_monitor_bin) mon_emit_call_bin(name);
-    rt_k_level++; DESCR_t fret = p->fn(fb, 0); rt_k_level--;
-    Σ = save_Σ; Σlen = save_Σlen;
+    DESCR_t fret = p->fn(fb, 0);
     if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
-    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
-    result = rt_nret_fix(result, _wn);
-    rt_name_restore(save_base);
-    if (g_monitor_bin) mon_emit_return_bin(name, result);
-    return result;
+    return rt_proc_call_epilogue(fret);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name)
