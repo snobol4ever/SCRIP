@@ -56,7 +56,7 @@ std::string bb_logicvar(IR_t * pBB);
 std::string bb_fail();
 std::string bb_every();
 std::string bb_call(IR_t * pBB);
-std::string bb_iterate(IR_t * pBB);
+std::string bb_iterate();
 std::string bb_key_gen(IR_t * pBB);
 std::string bb_binop_relop();
 std::string bb_binop_arith();
