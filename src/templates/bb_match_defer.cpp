@@ -15,10 +15,9 @@ extern "C" void  rt_zls_release    (void *fb);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
-    bool inl = (_.bb_child_fn != (void *)0) || (_.bb_child_lbl && _.bb_child_lbl[0]);
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
-    std::string head = inl
+    return ( ((_.bb_child_fn != (void *)0) || (_.bb_child_lbl && _.bb_child_lbl[0]))
         ? ( x86("comment", "IR_MATCH_DEFER inlined frozen head (FZ-5b)")
           + x86_alpha()
           + x86("lea",  "rax", "[rip + __]", (uint64_t)(uintptr_t)_.bb_child_fn, _.bb_child_lbl ? _.bb_child_lbl : "") )
@@ -28,8 +27,7 @@ std::string bb_match_defer() {
           + x86("xor",  "esi", "esi")
           + x86_align_enter()
           + x86("call", "rt_defer_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_fn)
-          + x86_align_leave() );
-    return head
+          + x86_align_leave() ) )
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + x86("push", "rax")
