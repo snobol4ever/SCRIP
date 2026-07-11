@@ -303,6 +303,22 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     if (r < 0 && en) core_runtime_error(en, rt_coerce_errmsg(en));
     out->v = DT_I; out->slen = 0; out->i = r;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
+    extern void core_runtime_error(int code, const char *msg);
+    int ec = (int)(codes & 0xffff);
+    DESCR_t v = *in;
+    double r = 0.0; int ok = 0;
+    if (v.v == DT_R) { r = v.r; ok = 1; }
+    else if (v.v == DT_I) { r = (double)v.i; ok = 1; }
+    else if (v.v == DT_SNUL) { r = 0.0; ok = 1; }
+    else if (v.v == DT_S && v.s) {
+        if (!v.s[0]) { r = 0.0; ok = 1; }
+        else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; double d = strtod(p, &ep);
+               if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = d; ok = 1; } } } }
+    if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
+    out->v = DT_R; out->slen = 0; out->r = r;
+}
 extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
 const char *g_subject_dbg_base = 0;

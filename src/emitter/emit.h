@@ -438,6 +438,10 @@ typedef struct {
     int                          op_bounded;
     int                          op_relop_descr;
     int                          op_num_real;
+    int                          op_imm_a_ok;
+    int                          op_imm_b_ok;
+    long                         op_imm_a;
+    long                         op_imm_b;
     int                          op_write_route;
     int                          op_call_route;
     const char *                 lbl_α;
