@@ -1167,8 +1167,8 @@ static int sno_is_pattern_rhs(const tree_t * t) {
     case TT_ARB: case TT_REM: case TT_BAL:
     case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN:
         return 1;
-    case TT_SEQ: case TT_CAT:
-        return sno_is_pattern_rhs((t->n > 0) ? t->c[0] : NULL) || sno_is_pattern_rhs((t->n > 1) ? t->c[1] : NULL);
+    case TT_SEQ: case TT_CAT: { const tree_t * a = (t->n > 0) ? t->c[0] : NULL; const tree_t * b = (t->n > 1) ? t->c[1] : NULL;
+        if ((a && a->t == TT_DEFER) || (b && b->t == TT_DEFER)) return 1; return sno_is_pattern_rhs(a) || sno_is_pattern_rhs(b); }
     default: return 0;
     }
 }
