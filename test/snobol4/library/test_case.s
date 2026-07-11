@@ -447,13 +447,40 @@ main_α_body:
 .Lx24_1:
  jmp xchain0_n24_α
 .Lx24_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S0]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx24_2:
+ test rax, rax
+ je .Lx24_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx24_2
+.Lx24_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -626,13 +653,40 @@ main_α_body:
 .Lx34_1:
  jmp xchain0_n33_α
 .Lx34_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S1]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx34_2:
+ test rax, rax
+ je .Lx34_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx34_2
+.Lx34_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -820,13 +874,40 @@ main_α_body:
 .Lx45_1:
  jmp xchain0_n42_α
 .Lx45_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S2]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx45_2:
+ test rax, rax
+ je .Lx45_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx45_2
+.Lx45_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -984,13 +1065,40 @@ main_α_body:
 .Lx54_1:
  jmp xchain0_n47_α
 .Lx54_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx54_2:
+ test rax, rax
+ je .Lx54_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx54_2
+.Lx54_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax

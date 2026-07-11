@@ -7469,13 +7469,40 @@ proc_PAT$1_α_body:
 .Lx354_1:
  jmp xchain347_n6_α
 .Lx354_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx354_2:
+ test rax, rax
+ je .Lx354_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx354_2
+.Lx354_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -7522,13 +7549,40 @@ proc_PAT$1_α_body:
 .Lx355_1:
  jmp proc_PAT$1_γ
 .Lx355_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx355_2:
+ test rax, rax
+ je .Lx355_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx355_2
+.Lx355_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -7655,13 +7709,40 @@ proc_PAT$2_α_body:
 .Lx361_1:
  jmp xchain358_n2_α
 .Lx361_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx361_2:
+ test rax, rax
+ je .Lx361_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx361_2
+.Lx361_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -7757,13 +7838,40 @@ proc_PAT$2_α_body:
 .Lx368_1:
  jmp xchain358_n7_α
 .Lx368_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx368_2:
+ test rax, rax
+ je .Lx368_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx368_2
+.Lx368_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -7810,13 +7918,40 @@ proc_PAT$2_α_body:
 .Lx369_1:
  jmp xchain358_n9_α
 .Lx369_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx369_2:
+ test rax, rax
+ je .Lx369_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx369_2
+.Lx369_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -7863,13 +7998,40 @@ proc_PAT$2_α_body:
 .Lx370_1:
  jmp xchain358_n8_α
 .Lx370_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx370_2:
+ test rax, rax
+ je .Lx370_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx370_2
+.Lx370_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -7948,13 +8110,40 @@ proc_PAT$2_α_body:
 .Lx375_1:
  jmp xchain358_n12_α
 .Lx375_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx375_2:
+ test rax, rax
+ je .Lx375_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx375_2
+.Lx375_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8030,13 +8219,40 @@ proc_PAT$2_α_body:
 .Lx380_1:
  jmp xchain358_n14_α
 .Lx380_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx380_2:
+ test rax, rax
+ je .Lx380_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx380_2
+.Lx380_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8099,13 +8315,40 @@ proc_PAT$2_α_body:
 .Lx383_1:
  jmp xchain358_n16_α
 .Lx383_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx383_2:
+ test rax, rax
+ je .Lx383_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx383_2
+.Lx383_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8232,13 +8475,40 @@ proc_PAT$3_α_body:
 .Lx389_1:
  jmp xchain386_n2_α
 .Lx389_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S7]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx389_2:
+ test rax, rax
+ je .Lx389_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx389_2
+.Lx389_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8321,13 +8591,40 @@ proc_PAT$3_α_body:
 .Lx394_1:
  jmp xchain386_n6_α
 .Lx394_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S9]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx394_2:
+ test rax, rax
+ je .Lx394_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx394_2
+.Lx394_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8608,13 +8905,40 @@ proc_PAT$5_α_body:
 .Lx409_1:
  jmp xchain402_n6_α
 .Lx409_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx409_2:
+ test rax, rax
+ je .Lx409_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx409_2
+.Lx409_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8661,13 +8985,40 @@ proc_PAT$5_α_body:
 .Lx410_1:
  jmp proc_PAT$5_γ
 .Lx410_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx410_2:
+ test rax, rax
+ je .Lx410_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx410_2
+.Lx410_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8794,13 +9145,40 @@ proc_PAT$6_α_body:
 .Lx416_1:
  jmp xchain413_n2_α
 .Lx416_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx416_2:
+ test rax, rax
+ je .Lx416_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx416_2
+.Lx416_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8896,13 +9274,40 @@ proc_PAT$6_α_body:
 .Lx423_1:
  jmp xchain413_n7_α
 .Lx423_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx423_2:
+ test rax, rax
+ je .Lx423_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx423_2
+.Lx423_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -8949,13 +9354,40 @@ proc_PAT$6_α_body:
 .Lx424_1:
  jmp xchain413_n9_α
 .Lx424_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx424_2:
+ test rax, rax
+ je .Lx424_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx424_2
+.Lx424_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9002,13 +9434,40 @@ proc_PAT$6_α_body:
 .Lx425_1:
  jmp xchain413_n8_α
 .Lx425_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx425_2:
+ test rax, rax
+ je .Lx425_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx425_2
+.Lx425_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9087,13 +9546,40 @@ proc_PAT$6_α_body:
 .Lx430_1:
  jmp xchain413_n12_α
 .Lx430_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx430_2:
+ test rax, rax
+ je .Lx430_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx430_2
+.Lx430_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9169,13 +9655,40 @@ proc_PAT$6_α_body:
 .Lx435_1:
  jmp xchain413_n14_α
 .Lx435_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx435_2:
+ test rax, rax
+ je .Lx435_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx435_2
+.Lx435_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9238,13 +9751,40 @@ proc_PAT$6_α_body:
 .Lx438_1:
  jmp xchain413_n16_α
 .Lx438_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx438_2:
+ test rax, rax
+ je .Lx438_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx438_2
+.Lx438_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9371,13 +9911,40 @@ proc_PAT$7_α_body:
 .Lx444_1:
  jmp xchain441_n2_α
 .Lx444_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S7]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx444_2:
+ test rax, rax
+ je .Lx444_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx444_2
+.Lx444_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9460,13 +10027,40 @@ proc_PAT$7_α_body:
 .Lx449_1:
  jmp xchain441_n6_α
 .Lx449_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S9]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx449_2:
+ test rax, rax
+ je .Lx449_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx449_2
+.Lx449_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9747,13 +10341,40 @@ proc_PAT$9_α_body:
 .Lx464_1:
  jmp xchain457_n6_α
 .Lx464_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx464_2:
+ test rax, rax
+ je .Lx464_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx464_2
+.Lx464_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9800,13 +10421,40 @@ proc_PAT$9_α_body:
 .Lx465_1:
  jmp proc_PAT$9_γ
 .Lx465_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx465_2:
+ test rax, rax
+ je .Lx465_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx465_2
+.Lx465_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -9933,13 +10581,40 @@ proc_PAT$10_α_body:
 .Lx471_1:
  jmp xchain468_n2_α
 .Lx471_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx471_2:
+ test rax, rax
+ je .Lx471_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx471_2
+.Lx471_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10035,13 +10710,40 @@ proc_PAT$10_α_body:
 .Lx478_1:
  jmp xchain468_n7_α
 .Lx478_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx478_2:
+ test rax, rax
+ je .Lx478_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx478_2
+.Lx478_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10088,13 +10790,40 @@ proc_PAT$10_α_body:
 .Lx479_1:
  jmp xchain468_n9_α
 .Lx479_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx479_2:
+ test rax, rax
+ je .Lx479_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx479_2
+.Lx479_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10141,13 +10870,40 @@ proc_PAT$10_α_body:
 .Lx480_1:
  jmp xchain468_n8_α
 .Lx480_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx480_2:
+ test rax, rax
+ je .Lx480_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx480_2
+.Lx480_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10226,13 +10982,40 @@ proc_PAT$10_α_body:
 .Lx485_1:
  jmp xchain468_n12_α
 .Lx485_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx485_2:
+ test rax, rax
+ je .Lx485_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx485_2
+.Lx485_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10308,13 +11091,40 @@ proc_PAT$10_α_body:
 .Lx490_1:
  jmp xchain468_n14_α
 .Lx490_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx490_2:
+ test rax, rax
+ je .Lx490_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx490_2
+.Lx490_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10377,13 +11187,40 @@ proc_PAT$10_α_body:
 .Lx493_1:
  jmp xchain468_n16_α
 .Lx493_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx493_2:
+ test rax, rax
+ je .Lx493_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx493_2
+.Lx493_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10510,13 +11347,40 @@ proc_PAT$11_α_body:
 .Lx499_1:
  jmp xchain496_n2_α
 .Lx499_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S7]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx499_2:
+ test rax, rax
+ je .Lx499_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx499_2
+.Lx499_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10599,13 +11463,40 @@ proc_PAT$11_α_body:
 .Lx504_1:
  jmp xchain496_n6_α
 .Lx504_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S9]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx504_2:
+ test rax, rax
+ je .Lx504_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx504_2
+.Lx504_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10886,13 +11777,40 @@ proc_PAT$13_α_body:
 .Lx519_1:
  jmp xchain512_n6_α
 .Lx519_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx519_2:
+ test rax, rax
+ je .Lx519_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx519_2
+.Lx519_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -10939,13 +11857,40 @@ proc_PAT$13_α_body:
 .Lx520_1:
  jmp proc_PAT$13_γ
 .Lx520_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx520_2:
+ test rax, rax
+ je .Lx520_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx520_2
+.Lx520_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11072,13 +12017,40 @@ proc_PAT$14_α_body:
 .Lx526_1:
  jmp xchain523_n2_α
 .Lx526_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx526_2:
+ test rax, rax
+ je .Lx526_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx526_2
+.Lx526_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11174,13 +12146,40 @@ proc_PAT$14_α_body:
 .Lx533_1:
  jmp xchain523_n7_α
 .Lx533_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx533_2:
+ test rax, rax
+ je .Lx533_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx533_2
+.Lx533_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11227,13 +12226,40 @@ proc_PAT$14_α_body:
 .Lx534_1:
  jmp xchain523_n9_α
 .Lx534_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx534_2:
+ test rax, rax
+ je .Lx534_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx534_2
+.Lx534_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11280,13 +12306,40 @@ proc_PAT$14_α_body:
 .Lx535_1:
  jmp xchain523_n8_α
 .Lx535_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx535_2:
+ test rax, rax
+ je .Lx535_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx535_2
+.Lx535_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11365,13 +12418,40 @@ proc_PAT$14_α_body:
 .Lx540_1:
  jmp xchain523_n12_α
 .Lx540_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx540_2:
+ test rax, rax
+ je .Lx540_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx540_2
+.Lx540_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11447,13 +12527,40 @@ proc_PAT$14_α_body:
 .Lx545_1:
  jmp xchain523_n14_α
 .Lx545_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx545_2:
+ test rax, rax
+ je .Lx545_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx545_2
+.Lx545_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11516,13 +12623,40 @@ proc_PAT$14_α_body:
 .Lx548_1:
  jmp xchain523_n16_α
 .Lx548_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx548_2:
+ test rax, rax
+ je .Lx548_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx548_2
+.Lx548_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11649,13 +12783,40 @@ proc_PAT$15_α_body:
 .Lx554_1:
  jmp xchain551_n2_α
 .Lx554_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S7]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx554_2:
+ test rax, rax
+ je .Lx554_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx554_2
+.Lx554_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -11738,13 +12899,40 @@ proc_PAT$15_α_body:
 .Lx559_1:
  jmp xchain551_n6_α
 .Lx559_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S9]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx559_2:
+ test rax, rax
+ je .Lx559_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx559_2
+.Lx559_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12025,13 +13213,40 @@ proc_PAT$17_α_body:
 .Lx574_1:
  jmp xchain567_n6_α
 .Lx574_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx574_2:
+ test rax, rax
+ je .Lx574_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx574_2
+.Lx574_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12078,13 +13293,40 @@ proc_PAT$17_α_body:
 .Lx575_1:
  jmp proc_PAT$17_γ
 .Lx575_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx575_2:
+ test rax, rax
+ je .Lx575_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx575_2
+.Lx575_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12211,13 +13453,40 @@ proc_PAT$18_α_body:
 .Lx581_1:
  jmp xchain578_n2_α
 .Lx581_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx581_2:
+ test rax, rax
+ je .Lx581_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx581_2
+.Lx581_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12313,13 +13582,40 @@ proc_PAT$18_α_body:
 .Lx588_1:
  jmp xchain578_n7_α
 .Lx588_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx588_2:
+ test rax, rax
+ je .Lx588_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx588_2
+.Lx588_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12366,13 +13662,40 @@ proc_PAT$18_α_body:
 .Lx589_1:
  jmp xchain578_n9_α
 .Lx589_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S4]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx589_2:
+ test rax, rax
+ je .Lx589_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx589_2
+.Lx589_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12419,13 +13742,40 @@ proc_PAT$18_α_body:
 .Lx590_1:
  jmp xchain578_n8_α
 .Lx590_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx590_2:
+ test rax, rax
+ je .Lx590_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx590_2
+.Lx590_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12504,13 +13854,40 @@ proc_PAT$18_α_body:
 .Lx595_1:
  jmp xchain578_n12_α
 .Lx595_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx595_2:
+ test rax, rax
+ je .Lx595_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx595_2
+.Lx595_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12586,13 +13963,40 @@ proc_PAT$18_α_body:
 .Lx600_1:
  jmp xchain578_n14_α
 .Lx600_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S6]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx600_2:
+ test rax, rax
+ je .Lx600_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx600_2
+.Lx600_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12655,13 +14059,40 @@ proc_PAT$18_α_body:
 .Lx603_1:
  jmp xchain578_n16_α
 .Lx603_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx603_2:
+ test rax, rax
+ je .Lx603_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx603_2
+.Lx603_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12788,13 +14219,40 @@ proc_PAT$19_α_body:
 .Lx609_1:
  jmp xchain606_n2_α
 .Lx609_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S7]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx609_2:
+ test rax, rax
+ je .Lx609_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx609_2
+.Lx609_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -12877,13 +14335,40 @@ proc_PAT$19_α_body:
 .Lx614_1:
  jmp xchain606_n6_α
 .Lx614_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S9]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx614_2:
+ test rax, rax
+ je .Lx614_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx614_2
+.Lx614_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
@@ -16520,13 +18005,40 @@ main_α_body:
 .Lx718_1:
  jmp xchain619_n85_α
 .Lx718_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S9]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx718_2:
+ test rax, rax
+ je .Lx718_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx718_2
+.Lx718_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
