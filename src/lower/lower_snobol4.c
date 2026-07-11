@@ -257,8 +257,9 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: {
         const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        if (vn) sno_reg_var(vn);
+        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn) sno_fatal("capture target in a runtime-built pattern is not a simple variable", NULL);
-        sno_reg_var(vn);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBC";
         IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, NULL, ω); IR_LIT(kt).ival = (int64_t) t->t;
         IR_t * nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(nl).sval = (char *) vn;
@@ -509,6 +510,20 @@ static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     return gd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_qlit_fold(const tree_t * t) {
+    if (!t) return NULL;
+    if (t->t == TT_QLIT) return t->v.sval ? t->v.sval : "";
+    if ((t->t == TT_CAT || t->t == TT_SEQ) && t->n >= 2) {
+        const char * a = sno_qlit_fold(t->c[0]); if (!a) return NULL;
+        const char * b = sno_qlit_fold(t->c[1]); if (!b) return NULL;
+        size_t la = strlen(a), lb = strlen(b);
+        char * o = (char *) GC_MALLOC(la + lb + 1);
+        memcpy(o, a, la); memcpy(o + la, b, lb); o[la + lb] = 0;
+        return o;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
     const tree_t * subj = lc_stmt_subj(s);
     if (!subj || subj->t != TT_FNC) return NULL;
@@ -516,7 +531,7 @@ static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
     if (!name && subj->n > 0 && subj->c[0] && subj->c[0]->t == TT_VAR) { name = subj->c[0]->v.sval; argbase = 1; }
     if (!name || strcmp(name, "DEFINE")) return NULL;
     if (sfind(s, ":eq") || sfind_expr(s, ":pat")) sno_fatal("DEFINE with a pattern or replacement field is outside the landed subset", NULL);
-    if (subj->n <= argbase || !subj->c[argbase] || subj->c[argbase]->t != TT_QLIT || !subj->c[argbase]->v.sval)
+    if (subj->n <= argbase || !subj->c[argbase] || !sno_qlit_fold(subj->c[argbase]))
         sno_fatal("DEFINE with a non-literal prototype string is outside the landed subset (runtime DEFINE pending)", NULL);
     if (out_argbase) *out_argbase = argbase;
     return subj;
@@ -730,7 +745,7 @@ static void sno_cconst_build_table(const tree_t ** st, int nst) {
         if (subj && subj->t == TT_SCAN && subj->n > 1) sno_cconst_scan_writes(subj->c[1]);
         if (subj && subj->t == TT_DEFINE && subj->n > 1 && subj->c[1] && subj->c[1]->t == TT_QLIT && subj->c[1]->v.sval) { sno_def_t d; sno_parse_define(subj->c[1]->v.sval, NULL, &d); sno_cconst_note_define_names(&d); continue; }
         int argbase = 0; const tree_t * dsub = sno_stmt_define(s, &argbase);
-        if (dsub) { sno_def_t d; sno_parse_define(dsub->c[argbase]->v.sval, NULL, &d); sno_cconst_note_define_names(&d); continue; }
+        if (dsub) { sno_def_t d; sno_parse_define(sno_qlit_fold(dsub->c[argbase]), NULL, &d); sno_cconst_note_define_names(&d); continue; }
         if (!has_eq) continue;
         if (subj && subj->t == TT_VAR && subj->v.sval) { const char * fv = repl ? sno_cset_fold(repl) : NULL; sno_cconst_write(subj->v.sval, fv); }
         else if (subj) sno_cconst_scan_indirect_target(subj);
@@ -819,7 +834,7 @@ static void sno_fz_build_table(const tree_t ** st, int nst) {
         if (subj && subj->t == TT_DEFINE && subj->n > 1 && subj->c[1] && subj->c[1]->t == TT_QLIT && subj->c[1]->v.sval) {
             sno_def_t d; sno_parse_define(subj->c[1]->v.sval, NULL, &d); for (int k = 0; k < d.nnames; k++) sno_fz_write(d.names[k]); if (d.fname) sno_fz_write(d.fname); continue; }
         int argbase = 0; const tree_t * dsub = sno_stmt_define(s, &argbase);
-        if (dsub) { sno_def_t d; sno_parse_define(dsub->c[argbase]->v.sval, NULL, &d); for (int k = 0; k < d.nnames; k++) sno_fz_write(d.names[k]); if (d.fname) sno_fz_write(d.fname); continue; }
+        if (dsub) { sno_def_t d; sno_parse_define(sno_qlit_fold(dsub->c[argbase]), NULL, &d); for (int k = 0; k < d.nnames; k++) sno_fz_write(d.names[k]); if (d.fname) sno_fz_write(d.fname); continue; }
         if (!has_eq) continue;
         if (subj && subj->t == TT_SCAN) { const tree_t * sv = (subj->n > 0) ? subj->c[0] : NULL; if (sv && sv->t == TT_VAR && sv->v.sval) sno_fz_write(sv->v.sval); else g_sno_fz_unsafe = 1; continue; }
         if (subj && subj->t == TT_VAR && subj->v.sval) {
@@ -996,8 +1011,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     }
     case TT_CAPT_COND_ASGN: {
         const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        if (vn) sno_reg_var(vn);
+        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
-        sno_reg_var(vn);
         /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05): capture spans [start-of-inner, current) on a
          * per-box STACK — SAVE.α pushes the open cursor, SAVE.β pops it, the COND at every inner yield
          * assigns from the top-of-stack frame — so the β-resume chain survives a generator between the
@@ -1023,8 +1039,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     }
     case TT_CAPT_IMMED_ASGN: {
         const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        if (vn) sno_reg_var(vn);
+        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
-        sno_reg_var(vn);
         /* $ immediate assignment: SAME span/capture-stack shape as . (TT_CAPT_COND_ASGN) above — the only
          * difference is IR_MATCH_ASSIGN_IMM vs _COND, which bb_match_capture()'s op_phase (2 vs 1) turns into
          * is_imm passed to rt_cap_assign_cursor.  Per the manual: $ commits at every inner yield regardless of
@@ -1524,7 +1541,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             if (ea->t == TT_QLIT && ea->v.sval) entry_opt = ea->v.sval;
             else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
         }
-        sno_def_t d; sno_parse_define(dsub->c[argbase]->v.sval, entry_opt, &d);
+        sno_def_t d; sno_parse_define(sno_qlit_fold(dsub->c[argbase]), entry_opt, &d);
         int found = -1;
         for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
         if (found >= 0) defs[found] = d;

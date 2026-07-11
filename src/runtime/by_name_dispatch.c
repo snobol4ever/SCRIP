@@ -4920,7 +4920,7 @@ DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) {
     char *colon = strchr(buf, ':');
     if (colon) { *colon = 0; lo = strtol(buf, (char **)0, 10); hi = strtol(colon + 1, (char **)0, 10); }
     else hi = strtol(buf, (char **)0, 10);
-    if (hi < lo) return FAILDESCR;
+    if (hi < lo - 1) return FAILDESCR;
     ARBLK_t *a = array_new((int)lo, (int)hi);
     if (!a) return FAILDESCR;
     int n = (int)(hi - lo + 1);
