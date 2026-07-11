@@ -130,7 +130,7 @@ IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
     bb->op       = t;
     bb->γ.node = NULL;
     bb->ω.node = NULL;
-    if (bbg->n >= bbg->max) { free(bb); return NULL; }
+    if (bbg->n >= bbg->max) { int nm = bbg->max > 0 ? bbg->max * 2 : 16; IR_t ** na = (IR_t **) realloc(bbg->all, (size_t) nm * sizeof(IR_t *)); if (!na) { free(bb); return NULL; } bbg->all = na; bbg->max = nm; }
     bbg->all[bbg->n++] = bb;
     return bb;
 }
