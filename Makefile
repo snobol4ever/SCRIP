@@ -200,6 +200,7 @@ RT_PIC_SRCS := \
     $(SRC)/optimizer/gva_collect.c \
     $(SRC)/optimizer/proc_collect.c \
     $(SRC)/optimizer/ir_query.c \
+    $(SRC)/optimizer/region_report.c \
     $(SRC)/optimizer/branch_chain.c \
     $(SRC)/optimizer/optimizer.c \
     \
@@ -481,6 +482,7 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/gva_collect.c -o $(OBJ)/gva_collect.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/proc_collect.c -o $(OBJ)/proc_collect.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/ir_query.c -o $(OBJ)/ir_query.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/region_report.c -o $(OBJ)/region_report.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/branch_chain.c -o $(OBJ)/branch_chain.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
