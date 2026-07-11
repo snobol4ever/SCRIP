@@ -389,7 +389,6 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_lit_s.cpp -o $(OBJ)/bb_indirect_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_var.cpp    -o $(OBJ)/bb_gvar_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
