@@ -1101,6 +1101,7 @@ int main(int argc, char **argv)
                   if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]);
               }
               g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
+            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset(); gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; } /* PAS-GVA: activate arena BEFORE proc emission so proc-context globals resolve op_gva_k (M3 already orders it this way); without this, proc bodies emit NV_GET/SET_fn hash calls for true program globals */
             int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
             int *peak_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
@@ -1171,9 +1172,7 @@ int main(int argc, char **argv)
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             extern int proc_slot_count(void); extern int g_proc_direct_active;
-            gva_collect_reset();
-            gva_collect_graph(sbbg);
-            if (is_pascal) for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); }
+            if (!is_pascal) { gva_collect_reset(); gva_collect_graph(sbbg); } /* PAS-GVA: Pascal collected pre-proc-emission above; re-reset here would be harmless (deterministic walk) but wasted — non-Pascal keeps the original single-graph collection byte-identical */
             int n_gva = gva_count();
             if (n_gva > 0) {
                 printf("  .section .rodata\n");
