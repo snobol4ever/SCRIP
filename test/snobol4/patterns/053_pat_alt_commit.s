@@ -443,13 +443,40 @@ main_α_body:
 .Lx29_1:
  jmp xchain15_n11_α
 .Lx29_0:
+ push r14
+ push r15
+ push r13
  lea rdi, [rip + .S3]
  xor esi, esi
- mov edx, r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_defer_match@PLT
+ call rt_defer_open@PLT
+.Lx29_2:
+ test rax, rax
+ je .Lx29_3
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_defer_step@PLT
+ jmp .Lx29_2
+.Lx29_3:
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
+ mov edi, r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_defer_close@PLT
  mov rsp, rbp
  pop rbp
  test eax, eax
