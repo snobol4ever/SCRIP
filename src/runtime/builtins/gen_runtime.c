@@ -39,7 +39,8 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t de
     if (!s) s = "";
     scan_subj = s;
     scan_pos  = 1;
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -48,7 +49,8 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -71,8 +73,9 @@ ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi) {
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
-    Σ = s; Σlen = (int)strlen(s);
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    Σ = s; Σlen = (int)L;
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -81,7 +84,7 @@ void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_
     uint64_t w[2]; w[0] = sub_lo; w[1] = sub_hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv); if (!s) s = "";
-    int64_t slen = (int64_t)strlen(s);
+    int64_t slen = (sv.v == DT_S && sv.slen && s == sv.s) ? (int64_t)sv.slen : (int64_t)strlen(s);
     DESCR_t rv = replp ? *replp : sv;
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";

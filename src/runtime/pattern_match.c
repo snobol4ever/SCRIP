@@ -482,14 +482,20 @@ DESCR_t sort_fn(DESCR_t arr) {
     ARBLK_t *a = GC_malloc(sizeof(ARBLK_t));
     a->lo         = 1;
     a->hi         = n;
-    a->ndim       = 2;
-    a->lo2        = 1;
-    a->hi2        = 2;
+    a->ndim       = 1;
+    a->lo2        = 0;
+    a->hi2        = 0;
     a->proto_bare = 1;
-    a->data = GC_malloc(n * 2 * sizeof(DESCR_t));
+    { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = GC_strdup(pb); }
+    a->data = GC_malloc(n * sizeof(DESCR_t));
     for (int i = 0; i < n; i++) {
-        a->data[i * 2 + 0] = key_descrs[order[i]];
-        a->data[i * 2 + 1] = vals[order[i]];
+        ARBLK_t *row = GC_malloc(sizeof(ARBLK_t));
+        row->lo = 1; row->hi = 2; row->ndim = 1; row->lo2 = 0; row->hi2 = 0; row->proto_bare = 1; row->proto = 0;
+        row->data = GC_malloc(2 * sizeof(DESCR_t));
+        row->data[0] = key_descrs[order[i]];
+        row->data[1] = vals[order[i]];
+        DESCR_t rd = {0}; rd.v = DT_A; rd.arr = row;
+        a->data[i] = rd;
     }
     DESCR_t result = {0};
     result.v = DT_A;
@@ -515,11 +521,9 @@ DESCR_t rsort_fn(DESCR_t arr) {
     ARBLK_t *a = sorted.arr;
     int n = a->hi - a->lo + 1;
     for (int lo = 0, hi = n - 1; lo < hi; lo++, hi--) {
-        DESCR_t tmp0 = a->data[lo*2+0], tmp1 = a->data[lo*2+1];
-        a->data[lo*2+0] = a->data[hi*2+0];
-        a->data[lo*2+1] = a->data[hi*2+1];
-        a->data[hi*2+0] = tmp0;
-        a->data[hi*2+1] = tmp1;
+        DESCR_t tmp = a->data[lo];
+        a->data[lo] = a->data[hi];
+        a->data[hi] = tmp;
     }
     return sorted;
 }

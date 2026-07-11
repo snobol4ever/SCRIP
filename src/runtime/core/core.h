@@ -25,7 +25,7 @@ static inline size_t descr_slen(DESCR_t d) {
 #define NAMEVAL(s_)  ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
 #define STYPE(v_)    ((v_).v)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int IS_NULL_fn(DESCR_t v)  { return v.v == DT_SNUL || (v.v == DT_S && v.slen != 0xFFFFFFFFu && (!v.s || !*v.s)); }
+static inline int IS_NULL_fn(DESCR_t v)  { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
 static inline int IS_STR_fn(DESCR_t v)   { return v.v == DT_S || v.v == DT_SNUL; }
 static inline int IS_INT_fn(DESCR_t v)   { return v.v == DT_I; }
 static inline int IS_REAL_fn(DESCR_t v)  { return v.v == DT_R; }

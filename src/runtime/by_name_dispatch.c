@@ -3402,7 +3402,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_INT_fn(av))       t="integer";
         else if (IS_REAL_fn(av)) t="real";
         else if (av.v==DT_T)     t=(av.tbl && av.tbl->is_set) ? "set" : "table";
-        else if (av.v==DT_A)     t="list";
+        else if (av.v==DT_A)     t=(!strcmp(fn,"DATATYPE")) ? "array" : "list";
         else if (av.v==DT_DATA)  {
             DESCR_t tag = FIELD_GET_fn(av,"gen_type");
             if (tag.v==DT_S && tag.s) t = tag.s;
