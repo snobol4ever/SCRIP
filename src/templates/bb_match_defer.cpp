@@ -60,9 +60,7 @@ std::string bb_match_defer() {
           * NOT honor SysV callee-saved for r13/r14/r15.  The old C trampoline hid this by accident of GCC's own
           * register allocation.  Any transfer with a LIVE matcher cursor must save them itself — M3 and NCB-2's
           * generator arms included. */
-         + x86("push", "r14")
-         + x86("push", "r15")
-         + x86("push", "r13")
+         + x86_xfer_enter()
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
          + x86("xor",  "esi", "esi")
          + x86_align_enter()
@@ -83,9 +81,7 @@ std::string bb_match_defer() {
          + x86("jmp",  "L2")
          + x86("def",  "L3")
          + x86_align_leave()
-         + x86("pop",  "r13")
-         + x86("pop",  "r15")
-         + x86("pop",  "r14")
+         + x86_xfer_leave()
          + x86("mov",  "edi", "r14d")
          + x86_align_enter()
          + x86("call", "rt_defer_close", (uint64_t)(uintptr_t)(void *)(int (*)(int))rt_defer_close)

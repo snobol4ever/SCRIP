@@ -570,28 +570,80 @@ void rt_dcap_restore_to(int h) {
     if (h <= g_rt_dcap_n) g_rt_dcap_n = h;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_dcap_flush_from(int m) {
-    for (int i = m; i < g_rt_dcap_n; i++) {
+/* NCB-1c M3 (2026-07-11): the commit-time flush is BOX-DRIVEN.  rt_dcap_flush_from's 0..N computed-name
+ * (*VAR) transfers move OUT of C into bb_match_release, which pumps: end_ok_open → [transfer → step]* → close.
+ * Manual Ch.6: conditional assignments are performed ONLY when the whole match succeeds — hence the deferred
+ * batch, hence 0..N calls in one commit.  The cursor rides a LIFO because the OLD loop was re-entrant through
+ * its C locals (a *VAR proc body may run its own match, which commits its own pends); a static cursor would
+ * have silently corrupted that.  g_rt_dcap_n is re-read every iteration, exactly as the old for-loop did, so
+ * pends recorded by a nested match are still swept by the outer pump. */
+typedef struct { int m; int i; int do_flush; DESCR_t pending; } rt_dcf_t;
+static rt_dcf_t *g_dcf; static int g_dcf_top, g_dcf_cap;
+static long rt_dcap_pump(void)
+{
+    extern long rt_proc_call_open(const char *name, int nargs);
+    extern int rt_g_want_name;
+    if (g_dcf_top <= 0) return 0;
+    rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+    if (!c->do_flush) return 0;
+    while (c->i < g_rt_dcap_n) {
+        int i = c->i;
         int len = g_rt_dcap[i].len < 0 ? 0 : g_rt_dcap[i].len;
         char *copy = rt_str_alloc(len);
         if (copy) { if (len > 0 && g_rt_dcap[i].base) memcpy(copy, g_rt_dcap[i].base, (size_t)len); copy[len] = '\0'; }
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         if (g_rt_dcap[i].varname && g_rt_dcap[i].varname[0] == '*') {
-            extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
-            extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
-            extern int rt_g_want_name;
             rt_g_want_name = 1;
-            DESCR_t nm = rt_call_named_proc(g_rt_dcap[i].varname + 1, (DESCR_t *)0, 0);
-            rt_g_want_name = 0;
-            if (!IS_FAIL_fn(nm)) rt_assign_var(nm, d);
-            continue;
+            long fb = rt_proc_call_open(g_rt_dcap[i].varname + 1, 0);
+            if (!fb) { rt_g_want_name = 0; c->i = i + 1; continue; }
+            c->pending = d; c->i = i + 1;
+            return fb;
         }
         NV_SET_fn(g_rt_dcap[i].varname, d);
+        c->i = i + 1;
     }
-    g_rt_dcap_n = m;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_flush(void) { rt_dcap_flush_from(0); }
+long rt_dcap_end_ok_open(void)
+{
+    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_ok depth=%d n=%d\n", g_rt_dcap_depth, g_rt_dcap_n);
+    if (g_dcf_top >= g_dcf_cap) { int nc = g_dcf_cap ? g_dcf_cap * 2 : 64; rt_dcf_t *np = (rt_dcf_t *)realloc(g_dcf, (size_t)nc * sizeof(rt_dcf_t)); if (!np) return 0; g_dcf = np; g_dcf_cap = nc; }
+    rt_dcf_t *c = &g_dcf[g_dcf_top++];
+    c->m = 0; c->i = 0; c->do_flush = 0; c->pending = NULVCL;
+    if (g_rt_dcap_depth > 0) {
+        g_rt_dcap_depth--;
+        if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) { c->m = g_rt_dcap_mark[g_rt_dcap_depth]; c->i = c->m; c->do_flush = 1; }
+    } else { c->m = 0; c->i = 0; c->do_flush = 1; }
+    return rt_dcap_pump();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_dcap_step(DESCR_t fret)
+{
+    extern DESCR_t rt_proc_call_epilogue(DESCR_t fret);
+    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+    extern int rt_g_want_name;
+    if (g_dcf_top <= 0) return 0;
+    rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+    DESCR_t nm = rt_proc_call_epilogue(fret);
+    rt_g_want_name = 0;
+    if (!IS_FAIL_fn(nm)) rt_assign_var(nm, c->pending);
+    return rt_dcap_pump();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_dcap_end_ok_close(void)
+{
+    if (g_dcf_top <= 0) return;
+    rt_dcf_t c = g_dcf[--g_dcf_top];
+    if (c.do_flush) g_rt_dcap_n = c.m;
+    if (g_rt_dcap_depth == 0) g_rt_dcap_active = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* DEAD EXPORT, PARKED NOT DELETED (PARK-NEVER-DELETE): zero callers at NCB-1c.  Its body was the C-side flush
+ * loop whose *VAR arm was a C→BB pathway; that pathway is now the box's (rt_dcap_end_ok_open/step/close).  A
+ * silent plain-only flush here would be a semantic trap, so it bombs loudly instead.  If a caller ever appears,
+ * it must drive the pump from an emitted box. */
+void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* D3 COMMIT-RING (2026-07-08 s7, the DEMO-PAT DP-2 machinery lit for the first time — the ring predated this
  * session but nothing ever called begin/end, so COND captures wrote at every trial yield, immediate-assignment
@@ -607,7 +659,7 @@ void rt_dcap_begin(void) { if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) g_rt_dcap_ma
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_end_fail(void) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_fail depth=%d n=%d\n", g_rt_dcap_depth, g_rt_dcap_n); if (g_rt_dcap_depth > 0) { g_rt_dcap_depth--; if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) g_rt_dcap_n = g_rt_dcap_mark[g_rt_dcap_depth]; } if (g_rt_dcap_depth == 0) g_rt_dcap_active = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_end_ok(void) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_ok depth=%d n=%d\n", g_rt_dcap_depth, g_rt_dcap_n); if (g_rt_dcap_depth > 0) { g_rt_dcap_depth--; if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) rt_dcap_flush_from(g_rt_dcap_mark[g_rt_dcap_depth]); } else rt_dcap_flush_from(0); if (g_rt_dcap_depth == 0) g_rt_dcap_active = 0; }
+void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_unpend(const char *vname) {
     if (!vname || !*vname || !g_rt_dcap_active) return;
