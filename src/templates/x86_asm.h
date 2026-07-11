@@ -349,6 +349,18 @@ inline std::string x86_port_canary() {
  * later in this file, while x86_jmp — which calls this — must stay BEFORE x86() because x86() itself calls
  * x86_jmp for XK_PORT jump operands; see the ordering note by the definition). */
 extern "C" void rt_zls_release(void *);
+/* x86_own_floor_store() -- RUNG ZB-OWN-0 tail: rdi=&cell, rax=current cell, rcx=target(mark-C_i).  Stores
+ * the target ONLY when it is strictly BELOW the current cursor (floor-only positioning): `cmp rcx,rax /
+ * jae +3 / mov [rdi],rcx`.  NEVER-HOIST COMPOSITION RULE (found live this rung, =5 first cut: 25 ARB/ARBNO/
+ * capture reds): the universal static shadow and the granted DYNAMIC activation blocks share ONE cursor, and
+ * an absolute store that hoists the cursor above a live dynamic block hands the block's bytes to the next
+ * bump.  Floor-only composes: statics position exactly when no dynamic block is live below, and the dynamic
+ * arm's own RELEASE restores the ceiling.  Canary-precedent raw dual-medium (private to this file). */
+inline std::string x86_own_floor_store() {
+    if (MEDIUM_BINARY)
+        return x86_Lrec(x86_b3(0x48, 0x39, 0xC1) + x86_b2(0x73, 0x03) + x86_b3(0x48, 0x89, 0x0F));
+    return std::string(" cmp rcx, rax\n jae 1f\n mov qword ptr [rdi], rcx\n1:\n");
+}
 inline std::string x86_zeta_free_call();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_jmp's ALLOC-mode free-call fires ONLY when op_omega_is_death is set (computed once per node in
@@ -1088,7 +1100,7 @@ inline std::string x86_zls2_cur_lea(const char * reg) {
 inline std::string x86_zls2_mark_save(int off) {
     if (x86_port_mode() == ZC_PORT_CSTACK)
         return x86("mov", FRQ(off), "rsp");
-    if (x86_port_mode() == ZC_PORT_INLINE)
+    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
         return x86_zls2_cur_lea("rdi")
              + x86("mov", "rax", RDQ("rdi", 0))
              + x86("mov", FRQ(off), "rax");
@@ -1109,7 +1121,7 @@ inline std::string x86_zls2_release_to_call(int off) {
         return x86_align_leave()
              + x86("mov", "rsp", FRQ(off))
              + x86_align_enter();
-    if (x86_port_mode() == ZC_PORT_INLINE)
+    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
         return x86_zls2_cur_lea("rdi")
              + x86("mov", "rax", FRQ(off))
              + x86("mov", RDQ("rdi", 0), "rax");
@@ -1209,7 +1221,7 @@ inline std::string x86_port_hook(int site, int port) {
      * 2026-07-08 s7, same session): ONLY α AND ω PARTICIPATE — no β arm in either flavor; the ω that lands
      * on a β has already put the cursor right (its RELEASE fired at death), so a β restore is a no-op by
      * construction.  ZLS2_RESTORE is never granted (zls2_geom); no hook site keys on it. */
-    if (x86_port_mode() == ZC_PORT_INLINE && _.op_zls2_ops && _.op_zls2_slot >= 0) {
+    if ((x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED) && _.op_zls2_ops && _.op_zls2_slot >= 0) {
         if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
             s += x86_zls2_cur_lea("rdi")
                + x86("mov", "rax", RDQ("rdi", 0))
@@ -1248,6 +1260,15 @@ inline std::string x86_port_hook(int site, int port) {
     }
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);
+    /* RUNG ZB-OWN-0 (Lon 2026-07-11) -- UNIVERSAL BB-owned shadow, absolute cell positioning: cell =
+     * statement-mark - C_i at every alpha AND beta define of an entry-holding node.  DEF sites only (flags
+     * clean); beta idempotent; no omega code by design.  rax/rcx/rdi, the stated DEF-site register contract. */
+    if (x86_port_mode() == ZC_PORT_OWNED && site == X86H_DEF && (port == X86P_ALPHA || port == X86P_BETA) && _.op_own_mark >= 0 && _.op_own_ci > 0)
+        s += x86_zls2_cur_lea("rdi")
+           + x86("mov", "rax", RDQ("rdi", 0))
+           + x86("mov", "rcx", FRQ(_.op_own_mark))
+           + x86_sub("rcx", (long)_.op_own_ci)
+           + x86_own_floor_store();
     if (x86_selfload_mode() == ZC_SELFLOAD_ALLOC && _.op_selfload) {
         if (site == X86H_DEF && port == X86P_ALPHA && _.op_selfload == 1)
             s += x86_align_enter()

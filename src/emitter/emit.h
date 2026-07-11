@@ -425,6 +425,8 @@ typedef struct {
      * in every port mode.  The ops==0 && bytes>0 combination remains the DORMANT direct-sub discipline (the
      * recorded future full-discipline design: sub ZR,K at α for boxes that never touch the graph frame) —
      * the C-call push/pop scheme keys on ops!=0 and never collides with it. */
+    int                          op_own_mark;
+    int                          op_own_ci;
     int                          op_zls2_slot;
     int                          op_zls2_ops;
     int                          op_selfload;

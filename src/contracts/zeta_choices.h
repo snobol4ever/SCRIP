@@ -65,6 +65,18 @@
  * it is a mapped follow-on (sites scrip.c :1010/:1180 emitted, :1290-1302/:1307-1379 driver).  Suspended
  * generator activations (s6 long-lived class) stay on the heap provider by construction.  SCRIP_ZETA_PORT=3
  * remains the INLINE arena flavor; =2 ALLOC (poison/telemetry proving); =0 PLAIN; =1 INSTRUMENTED. */
+/* ZC_PORT_OWNED (RUNG ZB-OWN-0, Lon directive 2026-07-11 "switch over to ZETA local storage BB-owned"):
+ * INLINE base (cell cursor; arena; C-side arena proc frames) + the UNIVERSAL per-box discipline as a
+ * balance-proving SHADOW: at every alpha AND beta define of a node holding a zls entry, the g_zls2_cur cell
+ * is positioned ABSOLUTELY to (statement mark - C_i), C_i = zls_off(nd)+zls_node_bytes(nd) -- everything
+ * left of the live box allocated, everything right dead.  DEFINE-sites only => flags-contract-clean, zero
+ * omega-side code (conditional-omega exits need no free; the next landing repositions), beta idempotent (no
+ * re-alloc hazard).  CELL not rsp at rung 0 BY NECESSITY: absolute rsp positioning would hoist over -- and
+ * the next C call would smash -- any live CSTACK dynamic activation block (ARB/ARBNO) pushed below the mark;
+ * rsp becomes reachable at ZB-OWN-1+ once region coalescing resolves static/dynamic coexistence.  Granted
+ * dynamic blocks (ARB/ARBNO) keep the INLINE cell protocol under OWNED.  Select SCRIP_ZETA_PORT=5 /
+ * --zeta-port 5; NOT the compiled default.  See GOAL-SNOBOL4-BB.md RUNG ZB-OWN. */
+#define ZC_PORT_OWNED        5
 #ifndef ZC_PORT
 #define ZC_PORT ZC_PORT_CSTACK
 #endif
