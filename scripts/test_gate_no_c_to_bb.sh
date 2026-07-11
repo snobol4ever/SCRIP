@@ -31,11 +31,27 @@ enclosing_fn() { # file line -> name of enclosing top-level function
         gsub(/\(.*/,"",f); nf=split(f,a,/[ \*]+/); print (nf?a[nf]:"?") }' "$1"
 }
 
-RAW=$(mktemp); TMP=$(mktemp); trap 'rm -f "$RAW" "$TMP"' EXIT
-# (a) member fn-ptr alpha calls (bb_box_fn signature: (fb, entry)) — NOT the builtin (args, nargs) dispatch shape
-grep -rna --include='*.c' -E -e '->fn\(\(?(void \*\))?fb, [01]\)' $SCAN_DIRS 2>/dev/null | cut -d: -f1,2 | sed 's/$/:member-fnptr-alpha/' >> "$RAW"
-# (b) bare bb_box_fn beta resumes
-grep -rna --include='*.c' -E -e '\(void\)fn\(\(void \*\)fb, 1\)' $SCAN_DIRS 2>/dev/null | cut -d: -f1,2 | sed 's/$/:bare-fnptr-beta/' >> "$RAW"
+RAW=$(mktemp); TMP=$(mktemp); STRIP=$(mktemp -d); trap 'rm -rf "$RAW" "$TMP" "$STRIP"' EXIT
+# COMMENT-STRIPPED MIRROR (NCB-1b finding): the shapes below are CODE shapes, but a comment that QUOTES one is
+# not a transfer.  s24's own leaf-split comment ("call p->fn(fb, 0)") tripped shape (a) and reported a phantom
+# 8th group (UNLEDGERED @ rt.c:716) — a gate that reds on prose would have held NCB-4's --strict red forever.
+# util_strip_c_comments.awk blanks comments LINE-PRESERVINGLY (so reported line numbers still index the real
+# file) and leaves STRING LITERALS intact (shape (c), the EVAL asm shim, lives inside one).
+for f in $(find $SCAN_DIRS -name '*.c' 2>/dev/null); do
+    mkdir -p "$STRIP/$(dirname "$f")"; LC_ALL=C awk -f "$HERE/util_strip_c_comments.awk" "$f" > "$STRIP/$f"
+done
+cd "$STRIP" || exit 2
+# (a+b) ANY call through a bb_box_fn pointer — the (fb, entry) signature — whether reached through a struct
+# member (`p->fn(fb, 0)`) or a bare local fn-ptr (`fn((void *)fb, 0)`), at EITHER port (entry 0 = α, 1 = β).
+# NCB-1b finding: the old pair of shapes keyed on member+entry-0 and bare+entry-1, so a BARE fn-ptr at entry 0
+# matched neither — and that is exactly what NCB-1a's leaf split turned rt_call_proc_descr's transfer into
+# (rt.c:532, `fn((void *)fb, 0)` off rt_frame_prep).  The gate was BLIND to the very transfer NCB-1b removes:
+# the flip would have read 7→7 and proven nothing.  One shape now covers the whole (fb, entry) call space.
+grep -rna --include='*.c' -E -e '\bfn\(\(?(void \*\))?fb, *[01]\)' $SCAN_DIRS 2>/dev/null \
+    | sed -E 's/^([^:]+):([0-9]+):(.*)$/\1:\2:/' >> "$RAW.tmp1"
+grep -rna --include='*.c' -E -e '\bfn\(\(?(void \*\))?fb, *[01]\)' $SCAN_DIRS 2>/dev/null \
+    | awk -F: '{ line=$0; sub(/^[^:]+:[0-9]+:/,"",line); tag = (line ~ /->fn\(/) ? "member-fnptr" : "bare-fnptr"; print $1 ":" $2 ":" tag }' >> "$RAW"
+rm -f "$RAW.tmp1"
 # (c) inline-asm transfer into the slab
 grep -rna --include='*.c' -E -e 'call \*%r?ax|call \*%%r?ax|jmp \*%%?rax' $SCAN_DIRS 2>/dev/null | cut -d: -f1,2 | sed 's/$/:asm-shim/' >> "$RAW"
 # (d) bare MAIN-shape entries
@@ -43,6 +59,7 @@ grep -rna --include='*.c' -E -e 'fn\(rt_frame\(\), 0\)|m3_enter_with_rbx\(' $SCA
 # (e) riders: C callers of the V4/V5 trampoline API outside rt.c (exclude decls)
 grep -rna --include='*.c' -E -e 'rt_proc_call_gen_h\(|rt_proc_resume_frame_h\(' $SCAN_DIRS 2>/dev/null \
     | grep -av 'src/runtime/rt/rt\.c' | grep -avE ':[ \t]*(extern|DESCR_t) ' | cut -d: -f1,2 | sed 's/$/:rider/' >> "$RAW"
+cd "$REPO" || exit 2
 
 while IFS=: read -r f l shape; do
     [ -z "$f" ] && continue
