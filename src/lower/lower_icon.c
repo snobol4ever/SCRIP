@@ -125,6 +125,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
     }
     if ((icn_proc_is_generator(name) || gb) && last_ar) lc_γ_to(last_ar, call);
+    const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
+    if ((icn_proc_is_generator(name) || gb) && la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la))) ω_to(call, aω);
     cx->beta = (icn_proc_is_generator(name) || gb) ? call : (g_postfix_resume ? aω : ω);
     return entry;
 }

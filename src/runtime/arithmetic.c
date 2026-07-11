@@ -213,7 +213,7 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
         case BINOP_ADD: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
         case BINOP_SUB: return anyf ? REALVAL(ld - rd) : INTVAL(li - ri);
         case BINOP_MUL: return anyf ? REALVAL(ld * rd) : INTVAL(li * ri);
-        case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return (li % ri == 0) ? INTVAL(li / ri) : REALVAL((double)li / (double)ri);
+        case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return INTVAL(li / ri);
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
         case BINOP_POW: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_descr(li, ri);
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
