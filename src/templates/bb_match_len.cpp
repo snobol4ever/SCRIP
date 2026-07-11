@@ -19,7 +19,9 @@ std::string bb_match_len() {
          + IF(_.op_sa <  0, x86("add", "r14d", (long)(int)_.op_ival))
          + x86_gamma()
          + x86_beta()
-         + IF(_.op_sa >= 0, x86("mov", "rcx", FRQ(_.op_sa + 8)) + x86("sub", "r14d", "ecx"))
+         + IF(_.op_sa >= 0,
+             x86("mov", "rcx", FRQ(_.op_sa + 8))
+           + x86("sub", "r14d", "ecx"))
          + IF(_.op_sa <  0, x86("sub", "r14d", (long)(int)_.op_ival))
          + x86_omega();
 }
