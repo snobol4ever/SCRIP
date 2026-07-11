@@ -195,7 +195,7 @@ main_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n7_β
+ jmp xchain0_n8_β
 # IR_MATCH_LIT
  xchain0_n10_α:
  mov eax, r14d
@@ -238,7 +238,7 @@ main_α_body:
  call rt_dcap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n9_β
+ jmp xchain0_n10_β
 # IR_MATCH_RELEASE
  xchain0_n12_α:
  push rbp

@@ -235,6 +235,7 @@ main_α_body:
  add r14d, 1
  jmp xchain0_n14_α
  xchain0_n12_β:
+ sub r14d, 1
  jmp xchain0_n14_β
 # IR_MATCH_RELEASE
  xchain0_n13_α:
@@ -290,6 +291,7 @@ main_α_body:
  add r14d, 1
  jmp xchain0_n19_α
  xchain0_n16_β:
+ sub r14d, 1
  jmp xchain0_n19_β
 # IR_MATCH_ARBNO2 ok
  xchain0_n17_α:
@@ -358,7 +360,7 @@ main_α_body:
  jmp xchain0_n10_β
 .Lx29_2:
  mov r14d, dword ptr [r12 + 144]
- jmp xchain0_n3_β
+ jmp xchain0_n7_β
 main_β:
 jmp main_ω
 main_γ:

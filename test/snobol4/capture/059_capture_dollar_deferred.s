@@ -183,6 +183,7 @@ main_α_body:
  add r14d, 5
  jmp xchain0_n8_α
  xchain0_n7_β:
+ sub r14d, 5
  jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_IMM
  xchain0_n8_α:
@@ -200,7 +201,7 @@ main_α_body:
  pop rbp
  jmp xchain0_n9_α
  xchain0_n8_β:
- jmp xchain0_n5_β
+ jmp xchain0_n7_β
 # IR_MATCH_RELEASE
  xchain0_n9_α:
  push rbp

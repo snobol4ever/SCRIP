@@ -6775,7 +6775,7 @@ proc_PAT$1_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$1_ω
+ jmp xchain310_n0_β
 proc_PAT$1_β:
 jmp proc_PAT$1_ω
 proc_PAT$1_γ:
@@ -6898,7 +6898,7 @@ proc_PAT$2_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain321_n3_β
+ jg xchain321_n1_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
@@ -6907,12 +6907,12 @@ proc_PAT$2_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain321_n3_β
+ jne xchain321_n1_β
  add r14d, 1
  jmp xchain321_n4_α
  xchain321_n2_β:
  sub r14d, 1
- jmp xchain321_n3_β
+ jmp xchain321_n1_β
 # IR_MATCH_ALT_JOIN
  xchain321_n3_α:
  lea rax, [rip + .Lx328_0]
@@ -7082,7 +7082,7 @@ proc_PAT$2_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain321_n8_β
+ jmp xchain321_n5_β
 .Lx333_1:
  jmp xchain321_n8_α
 .Lx333_0:
@@ -7096,11 +7096,11 @@ proc_PAT$2_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain321_n8_β
+ js xchain321_n5_β
  mov r14d, eax
  jmp xchain321_n8_α
  xchain321_n7_β:
- jmp xchain321_n8_β
+ jmp xchain321_n5_β
 # IR_MATCH_ALT_JOIN
  xchain321_n8_α:
  lea rax, [rip + .Lx335_0]
@@ -7214,7 +7214,7 @@ proc_PAT$2_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain321_n3_β
+ jmp xchain321_n2_β
 # IR_MATCH_DEFER
  xchain321_n13_α:
  lea rdi, [rip + .S6]
@@ -7540,7 +7540,7 @@ proc_PAT$3_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain349_n5_β
+ jmp xchain349_n3_β
 .Lx357_1:
  jmp xchain349_n6_α
 .Lx357_0:
@@ -7554,11 +7554,11 @@ proc_PAT$3_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain349_n5_β
+ js xchain349_n3_β
  mov r14d, eax
  jmp xchain349_n6_α
  xchain349_n4_β:
- jmp xchain349_n5_β
+ jmp xchain349_n3_β
 # IR_MATCH_ALT_JOIN
  xchain349_n5_α:
  lea rax, [rip + .Lx359_0]
@@ -7580,7 +7580,7 @@ proc_PAT$3_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain349_n5_β
+ jg xchain349_n4_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
@@ -7589,12 +7589,12 @@ proc_PAT$3_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain349_n5_β
+ jne xchain349_n4_β
  add r14d, 1
  jmp xchain349_n5_α
  xchain349_n6_β:
  sub r14d, 1
- jmp xchain349_n5_β
+ jmp xchain349_n4_β
 proc_PAT$3_β:
 jmp proc_PAT$3_ω
 proc_PAT$3_γ:
@@ -7914,7 +7914,7 @@ proc_PAT$5_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$5_ω
+ jmp xchain365_n0_β
 proc_PAT$5_β:
 jmp proc_PAT$5_ω
 proc_PAT$5_γ:
@@ -8037,7 +8037,7 @@ proc_PAT$6_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain376_n3_β
+ jg xchain376_n1_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
@@ -8046,12 +8046,12 @@ proc_PAT$6_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain376_n3_β
+ jne xchain376_n1_β
  add r14d, 1
  jmp xchain376_n4_α
  xchain376_n2_β:
  sub r14d, 1
- jmp xchain376_n3_β
+ jmp xchain376_n1_β
 # IR_MATCH_ALT_JOIN
  xchain376_n3_α:
  lea rax, [rip + .Lx383_0]
@@ -8221,7 +8221,7 @@ proc_PAT$6_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain376_n8_β
+ jmp xchain376_n5_β
 .Lx388_1:
  jmp xchain376_n8_α
 .Lx388_0:
@@ -8235,11 +8235,11 @@ proc_PAT$6_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain376_n8_β
+ js xchain376_n5_β
  mov r14d, eax
  jmp xchain376_n8_α
  xchain376_n7_β:
- jmp xchain376_n8_β
+ jmp xchain376_n5_β
 # IR_MATCH_ALT_JOIN
  xchain376_n8_α:
  lea rax, [rip + .Lx390_0]
@@ -8353,7 +8353,7 @@ proc_PAT$6_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain376_n3_β
+ jmp xchain376_n2_β
 # IR_MATCH_DEFER
  xchain376_n13_α:
  lea rdi, [rip + .S6]
@@ -8679,7 +8679,7 @@ proc_PAT$7_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain404_n5_β
+ jmp xchain404_n3_β
 .Lx412_1:
  jmp xchain404_n6_α
 .Lx412_0:
@@ -8693,11 +8693,11 @@ proc_PAT$7_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain404_n5_β
+ js xchain404_n3_β
  mov r14d, eax
  jmp xchain404_n6_α
  xchain404_n4_β:
- jmp xchain404_n5_β
+ jmp xchain404_n3_β
 # IR_MATCH_ALT_JOIN
  xchain404_n5_α:
  lea rax, [rip + .Lx414_0]
@@ -8719,7 +8719,7 @@ proc_PAT$7_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain404_n5_β
+ jg xchain404_n4_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
@@ -8728,12 +8728,12 @@ proc_PAT$7_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain404_n5_β
+ jne xchain404_n4_β
  add r14d, 1
  jmp xchain404_n5_α
  xchain404_n6_β:
  sub r14d, 1
- jmp xchain404_n5_β
+ jmp xchain404_n4_β
 proc_PAT$7_β:
 jmp proc_PAT$7_ω
 proc_PAT$7_γ:
@@ -9053,7 +9053,7 @@ proc_PAT$9_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$9_ω
+ jmp xchain420_n0_β
 proc_PAT$9_β:
 jmp proc_PAT$9_ω
 proc_PAT$9_γ:
@@ -9176,7 +9176,7 @@ proc_PAT$10_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain431_n3_β
+ jg xchain431_n1_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
@@ -9185,12 +9185,12 @@ proc_PAT$10_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain431_n3_β
+ jne xchain431_n1_β
  add r14d, 1
  jmp xchain431_n4_α
  xchain431_n2_β:
  sub r14d, 1
- jmp xchain431_n3_β
+ jmp xchain431_n1_β
 # IR_MATCH_ALT_JOIN
  xchain431_n3_α:
  lea rax, [rip + .Lx438_0]
@@ -9360,7 +9360,7 @@ proc_PAT$10_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain431_n8_β
+ jmp xchain431_n5_β
 .Lx443_1:
  jmp xchain431_n8_α
 .Lx443_0:
@@ -9374,11 +9374,11 @@ proc_PAT$10_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain431_n8_β
+ js xchain431_n5_β
  mov r14d, eax
  jmp xchain431_n8_α
  xchain431_n7_β:
- jmp xchain431_n8_β
+ jmp xchain431_n5_β
 # IR_MATCH_ALT_JOIN
  xchain431_n8_α:
  lea rax, [rip + .Lx445_0]
@@ -9492,7 +9492,7 @@ proc_PAT$10_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain431_n3_β
+ jmp xchain431_n2_β
 # IR_MATCH_DEFER
  xchain431_n13_α:
  lea rdi, [rip + .S6]
@@ -9818,7 +9818,7 @@ proc_PAT$11_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain459_n5_β
+ jmp xchain459_n3_β
 .Lx467_1:
  jmp xchain459_n6_α
 .Lx467_0:
@@ -9832,11 +9832,11 @@ proc_PAT$11_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain459_n5_β
+ js xchain459_n3_β
  mov r14d, eax
  jmp xchain459_n6_α
  xchain459_n4_β:
- jmp xchain459_n5_β
+ jmp xchain459_n3_β
 # IR_MATCH_ALT_JOIN
  xchain459_n5_α:
  lea rax, [rip + .Lx469_0]
@@ -9858,7 +9858,7 @@ proc_PAT$11_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain459_n5_β
+ jg xchain459_n4_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
@@ -9867,12 +9867,12 @@ proc_PAT$11_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain459_n5_β
+ jne xchain459_n4_β
  add r14d, 1
  jmp xchain459_n5_α
  xchain459_n6_β:
  sub r14d, 1
- jmp xchain459_n5_β
+ jmp xchain459_n4_β
 proc_PAT$11_β:
 jmp proc_PAT$11_ω
 proc_PAT$11_γ:
@@ -10192,7 +10192,7 @@ proc_PAT$13_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$13_ω
+ jmp xchain475_n0_β
 proc_PAT$13_β:
 jmp proc_PAT$13_ω
 proc_PAT$13_γ:
@@ -10315,7 +10315,7 @@ proc_PAT$14_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain486_n3_β
+ jg xchain486_n1_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
@@ -10324,12 +10324,12 @@ proc_PAT$14_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain486_n3_β
+ jne xchain486_n1_β
  add r14d, 1
  jmp xchain486_n4_α
  xchain486_n2_β:
  sub r14d, 1
- jmp xchain486_n3_β
+ jmp xchain486_n1_β
 # IR_MATCH_ALT_JOIN
  xchain486_n3_α:
  lea rax, [rip + .Lx493_0]
@@ -10499,7 +10499,7 @@ proc_PAT$14_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain486_n8_β
+ jmp xchain486_n5_β
 .Lx498_1:
  jmp xchain486_n8_α
 .Lx498_0:
@@ -10513,11 +10513,11 @@ proc_PAT$14_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain486_n8_β
+ js xchain486_n5_β
  mov r14d, eax
  jmp xchain486_n8_α
  xchain486_n7_β:
- jmp xchain486_n8_β
+ jmp xchain486_n5_β
 # IR_MATCH_ALT_JOIN
  xchain486_n8_α:
  lea rax, [rip + .Lx500_0]
@@ -10631,7 +10631,7 @@ proc_PAT$14_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain486_n3_β
+ jmp xchain486_n2_β
 # IR_MATCH_DEFER
  xchain486_n13_α:
  lea rdi, [rip + .S6]
@@ -10957,7 +10957,7 @@ proc_PAT$15_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain514_n5_β
+ jmp xchain514_n3_β
 .Lx522_1:
  jmp xchain514_n6_α
 .Lx522_0:
@@ -10971,11 +10971,11 @@ proc_PAT$15_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain514_n5_β
+ js xchain514_n3_β
  mov r14d, eax
  jmp xchain514_n6_α
  xchain514_n4_β:
- jmp xchain514_n5_β
+ jmp xchain514_n3_β
 # IR_MATCH_ALT_JOIN
  xchain514_n5_α:
  lea rax, [rip + .Lx524_0]
@@ -10997,7 +10997,7 @@ proc_PAT$15_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain514_n5_β
+ jg xchain514_n4_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
@@ -11006,12 +11006,12 @@ proc_PAT$15_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain514_n5_β
+ jne xchain514_n4_β
  add r14d, 1
  jmp xchain514_n5_α
  xchain514_n6_β:
  sub r14d, 1
- jmp xchain514_n5_β
+ jmp xchain514_n4_β
 proc_PAT$15_β:
 jmp proc_PAT$15_ω
 proc_PAT$15_γ:
@@ -11331,7 +11331,7 @@ proc_PAT$17_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$17_ω
+ jmp xchain530_n0_β
 proc_PAT$17_β:
 jmp proc_PAT$17_ω
 proc_PAT$17_γ:
@@ -11454,7 +11454,7 @@ proc_PAT$18_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain541_n3_β
+ jg xchain541_n1_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
@@ -11463,12 +11463,12 @@ proc_PAT$18_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain541_n3_β
+ jne xchain541_n1_β
  add r14d, 1
  jmp xchain541_n4_α
  xchain541_n2_β:
  sub r14d, 1
- jmp xchain541_n3_β
+ jmp xchain541_n1_β
 # IR_MATCH_ALT_JOIN
  xchain541_n3_α:
  lea rax, [rip + .Lx548_0]
@@ -11638,7 +11638,7 @@ proc_PAT$18_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain541_n8_β
+ jmp xchain541_n5_β
 .Lx553_1:
  jmp xchain541_n8_α
 .Lx553_0:
@@ -11652,11 +11652,11 @@ proc_PAT$18_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain541_n8_β
+ js xchain541_n5_β
  mov r14d, eax
  jmp xchain541_n8_α
  xchain541_n7_β:
- jmp xchain541_n8_β
+ jmp xchain541_n5_β
 # IR_MATCH_ALT_JOIN
  xchain541_n8_α:
  lea rax, [rip + .Lx555_0]
@@ -11770,7 +11770,7 @@ proc_PAT$18_α_body:
  call rt_dcap_restore_to@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain541_n3_β
+ jmp xchain541_n2_β
 # IR_MATCH_DEFER
  xchain541_n13_α:
  lea rdi, [rip + .S6]
@@ -12096,7 +12096,7 @@ proc_PAT$19_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain569_n5_β
+ jmp xchain569_n3_β
 .Lx577_1:
  jmp xchain569_n6_α
 .Lx577_0:
@@ -12110,11 +12110,11 @@ proc_PAT$19_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain569_n5_β
+ js xchain569_n3_β
  mov r14d, eax
  jmp xchain569_n6_α
  xchain569_n4_β:
- jmp xchain569_n5_β
+ jmp xchain569_n3_β
 # IR_MATCH_ALT_JOIN
  xchain569_n5_α:
  lea rax, [rip + .Lx579_0]
@@ -12136,7 +12136,7 @@ proc_PAT$19_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain569_n5_β
+ jg xchain569_n4_β
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
@@ -12145,12 +12145,12 @@ proc_PAT$19_α_body:
  call memcmp@PLT
  add rsp, 8
  test eax, eax
- jne xchain569_n5_β
+ jne xchain569_n4_β
  add r14d, 1
  jmp xchain569_n5_α
  xchain569_n6_β:
  sub r14d, 1
- jmp xchain569_n5_β
+ jmp xchain569_n4_β
 proc_PAT$19_β:
 jmp proc_PAT$19_ω
 proc_PAT$19_γ:
@@ -15739,7 +15739,7 @@ main_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain582_n72_β
+ jmp xchain582_n80_β
 .Lx681_1:
  jmp xchain582_n85_α
 .Lx681_0:
@@ -15753,11 +15753,11 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain582_n72_β
+ js xchain582_n80_β
  mov r14d, eax
  jmp xchain582_n85_α
  xchain582_n83_β:
- jmp xchain582_n72_β
+ jmp xchain582_n80_β
  xchain582_n84_α:
 # BOX CALL SNO$PBALT(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+2976] -> [zr+2944]
@@ -15812,10 +15812,10 @@ main_α_body:
  mov ecx, r15d
  sub ecx, eax
  cmp r14d, ecx
- jne xchain582_n72_β
+ jne xchain582_n83_β
  jmp xchain582_n88_α
  xchain582_n87_β:
- jmp xchain582_n72_β
+ jmp xchain582_n83_β
 # IR_MATCH_RELEASE
  xchain582_n88_α:
  push rbp

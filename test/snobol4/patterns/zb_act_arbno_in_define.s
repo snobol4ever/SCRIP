@@ -133,7 +133,7 @@ proc_MATCHIT_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n1_β
+ jmp xchain0_n5_β
 # IR_MATCH_ARBNO gen
  xchain0_n7_α:
  sub rsp, 32

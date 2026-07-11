@@ -187,11 +187,12 @@ main_α_body:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n3_β
+ jg xchain0_n5_β
  add r14d, 1
  jmp xchain0_n8_α
  xchain0_n7_β:
- jmp xchain0_n3_β
+ sub r14d, 1
+ jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_SAVE push
  xchain0_n8_α:
  lea rdi, [r12 + 128]
@@ -211,7 +212,7 @@ main_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n3_β
+ jmp xchain0_n7_β
 # IR_MATCH_REM
  xchain0_n9_α:
  mov dword ptr [r12 + 144], r14d
@@ -242,7 +243,7 @@ main_α_body:
  call rt_dcap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n8_β
+ jmp xchain0_n9_β
 # IR_MATCH_RELEASE
  xchain0_n11_α:
  push rbp

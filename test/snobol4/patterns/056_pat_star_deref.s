@@ -274,7 +274,7 @@ main_α_body:
  call rt_dcap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n7_β
+ jmp xchain0_n9_β
 # IR_MATCH_RELEASE
  xchain0_n11_α:
  push rbp
