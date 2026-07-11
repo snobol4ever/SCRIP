@@ -418,7 +418,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = ini; return ini; }
     case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
         IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
-        if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, cx->pfail ? cx->pfail : ω, &ev); if (is_resumable(t->c[0])) eβ = cx->beta; }
+        if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, ω, &ev); if (is_resumable(t->c[0])) eβ = cx->beta; }
         ir_operand_push(sn, ev);
         if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; IR_t * d_entry = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); ir_operand_push(sn, d_entry); }
         else ir_operand_push(sn, eβ ? eβ : γ);
@@ -662,7 +662,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     case TT_REVASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
-        if (lhs && (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM)) {
+        if (lhs && (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM || lhs->t == TT_NULL || lhs->t == TT_NONNULL)) {
             IR_t * b4 = cx->beta;
             IR_t * vr = NULL; IR_t * entry = lower_lvalue_var(cx, lhs, ω, &vr);
             IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
