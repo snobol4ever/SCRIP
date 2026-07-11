@@ -218,82 +218,124 @@ main_α_body:
 .Lx6_0:
  .quad 5
  xchain5_n1_α:
-  .section .rodata
-  .Lcall6_pname: .string "double"
-  .section .text
-  .intel_syntax noprefix
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 176]
  mov rdx, qword ptr [r12 + 184]
  call rt_arg_stage@PLT
-   lea rdi, [rip + .Lcall6_pname]
+ mov rdi, qword ptr [rip + .Lx8_0]
  mov esi, 1
- call rt_call_proc_descr@PLT
+ call rt_proc_call_open@PLT
+ test rax, rax
+ je .Lx8_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_proc_call_epilogue@PLT
+ jmp .Lx8_2
+.Lx8_1:
+ call rt_faildescr@PLT
+.Lx8_2:
+ mov rsp, rbp
+ pop rbp
  mov qword ptr [r12 + 144], rax
  mov qword ptr [r12 + 152], rdx
  cmp eax, 99
  je xchain5_n3_α
  jmp xchain5_n2_α
-xchain5_n1_β:
+ xchain5_n1_β:
  jmp xchain5_n3_α
+.Lx8_0:
+ .quad .Lx8_0_s
+.Lx8_0_s:
+ .string "double"
 # IR_ASSIGN global
  xchain5_n2_α:
  mov rsi, qword ptr [r12 + 144]
  mov rdx, qword ptr [r12 + 152]
- mov rdi, qword ptr [rip + .Lx8_0]
+ mov rdi, qword ptr [rip + .Lx9_0]
  call NV_SET_fn@PLT
  mov qword ptr [r12 + 128], rax
  mov qword ptr [r12 + 136], rdx
  jmp xchain5_n3_α
  xchain5_n2_β:
  jmp xchain5_n3_α
-.Lx8_0:
- .quad .Lx8_0_s
-.Lx8_0_s:
+.Lx9_0:
+ .quad .Lx9_0_s
+.Lx9_0_s:
  .string "OUTPUT"
 # IR_LIT_INTEGER
  xchain5_n3_α:
  mov qword ptr [r12 + 240], 6
- mov rax, qword ptr [rip + .Lx9_0]
+ mov rax, qword ptr [rip + .Lx10_0]
  mov qword ptr [r12 + 248], rax
  jmp xchain5_n4_α
  xchain5_n3_β:
  jmp main_γ
-.Lx9_0:
+.Lx10_0:
  .quad 21
  xchain5_n4_α:
-  .section .rodata
-  .Lcall9_pname: .string "double"
-  .section .text
-  .intel_syntax noprefix
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 240]
  mov rdx, qword ptr [r12 + 248]
  call rt_arg_stage@PLT
-   lea rdi, [rip + .Lcall9_pname]
+ mov rdi, qword ptr [rip + .Lx12_0]
  mov esi, 1
- call rt_call_proc_descr@PLT
+ call rt_proc_call_open@PLT
+ test rax, rax
+ je .Lx12_1
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_proc_call_epilogue@PLT
+ jmp .Lx12_2
+.Lx12_1:
+ call rt_faildescr@PLT
+.Lx12_2:
+ mov rsp, rbp
+ pop rbp
  mov qword ptr [r12 + 208], rax
  mov qword ptr [r12 + 216], rdx
  cmp eax, 99
  je main_γ
  jmp xchain5_n5_α
-xchain5_n4_β:
+ xchain5_n4_β:
  jmp main_γ
+.Lx12_0:
+ .quad .Lx12_0_s
+.Lx12_0_s:
+ .string "double"
 # IR_ASSIGN global
  xchain5_n5_α:
  mov rsi, qword ptr [r12 + 208]
  mov rdx, qword ptr [r12 + 216]
- mov rdi, qword ptr [rip + .Lx11_0]
+ mov rdi, qword ptr [rip + .Lx13_0]
  call NV_SET_fn@PLT
  mov qword ptr [r12 + 192], rax
  mov qword ptr [r12 + 200], rdx
  jmp main_γ
  xchain5_n5_β:
  jmp main_γ
-.Lx11_0:
- .quad .Lx11_0_s
-.Lx11_0_s:
+.Lx13_0:
+ .quad .Lx13_0_s
+.Lx13_0_s:
  .string "OUTPUT"
 main_β:
 jmp main_ω
