@@ -1068,6 +1068,24 @@ inline std::string x86_align_leave() {
     return x86("mov", "rsp", sv) + x86("pop", sv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_xfer_enter/leave (NCB-1c, 2026-07-11) — THE MATCHER-REGISTER SAVE FOR AN EMITTED BB→BB TRANSFER.
+ * An xa_flat callee pushes only its frame register (+ optional display reg): it does NOT honor the SysV
+ * callee-saved contract for r13/r14/r15.  The matcher holds its CURSOR in r14d and scratch in r15d, so any
+ * transfer taken while a match is in progress must save them ITSELF or the callee's own nested match shoots the
+ * cursor out from under it — a SILENT WRONG ANSWER, not a crash (ablation: 'AABZ' ? 'A' *F() 'Z' prints fail
+ * where the oracle matches; the full crosscheck does not notice — corpus 161 exists to notice).  The old C
+ * trampolines hid this by accident of GCC's own register allocation, never by design.
+ * USE IT AROUND EVERY TRANSFER WINDOW EMITTED INSIDE A MATCHER BOX.  Goes OUTSIDE x86_align_enter (it pushes;
+ * align_enter then 16-aligns rsp regardless, so the odd push count is harmless).  Not needed at statement-level
+ * call sites (no live cursor) — that is why bcps_det_arm is safe today, and it stops being safe the moment a
+ * deterministic call is reached with r14 live. */
+inline std::string x86_xfer_enter() {
+    return x86("push", "r14") + x86("push", "r15") + x86("push", "r13");
+}
+inline std::string x86_xfer_leave() {
+    return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_free_call() definition (forward-declared above x86_jmp; see that declaration's comment for why
  * this must live here, after x86() itself is defined). */
 inline std::string x86_zeta_free_call() {
