@@ -9,6 +9,7 @@ std::string bb_match_rtab() {
     if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_MATCH_RTAB")
          + x86_alpha()
+         + x86("mov",  FR(_.x86_scratch_off), "r14d")
          + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))
          + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
          + x86("mov",  "ecx", "r15d")
@@ -18,5 +19,6 @@ std::string bb_match_rtab() {
          + x86("mov",  "r14d", "ecx")
          + x86_gamma()
          + x86_beta()
+         + x86("mov",  "r14d", FR(_.x86_scratch_off))
          + x86_omega();
 }

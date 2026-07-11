@@ -1080,7 +1080,16 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.x86_scratch_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_POS: {
+    case IR_MATCH_TAB: case IR_MATCH_RTAB: {
+        IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        g_emit.op_off = -1;
+        if (!a0) { drive_unowned(nd); break; }
+        if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
+        g_emit.x86_scratch_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_POS: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = -1;
         if (!a0) { drive_unowned(nd); break; }
