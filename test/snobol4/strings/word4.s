@@ -61,7 +61,7 @@ proc_PAT$0_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$0_ω
+ jmp xchain0_n1_β
 # IR_MATCH_BREAK
  xchain0_n3_α:
  mov dword ptr [r12 + 128], 0
@@ -112,7 +112,7 @@ proc_PAT$0_α_body:
  call rt_dcap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n2_β
+ jmp xchain0_n3_β
 # IR_MATCH_LIT
  xchain0_n5_α:
  mov eax, r14d
@@ -154,7 +154,7 @@ proc_PAT$0_α_body:
 .Lx12_1:
  mov eax, dword ptr [r12 + 96]
  test eax, eax
- jle proc_PAT$0_ω
+ jle xchain0_n5_β
  mov edx, r14d
  mov dword ptr [r12 + 100], edx
  add edx, eax
@@ -163,7 +163,7 @@ proc_PAT$0_α_body:
  xchain0_n6_β:
  xchain0_n6_β:
  mov r14d, dword ptr [r12 + 100]
- jmp proc_PAT$0_ω
+ jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_SAVE push
  xchain0_n7_α:
  lea rdi, [r12 + 64]
@@ -183,7 +183,7 @@ proc_PAT$0_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$0_ω
+ jmp xchain0_n6_β
 # IR_MATCH_BREAKX
  xchain0_n8_α:
  mov dword ptr [r12 + 80], 0
@@ -299,7 +299,7 @@ proc_PAT$0_α_body:
 .Lx22_1:
  mov eax, dword ptr [r12 + 48]
  test eax, eax
- jle proc_PAT$0_ω
+ jle xchain0_n10_β
  mov edx, r14d
  mov dword ptr [r12 + 52], edx
  add edx, eax
@@ -308,7 +308,7 @@ proc_PAT$0_α_body:
  xchain0_n11_β:
  xchain0_n11_β:
  mov r14d, dword ptr [r12 + 52]
- jmp proc_PAT$0_ω
+ jmp xchain0_n10_β
 # IR_MATCH_CAPTURE_SAVE push
  xchain0_n12_α:
  lea rdi, [r12 + 16]
@@ -328,7 +328,7 @@ proc_PAT$0_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$0_ω
+ jmp xchain0_n11_β
 # IR_MATCH_REM
  xchain0_n13_α:
  mov dword ptr [r12 + 32], r14d
@@ -359,7 +359,7 @@ proc_PAT$0_α_body:
  call rt_dcap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n12_β
+ jmp xchain0_n13_β
 proc_PAT$0_β:
 jmp proc_PAT$0_ω
 proc_PAT$0_γ:

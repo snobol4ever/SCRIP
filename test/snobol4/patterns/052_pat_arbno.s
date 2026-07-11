@@ -191,7 +191,7 @@ main_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n3_β
+ jmp xchain0_n7_β
 # IR_MATCH_ARBNO gen
  xchain0_n9_α:
  sub rsp, 32

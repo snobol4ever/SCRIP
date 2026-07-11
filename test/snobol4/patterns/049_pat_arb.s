@@ -231,6 +231,7 @@ main_α_body:
  add r14d, 1
  jmp xchain0_n10_α
  xchain0_n9_β:
+ sub r14d, 1
  jmp xchain0_n8_β
 # IR_MATCH_RELEASE
  xchain0_n10_α:

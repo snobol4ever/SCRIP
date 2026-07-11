@@ -63,7 +63,7 @@ proc_PAT$0_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp proc_PAT$0_ω
+ jmp xchain0_n0_β
 # IR_MATCH_ARB
  xchain0_n2_α:
  sub rsp, 16

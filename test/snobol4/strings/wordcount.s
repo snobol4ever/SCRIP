@@ -73,7 +73,7 @@ proc_PAT$0_α_body:
 .Lx4_1:
  mov eax, dword ptr [r12 + 16]
  test eax, eax
- jle proc_PAT$0_ω
+ jle xchain0_n0_β
  mov edx, r14d
  mov dword ptr [r12 + 20], edx
  add edx, eax
@@ -82,7 +82,7 @@ proc_PAT$0_α_body:
  xchain0_n1_β:
  xchain0_n1_β:
  mov r14d, dword ptr [r12 + 20]
- jmp proc_PAT$0_ω
+ jmp xchain0_n0_β
 proc_PAT$0_β:
 jmp proc_PAT$0_ω
 proc_PAT$0_γ:

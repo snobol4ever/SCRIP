@@ -206,7 +206,7 @@ main_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n3_β
+ jmp xchain0_n5_β
 .Lx10_1:
  jmp xchain0_n8_α
 .Lx10_0:
@@ -220,11 +220,11 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain0_n3_β
+ js xchain0_n5_β
  mov r14d, eax
  jmp xchain0_n8_α
  xchain0_n7_β:
- jmp xchain0_n3_β
+ jmp xchain0_n5_β
 # IR_MATCH_RELEASE
  xchain0_n8_α:
  push rbp

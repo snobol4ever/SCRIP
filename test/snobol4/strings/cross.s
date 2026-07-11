@@ -286,7 +286,7 @@ main_α_body:
  call rt_cap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n12_β
+ jmp xchain0_n13_β
 # IR_MATCH_ANY
  xchain0_n15_α:
  mov eax, r14d
@@ -327,7 +327,7 @@ main_α_body:
  call rt_dcap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n14_β
+ jmp xchain0_n15_β
 # IR_MATCH_RELEASE
  xchain0_n17_α:
  mov qword ptr [r12 + 264], r14
@@ -492,7 +492,7 @@ main_α_body:
  call rt_zls_release@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n23_β
+ jmp xchain0_n24_β
 .Lx34_1:
  jmp xchain0_n26_α
 .Lx34_0:
@@ -506,11 +506,11 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  test eax, eax
- js xchain0_n23_β
+ js xchain0_n24_β
  mov r14d, eax
  jmp xchain0_n26_α
  xchain0_n25_β:
- jmp xchain0_n23_β
+ jmp xchain0_n24_β
 # IR_MATCH_RELEASE
  xchain0_n26_α:
  mov qword ptr [r12 + 408], r14
@@ -762,17 +762,19 @@ main_α_body:
  add r14d, 1
  jmp xchain0_n43_α
  xchain0_n41_β:
+ sub r14d, 1
  jmp xchain0_n39_β
 # IR_MATCH_LEN
  xchain0_n42_α:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n38_β
+ jg xchain0_n40_β
  add r14d, 1
  jmp xchain0_n44_α
  xchain0_n42_β:
- jmp xchain0_n38_β
+ sub r14d, 1
+ jmp xchain0_n40_β
 # IR_MATCH_CAPTURE_COND
  xchain0_n43_α:
  push rbp
@@ -795,7 +797,7 @@ main_α_body:
  call rt_dcap_pop@PLT
  mov rsp, rbp
  pop rbp
- jmp xchain0_n39_β
+ jmp xchain0_n41_β
 # IR_MATCH_RELEASE
  xchain0_n44_α:
  mov qword ptr [r12 + 536], r14
