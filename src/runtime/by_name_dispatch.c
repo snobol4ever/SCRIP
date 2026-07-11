@@ -3818,9 +3818,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         buf[bi]='\0'; *out=STRVAL(buf); return 1;
     }
     if (!strcmp(fn,"abs") && nargs == 1) {
-        DESCR_t av = args[0];
-        if (IS_REAL_fn(av)) { *out = REALVAL(fabs(av.r)); return 1; }
-        *out = INTVAL(av.i < 0 ? -av.i : av.i); return 1;
+        extern void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes);
+        DESCR_t av = args[0]; DESCR_t nv;
+        rt_coerce_num2_d(&av, &av, &nv, 0);
+        if (IS_REAL_fn(nv)) { *out = REALVAL(fabs(nv.r)); return 1; }
+        *out = INTVAL(nv.i < 0 ? -nv.i : nv.i); return 1;
     }
     if (!strcmp(fn,"max") && nargs >= 2) {
         DESCR_t best = args[0];
