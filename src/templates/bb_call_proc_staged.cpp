@@ -91,6 +91,7 @@ static std::string bcps_det_arm() {
     uint64_t epi_fp;   { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue; epi_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return x86_alpha()
+         + x86_scan_sync_out()
          + x86_align_enter()
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
@@ -116,6 +117,7 @@ static std::string bcps_det_arm() {
          + x86("call", "rt_faildescr", fail_fp)
          + x86("def", L(2))
          + x86_align_leave()
+         + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", (long)99)
@@ -134,6 +136,7 @@ static std::string bcps_bin_gen_arm() {
     uint64_t callg_fp; { DESCR_t (*fp)(const char *, int, void **) = rt_proc_call_gen_h; callg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t resumeg_fp; { DESCR_t (*fp)(void **) = rt_proc_resume_frame_h; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return x86_alpha()
+         + x86_scan_sync_out()
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
@@ -142,14 +145,17 @@ static std::string bcps_bin_gen_arm() {
          + x86("mov32", "esi", (long)_.op_ival)
          + x86_frame_lea("rdx", act)
          + x86("call", "rt_proc_call_gen_h", callg_fp)
+         + x86_scan_sync_in_rr()
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
          + x86("cmp", "eax", (long)99)
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
+         + x86_scan_sync_out()
          + x86_frame_lea("rdi", act)
          + x86("call", "rt_proc_resume_frame_h", resumeg_fp)
+         + x86_scan_sync_in_rr()
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
          + x86("cmp", "eax", (long)99)
@@ -162,6 +168,7 @@ static std::string bcps_txt_gen_arm() {
     int act = off + 16 * (1 + (int)_.op_ival);
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     return x86_alpha()
+         + x86_scan_sync_out()
          + x86("directive", ".section .rodata")
          + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
          + x86("directive", ".section .text")
@@ -174,14 +181,17 @@ static std::string bcps_txt_gen_arm() {
          + x86("mov", "esi", std::to_string((int)_.op_ival))
          + x86_frame_lea("rdx", act)
          + x86("call", "rt_proc_call_gen_h@PLT")
+         + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", "99")
          + x86_omega("je")
          + x86_gamma()
          + x86("label", _.lbl_β)
+         + x86_scan_sync_out()
          + x86_frame_lea("rdi", act)
          + x86("call", "rt_proc_resume_frame_h@PLT")
+         + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", "99")
