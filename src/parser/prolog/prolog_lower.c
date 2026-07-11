@@ -355,8 +355,80 @@ static void tr_head_key(tree_t *head, const char **fn_out, int *arity_out) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pb_var(const char *nm) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = strdup(nm); return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pb_fnc2(const char *f, tree_t *a, tree_t *b) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = strdup(f); ast_push(n, a); ast_push(n, b); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pb_fnc3(const char *f, tree_t *a, tree_t *b, tree_t *c) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = strdup(f); ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pb_collect_names(const tree_t *t, const char **names, int *n, int cap) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && strcmp(t->v.sval, "_") != 0) {
+        for (int i = 0; i < *n; i++) if (!strcmp(names[i], t->v.sval)) return;
+        if (*n < cap) names[(*n)++] = t->v.sval;
+        return;
+    }
+    for (int i = 0; i < t->n; i++) pb_collect_names(t->c[i], names, n, cap);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_pb_fresh_ctr = 0;
+static void pb_expand_goal(tree_t *t);
+static void pb_expand_bagof(tree_t *t) {
+    int is_setof = !strcmp(t->v.sval, "setof");
+    tree_t *T = t->c[0]; tree_t *G = t->c[1]; tree_t *L = t->c[2];
+    const char *quant[64]; int nq = 0;
+    tree_t *G1 = G;
+    while (G1 && G1->t == TT_FNC && G1->v.sval && !strcmp(G1->v.sval, "^") && G1->n == 2) { pb_collect_names(G1->c[0], quant, &nq, 64); G1 = G1->c[1]; }
+    const char *gv[128]; int ngv = 0; pb_collect_names(G1, gv, &ngv, 128);
+    const char *tv[128]; int ntv = 0; pb_collect_names(T, tv, &ntv, 128);
+    const char *fv[128]; int nfv = 0;
+    for (int i = 0; i < ngv; i++) { int drop = 0;
+        for (int j = 0; j < ntv && !drop; j++) if (!strcmp(gv[i], tv[j])) drop = 1;
+        for (int j = 0; j < nq  && !drop; j++) if (!strcmp(gv[i], quant[j])) drop = 1;
+        if (!drop && nfv < 128) fv[nfv++] = gv[i]; }
+    char b1[32], b2[32];
+    tree_t *fa; tree_t *inner;
+    if (nfv == 0) {
+        snprintf(b1, sizeof b1, "_$B%d", g_pb_fresh_ctr++);
+        fa = pb_fnc3("findall", T, G1, pb_var(b1));
+        tree_t *ne = pb_fnc2("\\==", pb_var(b1), ast_node_new(TT_MAKELIST));
+        tree_t *fin = is_setof ? pb_fnc2("sort", pb_var(b1), L) : pb_fnc2("=", pb_var(b1), L);
+        inner = pb_fnc2(",", ne, fin);
+    } else {
+        tree_t *k1 = ast_node_new(TT_FNC); k1->v.sval = strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k1, pb_var(fv[i]));
+        tree_t *k2 = ast_node_new(TT_FNC); k2->v.sval = strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k2, pb_var(fv[i]));
+        snprintf(b1, sizeof b1, "_$B%d", g_pb_fresh_ctr++);
+        snprintf(b2, sizeof b2, "_$B%d", g_pb_fresh_ctr++);
+        fa = pb_fnc3("findall", pb_fnc2("-", k1, T), G1, pb_var(b1));
+        tree_t *prep = pb_fnc2(is_setof ? "$bag_prep_s" : "$bag_prep_b", pb_var(b1), pb_var(b2));
+        tree_t *grp = pb_fnc3("$bag_group", pb_var(b2), k2, L);
+        inner = pb_fnc2(",", prep, grp);
+    }
+    t->v.sval = strdup(","); t->n = 0;
+    ast_push(t, fa); ast_push(t, inner);
+    pb_expand_goal(fa->c[1]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pb_expand_goal(tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval) {
+        const char *f = t->v.sval;
+        if ((!strcmp(f, "bagof") || !strcmp(f, "setof")) && t->n == 3) { pb_expand_bagof(t); return; }
+        if ((!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->")) && t->n == 2) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); return; }
+        if ((!strcmp(f, "\\+") || !strcmp(f, "not") || !strcmp(f, "once") || !strcmp(f, "ignore") || !strcmp(f, "call")) && t->n >= 1) { pb_expand_goal(t->c[0]); return; }
+        if ((!strcmp(f, "findall") || !strcmp(f, "aggregate_all")) && t->n == 3) { pb_expand_goal(t->c[1]); return; }
+        if (!strcmp(f, "forall") && t->n == 2) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); return; }
+        if (!strcmp(f, "catch") && t->n == 3) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[2]); return; }
+        if (!strcmp(f, "setup_call_cleanup") && t->n == 3) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); pb_expand_goal(t->c[2]); return; }
+        if (!strcmp(f, "^") && t->n == 2) { pb_expand_goal(t->c[1]); return; }
+        return;
+    }
+    if (t->t == TT_PROGRAM || t->t == TT_IF) for (int i = 0; i < t->n; i++) pb_expand_goal(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key) {
     TRSlotMap sm; trslot_reset(&sm);
+    if (tr->n > 1) pb_expand_goal(tr->c[1]);
     {
         tree_t *hd = (tr->n > 0) ? tr->c[0] : NULL;
         if (hd && hd->t == TT_FNC) {
