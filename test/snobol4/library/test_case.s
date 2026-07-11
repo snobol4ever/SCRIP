@@ -536,9 +536,36 @@ main_α_body:
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_dcap_end_ok@PLT
  mov rsp, rbp
  pop rbp
+ push r14
+ push r15
+ push r13
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_end_ok_open@PLT
+.Lx28_1:
+ test rax, rax
+ je .Lx28_2
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_dcap_step@PLT
+ jmp .Lx28_1
+.Lx28_2:
+ call rt_dcap_end_ok_close@PLT
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
  jmp xchain0_n28_α
 # IR_MATCH_HEAD
  xchain0_n25_α:
@@ -757,9 +784,36 @@ main_α_body:
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_dcap_end_ok@PLT
  mov rsp, rbp
  pop rbp
+ push r14
+ push r15
+ push r13
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_end_ok_open@PLT
+.Lx39_1:
+ test rax, rax
+ je .Lx39_2
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_dcap_step@PLT
+ jmp .Lx39_1
+.Lx39_2:
+ call rt_dcap_end_ok_close@PLT
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
  jmp xchain0_n37_α
 # IR_MATCH_HEAD
  xchain0_n34_α:
@@ -971,9 +1025,36 @@ main_α_body:
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_dcap_end_ok@PLT
  mov rsp, rbp
  pop rbp
+ push r14
+ push r15
+ push r13
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_end_ok_open@PLT
+.Lx50_1:
+ test rax, rax
+ je .Lx50_2
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_dcap_step@PLT
+ jmp .Lx50_1
+.Lx50_2:
+ call rt_dcap_end_ok_close@PLT
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
  jmp xchain0_n44_α
 # IR_MATCH_HEAD
  xchain0_n43_α:
@@ -1135,9 +1216,36 @@ main_α_body:
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_dcap_end_ok@PLT
  mov rsp, rbp
  pop rbp
+ push r14
+ push r15
+ push r13
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_end_ok_open@PLT
+.Lx57_1:
+ test rax, rax
+ je .Lx57_2
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_dcap_step@PLT
+ jmp .Lx57_1
+.Lx57_2:
+ call rt_dcap_end_ok_close@PLT
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
  jmp xchain0_n48_α
 # IR_LIT_STRING
  xchain0_n48_α:
