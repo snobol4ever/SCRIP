@@ -473,6 +473,21 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     return 0;
 }
 static long g_pas_heap_ctr = 0;
+static DESCR_t *g_pas_heap = (DESCR_t *)0;
+static long g_pas_heap_cap = 0;
+static DESCR_t *pas_heap_cell(long n, int grow) {
+    if (n <= 0) return (DESCR_t *)0;
+    if (n >= g_pas_heap_cap) {
+        if (!grow) return (DESCR_t *)0;
+        long nc = g_pas_heap_cap ? g_pas_heap_cap : 1024;
+        while (nc <= n) nc *= 2;
+        DESCR_t *nh = (DESCR_t *)(g_pas_heap ? GC_realloc(g_pas_heap, (size_t)nc * sizeof(DESCR_t)) : GC_malloc((size_t)nc * sizeof(DESCR_t)));
+        if (!nh) return (DESCR_t *)0;
+        memset(nh + g_pas_heap_cap, 0, (size_t)(nc - g_pas_heap_cap) * sizeof(DESCR_t));
+        g_pas_heap = nh; g_pas_heap_cap = nc;
+    }
+    return &g_pas_heap[n];
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *resolve_method_chain(const char *cls, const char *mname, char *buf, int bufsz, int *pfound) {
     extern int dat_mro(const char *name, const char **out, int max);
@@ -1314,15 +1329,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(v * v); return 1;
     }
     if (!strcmp(fn, "__pas_alloc") && nargs == 0) {
-        char key[32]; g_pas_heap_ctr++; snprintf(key, 32, "__heap_%ld", g_pas_heap_ctr);
-        NV_SET_fn(key, INTVAL(0)); *out = INTVAL(g_pas_heap_ctr); return 1;
+        g_pas_heap_ctr++; DESCR_t *c = pas_heap_cell(g_pas_heap_ctr, 1);
+        if (c) *c = INTVAL(0); *out = INTVAL(g_pas_heap_ctr); return 1;
     }
     if (!strcmp(fn, "__pas_alloc_rec") && nargs == 1) {
         long nf = IS_INT_fn(args[0]) ? args[0].i : 1; if (nf < 1) nf = 1;
         size_t len = (size_t)(nf * 2 - 1); char *seg = GC_malloc(len + 1); size_t p = 0;
         for (long k = 0; k < nf; k++) { if (k) seg[p++] = SOH; seg[p++] = '0'; } seg[p] = '\0';
-        char key[32]; g_pas_heap_ctr++; snprintf(key, 32, "__heap_%ld", g_pas_heap_ctr);
-        NV_SET_fn(key, STRVAL(seg)); *out = INTVAL(g_pas_heap_ctr); return 1;
+        g_pas_heap_ctr++; DESCR_t *c = pas_heap_cell(g_pas_heap_ctr, 1);
+        if (c) *c = STRVAL(seg); *out = INTVAL(g_pas_heap_ctr); return 1;
     }
     if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
@@ -1333,8 +1348,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[2]; return 1; }
-        char key[32]; snprintf(key, 32, "__heap_%ld", n);
-        DESCR_t recd = NV_GET_fn(key); const char *cur = VARVAL_fn(recd); if (!cur) cur = "";
+        DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[2]; return 1; }
+        const char *cur = VARVAL_fn(*hc); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb);
         const char *s = cur; long k = 0; const char *tstart = NULL; const char *tend = NULL;
@@ -1343,12 +1358,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t pre = (size_t)(tstart - cur); size_t post = tend ? strlen(tend) : 0; size_t rvl = strlen(rv);
         char *o = GC_malloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, rv, rvl);
         if (tend) memcpy(o + pre + rvl, tend, post); o[pre + rvl + post] = '\0';
-        NV_SET_fn(key, STRVAL(o)); *out = args[2]; return 1;
+        *hc = STRVAL(o); *out = args[2]; return 1;
     }
     if (!strcmp(fn, "__pas_field_idx_set") && nargs == 4) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[3]; return 1; }
-        char key[32]; snprintf(key, 32, "__heap_%ld", n);
-        DESCR_t recd = NV_GET_fn(key); const char *cur = VARVAL_fn(recd); if (!cur) cur = "";
+        DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[3]; return 1; }
+        const char *cur = VARVAL_fn(*hc); if (!cur) cur = "";
         long fidx = IS_INT_fn(args[1]) ? args[1].i : 0; long eidx = IS_INT_fn(args[2]) ? args[2].i : 0; if (eidx < 1) { *out = args[3]; return 1; }
         const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
         for (;;) { const char *nx = strchr(s, SOH); if (k == fidx) { fstart = s; fend = nx; break; } if (!nx) { fstart = NULL; break; } s = nx + 1; k++; }
@@ -1363,17 +1378,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
         char *o = GC_malloc(pre + nflen + post + 1); memcpy(o, cur, pre); memcpy(o + pre, nfb, nflen);
         if (fend) memcpy(o + pre + nflen, fend, post); o[pre + nflen + post] = '\0';
-        NV_SET_fn(key, STRVAL(o)); *out = args[3]; return 1;
+        *hc = STRVAL(o); *out = args[3]; return 1;
     }
     if (!strcmp(fn, "__pas_deref") && nargs == 1) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0;
-        if (n <= 0) { *out = INTVAL(0); return 1; }
-        char key[32]; snprintf(key, 32, "__heap_%ld", n);
-        *out = NV_GET_fn(key); return 1;
+        DESCR_t *hc = pas_heap_cell(n, 0);
+        *out = hc ? *hc : INTVAL(0); return 1;
     }
     if (!strcmp(fn, "__pas_deref_set") && nargs == 2) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0;
-        if (n > 0) { char key[32]; snprintf(key, 32, "__heap_%ld", n); NV_SET_fn(key, args[1]); }
+        DESCR_t *hc = pas_heap_cell(n, 0); if (hc) *hc = args[1];
         *out = args[1]; return 1;
     }
     if (!strcmp(fn, "__pas_nrec_get") && nargs == 3) {
@@ -1398,11 +1412,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_nrec_deref_set") && nargs == 4) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[3]; return 1; }
-        char key[32]; snprintf(key, 32, "__heap_%ld", n);
-        DESCR_t recd = NV_GET_fn(key); const char *cur = VARVAL_fn(recd); if (!cur) cur = "";
+        DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[3]; return 1; }
+        const char *cur = VARVAL_fn(*hc); if (!cur) cur = "";
         long fi = IS_INT_fn(args[1]) ? args[1].i : 0; long ei = IS_INT_fn(args[2]) ? args[2].i : 0;
         char rb[64]; const char *rv = to_cstring(args[3], rb, sizeof rb);
-        NV_SET_fn(key, STRVAL(pas_nrec_subrec_set(cur, fi, ei, rv))); *out = args[3]; return 1;
+        *hc = STRVAL(pas_nrec_subrec_set(cur, fi, ei, rv)); *out = args[3]; return 1;
     }
     if (!strcmp(fn, "__pas_fassign") && nargs == 1) {
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
