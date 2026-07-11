@@ -5,11 +5,10 @@
 # EXACTLY ONE extern "C" void bb_*(…) entry (comments stripped). The bb_*.cpp helper
 # files are _str-only (no box entry) and are EXEMPT (count == 0 is correct for them).
 #
-# PROLOG box files: bb_arith, bb_atom, bb_resolve (the router), bb_catch, bb_choice,
-#   bb_conj, bb_cut, bb_disj, bb_fail, bb_goal, bb_ite, bb_logicvar, bb_unify.
-# PROLOG helper files (exempt): bb_aggregate_nb, bb_atom_string, bb_findall,
-#   bb_io, bb_is_cmp, bb_list, bb_retract_throw,
-#   bb_succ_plus, bb_term_inspect, bb_term_io, bb_type_test.
+# PROLOG box files: bb_arith, bb_cut, bb_fail. (The old resolve-family boxes — bb_atom,
+#   bb_resolve, bb_catch, bb_choice, bb_conj, bb_disj, bb_goal, bb_ite, bb_logicvar,
+#   bb_unify — and the bb_det_*/bb_cell_* families were deleted 2026-07-11: superseded by
+#   the reduced-IR spine + $name runtime dispatch. Git holds them.)
 #
 # ICON box files: bb_every, bb_to, bb_alt, bb_iterate (IR_LIST_BANG),
 #   bb_scan_pos, bb_scan_any, bb_scan_match, bb_scan_many, bb_scan_tab, bb_scan_move,
@@ -27,31 +26,10 @@ cd "$ROOT"
 fail=0
 PL_BOX_FILES="
 src/templates/bb_arith.cpp
-src/templates/bb_atom.cpp
-src/templates/bb_resolve.cpp
-src/templates/bb_catch.cpp
-src/templates/bb_choice.cpp
-src/templates/bb_conj.cpp
 src/templates/bb_cut.cpp
-src/templates/bb_disj.cpp
 src/templates/bb_fail.cpp
-src/templates/bb_goal.cpp
-src/templates/bb_ite.cpp
-src/templates/bb_logicvar.cpp
-src/templates/bb_unify.cpp
 "
 PL_HELPER_FILES="
-src/templates/bb_aggregate_nb.cpp
-src/templates/bb_atom_string.cpp
-src/templates/bb_findall.cpp
-src/templates/bb_io.cpp
-src/templates/bb_is_cmp.cpp
-src/templates/bb_list.cpp
-src/templates/bb_retract_throw.cpp
-src/templates/bb_succ_plus.cpp
-src/templates/bb_term_inspect.cpp
-src/templates/bb_term_io.cpp
-src/templates/bb_type_test.cpp
 "
 ICN_BOX_FILES="
 src/templates/bb_every.cpp

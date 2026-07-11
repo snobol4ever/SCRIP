@@ -317,10 +317,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rev_assign_var.cpp       -o $(OBJ)/bb_rev_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_ref.cpp       -o $(OBJ)/bb_var_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_goto.cpp       -o $(OBJ)/bb_goto.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_ite.cpp       -o $(OBJ)/bb_ite.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_atom.cpp      -o $(OBJ)/bb_atom.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_logicvar.cpp  -o $(OBJ)/bb_logicvar.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_fail.cpp      -o $(OBJ)/bb_fail.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_lit_scalar.cpp        -o $(OBJ)/bb_lit_scalar.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var.cpp               -o $(OBJ)/bb_var.o
