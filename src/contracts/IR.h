@@ -215,6 +215,7 @@ struct IR_graph_t {
     struct IR_vslot_t { const char * name; int off; } * vslots;
     int            n_vslots;
     int            resume_slot;
+    int            resumable_callable;
     int            zeta_mark_slot;
     IR_t         * body_root;
     #define AG_RING 16

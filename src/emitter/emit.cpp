@@ -434,6 +434,7 @@ int g_gvar_callarg_live = 0;
 int g_emit_frame_caller_dl = -1;
 int g_frame_active = 0;
 int g_gen_proc_active = 0;
+int g_resumable_callable_active = 0;
 int g_scan_regs_live = 0;
 #define FLAT_CHAIN_SET_MAX 512
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
@@ -1103,6 +1104,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     }
     case IR_MATCH_DEFER: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
+        g_emit.x86_scratch_off = drive_value_slot(nd);
         g_emit.bb_child_fn = (void *) 0; g_emit.bb_child_lbl = (const char *) 0;
         IR_t * fz0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *) 0;   /* FZ-5b (re-port): lower marks a once-assigned-invariant stored-pattern defer with a LIT_STRING operand naming its AOT proc */
         if (fz0 && fz0->op == IR_LIT_STRING && IR_LIT(fz0).sval && IR_LIT(fz0).sval[0]) {
@@ -1483,6 +1485,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_succ_p        = &lbl_γ;
     g_emit.flat_fail_p        = &lbl_ω;
     g_emit.flat_text_externalise = text_externalise;
+    g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
     if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
     xa_dispatch(XA_FLAT_PROLOGUE);
     if (g_is_text) g_emit_pos += 7;
@@ -1548,6 +1551,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_suspend_resume_slot = -1;
     if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { g_suspend_resume_slot = g_emit_cfg->resume_slot; break; }
+    if (g_suspend_resume_slot < 0 && g_resumable_callable_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
+        g_suspend_resume_slot = g_emit_cfg->resume_slot;
     int id = g_flat_node_id++;
     /* RUNG ZB-OWN-0 (Lon 2026-07-11): per-chain statement mark = HEAD's zls entry +16 (head.zls2_mark quad);
      * -1 when the chain has no HEAD (non-match chains carry no per-box shadow at rung 0 -- recorded scope cut). */
@@ -1559,19 +1564,31 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_ry", id, i) : NULL;
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_rt", id, i) : NULL;
     }
+    bb_label_t *resume_init_lbl = NULL;
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
-        for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) {
-            if (g_is_text) {
-                char _init[256];
-                snprintf(_init, sizeof _init,
-                    "lea rax, [rip + %s]\nmov qword ptr [%s + %d], rax\n",
-                    betas[_si]->name, x86_zr(), g_suspend_resume_slot);
-                emit_text_n(_init, strlen(_init));
-            } else {
-                ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(betas[_si]);
-                { int z = x86_zr_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0x89); if (lo == 4) ef_b2(0x84, 0x24); else ef_b1((uint8_t)(0x80 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }
-            }
-            break;
+        for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { resume_init_lbl = betas[_si]; break; }
+    } else if (g_suspend_resume_slot >= 0 && g_resumable_callable_active) {
+        /* NCB-2/SZ-1 (FINDING-2026-07-10 blob-β-resume): a resumable-callable chain's α initializes the
+         * continuation slot to LOWER-recorded body_root's β — the pattern subgraph's FIRST-ALLOCATED node,
+         * i.e. the rightmost leaf under right-first lowering, the exact sno_resume_ω_to / v2 F.γ convention
+         * ("the exhaust box resumes the body via F.γ → the body's FIRST-ALLOCATED node's β").  An esi=1
+         * re-entry then behaves as "the element right of the whole pattern failed": the normal right-to-left
+         * β cascade extends interior generators (ARBNO) or ripples to exhaustion → lbl_ω → fail-return.
+         * SZ-2c's dynamic MARK store rewrites this same slot with the same lea/mov idiom — one mechanism. */
+        if (g_emit_cfg && g_emit_cfg->body_root)
+            for (int _ti = 0; _ti < n; _ti++) if (nodes[_ti] == g_emit_cfg->body_root) { resume_init_lbl = betas[_ti]; break; }
+        if (!resume_init_lbl) resume_init_lbl = &lbl_ω;
+    }
+    if (resume_init_lbl) {
+        if (g_is_text) {
+            char _init[256];
+            snprintf(_init, sizeof _init,
+                "lea rax, [rip + %s]\nmov qword ptr [%s + %d], rax\n",
+                resume_init_lbl->name, x86_zr(), g_suspend_resume_slot);
+            emit_text_n(_init, strlen(_init));
+        } else {
+            ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(resume_init_lbl);
+            { int z = x86_zr_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0x89); if (lo == 4) ef_b2(0x84, 0x24); else ef_b1((uint8_t)(0x80 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }
         }
     }
     for (int _li = 0; _li < n; _li++) if (nodes[_li]->op == IR_LIMIT) {
@@ -1660,7 +1677,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }
     emit_label_define_bb(&lbl_β);
-    if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
+    if (g_suspend_resume_slot >= 0 && (g_gen_proc_active || g_resumable_callable_active)) {
         if (g_is_text) {
             char _ind_jmp[64];
             snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [%s + %d]\n", x86_zr(), g_suspend_resume_slot);

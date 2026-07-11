@@ -12,6 +12,7 @@ extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *rt_zls_alloc      (long bytes);
 extern "C" void  rt_zls_release    (void *fb);
 #include "x86_asm.h"
+static inline int dscr() { return _.x86_scratch_off; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
@@ -28,24 +29,28 @@ std::string bb_match_defer() {
           + x86_align_enter()
           + x86("call", "rt_defer_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_fn)
           + x86_align_leave() ) )
+         + x86("xor",  "ecx", "ecx")
+         + x86("mov",  FRQ(dscr()), "rcx")
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
-         + x86("push", "rax")
+         + x86("mov",  FRQ(dscr()), "rax")
          + x86_align_enter()
          + x86("mov",  "rdi", (long)65536)
          + x86("call", "rt_zls_alloc", (uint64_t)(uintptr_t)(void *)(void *(*)(long))rt_zls_alloc)
          + x86_align_leave()
-         + x86("pop",  "rcx")
-         + x86("push", "rax")
+         + x86("mov",  FRQ(dscr() + 8), "rax")
+         + x86("mov",  "rcx", FRQ(dscr()))
          + x86("mov",  "rdi", "rax")
          + x86("xor",  "esi", "esi")
          + x86("call", "rcx")
-         + x86("pop",  "rdi")
          + x86("cmp",  "eax", (long)1)
          + x86("je",   "L1")
+         + x86("mov",  "rdi", FRQ(dscr() + 8))
          + x86_align_enter()
          + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
          + x86_align_leave()
+         + x86("xor",  "eax", "eax")
+         + x86("mov",  FRQ(dscr()), "rax")
          + x86_omega()
          + x86("def",  "L1")
          + x86_gamma()
@@ -88,6 +93,24 @@ std::string bb_match_defer() {
          + x86_omega("js")
          + x86("mov",  "r14d", "eax")
          + x86_gamma()
+         /* NCB-2/SZ-1 (FINDING-2026-07-10 blob-β-resume): β re-enters the STORED blob's own β via its esi=1
+          * prologue dispatch — "the element right of the pattern failed" seen from inside the blob, so its
+          * interior generator (ARBNO) extends from saved state in the kept-alive frame.  jz→ω guards the
+          * callout/exhausted activations (fn slot zeroed at α and on release).  eax==1 rejoins γ at L1. */
          + x86_beta()
+         + x86("mov",  "rcx", FRQ(dscr()))
+         + x86("test", "rcx", "rcx")
+         + x86_omega("jz")
+         + x86("mov",  "rdi", FRQ(dscr() + 8))
+         + x86("mov32", "esi", (long)1)
+         + x86("call", "rcx")
+         + x86("cmp",  "eax", (long)1)
+         + x86("je",   "L1")
+         + x86("mov",  "rdi", FRQ(dscr() + 8))
+         + x86_align_enter()
+         + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
+         + x86_align_leave()
+         + x86("xor",  "eax", "eax")
+         + x86("mov",  FRQ(dscr()), "rax")
          + x86_omega();
 }

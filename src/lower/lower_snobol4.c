@@ -1190,6 +1190,20 @@ static int sno_is_pattern_rhs(const tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_right_sealed(const tree_t * t) {
+    /* NCB-2/SZ-1 β-resume seal (manual Ch.19): a stored blob whose RIGHTMOST element is a fence form must NOT
+     * expose a resume surface — FENCE(P)'s alternatives are visible only moving forward, and bare FENCE fails
+     * the match on backup; the pre-resume return-once-and-dead behavior WAS the seal (the v1-FENCE admission's
+     * "no resume edge is ever stamped into the body from outside").  A mid-pattern fence needs no gate here:
+     * the resume cascade reaches its in-blob seal wiring naturally.  Captures are transparent wrappers. */
+    if (!t) return 0;
+    if (sno_is_fence(t)) return 1;
+    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1) return sno_pat_right_sealed(t->c[1]);
+    if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 0) return sno_pat_right_sealed(t->c[0]);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_pat_collect(const tree_t * pat) {
     if (g_sno_npat >= SNO_PAT_MAX) sno_fatal("too many stored patterns in one program", NULL);
     char buf[32]; snprintf(buf, sizeof buf, "PAT$%d", g_sno_npat);
@@ -1643,8 +1657,11 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
         IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
         px.pat_fail = no; px.pat_seal = no;
+        int before_pat = gp->n;
         IR_t * pe = sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no);
         gp->entry = pe;
+        gp->resumable_callable = 1;
+        gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(g_sno_pats[pi2].pat)) ? gp->all[before_pat] : NULL;
         int ppi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[ppi].name = g_sno_pats[pi2].name;
         g_stage2.proc_table[ppi].proc = NULL;
@@ -1687,9 +1704,12 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
     IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
     px.pat_fail = no; px.pat_seal = no;
+    int before_pat = gp->n;
     IR_t * pe = sno_pat_node(&px, pat, ok, no);
     if (px.npre > 0) sno_fatal("runtime-operand primitive reached the RT recipe graph builder — recipes must bake literal args (B-RE contract)", NULL);
     gp->entry = pe;
+    gp->resumable_callable = 1;
+    gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(pat)) ? gp->all[before_pat] : NULL;
     return gp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -148,6 +148,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             extern int g_frame_active;
             extern int g_gen_proc_active;
+            extern int g_resumable_callable_active;
             if (g_emit.flat_wired) {
                 return banner;
             }
@@ -156,7 +157,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
                 std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", " + x86_zr() + "\n  sub rsp, 8\n") : std::string();
                 std::string pro = banner + "push " + std::string(x86_zr()) + "\n  mov " + x86_zr() + ", rdi\n" + xaf_gva_reload_text() + disp + xaf_anchor_enter_text();
-                if (g_gen_proc_active)
+                if (g_gen_proc_active || g_resumable_callable_active)
                     pro += std::string("  cmp esi, 0\n")
                          + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                 return pro;
