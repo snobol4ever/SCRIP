@@ -411,6 +411,76 @@ and first-argument-indexing work. Reproduce with `scripts/test_bench_prolog_4way
 
 ---
 
+## Icon Benchmark — SCRIP vs Icon vs JCON
+
+The Icon frontend is measured against canonical **Icon 9.5** (`icont`/`iconx`, built from
+source) and **JCON 2.2** (Proebsting/Townsend's Icon-on-JVM compiler, built from source on
+OpenJDK 21) on the **JCON benchmark suite** (`corpus/benchmarks/icon/` — the five classic
+Icon v9.3 benchmarks plus jcon's two supplemental applications; `micro`/`micsum` excluded as
+degenerate per the upstream notes). One corpus source per benchmark runs on every engine
+(the jcon originals with explicit semicolons — `icont` and `jcont` both accept them).
+Invocation is the jcon/bmark Makefile's canonical protocol, identical everywhere:
+`concord <concord.dat` · `deal -h 1000` · `ipxref <ipxref.dat` · `queens -n10` ·
+`rsg <rsg.dat` · `tgrlink tgrlink.dat` · `geddump geddump.dat`, with `OUTPUT=1` on all
+engines (Init__ otherwise suppresses output via `write := 1` function-value assignment),
+so times are I/O-inclusive but internally fair. **JCON matched the iconx oracle
+byte-for-byte on all 7** — certifying the oracle; every divergence below is SCRIP's own.
+
+Measured 2026-07-10 at SCRIP `c1d15a1a` / corpus `b634f6bd`: wall-clock, single runs,
+gcc `-O0`, shared container. `m3` = `--run` (time includes the in-process compile);
+`m4` = `--compile --target=x86` → `as`+`gcc` binary (run only). Startup floors
+(hello-world): iconx 4 ms · JCON 122 ms (JVM) · m3 9 ms · m4 7 ms.
+
+**Correctness** (normalized program content vs iconx; normalization strips only the
+Init__/Term__ environment banner, region/GC lines, and elapsed-time line):
+
+| Benchmark | oracle lines | JCON | SCRIP m3 | SCRIP m4 |
+|-----------|-------------:|------|----------|----------|
+| concord | 1,342 | identical | DIFF — 4 lines then silent stop | CERR |
+| deal | 17,000 | identical | DIFF — card lost ~hand 511 | **identical** |
+| ipxref | 91 | identical | **identical** | **identical** |
+| queens | 16,653 | identical | **identical** | **identical** |
+| rsg | 5,000 | identical | **identical** | **identical** |
+| tgrlink | 3,239 | identical | DIFF — 2 lines then silent exit | CERR |
+| geddump | 12,568 | identical | DIFF — 1,332 lines then ERR spam | CERR |
+
+Mode-4: **4/7 byte-identical, 3/7 compiler segfault (CERR)**. Mode-3: 3/7 byte-identical.
+
+**Timing** (ms) on the four benchmarks where m4 output is byte-identical. Ratio is
+SCRIP-m4 against the other engine; lower is faster, <1× means SCRIP is faster:
+
+| Benchmark | iconx | JCON | SCRIP m3 | SCRIP m4 | m4 vs iconx | m4 vs JCON | m4 vs JCON −floor |
+|-----------|------:|-----:|---------:|---------:|------------:|-----------:|------------------:|
+| ipxref | 8 | 247 | 33 | 18 | 2.25× | **0.07× (faster)** | **0.14× (faster)** |
+| queens | 68 | 414 | 318 | 194 | 2.85× | **0.47× (faster)** | **0.66× (faster)** |
+| deal | 41 | 403 | 267 | 136 | 3.32× | **0.34× (faster)** | **0.48× (faster)** |
+| rsg | 35 | 299 | 264 | 117 | 3.34× | **0.39× (faster)** | **0.66× (faster)** |
+
+**Geomean m4 vs iconx = 2.9×; m4 vs JCON = 0.26× (3.9× faster), 0.41× (2.4× faster) after
+subtracting JCON's 122 ms JVM floor.** Structural facts:
+
+- **The three m4 CERRs are one open compiler-crash family** (rc=139 at emit time with the
+  sanctioned `--compile --target=x86 </dev/null` invocation), not runtime gaps — tracked in
+  `GOAL-ICON-BB.md`.
+- **concord m3 is a bisected regression**: first bad commit `7a817649` (canonical
+  fall-off-end FAIL). Root-caused to the named-call lowering missing the canonical fail
+  edge — `ir_a_Call` wires the call's failure label to the rightmost operand's resume
+  (`L[-1].ir.resume`, `refs/jcon-master/tran/irgen.icn`); `lower_call` threads the arg
+  chain but never rewires the call node itself. Nine-line repro: a generator in call-arg
+  position under `every` with a fall-off-end callee pumps once instead of exhausting.
+- **deal m3 is a mode-3-only divergence** (m4 byte-identical on the same source at
+  `-h 1000`) — a MODE34-IDENTICAL violation predating the zeta-default era, invisible at
+  the 20-line default workload prior sessions scored.
+- **These runs are I/O-dominated** (`OUTPUT=1`, 5k–17k output lines); iconx's buffered C
+  write path sets a hard floor. Suppressed-output steady-state timing requires SCRIP to
+  support the `write := 1` function-value assignment Init__ uses.
+
+These are honest current numbers, not the target. Reproduce with the invocations above
+against `corpus/benchmarks/icon/`; oracle kit: `icon-master` → `make Configure name=linux
+&& make Icont`, `jcon-master` → `make` with `icont` and a JDK on PATH.
+
+---
+
 ## The Bootstrap Goal
 
 The correctness target is self-hosting. Two gates:
