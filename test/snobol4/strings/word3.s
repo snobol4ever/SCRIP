@@ -106,6 +106,12 @@ proc_PAT$0_α_body:
  pop rbp
  jmp xchain0_n5_α
  xchain0_n4_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n2_β
 # IR_MATCH_LIT
  xchain0_n5_α:
@@ -219,6 +225,12 @@ proc_PAT$0_α_body:
  pop rbp
  jmp xchain0_n10_α
  xchain0_n9_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n8_β
 # IR_MATCH_LIT
  xchain0_n10_α:
@@ -315,6 +327,12 @@ proc_PAT$0_α_body:
  pop rbp
  jmp proc_PAT$0_γ
  xchain0_n14_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n12_β
 proc_PAT$0_β:
 jmp proc_PAT$0_ω

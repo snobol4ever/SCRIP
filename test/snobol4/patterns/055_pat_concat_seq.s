@@ -204,6 +204,12 @@ main_α_body:
  pop rbp
  jmp xchain0_n9_α
  xchain0_n8_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_SAVE push
  xchain0_n9_α:
@@ -251,6 +257,12 @@ main_α_body:
  pop rbp
  jmp xchain0_n12_α
  xchain0_n11_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n9_β
 # IR_MATCH_CAPTURE_SAVE push
  xchain0_n12_α:
@@ -298,6 +310,12 @@ main_α_body:
  pop rbp
  jmp xchain0_n15_α
  xchain0_n14_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n12_β
 # IR_MATCH_RELEASE
  xchain0_n15_α:

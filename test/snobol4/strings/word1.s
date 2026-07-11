@@ -105,10 +105,23 @@ proc_PAT$0_α_body:
  pop rbp
  jmp xchain0_n4_α
  xchain0_n3_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n2_β
 # IR_MATCH_ALT_SAVE
  xchain0_n4_α:
  mov dword ptr [r12 + 16], r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_height@PLT
+ mov rsp, rbp
+ pop rbp
+ mov dword ptr [r12 + 20], eax
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp qword ptr [r12 + 24]
@@ -140,6 +153,13 @@ proc_PAT$0_α_body:
  xchain0_n6_β:
 .Lx14_0:
  mov r14d, dword ptr [r12 + 16]
+ mov edi, dword ptr [r12 + 20]
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_restore_to@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n7_α
 # IR_MATCH_LIT
  xchain0_n7_α:
@@ -169,6 +189,13 @@ proc_PAT$0_α_body:
  xchain0_n8_β:
 .Lx18_0:
  mov r14d, dword ptr [r12 + 16]
+ mov edi, dword ptr [r12 + 20]
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_restore_to@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n3_β
 proc_PAT$0_β:
 jmp proc_PAT$0_ω

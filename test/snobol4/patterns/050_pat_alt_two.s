@@ -177,6 +177,13 @@ main_α_body:
 # IR_MATCH_ALT_SAVE
  xchain0_n7_α:
  mov dword ptr [r12 + 144], r14d
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_height@PLT
+ mov rsp, rbp
+ pop rbp
+ mov dword ptr [r12 + 148], eax
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp qword ptr [r12 + 152]
@@ -208,6 +215,13 @@ main_α_body:
  xchain0_n9_β:
 .Lx15_0:
  mov r14d, dword ptr [r12 + 144]
+ mov edi, dword ptr [r12 + 148]
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_restore_to@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n10_α
 # IR_MATCH_LIT
  xchain0_n10_α:
@@ -245,6 +259,12 @@ main_α_body:
  pop rbp
  jmp xchain0_n13_α
  xchain0_n11_β:
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_pop@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n7_β
 # IR_MATCH_ALT_JOIN
  xchain0_n12_α:
@@ -254,6 +274,13 @@ main_α_body:
  xchain0_n12_β:
 .Lx21_0:
  mov r14d, dword ptr [r12 + 144]
+ mov edi, dword ptr [r12 + 148]
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_restore_to@PLT
+ mov rsp, rbp
+ pop rbp
  jmp xchain0_n5_β
 # IR_MATCH_RELEASE
  xchain0_n13_α:
