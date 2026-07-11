@@ -5,7 +5,9 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-extern "C" void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm);
+extern "C" long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
+extern "C" void *rt_frame_prep(void *fb, long fbytes);
+extern "C" void rt_cap_finish(DESCR_t fret);
 extern "C" void rt_cap_push(void *slot, int delta);
 extern "C" void rt_cap_pop(void *slot);
 extern "C" int rt_cap_top(void *slot);
@@ -54,7 +56,23 @@ std::string bb_match_capture() {
          + x86("mov",  "esi", "eax")
          + x86("mov",  "edx", "r14d")
          + x86("mov",  "ecx", (long)((int)_.op_phase == 2 ? 1 : 0))
-         + x86("call", "rt_cap_assign_cursor", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int, int, int))rt_cap_assign_cursor)
+         /* NCB-1c M2 (2026-07-11): the *VAR computed-name transfer is EMITTED — open returns fbytes (a proc
+          * call owed) or 0 (handled).  The window is the NCB-1b arm verbatim: sub rsp IS the frame, call rax
+          * IS the BB→BB bridge, align_leave IS the release (F2).  Every exit passes through align_leave. */
+         + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
+         + x86("test", "rax", "rax")
+         + x86("je",   L(1))
+         + x86("sub",  "rsp", "rax")
+         + x86("mov",  "rdi", "rsp")
+         + x86("mov",  "rsi", "rax")
+         + x86("call", "rt_frame_prep", (uint64_t)(uintptr_t)(void *)(void *(*)(void *, long))rt_frame_prep)
+         + x86("mov",  "rdi", "rsp")
+         + x86("xor",  "esi", "esi")
+         + x86("call", "rax")
+         + x86("mov",  "rdi", "rax")
+         + x86("mov",  "rsi", "rdx")
+         + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+         + x86("def",  L(1))
          + x86_align_leave()
          + x86_gamma()
          + x86_beta()

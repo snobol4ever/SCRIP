@@ -650,27 +650,43 @@ void rt_cap_pop(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; if (s->gen
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s->gen == g_cap_gen && s->sp) ? (int)s->buf[s->sp] : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cap_assign_cursor(const char *varname, int saved_delta, int cur_delta, int is_imm)
+/* NCB-1c M2 (2026-07-11): rt_cap_assign_cursor split into strict leaves — the computed-name (*VAR) transfer
+ * moves OUT of C into the emitted capture box (the NCB-1b arm).  rt_cap_open does everything up to the
+ * transfer and returns fbytes (a proc call is owed: box does sub rsp / rt_frame_prep / call rax / finish) or
+ * 0 (fully handled: plain name assigned, dcap recorded, empty name, or *proc unresolvable — no assign, the
+ * FAILDESCR behavior of the old path).  The matched DESCR rides a LIFO beside the pcall ctx (the callee may
+ * itself capture); rt_g_want_name is set here and captured/cleared by rt_proc_call_open into the ctx. */
+static DESCR_t *g_capx; static int g_capx_top, g_capx_cap;
+long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
-    if (!varname || !*varname) return;
+    if (!varname || !*varname) return 0;
     int len = cur_delta - saved_delta;
     if (len < 0) len = 0;
     const char *base = Σ ? Σ + saved_delta : NULL;
-    if (g_rt_dcap_active && !is_imm) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] pend %s len=%d n=%d\n", varname, len, g_rt_dcap_n); rt_dcap_record(varname, base, len); return; }
+    if (g_rt_dcap_active && !is_imm) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] pend %s len=%d n=%d\n", varname, len, g_rt_dcap_n); rt_dcap_record(varname, base, len); return 0; }
     char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
-    if (varname[0] == '*') {
-        extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
-        extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
-        extern int rt_g_want_name;
-        rt_g_want_name = 1;
-        DESCR_t nm = rt_call_named_proc(varname + 1, (DESCR_t *)0, 0);
-        rt_g_want_name = 0;
-        if (!IS_FAIL_fn(nm)) rt_assign_var(nm, matched);
-        return;
-    }
-    NV_SET_fn(varname, matched);
+    if (varname[0] != '*') { NV_SET_fn(varname, matched); return 0; }
+    extern long rt_proc_call_open(const char *name, int nargs);
+    extern int rt_g_want_name;
+    rt_g_want_name = 1;
+    long fbytes = rt_proc_call_open(varname + 1, 0);
+    if (!fbytes) { rt_g_want_name = 0; return 0; }
+    if (g_capx_top >= g_capx_cap) { int nc = g_capx_cap ? g_capx_cap * 2 : 64; DESCR_t *np = (DESCR_t *)realloc(g_capx, (size_t)nc * sizeof(DESCR_t)); if (!np) { rt_g_want_name = 0; return 0; } g_capx = np; g_capx_cap = nc; }
+    g_capx[g_capx_top++] = matched;
+    return fbytes;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_cap_finish(DESCR_t fret)
+{
+    extern DESCR_t rt_proc_call_epilogue(DESCR_t fret);
+    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+    extern int rt_g_want_name;
+    DESCR_t nm = rt_proc_call_epilogue(fret);
+    rt_g_want_name = 0;
+    DESCR_t matched = g_capx_top > 0 ? g_capx[--g_capx_top] : (DESCR_t){ .v = DT_S, .slen = 0, .s = "" };
+    if (!IS_FAIL_fn(nm)) rt_assign_var(nm, matched);
 }
 extern const char *Σ;
 extern int Σlen;
