@@ -1086,6 +1086,31 @@ inline std::string x86_xfer_leave() {
     return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_scan_sync_out/in (ICN-SCAN-CALL-SYNC, 2026-07-11) — THE ICON SCAN-STATE HANDOFF ACROSS A CALL.  Canonical
+ * Icon (interp.r k_pos/k_subject; JCON iKeyword) holds &pos/&subject as PROGRAM-GLOBAL dynamic state: a procedure
+ * call neither saves nor restores them — a callee's tab/match advance IS the caller's advance.  SCRIP caches the
+ * scan env in r13/r14/r15 inside a scan sequence, while callee bodies (by-name match/tab/pos et al.) run against
+ * the C globals scan_subj/scan_pos.  These two combinators are the sync at the world boundary, and the OPPOSITE of
+ * x86_xfer_enter/leave above (which PRESERVES the SNOBOL4 matcher regs across a callout): sync-out publishes the
+ * caller's live δ (r14, 0-based) to scan_pos before any transfer that may run scan code; sync-in re-reads scan_pos
+ * into r14 after it returns, both success and failure paths.  Emit-time gated on g_scan_regs_live (the
+ * bb_keyword_icon precedent) so non-scan call sites emit nothing.  _rr variant brackets the reload with rax/rdx
+ * push/pop so a just-returned DESCR_t survives; two pushes keep 16-byte call alignment. */
+extern "C" void rt_scan_sync_out(uint64_t delta);
+extern "C" uint64_t rt_scan_sync_in(void);
+extern "C" int g_scan_regs_live;
+inline std::string x86_scan_sync_out() {
+    if (!g_scan_regs_live) return std::string();
+    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
+}
+inline std::string x86_scan_sync_in_rr() {
+    if (!g_scan_regs_live) return std::string();
+    return x86("push", "rax") + x86("push", "rdx")
+         + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
+         + x86("mov", "r14", "rax")
+         + x86("pop", "rdx") + x86("pop", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_free_call() definition (forward-declared above x86_jmp; see that declaration's comment for why
  * this must live here, after x86() itself is defined). */
 inline std::string x86_zeta_free_call() {

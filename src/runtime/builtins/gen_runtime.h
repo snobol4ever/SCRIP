@@ -69,6 +69,8 @@ ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi);
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char *var);
 void rt_scan_leave(uint64_t *out3);
+void rt_scan_sync_out(uint64_t delta);
+uint64_t rt_scan_sync_in(void);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 extern int          scan_depth;
 extern const char  *global_names[GLOBAL_MAX];
