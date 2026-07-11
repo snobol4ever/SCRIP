@@ -256,7 +256,7 @@ static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal
     if (v->v == DT_I) { *iv = v->i; *isreal = 0; return 1; }
     if (v->v == DT_R) { *rv = v->r; *isreal = 1; return 1; }
     if (v->v == DT_SNUL) { *iv = 0; *isreal = 0; return 1; }
-    if (v->v == DT_S && v->s) {
+    if ((v->v == DT_S || IS_CSET_fn(*v)) && v->s) {
         const char *p = v->s; while (*p == ' ') p++;
         if (!*p) { *iv = 0; *isreal = 0; return 1; }
         { char *ep = NULL; long long t = strtoll(p, &ep, 10);
