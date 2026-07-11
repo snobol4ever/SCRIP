@@ -1323,7 +1323,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * av = nd->n_operands > 2 ? nd->operands[2] : NULL;
         int off = ig ? drive_value_slot(ig) : -1;
         g_emit.op_off = off;
-        g_emit.op_sa = av ? bb_slot_get(av) : -1;
+        int avs = av ? bb_slot_get(av) : -1;
+        if (avs < 0 && av) avs = nd_slot(av);
+        g_emit.op_sa = avs;
         g_emit.lbl_t0 = g_move_label_tgt ? g_move_label_tgt->name : NULL;
         g_emit.lbl_t0_p = g_move_label_tgt;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
