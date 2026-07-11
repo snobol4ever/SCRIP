@@ -392,7 +392,6 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_lit_i.cpp -o $(OBJ)/bb_gvar_assign_lit_i.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_var.cpp    -o $(OBJ)/bb_gvar_assign_var.o
-	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_gvar_assign_descr.cpp  -o $(OBJ)/bb_gvar_assign_descr.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cell_cut.cpp         -o $(OBJ)/bb_cell_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cell_ite.cpp         -o $(OBJ)/bb_cell_ite.o
