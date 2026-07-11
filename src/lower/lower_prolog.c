@@ -42,7 +42,7 @@ static int is_arith_fn(const char * s, int n) { if (!s || n < 1 || n > 2) return
 static int is_builtin_visible(const char * s) { return s && (!strcmp(s, "write") || !strcmp(s, "nl") || !strcmp(s, "format") || !strcmp(s, "aggregate_all")); }
 static const char * g_pl_nl_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", "=\\=", ">", ">=", "@<", "@=<", "@>", "@>=", "\\==", "abolish", "arg", "assert", "asserta", "assertz", "atom",
     "atom_chars", "atom_codes", "atom_concat", "atom_length", "atom_number", "atom_string", "atomic", "atomic_list_concat", "callable", "char_type", "compound", "concat_atom", "copy_term",
-    "downcase_atom", "float", "functor", "ground", "integer", "is", "is_list", "msort", "nb_getval", "nb_setval", "nonvar", "number", "number_string", "numbervars", "plus", "print", "retract",
+    "downcase_atom", "float", "functor", "ground", "integer", "is", "is_list", "msort", "nb_getval", "nb_setval", "nonvar", "number", "number_chars", "number_codes", "number_string", "numbervars", "plus", "print", "retract",
     "retractall", "sort", "string_chars", "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "term_string", "term_to_atom", "throw",
     "upcase_atom", "var", "write_canonical", "writeln", "writeq", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -219,7 +219,7 @@ static const char * pl_ax_suffix(const char * s, int ar) {
         if (!strcmp(s, "-")) return "neg"; if (!strcmp(s, "+")) return "pos"; if (!strcmp(s, "abs")) return "abs"; if (!strcmp(s, "sign")) return "sign";
         if (!strcmp(s, "truncate")) return "trunc"; if (!strcmp(s, "integer")) return "intg"; if (!strcmp(s, "float")) return "flt";
         if (!strcmp(s, "floor")) return "floor"; if (!strcmp(s, "ceiling")) return "ceil"; if (!strcmp(s, "round")) return "round";
-        if (!strcmp(s, "sqrt")) return "sqrt"; if (!strcmp(s, "msb")) return "msb"; if (!strcmp(s, "sin")) return "sin"; if (!strcmp(s, "cos")) return "cos";
+        if (!strcmp(s, "sqrt")) return "sqrt"; if (!strcmp(s, "msb")) return "msb"; if (!strcmp(s, "\\")) return "bnot"; if (!strcmp(s, "sin")) return "sin"; if (!strcmp(s, "cos")) return "cos";
         if (!strcmp(s, "atan")) return "atan"; if (!strcmp(s, "log")) return "log"; if (!strcmp(s, "exp")) return "exp";
         if (!strcmp(s, "float_integer_part")) return "fip"; if (!strcmp(s, "float_fractional_part")) return "ffp";
         return NULL;
