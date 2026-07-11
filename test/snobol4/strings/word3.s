@@ -686,9 +686,36 @@ main_α_body:
  push rbp
  mov rbp, rsp
  and rsp, -16
- call rt_dcap_end_ok@PLT
  mov rsp, rbp
  pop rbp
+ push r14
+ push r15
+ push r13
+ push rbp
+ mov rbp, rsp
+ and rsp, -16
+ call rt_dcap_end_ok_open@PLT
+.Lx40_1:
+ test rax, rax
+ je .Lx40_2
+ sub rsp, rax
+ mov rdi, rsp
+ mov rsi, rax
+ call rt_frame_prep@PLT
+ mov rdi, rsp
+ xor esi, esi
+ call rax
+ mov rdi, rax
+ mov rsi, rdx
+ call rt_dcap_step@PLT
+ jmp .Lx40_1
+.Lx40_2:
+ call rt_dcap_end_ok_close@PLT
+ mov rsp, rbp
+ pop rbp
+ pop r13
+ pop r15
+ pop r14
  jmp xchain28_n9_α
 # IR_VAR
  xchain28_n9_α:
