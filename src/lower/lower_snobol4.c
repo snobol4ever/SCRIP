@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -517,7 +518,7 @@ static const char * sno_qlit_fold(const tree_t * t) {
         const char * a = sno_qlit_fold(t->c[0]); if (!a) return NULL;
         const char * b = sno_qlit_fold(t->c[1]); if (!b) return NULL;
         size_t la = strlen(a), lb = strlen(b);
-        char * o = (char *) GC_MALLOC(la + lb + 1);
+        char * o = (char *) rt_ws_alloc(la + lb + 1);
         memcpy(o, a, la); memcpy(o + la, b, lb); o[la + lb] = 0;
         return o;
     }

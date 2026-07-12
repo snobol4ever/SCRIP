@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -720,7 +721,7 @@ static int lower_pl_clause_graph(const tree_t *clause) {
 static int lower_pl_choice_graph(const tree_t *choice) {
     if (!choice || choice->t != TT_CHOICE || choice->n < 1) return -1;
     int n = choice->n;
-    IR_graph_t **bodies = (IR_graph_t **)GC_MALLOC((size_t)n * sizeof(IR_graph_t *));
+    IR_graph_t **bodies = (IR_graph_t **)rt_ws_alloc((size_t)n * sizeof(IR_graph_t *));
     if (!bodies) return -1;
     int any = 0;
     for (int ci = 0; ci < n; ci++) {
@@ -736,7 +737,7 @@ static int lower_pl_choice_graph(const tree_t *choice) {
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t *nd = IR_node_alloc(g, IR_OP_COUNT);
     if (!nd) return -1;
-    bb_choice_state_t *zc = (bb_choice_state_t *)GC_MALLOC(sizeof *zc);
+    bb_choice_state_t *zc = (bb_choice_state_t *)rt_ws_alloc(sizeof *zc);
     if (!zc) return -1;
     memset(zc, 0, sizeof *zc);
     zc->bodies = bodies; zc->nbodies = n; zc->last_body = NULL; zc->cp = NULL; zc->cut_barrier = NULL;

@@ -1,4 +1,5 @@
 #define BB_DEFINE_NAMES
+#include "rt/rt_arena.h"
 #include "lower.h"
 #include "emit.h"
 #include "bb_program.h"
@@ -44,7 +45,7 @@ tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt
 const char *lp_strdup(const char *s) {
     if (!s) return NULL;
     size_t n = strlen(s) + 1;
-    char *c = (char *) GC_MALLOC(n);
+    char *c = (char *) rt_ws_alloc(n);
     if (c) memcpy(c, s, n);
     return c;
 }
@@ -54,7 +55,7 @@ static const char * norm_charseq(DESCR_t d) {
     if (!IS_STR_fn(d)) return NULL;
     const char * s = d.s ? d.s : "";
     if (!strchr(s, '\x01')) return s;
-    size_t cap = strlen(s) + 1; char * out = (char *) GC_malloc(cap); size_t oi = 0;
+    size_t cap = strlen(s) + 1; char * out = (char *) rt_ws_alloc(cap); size_t oi = 0;
     const char * seg = s;
     for (;;) {
         const char * nx = strchr(seg, '\x01');
@@ -137,7 +138,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             const char *rs = rs_d.s ? rs_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
             size_t rl = rs_d.slen > 0 ? (size_t)rs_d.slen : strlen(rs);
-            char *buf = GC_malloc(ll + rl + 1);
+            char *buf = rt_ws_alloc(ll + rl + 1);
             memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
             { DESCR_t r2; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
         }
@@ -184,7 +185,7 @@ void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v-
 void * lc_vec_push(lc_vec * v, const void * elem) {
     if (v->n >= v->cap) {
         int nc = v->cap ? v->cap * 2 : 8;
-        void * nd = v->data ? GC_REALLOC(v->data, (size_t) nc * (size_t) v->esz) : GC_MALLOC((size_t) nc * (size_t) v->esz);
+        void * nd = v->data ? rt_ws_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_ws_alloc((size_t) nc * (size_t) v->esz);
         if (!nd) return NULL;
         v->data = nd; v->cap = nc;
     }
