@@ -23,24 +23,24 @@ push r12
  call rt_zls_mark@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 208], rax
  pop rsi
 proc_PAT$0_α_body:
 lea rax, [rip + xchain0_n0_β]
-mov qword ptr [r12 + 80], rax
+mov qword ptr [r12 + 192], rax
 # IR_MATCH_ALT_SAVE
  xchain0_n0_α:
- mov dword ptr [r12 + 16], r14d
+ mov dword ptr [r12 + 32], r14d
  push rbp
  mov rbp, rsp
  and rsp, -16
  call rt_dcap_height@PLT
  mov rsp, rbp
  pop rbp
- mov dword ptr [r12 + 20], eax
+ mov dword ptr [r12 + 36], eax
  jmp xchain0_n1_α
  xchain0_n0_β:
- jmp qword ptr [r12 + 24]
+ jmp qword ptr [r12 + 40]
 # IR_MATCH_LIT
  xchain0_n1_α:
  mov eax, r14d
@@ -64,12 +64,12 @@ mov qword ptr [r12 + 80], rax
 # IR_MATCH_ALT_JOIN
  xchain0_n2_α:
  lea rax, [rip + .Lx6_0]
- mov qword ptr [r12 + 24], rax
+ mov qword ptr [r12 + 40], rax
  jmp proc_PAT$0_γ
  xchain0_n2_β:
 .Lx6_0:
- mov r14d, dword ptr [r12 + 16]
- mov edi, dword ptr [r12 + 20]
+ mov r14d, dword ptr [r12 + 32]
+ mov edi, dword ptr [r12 + 36]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -100,12 +100,12 @@ mov qword ptr [r12 + 80], rax
 # IR_MATCH_ALT_JOIN
  xchain0_n4_α:
  lea rax, [rip + .Lx10_0]
- mov qword ptr [r12 + 24], rax
+ mov qword ptr [r12 + 40], rax
  jmp proc_PAT$0_γ
  xchain0_n4_β:
 .Lx10_0:
- mov r14d, dword ptr [r12 + 16]
- mov edi, dword ptr [r12 + 20]
+ mov r14d, dword ptr [r12 + 32]
+ mov edi, dword ptr [r12 + 36]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -136,12 +136,12 @@ mov qword ptr [r12 + 80], rax
 # IR_MATCH_ALT_JOIN
  xchain0_n6_α:
  lea rax, [rip + .Lx14_0]
- mov qword ptr [r12 + 24], rax
+ mov qword ptr [r12 + 40], rax
  jmp proc_PAT$0_γ
  xchain0_n6_β:
 .Lx14_0:
- mov r14d, dword ptr [r12 + 16]
- mov edi, dword ptr [r12 + 20]
+ mov r14d, dword ptr [r12 + 32]
+ mov edi, dword ptr [r12 + 36]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -150,7 +150,7 @@ mov qword ptr [r12 + 80], rax
  pop rbp
  jmp proc_PAT$0_ω
 proc_PAT$0_β:
-jmp qword ptr [r12 + 80]
+jmp qword ptr [r12 + 192]
 proc_PAT$0_γ:
 mov eax, 1
 xor edx, edx
@@ -161,7 +161,7 @@ ret
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 96]
+ mov rdi, qword ptr [r12 + 208]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
@@ -190,7 +190,7 @@ proc_startup:
   mov esi, 0
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 112
+  mov esi, 224
   call rt_proc_set_frame_bytes@PLT
   pop rbp
   ret
@@ -249,14 +249,14 @@ push r12
  call rt_zls_mark@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 320], rax
+ mov qword ptr [r12 + 528], rax
  pop rsi
 main_α_body:
 # IR_LIT_STRING
  xchain15_n0_α:
- mov qword ptr [r12 + 112], 1
+ mov qword ptr [r12 + 160], 1
  mov rax, qword ptr [rip + .Lx16_0]
- mov qword ptr [r12 + 120], rax
+ mov qword ptr [r12 + 168], rax
  jmp xchain15_n1_α
  xchain15_n0_β:
  jmp xchain15_n3_α
@@ -266,21 +266,21 @@ main_α_body:
  .string "PAT$0"
  xchain15_n1_α:
 # BOX IR_CALL SNO$MKPAT(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [zr+112] -> [zr+96]
- mov rax, qword ptr [r12 + 112]
- mov qword ptr [r12 + 96], rax
- mov rax, qword ptr [r12 + 120]
- mov qword ptr [r12 + 104], rax
+# marshal arg0 = producer-box slot [zr+160] -> [zr+128]
+ mov rax, qword ptr [r12 + 160]
+ mov qword ptr [r12 + 128], rax
+ mov rax, qword ptr [r12 + 168]
+ mov qword ptr [r12 + 136], rax
   .section .rodata
   .Lrkfn18: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
    lea rdi, [rip + .Lrkfn18]
- lea rsi, [r12 + 96]
+ lea rsi, [r12 + 128]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 80], rax
- mov qword ptr [r12 + 88], rdx
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
  cmp eax, 99
  je xchain15_n3_α
  jmp xchain15_n2_α
@@ -288,20 +288,20 @@ main_α_body:
  jmp xchain15_n3_α
 # IR_ASSIGN gva
  xchain15_n2_α:
- mov rax, qword ptr [r12 + 80]
- mov rdx, qword ptr [r12 + 88]
+ mov rax, qword ptr [r12 + 112]
+ mov rdx, qword ptr [r12 + 120]
  mov qword ptr [rbx + 0], rax
  mov qword ptr [rbx + 8], rdx
- mov qword ptr [r12 + 64], rax
- mov qword ptr [r12 + 72], rdx
+ mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 104], rdx
  jmp xchain15_n3_α
  xchain15_n2_β:
  jmp xchain15_n3_α
 # IR_LIT_STRING
  xchain15_n3_α:
- mov qword ptr [r12 + 144], 1
+ mov qword ptr [r12 + 208], 1
  mov rax, qword ptr [rip + .Lx20_0]
- mov qword ptr [r12 + 152], rax
+ mov qword ptr [r12 + 216], rax
  jmp xchain15_n4_α
  xchain15_n3_β:
  jmp xchain15_n5_α
@@ -311,12 +311,12 @@ main_α_body:
  .string "b"
 # IR_ASSIGN gva
  xchain15_n4_α:
- mov rax, qword ptr [r12 + 144]
- mov rdx, qword ptr [r12 + 152]
+ mov rax, qword ptr [r12 + 208]
+ mov rdx, qword ptr [r12 + 216]
  mov qword ptr [rbx + 16], rax
  mov qword ptr [rbx + 24], rdx
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
+ mov qword ptr [r12 + 192], rax
+ mov qword ptr [r12 + 200], rdx
  jmp xchain15_n5_α
  xchain15_n4_β:
  jmp xchain15_n5_α
@@ -324,28 +324,28 @@ main_α_body:
  xchain15_n5_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
- mov qword ptr [r12 + 240], rax
- mov qword ptr [r12 + 248], rdx
+ mov qword ptr [r12 + 400], rax
+ mov qword ptr [r12 + 408], rdx
  jmp xchain15_n6_α
  xchain15_n5_β:
  jmp xchain15_n7_α
 # IR_MATCH_HEAD
  xchain15_n6_α:
  call rt_zls_mark@PLT
- mov qword ptr [r12 + 168], rax
- mov qword ptr [r12 + 176], rsp
- mov rdi, qword ptr [r12 + 240]
- mov rsi, qword ptr [r12 + 248]
+ mov qword ptr [r12 + 264], rax
+ mov qword ptr [r12 + 272], rsp
+ mov rdi, qword ptr [r12 + 400]
+ mov rsi, qword ptr [r12 + 408]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov dword ptr [r12 + 160], 0
+ mov dword ptr [r12 + 256], 0
 .Lx24_0:
- mov r14d, dword ptr [r12 + 160]
+ mov r14d, dword ptr [r12 + 256]
  jmp xchain15_n8_α
  xchain15_n6_β:
- add dword ptr [r12 + 160], 1
- mov eax, dword ptr [r12 + 160]
+ add dword ptr [r12 + 256], 1
+ mov eax, dword ptr [r12 + 256]
  cmp eax, r15d
  jg .Lx24_1
  lea rcx, [rip + g_anchor]
@@ -357,11 +357,11 @@ main_α_body:
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 168]
+ mov rdi, qword ptr [r12 + 264]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
- mov rsp, qword ptr [r12 + 176]
+ mov rsp, qword ptr [r12 + 272]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -371,9 +371,9 @@ main_α_body:
  jmp xchain15_n7_α
 # IR_LIT_STRING
  xchain15_n7_α:
- mov qword ptr [r12 + 304], 1
+ mov qword ptr [r12 + 496], 1
  mov rax, qword ptr [rip + .Lx25_0]
- mov qword ptr [r12 + 312], rax
+ mov qword ptr [r12 + 504], rax
  jmp xchain15_n9_α
  xchain15_n7_β:
  jmp main_γ
@@ -383,7 +383,7 @@ main_α_body:
  .string "no match"
 # IR_MATCH_CAPTURE_SAVE push
  xchain15_n8_α:
- lea rdi, [r12 + 192]
+ lea rdi, [r12 + 320]
  mov esi, r14d
  push rbp
  mov rbp, rsp
@@ -393,7 +393,7 @@ main_α_body:
  pop rbp
  jmp xchain15_n10_α
  xchain15_n8_β:
- lea rdi, [r12 + 192]
+ lea rdi, [r12 + 320]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -403,12 +403,12 @@ main_α_body:
  jmp xchain15_n6_β
 # IR_ASSIGN global
  xchain15_n9_α:
- mov rsi, qword ptr [r12 + 304]
- mov rdx, qword ptr [r12 + 312]
+ mov rsi, qword ptr [r12 + 496]
+ mov rdx, qword ptr [r12 + 504]
  mov rdi, qword ptr [rip + .Lx28_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 288], rax
- mov qword ptr [r12 + 296], rdx
+ mov qword ptr [r12 + 480], rax
+ mov qword ptr [r12 + 488], rdx
  jmp main_γ
  xchain15_n9_β:
  jmp main_γ
@@ -420,10 +420,10 @@ main_α_body:
  xchain15_n10_α:
  lea rax, [rip + proc_PAT$0_α]
  xor ecx, ecx
- mov qword ptr [r12 + 208], rcx
+ mov qword ptr [r12 + 352], rcx
  test rax, rax
  jz .Lx29_0
- mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 352], rax
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -431,14 +431,14 @@ main_α_body:
  call rt_zls_alloc@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 216], rax
- mov rcx, qword ptr [r12 + 208]
+ mov qword ptr [r12 + 360], rax
+ mov rcx, qword ptr [r12 + 352]
  mov rdi, rax
  xor esi, esi
  call rcx
  cmp eax, 1
  je .Lx29_1
- mov rdi, qword ptr [r12 + 216]
+ mov rdi, qword ptr [r12 + 360]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -446,7 +446,7 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  xor eax, eax
- mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 352], rax
  jmp xchain15_n8_β
 .Lx29_1:
  jmp xchain15_n11_α
@@ -492,15 +492,15 @@ main_α_body:
  mov r14d, eax
  jmp xchain15_n11_α
  xchain15_n10_β:
- mov rcx, qword ptr [r12 + 208]
+ mov rcx, qword ptr [r12 + 352]
  test rcx, rcx
  jz xchain15_n8_β
- mov rdi, qword ptr [r12 + 216]
+ mov rdi, qword ptr [r12 + 360]
  mov esi, 1
  call rcx
  cmp eax, 1
  je .Lx29_1
- mov rdi, qword ptr [r12 + 216]
+ mov rdi, qword ptr [r12 + 360]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -508,14 +508,14 @@ main_α_body:
  mov rsp, rbp
  pop rbp
  xor eax, eax
- mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 352], rax
  jmp xchain15_n8_β
 # IR_MATCH_CAPTURE_COND
  xchain15_n11_α:
  push rbp
  mov rbp, rsp
  and rsp, -16
- lea rdi, [r12 + 192]
+ lea rdi, [r12 + 320]
  call rt_cap_top@PLT
  lea rdi, [rip + .S4]
  mov esi, eax
@@ -551,11 +551,11 @@ main_α_body:
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 168]
+ mov rdi, qword ptr [r12 + 264]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
- mov rsp, qword ptr [r12 + 176]
+ mov rsp, qword ptr [r12 + 272]
  push rbp
  mov rbp, rsp
  and rsp, -16
@@ -594,19 +594,19 @@ main_α_body:
  xchain15_n13_α:
  mov rax, qword ptr [rbx + 32]
  mov rdx, qword ptr [rbx + 40]
- mov qword ptr [r12 + 272], rax
- mov qword ptr [r12 + 280], rdx
+ mov qword ptr [r12 + 448], rax
+ mov qword ptr [r12 + 456], rdx
  jmp xchain15_n14_α
  xchain15_n13_β:
  jmp main_γ
 # IR_ASSIGN global
  xchain15_n14_α:
- mov rsi, qword ptr [r12 + 272]
- mov rdx, qword ptr [r12 + 280]
+ mov rsi, qword ptr [r12 + 448]
+ mov rdx, qword ptr [r12 + 456]
  mov rdi, qword ptr [rip + .Lx35_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 256], rax
- mov qword ptr [r12 + 264], rdx
+ mov qword ptr [r12 + 432], rax
+ mov qword ptr [r12 + 440], rdx
  jmp main_γ
  xchain15_n14_β:
  jmp main_γ
@@ -626,7 +626,7 @@ ret
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 320]
+ mov rdi, qword ptr [r12 + 528]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp

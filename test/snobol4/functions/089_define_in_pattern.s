@@ -21,15 +21,15 @@ push r12
  call rt_zls_mark@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 320], rax
+ mov qword ptr [r12 + 448], rax
  pop rsi
 proc_upcase_α_body:
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
- mov qword ptr [r12 + 144], rax
- mov qword ptr [r12 + 152], rdx
+ mov qword ptr [r12 + 192], rax
+ mov qword ptr [r12 + 200], rdx
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp proc_upcase_γ
@@ -37,8 +37,8 @@ proc_upcase_α_body:
  xchain0_n1_α:
  mov rdi, qword ptr [rip + .Lx2_0]
  call rt_keyword_read_snobol4@PLT
- mov qword ptr [r12 + 160], rax
- mov qword ptr [r12 + 168], rdx
+ mov qword ptr [r12 + 224], rax
+ mov qword ptr [r12 + 232], rdx
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp proc_upcase_γ
@@ -50,8 +50,8 @@ proc_upcase_α_body:
  xchain0_n2_α:
  mov rdi, qword ptr [rip + .Lx3_0]
  call rt_keyword_read_snobol4@PLT
- mov qword ptr [r12 + 176], rax
- mov qword ptr [r12 + 184], rdx
+ mov qword ptr [r12 + 240], rax
+ mov qword ptr [r12 + 248], rdx
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp proc_upcase_γ
@@ -61,31 +61,31 @@ proc_upcase_α_body:
  .string "UCASE"
  xchain0_n3_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [zr+144] -> [zr+96]
- mov rax, qword ptr [r12 + 144]
- mov qword ptr [r12 + 96], rax
- mov rax, qword ptr [r12 + 152]
- mov qword ptr [r12 + 104], rax
-# marshal arg1 = producer-box slot [zr+160] -> [zr+112]
- mov rax, qword ptr [r12 + 160]
- mov qword ptr [r12 + 112], rax
- mov rax, qword ptr [r12 + 168]
- mov qword ptr [r12 + 120], rax
-# marshal arg2 = producer-box slot [zr+176] -> [zr+128]
- mov rax, qword ptr [r12 + 176]
+# marshal arg0 = producer-box slot [zr+192] -> [zr+128]
+ mov rax, qword ptr [r12 + 192]
  mov qword ptr [r12 + 128], rax
- mov rax, qword ptr [r12 + 184]
+ mov rax, qword ptr [r12 + 200]
  mov qword ptr [r12 + 136], rax
+# marshal arg1 = producer-box slot [zr+224] -> [zr+144]
+ mov rax, qword ptr [r12 + 224]
+ mov qword ptr [r12 + 144], rax
+ mov rax, qword ptr [r12 + 232]
+ mov qword ptr [r12 + 152], rax
+# marshal arg2 = producer-box slot [zr+240] -> [zr+160]
+ mov rax, qword ptr [r12 + 240]
+ mov qword ptr [r12 + 160], rax
+ mov rax, qword ptr [r12 + 248]
+ mov qword ptr [r12 + 168], rax
   .section .rodata
   .Lrkfn5: .string "REPLACE"
   .section .text
   .intel_syntax noprefix
    lea rdi, [rip + .Lrkfn5]
- lea rsi, [r12 + 96]
+ lea rsi, [r12 + 128]
  mov edx, 3
  call rt_call_arr@PLT
- mov qword ptr [r12 + 80], rax
- mov qword ptr [r12 + 88], rdx
+ mov qword ptr [r12 + 112], rax
+ mov qword ptr [r12 + 120], rdx
  cmp eax, 99
  je proc_upcase_γ
  jmp xchain0_n4_α
@@ -93,12 +93,12 @@ proc_upcase_α_body:
  jmp proc_upcase_γ
 # IR_ASSIGN gva
  xchain0_n4_α:
- mov rax, qword ptr [r12 + 80]
- mov rdx, qword ptr [r12 + 88]
+ mov rax, qword ptr [r12 + 112]
+ mov rdx, qword ptr [r12 + 120]
  mov qword ptr [rbx + 0], rax
  mov qword ptr [rbx + 8], rdx
- mov qword ptr [r12 + 64], rax
- mov qword ptr [r12 + 72], rdx
+ mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 104], rdx
  jmp proc_upcase_γ
  xchain0_n4_β:
  jmp proc_upcase_γ
@@ -114,7 +114,7 @@ ret
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 320]
+ mov rdi, qword ptr [r12 + 448]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
@@ -155,7 +155,7 @@ proc_startup:
   mov esi, 1
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 336
+  mov esi, 464
   call rt_proc_set_frame_bytes@PLT
   pop rbp
   ret
@@ -212,14 +212,14 @@ push r12
  call rt_zls_mark@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 320], rax
+ mov qword ptr [r12 + 448], rax
  pop rsi
 main_α_body:
 # IR_LIT_STRING
  xchain7_n0_α:
- mov qword ptr [r12 + 240], 1
+ mov qword ptr [r12 + 320], 1
  mov rax, qword ptr [rip + .Lx8_0]
- mov qword ptr [r12 + 248], rax
+ mov qword ptr [r12 + 328], rax
  jmp xchain7_n1_α
  xchain7_n0_β:
  jmp xchain7_n3_α
@@ -232,8 +232,8 @@ main_α_body:
  mov rbp, rsp
  and rsp, -16
  mov edi, 0
- mov rsi, qword ptr [r12 + 240]
- mov rdx, qword ptr [r12 + 248]
+ mov rsi, qword ptr [r12 + 320]
+ mov rdx, qword ptr [r12 + 328]
  call rt_arg_stage@PLT
  mov rdi, qword ptr [rip + .Lx10_0]
  mov esi, 1
@@ -256,8 +256,8 @@ main_α_body:
 .Lx10_2:
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 208], rax
- mov qword ptr [r12 + 216], rdx
+ mov qword ptr [r12 + 272], rax
+ mov qword ptr [r12 + 280], rdx
  cmp eax, 99
  je xchain7_n3_α
  jmp xchain7_n2_α
@@ -269,12 +269,12 @@ main_α_body:
  .string "upcase"
 # IR_ASSIGN global
  xchain7_n2_α:
- mov rsi, qword ptr [r12 + 208]
- mov rdx, qword ptr [r12 + 216]
+ mov rsi, qword ptr [r12 + 272]
+ mov rdx, qword ptr [r12 + 280]
  mov rdi, qword ptr [rip + .Lx11_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 192], rax
- mov qword ptr [r12 + 200], rdx
+ mov qword ptr [r12 + 256], rax
+ mov qword ptr [r12 + 264], rdx
  jmp xchain7_n3_α
  xchain7_n2_β:
  jmp xchain7_n3_α
@@ -284,9 +284,9 @@ main_α_body:
  .string "OUTPUT"
 # IR_LIT_STRING
  xchain7_n3_α:
- mov qword ptr [r12 + 304], 1
+ mov qword ptr [r12 + 416], 1
  mov rax, qword ptr [rip + .Lx12_0]
- mov qword ptr [r12 + 312], rax
+ mov qword ptr [r12 + 424], rax
  jmp xchain7_n4_α
  xchain7_n3_β:
  jmp main_γ
@@ -299,8 +299,8 @@ main_α_body:
  mov rbp, rsp
  and rsp, -16
  mov edi, 0
- mov rsi, qword ptr [r12 + 304]
- mov rdx, qword ptr [r12 + 312]
+ mov rsi, qword ptr [r12 + 416]
+ mov rdx, qword ptr [r12 + 424]
  call rt_arg_stage@PLT
  mov rdi, qword ptr [rip + .Lx14_0]
  mov esi, 1
@@ -323,8 +323,8 @@ main_α_body:
 .Lx14_2:
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 272], rax
- mov qword ptr [r12 + 280], rdx
+ mov qword ptr [r12 + 368], rax
+ mov qword ptr [r12 + 376], rdx
  cmp eax, 99
  je main_γ
  jmp xchain7_n5_α
@@ -336,12 +336,12 @@ main_α_body:
  .string "upcase"
 # IR_ASSIGN global
  xchain7_n5_α:
- mov rsi, qword ptr [r12 + 272]
- mov rdx, qword ptr [r12 + 280]
+ mov rsi, qword ptr [r12 + 368]
+ mov rdx, qword ptr [r12 + 376]
  mov rdi, qword ptr [rip + .Lx15_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 256], rax
- mov qword ptr [r12 + 264], rdx
+ mov qword ptr [r12 + 352], rax
+ mov qword ptr [r12 + 360], rdx
  jmp main_γ
  xchain7_n5_β:
  jmp main_γ
@@ -361,7 +361,7 @@ ret
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 320]
+ mov rdi, qword ptr [r12 + 448]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
