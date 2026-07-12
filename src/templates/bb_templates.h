@@ -31,6 +31,7 @@ std::string bb_match_arbno();
 std::string bb_match_abort();
 std::string bb_match_fence();
 std::string bb_match_alternate();
+std::string bb_match_sequence();
 std::string bb_match_cat();
 std::string bb_subject();
 std::string bb_match_head();

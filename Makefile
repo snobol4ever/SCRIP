@@ -140,6 +140,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_replace.cpp \
     $(SRC)/templates/bb_match_capture.cpp \
     $(SRC)/templates/bb_match_alternate.cpp \
+    $(SRC)/templates/bb_match_sequence.cpp \
     $(SRC)/templates/bb_match_defer.cpp \
     $(SRC)/templates/bb_to_by.cpp \
     $(SRC)/templates/bb_make_list.cpp \
@@ -360,6 +361,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_replace.cpp   -o $(OBJ)/bb_match_replace.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_capture.cpp -o $(OBJ)/bb_match_capture.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_alternate.cpp    -o $(OBJ)/bb_match_alternate.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_sequence.cpp    -o $(OBJ)/bb_match_sequence.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_defer.cpp   -o $(OBJ)/bb_match_defer.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_to_by.cpp        -o $(OBJ)/bb_to_by.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_make_list.cpp     -o $(OBJ)/bb_make_list.o
