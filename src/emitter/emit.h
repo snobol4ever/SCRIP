@@ -67,6 +67,7 @@ extern "C" {
 #endif
 #define TEXT_MODE_INVOCATION  0
 #define TEXT_MODE_DEFINITION  1
+#include "rt/rt_arena.h"
 #include "bb_pool.h"
 #include "IR.h"
 #include <stdint.h>
@@ -212,7 +213,7 @@ typedef struct { pl_gz_callee_t ** v; int n; int cap; } pl_gz_callee_vec_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_gz_callee_t * pl_gz_callees_push(pl_gz_callee_vec_t * cv, pl_gz_callee_t * ce) {
     if (cv->n >= cv->cap) {
-        int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)GC_MALLOC(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0;
+        int nc = cv->cap ? cv->cap * 2 : 8; pl_gz_callee_t ** nv = (pl_gz_callee_t **)rt_ws_alloc(sizeof(pl_gz_callee_t *) * nc); if (!nv) return (pl_gz_callee_t *)0;
         for (int i = 0; i < cv->n; i++) nv[i] = cv->v[i]; cv->v = nv; cv->cap = nc;
     }
     cv->v[cv->n++] = ce; return ce;
