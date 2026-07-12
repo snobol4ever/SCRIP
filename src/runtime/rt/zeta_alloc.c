@@ -23,6 +23,7 @@ static int   g_zls_report_reg = 0;
 static void rt_zls_report(void)
 {
     long depth = 0; void *it = g_zls_cur; while (it) { depth += 1; it = ((void **)((char *)it - ZLS_HDR))[0]; }
+    if (getenv("SCRIP_ZLS_PIN_PROBE")) { extern void GC_gcollect(void); extern size_t GC_get_heap_size(void); extern size_t GC_get_free_bytes(void); size_t h0 = GC_get_heap_size(), f0 = GC_get_free_bytes(); GC_gcollect(); GC_gcollect(); fprintf(stderr, "[PIN] pre: heap=%.1fMB free=%.1fMB | post-2x-gcollect: heap=%.1fMB free=%.1fMB | chain_depth=%ld\n", h0/1048576.0, f0/1048576.0, GC_get_heap_size()/1048576.0, GC_get_free_bytes()/1048576.0, depth); }
     if (!getenv("SCRIP_ZETA_TELEM") && !getenv("SCRIP_ZLS_LIFO_PROBE")) return;
     fprintf(stderr, "[ZLS] chain_depth=%ld live=%ld %s\n", depth, g_zls_allocs - g_zls_releases, depth == (g_zls_allocs - g_zls_releases) ? "COHERENT" : "ORPHANED");
     fprintf(stderr, "[ZLS] ZC_ALLOC=%d ZC_INIT=%d ZC_POISON=%d arena=%dMB hiwater=%ldB allocs=%ld releases=%ld live=%ld nonhead=%ld bytes=%ld\n", (int)ZC_ALLOC, (int)ZC_INIT, (int)ZC_POISON, (int)ZC_ARENA_MB,
