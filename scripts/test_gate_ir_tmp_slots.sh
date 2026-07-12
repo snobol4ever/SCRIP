@@ -26,9 +26,9 @@ chk() { # chk "<label>" "<grep-for-line>" "slot|noslot"
   local label="$1" line_pat="$2" mode="$3" line self
   line="$(printf '%s\n' "${DUMP}" | grep -E "${line_pat}" | head -1)"
   if [ -z "${line}" ]; then echo "  FAIL  ${label}: no '${line_pat}' line in dump"; fails=$((fails+1)); return; fi
-  self="$(printf '%s' "${line}" | awk '{print $2}')"
+  self="$(printf '%s' "${line}" | awk '{print $1}')"
   case "${self}" in
-    s*) [ "${mode}" = slot ]   && echo "  ok    ${label} carries slot (${self})" || { echo "  FAIL  ${label} must NOT carry slot: ${line}"; fails=$((fails+1)); } ;;
+    [0-9]*) [ "${mode}" = slot ]   && echo "  ok    ${label} carries slot (${self})" || { echo "  FAIL  ${label} must NOT carry slot: ${line}"; fails=$((fails+1)); } ;;
     @*) [ "${mode}" = noslot ] && echo "  ok    ${label} has no slot (${self})"  || { echo "  FAIL  ${label} must carry slot: ${line}"; fails=$((fails+1)); } ;;
     *)  echo "  FAIL  ${label}: unparsable self field: ${line}"; fails=$((fails+1)) ;;
   esac
@@ -44,7 +44,7 @@ chk "FAIL (control port)"      " FAIL "     noslot
 # A binop's operands must themselves be slotted producers (consumer reads off(operand)).
 binop_ops="$(printf '%s\n' "${DUMP}" | grep -E " BINOP " | head -1 | sed -E 's/.*\[([sn0-9,]+)\].*/\1/')"
 case "${binop_ops}" in
-  s*) echo "  ok    BINOP operands are slotted: [${binop_ops}]" ;;
+  [0-9]*) echo "  ok    BINOP operands are slotted: [${binop_ops}]" ;;
   *)  echo "  FAIL  BINOP operands not slotted: [${binop_ops}]"; fails=$((fails+1)) ;;
 esac
 
