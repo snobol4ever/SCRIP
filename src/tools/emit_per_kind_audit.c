@@ -64,6 +64,7 @@ static const kind_entry_t g_kinds[] = {
     { IR_MATCH_LEN,         "IR_MATCH_LEN" },
     { IR_MATCH_NOTANY,      "IR_MATCH_NOTANY" },
     { IR_MATCH_POS,         "IR_MATCH_POS" },
+    { IR_MATCH_RPOS,        "IR_MATCH_RPOS" },
     { IR_MATCH_TAB,         "IR_MATCH_TAB" },
     { IR_MATCH_RTAB,        "IR_MATCH_RTAB" },
     { IR_MATCH_REM,         "IR_MATCH_REM" },
@@ -270,6 +271,7 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     case IR_MATCH_NOTANY:   nd->sval = "xyz"; break;
     case IR_MATCH_LEN:      nd->ival = 5; break;
     case IR_MATCH_POS:      nd->ival = 0; break;
+    case IR_MATCH_RPOS:     nd->ival = 0; break;
     case IR_MATCH_TAB:      nd->ival = 10; break;
     case IR_MATCH_RTAB:     nd->ival = 10; break;
     case IR_MATCH_ASSIGN_IMM:

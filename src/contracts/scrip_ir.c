@@ -82,6 +82,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_MATCH_BREAKX] = "IR_MATCH_BREAKX",
     [IR_MATCH_LEN] = "IR_MATCH_LEN",
     [IR_MATCH_POS] = "IR_MATCH_POS",
+    [IR_MATCH_RPOS] = "IR_MATCH_RPOS",
     [IR_MATCH_TAB] = "IR_MATCH_TAB",
     [IR_MATCH_RTAB] = "IR_MATCH_RTAB",
     [IR_MATCH_ARB] = "IR_MATCH_ARB",
@@ -280,6 +281,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         memcpy(ob + op, r, rl); op += rl; ob[op] = 0;
     }
     const char * opn = bb_op_name(bb->op);
+    if (opn && !strncmp(opn, "IR_", 3)) opn += 3;
     fprintf(fp, "%4s %-6s %4s %4s  %-22s [%s]", sq, self, gp, wp, opn, ob);
     if (verbose) fprintf(fp, " (n%d)", i);
     switch (bb->op) {

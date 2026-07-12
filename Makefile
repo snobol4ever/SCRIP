@@ -130,6 +130,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_coerce_real.cpp \
     $(SRC)/templates/bb_match_rtab.cpp \
     $(SRC)/templates/bb_match_pos.cpp \
+    $(SRC)/templates/bb_match_rpos.cpp \
     $(SRC)/templates/bb_match_rem.cpp \
     $(SRC)/templates/bb_match_atp.cpp \
     $(SRC)/templates/bb_match_arb.cpp \
@@ -349,6 +350,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_coerce_real.cpp    -o $(OBJ)/bb_coerce_real.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rtab.cpp    -o $(OBJ)/bb_match_rtab.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_pos.cpp     -o $(OBJ)/bb_match_pos.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rpos.cpp    -o $(OBJ)/bb_match_rpos.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_rem.cpp     -o $(OBJ)/bb_match_rem.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_atp.cpp     -o $(OBJ)/bb_match_atp.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_arb.cpp     -o $(OBJ)/bb_match_arb.o

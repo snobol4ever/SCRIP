@@ -686,7 +686,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
                        || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_REV_SWAP || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
                        || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_ASSIGN_IMM || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
-                       || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_POS || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP || nd->op == IR_MATCH_REPLACE || nd->op == IR_GOTO_DEFERRED
+                       || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP || nd->op == IR_MATCH_REPLACE || nd->op == IR_GOTO_DEFERRED
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
                     ? IR_LIT(nd).sval : (const char *)0;
     { extern int g_gva_active; extern int gva_index_of(const char *); int nm_op = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN);
@@ -757,6 +757,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_TAB:            { bb_prepare(nd); bb_emit_x86(bb_match_tab()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_RTAB:           { bb_prepare(nd); bb_emit_x86(bb_match_rtab()); } return 0;    /* SN4-PAT-3 */
     case IR_MATCH_POS:            { bb_prepare(nd); bb_emit_x86(bb_match_pos()); } return 0;     /* SN4-PAT-3 */
+    case IR_MATCH_RPOS:           { bb_prepare(nd); bb_emit_x86(bb_match_rpos()); } return 0;    /* SN4-PAT-3 */
     case IR_MATCH_REM:            { bb_prepare(nd); bb_emit_x86(bb_match_rem()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
     case IR_MATCH_ARB:            { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.x86_scratch_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZLS2 port-hook grant */
@@ -1090,7 +1091,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.x86_scratch_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_POS: {
+    case IR_MATCH_POS: case IR_MATCH_RPOS: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = -1;
         if (!a0) { drive_unowned(nd); break; }
