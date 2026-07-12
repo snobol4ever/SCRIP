@@ -1,4 +1,4 @@
-/* rt_arena.c — RUNG TR-1. Bump arenas over rt_slab. Zero consumers flipped this rung. */
+/* rt_arena.c — RUNG TR-1 kernel; TR-3 (s37) began flipping consumers — rt_ws_alloc is the Region-2 workspace entry. */
 #include "rt_arena.h"
 #include <string.h>
 #include <stdio.h>
@@ -86,4 +86,13 @@ void rt_arena_zblock_put(rt_arena_t *a, void *blk) {
     zblk_t *b = (zblk_t *)blk;
     b->next = (zblk_t *)a->reuse;
     a->reuse = b;
+}
+
+/* --- THE WORKSPACE (RUNG TR-3, s37 three-region): the ONE Region-2 instance families flip onto; grow-only A_PROG until GC-W-2 collects it --- */
+static rt_arena_t g_ws;
+static int g_ws_up = 0;
+
+void *rt_ws_alloc(size_t n) {
+    if (!g_ws_up) { rt_arena_init(&g_ws, A_PROG); g_ws_up = 1; }
+    return rt_arena_alloc(&g_ws, n);
 }
