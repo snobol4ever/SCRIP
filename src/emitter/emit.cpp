@@ -673,6 +673,7 @@ int bb_call_route_classify(IR_t * nd) {
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls2_geom(const IR_t *, int, int *, long *);   /* zeta_storage.c — ZLS2 port-hook frame-protocol geometry (slot/K/ops per node) */
+extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
@@ -762,7 +763,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
     case IR_MATCH_ARB:            { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.x86_scratch_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZLS2 port-hook grant */
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
-    case IR_MATCH_ARBNO:          { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.op_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); g_emit.op_selfload = ((int)g_emit.op_phase == 0) ? 1 : ((int)g_emit.op_phase == 2) ? 2 : 0; bb_emit_x86(bb_match_arbno()); } return 0;   /* ZB-5 + ZLS2 port-hook grant (op_off already owner-resolved for ph1/2) */
+    case IR_MATCH_ARBNO:          { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; g_emit.op_sb = (_sp + 16 + 15) & ~15; } else { g_emit.op_sa = -1; g_emit.op_sb = -1; } bb_emit_x86(bb_match_arbno()); } return 0;   /* SN4-NARY-ARBNO: one node, flat-driven (op_off/op_ival/pairs from flat_drive_match_alt); COLLECTION geometry staged here */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_RELEASE:        { bb_emit_x86(bb_match_release()); } return 0;               /* BB-OWNED-ζ statement-scope pivot */
     case IR_MATCH_REPLACE:        { bb_emit_x86(bb_match_replace()); } return 0;               /* SN4-REPL stages 4/5 splice */
@@ -846,7 +847,6 @@ extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_PAIR_DEF_JMP(l,t) do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=(l); g_emit.xa_bb_emit_pair_jmp[_i]=(t); } while(0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 extern "C" void * rt_proc_get_fn(const char * name);
 static int drive_value_slot(IR_t *nd) {
     int e = bb_slot_get(nd);
@@ -896,10 +896,10 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
      * 0..N-1 = entry α labels (fail-glue's alt_i dispatch), N..2N-1 = resume β labels (A.β's alt_i dispatch
      * — the alternative's OWN inner resume, seed alt_β), 2N = na_s success-glue define, 2N+1 = na_f
      * fail-glue define.  σ/φ-tagged inside edges land the two glue defines (resolved in the chain loop). */
-    IR_t *nd = nodes[i]; int N = nd->n_operands / 2;
+    IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : nd->n_operands / 2;   /* ARBNO: (entry,resume) + [2]=geometry bracket + optional [3]=self seal marker */
     g_emit.xa_bb_emit_pair_n = 0;
     for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == e) { t = lbls[k];  break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
-    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_f[i];   /* FENCE-rooted body: resume a committed iteration ≡ abandon it (seal) */ int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_s[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_f[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
@@ -1043,7 +1043,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd); g_emit.op_phase = 0;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_ALTERNATE: case IR_MATCH_SEQUENCE: {   /* SN4-NARY-ALT/-SEQ: 2N operands = (entry_i, resume_i); pairs 0..N-1 = entry α's (glue dispatch), N..2N-1 = resume β's, 2N = success-glue def, 2N+1 = fail-glue def */
+    case IR_MATCH_ALTERNATE: case IR_MATCH_SEQUENCE: case IR_MATCH_ARBNO: {   /* SN4-NARY-ALT/-SEQ/-ARBNO: 2N operands = (entry_i, resume_i), N = n_operands/2 (ARBNO's [2] = geometry bracket, N=1); pairs 0..N-1 = entry α's, N..2N-1 = resume β's, 2N = success-glue def, 2N+1 = fail-glue def */
         drive_unowned(nd);       /* replaced below by flat_drive path — the n-ary constructs are driven from codegen_flat_chain_body where the label arrays live */
         break;
     }
@@ -1130,14 +1130,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
                 g_emit.bb_child_fn = fzfn; g_emit.bb_child_lbl = fzlb;
             }
         }
-        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
-    }
-    case IR_MATCH_ARBNO: {   /* ZB-5: roles 0/3 own the slot; 1/2/4/5 read it via operand[0] (the owner).  v2 roles 3-5 additionally stage the COLLECTION geometry (op_sa=min_off, op_sb=elem_sz). */
-        long ph = IR_LIT(nd).ival;
-        IR_t * own = (ph == 0 || ph == 3) ? nd : (nd->n_operands > 0 ? nd->operands[0] : nd);
-        g_emit.op_off = drive_value_slot(own);
-        g_emit.op_phase = (int)ph;
-        if (ph >= 3) { int mo = -1, sp = 0; if (zls_arbno_geom(own, &mo, &sp)) { g_emit.op_sa = mo; g_emit.op_sb = (sp + 16 + 15) & ~15; } else { g_emit.op_sa = -1; g_emit.op_sb = -1; } }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO: {
@@ -1531,7 +1523,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
-        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
+        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
         int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
@@ -1557,7 +1549,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
+        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     if (qt >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= CH_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)CH_MAX, prefix); abort(); }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -1582,8 +1574,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_ry", id, i) : NULL;
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_rt", id, i) : NULL;
-        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_as", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
-        na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_af", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
+        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_as", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
+        na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_af", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
     }
     bb_label_t *resume_init_lbl = NULL;
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
@@ -1694,7 +1686,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             flat_drive_repalt(nodes, n, i, lbls, betas, ra_y, ra_t, node_γ, node_ω);
             continue;
         }
-        if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE) && nodes[i]->n_operands > 0) {
+        if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO) && nodes[i]->n_operands > 0) {
             flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, node_γ, node_ω);   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout */
             continue;
         }

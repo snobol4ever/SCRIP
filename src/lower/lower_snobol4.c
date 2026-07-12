@@ -602,23 +602,6 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
             return;
         }
     }
-    /* ARBNO-EXHAUST CHASE (2026-07-10 s14, found via the capture-then-ARBNO bracket, minimal probe
-     * `'ab' ? POS(0) LEN(1) . V ARBNO(LEN(1)) RPOS(0)` — oracle succeeds V='a', SCRIP wrongly failed):
-     * an ARBNO construct's first-allocated node is G, and G's ω is the REPURPOSED body-entry edge (the
-     * TT_ARBNO arm's own comment) — the direct fallthrough repoint below CLOBBERED the body entry, so an
-     * extension attempt jumped into the left generator's β instead of the body and the ARBNO could never
-     * grow past its null yield (capture-then-ARB was fine: ARB's ω is a true fail edge — the discriminating
-     * probe).  ARBNO's true leftward exhaust is F.ω (phase-2/5 exhaust box, allocated immediately after G
-     * with operands[0]==G, mirroring the ALT arm's T identification) — chase and re-point THAT, β-aware,
-     * exactly the edge the TT_ARBNO arm itself aimed at `fail`.  This is the third member of the class the
-     * two arms above founded: constructs whose first-allocated ω is not their leftward exhaust. */
-    if (nd && nd->op == IR_MATCH_ARBNO && g && tail_idx + 1 < g->n) {
-        IR_t * Fx = g->all[tail_idx + 1];
-        if (Fx && Fx->op == IR_MATCH_ARBNO && Fx->n_operands > 0 && Fx->operands[0] == nd) {
-            sno_ω_to(Fx, t);
-            return;
-        }
-    }
     if (nd && nd->op == IR_MATCH_ASSIGN_COND && nd->n_operands > 1 && nd->operands[1]) nd = nd->operands[1];
     sno_ω_to(nd, t);
 }
@@ -630,83 +613,6 @@ static void sno_seq_flatten_pat(const tree_t * t, const tree_t ** elems, int * n
     if (t->t == TT_SEQ) { sno_seq_flatten_pat((t->n > 0) ? t->c[0] : NULL, elems, ne); if (t->n > 1 && t->c[1]) { if (*ne >= 128) sno_fatal("pattern sequence too long (SN4-PAT cap 128)", NULL); elems[(*ne)++] = t->c[1]; } return; }
     if (*ne >= 128) sno_fatal("pattern sequence too long (SN4-PAT cap 128)", NULL);
     elems[(*ne)++] = t;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_pat_deterministic(const tree_t * t) {
-    /* ZB-5 v1 gate: a body element that can yield MORE THAN ONE way (a generator, or an alternation whose
-     * re-choice a completed iteration would need) makes ARBNO backtrack non-total — that needs the
-     * per-iteration COLLECTION (v2).  Deterministic subtrees exhaust totally, so no iteration state is kept. */
-    if (!t) return 1;
-    if (t->t == TT_ALT || t->t == TT_ARB || t->t == TT_ARBNO || t->t == TT_BREAKX || sno_is_fence(t)) return 0;
-    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB")) return 0;
-    for (int i = 0; i < t->n; i++) if (!sno_pat_deterministic(t->c[i])) return 0;
-    return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_pat_is_arb(const tree_t * t) { return t && (t->t == TT_ARB || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB"))); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_pat_v2_tail_gen(const tree_t * t) {
-    /* ZB-5 v2: the exhaust box resumes the body via F.γ → the body's FIRST-ALLOCATED node's β — the
-     * rightmost leaf.  That leaf must therefore expose a resume surface: an alternation (SAVE.β dispatch),
-     * ARB (β extend), or a capture whose COND.ω forwards to resume-or-pop.  A deterministic rightmost leaf
-     * has no β (chaining THROUGH it is the Finding-B pass-through rung, not this one) — gate it. */
-    if (!t) return 0;
-    if (t->t == TT_ALT || sno_pat_is_arb(t)) return 1;
-    if (t->t == TT_SEQ || t->t == TT_CAT) return t->n > 1 && sno_pat_v2_tail_gen(t->c[1]);
-    if (t->t == TT_CAPT_COND_ASGN) return 1;
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_pat_v2_ok(const tree_t * t) {
-    /* ZB-5 v2 body admission: ALT and ARB anywhere EXCEPT nested inside an alternative (the ALT-RESUME mark
-     * records the NEXT alternative, so an inner generator's remaining ways would be skipped on resume);
-     * nested ARBNO refused (an element's prev_rZ would point into a REALLOC-MOVABLE outer collection —
-     * the RELOAD-LAW escape); FENCE refused (its seal jumps to the statement fail with rZ still repointed). */
-    if (!t) return 1;
-    if (t->t == TT_ARBNO || sno_is_fence(t)) return 0;
-    if (t->t == TT_ALT) { const tree_t * l = (t->n > 0) ? t->c[0] : NULL; const tree_t * r = (t->n > 1) ? t->c[1] : NULL; return ((l && l->t == TT_ALT) ? sno_pat_v2_ok(l) : sno_pat_deterministic(l)) && sno_pat_deterministic(r); }
-    for (int i = 0; i < t->n; i++) if (!sno_pat_v2_ok(t->c[i])) return 0;
-    return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_fence_inner_ok(const tree_t * t) {
-    /* v1-FENCE inner admission (2026-07-10): what may live INSIDE a FENCE(P) riding as an ARBNO body element.
-     * Forward alternation (ALT), internal generator retry (ARB), SEQ, and every deterministic leaf are fine —
-     * the v1 shared-slot frame provides the seal STRUCTURALLY (each extension re-enters the body α fresh; no
-     * resume edge is ever stamped into the body from outside, so a committed iteration's ALT dispatch slot is
-     * unreachable — SPITBOL manual Ch.19 FENCE(P): alternatives visible only moving forward, backup passes
-     * through).  REFUSED (park, not fake): nested ARBNO (slot interaction unproven), nested/bare FENCE (bare
-     * FENCE's backup semantics = whole-match fail, a DIFFERENT target), captures (capture-stack x seal unproven). */
-    if (!t) return 0;
-    if (t->t == TT_ARBNO || sno_is_fence(t)) return 0;
-    if (t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN || t->t == TT_CAPT_CURSOR) return 0;
-    if (t->t == TT_ALT || t->t == TT_SEQ) { for (int i = 0; i < t->n; i++) if (!sno_fence_inner_ok(t->c[i])) return 0; return 1; }
-    if (t->t == TT_ARB || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "ARB"))) return 1;
-    return sno_pat_deterministic(t);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_pat_v1_fenced_ok(const tree_t * t) {
-    /* v1-FENCE ARBNO body admission (2026-07-10, closes 116/142/151; any-position 145-shape same day): a body
-     * whose non-deterministic elements are ALL FENCE(P) function-forms rides ARBNO v1 (phases 0/1/2)
-     * UNCHANGED.  WHY v1 IS THE FENCE'S HOME: FENCE(P) commit semantics is EXACTLY v1's structural property —
-     * one shared body frame, completed iterations unreachable; the v2 COLLECTION exists to enable the resume
-     * the fence must PREVENT (v2's F.β body-resume is the leak, so fenced bodies must NOT ride v2).  This
-     * answers the standing design question (which fail-target does a sealed element inside iteration N point
-     * at): NEITHER the statement fJ NOR a local retry — the fenced group is deterministic-from-outside (β≡ω),
-     * so its exhaust points where every v1 body element's fail already points: F (extend-failed = ARBNO
-     * exhausted, shorter yields were already offered).  Fences may sit at ANY body position: the spine's seal
-     * target is cx->pat_seal (== cx->pat_fail at statement level, == F while lowering an ARBNO body — set and
-     * restored in the TT_ARBNO arm), so an element right of an in-body fence fails to F, not the statement. */
-    const tree_t * elems[128]; int ne = 0; int nf = 0;
-    if (!t) return 0;
-    sno_seq_flatten_pat(t, elems, &ne);
-    if (ne < 1) return 0;
-    for (int i = 0; i < ne; i++) {
-        const tree_t * e = elems[i];
-        if (e && e->t == TT_FENCE && e->n > 0 && e->c[0]) { if (!sno_fence_inner_ok(e->c[0])) return 0; nf++; continue; }
-        if (!sno_pat_deterministic(e)) return 0;
-    }
-    return nf > 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SNO_CCONST_MAX 256
@@ -779,6 +685,7 @@ static const char * sno_cset_fold(const tree_t * a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_is_pattern_rhs(const tree_t * t);
 static int sno_pat_supported(const tree_t * t);
+static int sno_pat_contains_arbno(const tree_t * t);
 static const char * sno_pat_collect(const tree_t * pat);
 static struct { const char * var; const char * procname; const tree_t * pat; } g_sno_fz[SNO_PAT_MAX];
 static int g_sno_nfz = 0;
@@ -996,45 +903,42 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return nd;
     }
     case TT_ARBNO: {
-        /* ZB-5 SN4-PAT ARBNO v1 (deterministic body).  Three phases share IR_MATCH_ARBNO, IR_LIT.ival = phase.
-         * G (0, generator, no operands; MUST be first-allocated so TT_SEQ's tail rule finds the β surface):
-         *   α saves entry+yield cursors and jmps γ (null yield — SPITBOL shortest-first); β restores δ=yield,
-         *   records cur_before, jmps ω — G's ω is REPURPOSED as the body-entry edge (the β-continuation); the
-         *   construct's real fail exit lives on F.  K (1, operand[0]=G): body-success landing — null-progress
-         *   guard (δ==cur_before → ω=F, the 4/28 zero-advance rule), else yield=δ, jmp γ (yield one more).
-         * F (2, operand[0]=G): exhaust — δ=entry, jmp ω (outer fail); its template defines a β alias because
-         *   body leaves stamp their fail edges via sno_ω_to and IR_MATCH_ARBNO is generator-kind.
-         * Deterministic bodies exhaust totally (a completed iteration cannot re-choose), so NO per-iteration
-         * COLLECTION is needed — that is the generator-body v2 requirement (ALT/ARB/ARBNO/FENCE inside). */
+        /* SN4-NARY-ARBNO (Lon directive 2026-07-12, seed-2 idiom; the G/K/F triple is DELETED per the s31
+         * node-iff-owns-runtime-state rule).  ARBNO(P) ≡ ε | P·ARBNO(P), shortest-first: R.α anchors entry δ
+         * and yields ε; R.β EXTENDS — pushes a per-iteration COLLECTION frame {prev_view, saved_δ} + P's slot
+         * window, repoints the ζ view, enters P.α.  Success-glue (σ → nr_s): null-progress guard resumes THIS
+         * extension's body β (oracle pin 162), else counts, restores the view, yields one more.  Fail-glue
+         * (φ → nr_f): pops, resumes the PREVIOUS iteration's body β; chain empty → restore entry δ → R.ω
+         * (seed alt_ω verbatim).  operands = (P.entry, P.resume, last-body-node): flat_drive walks pairs by
+         * n_operands/2 so [2] rides free as the zls geometry bracket ([1] = first-allocated is the other end).
+         * Same σ/φ inside-edge retag as NARY-ALT; R first-allocated ⇒ R.β IS resume, R.ω IS leftward exhaust —
+         * the ARBNO-EXHAUST CHASE died with the triple.  Body admission = any supported pattern except nested
+         * ARBNO (zcol elements are realloc-movable; the rsp linked-chain+count flavor lifts this — Lon ruling
+         * 2026-07-12, lands at ZB-ITER under ZLS_ARBNO_STACK).  In-body fence seal = R tagged φ: a cut pops to
+         * the previous iteration and ARBNO-level backtrack continues, per ARBNO ≡ (ε | P·ARBNO(P)). */
         if (!(t->n > 0) || !t->c[0]) sno_fatal("ARBNO requires a pattern argument", NULL);
-        int v1f = sno_pat_v1_fenced_ok(t->c[0]);
-        int a2 = v1f ? 0 : !sno_pat_deterministic(t->c[0]);
-        if (a2 && !(sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0]))) sno_fatal("ARBNO body outside the ZB-5 v2 subset (generator body needs a rightmost ALT/ARB/capture leaf; fenced generator bodies ride v1 only as a single rightmost FENCE(P); nested ARBNO and a generator inside an alternative are v3)", NULL);
-        /* v2 (a2): phases 3/4/5 — per-iteration COLLECTION (ARCH-ZETA-LOCAL-STORAGE.md section 5f).  G.β pushes a
-         * zeroed element {prev_rZ, cur_before} + body slot range and REPOINTS rZ into it, so body boxes' [r12+off]
-         * become per-iteration; K reads the header, restores rZ, counts and yields (zero-advance → F.α, which
-         * re-repoints and resumes THIS element's body β); F.β (body-fail) restores rZ, pops (i==0 → exhaust) and
-         * resumes element i's body tail β via F.γ — stamped at the body's first-allocated (rightmost) leaf.
-         * operands[0]/[1] on G bracket the body subgraph by allocation for the zls geometry post-pass. */
-        IR_t * G = lc_build(g, IR_MATCH_ARBNO, succ, NULL); IR_LIT(G).ival = a2 ? 3 : 0;
-        IR_t * F = lc_build(g, IR_MATCH_ARBNO, NULL, NULL); IR_LIT(F).ival = a2 ? 5 : 2; ir_operand_push(F, G); sno_ω_to(F, fail);
-        IR_t * K = lc_build(g, IR_MATCH_ARBNO, succ, F);    IR_LIT(K).ival = a2 ? 4 : 1; ir_operand_push(K, G);
-        int bi0 = g->n;
-        /* v1-FENCE seal scope (2026-07-10): while the body lowers, an in-body fence's seal target is F —
-         * a sealed element failing rightward exhausts THIS ARBNO (correct: shorter yields were already
-         * offered), never the statement's pat_fail (the line-528 bug this replaces).  Save/restore, so
-         * fences in the statement spine around the ARBNO keep the statement-level target. */
-        IR_t * prev_seal = cx->pat_seal; cx->pat_seal = F;
-        IR_t * be = sno_pat_node(cx, t->c[0], K, F);
+        if (sno_pat_contains_arbno(t->c[0])) sno_fatal("nested ARBNO awaits the rsp iteration-frame chain (ZLS_ARBNO_STACK — GOAL-SNOBOL4-BB ZB-ITER)", NULL);
+        IR_t * R = lc_build(g, IR_MATCH_ARBNO, succ, NULL);
+        sno_ω_to(R, fail);
+        int before = g->n;
+        IR_t * prev_seal = cx->pat_seal; cx->pat_seal = R;
+        IR_t * ei = sno_pat_node(cx, t->c[0], R, R);
         cx->pat_seal = prev_seal;
-        lc_ω_to(G, be);
-        if (a2) {
-            if (bi0 >= g->n) sno_fatal("ARBNO v2 internal: body lowered to zero nodes", NULL);
-            ir_operand_push(G, g->all[bi0]); ir_operand_push(G, g->all[g->n - 1]);
-            IR_t * btail = g->all[bi0];
-            lc_γ_to_β(F, btail);
+        if (before >= g->n) sno_fatal("ARBNO body lowered to zero nodes (bare FENCE / null pattern body)", NULL);
+        IR_t * ri = (before < g->n) ? g->all[before] : ei;
+        for (int k = before; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->ω.node == R) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+            if (x->γ.node == R) { if (x->op == IR_GOTO && x->ω.node == R) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
-        return G;
+        ir_operand_push(R, ei);
+        ir_operand_push(R, ri);
+        ir_operand_push(R, (g->n > before) ? g->all[g->n - 1] : ei);
+        { const tree_t * belems[128]; int bne = 0; sno_seq_flatten_pat(t->c[0], belems, &bne);   /* FENCE-rooted resume surface: a committed iteration's alternatives are invisible on backup (manual ln 4716; the old v1-fenced seal was STRUCTURAL — no resume edge existed; the one-node form makes it an EDGE property: operands[3]=R marks resume≡fail-glue, flat_drive resolves PAIR(1)→na_f, popping cascades to exhaust exactly as SPITBOL cuts left) */
+          if (bne > 0 && sno_is_fence(belems[bne - 1])) ir_operand_push(R, R); }
+        IR_LIT(R).ival = 1;
+        return R;
     }
     case TT_LEN: {
         IR_t * nd = lc_build(g, IR_MATCH_LEN, succ, NULL);
@@ -1210,6 +1114,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     return succ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pat_contains_arbno(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_ARBNO) return 1;
+    for (int i = 0; i < t->n; i++) if (sno_pat_contains_arbno(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_supported(const tree_t * t) {
     if (!t) return 0;
     if (t->t == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
@@ -1221,7 +1132,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_REM || t->t == TT_ARB) return 1;
-    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_pat_deterministic(t->c[0]) || sno_pat_v1_fenced_ok(t->c[0]) || (sno_pat_v2_ok(t->c[0]) && sno_pat_v2_tail_gen(t->c[0])));
+    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && !sno_pat_contains_arbno(t->c[0]);
     if (t->t == TT_VAR) return t->v.sval != NULL;
     if (t->t == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
