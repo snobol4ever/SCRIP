@@ -96,3 +96,21 @@ void *rt_ws_alloc(size_t n) {
     if (!g_ws_up) { rt_arena_init(&g_ws, A_PROG); g_ws_up = 1; }
     return rt_arena_alloc(&g_ws, n);
 }
+
+/* --- grow-only realloc: the D6 title word (size<<8|flavor at p-16) IS the old size; no free until GC-W-2 --- */
+void *rt_ws_realloc(void *p, size_t n) {
+    if (!p) return rt_ws_alloc(n);
+    size_t old = (size_t)(*(uint64_t *)((uint8_t *)p - 16) >> 8);
+    if (n <= old) return p;
+    void *q = rt_ws_alloc(n);
+    memcpy(q, p, old);
+    return q;
+}
+
+char *rt_ws_strdup(const char *s) {
+    if (!s) return (char *)0;
+    size_t n = strlen(s);
+    char *q = (char *)rt_ws_alloc(n + 1);
+    memcpy(q, s, n + 1);
+    return q;
+}

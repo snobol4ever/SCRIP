@@ -7,6 +7,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
+#if RT_SLAB_GC_ROOTS
+#include <gc/gc.h>
+#endif
 
 #define NKLASS 3
 static const size_t k_bytes[NKLASS] = { 64u << 10, 1u << 20, 16u << 20 };
@@ -33,6 +36,9 @@ rt_slab_t *rt_slab_get(size_t min_bytes) {
     pthread_mutex_unlock(&g_mx);
     size_t cap = (k < NKLASS) ? k_bytes[k] : ((min_bytes + 15u) & ~(size_t)15u);
     rt_slab_t *s = (rt_slab_t *)malloc(32 + cap);
+#if RT_SLAB_GC_ROOTS
+    if (s) GC_add_roots((char *)s, (char *)s + 32 + cap);
+#endif
     if (!s) { fprintf(stderr, "rt_slab_get: OOM (%zu)\n", cap); abort(); }
     s->next = NULL; s->cap = cap; s->klass = k; s->magic = RT_SLAB_MAGIC;
     pthread_mutex_lock(&g_mx);

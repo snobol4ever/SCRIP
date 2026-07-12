@@ -6,6 +6,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* TR-3 COMPENSATION (s37) — libgc SCANS its own heap but NOT malloc'd memory. Pointer-bearing
+ * families flipped to the malloc-backed workspace would lose their referents' reachability
+ * (silent, stress-only corruption — the exact TR-2 lesson). Registering every slab as a GC root
+ * restores precisely the reachability the old allocator gave for free. DELETE AT TR-4 with libgc. */
+#ifndef RT_SLAB_GC_ROOTS
+#define RT_SLAB_GC_ROOTS 1
+#endif
+
 typedef struct rt_slab {
     struct rt_slab *next;   /* free-list / arena chain link */
     size_t          cap;    /* usable bytes at base */
