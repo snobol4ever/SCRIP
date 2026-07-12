@@ -389,7 +389,6 @@ int bb_slot_get(IR_t *nd);
 #include <stdlib.h>
 #include <stdarg.h>
 #include <math.h>
-#include <gc/gc.h>
 extern const char * Σ;
 extern int          Σlen;
 extern void rt_dcap_begin(void); extern void rt_dcap_end_ok(void); extern void rt_dcap_end_fail(void);

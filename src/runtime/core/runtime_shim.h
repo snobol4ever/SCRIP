@@ -3,7 +3,6 @@
 #include "rt/rt_arena.h"
 #include "core.h"
 #include <string.h>
-#include <gc/gc.h>
 #define IS_FAIL_fn(v)      IS_FAIL_fn(v)
 #define get(v)          (v)
 #define set(v, x)       ((v) = (x))

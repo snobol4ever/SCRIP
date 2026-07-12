@@ -166,7 +166,6 @@ void xa_dispatch(XA_op_t op);
 }
 #endif
 #include "IR.h"
-#include <gc.h>
 typedef struct {
     DESCR_t value; int64_t counter; int state;
     void   *resolve_cs;

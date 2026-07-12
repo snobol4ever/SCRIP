@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <gc/gc.h>
 #include "core.h"
 #include "sil_macros.h"
 #include "bb_build.h"

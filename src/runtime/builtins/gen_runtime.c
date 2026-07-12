@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <gc/gc.h>
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 tree_t      *g_root     = NULL;
 unsigned long bb_rnd_seed = 12345UL;
