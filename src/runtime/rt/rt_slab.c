@@ -52,3 +52,8 @@ void rt_slab_put(rt_slab_t *s) {
 }
 
 size_t rt_slab_pool_bytes(void) { return g_pool_bytes; }
+
+void *rt_slab_region(size_t n) {
+    rt_slab_t *s = rt_slab_get(n);
+    return RT_SLAB_BASE(s);   /* region-lifetime = program; never put back */
+}
