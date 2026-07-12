@@ -762,6 +762,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_REM:            { bb_prepare(nd); bb_emit_x86(bb_match_rem()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
     case IR_MATCH_ARB:            { bb_prepare(nd); g_emit.op_zls2_ops = zls2_geom(nd, g_emit.x86_scratch_off, &g_emit.op_zls2_slot, &g_emit.op_zls2_bytes); bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZLS2 port-hook grant */
+    case IR_MATCH_BAL:            { bb_prepare(nd); bb_emit_x86(bb_match_bal()); } return 0;                                                                                                            /* SN4-BAL (s34): generator over paren-balanced extents; no ZLS2 grant (in-frame, SPAN shape) */
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
     case IR_MATCH_ARBNO:          { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; g_emit.op_sb = (_sp + 16 + 15) & ~15; } else { g_emit.op_sa = -1; g_emit.op_sb = -1; } bb_emit_x86(bb_match_arbno()); } return 0;   /* SN4-NARY-ARBNO: one node, flat-driven (op_off/op_ival/pairs from flat_drive_match_alt); COLLECTION geometry staged here */
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
@@ -1113,7 +1114,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_REM: case IR_MATCH_ARB: {
+    case IR_MATCH_REM: case IR_MATCH_ARB: case IR_MATCH_BAL: {
         g_emit.x86_scratch_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }

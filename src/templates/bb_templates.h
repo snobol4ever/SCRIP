@@ -27,6 +27,7 @@ std::string bb_match_atp();
 std::string bb_match_len();
 std::string bb_match_rem();
 std::string bb_match_arb();
+std::string bb_match_bal();
 std::string bb_match_arbno();
 std::string bb_match_abort();
 std::string bb_match_fence();
