@@ -1,22 +1,23 @@
+#include "rt/rt_arena.h"
 #include "core.h"
 #include "sil_macros.h"
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
-    ARBLK_t *a = GC_malloc(sizeof(ARBLK_t));
+    ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
     a->lo   = lo;
     a->hi   = hi;
     a->ndim = 1;
     a->proto = (const char *)0;
     int sz  = hi - lo + 1;
     if (sz < 1) sz = 1;
-    a->data = GC_malloc(sz * sizeof(DESCR_t));
+    a->data = rt_ws_alloc(sz * sizeof(DESCR_t));
     for (int i = 0; i < sz; i++) a->data[i] = NULVCL;
     return a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
-    ARBLK_t *a = GC_malloc(sizeof(ARBLK_t));
+    ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
     a->lo   = lo1;
     a->hi   = hi1;
     a->lo2  = lo2;
@@ -27,7 +28,7 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     int cols = hi2 - lo2 + 1;
     if (rows < 1) rows = 1;
     if (cols < 1) cols = 1;
-    a->data = GC_malloc(rows * cols * sizeof(DESCR_t));
+    a->data = rt_ws_alloc(rows * cols * sizeof(DESCR_t));
     for (int i = 0; i < rows * cols; i++) a->data[i] = NULVCL;
     return a;
 }
@@ -74,7 +75,7 @@ static unsigned _tbl_hash(const char *key) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new(void) {
-    TBBLK_t *t = GC_malloc(sizeof(TBBLK_t));
+    TBBLK_t *t = rt_ws_alloc(sizeof(TBBLK_t));
     memset(t->buckets, 0, sizeof(t->buckets));
     t->size = 0;
     t->init = 10;
@@ -123,8 +124,8 @@ void table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) 
     for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) {
         if (strcmp(e->key, key) == 0) { e->val = val; e->key_descr = key_d; return; }
     }
-    TBPAIR_t *e = GC_malloc(sizeof(TBPAIR_t));
-    e->key       = GC_strdup(key);
+    TBPAIR_t *e = rt_ws_alloc(sizeof(TBPAIR_t));
+    e->key       = rt_ws_strdup(key);
     e->key_descr = key_d;
     e->val  = val;
     e->next = tbl->buckets[h];
