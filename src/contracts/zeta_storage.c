@@ -69,16 +69,15 @@ static void zls_entry(const IR_t * nd, int scope_id, int off) {
     ze_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_grant(const IR_t * nd, int scope_id, int off) {
+static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     switch (nd->op) {
     case IR_TO: case IR_TO_BY:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "to.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "to.I counter", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "to.limit", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "to.I counter", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "to.limit", nd); return 1;
     case IR_MAKE_LIST: {
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "list.value", nd);
-        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "list.elem", nd);
-        return 1 + nd->n_operands; }
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "list.elem", nd);
+        return 0 + nd->n_operands; }
     case IR_SCAN_ENTER:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.leave out3 sigma (transient reg out-area; dead at safe points)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.leave out3 sigma (transient reg out-area; dead at safe points)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_MATCH_HEAD:
         /* BB-OWNED-ζ statement-scope pivot (this session): the existing 16B grant only ever used its first
          * 4 bytes (head.cursor, an int32 counter read/written as FR(op_off) by bb_match_head.cpp) -- 12 bytes
@@ -89,11 +88,11 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
          * into the SAME zeta arena, whose address-range rooting (rt_zls_alloc's GC_add_roots widening,
          * zeta_alloc.c) already covers them regardless of tag, but the tag is recorded honestly for
          * whichever future consumer reads it, not left as an untagged raw word next to a tagged sibling. */
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (ZC_PORT_ALLOC only: saved rt_zls2_mark() cursor; released by head's own omega-choke on failure / IR_MATCH_RELEASE on success — the ZLS2 twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_RELEASE when the statement carries a replacement, read by IR_MATCH_REPLACE)", nd); return 2;
+        zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (ZC_PORT_ALLOC only: saved rt_zls2_mark() cursor; released by head's own omega-choke on failure / IR_MATCH_RELEASE on success — the ZLS2 twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_RELEASE when the statement carries a replacement, read by IR_MATCH_REPLACE)", nd); return 2;
     case IR_MATCH_SPAN:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "break.cnt/cur", nd); return 1;
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "break.cnt/cur", nd); return 1;
     case IR_MATCH_ARB:
         /* ZLS2 second consumer (Claude Sonnet 5, 2026-07-08) -- the "natural sibling" GOAL-SNOBOL4-BB.md names
          * for extending BB-OWNED-zeta past ARBNO. ARB's existing 16B grant already carried 8B of unused pad
@@ -102,54 +101,53 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
          * EXISTING quad with zero widening: no later node's offset shifts, the safest possible way to add the
          * field (mirrors head.zeta_mark, not ARBNO's wider 2-quad case -- ARB only ever used 8B of its 16B and
          * already had exactly 8B of pad to spend). */
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: reuses this node's existing pad, same reuse precedent as IR_MATCH_HEAD.zeta_mark; block itself is a separate ZLS2 allocation, header +0 chains the previous activation's ptr)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: reuses this node's existing pad, same reuse precedent as IR_MATCH_HEAD.zeta_mark; block itself is a separate ZLS2 allocation, header +0 chains the previous activation's ptr)", nd); return 1;
     case IR_MATCH_REM:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_DEFER:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "defer.blob fn (+0 8B: compiled DT_P entry stashed at α; 0 = non-blob/callout activation or exhausted — β's jz→ω guard)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "defer.blob zeta frame (+8 8B: rt_zls_alloc'd blob frame, LIVE across β resumes; released on exhaust — NCB-2/SZ-1)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "defer.blob fn (+0 8B: compiled DT_P entry stashed at α; 0 = non-blob/callout activation or exhausted — β's jz→ω guard)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "defer.blob zeta frame (+8 8B: rt_zls_alloc'd blob frame, LIVE across β resumes; released on exhaust — NCB-2/SZ-1)", nd); return 1;
     case IR_MATCH_TAB: case IR_MATCH_RTAB:
         /* UNIFORM-BETA WIRING (Claude, this session, per Lon "EVERY BB must be wired properly"): TAB/RTAB
          * OVERWRITE r14d (mov, not add) — the only match primitives whose cursor effect is unrecoverable by
          * recomputation, so their β-restore needs a saved copy.  Same 16B "cursor save" shape as REM above
          * (α: mov FR(off), r14d; β: mov r14d, FR(off)); POS deliberately EXCLUDED — it mutates nothing and
          * is the canonical pure box (needs no RW data, touches no ζ). */
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "tab.cursor save (+0 4B r14d saved at α, restored at β; +4 pad)", nd); return 1;
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "tab.cursor save (+0 4B r14d saved at α, restored at β; +4 pad)", nd); return 1;
     case IR_MATCH_ARBNO:
-        if (IR_LIT(nd).ival == 0) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0]; ZC_PORT_PLAIN state home — under ZC_PORT_ALLOC state moves into the per-activation ZLS2 block and this quad idles)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: current activation's ZLS2 block; block header +0 chains the previous activation's ptr, popped back here at role 2's true exit — the MATCH_HEAD zeta_mark precedent, widened to its own quad because v1's first quad has only 4B of pad)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.pad (unused)", nd); return 2; }
-        if (IR_LIT(nd).ival == 3) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno2.owner quad low: entry/yield/i/cap (4x4B; phases 4/5 read via operand[0])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno2.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_rZ, cur_before} + body-subgraph slot range)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno2.pad (unused)", nd); return 2; }
+        if (IR_LIT(nd).ival == 0) { zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0]; ZC_PORT_PLAIN state home — under ZC_PORT_ALLOC state moves into the per-activation ZLS2 block and this quad idles)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: current activation's ZLS2 block; block header +0 chains the previous activation's ptr, popped back here at role 2's true exit — the MATCH_HEAD zeta_mark precedent, widened to its own quad because v1's first quad has only 4B of pad)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.pad (unused)", nd); return 2; }
+        if (IR_LIT(nd).ival == 3) { zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno2.owner quad low: entry/yield/i/cap (4x4B; phases 4/5 read via operand[0])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno2.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_rZ, cur_before} + body-subgraph slot range)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno2.pad (unused)", nd); return 2; }
         return 0;
     case IR_MATCH_ASSIGN_SAVE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack GC_MALLOC_ATOMIC u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack GC_MALLOC_ATOMIC u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
     case IR_MATCH_ALTERNATE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B, +4 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (&JOIN reload arm; SAVE.β dispatches jmp [slot+8] — replay of the succeeded alternative's forward-fail)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B, +4 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (&JOIN reload arm; SAVE.β dispatches jmp [slot+8] — replay of the succeeded alternative's forward-fail)", nd); return 1;
     case IR_SCAN:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value (? body result carried out of the scan env for an outer consumer)", nd); return 1;
+        return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 1;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "scan.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.cursor", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.len/counter", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.len/counter", nd); return 1;
     case IR_INITIAL:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 8, ZK_RAW, 0, "initial.pad (unused low half)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "initial.once flag (0->1)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "initial.pad (unused low half)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "initial.once flag (0->1)", nd); return 1;
     case IR_ITERATE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "iterate.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "iterate.index i (alpha=0, beta inc)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "iterate.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "iterate.index i (alpha=0, beta inc)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "iterate.pad (unused)", nd); return 1;
     case IR_LIMIT:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "limit.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "limit.counter", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "limit.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "limit.counter", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "limit.pad (unused)", nd); return 1;
     case IR_REPALT:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "repalt.value", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "repalt.yielded flag (clear/yield/test)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "repalt.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "repalt.yielded flag (clear/yield/test)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "repalt.pad (unused)", nd); return 1;
     case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "revasg.value", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revasg.saved old value (beta restore; LIVE across suspension — GC must trace)", nd); return 2;
+        zls_field(scope_id, off, 16, ZK_DESCR, 0, "revasg.saved old value (beta restore; LIVE across suspension — GC must trace)", nd); return 1;
     case IR_REV_SWAP:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "revswap.value", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revswap.saved lhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 32, 16, ZK_DESCR, 0, "revswap.saved rhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "revswap.delta spill (in-scan r14 round-trip)", nd); zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "revswap.Delta spill (in-scan r15, read-only len)", nd); return 4;
+        zls_field(scope_id, off, 16, ZK_DESCR, 0, "revswap.saved lhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revswap.saved rhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "revswap.delta spill (in-scan r14 round-trip)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "revswap.Delta spill (in-scan r15, read-only len)", nd); return 3;
     case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "kw.value", nd); zls_field(scope_id, off + 16, 16, ZK_RAW, 0, "kw.gen counter", nd); return 2;
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "kw.gen counter", nd); return 1;
     case IR_KEYWORD_SNOBOL4:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "kw.value", nd); return 1;
+        return 0;
     case IR_DEREF: case IR_ASSIGN_VAR: case IR_RANDOM: case IR_SWAP_VAR:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "value", nd); return 1;
+        return 0;
     case IR_KEYWORD_ASSIGN:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "kwset.value", nd); return 1;
+        return 0;
     case IR_CREATE:
-        zls_entry(nd, scope_id, off);
         zls_field(scope_id, off,      8, ZK_RAW, 0, "coexpr.handle ctx* (malloc'd non-GC — never trace/relocate)", nd);
         zls_field(scope_id, off + 8,  8, ZK_RAW, 0, "coexpr.handle pad (unwritten)", nd);
         zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "coexpr.marshal r12 (copied out by scrip_coexpr_create; dead at return)", nd);
@@ -160,35 +158,40 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "coexpr.marshal rbp", nd);
         return 4;
     case IR_ASSIGN:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "assign.value", nd); return 1;
+        return 0;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "gate.value", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 1;
     case IR_CALL_BUILTIN_GEN:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
-        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
-        zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
-        return 2 + nd->n_operands;
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
+        zls_field(scope_id, off * (1 + nd->n_operands), 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
+        zls_field(scope_id, off * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
+        return 1 + nd->n_operands;
     case IR_PROC_GEN: case IR_CALL_VALUE:
-        zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
-        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
-        zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
-        return 2 + nd->n_operands;
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
+        zls_field(scope_id, off * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
+        zls_field(scope_id, off * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+        return -1 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
-            zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "call.value", nd);
-            for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
+            for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
             if (nd->op == IR_CALL_PROC_STAGED && zls_callee_is_gen(nd)) {
-                zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
-                zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+                zls_field(scope_id, off * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
+                zls_field(scope_id, off * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
                 return 2 + nd->n_operands;
             }
             return 1 + nd->n_operands;
         }
-        if (ir_node_produces_value(nd->op)) { zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "value", nd); return 1; }
+        if (ir_node_produces_value(nd->op)) { return 1; }
         return 0;
     }
+}
+static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
+static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARB || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
+static int zls_grant(const IR_t * nd, int scope_id, int off) {
+    if (zls_is_wiring(nd->op)) return 0;
+    zls_entry(nd, scope_id, off);
+    zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
+    return 1 + zls_grant_locals(nd, scope_id, off + 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_scope_new(int parent, int klass, const char * name) {
@@ -346,7 +349,8 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
+int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->off + (zls_locals_shifted(nd->op) ? 16 : 0); }
+int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return 0; int end = e->off; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].off + zf[i].size > end) end = zf[i].off + zf[i].size; int b = end - e->off; return (b + 15) & ~15; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
