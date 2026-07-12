@@ -25,19 +25,23 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$REPO/src"
 MODE="${1:-ledger}"
 
+# NOCOMMENT: strip C comment lines. s36 finding — the gate counted its OWN doc comments
+# (a rebase that REMOVED a GC_MALLOC call read as +1 because the commit explained itself in
+# prose that named the symbol). An instrument must not grade the prose. Verified before it grades.
+NOCOMMENT="grep -v -E '^[^:]*:[0-9]+:[[:space:]]*(\*|//|/\*)'"
 count_gc()      { grep -rn -a 'gc\.h\|GC_malloc\|GC_MALLOC\|GC_INIT\|GC_realloc\|GC_free\|GC_strdup' \
                     "$SRC" --include='*.c' --include='*.h' --include='*.cpp' 2>/dev/null \
-                  | grep -v 'gc_heap\|-parked-' | wc -l; }
+                  | grep -v 'gc_heap\|-parked-' | eval $NOCOMMENT | wc -l; }
 count_malloc_rt(){ grep -rn -a '\b\(malloc\|calloc\|realloc\|strdup\)(' \
                     "$SRC/runtime" "$SRC/contracts" "$SRC/machine" 2>/dev/null \
-                  | grep -v 'GC_\|rt_slab\.c\|-parked-' | wc -l; }
+                  | grep -v 'GC_\|rt_slab\.c\|-parked-' | eval $NOCOMMENT | wc -l; }
 count_malloc_all(){ grep -rn -a '\b\(malloc\|calloc\|realloc\|strdup\)(' \
                     "$SRC" --include='*.c' --include='*.cpp' 2>/dev/null \
-                  | grep -v 'GC_\|rt_slab\.c\|-parked-' | wc -l; }
+                  | grep -v 'GC_\|rt_slab\.c\|-parked-' | eval $NOCOMMENT | wc -l; }
 count_mmap()    { grep -rn -a '\bmmap(' "$SRC" --include='*.c' --include='*.cpp' 2>/dev/null \
-                  | grep -v 'src/machine/\|pat_pool\.c\|-parked-' | wc -l; }
+                  | grep -v 'src/machine/\|pat_pool\.c\|-parked-' | eval $NOCOMMENT | wc -l; }
 count_bss()     { grep -rn -a 'static.*\[\s*[0-9]\{4,\}\]' "$SRC/runtime" "$SRC/contracts" 2>/dev/null \
-                  | grep -v 'const\|zeta_storage\.c\|-parked-' | wc -l; }
+                  | grep -v 'const\|zeta_storage\.c\|-parked-' | eval $NOCOMMENT | wc -l; }
 
 report() {
   local gc mrt mall mm bss

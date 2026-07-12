@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <gc.h>
 #include "zeta_choices.h"
+#include "rt_slab.h"
 #include "gc_heap.h"
 #include "descr.h"
 /* GC-0 (ARCH-ZETA-LOCAL-STORAGE §6e) — scrip-owned bump heap, SIL title-word headers, libgc COEXISTENCE.
@@ -49,8 +50,11 @@ static void rt_gcheap_report(void)
 static void rt_gcheap_init(void)
 {
     long mb = (long)ZC_HEAP_MB;
-    g_hp_arena = (char *)mmap((void *)0, (size_t)mb << 20, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-    if (g_hp_arena == MAP_FAILED) { fprintf(stderr, "[ZHP] heap arena mmap failed (%ld MB) — lower ZC_HEAP_MB\n", mb); abort(); }
+    /* TR-2: slab-pool backing (was private mmap). Contiguity is load-bearing here —
+     * the linear TITLE WALK (rt_gcheap_verify / mark-sweep) strides block-to-block
+     * across the whole region by size header, which only works on one contiguous span. */
+    g_hp_arena = (char *)rt_slab_region((size_t)mb << 20);
+    if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower ZC_HEAP_MB\n", mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

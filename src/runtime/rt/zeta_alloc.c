@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <gc.h>
 #include "zeta_choices.h"
+#include "rt_slab.h"
 #include "zeta_alloc.h"
 #define ZLS_HDR 16L
 #define ZLS_ROOT_CHUNK (8L * 1024 * 1024)
@@ -27,8 +28,12 @@ static void rt_zls_report(void)
 static void rt_zls_arena_init(void)
 {
     long mb = (long)ZC_ARENA_MB;
-    g_zls_arena = (char *)mmap((void *)0, (size_t)mb << 20, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-    if (g_zls_arena == MAP_FAILED) { fprintf(stderr, "[ZLS] zeta arena mmap failed (%ld MB) — lower ZC_ARENA_MB\n", mb); abort(); }
+    /* TR-2: backing rebased from private mmap to the slab pool (rt_slab.c is the ONE
+     * malloc caller). Contiguous + lazily faulted, so the reserve costs address space,
+     * not RSS — the property MAP_NORESERVE gave us. Semantics unchanged: same bump
+     * cursor, same ZLS_HDR chain, same GC_add_roots root registration below. */
+    g_zls_arena = (char *)rt_slab_region((size_t)mb << 20);
+    if (!g_zls_arena) { fprintf(stderr, "[ZLS] zeta arena slab failed (%ld MB) — lower ZC_ARENA_MB\n", mb); abort(); }
     g_zls_top = g_zls_arena; g_zls_end = g_zls_arena + ((size_t)mb << 20); g_zls_hiwater = g_zls_arena; g_zls_rooted = g_zls_arena;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -155,8 +160,10 @@ void *rt_zls2_init(void)
 {
     if (!g_zls2_hi) {
         long mb = (long)ZC_ZLS2_MB;
-        g_zls2_lo = (char *)mmap((void *)0, (size_t)mb << 20, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-        if (g_zls2_lo == MAP_FAILED) { fprintf(stderr, "[ZLS2] arena mmap failed (%ld MB) — lower ZC_ZLS2_MB\n", mb); abort(); }
+        /* TR-2: slab-pool backing (was private mmap). ZLS2 grows DOWN from hi, so the
+         * region must be contiguous — rt_slab_region guarantees exactly that. */
+        g_zls2_lo = (char *)rt_slab_region((size_t)mb << 20);
+        if (!g_zls2_lo) { fprintf(stderr, "[ZLS2] arena slab failed (%ld MB) — lower ZC_ZLS2_MB\n", mb); abort(); }
         g_zls2_hi = g_zls2_lo + ((size_t)mb << 20);
         GC_add_roots(g_zls2_lo, g_zls2_hi);
     }

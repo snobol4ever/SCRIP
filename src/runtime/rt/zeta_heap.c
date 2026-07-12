@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <gc.h>
+#include "rt_slab.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZH_HDR 16L
 #define ZH_LIVE 1
@@ -29,8 +30,16 @@ static void zh_init(void)
 {
     long mb = 32; const char *e = getenv("SCRIP_ZH_MB"); if (e && atol(e) > 0) mb = atol(e);
     g_zh_cap = mb * 1024L * 1024L;
-    g_zh_base = (char *)GC_MALLOC_UNCOLLECTABLE((size_t)g_zh_cap);
+    /* TR-2: slab-pool backing (was GC_MALLOC_UNCOLLECTABLE). ⚠ CORRECTNESS COMPENSATION:
+     * uncollectable-GC memory is still SCANNED by libgc for pointers; malloc'd memory is
+     * NOT. ZH blocks hold DESCR pointers into GC-managed objects, so the region must be
+     * registered as a root or those objects become unreachable and get collected out from
+     * under a live suspended activation. GC_add_roots restores exactly the reachability the
+     * old allocator gave for free. (The root goes away with libgc itself at TR-4.)
+     * LIVE/DEAD/POISON header protocol below is untouched, per the rung's brief. */
+    g_zh_base = (char *)rt_slab_region((size_t)g_zh_cap);
     if (!g_zh_base) { fprintf(stderr, "[ZH] FATAL: slab alloc failed (%ld MB)\n", mb); abort(); }
+    GC_add_roots(g_zh_base, g_zh_base + g_zh_cap);
     g_zh_cur = g_zh_base;
     g_zh_tab_cap = ZH_TAB_INIT; g_zh_tab = (char **)GC_MALLOC_UNCOLLECTABLE(sizeof(char *) * g_zh_tab_cap); if (!g_zh_tab) abort();
     if (!g_zh_atexit) { g_zh_atexit = 1; if (zh_telem()) atexit(zh_report); }
