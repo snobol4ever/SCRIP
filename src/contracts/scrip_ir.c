@@ -291,13 +291,13 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
     }
     const char * opn = bb_op_name(bb->op);
     if (opn && !strncmp(opn, "IR_", 3)) opn += 3;
-    fprintf(fp, "%-6s %4s %4s  %-22s [%s]", self, gp, wp, opn, ob);
+    fprintf(fp, "%-6s %-4s %-4s %-22s [%s]", self, gp, wp, opn, ob);
     if (verbose) fprintf(fp, " (n%d)", i);
     switch (bb->op) {
-        case IR_LIT_INTEGER: fprintf(fp, " ival=%lld", (long long)IR_LIT(bb).ival); break;
-        case IR_LIT_REAL: fprintf(fp, " dval=%g", IR_LIT(bb).dval); break;
-        case IR_LIT_STRING: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-        case IR_LIT_CHARSET: fprintf(fp, " sval=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_LIT_INTEGER: fprintf(fp, " %lld", (long long)IR_LIT(bb).ival); break;
+        case IR_LIT_REAL: fprintf(fp, " %g", IR_LIT(bb).dval); break;
+        case IR_LIT_STRING: fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_LIT_CHARSET: fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_ASSIGN: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN: case IR_KEYWORD_SNOBOL4: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
@@ -305,7 +305,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         case IR_SUCCEED: if (IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival); break;
         case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
         case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4:
-            fprintf(fp, " fn=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+            fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         default: break;
     }
     fprintf(fp, "\n");
@@ -331,9 +331,9 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     char ent[12]; bb_ref_fmt(bbg, bbg->entry, ent, sizeof ent);
     fprintf(fp, "IR_graph_t n=%d entry=%s nslots=%d\n", bbg->n, ent, bbg->nslots);
     if (verbose)
-        fprintf(fp, ";  slot     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: N=box at line N (result slot), N@=wiring at line N; (nN)=node id, verbose only "
+        fprintf(fp, ";  slot   γ    ω    kind                   [operands]  payload   (self/γ/ω/operands: N=box at line N (result slot), N@=wiring at line N; (nN)=node id, verbose only "
                     "— linear emit order: γ-spine DFS from entry, then ω, then operands)\n");
-    else         fprintf(fp, ";  slot     γ    ω  kind                   [operands]  payload      (N = box at line N, its result slot; N@ = wiring at line N, no value)\n");
+    else         fprintf(fp, ";  slot   γ    ω    kind                   [operands]  payload      (N = box at line N, its result slot; N@ = wiring at line N, no value)\n");
     int nn = nn0;
     if (vis0 && order0 && seqmap) {
         for (int sq = 0; sq < norder; sq++) bb_print_node_line(bbg, fp, sq, order0[sq], verbose);
