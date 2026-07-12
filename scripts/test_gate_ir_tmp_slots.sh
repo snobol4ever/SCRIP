@@ -28,8 +28,8 @@ chk() { # chk "<label>" "<grep-for-line>" "slot|noslot"
   if [ -z "${line}" ]; then echo "  FAIL  ${label}: no '${line_pat}' line in dump"; fails=$((fails+1)); return; fi
   self="$(printf '%s' "${line}" | awk '{print $1}')"
   case "${self}" in
+    *@) [ "${mode}" = noslot ] && echo "  ok    ${label} has no slot (${self})"  || { echo "  FAIL  ${label} must carry slot: ${line}"; fails=$((fails+1)); } ;;
     [0-9]*) [ "${mode}" = slot ]   && echo "  ok    ${label} carries slot (${self})" || { echo "  FAIL  ${label} must NOT carry slot: ${line}"; fails=$((fails+1)); } ;;
-    @*) [ "${mode}" = noslot ] && echo "  ok    ${label} has no slot (${self})"  || { echo "  FAIL  ${label} must carry slot: ${line}"; fails=$((fails+1)); } ;;
     *)  echo "  FAIL  ${label}: unparsable self field: ${line}"; fails=$((fails+1)) ;;
   esac
 }

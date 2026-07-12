@@ -264,7 +264,7 @@ static void bb_ref_fmt(const IR_graph_t *bbg, const IR_t *target, char *out, siz
     int _z = zls_result_off(target);
     int sq = bb_seq_of(ix);
     if (sq >= 0 && _z >= 0)  snprintf(out, outsz, "%d", sq);
-    else if (sq >= 0)        snprintf(out, outsz, "@%d", sq);
+    else if (sq >= 0)        snprintf(out, outsz, "%d@", sq);
     else if (_z >= 0)        snprintf(out, outsz, "+%d", _z);
     else                     snprintf(out, outsz, "?");
 }
@@ -274,7 +274,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
     if (!bb) { fprintf(fp, "%-6s    .    .  %-22s []\n", "(null)", "(null)"); return; }
     char self[12]; { extern int zls_result_off(const IR_t *); int _z = zls_result_off(bb); int sq2 = bb_seq_of(i); int ln = (sq2 >= 0) ? sq2 : (seq >= 0 ? seq : -1);
                      if (ln >= 0 && _z >= 0)  snprintf(self, sizeof self, "%-5d", ln);
-                     else if (ln >= 0)        snprintf(self, sizeof self, "@%-4d", ln);
+                     else if (ln >= 0)        { char t[8]; snprintf(t, sizeof t, "%d@", ln); snprintf(self, sizeof self, "%-5s", t); }
                      else                     snprintf(self, sizeof self, "%-5s", "?"); }
     char gp[12], wp[12];
     bb_ref_fmt(bbg, bb->γ.node, gp, sizeof gp);
@@ -331,9 +331,9 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     char ent[12]; bb_ref_fmt(bbg, bbg->entry, ent, sizeof ent);
     fprintf(fp, "IR_graph_t n=%d entry=%s nslots=%d\n", bbg->n, ent, bbg->nslots);
     if (verbose)
-        fprintf(fp, ";  slot     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: N=box at line N (result slot), @N=wiring at line N; (nN)=node id, verbose only "
+        fprintf(fp, ";  slot     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: N=box at line N (result slot), N@=wiring at line N; (nN)=node id, verbose only "
                     "— linear emit order: γ-spine DFS from entry, then ω, then operands)\n");
-    else         fprintf(fp, ";  slot     γ    ω  kind                   [operands]  payload      (N = box at line N, its result slot; @N = wiring at line N, no value)\n");
+    else         fprintf(fp, ";  slot     γ    ω  kind                   [operands]  payload      (N = box at line N, its result slot; N@ = wiring at line N, no value)\n");
     int nn = nn0;
     if (vis0 && order0 && seqmap) {
         for (int sq = 0; sq < norder; sq++) bb_print_node_line(bbg, fp, sq, order0[sq], verbose);
