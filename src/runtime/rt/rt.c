@@ -398,6 +398,16 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     return cells;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_GVA_ISLAND_BYTES ((size_t)16u << 20)
+DESCR_t *rt_gva_island(int n) {
+    extern void *rt_slab_region(size_t);
+    static DESCR_t *base = (DESCR_t *)0;
+    if (!base) { base = (DESCR_t *)rt_slab_region(RT_GVA_ISLAND_BYTES); if (!base) { fprintf(stderr, "rt_gva_island: island reserve failed\n"); abort(); } }
+    if ((size_t)n * sizeof(DESCR_t) > RT_GVA_ISLAND_BYTES) { fprintf(stderr, "rt_gva_island: %d slots exceed the island (raise RT_GVA_ISLAND_BYTES)\n", n); abort(); }
+    if (n > 0) memset(base, 0, (size_t)n * sizeof(DESCR_t));
+    return base;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_registered(const char *name)
 {
     if (!name) return 0;

@@ -1246,7 +1246,7 @@ int main(int argc, char **argv)
                 gva_collect_icon_globals();
                 int n_gva_m3 = getenv("MONITOR_BIN") ? 0 : gva_count();
                 if (n_gva_m3 > 0) {
-                    m3_gva_arena = rt_ws_alloc((size_t)n_gva_m3 * sizeof(DESCR_t));
+                    { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
                     for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
@@ -1347,7 +1347,7 @@ int main(int argc, char **argv)
                 for (int _pi = 0; _pi < s2->proc_count; _pi++) { int _pgi = s2->proc_table[_pi].bb_idx; if (_pgi >= 0 && _pgi < s2->bbp.count && s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != _mg) gva_collect_graph(s2->bbp.table[_pgi]); }
                 int n_gva_m3 = getenv("MONITOR_BIN") ? 0 : gva_count();
                 if (n_gva_m3 > 0) {
-                    m3_gva_arena = rt_ws_alloc((size_t)n_gva_m3 * sizeof(DESCR_t));
+                    { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
                     for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
