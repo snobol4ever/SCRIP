@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include <math.h>
 #include <ctype.h>
-#include <gc/gc.h>
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;

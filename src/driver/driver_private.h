@@ -6,7 +6,6 @@
 #include <ctype.h>
 #include <setjmp.h>
 #include <time.h>
-#include <gc.h>
 #include "parser/snobol4/scrip_cc.h"
 #include "parser/snocone/snocone_driver.h"
 #include "parser/prolog/prolog_driver.h"

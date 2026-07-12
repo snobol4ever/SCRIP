@@ -14,7 +14,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <gc.h>
 #include "zeta_alloc.h"
 #include "zeta_heap.h"
 #include "zeta_choices.h"
@@ -1040,7 +1039,6 @@ __attribute__((weak)) DESCR_t sm_eval_subexpr(int entry_pc)
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <gc/gc.h>
 typedef struct { const char *chars; int delta; } rt_cs_t;
 extern void flush_pending_captures(void);
 extern void reset_capture_registry(void);

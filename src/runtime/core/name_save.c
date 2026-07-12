@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <gc/gc.h>
 #include "core.h"
 #include "sil_macros.h"
 #include "name_t.h"

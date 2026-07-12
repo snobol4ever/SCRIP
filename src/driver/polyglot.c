@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <gc.h>
 #include "parser/snobol4/scrip_cc.h"
 #include "parser/prolog/prolog_driver.h"
 #include "parser/prolog/prolog_atom.h"

@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <gc.h>
 int ATOM_DOT  = -1;
 int ATOM_NIL  = -1;
 int ATOM_TRUE = -1;

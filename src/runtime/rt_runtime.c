@@ -15,7 +15,6 @@
 #include <math.h>
 #include <limits.h>
 #include <ctype.h>
-#include <gc/gc.h>
 #include <setjmp.h>
 #include "../../parser/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) rt_ws_alloc(n)
