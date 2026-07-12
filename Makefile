@@ -135,6 +135,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_atp.cpp \
     $(SRC)/templates/bb_match_arb.cpp \
     $(SRC)/templates/bb_match_arbno.cpp \
+    $(SRC)/templates/bb_match_bal.cpp \
     $(SRC)/templates/bb_match_head.cpp \
     $(SRC)/templates/bb_match_release.cpp \
     $(SRC)/templates/bb_match_replace.cpp \
@@ -356,6 +357,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_atp.cpp     -o $(OBJ)/bb_match_atp.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_arb.cpp     -o $(OBJ)/bb_match_arb.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_arbno.cpp   -o $(OBJ)/bb_match_arbno.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_bal.cpp     -o $(OBJ)/bb_match_bal.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_head.cpp   -o $(OBJ)/bb_match_head.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_release.cpp   -o $(OBJ)/bb_match_release.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_match_replace.cpp   -o $(OBJ)/bb_match_replace.o

@@ -923,6 +923,11 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         return nd;
     }
+    case TT_BAL: {                                                 /* SN4-BAL (s34): manual Ch.9 p.124 — shortest non-null paren-balanced string, longer on retry ⇒ a GENERATOR ⇒ it owns runtime state ⇒ it earns a node (s31 rule) */
+        IR_t * nd = lc_build(g, IR_MATCH_BAL, succ, NULL);
+        sno_ω_to(nd, fail);
+        return nd;
+    }
     case TT_ARBNO: {
         /* SN4-NARY-ARBNO (Lon directive 2026-07-12, seed-2 idiom; the G/K/F triple is DELETED per the s31
          * node-iff-owns-runtime-state rule).  ARBNO(P) ≡ ε | P·ARBNO(P), shortest-first: R.α anchors entry δ
@@ -1154,7 +1159,8 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_POS || k == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (k == TT_REM || k == TT_ARB) return 1;
     if (k == TT_ABORT || k == TT_FAIL) return 1;                   /* SN4-BAREKW s34: manual Ch.9 pp.124-125 — both are pure WIRING (own no runtime state) */
-    if (k == TT_BAL || k == TT_SUCCEED) return 0;                  /* SN4-BAREKW s34: NOT YET LOWERED — honest refusal, NOT a silent DEFER(unset). BAL earns a node (generator); SUCCEED needs a β->γ. */
+    if (k == TT_BAL) return 1;                                     /* SN4-BAL s34: LANDED — IR_MATCH_BAL + bb_match_bal */
+    if (k == TT_SUCCEED) return 0;                                 /* SN4-BAREKW s34: NOT YET LOWERED — honest refusal, NOT a silent DEFER(unset). SUCCEED needs a β->γ. */
     if (k == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && !sno_pat_contains_arbno(t->c[0]);
     if (k == TT_VAR) return t->v.sval != NULL;
     if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;

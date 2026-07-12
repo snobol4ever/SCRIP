@@ -91,6 +91,10 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (ZC_PORT_ALLOC only: saved rt_zls2_mark() cursor; released by head's own omega-choke on failure / IR_MATCH_RELEASE on success — the ZLS2 twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_RELEASE when the statement carries a replacement, read by IR_MATCH_REPLACE)", nd); return 2;
     case IR_MATCH_SPAN:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
+    case IR_MATCH_BAL:
+        /* SN4-BAL (s34): n / entry-δ / paren-depth.  The SPAN shape, not the ARB shape: BAL is a pure in-frame
+         * generator that pushes no ζ activation, so it takes NO ZLS2 grant (zls2_geom returns 0 for it). */
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "bal.n/start/depth", nd); return 1;
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "break.cnt/cur", nd); return 1;
     case IR_MATCH_ARB:
@@ -187,7 +191,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     }
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
-static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
+static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
     zls_entry(nd, scope_id, off);
