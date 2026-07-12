@@ -1122,28 +1122,36 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         alts[na++] = cur;                                   /* leftmost */
         for (int i = nr - 1; i >= 0; i--) alts[na++] = rstack[i];
         if (na == 1) return sno_pat_node(cx, alts[0], succ, fail);
-        /* ALT-RESUME (ZB-5 v2 prerequisite): each alternative i gets ONE join box J_{i+1} — its α is the
-         * MARK (alternative i just succeeded: record J's own reload arm as the resume continuation in the
-         * SAVE slot, jmp ω = outer succ), its β/L(0) is reload-cursor-and-try-alternative-i+1 (forward
-         * fails land β-wards via sno_ω_to since ALTERNATE is generator-kind).  A trailing T = J_n is the
-         * SAME box with γ = the outer fail (resume exhaust: restore entry cursor, fail leftward, β-aware).
-         * A failing RIGHT neighbour lands SAVE.β (the construct tail is first-allocated) which dispatches
-         * `jmp [slot+8]` — replaying exactly where forward-failure of the succeeded alternative would have
-         * gone.  Residual (documented, gated for ARBNO v2 bodies): a generator nested INSIDE an alternative
-         * has its remaining ways skipped on resume — the mark records the NEXT alternative, not the inner β. */
-        IR_t * save = lc_build(g, IR_MATCH_ALTERNATE, NULL, NULL);    /* phase-0 (n_operands==0): save cursor + resume dispatch */
-        IR_t * join = lc_build(g, IR_MATCH_ALTERNATE, NULL, succ);    /* trailing T = J_n: ω→outer succ (MARK exit) */
-        ir_operand_push(join, save);
-        if (fail) lc_γ_to_β(join, fail); else lc_γ_to(join, fail); /* T reload arm exhausts leftward */
-        for (int i = na - 1; i >= 1; i--) {
-            IR_t * ei = sno_pat_node(cx, alts[i], join, join);        /* succ → J_{i+1}.α (MARK); fail → J_{i+1}.β (reload+try-next, β via sno_ω_to) */
-            IR_t * ji = lc_build(g, IR_MATCH_ALTERNATE, ei, succ);    /* J_i: γ→alternative i's entry (its reload arm's target), ω→outer succ (MARK exit) */
-            ir_operand_push(ji, save);
-            join = ji;
+        /* SN4-NARY-ALT (Lon directive 2026-07-12, seed/test_sno_1.c is the spec): ONE IR_MATCH_ALTERNATE
+         * node A with 2N operands = (entry_i, resume_i) pairs — the SAVE+join triple is DELETED.  Runtime
+         * "which alternative" state = alt_i in A's own ζ quad (seed's ζ->alt_i), not graph structure.
+         * A.α: save δ+dcap, alt_i=0, enter operand-entry 0.  A.β (right context resumes): dispatch on alt_i
+         * to resume_i's β — the alternative's OWN inner resume (seed alt_β; fixes the old mark-next-alternative
+         * residual that skipped a nested generator's remaining ways).  Shared success-glue (na_s): jmp A.γ.
+         * Shared fail-glue (na_f): alt_i++, reload δ+dcap, dispatch to entry_{alt_i}.α or exhaust → A.ω.
+         * INSIDE-EDGE TAGS: each alternative is lowered with succ=A, fail=A; afterwards every edge in its
+         * allocation range that targets A is re-tagged — γ→A as "σ" (land na_s), ω→A as "φ" (land na_f), and
+         * a FAIL-goto's γ→A also "φ" (both its edges mean fail).  Outside edges keep α/β tags and land A's
+         * real α/β, so the sno_resume_ω_to generic arm serves the construct with ZERO exhaust-chasing —
+         * A IS first-allocated, A.β IS resume, A.ω IS leftward exhaust. */
+        IR_t * A = lc_build(g, IR_MATCH_ALTERNATE, succ, NULL);
+        sno_ω_to(A, fail);
+        (void)0; /* A is first-allocated: the construct tail TT_SEQ resume re-points land A.β */
+        for (int i = 0; i < na; i++) {
+            int before = g->n;
+            IR_t * ei = sno_pat_node(cx, alts[i], A, A);
+            IR_t * ri = (before < g->n) ? g->all[before] : ei;
+            for (int k = before; k < g->n; k++) {
+                IR_t * x = g->all[k];
+                if (!x) continue;
+                if (x->ω.node == A) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+                if (x->γ.node == A) { if (x->op == IR_GOTO && x->ω.node == A) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+            }
+            ir_operand_push(A, ei);
+            ir_operand_push(A, ri);
         }
-        IR_t * e0 = sno_pat_node(cx, alts[0], join, join);            /* leftmost: succ→J_1.α (MARK), fail→J_1.β (reload, try alternative 1) */
-        lc_γ_to(save, e0);                                            /* SAVE proceeds to the first alternative */
-        return save;
+        IR_LIT(A).ival = (long)na;   /* promoted → _.op_ival = N for the template's dispatch chains (walk_bb_node line ~697); the σ/φ inside-edge tags carry membership, so no extent is needed */
+        return A;
     }
     default:
         sno_fatal("pattern element not in the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB; SEQ+ALT landed SN4-PAT-3h)", NULL);

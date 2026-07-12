@@ -120,7 +120,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_ASSIGN_SAVE:
         zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack GC_MALLOC_ATOMIC u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
     case IR_MATCH_ALTERNATE:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B, +4 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (&JOIN reload arm; SAVE.β dispatches jmp [slot+8] — replay of the succeeded alternative's forward-fail)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B r14d) + dcap height save (+4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "alt.alt_i live-alternative index (+8 4B; α=0, fail-glue ++; β dispatches on it, seed alt_i) (+12 pad)", nd); return 1;
     case IR_SCAN:
         return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:

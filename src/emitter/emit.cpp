@@ -890,6 +890,21 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
     emit_jmp_label(e_beta, JMP_JMP);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t *node_γ, bb_label_t *node_ω) {
+    /* SN4-NARY-ALT drive: operands = (entry_j, resume_j) pairs.  Pair slots handed to the template:
+     * 0..N-1 = entry α labels (fail-glue's alt_i dispatch), N..2N-1 = resume β labels (A.β's alt_i dispatch
+     * — the alternative's OWN inner resume, seed alt_β), 2N = na_s success-glue define, 2N+1 = na_f
+     * fail-glue define.  σ/φ-tagged inside edges land the two glue defines (resolved in the chain loop). */
+    IR_t *nd = nodes[i]; int N = nd->n_operands / 2;
+    g_emit.xa_bb_emit_pair_n = 0;
+    for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == e) { t = lbls[k];  break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_s[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
+    { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_f[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
+    g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
+    DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_arg_slots_reserve(int n) {
     if (n <= g_emit.op_arg_slot_cap) return;
     int cap = g_emit.op_arg_slot_cap > 0 ? g_emit.op_arg_slot_cap : 16;
@@ -1027,11 +1042,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd); g_emit.op_phase = 0;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_ALTERNATE: {   /* SN4-PAT-3h: n_operands==0 → phase-0 SAVE (own slot); else phase-1 RESTORE (reads save's slot) */
-        IR_t *save = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
-        if (save) { g_emit.op_off = drive_value_slot(save); g_emit.op_phase = 1; }
-        else      { g_emit.op_off = drive_value_slot(nd);   g_emit.op_phase = 0; }
-        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_MATCH_ALTERNATE: {   /* SN4-NARY-ALT: 2N operands = (entry_i, resume_i); pairs 0..N-1 = entry α's (fail-glue dispatch), N..2N-1 = resume β's (A.β dispatch), 2N = na_s def, 2N+1 = na_f def */
+        drive_unowned(nd);       /* replaced below by flat_drive path — n-ary ALTERNATE is driven from codegen_flat_chain_body where the label arrays live */
+        break;
     }
     case IR_COERCE_STRING: case IR_COERCE_INTEGER: case IR_COERCE_REAL: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
@@ -1517,6 +1530,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
+        if (c->op == IR_MATCH_ALTERNATE && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT: alternatives hang off operands, not the γ-spine */
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
         int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
@@ -1542,12 +1556,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
+        if (c->op == IR_MATCH_ALTERNATE && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT: alternatives hang off operands, not the γ-spine */
     }
     if (qt >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= CH_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)CH_MAX, prefix); abort(); }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_y  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_t  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **na_s  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **na_f  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     g_suspend_resume_slot = -1;
     if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
@@ -1564,6 +1581,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_ry", id, i) : NULL;
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_rt", id, i) : NULL;
+        na_s[i]  = (nodes[i]->op == IR_MATCH_ALTERNATE && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_as", id, i) : NULL;   /* SN4-NARY-ALT success-glue */
+        na_f[i]  = (nodes[i]->op == IR_MATCH_ALTERNATE && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_af", id, i) : NULL;   /* SN4-NARY-ALT fail-glue */
     }
     bb_label_t *resume_init_lbl = NULL;
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
@@ -1615,16 +1634,19 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         IR_t *otgt = nodes[i]->ω.node;
         int gamma_is_beta = (nodes[i]->γ.sz[0] == (char)0xce && (unsigned char)nodes[i]->γ.sz[1] == 0xb2);
         int omega_is_beta = (nodes[i]->ω.sz[0] == (char)0xce && (unsigned char)nodes[i]->ω.sz[1] == 0xb2);
-        { int _gg = 0; IR_t * _g = gtgt; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gamma_is_beta) gamma_is_beta = (_g->γ.sz[0] == (char)0xce && (unsigned char)_g->γ.sz[1] == 0xb2); gtgt = _g->γ.node; _g = gtgt; } }
-        { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!omega_is_beta) omega_is_beta = (_o->γ.sz[0] == (char)0xce && (unsigned char)_o->γ.sz[1] == 0xb2); otgt = _o->γ.node; _o = otgt; } }
+        int gamma_is_sig  = (nodes[i]->γ.sz[0] == (char)0xcf && (unsigned char)nodes[i]->γ.sz[1] == 0x83);   /* SN4-NARY-ALT "σ": inside-success → target's na_s glue */
+        int gamma_is_phi  = (nodes[i]->γ.sz[0] == (char)0xcf && (unsigned char)nodes[i]->γ.sz[1] == 0x86);   /* SN4-NARY-ALT "φ": inside-fail → target's na_f glue */
+        int omega_is_phi  = (nodes[i]->ω.sz[0] == (char)0xcf && (unsigned char)nodes[i]->ω.sz[1] == 0x86);
+        { int _gg = 0; IR_t * _g = gtgt; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gamma_is_beta) gamma_is_beta = (_g->γ.sz[0] == (char)0xce && (unsigned char)_g->γ.sz[1] == 0xb2); if (!gamma_is_sig) gamma_is_sig = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x83); if (!gamma_is_phi) gamma_is_phi = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); gtgt = _g->γ.node; _g = gtgt; } }
+        { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!omega_is_beta) omega_is_beta = (_o->γ.sz[0] == (char)0xce && (unsigned char)_o->γ.sz[1] == 0xb2); if (!omega_is_phi) omega_is_phi = (_o->γ.sz[0] == (char)0xcf && (unsigned char)_o->γ.sz[1] == 0x86); otgt = _o->γ.node; _o = otgt; } }
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
-            node_γ = gamma_is_beta ? betas[k] : lbls[k];
+            node_γ = (gamma_is_phi && na_f[k]) ? na_f[k] : (gamma_is_sig && na_s[k]) ? na_s[k] : gamma_is_beta ? betas[k] : lbls[k];
             break;
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         /* BB-OWNED-ζ STEP 1: true death iff this ω-edge falls all the way through to the chain's own outer
          * lbl_ω (never resolved inside the local chain) AND the unresolved target isn't a success-fallthrough
@@ -1669,6 +1691,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         if (nodes[i]->op == IR_REPALT) {
             flat_drive_repalt(nodes, n, i, lbls, betas, ra_y, ra_t, node_γ, node_ω);
+            continue;
+        }
+        if (nodes[i]->op == IR_MATCH_ALTERNATE && nodes[i]->n_operands > 0) {
+            flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, node_γ, node_ω);
             continue;
         }
         if (nodes[i]->op == IR_LIMIT) {
