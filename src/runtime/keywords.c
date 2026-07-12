@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include "core.h"
 #include "sil_macros.h"
 #include "keywords.h"
@@ -172,17 +173,17 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"source"))  return STRVAL("co-expression_1(0)");
     { time_t t = time(NULL); struct tm *tm = localtime(&t);
       if (!strcmp(kw,"date")) {
-          char *buf = GC_malloc(16);
+          char *buf = rt_ws_alloc(16);
           snprintf(buf,16,"%04d/%02d/%02d",tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"dateline")) {
-          char *buf = GC_malloc(64);
+          char *buf = rt_ws_alloc(64);
           strftime(buf,64,"%A, %B %e, %Y  %H:%M:%S",tm);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"clock")) {
-          char *buf = GC_malloc(16);
+          char *buf = rt_ws_alloc(16);
           snprintf(buf,16,"%02d:%02d:%02d",tm->tm_hour,tm->tm_min,tm->tm_sec);
           return STRVAL(buf);
       }
