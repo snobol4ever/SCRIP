@@ -657,6 +657,7 @@ inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off); return b[i]; }
+inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
     int g = x86_rnum(reg);
@@ -830,7 +831,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -862,6 +863,7 @@ inline void x86_parse(const xop & x, opnd & o) {
     int p = x86_port_of(s);
     if (p >= 0 && (s[2] == 0)) { fprintf(stderr, "x86_parse: string port operand \"%s\" is RETIRED (Lon 2026-07-08 s5) — ports go through x86_alpha/x86_beta/x86_gamma/x86_omega ONLY\n", s); abort(); }
     if (s[0] == 'L' && s[1] >= '0' && s[1] <= '9') { int n = atoi(s + 1); o.kind = XK_ILBL; o.lbl = n; return; }
+    if (s[0] == 'P' && s[1] >= '0' && s[1] <= '9') { int _pdig = 1; for (const char * q = s + 1; *q; q++) if (*q < '0' || *q > '9') { _pdig = 0; break; } if (_pdig) { int n = atoi(s + 1); o.kind = XK_PAIR; o.lbl = n; return; } }
     if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
     if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32;  o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
     if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64;  o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
@@ -914,6 +916,9 @@ inline void x86_parse(const xop & x, opnd & o) {
     o.kind = XK_SYM; size_t sl = strlen(s); if (sl > 95) sl = 95; memcpy(o.sym, s, sl); o.sym[sl] = 0;
 }
 inline std::string x86_bomb(const char * msg);
+inline std::string x86_deflabel_pair(int idx);
+inline std::string x86_jmp_pair(int idx);
+inline std::string x86_jcc_pair(const char * mnem, int idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) {
     opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
@@ -932,11 +937,13 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "def")) {
         if (a.kind == XK_PORT) return x86_deflabel(a.port);
         if (a.kind == XK_ILBL) return x86_deflabel_id(a.lbl);
+        if (a.kind == XK_PAIR) return x86_deflabel_pair(a.lbl);
         return std::string();
     }
     if (!strcmp(mnem, "jmp")) {
         if (a.kind == XK_PORT) return x86_jmp(a.port);
         if (a.kind == XK_ILBL) return x86_jmp_id(a.lbl);
+        if (a.kind == XK_PAIR) return x86_jmp_pair(a.lbl);
         if (a.kind == XK_FR64) return x86_jmp_frame64(a.off);
         if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jmp_ext((const struct bb_label_t *)(uintptr_t)xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" jmp ") + a.sym + "\n";
@@ -945,6 +952,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (mnem[0] == 'j') {
         if (a.kind == XK_PORT) return x86_jcc(mnem, a.port);
         if (a.kind == XK_ILBL) return x86_jcc_id(mnem, a.lbl);
+        if (a.kind == XK_PAIR) return x86_jcc_pair(mnem, a.lbl);
         if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jcc_ext(mnem, (const struct bb_label_t *)(uintptr_t)xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" ") + mnem + " " + a.sym + "\n";
         return std::string();
@@ -1392,6 +1400,21 @@ inline std::string x86_pair_loop() {
         }
     }
     return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_deflabel_pair(int idx) {
+    if (MEDIUM_BINARY) { std::string r; r += (char)'E'; r += (char)(unsigned char)idx; r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA); return r; }
+    return emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[idx] ? g_emit.xa_bb_emit_pair_define[idx]->name : "??") + x86_port_canary() + x86_port_hook(X86H_DEF, X86P_BETA);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_jmp_pair(int idx) {
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
+    return std::string(" jmp ") + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_jcc_pair(const char * mnem, int idx) {
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
+    return std::string(" ") + mnem + " " + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lit_bytes(const std::string & b) {
