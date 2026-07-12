@@ -47,4 +47,6 @@ void         rt_arena_destroy(rt_arena_t *a);                  /* all slabs -> p
 /* A_COEXPR reusable ζ blocks (Lon s36): fixed-size, recycled on death. */
 void        *rt_arena_zblock_get(rt_arena_t *a, size_t block_sz);
 void         rt_arena_zblock_put(rt_arena_t *a, void *blk);
+/* THE WORKSPACE (TR-3): the one Region-2 instance; grow-only until GC-W-2. */
+void        *rt_ws_alloc(size_t n);
 #endif
