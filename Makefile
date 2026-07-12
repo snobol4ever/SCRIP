@@ -64,6 +64,8 @@ libscrip_rt: out/libscrip_rt.so
 
 # EM-6 runtime objects (all compiled -fPIC so they can go into the .so)
 RT_PIC_SRCS := \
+    $(RT)/rt/rt_slab.c \
+    $(RT)/rt/rt_arena.c \
     $(RT)/rt/rt.c \
     $(RT)/rt/zeta_alloc.c \
     $(RT)/rt/zeta_heap.c \
@@ -488,6 +490,8 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/region_report.c -o $(OBJ)/region_report.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/branch_chain.c -o $(OBJ)/branch_chain.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_slab.c  -o $(OBJ)/rt_slab.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_arena.c -o $(OBJ)/rt_arena.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt.c   -o $(OBJ)/rt.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/zeta_alloc.c -o $(OBJ)/zeta_alloc.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/zeta_heap.c -o $(OBJ)/zeta_heap.o
