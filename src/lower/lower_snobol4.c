@@ -606,7 +606,31 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
     sno_ω_to(nd, t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_is_fence(const tree_t * t) { return t && ((t->t == TT_FENCE) || (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE"))); }
+/* SN4-BAREKW (s34): the SEVEN argument-less pattern keywords are UNREACHABLE from the parser.
+ * pat_prim_kind() (snobol4.y:37) is consulted at EXACTLY ONE grammar site — snobol4.y:195,
+ * `T_FUNCTION T_LPAREN` — i.e. only when a name is FOLLOWED BY A PAREN.  ABORT/ARB/BAL/FAIL/
+ * FENCE/REM/SUCCEED take no arguments, so they never reach it; they fall to snobol4.y:196
+ * (`T_IDENT -> TT_VAR`) and arrive here as plain variables.  Three of them (ARB/REM/FENCE) were
+ * historically bandaged by strcmp INSIDE the TT_VAR arm below; the other four were not, and so
+ * lowered to IR_MATCH_DEFER(<name>) = a deferred read of an unset variable — which is why
+ * ABORT/SUCCEED were SILENT WRONG ANSWERS and `case TT_ABORT:`/`TT_BAL:`/`TT_SUCCEED:`/`TT_FAIL:`
+ * in sno_pat_node have never once executed.  This normalizer is the ONE place the bare names are
+ * resolved; it subsumes the three strcmp bandages.  Manual Ch.18 p.203: these are protected
+ * built-in pattern variables ("Unlike SNOBOL4, these variables cannot be altered"), so promoting a
+ * TT_VAR of these names to its primitive kind cannot shadow a user variable.
+ * The grammar is NOT touched: REPO-SCRIP.md forbids running bison against the committed .y/.tab.c. */
+static tree_e sno_pat_eff_kind(const tree_t * t) {
+    if (!t) return TT_VAR;
+    if (t->t != TT_VAR || !t->v.sval) return t->t;
+    static const struct { const char * n; tree_e k; } m[] = {
+        { "ABORT", TT_ABORT }, { "ARB",  TT_ARB  }, { "BAL", TT_BAL }, { "FAIL", TT_FAIL },
+        { "FENCE", TT_FENCE }, { "REM",  TT_REM  }, { "SUCCEED", TT_SUCCEED }, { NULL, TT_VAR }
+    };
+    for (int i = 0; m[i].n; i++) if (!strcmp(t->v.sval, m[i].n)) return m[i].k;
+    return TT_VAR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_is_fence(const tree_t * t) { return t && sno_pat_eff_kind(t) == TT_FENCE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_seq_flatten_pat(const tree_t * t, const tree_t ** elems, int * ne) {
     if (!t) return;
@@ -818,7 +842,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
-    switch (t->t) {
+    switch (sno_pat_eff_kind(t)) {                                  /* SN4-BAREKW: bare ABORT/ARB/BAL/FAIL/FENCE/REM/SUCCEED arrive as TT_VAR */
     case TT_QLIT: {
         IR_t * nd = lc_build(g, IR_MATCH_LIT, succ, NULL);
         sno_ω_to(nd, fail);
@@ -876,11 +900,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         { const char * bn = sno_expr_collect(in); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn);
           IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); sno_ω_to(nd, fail); return nd; }
     }
-    case TT_VAR: {
+    case TT_VAR: {                                                 /* SN4-BAREKW: the REM/ARB/FENCE strcmp bandages that lived here are now in sno_pat_eff_kind() */
         const char * nm = t->v.sval;
-        if (nm && !strcmp(nm, "REM")) { IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL); sno_ω_to(nd, fail); return nd; }
-        if (nm && !strcmp(nm, "ARB")) { IR_t * nd = lc_build(g, IR_MATCH_ARB, succ, NULL); sno_ω_to(nd, fail); return nd; }
-        if (nm && !strcmp(nm, "FENCE")) return succ;
         { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); sno_ω_to(nd, fail); return nd; }
     }
     case TT_REM: {
@@ -1123,30 +1144,33 @@ static int sno_pat_contains_arbno(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_supported(const tree_t * t) {
     if (!t) return 0;
-    if (t->t == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
-    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "FENCE")) return 1;
-    if (t->t == TT_QLIT) return 1;
-    if (t->t == TT_ANY || t->t == TT_NOTANY) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
-    if (t->t == TT_SPAN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
-    if (t->t == TT_BREAK || t->t == TT_BREAKX) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
-    if (t->t == TT_TAB || t->t == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
-    if (t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
-    if (t->t == TT_REM || t->t == TT_ARB) return 1;
-    if (t->t == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && !sno_pat_contains_arbno(t->c[0]);
-    if (t->t == TT_VAR) return t->v.sval != NULL;
-    if (t->t == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
-    if (t->t == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
-    if (t->t == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
-    if (t->t == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
-    if (t->t == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
-    if (t->t == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
-    if (t->t == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
+    const tree_e k = sno_pat_eff_kind(t);                          /* SN4-BAREKW: bare keywords arrive as TT_VAR */
+    if (k == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
+    if (k == TT_QLIT) return 1;
+    if (k == TT_ANY || k == TT_NOTANY) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
+    if (k == TT_SPAN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
+    if (k == TT_BREAK || k == TT_BREAKX) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
+    if (k == TT_TAB || k == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
+    if (k == TT_POS || k == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
+    if (k == TT_REM || k == TT_ARB) return 1;
+    if (k == TT_ABORT || k == TT_FAIL) return 1;                   /* SN4-BAREKW s34: manual Ch.9 pp.124-125 — both are pure WIRING (own no runtime state) */
+    if (k == TT_BAL || k == TT_SUCCEED) return 0;                  /* SN4-BAREKW s34: NOT YET LOWERED — honest refusal, NOT a silent DEFER(unset). BAL earns a node (generator); SUCCEED needs a β->γ. */
+    if (k == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && !sno_pat_contains_arbno(t->c[0]);
+    if (k == TT_VAR) return t->v.sval != NULL;
+    if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
+    if (k == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
+    if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
+    if (k == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
+    if (k == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_is_pattern_rhs(const tree_t * t) {
     if (!t) return 0;
-    switch (t->t) {
+    switch (sno_pat_eff_kind(t)) {                                 /* SN4-BAREKW: bare ABORT/ARB/BAL/FAIL/FENCE/REM/SUCCEED arrive as TT_VAR */
+    case TT_ABORT: case TT_SUCCEED:
     case TT_ALT: case TT_FENCE: case TT_ARBNO:
     case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX:
     case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS:
