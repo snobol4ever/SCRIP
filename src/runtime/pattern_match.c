@@ -9,6 +9,7 @@
 #include "sil_macros.h"
 #include "builtins/gen_runtime.h"
 #include "rt/gc_heap.h"
+#include "rt/rt_arena.h"
 #include "zeta_choices.h"
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
@@ -18,9 +19,9 @@ DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct dtp_rcp { int tt; const char *s; uint32_t slen; int64_t ival; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
 typedef struct DTP { void *fn; dtp_rcp_t *rcp; } DTP_t;
-static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)GC_malloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; return h; }
+static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)rt_ws_alloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; return h; }
 void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
-static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)GC_malloc(sizeof *r); r->tt = tt; r->s = s; r->slen = n; r->ival = iv; r->l = l; r->r = rr; return r; }
+static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)rt_ws_alloc(sizeof *r); r->tt = tt; r->s = s; r->slen = n; r->ival = iv; r->l = l; r->r = rr; return r; }
 static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { return rcp_node(TT_QLIT, s ? s : "", n, 0, 0, 0); }
 static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node(tt, 0, 0, 0, l, rr); }
 static dtp_rcp_t *rcp_of(DESCR_t d) {
@@ -336,7 +337,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
                 DESCR_t empty_ptr; empty_ptr.v=DT_DATA; empty_ptr.slen=0; empty_ptr.ptr=NULL;
                 return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"));
             }
-            DESCR_t *rbuf = GC_malloc(rlen * sizeof(DESCR_t));
+            DESCR_t *rbuf = rt_ws_alloc(rlen * sizeof(DESCR_t));
             for (int k = 0; k < rlen; k++) rbuf[k] = (elems && ii+k-1 >= 0 && ii+k-1 < n) ? elems[ii+k-1] : NULVCL;
             DESCR_t rptr; rptr.v=DT_DATA; rptr.slen=0; rptr.ptr=(void*)rbuf;
             static int list_slice_reg = 0;
@@ -456,9 +457,9 @@ DESCR_t sort_fn(DESCR_t arr) {
     for (int h = 0; h < TABLE_BUCKETS; h++)
         for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) n++;
     if (n == 0) return FAILDESCR;
-    const char **keys = GC_malloc(n * sizeof(char *));
-    DESCR_t *key_descrs = GC_malloc(n * sizeof(DESCR_t));
-    DESCR_t *vals = GC_malloc(n * sizeof(DESCR_t));
+    const char **keys = rt_ws_alloc(n * sizeof(char *));
+    DESCR_t *key_descrs = rt_ws_alloc(n * sizeof(DESCR_t));
+    DESCR_t *vals = rt_ws_alloc(n * sizeof(DESCR_t));
     int idx = 0;
     for (int h = 0; h < TABLE_BUCKETS; h++)
         for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) {
@@ -467,7 +468,7 @@ DESCR_t sort_fn(DESCR_t arr) {
             vals[idx] = e->val;
             idx++;
         }
-    int *order = GC_malloc(n * sizeof(int));
+    int *order = rt_ws_alloc(n * sizeof(int));
     for (int i = 0; i < n; i++) order[i] = i;
     for (int i = 1; i < n; i++) {
         int tmp = order[i];
@@ -479,19 +480,19 @@ DESCR_t sort_fn(DESCR_t arr) {
         }
         order[j+1] = tmp;
     }
-    ARBLK_t *a = GC_malloc(sizeof(ARBLK_t));
+    ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
     a->lo         = 1;
     a->hi         = n;
     a->ndim       = 1;
     a->lo2        = 0;
     a->hi2        = 0;
     a->proto_bare = 1;
-    { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = GC_strdup(pb); }
-    a->data = GC_malloc(n * sizeof(DESCR_t));
+    { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_ws_strdup(pb); }
+    a->data = rt_ws_alloc(n * sizeof(DESCR_t));
     for (int i = 0; i < n; i++) {
-        ARBLK_t *row = GC_malloc(sizeof(ARBLK_t));
+        ARBLK_t *row = rt_ws_alloc(sizeof(ARBLK_t));
         row->lo = 1; row->hi = 2; row->ndim = 1; row->lo2 = 0; row->hi2 = 0; row->proto_bare = 1; row->proto = 0;
-        row->data = GC_malloc(2 * sizeof(DESCR_t));
+        row->data = rt_ws_alloc(2 * sizeof(DESCR_t));
         row->data[0] = key_descrs[order[i]];
         row->data[1] = vals[order[i]];
         DESCR_t rd = {0}; rd.v = DT_A; rd.arr = row;
@@ -681,17 +682,18 @@ void rt_cap_push(void *slot, int delta)
     /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05): capture frames on a per-box stack — the SAVE box's
      * α does ++ (push), its β does -- (pop); the COND at each yield reads the top-of-stack span, so the
      * β-resume chain survives a generator re-entry between capture-open and capture-close.  The slot is the
-     * box's 16B zls grant: +0 buf (GC_MALLOC_ATOMIC u32[]: [0]=cap, frames from [1] — atomic: cursor ints
-     * only, no DESCR refs, collected when the frame slot stops referencing it), +8 gen, +12 sp.  gen is a
+     * box's 16B zls grant: +0 buf (rt_ws_alloc u32[]: [0]=cap, frames from [1] — cursor ints only, ZERO
+     * pointers out, so no GC root compensation is owed; TR-3(c) workspace = grow-only, the abandoned buffer
+     * on a grow is reclaimed by GC-W-2, not sooner — the doubling keeps total waste under 2x), +8 gen, +12 sp.  gen is a
      * per-match generation stamped by rt_match_enter: a stale-gen slot lazily resets sp=0, so success-exited
      * frames (never β-popped — the γ-exit-live case, ZB-ALLOC §3) die at the next match instead of leaking
      * across statement executions; it also validates ZC_INIT_ZERO-fresh ζ frames (gen 0 ≠ any live gen). */
     rt_cap_stk_t *s = (rt_cap_stk_t *)slot;
     if (s->gen != g_cap_gen) { s->sp = 0; s->gen = g_cap_gen; }
-    if (!s->buf) { s->buf = (uint32_t *)GC_MALLOC_ATOMIC(17 * sizeof(uint32_t)); s->buf[0] = 16; }
+    if (!s->buf) { s->buf = (uint32_t *)rt_ws_alloc(17 * sizeof(uint32_t)); s->buf[0] = 16; }
     if (s->sp == s->buf[0]) {
         uint32_t nc = s->buf[0] * 2;
-        uint32_t *nb = (uint32_t *)GC_MALLOC_ATOMIC(((size_t)nc + 1) * sizeof(uint32_t));
+        uint32_t *nb = (uint32_t *)rt_ws_alloc(((size_t)nc + 1) * sizeof(uint32_t));
         memcpy(nb + 1, s->buf + 1, (size_t)s->sp * sizeof(uint32_t));
         nb[0] = nc; s->buf = nb;
     }
@@ -911,13 +913,13 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
         ARBLK_t *a = base.arr; if (!a) return FAILDESCR;
         int i = (int)to_int(idx); int off = i - a->lo;
         if (off < 0 || off >= (a->hi - a->lo + 1)) return FAILDESCR;
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
     if (base.v == DT_T) {
         TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
         char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = GC_strdup(ks); vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup(ks); vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
     if (base.v == DT_DATA) {
@@ -929,7 +931,7 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
-            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         return subscript_get(base, idx);
@@ -939,7 +941,7 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
         long i = (long)to_int(idx);
         if (i <= 0) i = slen + 1 + i;
         if (i < 1 || i > slen) return FAILDESCR;
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = bvar; vc->pos = i; vc->len = 1;
+        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = bvar; vc->pos = i; vc->len = 1;
         return NAMETRAP(vc);
     }
     return subscript_get(base, idx);
@@ -951,7 +953,7 @@ DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     if (obj.v != DT_DATA || !obj.u) return FAILDESCR;
     DESCR_t *cell = data_field_ptr(fname ? fname : "", obj);
     if (!cell) return FAILDESCR;
-    VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = cell; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = cell; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -965,13 +967,13 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
             DESCR_t ea = FIELD_GET_fn(obj, "frame_elems");
             DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
             if (!elems || idx < 0 || idx >= n) return FAILDESCR;
-            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &elems[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         if (obj.u && obj.u->type && obj.u->type->nfields > 0) {
             int nf = obj.u->type->nfields;
             if (idx < 0 || idx >= nf) return FAILDESCR;
-            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &obj.u->fields[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &obj.u->fields[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         return FAILDESCR;
@@ -981,7 +983,7 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
         for (int b = 0; b < TABLE_BUCKETS; b++)
             for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
                 if (seen == idx) {
-                    VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &ep->val; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+                    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &ep->val; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
                     return NAMETRAP(vc);
                 }
                 seen++;
@@ -991,7 +993,7 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
     if ((obj.v == DT_S || obj.v == DT_SNUL) && IS_NAMETRAP_fn(bvar)) {
         const char *sp = obj.s ? obj.s : ""; long slen = obj.slen ? (long)obj.slen : (long)strlen(sp);
         if (idx < 0 || idx >= slen) return FAILDESCR;
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = idx + 1; vc->len = 1;
+        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = idx + 1; vc->len = 1;
         return NAMETRAP(vc);
     }
     return FAILDESCR;
@@ -1010,7 +1012,7 @@ DESCR_t rt_random_var(DESCR_t base) {
     if ((base.v == DT_S || base.v == DT_SNUL) && IS_NAMETRAP_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         if (slen <= 0) return FAILDESCR;
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = (long)(rval * (double)slen) + 1; vc->len = 1;
+        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = (long)(rval * (double)slen) + 1; vc->len = 1;
         return NAMETRAP(vc);
     }
     if (base.v == DT_S || base.v == DT_SNUL) {
@@ -1027,13 +1029,13 @@ DESCR_t rt_random_var(DESCR_t base) {
             DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
             if (!elems || n <= 0) return FAILDESCR;
             long i = (long)(rval * (double)n);
-            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &elems[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &elems[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         if (base.u && base.u->type && base.u->type->nfields > 0) {
             int nf = base.u->type->nfields;
             long i = (long)(rval * (double)nf);
-            VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = &base.u->fields[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &base.u->fields[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         return FAILDESCR;
@@ -1044,7 +1046,7 @@ DESCR_t rt_random_var(DESCR_t base) {
         for (int b = 0; b < TABLE_BUCKETS; b++)
             for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next)
                 if (++seen == n) {
-                    VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = GC_strdup(ep->key); vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+                    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = rt_ws_strdup(ep->key); vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
                     return NAMETRAP(vc);
                 }
         return FAILDESCR;
@@ -1068,14 +1070,14 @@ DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
         if (ii <= 0) ii = slen + ii + 1;
         if (jj <= 0) jj = slen + jj + 1;
         if (ii > jj) { long t = ii; ii = jj; jj = t; }
-        VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
+        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
         return NAMETRAP(vc);
     }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
-    VCELL_t *vc = GC_malloc(sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
