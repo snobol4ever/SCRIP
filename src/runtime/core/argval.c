@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,12 +22,12 @@ DESCR_t VARVAL_d_fn(DESCR_t d)
     if (d.v == DT_I) {
         char buf[64];
         snprintf(buf, sizeof buf, "%lld", (long long)d.i);
-        return STRVAL(GC_strdup(buf));
+        return STRVAL(rt_ws_strdup(buf));
     }
     if (d.v == DT_R) {
         char buf[64];
         snprintf(buf, sizeof buf, "%g", d.r);
-        return STRVAL(GC_strdup(buf));
+        return STRVAL(rt_ws_strdup(buf));
     }
     return FAILDESCR;
 }

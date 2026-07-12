@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include "prolog_runtime.h"
 #include "term.h"
 #include <stdlib.h>
@@ -7,7 +8,7 @@
 #define TRAIL_INIT_CAP 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void trail_init(Trail *t) {
-    t->stack    = GC_malloc(TRAIL_INIT_CAP * sizeof(Term *));
+    t->stack    = rt_ws_alloc(TRAIL_INIT_CAP * sizeof(Term *));
     t->top      = 0;
     t->capacity = TRAIL_INIT_CAP;
 }
@@ -15,7 +16,7 @@ void trail_init(Trail *t) {
 void trail_push(Trail *t, Term *term) {
     if (t->top >= t->capacity) {
         t->capacity *= 2;
-        t->stack = GC_realloc(t->stack, t->capacity * sizeof(Term *));
+        t->stack = rt_ws_realloc(t->stack, t->capacity * sizeof(Term *));
     }
     t->stack[t->top++] = term;
 }
