@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include "emit.h"
 #include "rt/rt.h"
 #include "lower.h"
@@ -17,7 +18,7 @@
 #include <gc/gc.h>
 #include <setjmp.h>
 #include "../../parser/prolog/pl_cell.h"
-#define PL_CELL_ALLOC(n) GC_MALLOC(n)
+#define PL_CELL_ALLOC(n) rt_ws_alloc(n)
 #include "../../parser/prolog/pl_cell_conv.h"
 #include "../include/dtp.h"
 extern const char *Σ;
@@ -88,7 +89,7 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
     if (matched && is_repl && subj_name && subj_name[0]) {
         const char * repl = repl_lit ? repl_lit : ""; int repl_len = (int)strlen(repl);
         int new_len = m_start + repl_len + (subj_len - m_end);
-        char * new_s = (char *)GC_MALLOC((size_t)new_len + 1);
+        char * new_s = (char *)rt_ws_alloc((size_t)new_len + 1);
         memcpy(new_s, subj_str, (size_t)m_start);
         memcpy(new_s + m_start, repl, (size_t)repl_len);
         memcpy(new_s + m_start + repl_len, subj_str + m_end, (size_t)(subj_len - m_end));
@@ -114,7 +115,7 @@ static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
     case TERM_FLOAT: return term_new_float(t->fval);
     case TERM_COMPOUND: {
         int ar=t->compound.arity;
-        Term **args=(Term**)GC_MALLOC((size_t)ar*sizeof(Term*));
+        Term **args=(Term**)rt_ws_alloc((size_t)ar*sizeof(Term*));
         for (int i=0;i<ar;i++) args[i]=bb_copy_term_rec(t->compound.args[i],map,nmap);
         return term_new_compound(t->compound.functor,ar,args);
     }
@@ -352,7 +353,7 @@ bind:;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
     Term **args_in = (Term **)args_ptr;
-    Term **args = (Term **)GC_MALLOC(arity * sizeof(Term *));
+    Term **args = (Term **)rt_ws_alloc(arity * sizeof(Term *));
     for (int i = 0; i < arity; i++) args[i] = args_in[i];
     int fid = prolog_atom_intern(functor_name ? functor_name : "");
     return term_new_compound(fid, arity, args);
@@ -375,7 +376,7 @@ static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **
     if (t == DT_PLREF) {
         int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
         pl_cell_t *aa = (pl_cell_t *)d->p;
-        Term **args = (Term **)GC_MALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(Term *));
+        Term **args = (Term **)rt_ws_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(Term *));
         for (int i = 0; i < ar; i++) args[i] = rt_cmp_cell_to_term_shared(&aa[i], vaddr, vterm, vn, cap);
         return term_new_compound(fn, ar, args);
     }
@@ -413,15 +414,15 @@ static int univ_common(Term *t0, Term *t1) {
         if (d0->tag == TERM_COMPOUND) {
             lst = term_new_atom(prolog_atom_intern("[]"));
             for (int i = d0->compound.arity - 1; i >= 0; i--) {
-                Term **c = (Term **)GC_MALLOC(2 * sizeof(Term *));
+                Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
                 c[0] = d0->compound.args[i]; c[1] = lst;
                 lst = term_new_compound(ATOM_DOT, 2, c);
             }
-            Term **c = (Term **)GC_MALLOC(2 * sizeof(Term *));
+            Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
             c[0] = term_new_atom(d0->compound.functor); c[1] = lst;
             lst = term_new_compound(ATOM_DOT, 2, c);
         } else {
-            Term **c = (Term **)GC_MALLOC(2 * sizeof(Term *));
+            Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
             c[0] = d0; c[1] = term_new_atom(prolog_atom_intern("[]"));
             lst = term_new_compound(ATOM_DOT, 2, c);
         }
@@ -442,7 +443,7 @@ static int univ_common(Term *t0, Term *t1) {
     else {
         Term *h = elems[0];
         if (!h || h->tag != TERM_ATOM) { trail_unwind(&g_resolve_trail, mark); return 0; }
-        Term **args = (Term **)GC_MALLOC((size_t)(ne - 1) * sizeof(Term *));
+        Term **args = (Term **)rt_ws_alloc((size_t)(ne - 1) * sizeof(Term *));
         for (int i = 1; i < ne; i++) args[i - 1] = elems[i];
         built = term_new_compound(h->atom_id, ne - 1, args);
     }
@@ -490,7 +491,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         const char *s   = (obj.v == DT_S) ? obj.s : NULL;
         int64_t     slen = !s ? 0 : (IS_CSET_fn(obj) ? (int64_t)strlen(s) : (int64_t)(obj.slen > 0 ? obj.slen : strlen(s)));
         if (!s || idx >= slen) return 0;
-        char *ch = GC_malloc(2);
+        char *ch = rt_ws_alloc(2);
         ch[0] = s[idx];
         ch[1] = '\0';
         *out = (DESCR_t){ .v = DT_S, .slen = 1, .s = ch };
@@ -528,7 +529,7 @@ void rt_scan_splice_empty(const char *subj_name, int m_start, int m_end)
     if (sv.v == DT_S || sv.v == DT_SNUL) { s = sv.s ? sv.s : ""; slen = sv.slen ? (int)sv.slen : (int)strlen(s); }
     if (m_start < 0 || m_end < m_start || m_end > slen) return;
     int new_len = m_start + (slen - m_end);
-    char *ns = (char *)GC_MALLOC((size_t)new_len + 1);
+    char *ns = (char *)rt_ws_alloc((size_t)new_len + 1);
     if (!ns) return;
     if (m_start > 0) memcpy(ns, s, (size_t)m_start);
     if (slen - m_end > 0) memcpy(ns + m_start, s + m_end, (size_t)(slen - m_end));

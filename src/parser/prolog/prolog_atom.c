@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include "prolog_atom.h"
 #include "term.h"
 #include <stdlib.h>
@@ -28,7 +29,7 @@ static unsigned int ht_hash(const char *s) {
 static void ht_grow(int new_size) {
     HEntry *old = ht;
     int     old_size = ht_size;
-    ht = GC_malloc(new_size * sizeof(HEntry));
+    ht = rt_ws_alloc(new_size * sizeof(HEntry));
     memset(ht, 0, new_size * sizeof(HEntry));
     ht_size = new_size;
     ht_used = 0;
@@ -45,12 +46,12 @@ int prolog_atom_intern(const char *name) {
     if (!name) name = "";
     if (!ht) {
         ht_size = HT_INIT_SIZE;
-        ht = GC_malloc(ht_size * sizeof(HEntry));
+        ht = rt_ws_alloc(ht_size * sizeof(HEntry));
         memset(ht, 0, ht_size * sizeof(HEntry));
     }
     if (!atom_names) {
         atom_cap  = ATOM_INIT_CAP;
-        atom_names = GC_malloc(atom_cap * sizeof(char *));
+        atom_names = rt_ws_alloc(atom_cap * sizeof(char *));
         memset(atom_names, 0, atom_cap * sizeof(char *));
     }
     unsigned int h = ht_hash(name) & (ht_size - 1);
@@ -66,10 +67,10 @@ int prolog_atom_intern(const char *name) {
     if (atom_len >= atom_cap) {
         int old_cap = atom_cap;
         atom_cap *= 2;
-        atom_names = GC_realloc(atom_names, atom_cap * sizeof(char *));
+        atom_names = rt_ws_realloc(atom_names, atom_cap * sizeof(char *));
         memset(atom_names + old_cap, 0, (atom_cap - old_cap) * sizeof(char *));
     }
-    char *copy = GC_strdup(name);
+    char *copy = rt_ws_strdup(name);
     int   id   = atom_len++;
     atom_names[id] = copy;
     ht[h].key = copy;
@@ -93,7 +94,7 @@ void prolog_atom_init(void) {
 #include <stddef.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_atom(int atom_id) {
-    Term *t = GC_malloc(sizeof(Term));
+    Term *t = rt_ws_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag     = TERM_ATOM;
     t->atom_id = atom_id;
@@ -101,7 +102,7 @@ Term *term_new_atom(int atom_id) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_var(int var_slot) {
-    Term *t = GC_malloc(sizeof(Term));
+    Term *t = rt_ws_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag        = TERM_VAR;
     t->var_slot   = var_slot;
@@ -110,13 +111,13 @@ Term *term_new_var(int var_slot) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_compound(int functor, int arity, Term **args) {
-    Term *t = GC_malloc(sizeof(Term));
+    Term *t = rt_ws_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag              = TERM_COMPOUND;
     t->compound.functor = functor;
     t->compound.arity   = arity;
     if (arity > 0 && args) {
-        t->compound.args = GC_malloc(arity * sizeof(Term *));
+        t->compound.args = rt_ws_alloc(arity * sizeof(Term *));
         memcpy(t->compound.args, args, arity * sizeof(Term *));
     } else {
         t->compound.args = NULL;
@@ -125,7 +126,7 @@ Term *term_new_compound(int functor, int arity, Term **args) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_int(long ival) {
-    Term *t = GC_malloc(sizeof(Term));
+    Term *t = rt_ws_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag  = TERM_INT;
     t->ival = ival;
@@ -133,7 +134,7 @@ Term *term_new_int(long ival) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_float(double fval) {
-    Term *t = GC_malloc(sizeof(Term));
+    Term *t = rt_ws_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag  = TERM_FLOAT;
     t->fval = fval;

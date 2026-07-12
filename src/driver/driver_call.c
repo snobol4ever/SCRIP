@@ -1,3 +1,4 @@
+#include "rt/rt_arena.h"
 #include "driver_private.h"
 CallFrame  call_stack[CALL_STACK_MAX];
 int        call_depth = 0;
@@ -65,11 +66,11 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
     char *lnames[64]; if (nl > 64) nl = 64;
     for (int i = 0; i < np; i++) {
         const char *p = FUNC_PARAM_fn(fname, i);
-        pnames[i] = p ? GC_strdup(p) : GC_strdup("");
+        pnames[i] = p ? rt_ws_strdup(p) : rt_ws_strdup("");
     }
     for (int i = 0; i < nl; i++) {
         const char *l = FUNC_LOCAL_fn(fname, i);
-        lnames[i] = l ? GC_strdup(l) : GC_strdup("");
+        lnames[i] = l ? rt_ws_strdup(l) : rt_ws_strdup("");
     }
     char ufname[128];
     {
@@ -84,9 +85,9 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
     comm_call(retname);
     monitor_quiet_depth++;
     int nsaved = 1 + np + nl;
-    char   **snames = GC_malloc((size_t)nsaved * sizeof(char *));
-    DESCR_t *svals  = GC_malloc((size_t)nsaved * sizeof(DESCR_t));
-    snames[0] = GC_strdup(retname);
+    char   **snames = rt_ws_alloc((size_t)nsaved * sizeof(char *));
+    DESCR_t *svals  = rt_ws_alloc((size_t)nsaved * sizeof(DESCR_t));
+    snames[0] = rt_ws_strdup(retname);
     svals[0]  = NV_GET_fn(retname);
     NV_SET_fn(retname, STRVAL(""));
     for (int i = 0; i < np; i++) {
@@ -186,7 +187,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
                             subj_name = VARVAL_fn(nd);
                         }
                         if (subj_name) {
-                            char *fn = GC_strdup(subj_name);
+                            char *fn = rt_ws_strdup(subj_name);
                             subj_name = fn;
                         }
                         if (subj_name && s_pattern) {
@@ -303,7 +304,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
                             const char *nm0 = VARVAL_fn(ind_val);
                             if (!nm0 || !*nm0) { succeeded = 0; }
                             else {
-                                char *nm = GC_strdup(nm0);
+                                char *nm = rt_ws_strdup(nm0);
                                 DESCR_t named = NV_GET_fn(nm);
                                 if (IS_NAMEPTR(named)) {
                                     NAME_DEREF_PTR(named) = repl_val;
