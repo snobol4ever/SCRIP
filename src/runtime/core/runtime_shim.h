@@ -1,5 +1,6 @@
 #ifndef RUNTIME_SHIM_H
 #define RUNTIME_SHIM_H
+#include "rt/rt_arena.h"
 #include "core.h"
 #include <string.h>
 #include <gc/gc.h>
@@ -12,7 +13,7 @@ static inline DESCR_t _real_impl(double d)    { return REALVAL(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _str_impl(const char *s) {
     if (!s) return NULVCL;
-    char *p = GC_STRDUP(s);
+    char *p = rt_ws_strdup(s);
     return STRVAL(p);
 }
 #define INTVAL_fn(i)   _vint_impl((int64_t)(i))
