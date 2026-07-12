@@ -627,7 +627,7 @@ static int sno_is_fence(const tree_t * t) { return t && ((t->t == TT_FENCE) || (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_seq_flatten_pat(const tree_t * t, const tree_t ** elems, int * ne) {
     if (!t) return;
-    if (t->t == TT_SEQ) { sno_seq_flatten_pat((t->n > 0) ? t->c[0] : NULL, elems, ne); sno_seq_flatten_pat((t->n > 1) ? t->c[1] : NULL, elems, ne); return; }
+    if (t->t == TT_SEQ) { sno_seq_flatten_pat((t->n > 0) ? t->c[0] : NULL, elems, ne); if (t->n > 1 && t->c[1]) { if (*ne >= 128) sno_fatal("pattern sequence too long (SN4-PAT cap 128)", NULL); elems[(*ne)++] = t->c[1]; } return; }
     if (*ne >= 128) sno_fatal("pattern sequence too long (SN4-PAT cap 128)", NULL);
     elems[(*ne)++] = t;
 }
@@ -870,6 +870,44 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
     cx->pre[cx->npre].codes = sno_prearg_codes(t->t); cx->npre++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail) {
+    /* SN4-NARY-SEQ (Lon directive 2026-07-12, this session; same glue mechanism as SN4-NARY-ALT and the
+     * same design rule — a construct earns a node iff it OWNS RUNTIME STATE): ONE IR_MATCH_SEQUENCE node S
+     * with 2N operands = (entry_i, resume_i) pairs.  Runtime "which element is the live choice point" state
+     * = seq_i in S's own ζ quad — in the flat-frame ZLS this index IS the array flavor of the two-flavor
+     * storage design (rsp/BB-owned flavor = a linked frame chain whose depth replaces the index; the head
+     * link and seq_i are the same datum in two representations — recorded, lands with ZB-ITER/ZB-OWN).
+     * S.α: save entry δ, seq_i=0, enter entry_0.  Success-glue (ns_s): seq_i++; == N → S.γ; else enter
+     * entry_{seq_i} — the forward edge rides the glue's dispatch, elements never thread γ directly.
+     * Fail-glue (ns_f): seq_i--; < 0 → S.ω (leftward exhaust); else dispatch to resume_{seq_i}'s β — the
+     * element's OWN remaining ways, so EVERY element transits its β on the retreat (Lon's s21 transit
+     * guarantee made structural: captures pop, generators resume, deterministic boxes undo-and-fail).
+     * S.β (right context failed): seq_i=N, fall into ns_f ⇒ resume the rightmost element.  INSIDE-EDGE
+     * TAGS identical to ALT: elements lowered with succ=S, fail=S; γ→S re-tagged "σ" (land ns_s), ω→S
+     * re-tagged "φ" (land ns_f), FAIL-goto's γ→S also "φ".  S is first-allocated: S.β IS the construct's
+     * resume surface (sno_resume_ω_to generic arm), S.ω IS the leftward exhaust — zero chase machinery. */
+    IR_graph_t * g = cx->g;
+    IR_t * S = lc_build(g, IR_MATCH_SEQUENCE, succ, NULL);
+    sno_ω_to(S, fail);
+    for (int i = 0; i < ne; i++) {
+        int before = g->n;
+        IR_t * ei = sno_pat_node(cx, elems[i], S, S);
+        IR_t * ri = (before < g->n) ? g->all[before] : ei;
+        for (int k = before; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->ω.node == S) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+            if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+        }
+        ir_operand_push(S, ei);
+        ir_operand_push(S, ri);
+    }
+    IR_LIT(S).ival = (long)ne;
+    return S;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -1079,12 +1117,21 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * generator never resumed ('AB CD' ? ARB . B (' ' 'C') "succeeded" at the slid anchor with B='').
          * Fix: recursively flatten every nested TT_SEQ into ONE element list and let the single pairwise loop
          * wire every seam uniformly (fences inside plain groups now also seal at their true spine position). */
+        /* SN4-NARY-SEQ (Lon directive 2026-07-12): a fence-free element list becomes ONE IR_MATCH_SEQUENCE
+         * node (sno_seq_nary above; seq_i in ζ replaces the pairwise sno_resume_ω_to seam-stitching, and the
+         * per-element direct-to-fail ω was the "controlled optimization" of the transit guarantee — the glue
+         * makes the transit structural).  Fences SPLIT the spine into subsequences (goal-file design): each
+         * maximal fence-free run of ≥2 elements is its own S node with the run's shared fail target; a run
+         * right of the fence fails (S.ω) to the SEAL target, never back across the fence — the old walk's
+         * right_sealed non-repoint is preserved verbatim at the fence seams, which stay edge-threaded. */
         const tree_t * elems[128]; int ne = 0;
         sno_seq_flatten_pat(t, elems, &ne);
         int first_fence = ne;
         for (int i = 0; i < ne; i++) if (sno_is_fence(elems[i])) { first_fence = i; break; }
+        if (first_fence == ne)
+            return ne == 1 ? sno_pat_node(cx, elems[0], succ, fail) : sno_seq_nary(cx, elems, ne, succ, fail);
         IR_t * cur_succ = succ; IR_t * right_tail = NULL; int right_tail_idx = -1; int right_sealed = 0;
-        for (int i = ne - 1; i >= 0; i--) {
+        for (int i = ne - 1; i >= 0; ) {
             if (sno_is_fence(elems[i])) {                                           /* seals everything to its right; the element to its left cannot resume into it */
                 right_sealed = 1;
                 const tree_t * inner = (elems[i]->t == TT_FENCE && elems[i]->n > 0) ? elems[i]->c[0] : NULL;
@@ -1095,14 +1142,18 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
                     cur_succ = pe; right_tail = p_tail; right_tail_idx = before_p;
                 }
+                i--;
                 continue;
             }
-            IR_t * fail_i = (i > first_fence) ? cx->pat_seal : fail;                 /* right of the fence: cut to the SEAL target (== statement-fail at top level, == F/exhaust inside an ARBNO body), never HEAD */
-            int before_e = g->n;
-            IR_t * ee = sno_pat_node(cx, elems[i], cur_succ, fail_i);
-            IR_t * e_tail = (before_e < g->n) ? g->all[before_e] : ee;
-            if (right_tail && !right_sealed && before_e < g->n) sno_resume_ω_to(g, right_tail_idx, right_tail, e_tail);
-            cur_succ = ee; right_tail = e_tail; right_tail_idx = before_e; right_sealed = 0;
+            int j = i; while (j > 0 && !sno_is_fence(elems[j - 1])) j--;             /* the maximal fence-free run [j..i]; a run never spans a fence so one fail target serves it */
+            int rn = i - j + 1;
+            IR_t * fail_r = (j > first_fence) ? cx->pat_seal : fail;                 /* right of the fence: cut to the SEAL target (== statement-fail at top level, == F/exhaust inside an ARBNO body), never HEAD */
+            int before_r = g->n;
+            IR_t * re = (rn == 1) ? sno_pat_node(cx, elems[j], cur_succ, fail_r) : sno_seq_nary(cx, elems + j, rn, cur_succ, fail_r);
+            IR_t * r_tail = (before_r < g->n) ? g->all[before_r] : re;
+            if (right_tail && !right_sealed && before_r < g->n) sno_resume_ω_to(g, right_tail_idx, right_tail, r_tail);
+            cur_succ = re; right_tail = r_tail; right_tail_idx = before_r; right_sealed = 0;
+            i = j - 1;
         }
         return cur_succ;
     }

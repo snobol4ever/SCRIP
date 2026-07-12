@@ -121,6 +121,8 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack GC_MALLOC_ATOMIC u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
     case IR_MATCH_ALTERNATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B r14d) + dcap height save (+4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "alt.alt_i live-alternative index (+8 4B; α=0, fail-glue ++; β dispatches on it, seed alt_i) (+12 pad)", nd); return 1;
+    case IR_MATCH_SEQUENCE:
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "seq.entry cursor save (+0 4B r14d; SU-C result anchor, no reload — elements undo their own δ) + seq_i live-element index (+4 4B; α=0, ns_s ++, ns_f --, β=N; flat-frame array flavor of the two-flavor design — rsp flavor = linked frame chain, lands with ZB-ITER/ZB-OWN)", nd); return 1;
     case IR_SCAN:
         return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
@@ -186,7 +188,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     }
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
-static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARB || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
+static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
     zls_entry(nd, scope_id, off);
