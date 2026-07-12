@@ -50,14 +50,14 @@ push r12
  call rt_zls_mark@PLT
  mov rsp, rbp
  pop rbp
- mov qword ptr [r12 + 192], rax
+ mov qword ptr [r12 + 304], rax
  pop rsi
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
- mov qword ptr [r12 + 96], 1
+ mov qword ptr [r12 + 144], 1
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [r12 + 104], rax
+ mov qword ptr [r12 + 152], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp xchain0_n2_α
@@ -67,21 +67,21 @@ main_α_body:
  .string "always_fail()"
  xchain0_n1_α:
 # BOX CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+96] -> [zr+80]
- mov rax, qword ptr [r12 + 96]
- mov qword ptr [r12 + 80], rax
- mov rax, qword ptr [r12 + 104]
- mov qword ptr [r12 + 88], rax
+# marshal arg0 = producer-box slot [zr+144] -> [zr+112]
+ mov rax, qword ptr [r12 + 144]
+ mov qword ptr [r12 + 112], rax
+ mov rax, qword ptr [r12 + 152]
+ mov qword ptr [r12 + 120], rax
   .section .rodata
   .Lbynamefn2: .string "define"
   .section .text
   .intel_syntax noprefix
  lea rdi, [rip + .Lbynamefn2]
- lea rsi, [r12 + 80]
+ lea rsi, [r12 + 112]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 64], rax
- mov qword ptr [r12 + 72], rdx
+ mov qword ptr [r12 + 96], rax
+ mov qword ptr [r12 + 104], rdx
  cmp eax, 99
  je xchain0_n2_α
  jmp xchain0_n2_α
@@ -94,11 +94,11 @@ main_α_body:
   .section .text
   .intel_syntax noprefix
  lea rdi, [rip + .Lbynamefn3]
- lea rsi, [r12 + 128]
+ lea rsi, [r12 + 192]
  mov edx, 0
  call rt_call_arr@PLT
- mov qword ptr [r12 + 112], rax
- mov qword ptr [r12 + 120], rdx
+ mov qword ptr [r12 + 176], rax
+ mov qword ptr [r12 + 184], rdx
  cmp eax, 99
  je xchain0_n4_α
  jmp xchain0_n3_α
@@ -106,9 +106,9 @@ main_α_body:
  jmp xchain0_n4_α
 # IR_LIT_STRING
  xchain0_n3_α:
- mov qword ptr [r12 + 144], 1
+ mov qword ptr [r12 + 224], 1
  mov rax, qword ptr [rip + .Lx4_0]
- mov qword ptr [r12 + 152], rax
+ mov qword ptr [r12 + 232], rax
  jmp xchain0_n5_α
  xchain0_n3_β:
  jmp main_γ
@@ -118,9 +118,9 @@ main_α_body:
  .string "FAIL 1014/001: freturn should cause statement failure"
 # IR_LIT_STRING
  xchain0_n4_α:
- mov qword ptr [r12 + 176], 1
+ mov qword ptr [r12 + 272], 1
  mov rax, qword ptr [rip + .Lx5_0]
- mov qword ptr [r12 + 184], rax
+ mov qword ptr [r12 + 280], rax
  jmp xchain0_n6_α
  xchain0_n4_β:
  jmp main_γ
@@ -130,23 +130,23 @@ main_α_body:
  .string "PASS 1014_func_freturn (1/1)"
 # IR_ASSIGN gva
  xchain0_n5_α:
- mov rax, qword ptr [r12 + 144]
- mov rdx, qword ptr [r12 + 152]
+ mov rax, qword ptr [r12 + 224]
+ mov rdx, qword ptr [r12 + 232]
  mov qword ptr [rbx + 0], rax
  mov qword ptr [rbx + 8], rdx
- mov qword ptr [r12 + 128], rax
- mov qword ptr [r12 + 136], rdx
+ mov qword ptr [r12 + 208], rax
+ mov qword ptr [r12 + 216], rdx
  jmp main_γ
  xchain0_n5_β:
  jmp main_γ
 # IR_ASSIGN gva
  xchain0_n6_α:
- mov rax, qword ptr [r12 + 176]
- mov rdx, qword ptr [r12 + 184]
+ mov rax, qword ptr [r12 + 272]
+ mov rdx, qword ptr [r12 + 280]
  mov qword ptr [rbx + 0], rax
  mov qword ptr [rbx + 8], rdx
- mov qword ptr [r12 + 160], rax
- mov qword ptr [r12 + 168], rdx
+ mov qword ptr [r12 + 256], rax
+ mov qword ptr [r12 + 264], rdx
  jmp main_γ
  xchain0_n6_β:
  jmp main_γ
@@ -162,7 +162,7 @@ ret
  push rbp
  mov rbp, rsp
  and rsp, -16
- mov rdi, qword ptr [r12 + 192]
+ mov rdi, qword ptr [r12 + 304]
  call rt_zls_release_to@PLT
  mov rsp, rbp
  pop rbp
