@@ -114,8 +114,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
          * is the canonical pure box (needs no RW data, touches no ζ). */
         zls_field(scope_id, off, 16, ZK_RAW, 0, "tab.cursor save (+0 4B r14d saved at α, restored at β; +4 pad)", nd); return 1;
     case IR_MATCH_ARBNO:
-        if (IR_LIT(nd).ival == 0) { zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.entry/yield/before cursors (3x4B + pad; phases 1/2 read via operand[0]; ZC_PORT_PLAIN state home — under ZC_PORT_ALLOC state moves into the per-activation ZLS2 block and this quad idles)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: current activation's ZLS2 block; block header +0 chains the previous activation's ptr, popped back here at role 2's true exit — the MATCH_HEAD zeta_mark precedent, widened to its own quad because v1's first quad has only 4B of pad)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.pad (unused)", nd); return 2; }
-        if (IR_LIT(nd).ival == 3) { zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno2.owner quad low: entry/yield/i/cap (4x4B; phases 4/5 read via operand[0])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno2.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_rZ, cur_before} + body-subgraph slot range)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno2.pad (unused)", nd); return 2; }
+        if (IR_LIT(nd).ival == 1) { zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.owner quad: entry/yield/i/cap (4x4B; SN4-NARY-ARBNO one-node form)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_view, saved_delta} + body slot window; the rsp flavor = linked frame chain + explicit count in the header — Lon ruling 2026-07-12, lands at ZB-ITER under ZLS_ARBNO_STACK)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.pad (unused)", nd); return 2; }
         return 0;
     case IR_MATCH_ASSIGN_SAVE:
         zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack GC_MALLOC_ATOMIC u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
@@ -280,16 +279,17 @@ void zls_build(IR_graph_t * g) {
         zs[sid].n_fields++;
     }
     qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
-    /* ARBNO v2 (ZB-5) COLLECTION geometry: a phase-3 owner brackets its body subgraph with operands[0]=first
-     * and operands[1]=last body node BY ALLOCATION (the optimizer never reorders/compacts g->all, so the
-     * index window is exact and its grants are CONTIGUOUS — offsets are handed out in node order).  Element
-     * layout = 16B header {prev_rZ, cur_before} + the window's slot range; the emitter repoints rZ to
-     * elem+16-min_off so body boxes' [r12+off] land per-iteration (ARCH-ZETA-LOCAL-STORAGE.md section 5f). */
+    /* SN4-NARY-ARBNO COLLECTION geometry: the one node brackets its body subgraph with operands[1]=first
+     * (the resume node, first-allocated) and operands[2]=last body node BY ALLOCATION (the optimizer never
+     * reorders/compacts g->all, so the index window is exact and its grants are CONTIGUOUS — offsets are
+     * handed out in node order).  Element layout = 16B header {prev_view, saved_delta} + the window's slot
+     * range; the emitter repoints the view to elem+16-min_off so body boxes' frame-relative slots land
+     * per-iteration (ARCH-ZETA-LOCAL-STORAGE.md section 5f). */
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
-        if (!nd || nd->op != IR_MATCH_ARBNO || IR_LIT(nd).ival != 3 || nd->n_operands < 2) continue;
+        if (!nd || nd->op != IR_MATCH_ARBNO || IR_LIT(nd).ival != 1 || nd->n_operands < 3) continue;
         int i0 = -1, i1 = -1;
-        for (int j = 0; j < g->n; j++) { if (g->all[j] == nd->operands[0]) i0 = j; if (g->all[j] == nd->operands[1]) i1 = j; }
+        for (int j = 0; j < g->n; j++) { if (g->all[j] == nd->operands[1]) i0 = j; if (g->all[j] == nd->operands[2]) i1 = j; }
         if (i0 < 0 || i1 < 0) { fprintf(stderr, "zls: arbno2 geometry — body bracket operands not found in g->all\n"); abort(); }
         if (i0 > i1) { int t = i0; i0 = i1; i1 = t; }
         int mn = 0x7fffffff, mx = 0;
