@@ -916,9 +916,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return nd;
     }
     case TT_POS: case TT_RPOS: {
-        IR_t * nd = lc_build(g, IR_MATCH_POS, succ, NULL);
+        IR_t * nd = lc_build(g, (t->t == TT_RPOS) ? IR_MATCH_RPOS : IR_MATCH_POS, succ, NULL);
         sno_ω_to(nd, fail);
-        if (t->t == TT_RPOS) IR_LIT(nd).sval = (char *) "r";
         if (t->n <= 0 || !t->c[0]) sno_fatal("POS/RPOS requires a position argument", NULL);
         if (t->c[0]->t == TT_ILIT || t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
         sno_pre_req(cx, t, nd);

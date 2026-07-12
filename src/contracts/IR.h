@@ -118,6 +118,7 @@ typedef enum {
     IR_MATCH_BREAKX,
     IR_MATCH_LEN,
     IR_MATCH_POS,
+    IR_MATCH_RPOS,
     IR_MATCH_TAB,
     IR_MATCH_RTAB,
     IR_MATCH_ARB,

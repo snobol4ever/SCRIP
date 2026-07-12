@@ -5,13 +5,15 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_match_pos() {
+std::string bb_match_rpos() {
     if (!PLATFORM_X86) return std::string();
-    return x86("comment", "IR_MATCH_POS")
+    return x86("comment", "IR_MATCH_RPOS")
          + x86_alpha()
          + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))
          + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
-         + x86("cmp", "r14d", "eax")
+         + x86("mov", "ecx", "r15d")
+         + x86("sub", "ecx", "eax")
+         + x86("cmp", "r14d", "ecx")
          + x86_omega("jne")
          + x86_gamma()
          + x86_beta()
