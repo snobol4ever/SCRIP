@@ -252,13 +252,19 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     g->nvalue_slots = zls_g_nslots(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const int * g_seq_of_node = (const int *)0;
+static int g_seq_of_node_n = 0;
+static int bb_seq_of(int ix) { return (g_seq_of_node && ix >= 0 && ix < g_seq_of_node_n) ? g_seq_of_node[ix] : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ref_fmt(const IR_graph_t *bbg, const IR_t *target, char *out, size_t outsz) {
     if (!target) { snprintf(out, outsz, "."); return; }
     int ix = bb_index_of(bbg, target);
     extern int zls_off(const IR_t *);
     int _z = zls_off(target);
+    int sq = bb_seq_of(ix);
     if (_z >= 0)          snprintf(out, outsz, "s%d", _z);
-    else if (ix >= 0)     snprintf(out, outsz, "n%d", ix);
+    else if (sq >= 0)     snprintf(out, outsz, "@%d", sq);
+    else if (ix >= 0)     snprintf(out, outsz, "@?");
     else                  snprintf(out, outsz, "?");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -266,7 +272,10 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
     const IR_t * bb = (i >= 0 && i < bbg->n) ? bbg->all[i] : NULL;
     char sq[8]; if (seq >= 0) snprintf(sq, sizeof sq, "%d", seq); else snprintf(sq, sizeof sq, "-");
     if (!bb) { fprintf(fp, "%4s %-6s    .    .  %-22s []\n", sq, "(null)", "(null)"); return; }
-    char self[12]; { extern int zls_off(const IR_t *); int _z = zls_off(bb); if (_z >= 0) snprintf(self, sizeof self, "s%-4d", _z); else snprintf(self, sizeof self, "n%-4d", i); }
+    char self[12]; { extern int zls_off(const IR_t *); int _z = zls_off(bb); int sq2 = bb_seq_of(i);
+                     if (_z >= 0)       snprintf(self, sizeof self, "s%-4d", _z);
+                     else if (sq2 >= 0) snprintf(self, sizeof self, "@%-4d", sq2);
+                     else               snprintf(self, sizeof self, "@%-4s", "?"); }
     char gp[12], wp[12];
     bb_ref_fmt(bbg, bb->γ.node, gp, sizeof gp);
     bb_ref_fmt(bbg, bb->ω.node, wp, sizeof wp);
@@ -306,25 +315,35 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) { bb_print_v(bbg, fp, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
+    int nn0 = bbg->n;
+    char * vis0 = (char *) calloc(nn0 > 0 ? nn0 : 1, 1);
+    int * order0 = (int *) malloc((size_t)(nn0 > 0 ? nn0 : 1) * sizeof(int));
+    int * seqmap = (int *) malloc((size_t)(nn0 > 0 ? nn0 : 1) * sizeof(int));
+    int norder = 0;
+    if (vis0 && order0 && seqmap) {
+        bb_emit_order_visit(bbg, bbg->entry, vis0, order0, &norder);
+        for (int i = 0; i < nn0; i++) seqmap[i] = -1;
+        for (int sq = 0; sq < norder; sq++) if (order0[sq] >= 0 && order0[sq] < nn0) seqmap[order0[sq]] = sq;
+        int nxt = norder;
+        for (int i = 0; i < nn0; i++) if (!vis0[i] && bbg->all[i] && seqmap[i] < 0) seqmap[i] = nxt++;
+        g_seq_of_node = seqmap; g_seq_of_node_n = nn0;
+    }
     char ent[12]; bb_ref_fmt(bbg, bbg->entry, ent, sizeof ent);
     fprintf(fp, "IR_graph_t n=%d entry=%s nslots=%d\n", bbg->n, ent, bbg->nslots);
     if (verbose)
-        fprintf(fp, ";  seq self     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: sN=value slot N, nN=node id N "
-                    "when no slot; linear emit order: γ-spine DFS from entry, then ω, then operands)\n");
-    else         fprintf(fp, ";  seq self     γ    ω  kind                   [operands]  payload\n");
-    int nn = bbg->n;
-    char * vis = (char *) calloc(nn > 0 ? nn : 1, 1);
-    int * order = (int *) malloc((size_t)(nn > 0 ? nn : 1) * sizeof(int));
-    int norder = 0;
-    if (vis && order) {
-        bb_emit_order_visit(bbg, bbg->entry, vis, order, &norder);
-        for (int sq = 0; sq < norder; sq++) bb_print_node_line(bbg, fp, sq, order[sq], verbose);
+        fprintf(fp, ";  line self     γ    ω  kind                   [operands]  payload   (self/γ/ω/operands: sN=ζ slot at byte offset N, @L=no slot, find at dump line L; (nN)=node id, verbose only "
+                    "— linear emit order: γ-spine DFS from entry, then ω, then operands)\n");
+    else         fprintf(fp, ";  line self     γ    ω  kind                   [operands]  payload      (sN = ζ slot at byte offset N; @L = no slot, see dump line L)\n");
+    int nn = nn0;
+    if (vis0 && order0 && seqmap) {
+        for (int sq = 0; sq < norder; sq++) bb_print_node_line(bbg, fp, sq, order0[sq], verbose);
         int any_unreached = 0;
-        for (int i = 0; i < nn; i++) if (!vis[i] && bbg->all[i]) { any_unreached = 1; break; }
+        for (int i = 0; i < nn; i++) if (!vis0[i] && bbg->all[i]) { any_unreached = 1; break; }
         if (any_unreached) fprintf(fp, "; --- unreached (not on emit spine; shown for completeness) ---\n");
-        if (any_unreached) for (int i = 0; i < nn; i++) if (!vis[i] && bbg->all[i]) bb_print_node_line(bbg, fp, -1, i, verbose);
+        if (any_unreached) for (int i = 0; i < nn; i++) if (!vis0[i] && bbg->all[i]) bb_print_node_line(bbg, fp, seqmap[i], i, verbose);
     } else { for (int i = 0; i < nn; i++) bb_print_node_line(bbg, fp, i, i, verbose); }
-    free(vis); free(order);
+    g_seq_of_node = (const int *)0; g_seq_of_node_n = 0;
+    free(vis0); free(order0); free(seqmap);
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb) continue;

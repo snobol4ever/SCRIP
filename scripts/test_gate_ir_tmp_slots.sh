@@ -6,7 +6,8 @@
 # the older lhs=/tmp= payload tokens are gone (lhs= died at 19cbedd5 when lhs->tmp landed; tmp= died when
 # zls naming absorbed it) — this gate was red against both and nobody noticed. ASSIGN is re-pinned as a
 # slot CARRIER: assignment is a value in Icon/SNOBOL4 and today's LOWER grants it one (measured, s64).
-# Dump kind names are IR_-prefix-less as of 2026-07-12 (Lon directive).
+# Dump kind names are IR_-prefix-less as of 2026-07-12 (Lon directive); slotless nodes render @LINE (Lon:
+# numbers in the dump mean SLOTS — node ids are verbose-only), so the noslot arm matches @, never nN.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet  DATE: 2026-06-27 / 2026-07-12
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,7 +29,7 @@ chk() { # chk "<label>" "<grep-for-line>" "slot|noslot"
   self="$(printf '%s' "${line}" | awk '{print $2}')"
   case "${self}" in
     s*) [ "${mode}" = slot ]   && echo "  ok    ${label} carries slot (${self})" || { echo "  FAIL  ${label} must NOT carry slot: ${line}"; fails=$((fails+1)); } ;;
-    n*) [ "${mode}" = noslot ] && echo "  ok    ${label} has no slot (${self})"  || { echo "  FAIL  ${label} must carry slot: ${line}"; fails=$((fails+1)); } ;;
+    @*) [ "${mode}" = noslot ] && echo "  ok    ${label} has no slot (${self})"  || { echo "  FAIL  ${label} must carry slot: ${line}"; fails=$((fails+1)); } ;;
     *)  echo "  FAIL  ${label}: unparsable self field: ${line}"; fails=$((fails+1)) ;;
   esac
 }
