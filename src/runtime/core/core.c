@@ -1,4 +1,5 @@
 #include "core.h"
+#include "../rt/rt_arena.h"
 #include "sil_macros.h"
 #include "utf8.h"
 #include "../../parser/snobol4/scrip_cc.h"
@@ -54,7 +55,7 @@ static void trace_register(const char *name) {
     for (int i = 0; i < TRACE_SET_CAP; i++) {
         int slot = (h + i) & (TRACE_SET_CAP - 1);
         if (!trace_set[slot]) {
-            trace_set[slot] = GC_strdup(name);
+            trace_set[slot] = rt_ws_strdup(name);
             trace_callback[slot] = NULL;
             return;
         }
@@ -69,12 +70,12 @@ static void trace_register_callback(const char *name, const char *cbfn) {
     for (int i = 0; i < TRACE_SET_CAP; i++) {
         int slot = (h + i) & (TRACE_SET_CAP - 1);
         if (!trace_set[slot]) {
-            trace_set[slot] = GC_strdup(name);
-            trace_callback[slot] = (cbfn && *cbfn) ? GC_strdup(cbfn) : NULL;
+            trace_set[slot] = rt_ws_strdup(name);
+            trace_callback[slot] = (cbfn && *cbfn) ? rt_ws_strdup(cbfn) : NULL;
             return;
         }
         if (strcmp(trace_set[slot], name) == 0) {
-            trace_callback[slot] = (cbfn && *cbfn) ? GC_strdup(cbfn) : NULL;
+            trace_callback[slot] = (cbfn && *cbfn) ? rt_ws_strdup(cbfn) : NULL;
             return;
         }
     }
@@ -425,7 +426,7 @@ void comm_var(const char *name, DESCR_t val) {
     if (cbfn && trace_recursion_depth == 0) {
         trace_recursion_depth++;
         DESCR_t cbargs[2];
-        cbargs[0] = STRVAL(GC_strdup(name));
+        cbargs[0] = STRVAL(rt_ws_strdup(name));
         cbargs[1] = STRVAL("");
         (void)APPLY_fn(cbfn, cbargs, 2);
         trace_recursion_depth--;
@@ -722,10 +723,10 @@ static DESCR_t _NAME_(DESCR_t *a, int n) {
     DESCR_t val = a[0];
     if (IS_NAME(val)) {
         const char *nm = val.s ? val.s : "";
-        return STRVAL(GC_strdup(nm));
+        return STRVAL(rt_ws_strdup(nm));
     }
     const char *s = VARVAL_fn(val);
-    return STRVAL(GC_strdup(s ? s : ""));
+    return STRVAL(rt_ws_strdup(s ? s : ""));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LGT_(DESCR_t *a, int n) {
@@ -773,10 +774,10 @@ static DESCR_t _LNE_(DESCR_t *a, int n) {
 static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     int64_t selector = to_int(a[0]);
-    if (selector == 0) return STRVAL(GC_strdup(""));
+    if (selector == 0) return STRVAL(rt_ws_strdup(""));
     if (selector == 1) {
         char buf[32]; snprintf(buf, sizeof(buf), "%d", (int)getpid());
-        return STRVAL(GC_strdup(buf));
+        return STRVAL(rt_ws_strdup(buf));
     }
     if (selector == 3) return INTVAL(0);
     if (selector == 4 && n >= 2) {
@@ -784,7 +785,7 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         if (!envname || !*envname) return NULVCL;
         const char *val = getenv(envname);
         if (!val) return NULVCL;
-        return STRVAL(GC_strdup(val));
+        return STRVAL(rt_ws_strdup(val));
     }
     return NULVCL;
 }
@@ -906,7 +907,7 @@ static DESCR_t _LCASE_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     const char *s = VARVAL_fn(a[0]);
     if (!s) return NULVCL;
-    char *r = GC_strdup(s);
+    char *r = rt_ws_strdup(s);
     for (int i = 0; r[i]; i++) r[i] = (char)tolower((unsigned char)r[i]);
     return STRVAL(r);
 }
@@ -915,7 +916,7 @@ static DESCR_t _UCASE__fn(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     const char *s = VARVAL_fn(a[0]);
     if (!s) return NULVCL;
-    char *r = GC_strdup(s);
+    char *r = rt_ws_strdup(s);
     for (int i = 0; r[i]; i++) r[i] = (char)toupper((unsigned char)r[i]);
     return STRVAL(r);
 }
@@ -936,7 +937,7 @@ static DESCR_t _DATE_(DESCR_t *a, int n) {
     (void)a; (void)n;
     time_t t = time(NULL);
     struct tm *tm = localtime(&t);
-    char *buf = GC_malloc(20);
+    char *buf = rt_ws_alloc(20);
     strftime(buf, 20, "%m/%d/%Y %H:%M:%S", tm);
     return STRVAL(buf);
 }
@@ -1008,7 +1009,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (!type) return FAILDESCR;
     if (strcasecmp(type, "STRING")  == 0) {
         const char *s = VARVAL_fn(val);
-        return s ? STRVAL(GC_strdup(s)) : NULVCL;
+        return s ? STRVAL(rt_ws_strdup(s)) : NULVCL;
     }
     if (strcasecmp(type, "INTEGER") == 0) {
         if (!IS_STR(val) && !IS_INT(val) && !IS_REAL(val)) return FAILDESCR;
@@ -1081,7 +1082,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (strcasecmp(type, "NAME") == 0) {
         const char *s = VARVAL_fn(val);
         if (!s || !*s) return FAILDESCR;
-        return NAMEVAL(GC_strdup(s));
+        return NAMEVAL(rt_ws_strdup(s));
     }
     if (strcasecmp(type, "NUMERIC")    == 0) {
         if (IS_INT(val)) return val;
@@ -1191,7 +1192,7 @@ static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *name = VARVAL_fn(a[0]);
     if (!name || !*name) return FAILDESCR;
-    return FNCEX_fn(name) ? STRVAL(GC_strdup(name)) : FAILDESCR;
+    return FNCEX_fn(name) ? STRVAL(rt_ws_strdup(name)) : FAILDESCR;
 }
 static int (*_label_exists_hook)(const char *) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1202,7 +1203,7 @@ static DESCR_t _LABEL_(DESCR_t *a, int n) {
     const char *name = VARVAL_fn(a[0]);
     if (!name || !*name) return FAILDESCR;
     if (_label_exists_hook && _label_exists_hook(name))
-        return STRVAL(GC_strdup(name));
+        return STRVAL(rt_ws_strdup(name));
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1237,7 +1238,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
             trace_register(varname);
         }
     }
-    return STRVAL(GC_strdup(varname));
+    return STRVAL(rt_ws_strdup(varname));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _STOPTR_(DESCR_t *a, int n) {
@@ -1245,7 +1246,7 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     const char *varname = VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
     trace_unregister(varname);
-    return STRVAL(GC_strdup(varname));
+    return STRVAL(rt_ws_strdup(varname));
 }
 static DATBLK_t *_udef_lookup(const char *name);
 typedef struct { char *typename; int nfields; char **fields; } DataClosure;
@@ -1475,9 +1476,9 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     const char *raw_spec = VARVAL_fn(a[0]);
     if (!raw_spec || !*raw_spec) return NULVCL;
-    char *spec = GC_strdup(raw_spec);
+    char *spec = rt_ws_strdup(raw_spec);
     DEFDAT_fn(spec);
-    char *s = GC_strdup(spec);
+    char *s = rt_ws_strdup(spec);
     char *paren = strchr(s, '(');
     if (!paren) return NULVCL;
     *paren = '\0';
@@ -1487,16 +1488,16 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     if (close) *close = '\0';
     if (_data_ntypes >= DATA_MAX_TYPES) return NULVCL;
     int tidx = _data_ntypes++;
-    char *uname = GC_strdup(tname);
+    char *uname = rt_ws_strdup(tname);
     _data_types[tidx].typename = uname;
     int nf = 0;
-    char *tmp = GC_strdup(fstr);
+    char *tmp = rt_ws_strdup(fstr);
     char *tok = strtok(tmp, ",");
     while (tok && nf < DATA_MAX_FIELDS) {
         while (*tok == ' ') tok++;
         char *end = tok + strlen(tok) - 1;
         while (end > tok && *end == ' ') *end-- = '\0';
-        char *fld = GC_strdup(tok);
+        char *fld = rt_ws_strdup(tok);
         _data_types[tidx].fields[nf] = fld;
         nf++;
         tok = strtok(NULL, ",");
@@ -1578,7 +1579,7 @@ static DESCR_t _PROTOTYPE_(DESCR_t *a, int n) {
             else
                 snprintf(buf, sizeof(buf), "%d:%d", arr->lo, arr->hi);
         }
-        return STRVAL(GC_strdup(buf));
+        return STRVAL(rt_ws_strdup(buf));
     }
     if (IS_TBL(v)) {
         return STRVAL("");
@@ -1606,7 +1607,7 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *name = VARVAL_fn(a[0]);
     if (!name) return FAILDESCR;
-    char *fname = GC_strdup(name);
+    char *fname = rt_ws_strdup(name);
     return NV_GET_fn(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1767,30 +1768,30 @@ void core_lib_init(void) {
     register_fn("ALT",     _PAT_ALT_,     2, 2);
     register_fn("CONCAT",  _PAT_CONCAT_,  2, 2);
     {
-        char *_ch = GC_malloc_atomic(2);
+        char *_ch = rt_ws_alloc(2);
         _ch[0] = (char)9;  _ch[1] = '\0'; NV_SET_fn("tab", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)9;  _ch[1] = '\0'; NV_SET_fn("ht", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)10; _ch[1] = '\0'; NV_SET_fn("nl", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)10; _ch[1] = '\0'; NV_SET_fn("lf", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)13; _ch[1] = '\0'; NV_SET_fn("cr", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)12; _ch[1] = '\0'; NV_SET_fn("ff", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)11; _ch[1] = '\0'; NV_SET_fn("vt", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)8;  _ch[1] = '\0'; NV_SET_fn("bs", STRVAL(_ch));
-        { char *_nul = GC_malloc_atomic(2); _nul[0] = '\0'; _nul[1] = '\0';
+        { char *_nul = rt_ws_alloc(2); _nul[0] = '\0'; _nul[1] = '\0';
           NV_SET_fn("nul", BSTRVAL(_nul, 1)); }
         NV_SET_fn("epsilon", pat_epsilon());
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)47; _ch[1] = '\0'; NV_SET_fn("fSlash", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)92; _ch[1] = '\0'; NV_SET_fn("bSlash", STRVAL(_ch));
-        _ch = GC_malloc_atomic(2);
+        _ch = rt_ws_alloc(2);
         _ch[0] = (char)59; _ch[1] = '\0'; NV_SET_fn("semicolon", STRVAL(_ch));
         NV_SET_fn("UCASE",  STRVAL(ucase));
         NV_SET_fn("LCASE",  STRVAL(lcase));
@@ -1815,23 +1816,23 @@ void core_lib_init(void) {
 char *VARVAL_fn(DESCR_t v) {
     char buf[64];
     switch (v.v) {
-        case DT_SNUL:    return GC_strdup("");
-        case DT_S:     return v.s ? v.s : GC_strdup("");
+        case DT_SNUL:    return rt_ws_strdup("");
+        case DT_S:     return v.s ? v.s : rt_ws_strdup("");
         case DT_I:
             snprintf(buf, sizeof(buf), "%" PRId64, v.i);
-            return GC_strdup(buf);
+            return rt_ws_strdup(buf);
         case DT_R: {
             snprintf(buf, sizeof(buf), "%.15g", v.r);
             if (!strchr(buf, '.') && !strchr(buf, 'e'))
                 strncat(buf, ".", sizeof(buf) - strlen(buf) - 1);
-            return GC_strdup(buf);
+            return rt_ws_strdup(buf);
         }
         case DT_DATA:
-            return v.u ? GC_strdup(v.u->type->name) : GC_strdup("");
+            return v.u ? rt_ws_strdup(v.u->type->name) : rt_ws_strdup("");
         case DT_P:
-            return GC_strdup("PATTERN");
+            return rt_ws_strdup("PATTERN");
         case DT_A: {
-            if (!v.arr) return GC_strdup("ARRAY");
+            if (!v.arr) return rt_ws_strdup("ARRAY");
             ARBLK_t *arr = v.arr;
             char buf[128];
             if (arr->ndim > 1) {
@@ -1848,32 +1849,32 @@ char *VARVAL_fn(DESCR_t v) {
                 else
                     snprintf(buf, sizeof(buf), "ARRAY('%d:%d')", arr->lo, arr->hi);
             }
-            return GC_strdup(buf);
+            return rt_ws_strdup(buf);
         }
         case DT_T: {
-            if (!v.tbl) return GC_strdup("TABLE");
+            if (!v.tbl) return rt_ws_strdup("TABLE");
             char buf[64];
             snprintf(buf, sizeof(buf), "TABLE(%d,%d)", v.tbl->init, v.tbl->inc);
-            return GC_strdup(buf);
+            return rt_ws_strdup(buf);
         }
         case DT_N:
             if (v.slen == 2 && v.ptr) { extern DESCR_t rt_deref(DESCR_t); return VARVAL_fn(rt_deref(v)); }
-            if (v.slen == 0 && v.s) return GC_strdup(v.s);
+            if (v.slen == 0 && v.s) return rt_ws_strdup(v.s);
             if (v.ptr) {
                 const char *nm = NV_name_from_ptr((const DESCR_t *)v.ptr);
-                if (nm) return GC_strdup(nm);
+                if (nm) return rt_ws_strdup(nm);
                 return VARVAL_fn(*(DESCR_t *)v.ptr);
             }
-            return GC_strdup("");
+            return rt_ws_strdup("");
         case DT_K:
             if (v.s) return VARVAL_fn(NV_GET_fn(v.s));
-            return GC_strdup("");
+            return rt_ws_strdup("");
         case DT_E:
-            return GC_strdup("EXPRESSION");
+            return rt_ws_strdup("EXPRESSION");
         case DT_C:
-            return GC_strdup("");
+            return rt_ws_strdup("");
         default:
-            return GC_strdup("");
+            return rt_ws_strdup("");
     }
 }
 #include <setjmp.h>
@@ -1991,7 +1992,7 @@ const char *datatype(DESCR_t v) {
 static DATBLK_t *_udef_types = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFDAT_fn(const char *spec) {
-    char *s = GC_strdup(spec);
+    char *s = rt_ws_strdup(spec);
     char *paren = strchr(s, '(');
     if (!paren) return;
     *paren = '\0';
@@ -2000,20 +2001,20 @@ void DEFDAT_fn(const char *spec) {
     char *close = strchr(fields_str, ')');
     if (close) *close = '\0';
     DATBLK_t *t = GC_malloc(sizeof(DATBLK_t));
-    t->name = GC_strdup(name);
+    t->name = rt_ws_strdup(name);
     int nfields = 0;
-    char *tmp = GC_strdup(fields_str);
+    char *tmp = rt_ws_strdup(fields_str);
     char *tok = strtok(tmp, ",");
     while (tok) { nfields++; tok = strtok(NULL, ","); }
     t->nfields = nfields;
     t->fields  = GC_malloc(nfields * sizeof(char *));
-    tmp = GC_strdup(fields_str);
+    tmp = rt_ws_strdup(fields_str);
     tok = strtok(tmp, ",");
     for (int i = 0; i < nfields && tok; i++) {
         while (*tok == ' ') tok++;
         char *end = tok + strlen(tok) - 1;
         while (end > tok && *end == ' ') *end-- = '\0';
-        char *fld = GC_strdup(tok);
+        char *fld = rt_ws_strdup(tok);
         t->fields[i] = fld;
         tok = strtok(NULL, ",");
     }
@@ -2105,7 +2106,7 @@ DESCR_t NV_GET_fn(const char *name) {
                 _io_chan[ch].buf[--nread] = '\0';
             }
         }
-        return STRVAL(GC_strdup(_io_chan[ch].buf));
+        return STRVAL(rt_ws_strdup(_io_chan[ch].buf));
     }
     if (strcmp(name, "STCOUNT")  == 0) return INTVAL(kw_stcount);
     if (strcmp(name, "STNO")     == 0) return INTVAL(kw_stno);
@@ -2175,7 +2176,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         const char *s = (val.v == DT_S) ? val.s : VARVAL_fn(val);
-        scan_subj = s ? GC_strdup(s) : ""; return val;
+        scan_subj = s ? rt_ws_strdup(s) : ""; return val;
     }
     if (strcmp   (name, "&pos") == 0) {
         extern int scan_pos;
@@ -2210,7 +2211,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         }
     }
     NV_t *e = GC_malloc(sizeof(NV_t));
-    e->name = GC_strdup(name);
+    e->name = rt_ws_strdup(name);
     e->val  = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -2243,7 +2244,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
         if (strcmp(e->name, name) == 0) return e->is_gva ? e->cell : &e->val;
     NV_t *e = GC_malloc(sizeof(NV_t));
-    e->name = GC_strdup(name);
+    e->name = rt_ws_strdup(name);
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -2399,30 +2400,30 @@ static unsigned _func_hash(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
     FNCBLK_t *fe = GC_malloc(sizeof(FNCBLK_t));
-    char *s = GC_strdup(spec);
-    fe->spec = GC_strdup(spec);
+    char *s = rt_ws_strdup(spec);
+    fe->spec = rt_ws_strdup(spec);
     char *paren = strchr(s, '(');
     if (!paren) {
         char *comma = strchr(s, ',');
         if (comma) {
             *comma = '\0';
-            fe->name = GC_strdup(s);
+            fe->name = rt_ws_strdup(s);
             fe->entry_label = fe->name;
-            char *lstr = GC_strdup(comma + 1);
+            char *lstr = rt_ws_strdup(comma + 1);
             int nl = 0;
             char *tok = strtok(lstr, ",");
             while (tok) { nl++; tok = strtok(NULL, ","); }
             fe->nlocals = nl;
             fe->locals  = GC_malloc(nl * sizeof(char *));
-            lstr = GC_strdup(comma + 1);
+            lstr = rt_ws_strdup(comma + 1);
             tok  = strtok(lstr, ",");
             for (int i = 0; i < nl && tok; i++) {
                 while (*tok == ' ') tok++;
-                fe->locals[i] = GC_strdup(tok);
+                fe->locals[i] = rt_ws_strdup(tok);
                 tok = strtok(NULL, ",");
             }
         } else {
-            fe->name = GC_strdup(s);
+            fe->name = rt_ws_strdup(s);
             fe->entry_label = fe->name;
         }
         fe->nparams = 0;
@@ -2430,7 +2431,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         return fe;
     }
     *paren = '\0';
-    fe->name = GC_strdup(s);
+    fe->name = rt_ws_strdup(s);
     fe->entry_label = fe->name;
     char *close = strchr(paren + 1, ')');
     char *locals_str = NULL;
@@ -2439,7 +2440,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         if (*locals_str == ',') locals_str++;
         *close = '\0';
     }
-    char *pstr = GC_strdup(paren + 1);
+    char *pstr = rt_ws_strdup(paren + 1);
     int np = 0;
     if (*pstr) {
         char *tok = strtok(pstr, ",");
@@ -2448,11 +2449,11 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
     fe->nparams = np;
     fe->params  = np ? GC_malloc(np * sizeof(char *)) : NULL;
     if (np) {
-        pstr = GC_strdup(paren + 1);
+        pstr = rt_ws_strdup(paren + 1);
         char *tok = strtok(pstr, ",");
         for (int i = 0; i < np && tok; i++) {
             while (*tok == ' ') tok++;
-            fe->params[i] = GC_strdup(tok);
+            fe->params[i] = rt_ws_strdup(tok);
             tok = strtok(NULL, ",");
         }
     }
@@ -2460,16 +2461,16 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
     fe->nlocals = 0;
     fe->locals  = NULL;
     if (locals_str && *locals_str) {
-        char *lstr = GC_strdup(locals_str);
+        char *lstr = rt_ws_strdup(locals_str);
         char *tok  = strtok(lstr, ",");
         while (tok) { nl++; tok = strtok(NULL, ","); }
         fe->nlocals = nl;
         fe->locals  = GC_malloc(nl * sizeof(char *));
-        lstr = GC_strdup(locals_str);
+        lstr = rt_ws_strdup(locals_str);
         tok  = strtok(lstr, ",");
         for (int i = 0; i < nl && tok; i++) {
             while (*tok == ' ') tok++;
-            fe->locals[i] = GC_strdup(tok);
+            fe->locals[i] = rt_ws_strdup(tok);
             tok = strtok(NULL, ",");
         }
     }
@@ -2504,7 +2505,7 @@ void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
     unsigned h = _func_hash(fe->name);
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fe->name) == 0) {
-            char *el = GC_strdup(entry_label);
+            char *el = rt_ws_strdup(entry_label);
             e->entry_label = el;
             return;
         }
@@ -2529,8 +2530,8 @@ int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn_alias(const char *newname, const char *oldname) {
     _func_init();
-    char *nn = GC_strdup(newname);
-    char *on = GC_strdup(oldname);
+    char *nn = rt_ws_strdup(newname);
+    char *on = rt_ws_strdup(oldname);
     newname = nn; oldname = on;
     FNCBLK_t *old_entry = NULL;
     unsigned ho = _func_hash(oldname);
@@ -2538,7 +2539,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
         if (strcmp(e->name, oldname) == 0) { old_entry = e; break; }
     }
     FNCBLK_t *fe = GC_malloc(sizeof(FNCBLK_t));
-    fe->name    = GC_strdup(newname);
+    fe->name    = rt_ws_strdup(newname);
     if (old_entry) {
         fe->spec        = old_entry->spec;
         fe->entry_label = old_entry->entry_label;
@@ -2548,7 +2549,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
         fe->nlocals = old_entry->nlocals;
         fe->locals  = old_entry->locals;
     } else {
-        fe->spec = GC_strdup(newname); fe->fn = NULL;
+        fe->spec = rt_ws_strdup(newname); fe->fn = NULL;
         fe->entry_label = fe->name;
         fe->nparams = 0; fe->params = NULL;
         fe->nlocals = 0; fe->locals = NULL;
@@ -2603,7 +2604,7 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR;
-            return STRVAL(GC_strdup(e->params[idx - 1]));
+            return STRVAL(rt_ws_strdup(e->params[idx - 1]));
         }
     }
     return FAILDESCR;
@@ -2619,7 +2620,7 @@ static DESCR_t _LOCAL_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nlocals) return FAILDESCR;
-            return STRVAL(GC_strdup(e->locals[idx - 1]));
+            return STRVAL(rt_ws_strdup(e->locals[idx - 1]));
         }
     }
     return FAILDESCR;
@@ -2648,7 +2649,7 @@ static DESCR_t _FIELD_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR;
-            return STRVAL(GC_strdup(e->params[idx - 1]));
+            return STRVAL(rt_ws_strdup(e->params[idx - 1]));
         }
     }
     return FAILDESCR;
@@ -2724,7 +2725,7 @@ DESCR_t input_read(void) {
             _input_buf[--nread] = '\0';
         }
     }
-    return STRVAL(GC_strdup(_input_buf));
+    return STRVAL(rt_ws_strdup(_input_buf));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *_io_extract_fname(const char *opts_str, char *buf, size_t bufsz) {
