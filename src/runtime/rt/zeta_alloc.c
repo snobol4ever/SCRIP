@@ -16,13 +16,17 @@ static char *g_zls_rooted = (char *)0;
 static void *g_zls_cur = (void *)0;
 static long  g_zls_allocs = 0;
 static long  g_zls_releases = 0;
+static long  g_zls_nonhead = 0;
+static long  g_zls_bytes = 0;
 static int   g_zls_report_reg = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_zls_report(void)
 {
-    if (!getenv("SCRIP_ZETA_TELEM")) return;
-    fprintf(stderr, "[ZLS] ZC_ALLOC=%d ZC_INIT=%d ZC_POISON=%d arena=%dMB hiwater=%ldB allocs=%ld releases=%ld live=%ld\n", (int)ZC_ALLOC, (int)ZC_INIT, (int)ZC_POISON, (int)ZC_ARENA_MB,
-            g_zls_arena ? (long)(g_zls_hiwater - g_zls_arena) : 0L, g_zls_allocs, g_zls_releases, g_zls_allocs - g_zls_releases);
+    long depth = 0; void *it = g_zls_cur; while (it) { depth += 1; it = ((void **)((char *)it - ZLS_HDR))[0]; }
+    if (!getenv("SCRIP_ZETA_TELEM") && !getenv("SCRIP_ZLS_LIFO_PROBE")) return;
+    fprintf(stderr, "[ZLS] chain_depth=%ld live=%ld %s\n", depth, g_zls_allocs - g_zls_releases, depth == (g_zls_allocs - g_zls_releases) ? "COHERENT" : "ORPHANED");
+    fprintf(stderr, "[ZLS] ZC_ALLOC=%d ZC_INIT=%d ZC_POISON=%d arena=%dMB hiwater=%ldB allocs=%ld releases=%ld live=%ld nonhead=%ld bytes=%ld\n", (int)ZC_ALLOC, (int)ZC_INIT, (int)ZC_POISON, (int)ZC_ARENA_MB,
+            g_zls_arena ? (long)(g_zls_hiwater - g_zls_arena) : 0L, g_zls_allocs, g_zls_releases, g_zls_allocs - g_zls_releases, g_zls_nonhead, g_zls_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_zls_arena_init(void)
@@ -66,6 +70,7 @@ void *rt_zls_alloc(long bytes)
     ((long *)base)[1] = sz;
     g_zls_cur = (void *)(base + ZLS_HDR);
     g_zls_allocs += 1;
+    g_zls_bytes += (long)(ZLS_HDR + sz);
     return (void *)(base + ZLS_HDR);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -77,6 +82,13 @@ long rt_zls_frame_size(void *fb) { return fb ? ((long *)((char *)fb - ZLS_HDR))[
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_zls_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); p = e ? (atoi(e) != 0) : (ZC_POISON == ZC_POISON_FILL); } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* CHAIN INTEGRITY (2026-07-12, MEASURED not reasoned). This function assumed fb is ALWAYS the chain head and spliced with an unconditional g_zls_cur = prev(fb). That assumption is FALSE: SCRIP_ZLS_LIFO_PROBE over the
+ * whole corpus reports SNOBOL4 crosscheck 517/517 and Icon 20486/20488 perfectly LIFO (nonhead=0), but Prolog meta_qsort.pl issues 122 NON-HEAD releases. A non-head splice ORPHANS every block between the old head and fb:
+ * they leave the chain while still live. Benign TODAY only because libgc scans conservatively and never consults this chain -- but GC-W-1 makes this chain THE ROOT SET, at which point an orphaned-but-live frame is invisible
+ * to the mark phase and gets collected out from under a running Prolog generator (a silent, stress-only corruption in the very mechanism the collector stands on). Fixed by unlinking properly: the head release keeps its O(1)
+ * fast path (the 100% case for SNOBOL4/Icon); a non-head release walks to fb's successor and repoints that successor's prev-link. A block not found in the chain (double release / foreign pointer) leaves the chain untouched
+ * and does NOT free, which leaks one block rather than corrupting the root set or double-freeing. The BUMP_LIFO cursor pop is tightened the same way: it now fires only when the released block is genuinely the arena top --
+ * the old `base < g_zls_top` test would have truncated the arena UNDER LIVE BLOCKS on exactly meta_qsort's 122 non-head releases; a non-top release now leaves a hole instead (grow-only), which is safe. */
 void rt_zls_release(void *fb)
 {
     char *base;
@@ -84,12 +96,13 @@ void rt_zls_release(void *fb)
     base = (char *)fb - ZLS_HDR;
     if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-RELEASE] fb=%p sz=%ld fn=%p (call #%ld)\n", fb, ((long *)base)[1], ((void **)fb)[0], g_zls_releases + 1);
     g_zls_releases += 1;
-    g_zls_cur = ((void **)base)[0];
+    if (fb == g_zls_cur) { g_zls_cur = ((void **)base)[0]; }
+    else { void *it = g_zls_cur; g_zls_nonhead += 1; while (it && rt_zls_frame_prev(it) != fb) it = rt_zls_frame_prev(it); if (!it) return; ((void **)((char *)it - ZLS_HDR))[0] = ((void **)base)[0]; }
 #if ZC_ALLOC == ZC_ALLOC_MALLOC
     if (rt_zls_poison()) { long psz = ((long *)base)[1]; memset(base, 0xDD, (size_t)(ZLS_HDR + psz)); return; }
     GC_FREE(base);
 #elif ZC_ALLOC == ZC_ALLOC_BUMP_LIFO
-    if (base >= g_zls_arena && base < g_zls_top) {
+    if (base >= g_zls_arena && base + ZLS_HDR + ((long *)base)[1] == g_zls_top) {
 #if ZC_POISON == ZC_POISON_FILL
         memset(base, 0xDD, (size_t)(g_zls_top - base));
 #endif
