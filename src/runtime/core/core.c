@@ -1264,9 +1264,9 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     if (tidx < 0 || tidx >= _data_ntypes) return NULVCL;
     DATBLK_t *t = _udef_lookup(_data_types[tidx].typename);
     if (!t) return NULVCL;
-    DATINST_t *u = GC_malloc(sizeof(DATINST_t));
+    DATINST_t *u = rt_ws_alloc(sizeof(DATINST_t));
     u->type   = t;
-    u->fields = GC_malloc(t->nfields * sizeof(DESCR_t));
+    u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++)
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
     return (DESCR_t){ .v = DT_DATA, .u = u };
@@ -2000,14 +2000,14 @@ void DEFDAT_fn(const char *spec) {
     char *fields_str = paren + 1;
     char *close = strchr(fields_str, ')');
     if (close) *close = '\0';
-    DATBLK_t *t = GC_malloc(sizeof(DATBLK_t));
+    DATBLK_t *t = rt_ws_alloc(sizeof(DATBLK_t));
     t->name = rt_ws_strdup(name);
     int nfields = 0;
     char *tmp = rt_ws_strdup(fields_str);
     char *tok = strtok(tmp, ",");
     while (tok) { nfields++; tok = strtok(NULL, ","); }
     t->nfields = nfields;
-    t->fields  = GC_malloc(nfields * sizeof(char *));
+    t->fields  = rt_ws_alloc(nfields * sizeof(char *));
     tmp = rt_ws_strdup(fields_str);
     tok = strtok(tmp, ",");
     for (int i = 0; i < nfields && tok; i++) {
@@ -2031,9 +2031,9 @@ static DATBLK_t *_udef_lookup(const char *name) {
 DESCR_t DATCON_fn(const char *typename, ...) {
     DATBLK_t *t = _udef_lookup(typename);
     if (!t) return NULVCL;
-    DATINST_t *u = GC_malloc(sizeof(DATINST_t));
+    DATINST_t *u = rt_ws_alloc(sizeof(DATINST_t));
     u->type   = t;
-    u->fields = GC_malloc(t->nfields * sizeof(DESCR_t));
+    u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++) u->fields[i] = NULVCL;
     va_list ap;
     va_start(ap, typename);
@@ -2210,7 +2210,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
             return;
         }
     }
-    NV_t *e = GC_malloc(sizeof(NV_t));
+    NV_t *e = rt_ws_alloc(sizeof(NV_t));
     e->name = rt_ws_strdup(name);
     e->val  = val;
     e->cell = (DESCR_t *)0;
@@ -2243,7 +2243,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
         if (strcmp(e->name, name) == 0) return e->is_gva ? e->cell : &e->val;
-    NV_t *e = GC_malloc(sizeof(NV_t));
+    NV_t *e = rt_ws_alloc(sizeof(NV_t));
     e->name = rt_ws_strdup(name);
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
@@ -2399,7 +2399,7 @@ static unsigned _func_hash(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
-    FNCBLK_t *fe = GC_malloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_ws_alloc(sizeof(FNCBLK_t));
     char *s = rt_ws_strdup(spec);
     fe->spec = rt_ws_strdup(spec);
     char *paren = strchr(s, '(');
@@ -2414,7 +2414,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
             char *tok = strtok(lstr, ",");
             while (tok) { nl++; tok = strtok(NULL, ","); }
             fe->nlocals = nl;
-            fe->locals  = GC_malloc(nl * sizeof(char *));
+            fe->locals  = rt_ws_alloc(nl * sizeof(char *));
             lstr = rt_ws_strdup(comma + 1);
             tok  = strtok(lstr, ",");
             for (int i = 0; i < nl && tok; i++) {
@@ -2447,7 +2447,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         while (tok) { np++; tok = strtok(NULL, ","); }
     }
     fe->nparams = np;
-    fe->params  = np ? GC_malloc(np * sizeof(char *)) : NULL;
+    fe->params  = np ? rt_ws_alloc(np * sizeof(char *)) : NULL;
     if (np) {
         pstr = rt_ws_strdup(paren + 1);
         char *tok = strtok(pstr, ",");
@@ -2465,7 +2465,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         char *tok  = strtok(lstr, ",");
         while (tok) { nl++; tok = strtok(NULL, ","); }
         fe->nlocals = nl;
-        fe->locals  = GC_malloc(nl * sizeof(char *));
+        fe->locals  = rt_ws_alloc(nl * sizeof(char *));
         lstr = rt_ws_strdup(locals_str);
         tok  = strtok(lstr, ",");
         for (int i = 0; i < nl && tok; i++) {
@@ -2538,7 +2538,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
     for (FNCBLK_t *e = _func_buckets[ho]; e; e = e->next) {
         if (strcmp(e->name, oldname) == 0) { old_entry = e; break; }
     }
-    FNCBLK_t *fe = GC_malloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_ws_alloc(sizeof(FNCBLK_t));
     fe->name    = rt_ws_strdup(newname);
     if (old_entry) {
         fe->spec        = old_entry->spec;
