@@ -804,6 +804,8 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_in_arbno = 0;   /* ZB-FC-3b: >0 while lowering an ARBNO body; balanced, so it always returns to 0 (EVAL/CODE mint fresh graphs in-process) */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail) {
     /* SN4-NARY-SEQ (Lon directive 2026-07-12, this session; same glue mechanism as SN4-NARY-ALT and the
      * same design rule — a construct earns a node iff it OWNS RUNTIME STATE): ONE IR_MATCH_SEQUENCE node S
@@ -823,6 +825,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
     IR_graph_t * g = cx->g;
     IR_t * S = lc_build(g, IR_MATCH_SEQUENCE, succ, NULL);
     sno_ω_to(S, fail);
+    int fc_linear = 1;   /* ZB-FC-3b: eligibility only -- SEQ needs NO footprint arithmetic (zeta_storage.c fc_seq_*); every element must merely respect the S10c port invariant */
     for (int i = 0; i < ne; i++) {
         int before = g->n;
         IR_t * ei = sno_pat_node(cx, elems[i], S, S);
@@ -832,10 +835,19 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
             if (!x) continue;
             if (x->ω.node == S) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
             if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+            { long fck; if (fc_geom(x, &fck)) continue; }   /* granted leaf: pushes at alpha, pops at EVERY omega -- port-invariant by construction */
+            switch (x->op) {
+            case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+            case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+            case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+            case IR_GOTO: break;
+            default: fc_linear = 0;   /* ALTERNATE / ARBNO / ARB / DEFER / ABORT / unknown: decline the whole SEQ -- it stays flat, the pre-rung path */
+            }
         }
         ir_operand_push(S, ei);
         ir_operand_push(S, ri);
     }
+    if (fc_linear && sno_in_arbno == 0) { extern void fc_seq_register(const IR_t *); fc_seq_register(S); }
     IR_LIT(S).ival = (long)ne;
     return S;
 }
@@ -949,7 +961,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(R, fail);
         int before = g->n;
         IR_t * prev_seal = cx->pat_seal; cx->pat_seal = R;
+        sno_in_arbno++;   /* ZB-FC-3b FENCE: a SEQ lowered INSIDE an ARBNO body must NOT take the FORTH edge re-point -- ARBNO is still HEAP-flavor (Tier D) and moves rsp per iteration (zls2 blocks) between the body's gamma and a later beta, which breaks the static-depth premise the re-point rests on.  Lifts when ARBNO's iteration-frame chain rides rsp (ZB-ITER). */
         IR_t * ei = sno_pat_node(cx, t->c[0], R, R);
+        sno_in_arbno--;
         cx->pat_seal = prev_seal;
         if (before >= g->n) sno_fatal("ARBNO body lowered to zero nodes (bare FENCE / null pattern body)", NULL);
         IR_t * ri = (before < g->n) ? g->all[before] : ei;

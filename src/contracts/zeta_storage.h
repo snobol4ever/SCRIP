@@ -28,3 +28,5 @@ void         zls_dump(FILE * fp);
 void fc_alt_register(const IR_t * nd, int n, const int * fp);
 int fc_alt_fpmax(const IR_t * nd);
 int fc_alt_fp(const IR_t * nd, int j);
+void fc_seq_register(const IR_t * nd);
+int fc_seq_active(const IR_t * nd);
