@@ -16,8 +16,7 @@ __gva: .space 48, 0
   .intel_syntax noprefix
   .globl main
 main:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   push rdi
   push rsi
   call core_lib_init@PLT
@@ -31,8 +30,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
-  mov rsp, rbp
-  pop rbp
+  add rsp, 24
   ret
 main_α:
 #=======================================================================================================================

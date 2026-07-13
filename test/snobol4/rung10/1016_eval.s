@@ -261,8 +261,7 @@ mov rsp, qword ptr [r12 + 168]
 pop r12
 ret
 proc_startup:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   .section .rodata
   .Lstartup_pname0: .string "EXPR$0"
   .align 8
@@ -332,7 +331,7 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname2]
   mov esi, 176
   call rt_proc_set_frame_bytes@PLT
-  pop rbp
+  add rsp, 8
   ret
   .section .rodata
   .Lgvan0: .string "expr"
@@ -360,8 +359,7 @@ __gva: .space 128, 0
   .intel_syntax noprefix
   .globl main
 main:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   push rdi
   push rsi
   call core_lib_init@PLT
@@ -376,8 +374,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
-  mov rsp, rbp
-  pop rbp
+  add rsp, 24
   ret
 main_α:
 #=======================================================================================================================

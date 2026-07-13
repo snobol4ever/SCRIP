@@ -129,8 +129,7 @@ mov rsp, qword ptr [r12 + 648]
 pop r12
 ret
 proc_startup:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   .section .rodata
   .Lstartup_pname0: .string "ispos"
   .Lstartup_pp0_0: .string "x"
@@ -156,7 +155,7 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 656
   call rt_proc_set_frame_bytes@PLT
-  pop rbp
+  add rsp, 8
   ret
   .section .rodata
   .Lgvan0: .string "ispos"
@@ -172,8 +171,7 @@ __gva: .space 32, 0
   .intel_syntax noprefix
   .globl main
 main:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   push rdi
   push rsi
   call core_lib_init@PLT
@@ -188,8 +186,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
-  mov rsp, rbp
-  pop rbp
+  add rsp, 24
   ret
 main_α:
 #=======================================================================================================================
@@ -222,8 +219,8 @@ main_α_body:
 .Lx10_0:
  .quad 5
  xchain9_n1_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 304]
@@ -234,22 +231,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx12_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx12_2
 .Lx12_1:
  call rt_faildescr@PLT
 .Lx12_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 256], rax
  mov qword ptr [r12 + 264], rdx
  cmp eax, 99
@@ -336,8 +339,8 @@ main_α_body:
  xchain9_n7_β:
  jmp xchain9_n9_α
  xchain9_n8_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 480]
@@ -348,22 +351,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx20_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx20_2
 .Lx20_1:
  call rt_faildescr@PLT
 .Lx20_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 432], rax
  mov qword ptr [r12 + 440], rdx
  cmp eax, 99
