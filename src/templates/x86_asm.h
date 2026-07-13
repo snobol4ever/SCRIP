@@ -210,9 +210,10 @@ inline std::string x86_load_ro(const char * dst, const char * label, uint64_t pt
     return std::string(" lea ") + dst + ", [rip + " + (label ? label : "??") + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_align_assert();
 inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
-    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_Lrec(code); }
-    return std::string(" call ") + sym + "@PLT\n";
+    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code); }
+    return x86_align_assert() + std::string(" call ") + sym + "@PLT\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {
@@ -356,6 +357,25 @@ inline int x86_zeta_mode() { return rt_zeta_mode(); }
  * the same forward-decl-then-define-after-x86() pattern x86_zeta_free_call uses; the decl at the site enum
  * keeps x86_jmp/x86_jcc/x86_deflabel compiling here. */
 inline std::string x86_sub(const char * reg, long imm);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_align_assert() — ALIGN-INV-0 (Lon directive 2026-07-13: alignment BY CONSTRUCTION — pad to 16-multiples,
+ * waste 8 bytes to free rbp for good; the dance dies by deletion once this assert is clean).  Env-gated
+ * instrument (SCRIP_ALIGN_ASSERT=1), prepended to EVERY emitted call form at the one "call" dispatch arm:
+ * test spl,15 / jz +2 / ud2 — SIGILL at the exact offending call site (PC identifies it; run with
+ * SCRIP_NO_SEGV_HANDLER=1 for a clean backtrace).  Same shape as x86_port_canary (D13's sibling); fixed
+ * 8-byte Lrec in BINARY (byte-verified vs as: 40 F6 C4 0F / 74 02 / 0F 0B), local-label form in TEXT.
+ * Default (env unset) emits NOTHING — byte-identical builds.  x86_align_enter's `and rsp,-16` masks
+ * misalignment by design, so the true offender census needs a probe build with the dance no-op'd. */
+inline int x86_align_assert_on(void) {
+    static int v = -1;
+    if (v < 0) { const char * e = getenv("SCRIP_ALIGN_ASSERT"); v = (e && *e && *e != '0') ? 1 : 0; }
+    return v;
+}
+inline std::string x86_align_assert() {
+    if (!x86_align_assert_on()) return std::string();
+    if (MEDIUM_BINARY) return x86_Lrec(x86_b2(0x40, 0xF6) + x86_b2(0xC4, 0x0F) + x86_b2(0x74, 0x02) + x86_b2(0x0F, 0x0B));
+    return std::string(" test spl, 15\n jz 1f\n ud2\n1:\n");
+}
 inline std::string x86_port_canary() {
     if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
     if (MEDIUM_BINARY) {
@@ -1031,13 +1051,13 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         return std::string();
     }
     if (!strcmp(mnem, "call")) {
-        if (a.kind == XK_PORT) return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
-                                                    : (std::string(" call ") + x86_portname(a.port) + "\n");
+        if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
+                                                    : (std::string(" call ") + x86_portname(a.port) + "\n"));
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" call ") + a.sym + "\n";
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
-            return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n");
+            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n"));
         }
         return std::string();
     }

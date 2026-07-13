@@ -22,9 +22,7 @@ std::string bb_match_notany() {
          + x86("movzx",  "esi", "[r13+rcx]")
          + IF(_.op_sa >= 0,
              x86("mov",  "rdi", FRQ(_.op_sa + 8))
-           + x86("sub",  "rsp", (long)8)
            + x86("call", "strchr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *, int))strchr)
-           + x86("add",  "rsp", (long)8)
            + x86("test", "rax", "rax")
            + x86_omega("jne"))
          + IF(_.op_sa < 0,
@@ -32,9 +30,7 @@ std::string bb_match_notany() {
               ? ( x86("cmp",  "esi", (long)(unsigned char)(_.op_sval ? _.op_sval : "")[0])
                 + x86_omega("je") )
               : ( x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-                + x86("sub",  "rsp", (long)8)
                 + x86("call", "strchr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *, int))strchr)
-                + x86("add",  "rsp", (long)8)
                 + x86("test", "rax", "rax")
                 + x86_omega("jne") ) ))
          + x86("add",    "r14d", (long)1)
