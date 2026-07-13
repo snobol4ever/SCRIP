@@ -105,6 +105,9 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_GOTO_DEFERRED] = "IR_GOTO_DEFERRED",
     [IR_MATCH_RETRY] = "IR_MATCH_RETRY",
     [IR_MATCH_ADVANCE] = "IR_MATCH_ADVANCE",
+    [IR_GLIT] = "IR_GLIT",
+    [IR_GCC] = "IR_GCC",
+    [IR_GSUBRULE] = "IR_GSUBRULE",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
