@@ -69,24 +69,24 @@ static std::string xaf_frame_store_imm32(uint32_t disp, uint32_t imm) {
  * rsp never moves in a frame-less graph.  Mode read inside the fragment helper follows this file's own
  * ZC_FRAME precedent (the five xaf_ helpers above). */
 static std::string xaf_anchor_enter_bin(void) {
-    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    if (!x86_port_cstack()) return std::string();
     int v = x86_rnum(x86_align_save()); std::string c;
     if (v >= 8) c += (char)0x41; c += (char)(0x50 | (v & 7));
     c += (char)(0x48 | (v >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | (4 << 3) | (v & 7));
     c += (char)0x48; c += (char)0x83; c += (char)0xEC; c += (char)0x08; return c;
 }
 static std::string xaf_anchor_leave_bin(void) {
-    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    if (!x86_port_cstack()) return std::string();
     int v = x86_rnum(x86_align_save()); std::string c;
     c += (char)(0x48 | (v >= 8 ? 0x04 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((v & 7) << 3) | 4);
     if (v >= 8) c += (char)0x41; c += (char)(0x58 | (v & 7)); return c;
 }
 static std::string xaf_anchor_enter_text(void) {
-    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    if (!x86_port_cstack()) return std::string();
     return std::string("  push ") + x86_align_save() + "\n  mov " + x86_align_save() + ", rsp\n  sub rsp, 8\n";
 }
 static std::string xaf_anchor_leave_text(void) {
-    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    if (!x86_port_cstack()) return std::string();
     return std::string("mov rsp, ") + x86_align_save() + "\npop " + x86_align_save() + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -100,12 +100,12 @@ static std::string xaf_anchor_leave_text(void) {
  * precedent: TEXT rip-relative lea resolved by the -no-pie link, BINARY movabs of the in-process cell. */
 extern "C" void *g_gva_base;
 static std::string xaf_gva_reload_bin(void) {
-    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    if (!x86_port_cstack()) return std::string();
     std::string c; c += (char)0x48; c += (char)0xB8; c += u64le((uint64_t)(uintptr_t)&g_gva_base);
     c += (char)0x48; c += (char)0x8B; c += (char)0x18; return c;
 }
 static std::string xaf_gva_reload_text(void) {
-    if (x86_port_mode() != ZC_PORT_CSTACK) return std::string();
+    if (!x86_port_cstack()) return std::string();
     return std::string("  lea rax, [rip + g_gva_base]\n  mov rbx, qword ptr [rax]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

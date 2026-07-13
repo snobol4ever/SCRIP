@@ -672,6 +672,7 @@ int bb_call_route_classify(IR_t * nd) {
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls2_geom(const IR_t *, int, int *, long *);   /* zeta_storage.c — ZLS2 port-hook frame-protocol geometry (slot/K/ops per node) */
+extern "C" int fc_geom(const IR_t *, long *);                 /* zeta_storage.c — ZC_PORT_FORTH per-box fixed-cell geometry (RUNG ZB-FC-0) */
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
@@ -751,7 +752,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_LIT:            { bb_prepare(nd); bb_emit_x86(bb_match_lit()); } return 0;   /* SN4-PAT-3 */
     case IR_MATCH_ANY:            { bb_prepare(nd); bb_emit_x86(bb_match_any()); } return 0;   /* SN4-PAT-3 */
     case IR_MATCH_NOTANY:         { bb_prepare(nd); bb_emit_x86(bb_match_notany()); } return 0; /* SN4-PAT-3 */
-    case IR_MATCH_SPAN:           { bb_prepare(nd); bb_emit_x86(bb_match_span()); } return 0;   /* SN4-PAT-3 */
+    case IR_MATCH_SPAN:           { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_span()); } return 0;   /* SN4-PAT-3 + ZB-FC-0 fixed-cell grant */
     case IR_MATCH_BREAK:          { bb_prepare(nd); bb_emit_x86(bb_match_break()); } return 0;   /* SN4-PAT-3 */
     case IR_MATCH_BREAKX:         { bb_prepare(nd); bb_emit_x86(bb_match_breakx()); } return 0;  /* SN4-PAT-3 */
     case IR_MATCH_TAB:            { bb_prepare(nd); bb_emit_x86(bb_match_tab()); } return 0;     /* SN4-PAT-3 */
@@ -839,6 +840,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
