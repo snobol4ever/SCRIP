@@ -265,7 +265,7 @@ inline int x86_port_mode() { return rt_zeta_port_mode(); }
  * port).  x86_jcc_invert(): condition inversion for the conditional-omega pop synth (see x86_jcc). */
 inline int x86_port_cstack() { int m = x86_port_mode(); return m == ZC_PORT_CSTACK || m == ZC_PORT_FORTH; }
 inline int x86_fc_on()       { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_bytes > 0; }
-inline int x86_fc_hit(int off) { return x86_fc_on() && _.op_fc_base >= 0 && off >= _.op_fc_base && off < _.op_fc_base + (int)_.op_fc_bytes; }
+inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; return x86_port_mode() == ZC_PORT_FORTH && w > 0 && _.op_fc_base >= 0 && off >= _.op_fc_base && off < _.op_fc_base + w; }
 inline std::string x86_fc_jcc_omega(const char * mnem);
 inline const char * x86_jcc_invert(const char * m) {
     if (!strcmp(m, "je"))  return "jne";
@@ -1326,6 +1326,16 @@ inline std::string x86_zls2_release_to_call(int off) {
     if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
     return x86("mov",  "rdi", FRQ(off))
          + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to);
+}
+/* x86_zls2_release_to_rspd -- ZB-FC-3d: the CROSS-BOX variant of the cstack arm above, for a consumer (RELEASE) standing at rsp = frontier - fp(pattern) reading the statement mark out of HEAD's
+ * self-pushed rsp CELL at [rsp + disp] (disp = fp(pattern) + 16).  Same close/restore/re-open choreography for the same reason; the mark is the PRE-PUSH rsp, so the one mov releases HEAD's cell and
+ * every suspended pattern cell together (S10e's UNWIND, now cell-resident).  FORTH-grant-only by construction: call sites gate on the fc_head registrar, which only fills under the eligibility walk. */
+inline std::string x86_zls2_release_to_rspd(int disp) {
+    if (!x86_port_cstack()) return x86_bomb("x86_zls2_release_to_rspd: FORTH-grant-only helper reached on a non-cstack port");
+    static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", disp);
+    return x86_align_leave()
+         + x86("mov", "rsp", b[i])
+         + x86_align_enter();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void *rt_zls2_push(long k);

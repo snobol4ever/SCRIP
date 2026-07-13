@@ -88,7 +88,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
          * into the SAME zeta arena, whose address-range rooting (rt_zls_alloc's GC_add_roots widening,
          * zeta_alloc.c) already covers them regardless of tag, but the tag is recorded honestly for
          * whichever future consumer reads it, not left as an untagged raw word next to a tagged sibling. */
-        zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (ZC_PORT_ALLOC only: saved rt_zls2_mark() cursor; released by head's own omega-choke on failure / IR_MATCH_RELEASE on success — the ZLS2 twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_RELEASE when the statement carries a replacement, read by IR_MATCH_REPLACE)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "head.dcap_mark (rbp-dcap: α saves the mirror-loaded rbp cursor = this match's pend MARK; ω/RELEASE restore rbp and g_dcap_top from it; ZK_RAW — points into the register-anchored dcap island, never GC-moved)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "head.incoming_rbp (rbp-dcap: the C caller's callee-saved rbp, clobbered by α's mirror load and restored at BOTH exits — this pair is what lets graphs stay rbp-free while match spans own the register)", nd); return 3;
+        zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor (ZB-FC-3d granted: the LIVE anchor lives in HEAD's self-pushed 32B rsp cell at [rsp+0] via the op_fc_wbytes window; this FLAT +0 then holds the RELEASE-stashed match START read by IR_MATCH_REPLACE -- same logical offset, window-disambiguated, so REPLACE's template is unchanged both paths)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer; ZB-FC-3d granted: cell-resident at [rsp+8])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (ZC_PORT_ALLOC only: saved rt_zls2_mark() cursor; released by head's own omega-choke on failure / IR_MATCH_RELEASE on success — the ZLS2 twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent.  ZB-FC-3d granted: cell-resident at [rsp+16] holding the PRE-PUSH rsp, so the S10e unwind releases HEAD's cell and every suspended pattern cell in one mov)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_RELEASE when the statement carries a replacement, read by IR_MATCH_REPLACE; ZB-FC-3d: FLAT on both paths -- post-unwind lifetime)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "head.dcap_mark (rbp-dcap: α saves the mirror-loaded rbp cursor = this match's pend MARK; ω/RELEASE restore rbp and g_dcap_top from it; ZK_RAW — points into the register-anchored dcap island, never GC-moved.  ZB-FC-3d: FLAT on both paths -- RELEASE's post-unwind pump reads it after the cell dies)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "head.incoming_rbp (rbp-dcap: the C caller's callee-saved rbp, clobbered by α's mirror load and restored at BOTH exits — this pair is what lets graphs stay rbp-free while match spans own the register.  ZB-FC-3d: FLAT on both paths, same post-unwind argument as dcap_mark)", nd); return 3;
     case IR_MATCH_SPAN:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
     case IR_MATCH_BAL:
@@ -482,6 +482,22 @@ void fc_cond_register(const IR_t * nd, int fp_inner) {
 }
 int fc_cond_fp(const IR_t * nd) {
     for (int i = 0; i < fcc_n; i++) if (fcc[i].nd == nd) return fcc[i].fp;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_head_* -- RUNG ZB-FC-3d (ARCH-ZETA S13 Tier C, HEAD/RELEASE/REPLACE; ruling of record: the D4 splice-survivor fork resolved by PARTITION, s49).  HEAD is NOT hook-shaped (fc_geom stays 0 BY LAW so
+ * no enclosing sum ever counts a self-releasing cell): the template pushes its own 32-byte cell after alpha holding ONLY the match-span-lifetime fields (anchor@+0, zls mark@+8, rsp mark@+16 = the
+ * PRE-PUSH rsp, so the existing S10e statement UNWIND releases the cell and every suspended pattern cell in one mov), addressed through the op_fc_wbytes WINDOW (rebase without the hook).  The four
+ * fields with POST-UNWIND lifetime stay FLAT on the existing offsets -- dcap mark@+32 / saved rbp@+40 (RELEASE's post-unwind pump + HEAD's own omega read them) and the splice pair for REPLACE (end@+24
+ * written by RELEASE pre-unwind as today; START copied by RELEASE pre-unwind from the cell into flat +0, which the granted HEAD no longer writes -- REPLACE's reads are UNCHANGED both paths).  RELEASE
+ * reads the cell CROSS-BOX at [rsp + fp(pattern) + k] via op_fc_disp (the 3c mechanism verbatim); staticity of fp holds because the v1 fence is ALT-FREE (the linear range sum over-counts alternation --
+ * only one padded arm is live at yield -- so statements containing ALTERNATE decline wholesale; the per-ALT 16+fpmax lift is a named follow-on).  Eligibility = the 3c walk verbatim over the PATTERN
+ * range only; either-direction failure declines and the whole statement keeps the flat path byte-verbatim (degrade never die).  Side table keyed by the HEAD node ptr (the fcc precedent). */
+static struct { const IR_t * nd; int fp; } fch[256];
+static int fch_n = 0;
+void fc_head_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fch_n >= 256) return; fch[fch_n].nd = nd; fch[fch_n].fp = fp; fch_n++; }
+int fc_head_fp(const IR_t * nd) {
+    for (int i = 0; i < fch_n; i++) if (fch[i].nd == nd) return fch[i].fp;
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -30,3 +30,5 @@ int fc_alt_fpmax(const IR_t * nd);
 int fc_alt_fp(const IR_t * nd, int j);
 void fc_seq_register(const IR_t * nd);
 int fc_seq_active(const IR_t * nd);
+void fc_head_register(const IR_t * nd, int fp);
+int fc_head_fp(const IR_t * nd);
