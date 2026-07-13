@@ -436,9 +436,7 @@ xchain0_n17_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S1]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain0_n17_af
  add r14d, 1
@@ -456,9 +454,7 @@ xchain0_n17_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S2]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain0_n17_af
  add r14d, 1

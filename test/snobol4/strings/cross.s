@@ -329,9 +329,7 @@ xchain0_n13_af:
  xchain0_n15_α:
  mov esi, r14d
  lea rdi, [rip + .S0]
- sub rsp, 8
  call rt_at_cursor@PLT
- add rsp, 8
  jmp xchain0_n13_as
  xchain0_n15_β:
  jmp xchain0_n13_af
@@ -411,9 +409,7 @@ xchain0_n13_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  mov rdi, qword ptr [r12 + 584]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain0_n16_β
  add r14d, 1
@@ -583,9 +579,7 @@ xchain0_n25_af:
  xchain0_n27_α:
  mov esi, r14d
  lea rdi, [rip + .S3]
- sub rsp, 8
  call rt_at_cursor@PLT
- add rsp, 8
  jmp xchain0_n25_as
  xchain0_n27_β:
  jmp xchain0_n25_af

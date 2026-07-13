@@ -62,9 +62,7 @@ xchain0_n0_af:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  jnz .Lx4_1
  add dword ptr [r12 + 64], 1
@@ -90,9 +88,7 @@ xchain0_n0_af:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je .Lx6_1
  add dword ptr [r12 + 96], 1

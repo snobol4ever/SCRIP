@@ -234,9 +234,7 @@ xchain0_n0_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S2]
  mov edx, 2
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain0_n0_af
  add r14d, 2
