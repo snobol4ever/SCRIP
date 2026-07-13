@@ -771,7 +771,10 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
     case IR_MATCH_ASSIGN_IMM:     { bb_emit_x86(bb_match_capture()); } return 0;               /* $ immediate capture */
     case IR_MATCH_ASSIGN_SAVE:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE */
-    case IR_MATCH_ALTERNATE:      { bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT */
+    case IR_MATCH_ALTERNATE:      { extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_fp(const IR_t *, int);
+                                    { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; g_emit.op_fc_fpmax = fc_alt_fpmax(nd);
+                                      for (int _j = 0; _j < (int)IR_LIT(nd).ival && _j < 16; _j++) g_emit.op_fc_arm_fp[_j] = fc_alt_fp(nd, _j); } }
+                                    bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT + ZB-FC-3a linear-arm grant */
     case IR_MATCH_SEQUENCE:       { bb_emit_x86(bb_match_sequence()); } return 0;                    /* SN4-NARY-SEQ */
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
@@ -840,7 +843,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
@@ -893,7 +896,9 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
     emit_jmp_label(e_beta, JMP_JMP);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t *node_γ, bb_label_t *node_ω) {
+extern "C" int fc_alt_fpmax(const IR_t *);
+static int fc_alt_active(const IR_t *nd) { return nd && nd->op == IR_MATCH_ALTERNATE && x86_port_mode() == ZC_PORT_FORTH && fc_alt_fpmax(nd) >= 0; }
+static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω) {
     /* SN4-NARY-ALT drive: operands = (entry_j, resume_j) pairs.  Pair slots handed to the template:
      * 0..N-1 = entry α labels (fail-glue's alt_i dispatch), N..2N-1 = resume β labels (A.β's alt_i dispatch
      * — the alternative's OWN inner resume, seed alt_β), 2N = na_s success-glue define, 2N+1 = na_f
@@ -904,6 +909,12 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_f[i];   /* FENCE-rooted body: resume a committed iteration ≡ abandon it (seal) */ int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_s[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_f[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
+    /* ZB-FC-3a: per-arm sigma pad stubs (S10d pad-to-max).  Active iff LOWER registered the linear-arm fp set
+     * AND the FORTH flavor is live; pairs 2N+2..3N+1 = stub defines, bodies emitted by the template.  The
+     * fc_sig labels were allocated in the chain-body label loop; sigma edges into a granted ALT resolve to
+     * stub[arm_of(source)] there.  Inactive => zero pairs pushed, zero routing, the pre-rung path verbatim. */
+    if (nd->op == IR_MATCH_ALTERNATE && fc_alt_active(nd) && fc_sig && fc_sig[i])
+        for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
@@ -1559,6 +1570,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **ra_y  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_t  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **na_s  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t ***fc_sig = (bb_label_t ***)alloca(sizeof(bb_label_t **) * n);
     bb_label_t **na_f  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     g_suspend_resume_slot = -1;
@@ -1578,6 +1590,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_rt", id, i) : NULL;
         na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_as", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
         na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_af", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
+        fc_sig[i] = NULL;   /* ZB-FC-3a: per-arm sigma pad-stub labels for a LINEAR-ARM granted ALT (FORTH flavor) */
+        if (fc_alt_active(nodes[i])) {
+            int _N = (int)(nodes[i]->n_operands / 2);
+            fc_sig[i] = (bb_label_t **)alloca(sizeof(bb_label_t *) * _N);
+            for (int _j = 0; _j < _N; _j++) fc_sig[i][_j] = emit_label_alloc("xchain%d_n%d_s%d", id, i, _j);
+        }
     }
     bb_label_t *resume_init_lbl = NULL;
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
@@ -1636,6 +1654,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!omega_is_beta) omega_is_beta = (_o->γ.sz[0] == (char)0xce && (unsigned char)_o->γ.sz[1] == 0xb2); if (!omega_is_phi) omega_is_phi = (_o->γ.sz[0] == (char)0xcf && (unsigned char)_o->γ.sz[1] == 0x86); otgt = _o->γ.node; _o = otgt; } }
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
             node_γ = (gamma_is_phi && na_f[k]) ? na_f[k] : (gamma_is_sig && na_s[k]) ? na_s[k] : gamma_is_beta ? betas[k] : lbls[k];
+            /* ZB-FC-3a: a sigma edge into a LINEAR-ARM granted ALT lands the SOURCE ARM's pad stub instead of
+             * na_s directly -- the stub subs (FPMAX - fp_arm) so every arm yields at the uniform padded depth
+             * (S10d).  arm_of(source) = largest j with pos(entry_j) <= pos(source) in nodes[] order (arms are
+             * allocated contiguously after A; entry_j is each arm's first-allocated node, the s31 convention). */
+            if (gamma_is_sig && fc_sig[k] && fc_alt_active(nodes[k])) {
+                int _N = (int)(nodes[k]->n_operands / 2), _arm = 0, _src = -1;
+                for (int _p = 0; _p < n; _p++) if (nodes[_p] == nodes[i]) { _src = _p; break; }
+                for (int _j = 0; _j < _N; _j++) { IR_t *_e = nodes[k]->operands[2 * _j]; for (int _p = 0; _p < n; _p++) if (nodes[_p] == _e) { if (_p <= _src) _arm = _j; break; } }
+                node_γ = fc_sig[k][_arm];
+            }
             break;
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
@@ -1689,7 +1717,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             continue;
         }
         if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO) && nodes[i]->n_operands > 0) {
-            flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, node_γ, node_ω);   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout */
+            flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω);   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout */
             continue;
         }
         if (nodes[i]->op == IR_LIMIT) {

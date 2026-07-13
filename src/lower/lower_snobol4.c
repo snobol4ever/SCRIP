@@ -1119,19 +1119,38 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * A = lc_build(g, IR_MATCH_ALTERNATE, succ, NULL);
         sno_ω_to(A, fail);
         (void)0; /* A is first-allocated: the construct tail TT_SEQ resume re-points land A.β */
+        int fc_fp[16]; int fc_linear = (na <= 10);   /* ZB-FC-3a: N>10 exceeds the 3N+2<=32 pair budget */
         for (int i = 0; i < na; i++) {
             int before = g->n;
             IR_t * ei = sno_pat_node(cx, alts[i], A, A);
             IR_t * ri = (before < g->n) ? g->all[before] : ei;
+            int fp_i = 0;
             for (int k = before; k < g->n; k++) {
                 IR_t * x = g->all[k];
                 if (!x) continue;
                 if (x->ω.node == A) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
                 if (x->γ.node == A) { if (x->op == IR_GOTO && x->ω.node == A) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+                /* ZB-FC-3a (ARCH-ZETA S13 Tier C): EXACT static arm footprint for the S10d pad-to-max law.
+                 * Nested ALTERNATE declines FIRST (a granted nested ALT's yield fp is 16+FPMAX_inner, not the
+                 * range sum -- range-sum is exact ONLY for linear spines); then granted leaves count 16 each
+                 * (all suspended at arm yield); then the linear whitelist (zero-cell leaves / SEQ whose
+                 * elements are all in-range and all live at yield / captures / wiring); ANYTHING ELSE
+                 * declines the whole ALT -- it stays flat, the pre-rung path. */
+                if (x->op == IR_MATCH_ALTERNATE) { fc_linear = 0; continue; }
+                { long fck; if (fc_geom(x, &fck)) { fp_i += (int)fck; continue; } }
+                switch (x->op) {
+                case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+                case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+                case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+                case IR_GOTO: break;
+                default: fc_linear = 0;
+                }
             }
+            if (i < 16) fc_fp[i] = fp_i;
             ir_operand_push(A, ei);
             ir_operand_push(A, ri);
         }
+        if (fc_linear) { extern void fc_alt_register(const IR_t *, int, const int *); fc_alt_register(A, (int)na, fc_fp); }
         IR_LIT(A).ival = (long)na;   /* promoted → _.op_ival = N for the template's dispatch chains (walk_bb_node line ~697); the σ/φ inside-edge tags carry membership, so no extent is needed */
         return A;
     }

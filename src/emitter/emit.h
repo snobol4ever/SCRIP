@@ -438,6 +438,8 @@ typedef struct {
      * 240, below X86_INTERNAL_MAX and far above any template's own L(n) ids). */
     long                         op_fc_bytes;
     int                          op_fc_base;
+    long                         op_fc_fpmax;      /* ZB-FC-3a: pad-to-max footprint for a granted ALTERNATE; -1 = not a granted ALT */
+    int                          op_fc_arm_fp[16]; /* ZB-FC-3a: per-arm EXACT static footprints (pads = fpmax - fp[j]) */
     int                          x86_fc_synth;
     int                          op_selfload;
     int                          op_phase;

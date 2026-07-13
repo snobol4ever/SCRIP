@@ -21,7 +21,7 @@ for f in $(find "$CORPUS" -name "*.sno" | sort); do
         esac
     done <<< "$s"
 done
-FC_SET=" IR_MATCH_SPAN IR_MATCH_TAB IR_MATCH_RTAB IR_MATCH_BREAK IR_MATCH_BREAKX IR_MATCH_BAL IR_MATCH_REM "
+FC_SET=" IR_MATCH_ALT_NARY IR_MATCH_SPAN IR_MATCH_TAB IR_MATCH_RTAB IR_MATCH_BREAK IR_MATCH_BREAKX IR_MATCH_BAL IR_MATCH_REM "
 echo "=== FORTH SPINE CENSUS (PORT=6, $PROGS programs compiled) ==="
 FC=0; ZL=0
 for k in $(echo "${!CELLS[@]}" | tr ' ' '\n' | sort); do
