@@ -8,7 +8,7 @@ typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 void * rt_zls_mark(void);
 void   rt_zls_release_to(void *mark);
-void   rt_dcap_end_fail(void);
+extern const char *g_dcap_top;
 extern long g_anchor;
 }
 #include "x86_asm.h"
@@ -28,6 +28,14 @@ std::string bb_match_head() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
+         /* rbp-dcap α: save the C caller's rbp (callee-saved contract — graphs stay rbp-free, match spans own
+          * the register), load the live pend cursor from the mirror (rt_match_enter just lazy-init'd the
+          * island), and save it as this match's MARK.  Nested heads see the outer's live top because every
+          * mid-match transfer window in a match-family box mirrors rbp out first. */
+         + x86("mov", FRQ(_.op_off + 40), "rbp")
+         + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
+         + x86("mov", "rbp", RDQ("rcx", 0))
+         + x86("mov", FRQ(_.op_off + 32), "rbp")
          + x86("mov", FR(_.op_off), (long)0)
          + x86("def", L(0))
          + x86("mov", "r14d", FR(_.op_off))
@@ -47,7 +55,12 @@ std::string bb_match_head() {
          + x86("mov",  "rdi", FRQ(_.op_off + 8))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
          + x86_zls2_release_to_call(_.op_off + 16)
-         + x86("call", "rt_dcap_end_fail", (uint64_t)(uintptr_t)(void *)rt_dcap_end_fail)
          + x86_align_leave()
+         /* rbp-dcap ω (all anchors exhausted): truncate = store mirror ← MARK, then restore the C caller's
+          * rbp.  This IS the old rt_dcap_end_fail, inline — the depth array died with the ring. */
+         + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
+         + x86("mov", "rax", FRQ(_.op_off + 32))
+         + x86("mov", RDQ("rcx", 0), "rax")
+         + x86("mov", "rbp", FRQ(_.op_off + 40))
          + x86_omega();
 }

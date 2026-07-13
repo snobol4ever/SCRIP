@@ -69,9 +69,10 @@ uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi) {
     extern const char *Σ; extern int Σlen;
     extern void rt_cap_match_begin(void);
-    extern void rt_dcap_begin(void);
+    extern void rt_dcap_lazy_init(void);
     rt_cap_match_begin();
-    rt_dcap_begin();
+    rt_dcap_lazy_init(); /* rbp-dcap: reserves the pend island on first match; the head box α then loads its
+                          * cursor from g_dcap_top and saves its own MARK — the depth-mark array is gone. */
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);

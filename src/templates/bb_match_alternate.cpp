@@ -5,8 +5,6 @@ extern "C" {
 #include "bb_templates.h"
 }
 #include "x86_asm.h"
-extern "C" int  rt_dcap_height(void);
-extern "C" void rt_dcap_restore_to(int h);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-FC-3a (ARCH-ZETA S13 Tier C, LINEAR-ARM v1): when LOWER registered exact per-arm footprints AND the
  * FORTH flavor is live (afc), A's own delta/dcap/alt_i quad rides an rsp cell and the S10d pad-to-max law is
@@ -47,29 +45,35 @@ std::string bb_match_alternate() {
              ? x86_alpha() + x86_bomb("IR_MATCH_ALTERNATE: cursor slot not granted (zls)")
              : x86("comment", "IR_MATCH_ALT_NARY")
              + x86_alpha()
+             /* rbp-dcap (s46): ALTERNATE TOUCHES THE PEND STACK NOWHERE.  The old rt_dcap_height (α) /
+              * rt_dcap_restore_to (switch) C-call windows are DELETED OUTRIGHT — not ported to movs.
+              * WHY (Lon's theorem, snobol4python/_backend_pure.py): Π.γ is `for P in self.AP: yield from
+              * P.γ()` — it has NO cstack handling at all, and neither does Σ or ARBNO; the entire assignment
+              * stack is isolated to the capture leaves (Δ/θ/λ), each a balanced append→yield→pop inside its
+              * OWN generator.  Generator scoping IS the LIFO discipline: an alternative cannot fail until
+              * every interior generator has been resumed to exhaustion, and each interior capture runs its
+              * own pop on that resume path BEFORE its exhaustion is visible here.  So rbp is ALREADY at
+              * entry height whenever a switch is taken — there is no height to save because there is no
+              * moment at which it could be wrong.  MEASURED, not assumed (the SZ-2c transit-gap worry was
+              * the reason to doubt it): with both instructions deleted, crosscheck is watermark-exact in
+              * BOTH flavors (default CSTACK and SCRIP_ZETA_PORT=6), smokes 7/7, and the two tests named for
+              * exactly this hazard — 156_pat_cap_alt_abandon_pop and 160_pat_alt_inner_gen_resume — pass.
+              * Quad is now: +0 δ, +4 alt_i, +8 dead pad. */
              + x86("mov", FR(_.op_off), "r14d")
-             + x86_align_enter()
-             + x86("call", "rt_dcap_height", (uint64_t)(uintptr_t)(void *)(int (*)(void))rt_dcap_height)
-             + x86_align_leave()
-             + x86("mov", FR(_.op_off + 4), "eax")
-             + x86("mov", FR(_.op_off + 8), 0)
+             + x86("mov", FR(_.op_off + 4), 0)
              + x86("jmp", PAIR(0))
              + IF(afc(), alt_pad_stubs(_.op_ival))
              + x86("def", PAIR((int)(2 * _.op_ival)))
              + x86_gamma()
              + x86_beta()
-             + IF(afc(),  x86("mov", "eax", rspd((int)_.op_fc_fpmax + 8)))
-             + IF(!afc(), x86("mov", "eax", FR(_.op_off + 8)))
+             + IF(afc(),  x86("mov", "eax", rspd((int)_.op_fc_fpmax + 4)))
+             + IF(!afc(), x86("mov", "eax", FR(_.op_off + 4)))
              + IF(afc(),  alt_resume_chain_fc(_.op_ival))
              + IF(!afc(), alt_dispatch_chain(_.op_ival - 1, (int)_.op_ival, 0) + x86("jmp", PAIR((int)(_.op_ival + _.op_ival - 1))))
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
-             + x86("add", FR(_.op_off + 8), 1)
+             + x86("add", FR(_.op_off + 4), 1)
              + x86("mov", "r14d", FR(_.op_off))
-             + x86("mov", "edi", FR(_.op_off + 4))
-             + x86_align_enter()
-             + x86("call", "rt_dcap_restore_to", (uint64_t)(uintptr_t)(void *)(void (*)(int))rt_dcap_restore_to)
-             + x86_align_leave()
-             + x86("mov", "eax", FR(_.op_off + 8))
+             + x86("mov", "eax", FR(_.op_off + 4))
              + alt_dispatch_chain(_.op_ival, 0, 1)
              + x86_omega();
 }

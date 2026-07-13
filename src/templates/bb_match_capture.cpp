@@ -11,7 +11,7 @@ extern "C" void rt_cap_finish(DESCR_t fret);
 extern "C" void rt_cap_push(void *slot, int delta);
 extern "C" void rt_cap_pop(void *slot);
 extern "C" int rt_cap_top(void *slot);
-extern "C" void rt_dcap_pop(void);
+extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_capture() {
@@ -39,7 +39,33 @@ std::string bb_match_capture() {
            + x86("call", "rt_cap_pop", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_cap_pop)
            + x86_align_leave()
            + x86_omega() )
-         : ( x86("comment", (int)_.op_phase == 2 ? "IR_MATCH_CAPTURE_IMM" : "IR_MATCH_CAPTURE_COND")
+         : (int)_.op_phase == 1
+         /* rbp-dcap COND (Lon 2026-07-13: "should not call a C function when all it must do is increment RBP
+          * and decrement RBP").  γ: write the 24B pend entry {varname@0, saved_delta@8, len@16} at [rbp] and
+          * bump — three qword stores, no packing (no shl/or encoders needed: 32-bit reg movs zero-extend).
+          * β: sub rbp,24, UNGUARDED — sound because within-alternative failure cascades transit the boxes
+          * (balanced, the Python LIFO theorem) and the alternative-SWITCH bypass is bulk-restored by
+          * bb_match_alternate's own rbp mark (SZ-2c gap, ported inline).  The residual rt_cap_top call is the
+          * SAVE-stack array read — ZB-FC-3c's named kill, NOT this rung's (F3, CAPTURE-SPINE finding). */
+         ? ( x86("comment", "IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)")
+           + x86_alpha()
+           + x86_align_enter()
+           + x86("lea",  "rdi", FR(_.op_off))
+           + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
+           + x86_align_leave()
+           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("mov",  RDQ("rbp", 0), "rcx")
+           + x86("mov",  "esi", "eax")
+           + x86("mov",  RDQ("rbp", 8), "rsi")
+           + x86("mov",  "edx", "r14d")
+           + x86("sub",  "edx", "eax")
+           + x86("mov",  RDQ("rbp", 16), "rdx")
+           + x86("add",  "rbp", (long)24)
+           + x86_gamma()
+           + x86_beta()
+           + x86("sub",  "rbp", (long)24)
+           + x86_omega() )
+         : ( x86("comment", "IR_MATCH_CAPTURE_IMM")
            + x86_alpha()
            + x86_anchor_enter()
            + x86("lea",  "rdi", FR(_.op_off))
@@ -47,10 +73,15 @@ std::string bb_match_capture() {
            + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
-           + x86("mov",  "ecx", (long)((int)_.op_phase == 2 ? 1 : 0))
+           + x86("mov",  "ecx", (long)1)
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
+           /* rbp-dcap mirror-out: this *VAR transfer may run a nested match whose head loads g_dcap_top; a
+            * stale-low mirror would let its pends overwrite live entries above.  Match-family boxes only —
+            * never the shared x86_frame_sink (non-SNOBOL graphs carry a non-cursor rbp). */
+           + x86("mov",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
+           + x86("mov",  RDQ("rcx", 0), "rbp")
            + x86_frame_sink()
            + x86_frame_base("rdi")
            + x86("mov",  "rsi", "rax")
@@ -66,9 +97,5 @@ std::string bb_match_capture() {
            + x86_anchor_leave()
            + x86_gamma()
            + x86_beta()
-           + IF((int)_.op_phase == 1,
-                 x86_align_enter()
-               + x86("call", "rt_dcap_pop", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_pop)
-               + x86_align_leave())
            + x86_omega() );
 }

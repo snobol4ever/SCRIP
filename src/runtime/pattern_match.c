@@ -534,41 +534,34 @@ DESCR_t eval_ast_pat(tree_t *e) {
     fprintf(stderr, "[B0b] BOMB eval_ast_pat: AST-walk evaluator deleted; runtime pattern eval needs DT_P builders (B-ladder)\n");
     abort();
 }
-#define RT_DCAP_MAX 32
-#define RT_DCAP_DEPTH_MAX 16
-typedef struct { const char *varname; const char *base; int len; } rt_dcap_t;
-static rt_dcap_t g_rt_dcap[RT_DCAP_MAX];
-static int       g_rt_dcap_n = 0;
-static int       g_rt_dcap_mark[RT_DCAP_DEPTH_MAX];
-static int       g_rt_dcap_depth = 0;
-int              g_rt_dcap_active = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_dcap_scope_base(void) { int d = g_rt_dcap_depth; if (d > RT_DCAP_DEPTH_MAX) d = RT_DCAP_DEPTH_MAX; return d > 0 ? g_rt_dcap_mark[d - 1] : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_dcap_record(const char *vname, const char *base, int len) {
-    if (!vname || !*vname) return;
-    if (g_rt_dcap_n < RT_DCAP_MAX) {
-        g_rt_dcap[g_rt_dcap_n].varname = vname;
-        g_rt_dcap[g_rt_dcap_n].base    = base;
-        g_rt_dcap[g_rt_dcap_n].len     = len;
-        g_rt_dcap_n++;
+/* rbp-dcap (2026-07-13, Lon directive: "the conditional assignment capture should not call a C function when
+ * all it must do is increment RBP and decrement RBP in the capture BB").  The bounded ring (RT_DCAP_MAX 32) +
+ * mark/depth arrays + active flag are DELETED; the pend stack is an UNBOUNDED register-anchored island (the
+ * rt_gva_island precedent, ARCH-ZETA §12) whose live cursor is REGISTER rbp in emitted code.  Entry = 24B,
+ * pointer-free into Region 2 (varname is sealed RO strtab; saved_delta resolved against the subject at flush
+ * via the pump ctx, never stored as a pointer — no GC root, no ADJUST entry).  Layout: varname@+0,
+ * saved_delta@+8 (zero-extended u32), len@+16 (zero-extended u32).  Future entry species (SZ-3's *FN() commit
+ * chains — the Python engine's one-cstack uniformity) discriminate on the varname qword, as '*' names do
+ * today.  Push = box-inline stores + add rbp,24 (capture γ).  Pop = sub rbp,24 (capture β) — balanced by
+ * generator LIFO scoping (the s45 Python insight; snobol4python Δ.γ append/yield/pop).  MARK = per-match-head
+ * frame qword (head α saves rbp; nesting = ζ frames nest; the depth array dies).  Head-fail/release restore
+ * rbp=mark AND g_dcap_top=mark inline.  g_dcap_top is the MIRROR: match-head α loads its cursor from it, and
+ * every mid-match transfer window in a MATCH-FAMILY box mirrors rbp out first so a nested graph's heads see
+ * the live top (a stale-low mirror would let nested pushes overwrite live pends).  Non-SNOBOL graphs never
+ * touch rbp or the mirror (mirror-out sites are IR-kind-conditioned, per the no-language-sentinel FACT RULE).
+ * KNOWN INHERITED LIMIT (status quo ante, the old shared ring had it too): a generator that SUSPENDS mid-match
+ * with pends live shares the one stack non-LIFO — the suspended-ζ residue class, NCB-2/TR-6 territory. */
+#define RT_DCAP_ISLAND_BYTES (4u << 20)
+typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
+const char *g_dcap_base = 0;
+const char *g_dcap_top  = 0;
+void rt_dcap_lazy_init(void) {
+    extern void *rt_slab_region(size_t);
+    if (!g_dcap_top) {
+        g_dcap_base = (const char *)rt_slab_region(RT_DCAP_ISLAND_BYTES);
+        if (!g_dcap_base) { fprintf(stderr, "rt_dcap: island reserve failed\n"); abort(); }
+        g_dcap_top = g_dcap_base;
     }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_pop(void) {
-    if (!g_rt_dcap_active) return;
-    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] pop n=%d base=%d\n", g_rt_dcap_n, rt_dcap_scope_base());
-    if (g_rt_dcap_n > rt_dcap_scope_base()) g_rt_dcap_n--;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_dcap_height(void) { return g_rt_dcap_n; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_restore_to(int h) {
-    if (!g_rt_dcap_active) return;
-    int b = rt_dcap_scope_base();
-    if (h < b) h = b;
-    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] restore n=%d -> %d\n", g_rt_dcap_n, h);
-    if (h <= g_rt_dcap_n) g_rt_dcap_n = h;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1c M3 (2026-07-11): the commit-time flush is BOX-DRIVEN.  rt_dcap_flush_from's 0..N computed-name
@@ -578,7 +571,7 @@ void rt_dcap_restore_to(int h) {
  * its C locals (a *VAR proc body may run its own match, which commits its own pends); a static cursor would
  * have silently corrupted that.  g_rt_dcap_n is re-read every iteration, exactly as the old for-loop did, so
  * pends recorded by a nested match are still swept by the outer pump. */
-typedef struct { int m; int i; int do_flush; DESCR_t pending; } rt_dcf_t;
+typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
 static rt_dcf_t *g_dcf; static int g_dcf_top, g_dcf_cap;
 static long rt_dcap_pump(void)
 {
@@ -586,36 +579,38 @@ static long rt_dcap_pump(void)
     extern int rt_g_want_name;
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    if (!c->do_flush) return 0;
-    while (c->i < g_rt_dcap_n) {
-        int i = c->i;
-        int len = g_rt_dcap[i].len < 0 ? 0 : g_rt_dcap[i].len;
+    while (c->cur < c->top) {
+        const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
+        int len = (int)e->len; if (len < 0) len = 0;
         char *copy = rt_str_alloc(len);
-        if (copy) { if (len > 0 && g_rt_dcap[i].base) memcpy(copy, g_rt_dcap[i].base, (size_t)len); copy[len] = '\0'; }
+        if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = '\0'; }
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
-        if (g_rt_dcap[i].varname && g_rt_dcap[i].varname[0] == '*') {
+        c->cur += sizeof(rt_dcap_e);
+        if (e->varname && e->varname[0] == '*') {
             rt_g_want_name = 1;
-            long fb = rt_proc_call_open(g_rt_dcap[i].varname + 1, 0);
-            if (!fb) { rt_g_want_name = 0; c->i = i + 1; continue; }
-            c->pending = d; c->i = i + 1;
+            long fb = rt_proc_call_open(e->varname + 1, 0);
+            if (!fb) { rt_g_want_name = 0; continue; }
+            c->pending = d;
             return fb;
         }
-        NV_SET_fn(g_rt_dcap[i].varname, d);
-        c->i = i + 1;
+        if (e->varname && e->varname[0]) NV_SET_fn(e->varname, d);
     }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_dcap_end_ok_open(void)
+/* Box contract (bb_match_release): rdi = MARK (head's saved rbp, FRQ(head+32)), rsi = TOP (live rbp), rdx =
+ * SUBJECT base (r13, by value).  The subject rides the ctx BY VALUE so a mid-pump *VAR transfer that runs a
+ * nested match (clobbering Σ and r13 under xfer save) cannot skew the resolution of the REMAINING entries —
+ * the old ring was immune by snapshotting base pointers at record time; the pointer-free entry moves that
+ * immunity here.  Walk range is FIXED [mark, top): nested matches during a transfer push above top, flush
+ * their own range through their own open/close, and restore rbp/mirror to their mark == our top — disjoint by
+ * construction (the old g_rt_dcap_n re-read compensated for a SHARED counter; ranges need no compensation). */
+long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
-    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_ok depth=%d n=%d\n", g_rt_dcap_depth, g_rt_dcap_n);
+    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e)));
     if (g_dcf_top >= g_dcf_cap) { int nc = g_dcf_cap ? g_dcf_cap * 2 : 64; rt_dcf_t *np = (rt_dcf_t *)realloc(g_dcf, (size_t)nc * sizeof(rt_dcf_t)); if (!np) return 0; g_dcf = np; g_dcf_cap = nc; }
     rt_dcf_t *c = &g_dcf[g_dcf_top++];
-    c->m = 0; c->i = 0; c->do_flush = 0; c->pending = NULVCL;
-    if (g_rt_dcap_depth > 0) {
-        g_rt_dcap_depth--;
-        if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) { c->m = g_rt_dcap_mark[g_rt_dcap_depth]; c->i = c->m; c->do_flush = 1; }
-    } else { c->m = 0; c->i = 0; c->do_flush = 1; }
+    c->cur = mark; c->top = top; c->subj = subj; c->pending = NULVCL;
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -634,10 +629,9 @@ long rt_dcap_step(DESCR_t fret)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_end_ok_close(void)
 {
-    if (g_dcf_top <= 0) return;
-    rt_dcf_t c = g_dcf[--g_dcf_top];
-    if (c.do_flush) g_rt_dcap_n = c.m;
-    if (g_rt_dcap_depth == 0) g_rt_dcap_active = 0;
+    /* rbp-dcap: the ctx pops; the TRUNCATION is the box's own `mov rbp, mark` + mirror store after this
+     * returns (bb_match_release exit) — no C-side stack state remains to reset. */
+    if (g_dcf_top > 0) g_dcf_top--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* DEAD EXPORT, PARKED NOT DELETED (PARK-NEVER-DELETE): zero callers at NCB-1c.  Its body was the C-side flush
@@ -646,31 +640,11 @@ void rt_dcap_end_ok_close(void)
  * it must drive the pump from an emitted box. */
 void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* D3 COMMIT-RING (2026-07-08 s7, the DEMO-PAT DP-2 machinery lit for the first time — the ring predated this
- * session but nothing ever called begin/end, so COND captures wrote at every trial yield, immediate-assignment
- * style: word1 printed one blank line per " the " and ARB . OUTPUT printed '', 'U', 'UN', 'UNT' — proven
- * against the oracle before wiring).  SPITBOL semantics (manual Ch.6 p.72, Ch.18): conditional assignments
- * are performed ONLY when the entire match succeeds, before replacement.  Wiring: rt_match_enter → begin
- * (pushes a depth mark, so an EVAL-nested inner match commits only its own entries); head's L(1) failure
- * choke → end_fail (truncate to mark); IR_MATCH_RELEASE's success α → end_ok (flush [mark, n) then truncate);
- * COND's β (backtrack-in) → rt_cap_unpend (the dead-trial discard: an alternation that abandons the captured
- * branch must not commit it).  Immediate captures ($) bypass the ring entirely — rt_cap_assign_cursor now
- * honors is_imm. */
-void rt_dcap_begin(void) { if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) g_rt_dcap_mark[g_rt_dcap_depth] = g_rt_dcap_n; g_rt_dcap_depth++; g_rt_dcap_active = 1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_end_fail(void) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_fail depth=%d n=%d\n", g_rt_dcap_depth, g_rt_dcap_n); if (g_rt_dcap_depth > 0) { g_rt_dcap_depth--; if (g_rt_dcap_depth < RT_DCAP_DEPTH_MAX) g_rt_dcap_n = g_rt_dcap_mark[g_rt_dcap_depth]; } if (g_rt_dcap_depth == 0) g_rt_dcap_active = 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rbp-dcap: rt_dcap_begin (depth-mark push) → head α's inline `mov FRQ(+32), rbp` after loading the mirror;
+ * rt_dcap_end_fail (truncate-to-mark) → head ω's inline mirror-store + `mov rbp, FRQ(+40)` incoming restore;
+ * rt_cap_unpend (dead-trial discard by name) had ZERO callers — the balanced capture-β pop is the discard.
+ * All three DELETED with their ring.  end_ok's bomb stays parked (PARK-NEVER-DELETE, NCB-1c). */
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cap_unpend(const char *vname) {
-    if (!vname || !*vname || !g_rt_dcap_active) return;
-    for (int i = g_rt_dcap_n - 1; i >= rt_dcap_scope_base(); i--) {
-        if (g_rt_dcap[i].varname && strcmp(g_rt_dcap[i].varname, vname) == 0) {
-            for (int j = i; j < g_rt_dcap_n - 1; j++) g_rt_dcap[j] = g_rt_dcap[j + 1];
-            g_rt_dcap_n--; return;
-        }
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
 static uint32_t g_cap_gen = 1;
@@ -713,11 +687,12 @@ int rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s->
 static DESCR_t *g_capx; static int g_capx_top, g_capx_cap;
 long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
+    (void)is_imm; /* rbp-dcap: the COND (deferred) arm no longer calls here — bb_match_capture phase 1 records
+                   * its entry inline on the rbp stack.  Every remaining caller is the immediate ($) path. */
     if (!varname || !*varname) return 0;
     int len = cur_delta - saved_delta;
     if (len < 0) len = 0;
     const char *base = Σ ? Σ + saved_delta : NULL;
-    if (g_rt_dcap_active && !is_imm) { if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] pend %s len=%d n=%d\n", varname, len, g_rt_dcap_n); rt_dcap_record(varname, base, len); return 0; }
     char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
