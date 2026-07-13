@@ -381,8 +381,10 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
  * POS/RPOS stay ungranted: the canonical PURE boxes, zero scratch.  ARB/ARBNO carry zls2 grants -- excluded
  * from the v1 fixed-cell set by design (the heap-flavor gamma/omega overloads are ZB-ACT-3's entry). */
 int fc_alt_fpmax(const IR_t * nd);
+int fc_save_active(const IR_t * nd);
 int fc_geom(const IR_t * nd, long * k) {
     if (!nd) return 0;
+    if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-FC-3c: delta at cell+0; ungranted SAVE stays zero-cell = the flat rt_cap array path */
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_RTAB)   { if (k) *k = 16; return 1; }
@@ -446,6 +448,41 @@ int fc_seq_active(const IR_t * nd) {
     if (!nd || nd->op != IR_MATCH_SEQUENCE) return 0;
     for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) return 1;
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_save_* / fc_cond_* -- RUNG ZB-FC-3c (ARCH-ZETA S13 Tier C, CAPTURES; landing plan of record
+ * FINDING-2026-07-13-CLAUDE-SN4-ZB-FC-3C-COND-CROSS-BOX-READ.md, which superseded the s44 plan).  TWO
+ * registrars because the capture is TWO boxes: ASSIGN_SAVE owns the 16-byte cell (delta at cell+0, the
+ * software rt_cap array retired on the granted path), and ASSIGN_COND/IMM -- different IR nodes with NO cell
+ * of their own -- read SAVE's delta through a CROSS-BOX rsp displacement.  By the S10c law (cells pop at
+ * omega, not gamma) the entire inner subtree is still suspended at COND's alpha, so SAVE's cell sits at
+ * [rsp + fp(inner)], a STATIC displacement -- exactly ALTERNATE's own-cell-across-arm-footprint mechanism
+ * (bb_match_alternate rspd(op_fc_fpmax+4)), reused not invented.  fp(inner) is LOWER's range sum over the
+ * inner allocation range (the ALT arm loop verbatim), exact ONLY for fc-LINEAR spines; eligibility is
+ * TWO-DIRECTIONAL (the ZB-FC-3b lesson, in the mirror): an ARBNO/ALT/ARB/DEFER *inside* the inner breaks the
+ * static displacement just as a capture *inside* an ARBNO body (sno_in_arbno) breaks the port invariant --
+ * either direction DECLINES both registrations and the capture keeps the flat rt_cap array path verbatim
+ * (degrade never die).  Side tables keyed by node ptr (the fc_alt precedent; PEERS RULE forbids IR_t fields).
+ * COND/IMM stay ZERO-CELL BY LAW -- granting them a cell would silently inflate every enclosing ALT's
+ * pad-to-max fpmax (the fc_geom catch at lower_snobol4.c's arm sum picks up granted SAVEs automatically and
+ * must pick up nothing else).  IMM is the identical topology at op_phase 2 -- one mechanism, two phases. */
+static const IR_t * fcv[256];
+static int fcv_n = 0;
+void fc_save_register(const IR_t * nd) { if (!nd || fcv_n >= 256) return; fcv[fcv_n++] = nd; }
+int fc_save_active(const IR_t * nd) {
+    if (!nd || nd->op != IR_MATCH_ASSIGN_SAVE) return 0;
+    for (int i = 0; i < fcv_n; i++) if (fcv[i] == nd) return 1;
+    return 0;
+}
+static struct { const IR_t * nd; int fp; } fcc[256];
+static int fcc_n = 0;
+void fc_cond_register(const IR_t * nd, int fp_inner) {
+    if (!nd || fp_inner < 0 || fcc_n >= 256) return;
+    fcc[fcc_n].nd = nd; fcc[fcc_n].fp = fp_inner; fcc_n++;
+}
+int fc_cond_fp(const IR_t * nd) {
+    for (int i = 0; i < fcc_n; i++) if (fcc[i].nd == nd) return fcc[i].fp;
+    return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->off + (zls_locals_shifted(nd->op) ? 16 : 0); }

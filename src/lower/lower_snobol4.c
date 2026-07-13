@@ -1017,6 +1017,30 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, itail); /* COND backtrack-in: resume or pop */
         ir_operand_push(nd, pe);                                   /* [0] inner entry */
         ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's slot */
+        {   /* ZB-FC-3c (ARCH-ZETA S13 Tier C; plan of record = the s47 COND-CROSS-BOX-READ finding): SAVE
+             * gets a 16-byte cell (delta at cell+0, rt_cap array retired on the granted path) and COND reads
+             * it CROSS-BOX at [rsp + fp(inner)] -- static by S10c (cells pop at omega not gamma, so the whole
+             * inner subtree is still suspended at COND.alpha).  fp(inner) = the ALT arm loop's range sum,
+             * exact ONLY for fc-LINEAR spines; the fence is TWO-DIRECTIONAL (the ZB-FC-3b lesson mirrored):
+             * ARBNO/ALT/ARB/DEFER *inside* the inner breaks the static displacement, and a capture *inside*
+             * an ARBNO body (sno_in_arbno) breaks the port invariant -- either direction declines BOTH
+             * registrations and the capture keeps today's flat array path verbatim (degrade never die). */
+            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0);
+            for (int k = before_i; k < g->n; k++) {
+                IR_t * x = g->all[k];
+                if (!x) continue;
+                if (x->op == IR_MATCH_ALTERNATE) { fc_lin = 0; continue; }
+                { long fck; if (fc_geom(x, &fck)) { fp_inner += (int)fck; continue; } }
+                switch (x->op) {
+                case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+                case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+                case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+                case IR_GOTO: break;
+                default: fc_lin = 0;
+                }
+            }
+            if (fc_lin) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); }
+        }
         return save;                                               /* capture entry is the SAVE node */
     }
     case TT_CAPT_IMMED_ASGN: {
@@ -1040,6 +1064,24 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, itail);
         ir_operand_push(nd, pe);
         ir_operand_push(nd, save);
+        {   /* ZB-FC-3c: $ is the IDENTICAL topology at op_phase 2 (the s47 finding's C5 -- one mechanism,
+             * two phases); same eligibility walk, same two-directional fence, same registrations. */
+            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0);
+            for (int k = before_i; k < g->n; k++) {
+                IR_t * x = g->all[k];
+                if (!x) continue;
+                if (x->op == IR_MATCH_ALTERNATE) { fc_lin = 0; continue; }
+                { long fck; if (fc_geom(x, &fck)) { fp_inner += (int)fck; continue; } }
+                switch (x->op) {
+                case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+                case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+                case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+                case IR_GOTO: break;
+                default: fc_lin = 0;
+                }
+            }
+            if (fc_lin) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); }
+        }
         return save;
     }
     case TT_SEQ: {

@@ -14,6 +14,19 @@ extern "C" int rt_cap_top(void *slot);
 extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZB-FC-3c (ARCH-ZETA S13 Tier C, CAPTURES; plan of record = the s47 COND-CROSS-BOX-READ finding): when
+ * LOWER registered the capture (linear inner, no ARBNO either direction), SAVE owns a 16-byte rsp cell --
+ * alpha stores delta at cell+0 (the hook's sub rsp,16 has already run at the alpha define), beta emits
+ * NOTHING (omega's hook pop is the release, S10b FORTH law), the rt_cap software array never called -- and
+ * COND/IMM read that delta CROSS-BOX at [rsp + fp(inner)]: by S10c (cells pop at omega not gamma) the whole
+ * inner subtree is still suspended at the yield, so the displacement is a compile-time constant, exactly
+ * ALTERNATE's rspd(op_fc_fpmax+4) mechanism.  COND/IMM are ZERO-CELL (no hook motion); their read sits
+ * OUTSIDE any align/anchor window (align_enter pushes 16 and masks rsp -- an rspd read inside it would be
+ * wrong; eax survives the window's pushes into the later mov esi,eax).  sfc/cfc off = the flat rt_cap array
+ * path VERBATIM (degrade never die); the pend/rbp-dcap machinery is identical on both paths (F2: by-value). */
+static inline int  sfc()      { return x86_fc_on(); }
+static inline int  cfc()      { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }
+static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
 std::string bb_match_capture() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
@@ -24,6 +37,13 @@ std::string bb_match_capture() {
          : !(_.op_sval ? _.op_sval : "")[0]
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_ASSIGN: empty capture variable name") )
+         : (int)_.op_phase == 0 && sfc()
+         ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE fc cell")
+           + x86_alpha()
+           + x86("mov",  rspd(0), "r14d")
+           + x86_gamma()
+           + x86_beta()
+           + x86_omega() )
          : (int)_.op_phase == 0
          ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE push")
            + x86_alpha()
@@ -49,10 +69,11 @@ std::string bb_match_capture() {
           * SAVE-stack array read — ZB-FC-3c's named kill, NOT this rung's (F3, CAPTURE-SPINE finding). */
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)")
            + x86_alpha()
-           + x86_align_enter()
-           + x86("lea",  "rdi", FR(_.op_off))
-           + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
-           + x86_align_leave()
+           + IF(cfc(),  x86("mov", "eax", rspd((int)_.op_fc_disp)))
+           + IF(!cfc(), x86_align_enter()
+                      + x86("lea",  "rdi", FR(_.op_off))
+                      + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
+                      + x86_align_leave())
            + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
            + x86("mov",  RDQ("rbp", 0), "rcx")
            + x86("mov",  "esi", "eax")
@@ -67,9 +88,10 @@ std::string bb_match_capture() {
            + x86_omega() )
          : ( x86("comment", "IR_MATCH_CAPTURE_IMM")
            + x86_alpha()
+           + IF(cfc(),  x86("mov", "eax", rspd((int)_.op_fc_disp)))
            + x86_anchor_enter()
-           + x86("lea",  "rdi", FR(_.op_off))
-           + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
+           + IF(!cfc(), x86("lea",  "rdi", FR(_.op_off))
+                      + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top))
            + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
