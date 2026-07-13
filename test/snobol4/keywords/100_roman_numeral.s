@@ -2160,8 +2160,7 @@ mov rsp, qword ptr [r12 + 5656]
 pop r12
 ret
 proc_startup:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   .section .rodata
   .Lstartup_pname0: .string "roman"
   .Lstartup_pp0_0: .string "n"
@@ -2195,7 +2194,7 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 5664
   call rt_proc_set_frame_bytes@PLT
-  pop rbp
+  add rsp, 8
   ret
   .section .rodata
   .Lgvan0: .string "roman"
@@ -2219,8 +2218,7 @@ __gva: .space 96, 0
   .intel_syntax noprefix
   .globl main
 main:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   push rdi
   push rsi
   call core_lib_init@PLT
@@ -2235,8 +2233,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
-  mov rsp, rbp
-  pop rbp
+  add rsp, 24
   ret
 main_α:
 #=======================================================================================================================
@@ -2269,8 +2266,8 @@ main_α_body:
 .Lx183_0:
  .quad 1
  xchain182_n1_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 5136]
@@ -2281,22 +2278,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx185_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx185_2
 .Lx185_1:
  call rt_faildescr@PLT
 .Lx185_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 5088], rax
  mov qword ptr [r12 + 5096], rdx
  cmp eax, 99
@@ -2334,8 +2337,8 @@ main_α_body:
 .Lx187_0:
  .quad 4
  xchain182_n4_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 5232]
@@ -2346,22 +2349,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx189_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx189_2
 .Lx189_1:
  call rt_faildescr@PLT
 .Lx189_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 5184], rax
  mov qword ptr [r12 + 5192], rdx
  cmp eax, 99
@@ -2399,8 +2408,8 @@ main_α_body:
 .Lx191_0:
  .quad 9
  xchain182_n7_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 5328]
@@ -2411,22 +2420,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx193_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx193_2
 .Lx193_1:
  call rt_faildescr@PLT
 .Lx193_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 5280], rax
  mov qword ptr [r12 + 5288], rdx
  cmp eax, 99
@@ -2464,8 +2479,8 @@ main_α_body:
 .Lx195_0:
  .quad 42
  xchain182_n10_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 5424]
@@ -2476,22 +2491,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx197_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx197_2
 .Lx197_1:
  call rt_faildescr@PLT
 .Lx197_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 5376], rax
  mov qword ptr [r12 + 5384], rdx
  cmp eax, 99
@@ -2529,8 +2550,8 @@ main_α_body:
 .Lx199_0:
  .quad 1999
  xchain182_n13_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 5520]
@@ -2541,22 +2562,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx201_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx201_2
 .Lx201_1:
  call rt_faildescr@PLT
 .Lx201_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 5472], rax
  mov qword ptr [r12 + 5480], rdx
  cmp eax, 99
@@ -2594,8 +2621,8 @@ main_α_body:
 .Lx203_0:
  .quad 2024
  xchain182_n16_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov edi, 0
  mov rsi, qword ptr [r12 + 5616]
@@ -2606,22 +2633,28 @@ main_α_body:
  call rt_proc_call_open@PLT
  test rax, rax
  je .Lx205_1
+ mov rcx, rsp
  sub rsp, rax
+ sub rsp, 16
+ and rsp, -16
+ mov qword ptr [rsp + 0], rcx
  mov rdi, rsp
+ add rdi, 16
  mov rsi, rax
  call rt_frame_prep@PLT
  mov rdi, rsp
+ add rdi, 16
  xor esi, esi
  call rax
  mov rdi, rax
  mov rsi, rdx
+ mov rsp, qword ptr [rsp + 0]
  call rt_proc_call_epilogue@PLT
  jmp .Lx205_2
 .Lx205_1:
  call rt_faildescr@PLT
 .Lx205_2:
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 5568], rax
  mov qword ptr [r12 + 5576], rdx
  cmp eax, 99

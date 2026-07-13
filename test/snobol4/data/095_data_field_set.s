@@ -1,15 +1,14 @@
   .intel_syntax noprefix
   .text
 proc_startup:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   .section .rodata
   .Lclassspec0: .string "point(x,y)"
   .section .text
   .intel_syntax noprefix
   lea rdi, [rip + .Lclassspec0]
   call record_register@PLT
-  pop rbp
+  add rsp, 8
   ret
   .section .rodata
   .Lgvan0: .string "P"
@@ -23,8 +22,7 @@ __gva: .space 16, 0
   .intel_syntax noprefix
   .globl main
 main:
-  push rbp
-  mov rbp, rsp
+  sub rsp, 8
   push rdi
   push rsi
   call core_lib_init@PLT
@@ -39,8 +37,7 @@ main:
   xor esi, esi
   call main_α
   xor eax, eax
-  mov rsp, rbp
-  pop rbp
+  add rsp, 24
   ret
 main_α:
 #=======================================================================================================================
