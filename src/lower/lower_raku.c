@@ -613,6 +613,48 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
 #include "stage2.h"
 #include "bb_program.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_gram_pure_literal(const char * body, char * out, int outsz) {
+    if (!body || !out || outsz < 2) return 0;
+    int n = (int) strlen(body); int i = 0;
+    while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
+    if (i >= n || (body[i] != '"' && body[i] != '\'')) return 0;
+    char q = body[i++]; int op = 0;
+    while (i < n && body[i] != q) { if (body[i] == '\\' || op >= outsz - 1) return 0; out[op++] = body[i++]; }
+    if (i >= n) return 0;
+    i++;
+    while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
+    out[op] = '\0'; return (i == n && op > 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_lower_grammar_boxes(const tree_t * prog) {
+    extern int g_opt_dump_bb; if (!g_opt_dump_bb) return;
+    if (!prog) return;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d || d->t != TT_GRAMMAR_DECL) continue;
+        const char * gname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+        if (!gname || !*gname) continue;
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * rd = d->c[j];
+            if (!rd || rd->t != TT_REGEX_DECL) continue;
+            const char * rname = (rd->n > 0 && rd->c[0] && rd->c[0]->v.sval) ? rd->c[0]->v.sval : NULL;
+            const char * body  = (rd->n > 1 && rd->c[1] && rd->c[1]->v.sval) ? rd->c[1]->v.sval : NULL;
+            if (!rname || !body) continue;
+            char lit[256];
+            if (!rk_gram_pure_literal(body, lit, sizeof lit)) continue;
+            char pn[320]; snprintf(pn, sizeof pn, "gram__%s__%s", gname, rname);
+            IR_graph_t * gg = IR_alloc(64);
+            IR_t * nd = lc_build(gg, IR_GLIT, NULL, NULL); IR_LIT(nd).sval = lp_strdup(lit);
+            gg->entry = nd;
+            int gidx = bb_program_add(&g_stage2.bbp, gg);
+            int pidx = stage2_proc_grow(&g_stage2);
+            g_stage2.proc_table[pidx].name = lp_strdup(pn); g_stage2.proc_table[pidx].proc = (tree_t *) rd;
+            g_stage2.proc_table[pidx].entry_pc = -1; g_stage2.proc_table[pidx].bb_idx = gidx; g_stage2.proc_table[pidx].nparams = 0;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
     IR_graph_t * ng = lower_raku_proc(prog, proc);
     if (!ng || !ng->entry) return -1;
@@ -673,6 +715,7 @@ static void raku_register_program(stage2_t * s2, const tree_t * prog) {
 stage2_t *lower_raku_stage2(const tree_t *prog) {
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
+    rk_lower_grammar_boxes(prog);
     rk_register_classes(prog);
     g_rk_multi_n = 0;
     for (int i = 0; prog && i < prog->n; i++) {
