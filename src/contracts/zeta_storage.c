@@ -363,10 +363,26 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
  * where they are today.  v1 kind set: IR_MATCH_SPAN only (keystone looping box -- two private 4-byte fields,
  * scratch+0 counter and scratch+4 beta-undo delta, one 16-byte cell; no zls2 grant so no arm collision; all
  * conditional omegas route through the x86_jcc synth).  Widening is per-kind with the S10c port-invariant
- * check (own rsp motion must not straddle an FR access; SPAN's +-8 strchr dance does not). */
+ * check (own rsp motion must not straddle an FR access; SPAN's +-8 strchr dance does not).  WIDENED (rung
+ * ZB-FC-1, 2026-07-12): TAB/RTAB each own ONE 4-byte local (entry-delta save at scratch+0, written at alpha
+ * before any read, read at beta) with ZERO internal rsp motion and conditional omegas already synth-routed --
+ * one 16-byte cell each; the window is the SHIFTED locals base (zls_off = result+16), so the result slot and
+ * operand slots stay flat-frame outside it.  MEASURED VERDICT, NOT A REFUSAL -- LEN/ANY/NOTANY own NO zeta
+ * locals (state is pure register arithmetic; beta-undo re-reads the OPERAND slot or immediate): under the
+ * S13 fixed-size law a box with no locals has a ZERO cell, i.e. no rsp motion, so returning 0 IS their
+ * grant; they join when SU-C gives them a result field to home (the S13 candidate list assumed all five own
+ * scratch -- the per-kind check says three do not).  BREAK/BREAKX (same widening): BREAK one 4-byte counter,
+ * BREAKX counter+entry-delta-save (generator-kind; the cell suspends across gamma/beta cycling per S10c and
+ * LIFO keeps every beta entry at the frontier); both strchr dances verified non-straddling like SPAN's.
+ * POS/RPOS stay ungranted: the canonical PURE boxes, zero scratch.  ARB/ARBNO carry zls2 grants -- excluded
+ * from the v1 fixed-cell set by design (the heap-flavor gamma/omega overloads are ZB-ACT-3's entry). */
 int fc_geom(const IR_t * nd, long * k) {
     if (!nd) return 0;
-    if (nd->op == IR_MATCH_SPAN) { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_RTAB)   { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_BREAK)  { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_BREAKX) { if (k) *k = 16; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
