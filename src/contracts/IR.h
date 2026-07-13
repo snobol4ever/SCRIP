@@ -173,6 +173,16 @@ typedef enum {
                           * else faults "transfer to undefined label".  The transferee runs nested; when it
                           * terminates, control cascades back here and γ (wired to the graph's exit) unwinds this
                           * chain too — SNOBOL4 gotos never resume their source, so return-here means END. */
+    /* ---- RK-GRAM grammar-box family (RK-GRAM-3a) ---------------------------------------------------------------------------
+     * Native recursive-descent grammar leaves/edges for Raku `rule`/`token`/`regex` bodies, replacing the runtime gram_expand
+     * flatten-to-NFA stopgap (by_name_dispatch.c). Register contract = the ARCH-ICON String-scanning family verbatim: R13=Σ
+     * subject base, R14=δ cursor (callee-saved so it stays ambient across subrule recursion), R15=Δ end bound. Four ports keep
+     * pattern-lang meaning: α=fresh entry, β=resume/backtrack-retry, γ=match advanced δ, ω=fail. Choice points save δ into the
+     * per-activation ζ frame (a δ-snapshot slot, NOT a value stack). INERT until the RK-GRAM-3a lowering seam in lower_raku.c
+     * emits them (only migrated rule shapes take this path; others keep the string fallback) — behavior-neutral, build/smoke green. */
+    IR_GLIT,             /* literal-match: match fixed string sval at [Σ+δ], bounds δ<Δ; γ advances δ by len, ω on mismatch/EOS */
+    IR_GCC,              /* char-class-match: match one char at [Σ+δ] against sealed cset (sval), advance δ by 1; γ on member, ω else */
+    IR_GSUBRULE,         /* subrule call: recurse into named rule's box graph (sval=rule name) with Σ/δ/Δ ambient in R13/R14/R15 */
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
