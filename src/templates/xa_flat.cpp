@@ -68,26 +68,47 @@ static std::string xaf_frame_store_imm32(uint32_t disp, uint32_t imm) {
  * leave/re-enter (x86_asm.h).  Frame-active arms only: grants and the statement backstop are FRQ-keyed, so
  * rsp never moves in a frame-less graph.  Mode read inside the fragment helper follows this file's own
  * ZC_FRAME precedent (the five xaf_ helpers above). */
+/* ALIGN-INV-2 / RBP-FREE (Lon directive 2026-07-13: "I'd rather waste 8 bytes to gain a register"; rbp -> the
+ * dcap cursor).  The graph-level anchor no longer lives in a REGISTER: it lives in the ZETA FRAME, at the pad
+ * qword the graph-scope zeta_mark slot has always reserved and never used (zeta_storage.c: "zeta_mark.pad
+ * (unused)").  Legal because the frame base (r12 = fb) is loaded per ACTIVATION from rdi in this very
+ * prologue, so [fb + anchor] is per-activation too => recursion-safe and depth-independent, which is exactly
+ * what the old push-rbp/mov-rbp,rsp pair bought and the only reason a register was used at all.  Frame growth
+ * ZERO (the pad already existed).  Stack-parity IDENTICAL: the old pair moved rsp by -16 (push 8 + sub 8), the
+ * new store moves it by 0, and 16 == 0 (mod 16), so every downstream alignment claim survives untouched.
+ * Restore point is unchanged (rsp as of end-of-prologue-pushes), so the epilogue's existing dpop/pop_frame run
+ * at exactly the positions they already expected.  NO FALLBACK, and that is a MEASURED claim not a hopeful
+ * one: an instrumented build counted zeta_mark_slot<0 on frame-active graphs across 627 programs of all five
+ * frontends (307 snobol4 crosscheck + icon/prolog/raku/pascal) and got ZERO, which is what zls_build's
+ * unconditional assignment already implied -- so the rbp arms were deleted outright and a slotless
+ * frame-active graph is now a LOUD FATAL (a compiler bug, not a codegen mode).  x86_align_save() died with
+ * them: emitted code's only remaining rbp uses are the four TRANSIENT push/pop anchor windows, which is what
+ * makes rbp available to dcap. */
+static int xaf_anchor_off(void) {
+    if (!g_emit_cfg || g_emit_cfg->zeta_mark_slot < 0) { fprintf(stderr, "FATAL xa_flat: frame-active graph with no zeta_mark slot -- the graph-scope anchor has no home (zls_build did not run?)\n"); abort(); }
+    return g_emit_cfg->zeta_mark_slot + 8;
+}
+static std::string xaf_frame_rsp_rm(uint32_t disp, unsigned char op) {
+    int z = x86_zr_num(), lo = z & 7; std::string c;
+    c += (char)(0x48 | (z >= 8 ? 0x01 : 0x00)); c += (char)op;
+    c += (char)(0x80 | (4 << 3) | (lo == 4 ? 4 : lo)); if (lo == 4) c += (char)0x24;
+    c += u32le(disp); return c;
+}
 static std::string xaf_anchor_enter_bin(void) {
     if (!x86_port_cstack()) return std::string();
-    int v = x86_rnum(x86_align_save()); std::string c;
-    if (v >= 8) c += (char)0x41; c += (char)(0x50 | (v & 7));
-    c += (char)(0x48 | (v >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | (4 << 3) | (v & 7));
-    c += (char)0x48; c += (char)0x83; c += (char)0xEC; c += (char)0x08; return c;
+    return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x89);
 }
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
-    int v = x86_rnum(x86_align_save()); std::string c;
-    c += (char)(0x48 | (v >= 8 ? 0x04 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((v & 7) << 3) | 4);
-    if (v >= 8) c += (char)0x41; c += (char)(0x58 | (v & 7)); return c;
+    return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x8B);
 }
 static std::string xaf_anchor_enter_text(void) {
     if (!x86_port_cstack()) return std::string();
-    return std::string("  push ") + x86_align_save() + "\n  mov " + x86_align_save() + ", rsp\n  sub rsp, 8\n";
+    char b[160]; snprintf(b, sizeof b, "  mov qword ptr [%s + %d], rsp\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 static std::string xaf_anchor_leave_text(void) {
     if (!x86_port_cstack()) return std::string();
-    return std::string("mov rsp, ") + x86_align_save() + "\npop " + x86_align_save() + "\n";
+    char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GVA-BASE RELOAD fragments (ZC_PORT_CSTACK rung, same session).  The rbx=GVA-slab contract previously
