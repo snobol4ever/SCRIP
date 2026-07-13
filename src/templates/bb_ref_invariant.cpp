@@ -14,12 +14,9 @@ std::string bb_ref_invariant() {
          + x86_alpha()
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), bn)
          + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.bb_child_fn, _.bb_child_lbl ? _.bb_child_lbl : "")
-         + x86("push", "rbx")
-         + x86("mov",  "rbx", "rsp")
-         + x86("and",  "rsp", -16L)
+         + x86_align_enter()
          + x86("call", "rt_gvar_assign_pat", (uint64_t)(uintptr_t)(void *)(void(*)(const char*,void*))rt_gvar_assign_pat)
-         + x86("mov",  "rsp", "rbx")
-         + x86("pop",  "rbx")
+         + x86_align_leave()
          + x86_gamma()
          + x86_pair_loop();
 }

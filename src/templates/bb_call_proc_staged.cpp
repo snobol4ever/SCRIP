@@ -92,7 +92,7 @@ static std::string bcps_det_arm() {
     uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return x86_alpha()
          + x86_scan_sync_out()
-         + x86_align_enter()
+         + x86_anchor_enter()
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
@@ -116,7 +116,7 @@ static std::string bcps_det_arm() {
          + x86("def", L(1))
          + x86("call", "rt_faildescr", fail_fp)
          + x86("def", L(2))
-         + x86_align_leave()
+         + x86_anchor_leave()
          + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")

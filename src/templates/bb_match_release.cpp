@@ -31,7 +31,7 @@ std::string bb_match_release() {
           * matching pops then read garbage off the zeta region — a segfault in mode-4 and silent corruption in
           * mode-3.  Cost of learning this: one full crosscheck (m4 167/124).  Save AFTER the release. */
          + x86_xfer_enter()
-         + x86_align_enter()
+         + x86_anchor_enter()
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(void))rt_dcap_end_ok_open)
          /* NCB-1c M3: the 0..N computed-name (*VAR) commit transfers are EMITTED — a pump.  open returns
           * fbytes (a call owed) or 0 (flush complete); each transfer is the NCB-1b window; step assigns the
@@ -53,7 +53,7 @@ std::string bb_match_release() {
          + x86("jmp",  L(1))
          + x86("def",  L(2))
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
-         + x86_align_leave()
+         + x86_anchor_leave()
          + x86_xfer_leave()
          + x86_gamma();
 }
