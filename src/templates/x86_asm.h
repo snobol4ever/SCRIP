@@ -1477,9 +1477,10 @@ inline std::string x86_bomb(const char * msg) {
          + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : std::string(" ud2\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline bb_label_t * x86_pair_tgt(int idx) { return g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx] : g_emit.xa_bb_emit_pair_define[idx]; }   /* ZB-FC-3a: a jmp to a DEFINE-only pair (the sigma pad stubs' jmp na_s) targets the define label -- previously '??'/skipped patch = silent SEGV class */
 inline std::string x86_pair_jmp(int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
-    return std::string(" jmp ") + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
+    return std::string(" jmp ") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_pair_loop — the DRIVE_PAIR define/jmp flush, the FOURTH port-emission site (the other three are
@@ -1509,12 +1510,12 @@ inline std::string x86_deflabel_pair(int idx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_pair(int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
-    return std::string(" jmp ") + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
+    return std::string(" jmp ") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_pair(const char * mnem, int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
-    return std::string(" ") + mnem + " " + (g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx]->name : "??") + "\n";
+    return std::string(" ") + mnem + " " + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lit_bytes(const std::string & b) {
@@ -1543,7 +1544,7 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'J') { int id = (unsigned char)s[i++]; bb_emit_patch_rel32(x86_label_for(id, internal)); }
         else if (tag == 'D') { int id = (unsigned char)s[i++]; bb_label_define(x86_label_for(id, internal)); }
         else if (tag == 'E') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_define[idx]) bb_label_define(g_emit.xa_bb_emit_pair_define[idx]); }
-        else if (tag == 'F') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_jmp[idx]) bb_emit_patch_rel32(g_emit.xa_bb_emit_pair_jmp[idx]); }
+        else if (tag == 'F') { int idx = (unsigned char)s[i++]; bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
         else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
         else break;
     }

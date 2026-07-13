@@ -376,6 +376,7 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
  * LIFO keeps every beta entry at the frontier); both strchr dances verified non-straddling like SPAN's.
  * POS/RPOS stay ungranted: the canonical PURE boxes, zero scratch.  ARB/ARBNO carry zls2 grants -- excluded
  * from the v1 fixed-cell set by design (the heap-flavor gamma/omega overloads are ZB-ACT-3's entry). */
+int fc_alt_fpmax(const IR_t * nd);
 int fc_geom(const IR_t * nd, long * k) {
     if (!nd) return 0;
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
@@ -385,6 +386,32 @@ int fc_geom(const IR_t * nd, long * k) {
     if (nd->op == IR_MATCH_BREAKX) { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_BAL)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_REM)    { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(nd) >= 0) { if (k) *k = 16; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_alt_* -- RUNG ZB-FC-3a (ARCH-ZETA S13 wholesale map, Tier C first slice): the LINEAR-ARM ALTERNATE
+ * registrar.  LOWER computes each arm's EXACT static footprint (16 x granted leaves in the arm's allocation
+ * range; the S10d pad-to-max law needs EXACT fp -- any error misaligns ALT.beta's own-cell read) and
+ * registers here iff EVERY arm is linear (range contains only granted leaves / zero-cell leaves / SEQ /
+ * captures / wiring -- nested ALTERNATE, ARBNO, ARB, DEFER, anything unknown DECLINES: outer stays flat,
+ * the pre-rung path, degrade never die).  Side table keyed by node pointer (the zls_entry precedent; PEERS
+ * RULE forbids IR_t fields, and operand-appending would corrupt flat_drive's N = n_operands/2).  Node-ptr
+ * staleness exposure identical to the zls tables (fresh process per compile; EVAL graphs mint fresh nodes). */
+static struct { const IR_t * nd; int n; int fp[16]; } fca[256];
+static int fca_n = 0;
+void fc_alt_register(const IR_t * nd, int n, const int * fp) {
+    if (!nd || n <= 0 || n > 10 || fca_n >= 256) return;   /* N>10 exceeds the 3N+2 <= XA_BB_EMIT_PAIR_MAX(32) stub budget -- silent decline */
+    fca[fca_n].nd = nd; fca[fca_n].n = n;
+    for (int i = 0; i < n && i < 16; i++) fca[fca_n].fp[i] = fp[i];
+    fca_n++;
+}
+int fc_alt_fpmax(const IR_t * nd) {
+    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) { int m = 0; for (int j = 0; j < fca[i].n; j++) if (fca[i].fp[j] > m) m = fca[i].fp[j]; return m; }
+    return -1;
+}
+int fc_alt_fp(const IR_t * nd, int j) {
+    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) return (j >= 0 && j < fca[i].n) ? fca[i].fp[j] : 0;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

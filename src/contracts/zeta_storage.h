@@ -24,3 +24,7 @@ int          zls_g_vslot_count(const IR_graph_t * g);
 const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off);
 void         zls_dump(FILE * fp);
 #endif
+
+void fc_alt_register(const IR_t * nd, int n, const int * fp);
+int fc_alt_fpmax(const IR_t * nd);
+int fc_alt_fp(const IR_t * nd, int j);
