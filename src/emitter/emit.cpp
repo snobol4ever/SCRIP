@@ -673,6 +673,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls2_geom(const IR_t *, int, int *, long *);   /* zeta_storage.c — ZLS2 port-hook frame-protocol geometry (slot/K/ops per node) */
 extern "C" int fc_geom(const IR_t *, long *);                 /* zeta_storage.c — ZC_PORT_FORTH per-box fixed-cell geometry (RUNG ZB-FC-0) */
+extern "C" int fc_seq_active(const IR_t *);                   /* zeta_storage.c — ZB-FC-3b: this SEQUENCE is FORTH-converted (zero LOCALS; sigma/phi become static edge re-points) */
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 int walk_bb_node(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
@@ -775,7 +776,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
                                     { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; g_emit.op_fc_fpmax = fc_alt_fpmax(nd);
                                       for (int _j = 0; _j < (int)IR_LIT(nd).ival && _j < 16; _j++) g_emit.op_fc_arm_fp[_j] = fc_alt_fp(nd, _j); } }
                                     bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT + ZB-FC-3a linear-arm grant */
-    case IR_MATCH_SEQUENCE:       { bb_emit_x86(bb_match_sequence()); } return 0;                    /* SN4-NARY-SEQ */
+    case IR_MATCH_SEQUENCE:       { g_emit.op_fc_seq = (x86_port_mode() == ZC_PORT_FORTH && fc_seq_active(nd)) ? 1 : 0; bb_emit_x86(bb_match_sequence()); } return 0;   /* SN4-NARY-SEQ + ZB-FC-3b zero-LOCALS grant */
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST:            bb_emit_x86(bb_make_list());      return 0;
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
@@ -843,7 +844,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
@@ -898,6 +899,40 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int fc_alt_fpmax(const IR_t *);
 static int fc_alt_active(const IR_t *nd) { return nd && nd->op == IR_MATCH_ALTERNATE && x86_port_mode() == ZC_PORT_FORTH && fc_alt_fpmax(nd) >= 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int fc_seq_active(const IR_t *);
+static int fc_seq_on(const IR_t *nd) { return nd && x86_port_mode() == ZC_PORT_FORTH && fc_seq_active(nd); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZB-FC-3b: elem_of(source) -- the ALT arm_of() walk verbatim (largest j with pos(entry_j) <= pos(source) in
+ * nodes[] order; elements are allocated contiguously after S and entry_j is each element's first-allocated
+ * node, the s31 convention).  A converted SEQ re-points its inside edges STATICALLY: a sigma (inside-success)
+ * from element i lands element i+1's ALPHA directly -- rsp is already at element i's yield frontier, exactly
+ * where i+1's alpha expects it -- and the LAST element keeps na_s (now an empty glue that simply falls into
+ * S.gamma).  A phi (inside-fail) from element i lands element i-1's BETA directly -- element i's subtree has
+ * popped, so rsp is already at i-1's yield frontier -- and element 0 keeps na_f (empty, falls into S.omega).
+ * ZERO rsp adjustment on either edge; the LIFO structure carries what seq_i used to carry. */
+static int fc_seq_elem_of(IR_t **nodes, int n, int k, int src) {
+    int N = (int)(nodes[k]->n_operands / 2), el = 0, sp = -1;
+    for (int p = 0; p < n; p++) if (nodes[p] == nodes[src]) { sp = p; break; }
+    for (int j = 0; j < N; j++) { IR_t *e = nodes[k]->operands[2 * j]; for (int p = 0; p < n; p++) if (nodes[p] == e) { if (p <= sp) el = j; break; } }
+    return el;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static bb_label_t * fc_seq_sigma_tgt(IR_t **nodes, int n, int k, int src, bb_label_t **lbls, bb_label_t *dflt) {
+    int N = (int)(nodes[k]->n_operands / 2), el = fc_seq_elem_of(nodes, n, k, src);
+    if (el >= N - 1) return dflt;
+    IR_t *nx = nodes[k]->operands[2 * (el + 1)];
+    for (int p = 0; p < n; p++) if (nodes[p] == nx) return lbls[p];
+    return dflt;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label_t **betas, bb_label_t *dflt) {
+    int el = fc_seq_elem_of(nodes, n, k, src);
+    if (el <= 0) return dflt;
+    IR_t *pv = nodes[k]->operands[2 * (el - 1) + 1];
+    for (int p = 0; p < n; p++) if (nodes[p] == pv) return betas[p];
+    return dflt;
+}
 static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω) {
     /* SN4-NARY-ALT drive: operands = (entry_j, resume_j) pairs.  Pair slots handed to the template:
      * 0..N-1 = entry α labels (fail-glue's alt_i dispatch), N..2N-1 = resume β labels (A.β's alt_i dispatch
@@ -1664,12 +1699,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                 for (int _j = 0; _j < _N; _j++) { IR_t *_e = nodes[k]->operands[2 * _j]; for (int _p = 0; _p < n; _p++) if (nodes[_p] == _e) { if (_p <= _src) _arm = _j; break; } }
                 node_γ = fc_sig[k][_arm];
             }
+            if (gamma_is_sig && fc_seq_on(nodes[k])) node_γ = fc_seq_sigma_tgt(nodes, n, k, i, lbls,  node_γ);   /* ZB-FC-3b: inside-success → NEXT element's α (static; rsp already correct) */
+            if (gamma_is_phi && fc_seq_on(nodes[k])) node_γ = fc_seq_phi_tgt  (nodes, n, k, i, betas, node_γ);   /* ZB-FC-3b: a FAIL-goto's γ means fail → PREV element's β */
             break;
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; if (omega_is_phi && fc_seq_on(nodes[k])) node_ω = fc_seq_phi_tgt(nodes, n, k, i, betas, node_ω); omega_resolved = 1; break; }   /* ZB-FC-3b: inside-fail → PREV element's β (static; subtree already popped) */
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         /* BB-OWNED-ζ STEP 1: true death iff this ω-edge falls all the way through to the chain's own outer
          * lbl_ω (never resolved inside the local chain) AND the unresolved target isn't a success-fallthrough

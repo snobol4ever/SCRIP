@@ -440,6 +440,7 @@ typedef struct {
     int                          op_fc_base;
     long                         op_fc_fpmax;      /* ZB-FC-3a: pad-to-max footprint for a granted ALTERNATE; -1 = not a granted ALT */
     int                          op_fc_arm_fp[16]; /* ZB-FC-3a: per-arm EXACT static footprints (pads = fpmax - fp[j]) */
+    int                          op_fc_seq;        /* ZB-FC-3b: 1 = this IR_MATCH_SEQUENCE is FORTH-converted (ZERO cell -- seq_i/delta retired; the LIFO stack position IS the element index, so sigma/phi become static edge re-points and the box owns no rsp storage) */
     int                          x86_fc_synth;
     int                          op_selfload;
     int                          op_phase;

@@ -415,6 +415,35 @@ int fc_alt_fp(const IR_t * nd, int j) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_seq_* -- RUNG ZB-FC-3b (ARCH-ZETA S13 Tier C, SEQUENCE).  DERIVED FROM THE LIVE TREE, AND THE DERIVATION
+ * OVERTURNED THE WRITTEN PLAN: S13 prescribed pad-to-max sigma stubs + a per-i un-pad in a shared glue (ALT's
+ * shape).  SEQ needs NEITHER, and owns NO CELL.  Let F = SEQ's frontier and S_i = sum of fp(elem 0..i).  At
+ * elem i's gamma rsp = F - S_i, which is EXACTLY where elem i+1's alpha expects it (it pushes below); at elem
+ * i's omega its whole subtree has popped so rsp = F - S_{i-1}, which is EXACTLY elem i-1's yield frontier =
+ * where its beta expects it (S10c port invariant).  Every sigma/phi transition is therefore ALREADY at the
+ * correct depth -- zero adjustment -- and every dispatch target is STATICALLY known from the SOURCE element.
+ * seq_i (the runtime index the shared glue exists to carry) is therefore DEAD: the LIFO stack position IS the
+ * sequence position.  This is the s32 two-flavor ruling landing on its feet ("seq_i and the head link are the
+ * same datum in two representations") -- the stack flavor's representation turns out to be NO DATUM AT ALL.
+ * The saved entry-delta is dead too (SEQ never restores it; the retreat goes to elem i-1's BETA, which does
+ * its own undo -- verified: no cross-box reader of a SEQUENCE slot exists in emitter/templates/runtime).
+ * Consequences: zero pairs added (no 4N+2<=32 crunch, so no N limit, unlike ALT's N<=10); the s21 TRANSIT
+ * guarantee stays structural (elem i's omega still lands elem i-1's BETA, wired statically instead of
+ * dispatched); and a zero-cell SEQ contributes 0 to footprint whether or not it converts, so ALT's pad-to-max
+ * arithmetic is untouched either way -- the two conversions are INDEPENDENT.  The ANS-FORTH asymmetry, exact:
+ * ALTERNATION needs a runtime flag (ALT keeps alt_i); SEQUENCING does not.  ELIGIBILITY (LOWER-side, the ALT
+ * linear whitelist verbatim): every element must respect the S10c port invariant -- granted leaves, zero-cell
+ * leaves, nested SEQ, captures, wiring.  Nested ALTERNATE/ARBNO/ARB/DEFER/ABORT/unknown DECLINE the whole SEQ
+ * (it stays flat, the pre-rung path -- degrade never die); widen once ARB/DEFER carry clean fixed cells. */
+static const IR_t * fcs[512];
+static int fcs_n = 0;
+void fc_seq_register(const IR_t * nd) { if (!nd || fcs_n >= 512) return; fcs[fcs_n++] = nd; }
+int fc_seq_active(const IR_t * nd) {
+    if (!nd || nd->op != IR_MATCH_SEQUENCE) return 0;
+    for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->off + (zls_locals_shifted(nd->op) ? 16 : 0); }
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return 0; int end = e->off; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].off + zf[i].size > end) end = zf[i].off + zf[i].size; int b = end - e->off; return (b + 15) & ~15; }
