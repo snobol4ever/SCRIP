@@ -307,7 +307,6 @@ inline int x86_selfload_mode() {
  * choice unchanged. */
 inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }
 inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
-inline const char * x86_align_save() { return ZC_FRAME == ZC_FRAME_RBP ? "r12" : "rbp"; }
 inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "dword ptr [rsp + " : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
 inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "qword ptr [rsp + " : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
