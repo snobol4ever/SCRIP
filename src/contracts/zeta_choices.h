@@ -77,6 +77,22 @@
  * dynamic blocks (ARB/ARBNO) keep the INLINE cell protocol under OWNED.  Select SCRIP_ZETA_PORT=5 /
  * --zeta-port 5; NOT the compiled default.  See GOAL-SNOBOL4-BB.md RUNG ZB-OWN. */
 #define ZC_PORT_OWNED        5
+/* ZC_PORT_FORTH (RUNG ZB-FC-0, Lon directive 2026-07-12 "Switch over to the FORTH zeta cell stack
+ * implementation ... main spine on the RSP for all languages"; design of record ARCH-ZETA-LOCAL-STORAGE.md
+ * S10 + this session's AMENDED TWO-FLAVOR LAW): a CSTACK SUPERSET -- everything CSTACK does (statement
+ * bracket, dynamic ARB/ARBNO activation blocks on rsp, alloca proc frames) PLUS the per-BB fixed FORTH cell:
+ * every fc_geom-granted box pushes its own FIXED-SIZE 16-multiple cell at alpha (sub rsp,K), addresses its
+ * own locals rsp-relative through the FR/FRQ in-range translation (offset - op_fc_base), and pops at EVERY
+ * omega (add rsp,K at the jmp-omega hook; conditional omegas are routed through the x86_jcc invert+pop+jmp
+ * synth so the single hook arm serves all exit paths -- S10b's G3 made visible).  Cells are fixed size BY
+ * LAW (Lon 2026-07-12): no allocation on the stack other than the one cell per box; variable COLLECTION
+ * data (e.g. ARBNO's per-iteration array) belongs to the HEAP flavor with gamma/omega overloads doing the
+ * alloc/free -- the escapable-BB story, ZB-ACT-3 territory.  gamma SUSPENDS the cell (S10c: live through all
+ * gamma/beta cycling); beta emits nothing (LIFO put rsp back at the frontier).  v1 FENCE: fc_geom grants
+ * IR_MATCH_SPAN only (the keystone looping box; private z/zo locals, no cross-box readers, dirty-cell-safe
+ * because alpha writes before any read); widening is per-kind, verified against the S10c port invariant.
+ * Select SCRIP_ZETA_PORT=6 / --zeta-port 6; NOT the compiled default. */
+#define ZC_PORT_FORTH        6
 #ifndef ZC_PORT
 #define ZC_PORT ZC_PORT_CSTACK
 #endif

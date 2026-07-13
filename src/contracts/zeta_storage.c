@@ -355,6 +355,21 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_geom -- the ZC_PORT_FORTH per-box FIXED-CELL geometry authority (RUNG ZB-FC-0, Lon 2026-07-12; design
+ * ARCH-ZETA S10 + zeta_choices.h ZC_PORT_FORTH).  Same authority pattern as zls2_geom above: queried at the
+ * emit dispatch point, promoted into g_emit (op_fc_bytes/op_fc_base), consumed by the central port hook and
+ * the FR/FRQ in-range translation in x86_asm.h.  Returns 1 and *k = the box's fixed cell size (16-multiple
+ * BY LAW, S10a item 6) iff the kind participates; 0 = inert, the hook and translation stay dormant exactly
+ * where they are today.  v1 kind set: IR_MATCH_SPAN only (keystone looping box -- two private 4-byte fields,
+ * scratch+0 counter and scratch+4 beta-undo delta, one 16-byte cell; no zls2 grant so no arm collision; all
+ * conditional omegas route through the x86_jcc synth).  Widening is per-kind with the S10c port-invariant
+ * check (own rsp motion must not straddle an FR access; SPAN's +-8 strchr dance does not). */
+int fc_geom(const IR_t * nd, long * k) {
+    if (!nd) return 0;
+    if (nd->op == IR_MATCH_SPAN) { if (k) *k = 16; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->off + (zls_locals_shifted(nd->op) ? 16 : 0); }
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return 0; int end = e->off; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].off + zf[i].size > end) end = zf[i].off + zf[i].size; int b = end - e->off; return (b + 15) & ~15; }

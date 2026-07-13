@@ -233,7 +233,14 @@ inline uint8_t x86_jcc_op(const char * mnem) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2 };
 inline std::string x86_port_hook(int site, int port);
+inline int x86_fc_on();
+inline std::string x86_fc_jcc_omega(const char * mnem);
 inline std::string x86_jcc(const char * mnem, int port) {
+    /* ZB-FC-0: under the FORTH cell a conditional omega must ALSO pop the box's own cell, and a bare jcc can
+     * carry no pop (add rsp,K clobbers flags and a jcc is a single branch).  The synth inverts the condition
+     * over a 2-instruction skip: jcc' L(synth); [hook pops via the one X86H_JMP/OMEGA arm] jmp omega;
+     * L(synth):  -- S10b's G3 as a visible per-path pop, zero template edits, ONE pop arm serving every exit. */
+    if (port == X86P_OMEGA && x86_fc_on()) return x86_fc_jcc_omega(mnem);
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : (std::string(" ") + mnem + " " + x86_portname(port) + "\n"));
@@ -246,6 +253,28 @@ inline std::string x86_jcc(const char * mnem, int port) {
  * Emit-side seams read THIS, never getenv, never argv. */
 extern "C" int rt_zeta_port_mode(void);
 inline int x86_port_mode() { return rt_zeta_port_mode(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZC_PORT_FORTH (RUNG ZB-FC-0, Lon 2026-07-12; design zeta_choices.h ZC_PORT_FORTH + ARCH-ZETA S10).
+ * x86_port_cstack(): FORTH is a strict CSTACK SUPERSET -- every seam that fires under CSTACK (statement
+ * bracket, dynamic ARB/ARBNO rsp blocks, the mark/release rsp forms) fires identically under FORTH; this
+ * predicate replaces the raw ==ZC_PORT_CSTACK comparisons at those seams.  x86_fc_on(): the per-box fixed
+ * FORTH cell is live for THIS node (flavor selected AND fc_geom granted).  x86_fc_hit(off): a flat-frame
+ * offset falls inside this box's own granted window -- FR/FRQ rebase it to [rsp + off - op_fc_base], valid
+ * exactly while control is inside the box (the S10c port invariant: rsp at the box's frontier at every
+ * port).  x86_jcc_invert(): condition inversion for the conditional-omega pop synth (see x86_jcc). */
+inline int x86_port_cstack() { int m = x86_port_mode(); return m == ZC_PORT_CSTACK || m == ZC_PORT_FORTH; }
+inline int x86_fc_on()       { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_bytes > 0; }
+inline int x86_fc_hit(int off) { return x86_fc_on() && _.op_fc_base >= 0 && off >= _.op_fc_base && off < _.op_fc_base + (int)_.op_fc_bytes; }
+inline std::string x86_fc_jcc_omega(const char * mnem);
+inline const char * x86_jcc_invert(const char * m) {
+    if (!strcmp(m, "je"))  return "jne";
+    if (!strcmp(m, "jne")) return "je";
+    if (!strcmp(m, "jl"))  return "jge";
+    if (!strcmp(m, "jge")) return "jl";
+    if (!strcmp(m, "jle")) return "jg";
+    if (!strcmp(m, "jg"))  return "jle";
+    fprintf(stderr, "[x86] FATAL x86_jcc_invert: unknown condition '%s' (add the pair)\n", m); abort();
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  x86_selfload_mode() mirrors x86_port_mode()'s env-override
  * pattern but reads ZC_SELFLOAD (the α/β self-load axis), not ZC_PORT.  SCRIP_ZETA_SELFLOAD env var overrides
@@ -486,6 +515,16 @@ inline std::string x86_deflabel_id(int n) {
     return MEDIUM_BINARY ? x86_Drec(id) : (x86_internal_name(n) + ":\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZB-FC-0 conditional-omega pop synth (see x86_jcc): descending per-box id pool _.x86_fc_synth (reset 240 at
+ * DRIVE_FILL -- below X86_INTERNAL_MAX, far above any template's own L(n)); the interior x86_jmp(OMEGA) fires
+ * the X86H_JMP hook, which is where the single add-rsp,K pop arm lives -- the synth itself never touches rsp. */
+inline std::string x86_fc_jcc_omega(const char * mnem) {
+    int id = _.x86_fc_synth--;
+    return x86_jcc_id(x86_jcc_invert(mnem), id)
+         + x86_jmp(X86P_OMEGA)
+         + x86_deflabel_id(id);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_jmp_ext / x86_jcc_ext — jump (unconditional / conditional) to an EXTERNALLY-supplied bb_label_t*, e.g.
  * g_emit.flat_β_p, a label allocated by the surrounding chain machinery in emit.cpp rather than one this
  * template defines itself. The existing 'J' tag only carries a one-byte INDEX into bb_emit_x86's own local
@@ -656,7 +695,7 @@ inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off); return b[i]; }
+inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "dword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off); return b[i]; }
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
@@ -681,7 +720,7 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off); return b[i]; }
+inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "qword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off); return b[i]; }
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
@@ -777,6 +816,34 @@ inline std::string x86_rsp_load64(const char * reg, int off) {
     return std::string(" mov ") + reg + ", qword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rsp_store32(int off, const char * reg) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov dword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rsp_load32(const char * reg, int off) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" mov ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rsp_add_imm32(int off, long imm) {
+    if (MEDIUM_BINARY) {
+        std::string c;
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_r12_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
+        else                           { c += (char)0x81; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); }
+        return x86_Lrec(c);
+    }
+    return std::string(" add dword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rsp_add_to_reg32(const char * reg, int off) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" add ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * RSP(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
 inline const char * F64(double d) { static char b[4][32]; static int i; i = (i + 1) & 3; uint64_t bits; memcpy(&bits, &d, 8); snprintf(b[i], 32, "f64:%llu", (unsigned long long)bits); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -831,7 +898,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -867,6 +934,7 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
     if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32;  o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
     if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64;  o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
+    if (!strncmp(s, "dword ptr [rsp + ", 17)) { o.kind = XK_RSP32; o.off = atoi(s + 17); return; }
     if (!strncmp(s, "dword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP32; o.off = (int)d; return; } } }
@@ -984,10 +1052,13 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_FR64 && b.kind == XK_IMM)     return x86_frame_mov_imm64(a.off, b.imm);
         if (a.kind == XK_RSP64 && b.kind == XK_REG)    return x86_rsp_store64(a.off, b.txt);
         if (a.kind == XK_RSP64 && b.kind == XK_IMM)    return x86_rsp_store32_imm(a.off, b.imm);
+        if (a.kind == XK_RSP32 && b.kind == XK_REG)    return x86_rsp_store32(a.off, b.txt);
+        if (a.kind == XK_RSP32 && b.kind == XK_IMM)    return x86_rsp_store32_imm(a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_FR32)     return x86_frame_load(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_FR64)     return x86_frame_load64(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_ROSLOT)   return x86_ro_load_q(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP64)    return x86_rsp_load64(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_RSP32)    return x86_rsp_load32(a.txt, b.off);
         if (a.kind == XK_REGDISP && b.kind == XK_REG)  return x86_reg_disp32_store64(a.base, a.off, b.txt);
         if (a.kind == XK_REGDISP && b.kind == XK_IMM)  return x86_reg_disp32_store_imm64(a.base, a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REGDISP)  return x86_reg_disp32_load64(a.txt, b.base, b.off);
@@ -1028,6 +1099,8 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_REG && b.kind == XK_IMM)  return x86_add(a.txt, b.imm);
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_add_to_reg(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
+        if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_add_imm32(a.off, b.imm);
         return std::string();
     }
     if (!strcmp(mnem, "sub")) {
@@ -1149,7 +1222,7 @@ inline std::string x86_zls2_cur_lea(const char * reg) {
     return x86_load_ro(reg, "g_zls2_cur", (uint64_t)(uintptr_t)(void *)&g_zls2_cur);
 }
 inline std::string x86_zls2_mark_save(int off) {
-    if (x86_port_mode() == ZC_PORT_CSTACK)
+    if (x86_port_cstack())
         return x86("mov", FRQ(off), "rsp");
     if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
         return x86_zls2_cur_lea("rdi")
@@ -1168,7 +1241,7 @@ inline std::string x86_zls2_release_to_call(int off) {
      * caller's window, restore rsp to the mark, RE-OPEN a fresh window at the new position — the caller's
      * remaining call runs safely below the re-based window, and the caller's own dance-leave then lands rsp
      * exactly at the mark. */
-    if (x86_port_mode() == ZC_PORT_CSTACK)
+    if (x86_port_cstack())
         return x86_align_leave()
              + x86("mov", "rsp", FRQ(off))
              + x86_align_enter();
@@ -1296,7 +1369,7 @@ inline std::string x86_port_hook(int site, int port) {
      * bare-call idiom; RELEASE pops with lea rsp,[block+k16] — the same wholesale semantics as the arena's
      * release_to (everything at and below block dies).  See zeta_choices.h ZC_PORT_CSTACK for the design
      * record and the inherited suspended-frame limit. */
-    if (x86_port_mode() == ZC_PORT_CSTACK && _.op_zls2_ops && _.op_zls2_slot >= 0) {
+    if (x86_port_cstack() && _.op_zls2_ops && _.op_zls2_slot >= 0) {
         long k16 = (_.op_zls2_bytes + 15L) & ~15L;
         if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
             s += x86_sub("rsp", k16)
@@ -1308,6 +1381,17 @@ inline std::string x86_port_hook(int site, int port) {
                + x86("mov", "rcx", RDQ("rax", 0))
                + x86("mov", FRQ(_.op_zls2_slot), "rcx")
                + x86_reg_disp32_lea64("rsp", "rax", (int)k16);
+    }
+    /* ZC_PORT_FORTH FIXED CELL (RUNG ZB-FC-0, Lon 2026-07-12; ARCH-ZETA S10a/S10c): the granted box's own
+     * fixed 16-multiple cell rides rsp -- alpha pushes (sub rsp,K; flags dead at a DEF site), EVERY omega pops
+     * (add rsp,K before the jmp; flags dead before an unconditional transfer; conditional omegas arrive here
+     * through the x86_jcc invert+pop+jmp synth, so this ONE arm is every exit path's pop -- S10b G3 visible).
+     * gamma SUSPENDS the cell (S10c law: live through all gamma/beta cycling); beta emits NOTHING (pure LIFO
+     * put rsp back at the frontier -- the s7 alpha/omega-only ruling, re-derived for cells).  16-multiple K
+     * preserves ambient call alignment (S10a item 6), same argument as the CSTACK k16 above. */
+    if (x86_fc_on()) {
+        if (site == X86H_DEF && port == X86P_ALPHA) s += x86_sub("rsp", _.op_fc_bytes);
+        if (site == X86H_JMP && port == X86P_OMEGA) s += x86_add("rsp", _.op_fc_bytes);
     }
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);

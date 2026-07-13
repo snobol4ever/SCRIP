@@ -282,5 +282,5 @@ void rt_zeta_port_set_mode(int m) { g_zeta_port = (m >= ZC_PORT_PLAIN && m <= ZC
 int  rt_zeta_port_mode(void) { if (g_zeta_port < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); g_zeta_port = e ? atoi(e) : (int)ZC_PORT; } return g_zeta_port; }
 int rt_zeta_cstack(void)
 {
-    return rt_zeta_port_mode() == ZC_PORT_CSTACK ? 1 : 0;
+    return (rt_zeta_port_mode() == ZC_PORT_CSTACK || rt_zeta_port_mode() == ZC_PORT_FORTH) ? 1 : 0;
 }

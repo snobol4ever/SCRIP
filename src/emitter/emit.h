@@ -429,6 +429,16 @@ typedef struct {
     int                          op_own_ci;
     int                          op_zls2_slot;
     int                          op_zls2_ops;
+    /* ZC_PORT_FORTH FIXED-CELL GRANT (RUNG ZB-FC-0, Lon 2026-07-12; authority fc_geom, zeta_storage.c; design
+     * zeta_choices.h ZC_PORT_FORTH + ARCH-ZETA S10): op_fc_bytes = the box's fixed 16-multiple cell size
+     * (0 = no grant, hook + FR translation inert -- every ungranted node byte-identical in all port modes);
+     * op_fc_base = the flat-frame base the box's own FR/FRQ offsets are rebased against ([rsp + off - base]
+     * while control is inside the box, the S10c port invariant); x86_fc_synth = the descending internal-label
+     * id pool for the x86_jcc conditional-omega invert+pop+jmp synth (reset per node at DRIVE_FILL; starts at
+     * 240, below X86_INTERNAL_MAX and far above any template's own L(n) ids). */
+    long                         op_fc_bytes;
+    int                          op_fc_base;
+    int                          x86_fc_synth;
     int                          op_selfload;
     int                          op_phase;
     int                          op_binop_kind;
