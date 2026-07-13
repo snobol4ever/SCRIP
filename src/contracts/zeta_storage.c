@@ -383,6 +383,8 @@ int fc_geom(const IR_t * nd, long * k) {
     if (nd->op == IR_MATCH_RTAB)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_BREAK)  { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_BREAKX) { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_BAL)    { if (k) *k = 16; return 1; }
+    if (nd->op == IR_MATCH_REM)    { if (k) *k = 16; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
