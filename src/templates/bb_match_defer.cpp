@@ -11,6 +11,7 @@ extern "C" void *rt_frame_prep     (void *fb, long fbytes);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *rt_zls_alloc      (long bytes);
 extern "C" void  rt_zls_release    (void *fb);
+extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
 static inline int dscr() { return _.x86_scratch_off; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -64,6 +65,11 @@ std::string bb_match_defer() {
           * register allocation.  Any transfer with a LIVE matcher cursor must save them itself — M3 and NCB-2's
           * generator arms included. */
          + x86_xfer_enter()
+         /* rbp-dcap mirror-out: the callout pump below transfers into proc bodies that may run their own
+          * matches — their heads load g_dcap_top and must see the live top (match-family boxes only; the
+          * shared x86_frame_sink stays clean because non-SNOBOL graphs carry a non-cursor rbp). */
+         + x86("mov",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
+         + x86("mov",  RDQ("rcx", 0), "rbp")
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
          + x86("xor",  "esi", "esi")
          + x86_anchor_enter()
