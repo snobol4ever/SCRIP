@@ -76,6 +76,8 @@ typedef enum {
     IR_SCAN_POS,
     IR_SCAN_TAB,
     IR_SCAN_UPTO,
+    IR_SCAN_SEQUENCE,
+    IR_SCAN_ALTERNATE,
     IR_SUBSCRIPT,
     IR_SUCCEED,
     IR_SUSPEND,

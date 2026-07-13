@@ -126,6 +126,10 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B r14d) + alt_i live-alternative index (+4 4B; α=0, fail-glue ++; β dispatches on it)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "alt.pad (unused — was the dcap height save for the deleted rt_dcap_height/restore_to pair; rbp-dcap s46 proved ALTERNATE needs NO pend-stack state at all: generator LIFO already restores rbp before any alternative switch is visible, MEASURED watermark-exact in both flavors with the save/restore removed.  Quad KEPT at 16B: shrinking it would shift every later node's offset for zero gain)", nd); return 1;
     case IR_MATCH_SEQUENCE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "seq.entry cursor save (+0 4B r14d; SU-C result anchor, no reload — elements undo their own δ) + seq_i live-element index (+4 4B; α=0, ns_s ++, ns_f --, β=N; flat-frame array flavor of the two-flavor design — rsp flavor = linked frame chain, lands with ZB-ITER/ZB-OWN)", nd); return 1;
+    case IR_SCAN_SEQUENCE:
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "scanseq.entry δ save (+16 from box base, 4B r14d) + seq_i live-element index (+20, 4B; α=0, na_s ++, na_f --, β=N) — same wiring as IR_MATCH_SEQUENCE; the value DESCR is the box result slot at [base]", nd); return 1;
+    case IR_SCAN_ALTERNATE:
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "scanalt.entry δ save (+16 from box base, 4B r14d) + dcap height (+20, 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scanalt.alt_i live-alternative index (+24, 4B; α=0, na_f ++; β dispatches) (+28 pad)", nd); return 2;
     case IR_SCAN:
         return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:

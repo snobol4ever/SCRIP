@@ -131,6 +131,34 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_cat_flatten(const tree_t * t, const tree_t ** elems, int * ne) {
+    if (!t) return;
+    if (t->t == TT_CAT && t->n == 2) { icn_cat_flatten(t->c[0], elems, ne); icn_cat_flatten(t->c[1], elems, ne); return; }
+    if (*ne < 64) elems[(*ne)++] = t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * icn_scan_seq_nary(icx_t * cx, const tree_t ** elems, int ne, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_graph_t * g = cx->g;
+    IR_t * S = lc_build(g, IR_SCAN_SEQUENCE, γ, NULL);
+    lc_ω_to(S, ω);
+    for (int i = 0; i < ne; i++) {
+        int before = g->n;
+        IR_t * evz = NULL; IR_t * ei = lower(cx, elems[i], S, S, &evz); (void) evz;
+        IR_t * ri = (before < g->n) ? g->all[before] : ei;
+        for (int k = before; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->ω.node == S) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+            if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+        }
+        ir_operand_push(S, ei);
+        ir_operand_push(S, ri);
+    }
+    IR_LIT(S).ival = (long) ne;
+    cx->beta = S; *res = S;
+    return S;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
     IR_t * br = NULL; IR_t * entry;
@@ -254,6 +282,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     cx->beta = ω;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (lc_is_binop(t->t)) {
+        if (t->t == TT_CAT && t->n == 2 && (icn_arg_is_scan_fn(t->c[0]) || icn_arg_is_scan_fn(t->c[1]))) {
+            const tree_t * elems[64]; int ne = 0; icn_cat_flatten(t, elems, &ne);
+            int all_scan = (ne >= 2); for (int i = 0; i < ne; i++) if (!icn_arg_is_scan_fn(elems[i])) { all_scan = 0; break; }
+            if (all_scan) return icn_scan_seq_nary(cx, elems, ne, γ, ω, res);
+        }
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
         int64_t bcode = lc_binop_code(t->t); int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE) || bcode == BINOP_EQV || bcode == BINOP_NEQV;
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
