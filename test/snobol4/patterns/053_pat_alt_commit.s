@@ -17,12 +17,11 @@ push r12
   cmp esi, 0
   jne proc_PAT$0_β
  push rsi
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_zls_mark@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 112], rax
  pop rsi
 proc_PAT$0_α_body:
@@ -31,12 +30,11 @@ mov qword ptr [r12 + 96], rax
 # IR_MATCH_ALT_NARY
  xchain0_n0_α:
  mov dword ptr [r12 + 32], r14d
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_dcap_height@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov dword ptr [r12 + 36], eax
  mov dword ptr [r12 + 40], 0
  jmp xchain0_n1_α
@@ -53,12 +51,11 @@ xchain0_n0_af:
  add dword ptr [r12 + 40], 1
  mov r14d, dword ptr [r12 + 32]
  mov edi, dword ptr [r12 + 36]
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_dcap_restore_to@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov eax, dword ptr [r12 + 40]
  cmp eax, 1
  je xchain0_n2_α
@@ -128,13 +125,12 @@ mov rsp, rbp
 pop rbp
 pop r12
 ret
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov rdi, qword ptr [r12 + 112]
  call rt_zls_release_to@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
 proc_PAT$0_ω:
 # GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
 mov dword ptr [r12+0], 99
@@ -213,12 +209,11 @@ push r12
   mov rbp, rsp
   sub rsp, 8
  push rsi
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_zls_mark@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 528], rax
  pop rsi
 main_α_body:
@@ -324,20 +319,18 @@ main_α_body:
  jne .Lx18_1
  jmp .Lx18_0
 .Lx18_1:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov rdi, qword ptr [r12 + 264]
  call rt_zls_release_to@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov rsp, qword ptr [r12 + 272]
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_dcap_end_fail@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  jmp xchain9_n7_α
 # IR_LIT_STRING
  xchain9_n7_α:
@@ -355,21 +348,19 @@ main_α_body:
  xchain9_n8_α:
  lea rdi, [r12 + 320]
  mov esi, r14d
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_cap_push@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  jmp xchain9_n10_α
  xchain9_n8_β:
  lea rdi, [r12 + 320]
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_cap_pop@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  jmp xchain9_n6_β
 # IR_ASSIGN global
  xchain9_n9_α:
@@ -394,13 +385,12 @@ main_α_body:
  test rax, rax
  jz .Lx23_0
  mov qword ptr [r12 + 352], rax
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov rdi, 65536
  call rt_zls_alloc@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov qword ptr [r12 + 360], rax
  mov rcx, qword ptr [r12 + 352]
  mov rdi, rax
@@ -409,12 +399,11 @@ main_α_body:
  cmp eax, 1
  je .Lx23_1
  mov rdi, qword ptr [r12 + 360]
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_zls_release@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  xor eax, eax
  mov qword ptr [r12 + 352], rax
  jmp xchain9_n8_β
@@ -451,12 +440,11 @@ main_α_body:
  pop r15
  pop r14
  mov edi, r14d
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_defer_close@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  test eax, eax
  js xchain9_n8_β
  mov r14d, eax
@@ -471,12 +459,11 @@ main_α_body:
  cmp eax, 1
  je .Lx23_1
  mov rdi, qword ptr [r12 + 360]
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_zls_release@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  xor eax, eax
  mov qword ptr [r12 + 352], rax
  jmp xchain9_n8_β
@@ -509,28 +496,25 @@ main_α_body:
  pop rbp
  jmp xchain9_n12_α
  xchain9_n11_β:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  call rt_dcap_pop@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  jmp xchain9_n10_β
 # IR_MATCH_RELEASE
  xchain9_n12_α:
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov rdi, qword ptr [r12 + 264]
  call rt_zls_release_to@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  mov rsp, qword ptr [r12 + 272]
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
  push r14
  push r15
  push r13
@@ -593,13 +577,12 @@ mov rsp, rbp
 pop rbp
 pop r12
 ret
- push rbp
- mov rbp, rsp
+ push rsp
+ push qword ptr [rsp]
  and rsp, -16
  mov rdi, qword ptr [r12 + 528]
  call rt_zls_release_to@PLT
- mov rsp, rbp
- pop rbp
+ mov rsp, [rsp + 8]
 main_ω:
 # GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
 mov dword ptr [r12+0], 99
