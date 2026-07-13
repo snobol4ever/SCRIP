@@ -753,10 +753,10 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_ANY:            { bb_prepare(nd); bb_emit_x86(bb_match_any()); } return 0;   /* SN4-PAT-3 */
     case IR_MATCH_NOTANY:         { bb_prepare(nd); bb_emit_x86(bb_match_notany()); } return 0; /* SN4-PAT-3 */
     case IR_MATCH_SPAN:           { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_span()); } return 0;   /* SN4-PAT-3 + ZB-FC-0 fixed-cell grant */
-    case IR_MATCH_BREAK:          { bb_prepare(nd); bb_emit_x86(bb_match_break()); } return 0;   /* SN4-PAT-3 */
-    case IR_MATCH_BREAKX:         { bb_prepare(nd); bb_emit_x86(bb_match_breakx()); } return 0;  /* SN4-PAT-3 */
-    case IR_MATCH_TAB:            { bb_prepare(nd); bb_emit_x86(bb_match_tab()); } return 0;     /* SN4-PAT-3 */
-    case IR_MATCH_RTAB:           { bb_prepare(nd); bb_emit_x86(bb_match_rtab()); } return 0;    /* SN4-PAT-3 */
+    case IR_MATCH_BREAK:          { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_break()); } return 0;   /* SN4-PAT-3 + ZB-FC-1 fixed-cell grant */
+    case IR_MATCH_BREAKX:         { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_breakx()); } return 0;  /* SN4-PAT-3 + ZB-FC-1 fixed-cell grant */
+    case IR_MATCH_TAB:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_tab()); } return 0;     /* SN4-PAT-3 + ZB-FC-1 fixed-cell grant */
+    case IR_MATCH_RTAB:           { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_rtab()); } return 0;    /* SN4-PAT-3 + ZB-FC-1 fixed-cell grant */
     case IR_MATCH_POS:            { bb_prepare(nd); bb_emit_x86(bb_match_pos()); } return 0;     /* SN4-PAT-3 */
     case IR_MATCH_RPOS:           { bb_prepare(nd); bb_emit_x86(bb_match_rpos()); } return 0;    /* SN4-PAT-3 */
     case IR_MATCH_REM:            { bb_prepare(nd); bb_emit_x86(bb_match_rem()); } return 0;     /* SN4-PAT-3 */

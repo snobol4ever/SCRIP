@@ -843,6 +843,11 @@ inline std::string x86_rsp_add_to_reg32(const char * reg, int off) {
     if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
     return std::string(" add ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
 }
+inline std::string x86_rsp_sub_from_reg32(const char * reg, int off) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x2B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" sub ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * RSP(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
 inline const char * F64(double d) { static char b[4][32]; static int i; i = (i + 1) & 3; uint64_t bits; memcpy(&bits, &d, 8); snprintf(b[i], 32, "f64:%llu", (unsigned long long)bits); return b[i]; }
@@ -1101,12 +1106,23 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
         if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_add_imm32(a.off, b.imm);
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64) {
+            fprintf(stderr, "FATAL x86(\"add\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A frame/cell access that emits nothing is the ZB-FC-1 silent-drop corruption class (the mov precedent, 2026-07-08); add the encoder + dispatch case here (R7).\n",
+                    a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+            abort();
+        }
         return std::string();
     }
     if (!strcmp(mnem, "sub")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_sub_rr(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_sub(a.txt, b.imm);
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_sub_from_reg(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_sub_from_reg32(a.txt, b.off);
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64) {
+            fprintf(stderr, "FATAL x86(\"sub\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A frame/cell access that emits nothing is the ZB-FC-1 silent-drop corruption class (the mov precedent, 2026-07-08); add the encoder + dispatch case here (R7).\n",
+                    a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+            abort();
+        }
         return std::string();
     }
     if (!strcmp(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }
