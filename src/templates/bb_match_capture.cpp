@@ -41,7 +41,7 @@ std::string bb_match_capture() {
            + x86_omega() )
          : ( x86("comment", (int)_.op_phase == 2 ? "IR_MATCH_CAPTURE_IMM" : "IR_MATCH_CAPTURE_COND")
            + x86_alpha()
-           + x86_align_enter()
+           + x86_anchor_enter()
            + x86("lea",  "rdi", FR(_.op_off))
            + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
            + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
@@ -62,7 +62,7 @@ std::string bb_match_capture() {
            + x86("mov",  "rsi", "rdx")
            + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
            + x86("def",  L(1))
-           + x86_align_leave()
+           + x86_anchor_leave()
            + x86_gamma()
            + x86_beta()
            + IF((int)_.op_phase == 1,

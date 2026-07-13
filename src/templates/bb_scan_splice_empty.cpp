@@ -14,12 +14,9 @@ std::string bb_scan_splice_empty() {
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
          + x86("mov",  "esi", FR(_.op_sa))
          + x86("mov",  "edx", "r14d")
-         + x86("push", "rbx")
-         + x86("mov",  "rbx", "rsp")
-         + x86("and",  "rsp", -16L)
+         + x86_align_enter()
          + x86("call", "rt_scan_splice_empty", (uint64_t)(uintptr_t)(void *)(void(*)(const char*,int,int))rt_scan_splice_empty)
-         + x86("mov",  "rsp", "rbx")
-         + x86("pop",  "rbx");
+         + x86_align_leave();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_emit_splice_empty_call(void) { bb_emit_x86(bb_scan_splice_empty()); }

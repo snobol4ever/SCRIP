@@ -1177,12 +1177,26 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
  * meaningless across it (push/and both touch or depend on rsp) — callers already treat a C call as a full
  * clobber, so nothing new. */
 inline std::string x86_align_enter() {
-    const char * sv = x86_align_save();
-    return x86("push", sv) + x86("mov", sv, "rsp") + x86("and", "rsp", -16L);
+    if (MEDIUM_BINARY) return x86_Lrec(x86_b1(0x54) + x86_b3(0xFF, 0x34, 0x24) + x86_b2(0x48, 0x83) + x86_b2(0xE4, 0xF0));
+    return std::string(" push rsp\n push qword ptr [rsp]\n and rsp, -16\n");
 }
 inline std::string x86_align_leave() {
-    const char * sv = x86_align_save();
-    return x86("mov", "rsp", sv) + x86("pop", sv);
+    if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x48, 0x8B, 0x64) + x86_b2(0x24, 0x08));
+    return std::string(" mov rsp, [rsp + 8]\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_anchor_enter/leave — ALIGN-INV-1 (Lon 2026-07-13): the DEEP-WINDOW flavor.  A window whose interior
+ * SINKS rsp and never re-raises it (the dynamic proc-frame arms: sub rsp,rax then rely on the leave to
+ * release) cannot use the register-free align pair — mov rsp,[rsp+8] only works at balanced arrival, and
+ * recursion makes the per-activation push of the anchor load-bearing.  This keeps the old register dance
+ * VERBATIM for exactly those windows.  rbp here is a TRANSIENT push/pop-preserved scratch, NOT a resident:
+ * any future resident meaning of rbp (the dcap cursor) survives the window via the push/pop pair, with the
+ * global-mirror spill at these windows when that lands.  Every other window uses x86_align_enter/leave. */
+inline std::string x86_anchor_enter() {
+    return x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("and", "rsp", -16L);
+}
+inline std::string x86_anchor_leave() {
+    return x86("mov", "rsp", "rbp") + x86("pop", "rbp");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_xfer_enter/leave (NCB-1c, 2026-07-11) — THE MATCHER-REGISTER SAVE FOR AN EMITTED BB→BB TRANSFER.
