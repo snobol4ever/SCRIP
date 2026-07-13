@@ -1116,6 +1116,106 @@ DESCR_t rt_pl_dyn_iter_gen(DESCR_t *args, int nargs, int64_t *resume)
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { dyn_clause_t *cur; int mark; } pl_clause_it_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_clause_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern pl_trail_t g_pl_trail;
+    extern void rt_pl_iso_throw_instantiation(void);
+    extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
+    extern void rt_pl_iso_throw_permission(const char *, const char *, const char *, int);
+    extern int rt_pl_proc_defined_static(const char *, long);
+    if (nargs < 2 || !resume) return FAILDESCR;
+    if (*resume == 0) {
+        Term *hd = pl_cell_to_term((pl_cell_t *)&args[0]);
+        hd = hd ? term_deref(hd) : (Term *)0;
+        if (!hd || hd->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return FAILDESCR; }
+        if (hd->tag != TERM_ATOM && hd->tag != TERM_COMPOUND) { rt_pl_iso_throw_pi("type_error", "callable", (hd->tag == TERM_INT) ? "integer" : "?", 0); return FAILDESCR; }
+        Term *bd = pl_cell_to_term((pl_cell_t *)&args[1]);
+        bd = bd ? term_deref(bd) : (Term *)0;
+        if (bd && bd->tag != TERM_VAR && bd->tag != TERM_ATOM && bd->tag != TERM_COMPOUND) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+        const char *name = (const char *)0; long arity = 0; dyn_term_key(hd, &name, &arity);
+        if (!name) return FAILDESCR;
+        dyn_pred_row_t *row = dyn_pred_find(name, arity);
+        if (!row) { if (rt_pl_proc_defined_static(name, arity)) rt_pl_iso_throw_permission("access", "private_procedure", name, (int)arity); return FAILDESCR; }
+        pl_clause_it_t *it = (pl_clause_it_t *)rt_ws_alloc(sizeof *it);
+        it->cur = row->head; it->mark = pl_trail_mark(&g_pl_trail);
+        *resume = (int64_t)(intptr_t)it;
+    }
+    pl_clause_it_t *it = (pl_clause_it_t *)(intptr_t)*resume;
+    while (it->cur) {
+        pl_trail_unwind(&g_pl_trail, it->mark);
+        dyn_clause_t *c = it->cur; it->cur = c->next;
+        Term *bt = c->body ? c->body : term_new_atom(ATOM_TRUE);
+        Term *vk[256]; pl_cell_t *vv[256]; int vn = 0;
+        pl_term_to_cell_word_m(c->head, vk, vv, &vn, 256); pl_term_to_cell_word_m(bt, vk, vv, &vn, 256);
+        pl_cell_t hcell = pl_term_to_cell_word_m(c->head, vk, vv, &vn, 256);
+        pl_cell_t bcell = pl_term_to_cell_word_m(bt, vk, vv, &vn, 256);
+        if (pl_unify((pl_cell_t *)&args[0], &hcell, &g_pl_trail) && pl_unify((pl_cell_t *)&args[1], &bcell, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *name; long arity; } pl_pi_cand_t;
+typedef struct { pl_pi_cand_t *v; int n; int i; int mark; } pl_curpred_it_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_current_predicate_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern pl_trail_t g_pl_trail;
+    if (nargs < 1 || !resume) return FAILDESCR;
+    if (*resume == 0) {
+        pl_curpred_it_t *it = (pl_curpred_it_t *)rt_ws_alloc(sizeof *it);
+        int cap = (int)g_pl_dyn_pred_n + 8; it->v = (pl_pi_cand_t *)rt_ws_alloc((size_t)cap * sizeof(pl_pi_cand_t)); it->n = 0;
+        for (long r = 0; r < g_pl_dyn_pred_n; r++) if (g_pl_dyn_pred_table[r].name) { it->v[it->n].name = g_pl_dyn_pred_table[r].name; it->v[it->n].arity = g_pl_dyn_pred_table[r].arity; it->n++; }
+        it->i = 0; it->mark = pl_trail_mark(&g_pl_trail);
+        *resume = (int64_t)(intptr_t)it;
+    }
+    pl_curpred_it_t *it = (pl_curpred_it_t *)(intptr_t)*resume;
+    while (it->i < it->n) {
+        pl_trail_unwind(&g_pl_trail, it->mark);
+        pl_pi_cand_t cand = it->v[it->i++];
+        Term *kids[2]; kids[0] = term_new_atom(prolog_atom_intern(cand.name)); kids[1] = term_new_int(cand.arity);
+        Term *pi = term_new_compound(prolog_atom_intern("/"), 2, kids);
+        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], pi, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *props[4]; int n; int i; int mark; } pl_predprop_it_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_predicate_property_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern pl_trail_t g_pl_trail;
+    extern void rt_pl_iso_throw_instantiation(void);
+    extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
+    extern int rt_pl_proc_defined_static(const char *, long);
+    if (nargs < 2 || !resume) return FAILDESCR;
+    if (*resume == 0) {
+        Term *hd = pl_cell_to_term((pl_cell_t *)&args[0]);
+        hd = hd ? term_deref(hd) : (Term *)0;
+        if (!hd || hd->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return FAILDESCR; }
+        if (hd->tag != TERM_ATOM && hd->tag != TERM_COMPOUND) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+        const char *name = (const char *)0; long arity = 0; dyn_term_key(hd, &name, &arity);
+        if (!name) return FAILDESCR;
+        int is_dyn = dyn_pred_find(name, arity) != (dyn_pred_row_t *)0;
+        int is_stat = rt_pl_proc_defined_static(name, arity);
+        if (!is_dyn && !is_stat) return FAILDESCR;
+        pl_predprop_it_t *it = (pl_predprop_it_t *)rt_ws_alloc(sizeof *it); it->n = 0;
+        if (is_dyn) it->props[it->n++] = "dynamic"; else it->props[it->n++] = "static";
+        it->props[it->n++] = "defined";
+        it->i = 0; it->mark = pl_trail_mark(&g_pl_trail);
+        *resume = (int64_t)(intptr_t)it;
+    }
+    pl_predprop_it_t *it = (pl_predprop_it_t *)(intptr_t)*resume;
+    while (it->i < it->n) {
+        pl_trail_unwind(&g_pl_trail, it->mark);
+        const char *p = it->props[it->i++];
+        Term *pt = term_new_atom(prolog_atom_intern(p));
+        if (pl_unify_term_into_cell((pl_cell_t *)&args[1], pt, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     extern pl_trail_t g_pl_trail;
     dyn_cursor_t *cur = (dyn_cursor_t *)cursor;

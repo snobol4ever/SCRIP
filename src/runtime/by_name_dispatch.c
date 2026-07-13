@@ -153,6 +153,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$sub_atom") || !strcmp(name, "$atom_to_term")) return 1;
     if (!strcmp(name, "$bag_prep_b") || !strcmp(name, "$bag_prep_s") || !strcmp(name, "$keysort") || !strcmp(name, "$bag_group")) return 1;
     if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter") || !strcmp(name, "$call")) return 1;
+    if (!strcmp(name, "$clause") || !strcmp(name, "$current_predicate") || !strcmp(name, "$predicate_property")) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -897,6 +898,19 @@ void rt_pl_iso_throw_existence_key(const char *key) {
     if (sl) { int kl = (int)(sl - key); if (kl > 199) kl = 199; memcpy(nm, key, (size_t)kl); nm[kl] = 0; ar = atoi(sl + 1); }
     else { snprintf(nm, sizeof nm, "%s", key ? key : "?"); ar = 0; }
     rt_pl_iso_throw_pi("existence_error", "procedure", nm, ar);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_iso_throw_permission(const char *op, const char *type, const char *nm, int ar) {
+    DESCR_t pia[2]; pia[0] = plc_iso_atom(nm ? nm : "?"); pia[1].v = (DTYPE_t)DT_I; pia[1].slen = 0; pia[1].i = ar;
+    DESCR_t kids[3]; kids[0] = plc_iso_atom(op ? op : "access"); kids[1] = plc_iso_atom(type ? type : "private_procedure"); kids[2] = plc_iso_comp("/", 2, pia);
+    plc_iso_ball(plc_iso_comp("permission_error", 3, kids));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_proc_defined_static(const char *name, long arity) {
+    if (!name) return 0;
+    char key[256]; snprintf(key, sizeof key, "%s/%ld", name, arity);
+    for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, key) && !g_stage2.proc_table[i].is_generator) return 1;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_iso_evaluable(DESCR_t v) {
@@ -2947,6 +2961,9 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
         return rt_pl_dyn_iter_gen(args, nargs, resume);
     }
     if (fn && resume && !strcmp(fn, "$call") && nargs >= 1) return rt_pl_call_gen(args, nargs, resume);
+    if (fn && resume && !strcmp(fn, "$clause") && nargs >= 2) { extern DESCR_t rt_pl_clause_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_clause_gen(args, nargs, resume); }
+    if (fn && resume && !strcmp(fn, "$current_predicate") && nargs >= 1) { extern DESCR_t rt_pl_current_predicate_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_predicate_gen(args, nargs, resume); }
+    if (fn && resume && !strcmp(fn, "$predicate_property") && nargs >= 2) { extern DESCR_t rt_pl_predicate_property_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_predicate_property_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$sub_atom") && nargs >= 5) return rt_pl_sub_atom_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$bag_group") && nargs >= 3) { extern DESCR_t rt_pl_bag_group_gen(DESCR_t *, int, int64_t *); return rt_pl_bag_group_gen(args, nargs, resume); }
     if (fn && resume && nargs == 2 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {

@@ -363,6 +363,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         }
         if (!strcmp(nm, "sub_atom") && t->n == 5) pl_ensure_gen_builtin_pred("$sub_atom", "sub_atom", 5);
         if (!strcmp(nm, "$bag_group") && t->n == 3) pl_ensure_gen_builtin_pred("$bag_group", "$bag_group", 3);
+        if (!strcmp(nm, "clause") && t->n == 2) pl_ensure_gen_builtin_pred("$clause", "clause", 2);
+        if (!strcmp(nm, "current_predicate") && t->n == 1) pl_ensure_gen_builtin_pred("$current_predicate", "current_predicate", 1);
+        if (!strcmp(nm, "predicate_property") && t->n == 2) pl_ensure_gen_builtin_pred("$predicate_property", "predicate_property", 2);
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("fail"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
