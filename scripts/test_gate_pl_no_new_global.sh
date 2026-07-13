@@ -62,6 +62,14 @@ PL_FILES=$(ls \
 #                        PIVOT (top of GOAL-PROLOG-BB.md): a contiguous DATA region (the WAM's memory half, language-
 #                        neutral), NOT the §10 #2 environment-CONTROL stack — control stays in the four ports + frame
 #                        cells; the boxes drive control, this is a data arena (the direct sibling of g_pl_trail's area).
+# g_pb_fresh_ctr         LOWER-TIME fresh bound-var NAME counter ("_$B%d") in prolog_lower.c. Compile-time-only, like
+#                        g_uinfix / g_pl_nl_* — never touched at runtime; a monotonic name source, not a §10 spine.
+# g_pl_functor_slot_ctr  functor/3 fresh-var PRINT-ID counter (unification.c). A single monotonic int source for naming
+#                        the vars functor(F,N,T) creates so the writer can print them; write-side metadata, NOT a control
+#                        stack. Added by PL-ISO-5 (cce2b25e); allowlisted 2026-07-13 (was an un-listed pre-existing red).
+# g_pl_copy_slot_ctr     copy_term/2 fresh-var PRINT-ID counter + its mode gate (unification.c). Same print-id class as
+# g_pl_copy_slot_mode    g_pl_functor_slot_ctr; the mode flag scopes id-assignment so sort/@< copy-walks leave ids untouched.
+#                        Two scalars, not a §10 stack. Added by PL-ISO-5 (cce2b25e); allowlisted 2026-07-13.
 SANCTIONED="
 g_resolve_trail
 g_pl_trail
@@ -80,6 +88,10 @@ g_pl_dyn_pred_cap
 g_uinfix
 g_uinfix_n
 g_uinfix_cap
+g_pb_fresh_ctr
+g_pl_functor_slot_ctr
+g_pl_copy_slot_ctr
+g_pl_copy_slot_mode
 "
 
 # ---- TIER 2: LEGACY-DOOMED — grandfathered, ratchet to zero (each IS a §10 NOT-NEEDED structure) -
