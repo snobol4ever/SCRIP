@@ -11,9 +11,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 5752], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -337,8 +335,7 @@ jmp proc_Push_ω
 proc_Push_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
  push rsp
@@ -354,8 +351,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
   .globl proc_Pop_α
@@ -369,9 +365,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 5752], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -619,8 +613,7 @@ jmp proc_Pop_ω
 proc_Pop_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
  push rsp
@@ -636,8 +629,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
   .globl proc_Unary_α
@@ -651,9 +643,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 5752], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -977,8 +967,7 @@ jmp proc_Unary_ω
 proc_Unary_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
  push rsp
@@ -994,8 +983,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
   .globl proc_Binary_α
@@ -1009,9 +997,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 5752], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -1451,8 +1437,7 @@ jmp proc_Binary_ω
 proc_Binary_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
  push rsp
@@ -1468,8 +1453,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
   .globl proc_EXPR$0_α
@@ -1483,9 +1467,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -1547,8 +1529,7 @@ jmp proc_EXPR$0_ω
 proc_EXPR$0_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -1564,8 +1545,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$1_α
@@ -1579,9 +1559,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -1643,8 +1621,7 @@ jmp proc_EXPR$1_ω
 proc_EXPR$1_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -1660,8 +1637,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$2_α
@@ -1675,9 +1651,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -1739,8 +1713,7 @@ jmp proc_EXPR$2_ω
 proc_EXPR$2_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -1756,8 +1729,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$3_α
@@ -1771,9 +1743,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -1835,8 +1805,7 @@ jmp proc_EXPR$3_ω
 proc_EXPR$3_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -1852,8 +1821,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$4_α
@@ -1867,9 +1835,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -1904,8 +1870,7 @@ jmp proc_EXPR$4_ω
 proc_EXPR$4_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -1921,8 +1886,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$5_α
@@ -1936,9 +1900,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -1973,8 +1935,7 @@ jmp proc_EXPR$5_ω
 proc_EXPR$5_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -1990,8 +1951,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$6_α
@@ -2005,9 +1965,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2042,8 +2000,7 @@ jmp proc_EXPR$6_ω
 proc_EXPR$6_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2059,8 +2016,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$7_α
@@ -2074,9 +2030,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2138,8 +2092,7 @@ jmp proc_EXPR$7_ω
 proc_EXPR$7_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2155,8 +2108,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$8_α
@@ -2170,9 +2122,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2207,8 +2157,7 @@ jmp proc_EXPR$8_ω
 proc_EXPR$8_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2224,8 +2173,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$9_α
@@ -2239,9 +2187,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2276,8 +2222,7 @@ jmp proc_EXPR$9_ω
 proc_EXPR$9_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2293,8 +2238,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$10_α
@@ -2308,9 +2252,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2345,8 +2287,7 @@ jmp proc_EXPR$10_ω
 proc_EXPR$10_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2362,8 +2303,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$11_α
@@ -2377,9 +2317,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2441,8 +2379,7 @@ jmp proc_EXPR$11_ω
 proc_EXPR$11_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2458,8 +2395,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$12_α
@@ -2473,9 +2409,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2510,8 +2444,7 @@ jmp proc_EXPR$12_ω
 proc_EXPR$12_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2527,8 +2460,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$13_α
@@ -2542,9 +2474,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2579,8 +2509,7 @@ jmp proc_EXPR$13_ω
 proc_EXPR$13_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2596,8 +2525,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$14_α
@@ -2611,9 +2539,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2675,8 +2601,7 @@ jmp proc_EXPR$14_ω
 proc_EXPR$14_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2692,8 +2617,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$15_α
@@ -2707,9 +2631,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2771,8 +2693,7 @@ jmp proc_EXPR$15_ω
 proc_EXPR$15_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2788,8 +2709,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$16_α
@@ -2803,9 +2723,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2867,8 +2785,7 @@ jmp proc_EXPR$16_ω
 proc_EXPR$16_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2884,8 +2801,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$17_α
@@ -2899,9 +2815,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -2963,8 +2877,7 @@ jmp proc_EXPR$17_ω
 proc_EXPR$17_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -2980,8 +2893,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$18_α
@@ -2995,9 +2907,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3032,8 +2942,7 @@ jmp proc_EXPR$18_ω
 proc_EXPR$18_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3049,8 +2958,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$19_α
@@ -3064,9 +2972,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3101,8 +3007,7 @@ jmp proc_EXPR$19_ω
 proc_EXPR$19_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3118,8 +3023,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$20_α
@@ -3133,9 +3037,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3170,8 +3072,7 @@ jmp proc_EXPR$20_ω
 proc_EXPR$20_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3187,8 +3088,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$21_α
@@ -3202,9 +3102,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3266,8 +3164,7 @@ jmp proc_EXPR$21_ω
 proc_EXPR$21_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3283,8 +3180,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$22_α
@@ -3298,9 +3194,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3335,8 +3229,7 @@ jmp proc_EXPR$22_ω
 proc_EXPR$22_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3352,8 +3245,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$23_α
@@ -3367,9 +3259,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3404,8 +3294,7 @@ jmp proc_EXPR$23_ω
 proc_EXPR$23_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3421,8 +3310,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$24_α
@@ -3436,9 +3324,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3473,8 +3359,7 @@ jmp proc_EXPR$24_ω
 proc_EXPR$24_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3490,8 +3375,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$25_α
@@ -3505,9 +3389,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3569,8 +3451,7 @@ jmp proc_EXPR$25_ω
 proc_EXPR$25_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3586,8 +3467,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$26_α
@@ -3601,9 +3481,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3638,8 +3516,7 @@ jmp proc_EXPR$26_ω
 proc_EXPR$26_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3655,8 +3532,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$27_α
@@ -3670,9 +3546,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3707,8 +3581,7 @@ jmp proc_EXPR$27_ω
 proc_EXPR$27_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3724,8 +3597,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$28_α
@@ -3739,9 +3611,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3803,8 +3673,7 @@ jmp proc_EXPR$28_ω
 proc_EXPR$28_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3820,8 +3689,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$29_α
@@ -3835,9 +3703,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3899,8 +3765,7 @@ jmp proc_EXPR$29_ω
 proc_EXPR$29_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -3916,8 +3781,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$30_α
@@ -3931,9 +3795,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -3995,8 +3857,7 @@ jmp proc_EXPR$30_ω
 proc_EXPR$30_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4012,8 +3873,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$31_α
@@ -4027,9 +3887,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4091,8 +3949,7 @@ jmp proc_EXPR$31_ω
 proc_EXPR$31_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4108,8 +3965,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$32_α
@@ -4123,9 +3979,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4160,8 +4014,7 @@ jmp proc_EXPR$32_ω
 proc_EXPR$32_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4177,8 +4030,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$33_α
@@ -4192,9 +4044,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4229,8 +4079,7 @@ jmp proc_EXPR$33_ω
 proc_EXPR$33_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4246,8 +4095,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$34_α
@@ -4261,9 +4109,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4298,8 +4144,7 @@ jmp proc_EXPR$34_ω
 proc_EXPR$34_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4315,8 +4160,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$35_α
@@ -4330,9 +4174,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4394,8 +4236,7 @@ jmp proc_EXPR$35_ω
 proc_EXPR$35_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4411,8 +4252,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$36_α
@@ -4426,9 +4266,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4463,8 +4301,7 @@ jmp proc_EXPR$36_ω
 proc_EXPR$36_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4480,8 +4317,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$37_α
@@ -4495,9 +4331,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4532,8 +4366,7 @@ jmp proc_EXPR$37_ω
 proc_EXPR$37_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4549,8 +4382,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$38_α
@@ -4564,9 +4396,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4601,8 +4431,7 @@ jmp proc_EXPR$38_ω
 proc_EXPR$38_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4618,8 +4447,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$39_α
@@ -4633,9 +4461,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4697,8 +4523,7 @@ jmp proc_EXPR$39_ω
 proc_EXPR$39_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4714,8 +4539,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$40_α
@@ -4729,9 +4553,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4766,8 +4588,7 @@ jmp proc_EXPR$40_ω
 proc_EXPR$40_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4783,8 +4604,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$41_α
@@ -4798,9 +4618,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4835,8 +4653,7 @@ jmp proc_EXPR$41_ω
 proc_EXPR$41_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4852,8 +4669,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$42_α
@@ -4867,9 +4683,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -4931,8 +4745,7 @@ jmp proc_EXPR$42_ω
 proc_EXPR$42_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -4948,8 +4761,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$43_α
@@ -4963,9 +4775,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5027,8 +4837,7 @@ jmp proc_EXPR$43_ω
 proc_EXPR$43_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5044,8 +4853,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$44_α
@@ -5059,9 +4867,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5123,8 +4929,7 @@ jmp proc_EXPR$44_ω
 proc_EXPR$44_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5140,8 +4945,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$45_α
@@ -5155,9 +4959,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5219,8 +5021,7 @@ jmp proc_EXPR$45_ω
 proc_EXPR$45_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5236,8 +5037,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$46_α
@@ -5251,9 +5051,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5288,8 +5086,7 @@ jmp proc_EXPR$46_ω
 proc_EXPR$46_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5305,8 +5102,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$47_α
@@ -5320,9 +5116,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5357,8 +5151,7 @@ jmp proc_EXPR$47_ω
 proc_EXPR$47_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5374,8 +5167,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$48_α
@@ -5389,9 +5181,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5426,8 +5216,7 @@ jmp proc_EXPR$48_ω
 proc_EXPR$48_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5443,8 +5232,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$49_α
@@ -5458,9 +5246,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5522,8 +5308,7 @@ jmp proc_EXPR$49_ω
 proc_EXPR$49_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5539,8 +5324,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$50_α
@@ -5554,9 +5338,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5591,8 +5373,7 @@ jmp proc_EXPR$50_ω
 proc_EXPR$50_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5608,8 +5389,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$51_α
@@ -5623,9 +5403,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5660,8 +5438,7 @@ jmp proc_EXPR$51_ω
 proc_EXPR$51_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5677,8 +5454,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$52_α
@@ -5692,9 +5468,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5729,8 +5503,7 @@ jmp proc_EXPR$52_ω
 proc_EXPR$52_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5746,8 +5519,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$53_α
@@ -5761,9 +5533,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5825,8 +5595,7 @@ jmp proc_EXPR$53_ω
 proc_EXPR$53_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5842,8 +5611,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$54_α
@@ -5857,9 +5625,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5894,8 +5660,7 @@ jmp proc_EXPR$54_ω
 proc_EXPR$54_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5911,8 +5676,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$55_α
@@ -5926,9 +5690,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -5963,8 +5725,7 @@ jmp proc_EXPR$55_ω
 proc_EXPR$55_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -5980,8 +5741,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$56_α
@@ -5995,9 +5755,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6059,8 +5817,7 @@ jmp proc_EXPR$56_ω
 proc_EXPR$56_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6076,8 +5833,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$57_α
@@ -6091,9 +5847,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6155,8 +5909,7 @@ jmp proc_EXPR$57_ω
 proc_EXPR$57_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6172,8 +5925,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$58_α
@@ -6187,9 +5939,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6251,8 +6001,7 @@ jmp proc_EXPR$58_ω
 proc_EXPR$58_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6268,8 +6017,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$59_α
@@ -6283,9 +6031,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6347,8 +6093,7 @@ jmp proc_EXPR$59_ω
 proc_EXPR$59_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6364,8 +6109,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$60_α
@@ -6379,9 +6123,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6416,8 +6158,7 @@ jmp proc_EXPR$60_ω
 proc_EXPR$60_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6433,8 +6174,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$61_α
@@ -6448,9 +6188,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6485,8 +6223,7 @@ jmp proc_EXPR$61_ω
 proc_EXPR$61_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6502,8 +6239,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$62_α
@@ -6517,9 +6253,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6554,8 +6288,7 @@ jmp proc_EXPR$62_ω
 proc_EXPR$62_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6571,8 +6304,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$63_α
@@ -6586,9 +6318,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6650,8 +6380,7 @@ jmp proc_EXPR$63_ω
 proc_EXPR$63_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6667,8 +6396,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$64_α
@@ -6682,9 +6410,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6719,8 +6445,7 @@ jmp proc_EXPR$64_ω
 proc_EXPR$64_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6736,8 +6461,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$65_α
@@ -6751,9 +6475,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6788,8 +6510,7 @@ jmp proc_EXPR$65_ω
 proc_EXPR$65_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6805,8 +6526,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$66_α
@@ -6820,9 +6540,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6857,8 +6575,7 @@ jmp proc_EXPR$66_ω
 proc_EXPR$66_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6874,8 +6591,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$67_α
@@ -6889,9 +6605,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -6953,8 +6667,7 @@ jmp proc_EXPR$67_ω
 proc_EXPR$67_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -6970,8 +6683,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$68_α
@@ -6985,9 +6697,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -7022,8 +6732,7 @@ jmp proc_EXPR$68_ω
 proc_EXPR$68_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -7039,8 +6748,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_EXPR$69_α
@@ -7054,9 +6762,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -7091,8 +6797,7 @@ jmp proc_EXPR$69_ω
 proc_EXPR$69_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -7108,8 +6813,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_PAT$0_α
@@ -7123,9 +6827,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
   cmp esi, 0
   jne proc_PAT$0_β
  push rsi
@@ -7173,8 +6875,7 @@ jmp qword ptr [r12 + 48]
 proc_PAT$0_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -7190,8 +6891,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_PAT$1_α
@@ -7205,9 +6905,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$1_β
  push rsi
@@ -7508,8 +7206,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$1_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -7525,8 +7222,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$2_α
@@ -7540,9 +7236,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 440], rsp
   cmp esi, 0
   jne proc_PAT$2_β
  push rsi
@@ -8398,8 +8092,7 @@ jmp qword ptr [r12 + 416]
 proc_PAT$2_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
  push rsp
@@ -8415,8 +8108,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
   .globl proc_PAT$3_α
@@ -8430,9 +8122,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$3_β
  push rsi
@@ -8737,8 +8427,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$3_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -8754,8 +8443,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$4_α
@@ -8769,9 +8457,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
   cmp esi, 0
   jne proc_PAT$4_β
  push rsi
@@ -8819,8 +8505,7 @@ jmp qword ptr [r12 + 48]
 proc_PAT$4_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -8836,8 +8521,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_PAT$5_α
@@ -8851,9 +8535,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$5_β
  push rsi
@@ -9154,8 +8836,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$5_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -9171,8 +8852,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$6_α
@@ -9186,9 +8866,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 440], rsp
   cmp esi, 0
   jne proc_PAT$6_β
  push rsi
@@ -10044,8 +9722,7 @@ jmp qword ptr [r12 + 416]
 proc_PAT$6_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
  push rsp
@@ -10061,8 +9738,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
   .globl proc_PAT$7_α
@@ -10076,9 +9752,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$7_β
  push rsi
@@ -10383,8 +10057,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$7_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -10400,8 +10073,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$8_α
@@ -10415,9 +10087,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
   cmp esi, 0
   jne proc_PAT$8_β
  push rsi
@@ -10465,8 +10135,7 @@ jmp qword ptr [r12 + 48]
 proc_PAT$8_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -10482,8 +10151,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_PAT$9_α
@@ -10497,9 +10165,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$9_β
  push rsi
@@ -10800,8 +10466,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$9_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -10817,8 +10482,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$10_α
@@ -10832,9 +10496,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 440], rsp
   cmp esi, 0
   jne proc_PAT$10_β
  push rsi
@@ -11690,8 +11352,7 @@ jmp qword ptr [r12 + 416]
 proc_PAT$10_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
  push rsp
@@ -11707,8 +11368,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
   .globl proc_PAT$11_α
@@ -11722,9 +11382,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$11_β
  push rsi
@@ -12029,8 +11687,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$11_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -12046,8 +11703,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$12_α
@@ -12061,9 +11717,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
   cmp esi, 0
   jne proc_PAT$12_β
  push rsi
@@ -12111,8 +11765,7 @@ jmp qword ptr [r12 + 48]
 proc_PAT$12_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -12128,8 +11781,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_PAT$13_α
@@ -12143,9 +11795,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$13_β
  push rsi
@@ -12446,8 +12096,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$13_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -12463,8 +12112,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$14_α
@@ -12478,9 +12126,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 440], rsp
   cmp esi, 0
   jne proc_PAT$14_β
  push rsi
@@ -13336,8 +12982,7 @@ jmp qword ptr [r12 + 416]
 proc_PAT$14_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
  push rsp
@@ -13353,8 +12998,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
   .globl proc_PAT$15_α
@@ -13368,9 +13012,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$15_β
  push rsi
@@ -13675,8 +13317,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$15_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -13692,8 +13333,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$16_α
@@ -13707,9 +13347,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 72], rsp
   cmp esi, 0
   jne proc_PAT$16_β
  push rsi
@@ -13757,8 +13395,7 @@ jmp qword ptr [r12 + 48]
 proc_PAT$16_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
  push rsp
@@ -13774,8 +13411,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 72]
 pop r12
 ret
   .globl proc_PAT$17_α
@@ -13789,9 +13425,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$17_β
  push rsi
@@ -14092,8 +13726,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$17_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -14109,8 +13742,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
   .globl proc_PAT$18_α
@@ -14124,9 +13756,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 440], rsp
   cmp esi, 0
   jne proc_PAT$18_β
  push rsi
@@ -14982,8 +14612,7 @@ jmp qword ptr [r12 + 416]
 proc_PAT$18_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
  push rsp
@@ -14999,8 +14628,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 440]
 pop r12
 ret
   .globl proc_PAT$19_α
@@ -15014,9 +14642,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 200], rsp
   cmp esi, 0
   jne proc_PAT$19_β
  push rsi
@@ -15321,8 +14947,7 @@ jmp qword ptr [r12 + 176]
 proc_PAT$19_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
  push rsp
@@ -15338,8 +14963,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 200]
 pop r12
 ret
 proc_startup:
@@ -17544,9 +17168,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 5752], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -19145,8 +18767,7 @@ jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
  push rsp
@@ -19162,8 +18783,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 5752]
 pop r12
 ret
 .section .rodata

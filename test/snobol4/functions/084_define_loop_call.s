@@ -11,9 +11,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 856], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -98,8 +96,7 @@ jmp proc_bump_ω
 proc_bump_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 856]
 pop r12
 ret
  push rsp
@@ -115,8 +112,7 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 856]
 pop r12
 ret
 proc_startup:
@@ -196,9 +192,7 @@ push r12
   mov r12, rdi
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  push rbp
-  mov rbp, rsp
-  sub rsp, 8
+  mov qword ptr [r12 + 856], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
@@ -565,8 +559,7 @@ jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 856]
 pop r12
 ret
  push rsp
@@ -582,7 +575,6 @@ mov dword ptr [r12+4], 0
 mov qword ptr [r12+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, rbp
-pop rbp
+mov rsp, qword ptr [r12 + 856]
 pop r12
 ret
