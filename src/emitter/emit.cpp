@@ -673,6 +673,7 @@ void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls2_geom(const IR_t *, int, int *, long *);   /* zeta_storage.c — ZLS2 port-hook frame-protocol geometry (slot/K/ops per node) */
 extern "C" int fc_geom(const IR_t *, long *);                 /* zeta_storage.c — ZC_PORT_FORTH per-box fixed-cell geometry (RUNG ZB-FC-0) */
+extern "C" int fc_cond_fp(const IR_t *);                      /* zeta_storage.c — ZB-FC-3c COND/IMM cross-box displacement = fp(inner); -1 = ungranted */
 extern "C" int fc_seq_active(const IR_t *);                   /* zeta_storage.c — ZB-FC-3b: this SEQUENCE is FORTH-converted (zero LOCALS; sigma/phi become static edge re-points) */
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 int walk_bb_node(IR_t * nd, FILE * out) {
@@ -769,9 +770,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_HEAD:           { bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 */
     case IR_MATCH_RELEASE:        { bb_emit_x86(bb_match_release()); } return 0;               /* BB-OWNED-ζ statement-scope pivot */
     case IR_MATCH_REPLACE:        { bb_emit_x86(bb_match_replace()); } return 0;               /* SN4-REPL stages 4/5 splice */
-    case IR_MATCH_ASSIGN_COND:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 */
-    case IR_MATCH_ASSIGN_IMM:     { bb_emit_x86(bb_match_capture()); } return 0;               /* $ immediate capture */
-    case IR_MATCH_ASSIGN_SAVE:    { bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE */
+    case IR_MATCH_ASSIGN_COND:    { g_emit.op_fc_disp = fc_cond_fp(nd); bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 + ZB-FC-3c cross-box read grant */
+    case IR_MATCH_ASSIGN_IMM:     { g_emit.op_fc_disp = fc_cond_fp(nd); bb_emit_x86(bb_match_capture()); } return 0;               /* $ immediate capture + ZB-FC-3c (identical mechanism, phase 2) */
+    case IR_MATCH_ASSIGN_SAVE:    { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE + ZB-FC-3c fixed-cell grant (δ at cell+0) */
     case IR_MATCH_ALTERNATE:      { extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_fp(const IR_t *, int);
                                     { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; g_emit.op_fc_fpmax = fc_alt_fpmax(nd);
                                       for (int _j = 0; _j < (int)IR_LIT(nd).ival && _j < 16; _j++) g_emit.op_fc_arm_fp[_j] = fc_alt_fp(nd, _j); } }
@@ -846,7 +847,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
