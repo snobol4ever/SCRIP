@@ -1317,8 +1317,33 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     IR_t * release = lc_build(g, IR_MATCH_RELEASE, sJ, NULL);
     if (has_repl) IR_LIT(release).dval = 1.0;
     ir_operand_push(release, head);
+    int before_pat = g->n;
     IR_t * pat_entry = sno_pat_node(cx, ptt, release, head);
     lc_γ_to(head, pat_entry);
+    {   /* ZB-FC-3d (partition ruling, s49): the statement grant.  The 3c eligibility walk VERBATIM, run over
+         * the PATTERN range only ([before_pat, g->n) -- head/release/splice/repl-chain allocate before it,
+         * pre-chains and the subject chain after, so the range is pattern-pure by construction).  fp_stmt =
+         * the fc_geom range sum = the suspended-cell depth at RELEASE.alpha (every box on a LINEAR success
+         * path is gamma-suspended, S10c).  The v1 fence is ALT-FREE: a granted ALTERNATE's arms all sit in
+         * the range but only one padded arm is live at yield, so the linear sum over-counts -- ALTERNATE
+         * declines the whole statement (the per-ALT 16+fpmax lift is a named follow-on).  Either-direction
+         * failure keeps the flat path byte-verbatim (degrade never die). */
+        int fp_stmt = 0; int fc_lin = (sno_in_arbno == 0);
+        for (int k = before_pat; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->op == IR_MATCH_ALTERNATE) { fc_lin = 0; continue; }
+            { long fck; if (fc_geom(x, &fck)) { fp_stmt += (int)fck; continue; } }
+            switch (x->op) {
+            case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+            case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+            case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+            case IR_GOTO: break;
+            default: fc_lin = 0;
+            }
+        }
+        if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
+    }
     /* OPERAND-EDGE HOIST (2026-07-10, SEMANTIC PIN 1 — manual p85-86: primitive args are captured at pattern
      * CONSTRUCTION, once per statement execution, BEFORE the scan begins; only *V defers).  Every runtime-arg
      * primitive collected by sno_pre_req gets: arg-expression chain → IR_COERCE_STRING/_INTEGER (SPITBOL error

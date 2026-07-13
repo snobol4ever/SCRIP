@@ -12,6 +12,15 @@ extern "C" const char *g_dcap_top;
 extern "C" void rt_dcap_end_ok_close(void);
 extern "C" void *rt_frame_prep(void *fb, long fbytes);
 #include "x86_asm.h"
+/* ZB-FC-3d (partition ruling, s49): under the statement grant RELEASE stands at rsp = frontier - fp(pattern) (S10c: every box on the LINEAR success path is gamma-suspended) and reads HEAD's rsp cell
+ * CROSS-BOX at [rsp + _.op_fc_disp + k] -- the 3c COND mechanism verbatim, disp = fp(pattern) from the fc_head registrar.  Pre-unwind it re-homes the match START (cell anchor @+0) into HEAD's FLAT +0
+ * slot -- vacated by the granted HEAD, read UNCHANGED by REPLACE post-statement -- and stashes END at flat +24 exactly as today (the splice-survivor partition: fields with post-unwind lifetime live
+ * flat).  The zls-mark read hoists BEFORE align_enter (window/rspd reads inside the align dance are wrong -- the 3c lesson; rdi rides the pushes); the unwind itself becomes the rspd variant reading
+ * the PRE-PUSH mark out of the cell, releasing HEAD's cell and every suspended pattern cell in one mov.  Everything after the unwind -- the dcap pump, the mirror truncate at flat +32, the rbp restore
+ * at flat +40 -- is byte-verbatim: those fields never entered the cell precisely because this code runs after it dies.  Ungranted: every line today's path (degrade never die). */
+static inline int  rfc()      { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }
+static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
+static inline const char * rspq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_release() {
     x86_begin();
@@ -20,11 +29,13 @@ std::string bb_match_release() {
          ? x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)")
          : x86("comment", "IR_MATCH_RELEASE")
          + x86_alpha()
-         + (_.op_dval != 0.0 ? x86("mov", FRQ(_.op_off + 24), "r14") : std::string())
+         + (_.op_dval != 0.0 ? IF(rfc(), x86("mov", "eax", rspd((int)_.op_fc_disp)) + x86("mov", FR(_.op_off), "eax"))
+                             + x86("mov", FRQ(_.op_off + 24), "r14") : std::string())
+         + IF(rfc(),  x86("mov",  "rdi", rspq((int)_.op_fc_disp + 8)))
          + x86_align_enter()
-         + x86("mov",  "rdi", FRQ(_.op_off + 8))
+         + IF(!rfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
-         + x86_zls2_release_to_call(_.op_off + 16)
+         + (rfc() ? x86_zls2_release_to_rspd((int)_.op_fc_disp + 16) : x86_zls2_release_to_call(_.op_off + 16))
          + x86_align_leave()
          /* ⛔ THE XFER WINDOW MUST OPEN *AFTER* THE ZETA RELEASE.  x86_zls2_release_to_call does not merely
           * call — it RESETS rsp to the statement's zeta mark (`mov rsp, [frame+off]`, closing and re-opening

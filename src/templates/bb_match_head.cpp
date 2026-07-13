@@ -12,6 +12,13 @@ extern const char *g_dcap_top;
 extern long g_anchor;
 }
 #include "x86_asm.h"
+/* ZB-FC-3d (partition ruling, s49): under the statement grant (op_fc_wbytes window, hook dormant) HEAD self-pushes a 32-byte rsp cell after alpha holding the three MATCH-SPAN-lifetime fields -- anchor
+ * @+0, zls mark @+8, rsp mark @+16 -- which the window rebases with zero arithmetic below (every FR/FRQ in [op_off, op_off+24) becomes [rsp+k]; +32/+40 fall outside and stay FLAT, exactly right: the
+ * dcap mark and saved rbp have POST-UNWIND consumers).  The rsp mark = the PRE-PUSH rsp (mov rax,rsp; add rax,32 -- lea [rsp+K] deliberately avoided: x86_reg_disp32_lea64 emits no SIB so an rsp base
+ * mis-encodes in BINARY), so the existing zls2 unwind releases this cell and every suspended pattern cell in one mov, at BOTH statement exits, unchanged.  The flat +0 write disappears under grant --
+ * RELEASE re-homes the match START there pre-unwind for REPLACE (the splice-survivor partition).  L(1)'s zls-mark read hoists BEFORE align_enter (a window read inside the align dance is wrong -- the
+ * 3c lesson); rdi rides the pushes.  Ungranted: every line byte-verbatim today's path (degrade never die). */
+static inline int hfc() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_head() {
     x86_begin();
@@ -20,9 +27,11 @@ std::string bb_match_head() {
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
+         + IF(hfc(), x86("sub", "rsp", (long)32))
          + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
          + x86("mov", FRQ(_.op_off + 8), "rax")
-         + x86_zls2_mark_save(_.op_off + 16)
+         + (hfc() ? x86("mov", "rax", "rsp") + x86("add", "rax", (long)32) + x86("mov", FRQ(_.op_off + 16), "rax")
+                  : x86_zls2_mark_save(_.op_off + 16))
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
@@ -51,8 +60,9 @@ std::string bb_match_head() {
          + x86("jne", L(1))
          + x86("jmp", L(0))
          + x86("def", L(1))
+         + IF(hfc(),  x86("mov",  "rdi", FRQ(_.op_off + 8)))
          + x86_align_enter()
-         + x86("mov",  "rdi", FRQ(_.op_off + 8))
+         + IF(!hfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
          + x86_zls2_release_to_call(_.op_off + 16)
          + x86_align_leave()
