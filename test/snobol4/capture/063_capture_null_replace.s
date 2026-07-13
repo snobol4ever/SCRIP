@@ -144,9 +144,7 @@ main_α_body:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S0]
  mov edx, 6
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain0_n3_β
  add r14d, 6

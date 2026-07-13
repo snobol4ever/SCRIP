@@ -7299,9 +7299,7 @@ mov qword ptr [r12 + 48], rax
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je .Lx346_1
  add dword ptr [r12 + 32], 1
@@ -7409,9 +7407,7 @@ xchain347_n0_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S1]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain347_n0_af
  add r14d, 1
@@ -7561,9 +7557,7 @@ xchain347_n2_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S3]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain347_n2_af
  add r14d, 1
@@ -7925,9 +7919,7 @@ xchain356_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain356_n1_af
  add r14d, 1
@@ -8833,9 +8825,7 @@ xchain376_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S8]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain376_n2_af
  add r14d, 1
@@ -8954,9 +8944,7 @@ xchain376_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain376_n2_af
  add r14d, 1
@@ -9030,9 +9018,7 @@ mov qword ptr [r12 + 48], rax
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je .Lx389_1
  add dword ptr [r12 + 32], 1
@@ -9140,9 +9126,7 @@ xchain390_n0_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S1]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain390_n0_af
  add r14d, 1
@@ -9292,9 +9276,7 @@ xchain390_n2_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S3]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain390_n2_af
  add r14d, 1
@@ -9656,9 +9638,7 @@ xchain399_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain399_n1_af
  add r14d, 1
@@ -10564,9 +10544,7 @@ xchain419_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S8]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain419_n2_af
  add r14d, 1
@@ -10685,9 +10663,7 @@ xchain419_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain419_n2_af
  add r14d, 1
@@ -10761,9 +10737,7 @@ mov qword ptr [r12 + 48], rax
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je .Lx432_1
  add dword ptr [r12 + 32], 1
@@ -10871,9 +10845,7 @@ xchain433_n0_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S1]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain433_n0_af
  add r14d, 1
@@ -11023,9 +10995,7 @@ xchain433_n2_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S3]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain433_n2_af
  add r14d, 1
@@ -11387,9 +11357,7 @@ xchain442_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain442_n1_af
  add r14d, 1
@@ -12295,9 +12263,7 @@ xchain462_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S8]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain462_n2_af
  add r14d, 1
@@ -12416,9 +12382,7 @@ xchain462_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain462_n2_af
  add r14d, 1
@@ -12492,9 +12456,7 @@ mov qword ptr [r12 + 48], rax
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je .Lx475_1
  add dword ptr [r12 + 32], 1
@@ -12602,9 +12564,7 @@ xchain476_n0_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S1]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain476_n0_af
  add r14d, 1
@@ -12754,9 +12714,7 @@ xchain476_n2_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S3]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain476_n2_af
  add r14d, 1
@@ -13118,9 +13076,7 @@ xchain485_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain485_n1_af
  add r14d, 1
@@ -14026,9 +13982,7 @@ xchain505_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S8]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain505_n2_af
  add r14d, 1
@@ -14147,9 +14101,7 @@ xchain505_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain505_n2_af
  add r14d, 1
@@ -14223,9 +14175,7 @@ mov qword ptr [r12 + 48], rax
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je .Lx518_1
  add dword ptr [r12 + 32], 1
@@ -14333,9 +14283,7 @@ xchain519_n0_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S1]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain519_n0_af
  add r14d, 1
@@ -14485,9 +14433,7 @@ xchain519_n2_af:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S3]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je xchain519_n2_af
  add r14d, 1
@@ -14849,9 +14795,7 @@ xchain528_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S5]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain528_n1_af
  add r14d, 1
@@ -15757,9 +15701,7 @@ xchain548_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S8]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain548_n2_af
  add r14d, 1
@@ -15878,9 +15820,7 @@ xchain548_n2_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S10]
  mov edx, 1
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain548_n2_af
  add r14d, 1

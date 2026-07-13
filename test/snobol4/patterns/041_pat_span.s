@@ -185,9 +185,7 @@ main_α_body:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  lea rdi, [rip + .S0]
- sub rsp, 8
  call strchr@PLT
- add rsp, 8
  test rax, rax
  je .Lx11_1
  add dword ptr [r12 + 256], 1

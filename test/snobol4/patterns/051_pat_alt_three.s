@@ -257,9 +257,7 @@ xchain0_n7_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S1]
  mov edx, 5
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain0_n7_af
  add r14d, 5
@@ -277,9 +275,7 @@ xchain0_n7_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S2]
  mov edx, 6
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain0_n7_af
  add r14d, 6
@@ -297,9 +293,7 @@ xchain0_n7_af:
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S3]
  mov edx, 6
- sub rsp, 8
  call memcmp@PLT
- add rsp, 8
  test eax, eax
  jne xchain0_n7_af
  add r14d, 6
