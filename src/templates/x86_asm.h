@@ -1191,11 +1191,36 @@ inline std::string x86_align_leave() {
  * VERBATIM for exactly those windows.  rbp here is a TRANSIENT push/pop-preserved scratch, NOT a resident:
  * any future resident meaning of rbp (the dcap cursor) survives the window via the push/pop pair, with the
  * global-mirror spill at these windows when that lands.  Every other window uses x86_align_enter/leave. */
-inline std::string x86_anchor_enter() {
-    return x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("and", "rsp", -16L);
+inline std::string x86_anchor_enter() { return x86_align_enter(); }
+inline std::string x86_anchor_leave() { return x86_align_leave(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_frame_sink/base/unsink — RBP EVICTION (Lon directive 2026-07-13: "we wanted to not use RBP at all anywhere
+ * but for ASSIGNMENT STACK").  THE DYNAMIC PROC-FRAME ANCHOR, REGISTER-FREE.  The four deep windows (capture,
+ * defer, release, call_proc_staged) all sink rsp by a RUNTIME fbytes (rax) to carve a callee frame, so the
+ * register-free x86_align_leave (mov rsp,[rsp+8], valid only at balanced arrival) could not release them — which
+ * is the ONLY reason the old anchor kept the rbp register dance, and the only thing that held rbp hostage.  The
+ * fix is to make each sink carry its OWN anchor in the stack it just carved: park old-rsp in a scratch qword
+ * BELOW the callee frame, hand the callee a frame base of rsp+16, and release with `mov rsp,[rsp]`.  The callee
+ * (xa_flat) is ret-terminated and restores its own entry rsp, so on return rsp is exactly the parked word's
+ * address — the release needs no register and no live value.  Consequences beyond freeing rbp: (a) each transfer
+ * now balances, so the two PUMP LOOPS (release's *VAR commit chain, defer's callout chain) no longer accumulate
+ * one un-released frame per iteration — their stack use is now BOUNDED, previously it grew with the pend count;
+ * (b) the window itself is balanced at leave, so anchor_enter/leave collapse into the plain register-free align
+ * pair above.  rcx is a transient caller-saved scratch, dead at every sink site (rax=fbytes is the only live
+ * value).  16-safe: rsp is 16-aligned on entry, sub rax + sub 16 + and -16 leaves it 16-aligned, and the parked
+ * word sits AT rsp so the callee's own pushes (which go below rsp) cannot reach it. */
+inline std::string x86_frame_sink() {
+    return x86("mov", "rcx", "rsp")
+         + x86("sub", "rsp", "rax")
+         + x86("sub", "rsp", 16L)
+         + x86("and", "rsp", -16L)
+         + x86("mov", "qword ptr [rsp + 0]", "rcx");
 }
-inline std::string x86_anchor_leave() {
-    return x86("mov", "rsp", "rbp") + x86("pop", "rbp");
+inline std::string x86_frame_base(const char * r) {
+    return x86("mov", r, "rsp") + x86("add", r, 16L);
+}
+inline std::string x86_frame_unsink() {
+    return x86("mov", "rsp", "qword ptr [rsp + 0]");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_xfer_enter/leave (NCB-1c, 2026-07-11) — THE MATCHER-REGISTER SAVE FOR AN EMITTED BB→BB TRANSFER.

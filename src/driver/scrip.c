@@ -740,8 +740,7 @@ int main(int argc, char **argv)
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
                 printf("proc_startup:\n");
-                printf("  push rbp\n");
-                printf("  mov rbp, rsp\n");
+                printf("  sub rsp, 8\n");
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {
@@ -999,7 +998,7 @@ int main(int argc, char **argv)
                         printf("  call rt_proc_set_variadic@PLT\n");
                     }
                 }
-                printf("  pop rbp\n");
+                printf("  add rsp, 8\n");
                 printf("  ret\n");
             }
             free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf);
@@ -1013,8 +1012,7 @@ int main(int argc, char **argv)
             }
             printf("  .globl main\n");
             printf("main:\n");
-            printf("  push rbp\n");
-            printf("  mov rbp, rsp\n");
+            printf("  sub rsp, 8\n");
             printf("  push rdi\n");
             printf("  push rsi\n");
             if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
@@ -1027,13 +1025,12 @@ int main(int argc, char **argv)
             printf("  call rt_frame@PLT\n");
             printf("  mov rdi, rax\n");
             if (bbg->nparams >= 1)
-                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rbp - 16]\n  add rdi, 8\n  mov esi, dword ptr [rbp - 8]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
+                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 16]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 24]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             printf("  xor esi, esi\n");
             printf("  call main_\xce\xb1\n");
             printf("  xor eax, eax\n");
-            printf("  mov rsp, rbp\n");
-            printf("  pop rbp\n");
+            printf("  add rsp, 24\n");
             printf("  ret\n");
             int rc;
             {
@@ -1144,7 +1141,7 @@ int main(int argc, char **argv)
                     printf("  .quad 0\n");
                 }
                 printf("  .section .text\n  .intel_syntax noprefix\n");
-                printf("proc_startup:\n  push rbp\n  mov rbp, rsp\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+                printf("proc_startup:\n  sub rsp, 8\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
                     printf("  lea rdi, [rip + .Lpn%d]\n", i);
@@ -1167,7 +1164,7 @@ int main(int argc, char **argv)
                         printf("  call rt_proc_set_frame_bytes@PLT\n");
                     }
                 }
-                printf("  pop rbp\n  ret\n");
+                printf("  add rsp, 8\n  ret\n");
             }
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
@@ -1192,7 +1189,7 @@ int main(int argc, char **argv)
                 printf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", n_proc_slot * 8);
                 printf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            printf("  .globl main\nmain:\n  push rbp\n  mov rbp, rsp\n  push rdi\n  push rsi\n");
+            printf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
             if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
             if (rt_zeta_port_mode() != (int)ZC_PORT) printf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
             if (n_procs > 0) printf("  call proc_startup\n");
@@ -1201,11 +1198,11 @@ int main(int argc, char **argv)
             if (n_gva > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva);
             printf("  call rt_frame@PLT\n  mov rdi, rax\n");
             if (sbbg->nparams >= 1)
-                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rbp - 16]\n  add rdi, 8\n  mov esi, dword ptr [rbp - 8]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
+                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 16]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 24]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             printf("  xor esi, esi\n");
             printf("  call flat_\xce\xb1\n");
-            printf("  xor eax, eax\n  mov rsp, rbp\n  pop rbp\n  ret\n");
+            printf("  xor eax, eax\n  add rsp, 24\n  ret\n");
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
