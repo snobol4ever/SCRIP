@@ -460,26 +460,34 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static Term *pl_fmt_next_arg(Term **args) {
+    if (*args && (*args)->tag == TERM_COMPOUND && (*args)->compound.arity == 2) { Term *h = term_deref((*args)->compound.args[0]); *args = term_deref((*args)->compound.args[1]); return h; }
+    return (Term *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
-    extern void pl_write(Term *);
+    extern void pl_write(Term *); extern void pl_writeq(Term *);
     if (!fmt) return;
     Term *args = list_cell ? pl_cell_to_term((pl_cell_t *)list_cell) : (Term *)0;
     for (const char *p = fmt; *p; p++) {
-        if (*p == '~') {
-            p++;
-            if (*p == 'w' || *p == 'a' || *p == 'p') {
-                if (args && args->tag == TERM_COMPOUND && args->compound.arity == 2) { pl_write(term_deref(args->compound.args[0])); args = term_deref(args->compound.args[1]); }
-            } else if (*p == 'd') {
-                if (args && args->tag == TERM_COMPOUND && args->compound.arity == 2) {
-                    Term *h = term_deref(args->compound.args[0]); if (h && h->tag == TERM_INT) printf("%ld", h->ival); args = term_deref(args->compound.args[1]);
-                }
-            } else if (*p == 'i') {
-                if (args && args->tag == TERM_COMPOUND && args->compound.arity == 2) args = term_deref(args->compound.args[1]);
-            } else if (*p == 'n' || *p == 'N') { putchar('\n');
-            } else if (*p == '~') { putchar('~');
-            } else if (*p == 't') { putchar('\t'); }
-        } else { putchar(*p); }
+        if (*p != '~') { putchar(*p); continue; }
+        p++;
+        int have_n = 0; long nval = 0;
+        if (*p == '*') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) { nval = h->ival; have_n = 1; } p++; }
+        else { while (*p >= '0' && *p <= '9') { nval = nval * 10 + (*p - '0'); have_n = 1; p++; } }
+        if (*p == 'w' || *p == 'a' || *p == 'p') { Term *h = pl_fmt_next_arg(&args); if (h) pl_write(h); }
+        else if (*p == 'q') { Term *h = pl_fmt_next_arg(&args); if (h) pl_writeq(h); }
+        else if (*p == 'd') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) printf("%ld", h->ival); }
+        else if (*p == 'e') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; printf("%e", d); } }
+        else if (*p == 'g') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; printf("%g", d); } }
+        else if (*p == 'f') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; printf("%.*f", have_n ? (int)nval : 6, d); } }
+        else if (*p == 'r' || *p == 'R') { Term *h = pl_fmt_next_arg(&args); int base = have_n ? (int)nval : 8; if (h && h->tag == TERM_INT && base >= 2 && base <= 36) { char buf[72]; int bi = 0; unsigned long u = (h->ival < 0) ? (unsigned long)(-h->ival) : (unsigned long)h->ival; const char *dig = (*p == 'R') ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz"; if (u == 0) buf[bi++] = '0'; while (u) { buf[bi++] = dig[u % (unsigned long)base]; u /= (unsigned long)base; } if (h->ival < 0) putchar('-'); while (bi) putchar(buf[--bi]); } }
+        else if (*p == 'c') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) putchar((int)h->ival); } }
+        else if (*p == 's') { Term *h = pl_fmt_next_arg(&args); Term *lst = h ? term_deref(h) : (Term *)0; while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) { Term *e = term_deref(lst->compound.args[0]); if (e && e->tag == TERM_INT) putchar((int)e->ival); lst = term_deref(lst->compound.args[1]); } }
+        else if (*p == 'i') { pl_fmt_next_arg(&args); }
+        else if (*p == 'n' || *p == 'N') { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) putchar('\n'); }
+        else if (*p == '~') { putchar('~'); }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
