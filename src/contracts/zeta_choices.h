@@ -60,7 +60,7 @@
  * cursor = rsp (hook arms + statement backstop), C-side exact-bracket frames = alloca (4 proc sites +
  * the EVAL/CODE fragment frame, whose 64KB-per-crossing leak thereby closes), the graph entry/exit anchor
  * (xa_flat), and the rbx=GVA self-load at graph entry (the flow-through-C assumption was codegen luck; see
- * xa_flat.cpp).  The memoized MAIN frame (rt_frame, rt.c:87) deliberately stays on the arena: allocated
+ * xa_flat.cpp).  The MAIN frame moved to the driver/main stack, RUNG ZS-1 s57 (was the memoized rt_frame arena block): allocated
  * once, never freed, shared across driver re-entries — it participates in no alloc/free discipline; moving
  * it is a mapped follow-on (sites scrip.c :1010/:1180 emitted, :1290-1302/:1307-1379 driver).  Suspended
  * generator activations (s6 long-lived class) stay on the heap provider by construction.  SCRIP_ZETA_PORT=3
