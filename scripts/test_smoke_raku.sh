@@ -667,6 +667,43 @@ raku "gram_native_lit_with_space" "a b" << 'EOF'
 grammar G { rule TOP { "a b" } }
 sub main() { say(G.parse("a b")); }
 EOF
+# --- RK-GRAM-3c NATIVE SEQUENCE: leaf boxes chained (each gamma -> next alpha) into a box graph; delta
+#     threads through the chain (box i advances delta, box i+1 resumes at it); tail gamma = full-match exit,
+#     any box omega = fail (delta untouched). No NFA on the .parse path for these shapes. THE GATE is
+#     gram_seq_digit_alpha (rule TOP { <digit> <alpha> }); the rest are edges (short-input fail, wrong-char
+#     fail, literal+class mix, three-element chain, char-class then literal). ---
+raku "gram_seq_digit_alpha" "5x" << 'EOF'
+grammar G { rule TOP { <digit> <alpha> } }
+sub main() { say(G.parse("5x")); }
+EOF
+raku "gram_seq_digit_alpha_short_fail" "N" << 'EOF'
+grammar G { rule TOP { <digit> <alpha> } }
+sub main() { my $r = G.parse("5"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_seq_digit_alpha_firstwrong_fail" "N" << 'EOF'
+grammar G { rule TOP { <digit> <alpha> } }
+sub main() { my $r = G.parse("xx"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_seq_digit_alpha_secondwrong_fail" "N" << 'EOF'
+grammar G { rule TOP { <digit> <alpha> } }
+sub main() { my $r = G.parse("55"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_seq_lit_class" "a1" << 'EOF'
+grammar G { rule TOP { "a" <digit> } }
+sub main() { say(G.parse("a1")); }
+EOF
+raku "gram_seq_class_lit" "9z" << 'EOF'
+grammar G { rule TOP { <digit> "z" } }
+sub main() { say(G.parse("9z")); }
+EOF
+raku "gram_seq_three_class" "3aB" << 'EOF'
+grammar G { rule TOP { <digit> <lower> <upper> } }
+sub main() { say(G.parse("3aB")); }
+EOF
+raku "gram_seq_three_class_midfail" "N" << 'EOF'
+grammar G { rule TOP { <digit> <lower> <upper> } }
+sub main() { my $r = G.parse("3XB"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
 unset RK_GRAM_NATIVE
 
 # --- RK-OO-A1: attribute mutation (twigil-write + void method-call statement) ---
