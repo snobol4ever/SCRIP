@@ -656,7 +656,7 @@ static const char * rk_gram_pure_charclass(const char * body) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_lower_grammar_boxes(const tree_t * prog) {
-    extern int g_opt_dump_bb; static int nat = -1; if (nat < 0) nat = getenv("RK_GRAM_NATIVE") ? 1 : 0;
+    extern int g_opt_dump_bb; static int nat = -1; if (nat < 0) { const char *e = getenv("RK_GRAM_NATIVE"); nat = (e && e[0] == '0') ? 0 : 1; }
     if (!g_opt_dump_bb && !nat) return;
     if (!prog) return;
     for (int i = 0; i < prog->n; i++) {

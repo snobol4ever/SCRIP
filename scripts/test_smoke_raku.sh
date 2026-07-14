@@ -597,6 +597,78 @@ grammar G { rule TOP { <digit>+ } }
 sub main() { my $r = G.parse("abc"); if ($r) { say("Y"); } else { say("N"); } }
 EOF
 
+# --- RK-GRAM-3b NATIVE BOXES: the literal + char-class leaf boxes EXECUTED via the .parse scan-entry
+#     trampoline (rk_gram_enter_box -> box alpha, delta read back, full-match = delta==Delta), NOT the NFA
+#     fallback. Gated behind RK_GRAM_NATIVE so only THESE five take the native path; output is byte-identical
+#     to the NFA path. Both modes: m3 in-process, m4 standalone binary via libscrip_rt (proc registered at
+#     startup by the emitted rt_proc_set_fn, then grammar_parse_core's native branch fires). ---
+export RK_GRAM_NATIVE=1
+raku "gram_native_lit_full" "abc" << 'EOF'
+grammar G { rule TOP { "abc" } }
+sub main() { say(G.parse("abc")); }
+EOF
+raku "gram_native_lit_partial_fail" "N" << 'EOF'
+grammar G { rule TOP { "abc" } }
+sub main() { my $r = G.parse("abcd"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_native_cc_digit" "5" << 'EOF'
+grammar G { rule TOP { <digit> } }
+sub main() { say(G.parse("5")); }
+EOF
+raku "gram_native_cc_nonmember_fail" "N" << 'EOF'
+grammar G { rule TOP { <digit> } }
+sub main() { my $r = G.parse("x"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_native_cc_twochar_fail" "N" << 'EOF'
+grammar G { rule TOP { <digit> } }
+sub main() { my $r = G.parse("55"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_native_cc_alpha" "a" << 'EOF'
+grammar G { rule TOP { <alpha> } }
+sub main() { say(G.parse("a")); }
+EOF
+raku "gram_native_cc_alpha_fail" "N" << 'EOF'
+grammar G { rule TOP { <alpha> } }
+sub main() { my $r = G.parse("1"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_native_cc_upper" "A" << 'EOF'
+grammar G { rule TOP { <upper> } }
+sub main() { say(G.parse("A")); }
+EOF
+raku "gram_native_cc_upper_fail" "N" << 'EOF'
+grammar G { rule TOP { <upper> } }
+sub main() { my $r = G.parse("a"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_native_cc_lower" "z" << 'EOF'
+grammar G { rule TOP { <lower> } }
+sub main() { say(G.parse("z")); }
+EOF
+raku "gram_native_cc_xdigit" "f" << 'EOF'
+grammar G { rule TOP { <xdigit> } }
+sub main() { say(G.parse("f")); }
+EOF
+raku "gram_native_cc_xdigit_fail" "N" << 'EOF'
+grammar G { rule TOP { <xdigit> } }
+sub main() { my $r = G.parse("g"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_native_cc_alnum" "7" << 'EOF'
+grammar G { rule TOP { <alnum> } }
+sub main() { say(G.parse("7")); }
+EOF
+raku "gram_native_cc_space" "Y" << 'EOF'
+grammar G { rule TOP { <space> } }
+sub main() { my $r = G.parse(" "); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_native_lit_singlechar" "x" << 'EOF'
+grammar G { rule TOP { "x" } }
+sub main() { say(G.parse("x")); }
+EOF
+raku "gram_native_lit_with_space" "a b" << 'EOF'
+grammar G { rule TOP { "a b" } }
+sub main() { say(G.parse("a b")); }
+EOF
+unset RK_GRAM_NATIVE
+
 # --- RK-OO-A1: attribute mutation (twigil-write + void method-call statement) ---
 raku "attr_mutate" "3" << 'EOF'
 class Counter { has $.n; method bump() { $!n = $!n + 1; } method val() { return $!n; } }
