@@ -7065,10 +7065,11 @@ lea rax, [rip + xchain344_n0_β]
 mov qword ptr [r12 + 48], rax
 # IR_MATCH_SPAN
  xchain344_n0_α:
- mov dword ptr [r12 + 32], 0
+ sub rsp, 16
+ mov dword ptr [rsp + 0], 0
 .Lx346_0:
  mov eax, r14d
- add eax, dword ptr [r12 + 32]
+ add eax, dword ptr [rsp + 0]
  cmp eax, r15d
  jge .Lx346_1
  movsxd rcx, eax
@@ -7077,20 +7078,24 @@ mov qword ptr [r12 + 48], rax
  call strchr@PLT
  test rax, rax
  je .Lx346_1
- add dword ptr [r12 + 32], 1
+ add dword ptr [rsp + 0], 1
  jmp .Lx346_0
 .Lx346_1:
- mov eax, dword ptr [r12 + 32]
+ mov eax, dword ptr [rsp + 0]
  test eax, eax
- jle proc_PAT$0_ω
+ jg .Lx346_240
+ add rsp, 16
+ jmp proc_PAT$0_ω
+.Lx346_240:
  mov edx, r14d
- mov dword ptr [r12 + 36], edx
+ mov dword ptr [rsp + 4], edx
  add edx, eax
  mov r14d, edx
  jmp proc_PAT$0_γ
  xchain344_n0_β:
  xchain344_n0_β:
- mov r14d, dword ptr [r12 + 36]
+ mov r14d, dword ptr [rsp + 4]
+ add rsp, 16
  jmp proc_PAT$0_ω
 proc_PAT$0_β:
 jmp qword ptr [r12 + 48]
@@ -8745,10 +8750,11 @@ lea rax, [rip + xchain387_n0_β]
 mov qword ptr [r12 + 48], rax
 # IR_MATCH_SPAN
  xchain387_n0_α:
- mov dword ptr [r12 + 32], 0
+ sub rsp, 16
+ mov dword ptr [rsp + 0], 0
 .Lx389_0:
  mov eax, r14d
- add eax, dword ptr [r12 + 32]
+ add eax, dword ptr [rsp + 0]
  cmp eax, r15d
  jge .Lx389_1
  movsxd rcx, eax
@@ -8757,20 +8763,24 @@ mov qword ptr [r12 + 48], rax
  call strchr@PLT
  test rax, rax
  je .Lx389_1
- add dword ptr [r12 + 32], 1
+ add dword ptr [rsp + 0], 1
  jmp .Lx389_0
 .Lx389_1:
- mov eax, dword ptr [r12 + 32]
+ mov eax, dword ptr [rsp + 0]
  test eax, eax
- jle proc_PAT$4_ω
+ jg .Lx389_240
+ add rsp, 16
+ jmp proc_PAT$4_ω
+.Lx389_240:
  mov edx, r14d
- mov dword ptr [r12 + 36], edx
+ mov dword ptr [rsp + 4], edx
  add edx, eax
  mov r14d, edx
  jmp proc_PAT$4_γ
  xchain387_n0_β:
  xchain387_n0_β:
- mov r14d, dword ptr [r12 + 36]
+ mov r14d, dword ptr [rsp + 4]
+ add rsp, 16
  jmp proc_PAT$4_ω
 proc_PAT$4_β:
 jmp qword ptr [r12 + 48]
@@ -10425,10 +10435,11 @@ lea rax, [rip + xchain430_n0_β]
 mov qword ptr [r12 + 48], rax
 # IR_MATCH_SPAN
  xchain430_n0_α:
- mov dword ptr [r12 + 32], 0
+ sub rsp, 16
+ mov dword ptr [rsp + 0], 0
 .Lx432_0:
  mov eax, r14d
- add eax, dword ptr [r12 + 32]
+ add eax, dword ptr [rsp + 0]
  cmp eax, r15d
  jge .Lx432_1
  movsxd rcx, eax
@@ -10437,20 +10448,24 @@ mov qword ptr [r12 + 48], rax
  call strchr@PLT
  test rax, rax
  je .Lx432_1
- add dword ptr [r12 + 32], 1
+ add dword ptr [rsp + 0], 1
  jmp .Lx432_0
 .Lx432_1:
- mov eax, dword ptr [r12 + 32]
+ mov eax, dword ptr [rsp + 0]
  test eax, eax
- jle proc_PAT$8_ω
+ jg .Lx432_240
+ add rsp, 16
+ jmp proc_PAT$8_ω
+.Lx432_240:
  mov edx, r14d
- mov dword ptr [r12 + 36], edx
+ mov dword ptr [rsp + 4], edx
  add edx, eax
  mov r14d, edx
  jmp proc_PAT$8_γ
  xchain430_n0_β:
  xchain430_n0_β:
- mov r14d, dword ptr [r12 + 36]
+ mov r14d, dword ptr [rsp + 4]
+ add rsp, 16
  jmp proc_PAT$8_ω
 proc_PAT$8_β:
 jmp qword ptr [r12 + 48]
@@ -12105,10 +12120,11 @@ lea rax, [rip + xchain473_n0_β]
 mov qword ptr [r12 + 48], rax
 # IR_MATCH_SPAN
  xchain473_n0_α:
- mov dword ptr [r12 + 32], 0
+ sub rsp, 16
+ mov dword ptr [rsp + 0], 0
 .Lx475_0:
  mov eax, r14d
- add eax, dword ptr [r12 + 32]
+ add eax, dword ptr [rsp + 0]
  cmp eax, r15d
  jge .Lx475_1
  movsxd rcx, eax
@@ -12117,20 +12133,24 @@ mov qword ptr [r12 + 48], rax
  call strchr@PLT
  test rax, rax
  je .Lx475_1
- add dword ptr [r12 + 32], 1
+ add dword ptr [rsp + 0], 1
  jmp .Lx475_0
 .Lx475_1:
- mov eax, dword ptr [r12 + 32]
+ mov eax, dword ptr [rsp + 0]
  test eax, eax
- jle proc_PAT$12_ω
+ jg .Lx475_240
+ add rsp, 16
+ jmp proc_PAT$12_ω
+.Lx475_240:
  mov edx, r14d
- mov dword ptr [r12 + 36], edx
+ mov dword ptr [rsp + 4], edx
  add edx, eax
  mov r14d, edx
  jmp proc_PAT$12_γ
  xchain473_n0_β:
  xchain473_n0_β:
- mov r14d, dword ptr [r12 + 36]
+ mov r14d, dword ptr [rsp + 4]
+ add rsp, 16
  jmp proc_PAT$12_ω
 proc_PAT$12_β:
 jmp qword ptr [r12 + 48]
@@ -13785,10 +13805,11 @@ lea rax, [rip + xchain516_n0_β]
 mov qword ptr [r12 + 48], rax
 # IR_MATCH_SPAN
  xchain516_n0_α:
- mov dword ptr [r12 + 32], 0
+ sub rsp, 16
+ mov dword ptr [rsp + 0], 0
 .Lx518_0:
  mov eax, r14d
- add eax, dword ptr [r12 + 32]
+ add eax, dword ptr [rsp + 0]
  cmp eax, r15d
  jge .Lx518_1
  movsxd rcx, eax
@@ -13797,20 +13818,24 @@ mov qword ptr [r12 + 48], rax
  call strchr@PLT
  test rax, rax
  je .Lx518_1
- add dword ptr [r12 + 32], 1
+ add dword ptr [rsp + 0], 1
  jmp .Lx518_0
 .Lx518_1:
- mov eax, dword ptr [r12 + 32]
+ mov eax, dword ptr [rsp + 0]
  test eax, eax
- jle proc_PAT$16_ω
+ jg .Lx518_240
+ add rsp, 16
+ jmp proc_PAT$16_ω
+.Lx518_240:
  mov edx, r14d
- mov dword ptr [r12 + 36], edx
+ mov dword ptr [rsp + 4], edx
  add edx, eax
  mov r14d, edx
  jmp proc_PAT$16_γ
  xchain516_n0_β:
  xchain516_n0_β:
- mov r14d, dword ptr [r12 + 36]
+ mov r14d, dword ptr [rsp + 4]
+ add rsp, 16
  jmp proc_PAT$16_ω
 proc_PAT$16_β:
 jmp qword ptr [r12 + 48]

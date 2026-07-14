@@ -84,9 +84,12 @@ main_α_body:
  jmp xchain0_n4_α
 # IR_MATCH_HEAD
  xchain0_n3_α:
+ sub rsp, 32
  call rt_zls_mark@PLT
- mov qword ptr [r12 + 168], rax
- mov qword ptr [r12 + 176], rsp
+ mov qword ptr [rsp + 8], rax
+ mov rax, rsp
+ add rax, 32
+ mov qword ptr [rsp + 16], rax
  mov rdi, qword ptr [r12 + 272]
  mov rsi, qword ptr [r12 + 280]
  call rt_match_enter@PLT
@@ -96,13 +99,13 @@ main_α_body:
  lea rcx, [rip + g_dcap_top]
  mov rbp, qword ptr [rcx + 0]
  mov qword ptr [r12 + 192], rbp
- mov dword ptr [r12 + 160], 0
+ mov dword ptr [rsp + 0], 0
 .Lx5_0:
- mov r14d, dword ptr [r12 + 160]
+ mov r14d, dword ptr [rsp + 0]
  jmp xchain0_n5_α
  xchain0_n3_β:
- add dword ptr [r12 + 160], 1
- mov eax, dword ptr [r12 + 160]
+ add dword ptr [rsp + 0], 1
+ mov eax, dword ptr [rsp + 0]
  cmp eax, r15d
  jg .Lx5_1
  lea rcx, [rip + g_anchor]
@@ -111,13 +114,13 @@ main_α_body:
  jne .Lx5_1
  jmp .Lx5_0
 .Lx5_1:
+ mov rdi, qword ptr [rsp + 8]
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, qword ptr [r12 + 168]
  call rt_zls_release_to@PLT
  mov rsp, [rsp + 8]
- mov rsp, qword ptr [r12 + 176]
+ mov rsp, qword ptr [rsp + 16]
  push rsp
  push qword ptr [rsp]
  and rsp, -16
@@ -139,23 +142,13 @@ main_α_body:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "fail"
-# IR_MATCH_CAPTURE_SAVE push
+# IR_MATCH_CAPTURE_SAVE fc cell
  xchain0_n5_α:
- lea rdi, [r12 + 240]
- mov esi, r14d
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_cap_push@PLT
- mov rsp, [rsp + 8]
+ sub rsp, 16
+ mov dword ptr [rsp + 0], r14d
  jmp xchain0_n7_α
  xchain0_n5_β:
- lea rdi, [r12 + 240]
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_cap_pop@PLT
- mov rsp, [rsp + 8]
+ add rsp, 16
  jmp xchain0_n3_β
 # IR_ASSIGN global
  xchain0_n6_α:
@@ -185,11 +178,10 @@ main_α_body:
  jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_IMM
  xchain0_n8_α:
+ mov eax, dword ptr [rsp + 0]
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- lea rdi, [r12 + 240]
- call rt_cap_top@PLT
  lea rdi, [rip + .S0]
  mov esi, eax
  mov edx, r14d
@@ -223,13 +215,13 @@ main_α_body:
  jmp xchain0_n7_β
 # IR_MATCH_RELEASE
  xchain0_n9_α:
+ mov rdi, qword ptr [rsp + 24]
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, qword ptr [r12 + 168]
  call rt_zls_release_to@PLT
  mov rsp, [rsp + 8]
- mov rsp, qword ptr [r12 + 176]
+ mov rsp, qword ptr [rsp + 32]
  push rsp
  push qword ptr [rsp]
  and rsp, -16
