@@ -31,11 +31,16 @@ main:
   mov edx, 6
   call gva_register@PLT
   mov rbx, rax
-  call rt_frame@PLT
-  mov rdi, rax
+  sub rsp, 65536
+  mov rdi, rsp
+  mov ecx, 8192
+  xor eax, eax
+  rep stosq
+  mov rdi, rsp
   xor esi, esi
   call main_α
   xor eax, eax
+  add rsp, 65536
   add rsp, 24
   ret
 main_α:
