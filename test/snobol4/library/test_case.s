@@ -426,7 +426,9 @@ main_α_body:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 688]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 696], rax
@@ -701,7 +703,9 @@ main_α_body:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 960]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 968], rax
@@ -991,7 +995,9 @@ main_α_body:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 1232]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 1240], rax
@@ -1251,7 +1257,9 @@ main_α_body:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 1504]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 1512], rax
