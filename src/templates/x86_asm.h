@@ -534,6 +534,31 @@ inline std::string x86_deflabel_id(int n) {
     return MEDIUM_BINARY ? x86_Drec(id) : (x86_internal_name(n) + ":\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZS-2 jmp-port transfer vocabulary (s58, design of record FINDING-2026-07-14-CLAUDE-SN4-ZS2-JMP-TOPOLOGY-DESIGN-AND-R12-LADDER.md §5/§8): materialize an internal label's address (the lea_tgt sibling,
+ * same R9 patch primitive), indirect jmp through a register, indirect jmp through [base+disp] with the SIB byte rsp/r12 (low3=100) require — the s52 lea-rsp silent-emit class handled explicitly.     */
+inline std::string x86_lea_id(const char * dst, int n) {
+    int id = x86_internal_id(n);
+    if (MEDIUM_BINARY) { int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3)); return x86_Lrec(code) + x86_Jrec(id); }
+    return std::string(" lea ") + dst + ", [rip + " + x86_internal_name(n) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_jmp_reg(const char * r) {
+    if (MEDIUM_BINARY) { int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)0xFF; code += (char)(0xE0 | (m & 7)); return x86_Lrec(code); }
+    return std::string(" jmp ") + r + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_jmp_mem(const char * base, int disp) {
+    if (MEDIUM_BINARY) {
+        int b = x86_rnum(base); std::string code; if (b >= 8) code += (char)0x41; code += (char)0xFF; int lo = b & 7; int sib = (lo == 4);
+        if (disp == 0 && lo != 5) { code += (char)(0x20 | lo); if (sib) code += (char)0x24; }
+        else if (disp >= -128 && disp <= 127) { code += (char)(0x60 | lo); if (sib) code += (char)0x24; code += (char)(disp & 0xFF); }
+        else { code += (char)(0xA0 | lo); if (sib) code += (char)0x24; code += u32le((uint32_t)disp); }
+        return x86_Lrec(code);
+    }
+    char b2[96]; if (disp) snprintf(b2, sizeof b2, " jmp qword ptr [%s + %d]\n", base, disp); else snprintf(b2, sizeof b2, " jmp qword ptr [%s]\n", base);
+    return std::string(b2);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-FC-0 conditional-omega pop synth (see x86_jcc): descending per-box id pool _.x86_fc_synth (reset 240 at
  * DRIVE_FILL -- below X86_INTERNAL_MAX, far above any template's own L(n)); the interior x86_jmp(OMEGA) fires
  * the X86H_JMP hook, which is where the single add-rsp,K pop arm lives -- the synth itself never touches rsp. */
