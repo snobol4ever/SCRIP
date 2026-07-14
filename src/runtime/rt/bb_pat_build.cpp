@@ -15,6 +15,16 @@ void optimizer_run(IR_graph_t * g);
 void ir_drive_slot_assign(IR_graph_t * g);
 void zls_reset(void);
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat);
+int zls_g_region(const IR_graph_t * g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZS-2 (Lon s58): blobs are jmp-entered NEW ACTIVATIONS — each self-allocates on rsp, so the frame size is a
+ * PROLOGUE constant computed here BEFORE emission (32B wire header + zls region, rounded to 16), and the
+ * rt_fn_frame_bytes registry has no consumer on this path anymore (the caller no longer allocates anything). */
+static int bb_jmp_entry_ktotal(const IR_graph_t *g) {
+    int rg = g ? zls_g_region(g) : -1;
+    if (rg <= 0) rg = 4096;   /* PROC_FRAME_QWORDS*8 — the same default rt_fn_frame_bytes served the call-regime allocator */
+    return (32 + rg + 15) & ~15;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_build_len_blob(const char *name, int I) {
@@ -30,7 +40,9 @@ extern "C" void bb_build_len_blob(const char *name, int I) {
     int saved_fa = g_frame_active;
     g_emit_cfg   = g;
     g_frame_active = 1;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = bb_jmp_entry_ktotal(g);
     bb_box_fn fn = emit_chain(g->entry = nd, NULL, "rtlen");
+    g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit_cfg   = saved_cfg;
     g_frame_active = saved_fa;
     if (fn) rt_gvar_assign_pat(name, (void *)fn);
@@ -49,7 +61,9 @@ extern "C" void bb_build_break_blob(const char *name, const char *cset) {
     int saved_fa = g_frame_active;
     g_emit_cfg   = g;
     g_frame_active = 1;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = bb_jmp_entry_ktotal(g);
     bb_box_fn fn = emit_chain(g->entry = nd, NULL, "rtbrk");
+    g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit_cfg   = saved_cfg;
     g_frame_active = saved_fa;
     if (fn) rt_gvar_assign_pat(name, (void *)fn);
@@ -66,9 +80,10 @@ extern "C" void *bb_compile_pat_tree(const void *tv) {
     int saved_fa = g_frame_active;
     g_emit_cfg = g;
     g_frame_active = 1;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = bb_jmp_entry_ktotal(g);
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
+    g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
-    { extern int zls_g_region(const IR_graph_t *); extern void rt_fn_frame_bytes_register(void *, int); int rg = zls_g_region(g); if (fn && rg > 0) rt_fn_frame_bytes_register((void *)fn, rg); }
     return (void *)fn;
 }

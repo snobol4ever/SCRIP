@@ -9,55 +9,39 @@ extern "C" long  rt_defer_step     (DESCR_t fret);
 extern "C" int   rt_defer_close    (int cur_delta);
 extern "C" void *rt_frame_prep     (void *fb, long fbytes);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
-extern "C" void *rt_zls_alloc      (long bytes);
-extern "C" long  rt_fn_frame_bytes (void *fn);
-extern "C" void  rt_zls_release    (void *fb);
 extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
-static inline int dscr() { return _.x86_scratch_off; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
-    return ( ((_.bb_child_fn != (void *)0) || (_.bb_child_lbl && _.bb_child_lbl[0]))
-        ? ( x86("comment", "IR_MATCH_DEFER inlined frozen head (FZ-5b)")
-          + x86_alpha()
-          + x86("lea",  "rax", "[rip + __]", (uint64_t)(uintptr_t)_.bb_child_fn, _.bb_child_lbl ? _.bb_child_lbl : "") )
-        : ( x86("comment", "IR_MATCH_DEFER")
-          + x86_alpha()
-          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-          + x86("xor",  "esi", "esi")
-          + x86_align_enter()
-          + x86("call", "rt_defer_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_fn)
-          + x86_align_leave() ) )
-         + x86("xor",  "ecx", "ecx")
-         + x86("mov",  FRQ(dscr()), "rcx")
+    /* ZS-2 (Lon s58, FINDING-2026-07-14 §5-CORRECTED): the *P transfer is a JUMP OUT and a JUMP BACK — no
+     * call/ret, no eax code, no caller-side allocation.  α resolves the blob fn (a C LOOKUP, not the transfer),
+     * wires the OUTSIDE γ (rcx) and OUTSIDE ω (rdx) landing labels, and jmps to blob_α.  The blob is a NEW
+     * ACTIVATION: it self-allocates its own rsp frame with a 32B wire header, γ-SUSPENDS it (jmp back through
+     * the γ wire, frame retained for β resumes), ω-unwinds it (add rsp,K; jmp back through the ω wire).  The
+     * OUTSIDE backtrack edge is uniformly `jmp qword [rsp+0]` — the LIFO law has rsp at the suspended
+     * activation's own base, whose [+0] wire holds its resume landing.  Recursion (*LIST) nests activations on
+     * the stream; the s58 T2 static-slot clobber is unrepresentable — there are no slots.  The callout pump
+     * (fn NULL: *X / DT_E-to-any) keeps its NCB-1c machinery and suspends a 16B one-shot cell whose [+0] wire
+     * lands its own exhaust stub, so the shared β needs no discrimination and no guard. */
+    return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
+         + x86_alpha()
+         + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+         + x86("xor",  "esi", "esi")
+         + x86_align_enter()
+         + x86("call", "rt_defer_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_fn)
+         + x86_align_leave()
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
-         + x86("mov",  FRQ(dscr()), "rax")
-         + x86_align_enter()
-         + x86("mov",  "rdi", FRQ(dscr()))
-         + x86("call", "rt_fn_frame_bytes", (uint64_t)(uintptr_t)(void *)(long (*)(void *))rt_fn_frame_bytes)
-         + x86("mov",  "rdi", "rax")
-         + x86("call", "rt_zls_alloc", (uint64_t)(uintptr_t)(void *)(void *(*)(long))rt_zls_alloc)
-         + x86_align_leave()
-         + x86("mov",  FRQ(dscr() + 8), "rax")
-         + x86("mov",  "rcx", FRQ(dscr()))
-         + x86("mov",  "rdi", "rax")
-         + x86("xor",  "esi", "esi")
-         + x86("call", "rcx")
-         + x86("cmp",  "eax", (long)1)
-         + x86("je",   "L1")
-         + x86("mov",  "rdi", FRQ(dscr() + 8))
-         + x86_align_enter()
-         + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
-         + x86_align_leave()
-         + x86("xor",  "eax", "eax")
-         + x86("mov",  FRQ(dscr()), "rax")
-         + x86_omega()
-         + x86("def",  "L1")
+         + x86_lea_id("rcx", 4)
+         + x86_lea_id("rdx", 5)
+         + x86_jmp_reg("rax")
+         + x86("def",  L(4))
          + x86_gamma()
+         + x86("def",  L(5))
+         + x86_omega()
          + x86("def",  "L0")
          /* NCB-1c M1 (2026-07-11): the *X / DT_X transfer is EMITTED — open returns fbytes (a call is owed),
           * the loop performs it with the NCB-1b window, step says whether a second is owed (the DT_X round),
@@ -102,25 +86,18 @@ std::string bb_match_defer() {
          + x86("test", "eax", "eax")
          + x86_omega("js")
          + x86("mov",  "r14d", "eax")
+         /* callout success: suspend a 16B one-shot cell — [+0] wire = the exhaust stub below — so the shared β
+          * re-enters it exactly like a blob activation and the exhaust falls to ω (the old fn==0 jz guard's
+          * job, now wired instead of tested). */
+         + x86_lea_id("rax", 6)
+         + x86_sub("rsp", 8)
+         + x86("push", "rax")
          + x86_gamma()
-         /* NCB-2/SZ-1 (FINDING-2026-07-10 blob-β-resume): β re-enters the STORED blob's own β via its esi=1
-          * prologue dispatch — "the element right of the pattern failed" seen from inside the blob, so its
-          * interior generator (ARBNO) extends from saved state in the kept-alive frame.  jz→ω guards the
-          * callout/exhausted activations (fn slot zeroed at α and on release).  eax==1 rejoins γ at L1. */
+         + x86("def",  L(6))
+         + x86_add("rsp", 16)
+         + x86_omega()
+         /* β: the LIFO law has rsp at the suspended activation's own base — jump through its [+0] wire (blob:
+          * the chain's %s_res landing re-pins the frame reg and resumes; callout: the exhaust stub above). */
          + x86_beta()
-         + x86("mov",  "rcx", FRQ(dscr()))
-         + x86("test", "rcx", "rcx")
-         + x86_omega("jz")
-         + x86("mov",  "rdi", FRQ(dscr() + 8))
-         + x86("mov32", "esi", (long)1)
-         + x86("call", "rcx")
-         + x86("cmp",  "eax", (long)1)
-         + x86("je",   "L1")
-         + x86("mov",  "rdi", FRQ(dscr() + 8))
-         + x86_align_enter()
-         + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
-         + x86_align_leave()
-         + x86("xor",  "eax", "eax")
-         + x86("mov",  FRQ(dscr()), "rax")
-         + x86_omega();
+         + x86_jmp_mem("rsp", 0);
 }

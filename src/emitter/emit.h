@@ -522,6 +522,9 @@ typedef struct {
     const char *                 enclosing_fname;
     const char *                 prev_instr_name;
     int                          flat_wired;
+    int                          flat_jmp_entry;      /* ZS-2 (Lon s58): rtpat/rtlen/rtbrk blob regime — jmp-entered new activation, self-allocates on rsp, 32B wire header at [rsp+0..31], γ suspends / ω unwinds via the wired outside edges; NO esi dispatch, NO ret */
+    int                          flat_frame_bytes;    /* ZS-2: K_total for the jmp-entry prologue's sub rsp (32B header + zls region, 16-mult), computed by the blob builder BEFORE emit from zls_g_region */
+    struct bb_label_t *          flat_res_p;          /* ZS-2: the β-resume landing stub (lea r12,[rsp+32] falling into lbl_β); prologue stores its address into the [rsp+0] wire */
     struct bb_label_t *          flat_succ_p;
     struct bb_label_t *          flat_fail_p;
     struct bb_label_t *          flat_β_p;

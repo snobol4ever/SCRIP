@@ -49,6 +49,35 @@ static std::string xaf_push_frame(void)  { int z = x86_zr_num(); std::string c; 
 static std::string xaf_pop_frame(void)   { int z = x86_zr_num(); std::string c; if (z >= 8) c += (char)0x41; c += (char)(0x58 | (z & 7)); return c; }
 static std::string xaf_mov_frame_rdi(void) { int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | (7 << 3) | (z & 7)); return c; }
 static std::string xaf_mov_dreg_frame(int d) { int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00) | (d >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((z & 7) << 3) | (d & 7)); return c; }
+/* ZS-2 jmp-entry fragments (Lon s58, FINDING-2026-07-14 §5-CORRECTED).  A jmp-entered blob is a NEW ACTIVATION
+ * of a BB: it self-allocates on rsp (sub rsp,K_total), and its first 32 bytes are the WIRE HEADER at fixed,
+ * universally-known offsets — [rsp+0] β-resume wire, [rsp+8] outside-γ wire, [rsp+16] outside-ω wire,
+ * [rsp+24] saved frame reg — so the OUTSIDE backtrack edge is exactly `jmp qword [rsp+0]` with zero per-blob
+ * knowledge (all ζ on rsp is pre-determined length; the offset is a simple calculation).  The zls value region
+ * sits above the header at [rsp+32, rsp+K_total), and the frame register points AT the region (zr = rsp+32) so
+ * every FR()/FRQ() offset in every box is byte-identical to the call-regime layout.  γ SUSPENDS (frame + wires
+ * retained, jmp through the γ wire); ω UNWINDS (add rsp,K_total, jmp through the ω wire); the β landing stub
+ * (flat_res_p, defined by codegen_flat_chain_body just before lbl_β) re-pins zr = rsp+32 and falls into the
+ * chain's existing resume dispatch.  All fragments route through x86_zr_num() — no literal frame-register
+ * bytes, same ZC_FRAME discipline as the five helpers above. */
+static std::string xaf_store_zr_rsp8(int disp8) {   /* mov [rsp+disp8], zr */
+    int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00)); c += (char)0x89; c += (char)(0x40 | ((z & 7) << 3) | 4); c += (char)0x24; c += (char)(disp8 & 0xFF); return c;
+}
+static std::string xaf_lea_zr_rsp8(int disp8) {     /* lea zr, [rsp+disp8] */
+    int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00)); c += (char)0x8D; c += (char)(0x40 | ((z & 7) << 3) | 4); c += (char)0x24; c += (char)(disp8 & 0xFF); return c;
+}
+static std::string xaf_mov_rdi_zr(void) {           /* mov rdi, zr */
+    int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((z & 7) << 3) | 7); return c;
+}
+static std::string xaf_ld64_from_zr8(int dst, int disp8) {   /* mov dst, [zr+disp8] (disp8 may be negative — the wire header lives below the region base) */
+    int z = x86_zr_num(); std::string c; uint8_t rex = 0x48; if (dst >= 8) rex |= 0x04; if (z >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B;
+    int lo = z & 7; c += (char)(0x40 | ((dst & 7) << 3) | (lo == 4 ? 4 : lo)); if (lo == 4) c += (char)0x24; c += (char)(disp8 & 0xFF); return c;
+}
+static std::string xaf_lea_rsp_zr32(int disp32) {   /* lea rsp, [zr+disp32] — the ω-half's ABSOLUTE unwind: correct from ANY rsp depth (fence/ABORT seal cuts reach lbl_ω without the popping cascade) */
+    int z = x86_zr_num(); std::string c; uint8_t rex = 0x48; if (z >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D;
+    int lo = z & 7; c += (char)(0x80 | (4 << 3) | (lo == 4 ? 4 : lo)); if (lo == 4) c += (char)0x24; c += u32le((uint32_t)disp32); return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xaf_frame_store_imm32(uint32_t disp, uint32_t imm) {
     int z = x86_zr_num(), lo = z & 7; std::string c;
     c += (char)(0x48 | (z >= 8 ? 0x01 : 0x00)); c += (char)0xC7;
@@ -136,6 +165,25 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_PROLOGUE");
         if (MEDIUM_BINARY) {
             extern int g_frame_active;
+            if (g_emit.flat_jmp_entry) {
+                extern int g_emit_frame_caller_dl;
+                if (!g_frame_active || g_emit_frame_caller_dl > 0) { fprintf(stderr, "FATAL xa_flat: jmp-entry blob must be frame-active with no display reg (frame_active=%d caller_dl=%d)\n", g_frame_active, g_emit_frame_caller_dl); abort(); }
+                int kt = g_emit.flat_frame_bytes;
+                if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat: jmp-entry K_total=%d (must be 16-mult >= 48: 32B wire header + region)\n", kt); abort(); }
+                std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                         /* sub rsp, K_total — the activation self-allocates */
+                              + bytes(4, "\x48\x89\x4C\x24") + std::string(1, (char)0x08)               /* mov [rsp+8],  rcx — outside-γ wire */
+                              + bytes(4, "\x48\x89\x54\x24") + std::string(1, (char)0x10)               /* mov [rsp+16], rdx — outside-ω wire */
+                              + xaf_store_zr_rsp8(24)                                                    /* mov [rsp+24], zr — caller's frame reg ([rsp+0] = pad; β resumes ride the γ-pushed frontier record, not the header) */
+                              + xaf_lea_zr_rsp8(32)                                                      /* zr = rsp+32 — region base; every FR() offset unchanged */
+                              + xaf_mov_rdi_zr()
+                   + bytes(1, "\xB9") + u32le((uint32_t)(kt - 32))                                       /* mov ecx, K_region */
+                   + bytes(2, "\x31\xC0")                                                                /* xor eax, eax */
+                   + bytes(2, "\xF3\xAA")                                                                /* rep stosb — zls_alloc zeroed (ZC_INIT_ZERO); the activation must too */
+                   + xaf_gva_reload_bin()
+                   + xaf_anchor_enter_bin();
+                out_site = 0; out_lbl = nullptr; out_def = false;
+                return r;
+            }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 std::string disp;
@@ -173,6 +221,14 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_emit.flat_wired) {
                 return banner;
             }
+            if (g_emit.flat_jmp_entry) {
+                int kt = g_emit.flat_frame_bytes;
+                char b[640];
+                snprintf(b, sizeof b,
+                    "  sub rsp, %d\n  mov [rsp+8], rcx\n  mov [rsp+16], rdx\n  mov [rsp+24], %s\n  lea %s, [rsp+32]\n  mov rdi, %s\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
+                    kt, x86_zr(), x86_zr(), x86_zr(), kt - 32);
+                return banner + b + xaf_gva_reload_text() + xaf_anchor_enter_text();
+            }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
@@ -201,6 +257,36 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
         if (MEDIUM_BINARY) {
             extern int g_frame_active;
             extern int g_emit_frame_caller_dl;
+            if (g_emit.flat_jmp_entry) {
+                /* ZS-2 (Lon s58/s59): NO ret, NO eax code — the landing label IS the signal.  γ-half: the chain
+                 * succeeded with rsp at the DEEP frontier (interior suspended cells live below), so first leave
+                 * the 16B RESUME RECORD at the frontier — push the frame reg, push the β-landing address — then
+                 * read the wire header through the PINNED frame reg (zr = region base; header at zr-32): the
+                 * whole activation is RETAINED and control jmps through the outside-γ wire with the caller's
+                 * frame reg restored.  The outside backtrack edge `jmp qword [rsp+0]` reads the record's
+                 * landing word.  ω-half: reached with rsp back at this activation's own header base (the
+                 * every-ω-pops law), so add rsp,K_total kills header+region and control jmps through the
+                 * outside-ω wire.  disp8s from zr: β wire -32, γ wire -24, ω wire -16, saved zr -8.
+                 * CONVENTION (wrapper contract): out_succ = γ piece A ending at the lea rel32 patch site
+                 * (out_site/out_lbl/out_def describe THAT patch); the RETURN VALUE is γ piece B; out_fail =
+                 * the ω-half. */
+                int kt = g_emit.flat_frame_bytes;
+                std::string succA = xaf_push_frame()                                       /* push zr — record payload: region base */
+                                  + bytes(3, "\x48\x8D\x05");                              /* lea rax, [rip + res-landing] */
+                out_site = (int)succA.size(); out_lbl = g_emit.flat_res_p; out_def = false;
+                succA += u32le(0);
+                std::string succB = bytes(1, "\x50")                                       /* push rax — record top: the landing word */
+                                  + xaf_ld64_from_zr8(0, -24)                              /* mov rax, [zr-24] — outside-γ wire */
+                                  + xaf_ld64_from_zr8(x86_zr_num(), -8)                    /* mov zr, [zr-8] — caller's frame reg */
+                                  + bytes(2, "\xFF\xE0");                                  /* jmp rax */
+                std::string fail_half = xaf_ld64_from_zr8(0, -16)                          /* mov rax, [zr-16] — outside-ω wire */
+                                      + xaf_lea_rsp_zr32(kt - 32)                            /* lea rsp, [zr + K_total-32] — ABSOLUTE unwind (pre-entry rsp = header base + K_total); fence/ABORT seal cuts arrive here at ANY depth, so never add-relative */
+                                      + xaf_ld64_from_zr8(x86_zr_num(), -8)
+                                      + bytes(2, "\xFF\xE0");
+                if (out_succ) *out_succ = succA;
+                if (out_fail) *out_fail = fail_half;
+                return succB;
+            }
             std::string dpop;
             if      (g_frame_active && g_emit_frame_caller_dl == 1) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5D");
             else if (g_frame_active && g_emit_frame_caller_dl == 2) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5E");
@@ -241,6 +327,17 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                 return std::string(" jmp ") + xa_wired_base() + "_wγ\n"
                      + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
                      + " jmp " + xa_wired_base() + "_wω\n";
+            }
+            if (g_emit.flat_jmp_entry) {
+                int kt = g_emit.flat_frame_bytes;
+                char sa[224], sb2[224], fb[320];
+                snprintf(sa, sizeof sa, "push %s\nlea rax, [rip + %s]\n", x86_zr(), (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
+                snprintf(sb2, sizeof sb2, "push rax\nmov rax, [%s-24]\nmov %s, [%s-8]\njmp rax\n", x86_zr(), x86_zr(), x86_zr());
+                snprintf(fb, sizeof fb, "%s%smov rax, [%s-16]\nlea rsp, [%s + %d]\nmov %s, [%s-8]\njmp rax\n",
+                    (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", x86_zr(), x86_zr(), kt - 32, x86_zr(), x86_zr());
+                if (out_succ) *out_succ = std::string(sa);
+                if (out_fail) *out_fail = std::string(fb);
+                return std::string(sb2);
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
@@ -315,6 +412,20 @@ extern "C" void xa_flat_epilogue(void) {
     int st; bb_label_t * lb; bool df; std::string succ, fail;
     auto s = xa_flat_epilogue_str(st, lb, df, &succ, &fail);
     extern int g_frame_active;
+    if (g_emit.flat_jmp_entry && (!succ.empty() || !fail.empty())) {
+        /* ZS-2: γ SUSPENDS the activation (frame + interior state stay live for β resumes) so it must NOT
+         * release the zls mark; the release belongs to ω alone, placed AFTER the ω define so a jump to lbl_ω
+         * runs it.  Suspended-then-succeeded activations are reclaimed wholesale by the statement bracket
+         * (head.zeta_mark / S10e), the same law that reclaims their rsp cells.  Piece convention (see the
+         * _str jmp-entry arm): succ = γ piece A (ends at the res-landing lea patch, described by st/lb/df),
+         * s (the return) = γ piece B, fail = the ω-half. */
+        xa_emit_one(succ, st, lb, df);
+        xa_emit_one(s, 0, nullptr, false);
+        xa_emit_one(std::string(), 0, g_emit.flat_fail_p, true);
+        if (g_frame_active && g_emit_cfg && g_emit_cfg->zeta_mark_slot >= 0) bb_emit_x86(x86_zeta_release_to_call(g_emit_cfg->zeta_mark_slot));
+        xa_emit_one(fail, 0, nullptr, false);
+        return;
+    }
     bool have_halves = g_frame_active && g_emit_cfg && g_emit_cfg->zeta_mark_slot >= 0 && (!succ.empty() || !fail.empty());
     if (!have_halves) { xa_emit_one(s, st, lb, df); return; }
     int off = g_emit_cfg->zeta_mark_slot;

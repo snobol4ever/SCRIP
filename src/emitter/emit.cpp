@@ -1175,15 +1175,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sa = -1; g_emit.op_off = -1;
         g_emit.x86_scratch_off = drive_value_slot(nd);
         g_emit.bb_child_fn = (void *) 0; g_emit.bb_child_lbl = (const char *) 0;
-        IR_t * fz0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *) 0;   /* FZ-5b (re-port): lower marks a once-assigned-invariant stored-pattern defer with a LIT_STRING operand naming its AOT proc */
-        if (fz0 && fz0->op == IR_LIT_STRING && IR_LIT(fz0).sval && IR_LIT(fz0).sval[0]) {
-            void * fzfn = rt_proc_get_fn(IR_LIT(fz0).sval);
-            if (fzfn || MEDIUM_TEXT) {
-                static char fzlb[280];
-                snprintf(fzlb, sizeof fzlb, "proc_%s_α", IR_LIT(fz0).sval);
-                g_emit.bb_child_fn = fzfn; g_emit.bb_child_lbl = fzlb;
-            }
-        }
+        /* ZS-2 (Lon s58): the FZ-5b frozen-head shortcut is RETIRED this rung — its AOT pattern procs are
+         * call-regime proc_flat chains and the DEFER transfer is now jmp-entry, so frozen stored patterns
+         * resolve through rt_defer_get_pat_fn like every other DT_P (the assignment still stores the recipe;
+         * the blob compiles once and caches).  Restoring the shortcut under jmp-entry is PROC-CONV's business
+         * (R12-FREE ladder rung 2), where the proc transfer itself converts.  The lower-side FZ-5b operand
+         * mark (LIT_STRING at operands[0]) stays in the IR untouched for that rung to consume. */
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TO: {
@@ -1533,12 +1530,13 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
 static void emit_zeta_selfload(void) { int m = x86_port_mode(); if (m == ZC_PORT_INSTRUMENTED) { if (g_is_text) { char s[64]; snprintf(s, sizeof s, " test %s, %s\n jnz 1f\n ud2\n1:\n", x86_zr(), x86_zr()); emit_text_n(s, strlen(s)); } else { int z = x86_zr_num(), lo = z & 7; ef_b3((uint8_t)(0x48 | (z >= 8 ? 0x05 : 0x00)), 0x85, (uint8_t)(0xC0 | (lo << 3) | lo)); ef_b2(0x75, 0x02); ef_b2(0x0F, 0x0B); } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
-    bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β;
+    bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
     emit_label_initf(&lbl_α_body, "%s_α_body", prefix);
     emit_label_initf(&lbl_γ,       "%s_γ",      prefix);
     emit_label_initf(&lbl_ω,       "%s_ω",      prefix);
     emit_label_initf(&lbl_β,       "%s_β",       prefix);
+    emit_label_initf(&lbl_res,     "%s_res",     prefix);
     int text_externalise = g_is_text ? 1 : 0;
     if (text_externalise) data_buf_reset();
     g_emit.flat_lbl_α        = lbl_α.name;
@@ -1547,6 +1545,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_lbl_ω         = lbl_ω.name;
     g_emit.flat_lbl_β         = lbl_β.name;
     g_emit.flat_β_p           = &lbl_β;
+    g_emit.flat_res_p         = &lbl_res;
     g_emit.flat_succ_p        = &lbl_γ;
     g_emit.flat_fail_p        = &lbl_ω;
     g_emit.flat_text_externalise = text_externalise;
@@ -1773,6 +1772,24 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }
+    if (g_emit.flat_jmp_entry) {
+        /* ZS-2 β-resume landing (Lon s58/s59): γ left a 16B resume record AT THE DEEP FRONTIER —
+         * [rsp+0] = this landing's address (read, not popped, by the outside `jmp qword [rsp+0]`),
+         * [rsp+8] = the suspended activation's frame reg (region base).  Interior suspended cells live
+         * BELOW the header at suspension time, so the frontier — not the header — is the only address the
+         * LIFO law hands back to β.  Drop the landing word, pop the frame reg, fall into the chain's
+         * resume dispatch at lbl_β with rsp restored to the pre-suspension frontier. */
+        emit_label_define_bb(&lbl_res);
+        if (g_is_text) {
+            char _res[96];
+            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", x86_zr());
+            emit_text_n(_res, strlen(_res));
+        } else {
+            int z = x86_zr_num();
+            ef_b4(0x48, 0x83, 0xC4, 0x08);
+            if (z >= 8) ef_b2(0x41, (uint8_t)(0x58 | (z & 7))); else ef_b1((uint8_t)(0x58 | (z & 7)));
+        }
+    }
     emit_label_define_bb(&lbl_β);
     if (g_suspend_resume_slot >= 0 && (g_gen_proc_active || g_resumable_callable_active)) {
         if (g_is_text) {
@@ -1871,6 +1888,21 @@ static void emit_chain_operand_refs(IR_t *entry) {
         stk[sp++] = n;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZS-2 (Lon s58/s59): lower-synthetic PAT$N pattern procs are consumed ONLY through SNO$MKPAT → DT_P → the
+ * jmp-entry DEFER transfer ($ is not a SNOBOL4 identifier character, so no user code can call them), so their
+ * chains must speak the jmp-entry protocol: self-allocating activation with the 32B wire header, wired
+ * outside-γ/ω, jmp back — never call/ret.  The four driver proc-emission loops bracket PAT$ emissions with
+ * this pair; every other proc stays call-regime until PROC-CONV (R12-FREE ladder rung 2). */
+extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
+    if (!pname || strncmp(pname, "PAT$", 4) != 0) return 0;
+    extern int zls_g_region(const IR_graph_t *);
+    int rg = g ? zls_g_region(g) : -1;
+    if (rg <= 0) rg = 4096;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
+    return 1;
+}
+extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
