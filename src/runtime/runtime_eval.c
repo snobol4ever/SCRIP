@@ -19,13 +19,15 @@ extern int         Δ;
 typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void          *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn  emit_chain(void *entry, void *out, const char *prefix);
-extern void           rt_eval_run(eval_chain_fn fn, long fbytes);
+extern void           rt_chain_enter(eval_chain_fn fn);
+extern void           rt_callregime_run(eval_chain_fn fn, long fbytes);
+extern int            emit_jmp_entry_for_chain(IR_graph_t *g);
+extern void           emit_jmp_entry_clear(void);
 extern void           ast_tree_free_dyn(tree_t *p);
 extern void           IR_free_dyn(void *g);
 extern size_t         bb_pool_mark(void);
 extern void           bb_pool_release(size_t mark);
 #define EVAL_TMP "ZZEVALZZ"
-#define EVAL_FRAME_BYTES 4096
 #define EVAL_RETAIN_BUDGET (2 * 1024 * 1024)
 typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
@@ -62,10 +64,45 @@ static void eval_cache_put(const char *s, eval_chain_fn fn) {
     eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn);
     g_eval_cache_n++;
 }
+/* rt_chain_enter — the s59 DEFER shape for EVAL/CODE (Lon: "no CALL/RET — a JUMP and a JUMP BACK").  Resolve
+ * happened in C (cache/compile/registry lookup); this shim WIRES outside-γ→rcx and outside-ω→rdx to one shared
+ * landing, ANCHORS pre-transfer rsp in the frame register (the jmp-entry header saves it at [+24] and both
+ * exits restore it), and JUMPS.  The chain is a NEW ACTIVATION: it self-allocates its own frame (K_total baked
+ * at emit time from its region), γ-exits with rsp at the deep frontier (resume record live, never consumed —
+ * one-shot) or ω-exits with rsp absolutely unwound; either way the landing's `mov rsp, r12` wholesale-reclaims
+ * the activation and any interior residue, exactly the seal-cut argument.  The trailing ret is the C builtin
+ * boundary, not the transfer.  ⚠ EXACTLY FIVE PUSHES — the SysV 16-byte stack alignment is load-bearing through
+ * the jmp: rsp is 8 mod 16 at entry, +40 bytes of pushes makes it 0 mod 16, and the blob's `sub rsp,K_total`
+ * (K_total 16-aligned) carries that alignment into the activation.  A sixth push (the first cut saved rbp)
+ * left every C callee reached FROM the chain on a misaligned stack and SEGV'd in libc's SSE printf path —
+ * measured, gdb, rsp=...be8.  rbp needs no save here: it is the align-save register the chains manage
+ * themselves (x86_align_enter/leave).  rt_callregime_run is the OLD donated-frame call shim retained VERBATIM for the
+ * one citizen this rung does not own: LBL__ main-program pseudo-procs (rt_goto_transfer arm 4) — those are
+ * procs, and procs convert at PROC-CONV. */
 __asm__(
 ".text\n"
-".globl rt_eval_run\n"
-"rt_eval_run:\n"
+".globl rt_chain_enter\n"
+"rt_chain_enter:\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  movq %rdi, %rax\n"
+"  leaq 1f(%rip), %rcx\n"
+"  movq %rcx, %rdx\n"
+"  movq %rsp, %r12\n"
+"  jmp *%rax\n"
+"1:\n"
+"  movq %r12, %rsp\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  ret\n"
+".globl rt_callregime_run\n"
+"rt_callregime_run:\n"
 "  pushq %rbx\n"
 "  pushq %r12\n"
 "  pushq %r13\n"
@@ -90,7 +127,8 @@ __asm__(
 "  popq %rbx\n"
 "  ret\n"
 );
-void rt_eval_run(eval_chain_fn fn, long fbytes);
+void rt_chain_enter(eval_chain_fn fn);
+void rt_callregime_run(eval_chain_fn fn, long fbytes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Deferred-expression thunks (`. *F(X)`) minted by a RUNTIME compile.  lower_snobol4 mints one EXPR$N proc per
  * deferred operand and files it in g_stage2; the driver does the register+emit walk for the main program, and
@@ -170,7 +208,9 @@ static eval_chain_fn eval_build_chain(const char *s)
     extern IR_graph_t *g_emit_cfg;
     IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
     int fa = g_frame_active; g_frame_active = 1;
+    emit_jmp_entry_for_chain((IR_graph_t *)g);
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
+    emit_jmp_entry_clear();
     g_frame_active = fa; g_emit_cfg = cfg_sv;
     eval_thunks_emit_from(pc0);
     IR_free_dyn(g);
@@ -180,7 +220,7 @@ static eval_chain_fn eval_build_chain(const char *s)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_chain_run_capture(eval_chain_fn fn) {
     DESCR_t saved = NV_GET_fn(EVAL_TMP);
-    rt_eval_run(fn, EVAL_FRAME_BYTES);
+    rt_chain_enter(fn);
     DESCR_t result = NV_GET_fn(EVAL_TMP);
     NV_SET_fn(EVAL_TMP, saved);
     return result;
@@ -251,12 +291,6 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GOTO_FRAME_BYTES (64 * 1024)
-static void run_code_chain(eval_chain_fn fn)
-{
-    if (!fn) return;
-    rt_eval_run(fn, GOTO_FRAME_BYTES);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_goto_transfer(const char *name)
 {
     if (!name || !*name) return;
@@ -269,17 +303,18 @@ void rt_goto_transfer(const char *name)
     }
     if (!strcmp(name, "END")) return;
     eval_chain_fn fn = rt_label_get_fn(name);
-    if (!fn) {
+    if (fn) { rt_chain_enter(fn); return; }
+    {
         extern void *rt_proc_get_fn(const char *);
         char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name);
         fn = (eval_chain_fn)rt_proc_get_fn(lname);
+        if (fn) { rt_callregime_run(fn, GOTO_FRAME_BYTES); return; }
     }
-    if (!fn) {
+    {
         DESCR_t d = NV_GET_fn(name);
-        if (d.v == DT_C && d.slen == 3) fn = (eval_chain_fn)d.ptr;
+        if (d.v == DT_C && d.slen == 3) { rt_chain_enter((eval_chain_fn)d.ptr); return; }
     }
-    if (!fn) { fprintf(stderr, "[SNO] transfer to undefined label: %s\n", name); exit(1); }
-    run_code_chain(fn);
+    fprintf(stderr, "[SNO] transfer to undefined label: %s\n", name); exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code(const char *src)
@@ -304,7 +339,9 @@ DESCR_t code(const char *src)
             extern IR_graph_t *g_emit_cfg;
             IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = g;
             int fa = g_frame_active; g_frame_active = 1;
+            emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
+            emit_jmp_entry_clear();
             g_frame_active = fa; g_emit_cfg = cfg_sv;
             if (!fn) return FAILDESCR;
             if (k == 0) first = fn;
@@ -327,7 +364,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
             DESCR_t saved = NV_GET_fn(EVAL_TMP);
-            rt_eval_run(fn, EVAL_FRAME_BYTES);
+            rt_chain_enter(fn);
             DESCR_t result = NV_GET_fn(EVAL_TMP);
             NV_SET_fn(EVAL_TMP, saved);
             return result;
@@ -360,7 +397,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
         if (expr_d.slen == 3) {
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
-            run_code_chain(fn);
+            rt_chain_enter(fn);
             return NULVCL;
         }
         return NULVCL;
