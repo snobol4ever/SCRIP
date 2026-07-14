@@ -551,6 +551,36 @@ DESCR_t eval_ast_pat(tree_t *e) {
  * touch rbp or the mirror (mirror-out sites are IR-kind-conditioned, per the no-language-sentinel FACT RULE).
  * KNOWN INHERITED LIMIT (status quo ante, the old shared ring had it too): a generator that SUSPENDS mid-match
  * with pends live shares the one stack non-LIFO — the suspended-ζ residue class, NCB-2/TR-6 territory. */
+/* CAS-1 (Lon directive s60: "SNOBOL4 will have a CONDITIONAL ASSIGN stack in separate mmap"; GOAL-SNOBOL4-BB.md
+ * RUNG GC-U).  The conditional-assign machinery's DESCR-BEARING side stacks — the *FN() commit-value stack
+ * (g_capx), the deferred-function frame stack (g_dfx) and the pump's re-entrant cursor stack (g_dcf) — move off
+ * libc realloc onto ONE base-pinned island in the rt_gva_island / g_dcap class (ARCH-ZETA §12): reserved once,
+ * carved once, NEVER moved, NEVER freed, NEVER slid.  WHY THIS IS A GC RUNG AND NOT HYGIENE: these three hold
+ * live DESCR_t — pointers into the collected workspace — and libgc does not scan malloc'd memory (the TR-2
+ * lesson, which cost a GC_add_roots compensation there).  On the island they are covered by RT_SLAB_GC_ROOTS
+ * today and are a NAMED ROOT AREA for GC-W-1's MARK / GC-W-2's ADJUST tomorrow (rt_cas_roots exports the
+ * bounds; the used cursor, not the reserve, is what the scan walks).  Fixed caps + a loud bomb replace doubling:
+ * an island cannot realloc-move under a collector that has recorded its base.  ⚠ NOT this island (named, so the
+ * next session does not re-derive): g_dcap itself is ALREADY an island and its 24B entry is deliberately
+ * POINTER-FREE (no root, no adjust — see the block below); rt_zcol_push's per-iteration COLLECTIONS ride the
+ * ZC_COLLECTION flavor switch and belong to ZB-ITER, not here. */
+#define RT_CAS_ISLAND_BYTES ((size_t)8u << 20)
+#define RT_CAS_CAPX_MAX     (1 << 16)
+#define RT_CAS_DFX_MAX      (1 << 14)
+#define RT_CAS_DCF_MAX      (1 << 14)
+static char  *g_cas_base = 0;
+static size_t g_cas_used = 0;
+static void *rt_cas_carve(size_t bytes)
+{
+    extern void *rt_slab_region(size_t);
+    if (!g_cas_base) { g_cas_base = (char *)rt_slab_region(RT_CAS_ISLAND_BYTES); if (!g_cas_base) { fprintf(stderr, "rt_cas: island reserve failed\n"); abort(); } }
+    bytes = (bytes + 15u) & ~(size_t)15u;
+    if (g_cas_used + bytes > RT_CAS_ISLAND_BYTES) { fprintf(stderr, "rt_cas: carve of %zu exceeds the island (raise RT_CAS_ISLAND_BYTES)\n", bytes); abort(); }
+    void *p = g_cas_base + g_cas_used; g_cas_used += bytes; memset(p, 0, bytes);
+    return p;
+}
+void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_base; if (bytes) *bytes = g_cas_used; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_DCAP_ISLAND_BYTES (4u << 20)
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;
@@ -609,7 +639,8 @@ static long rt_dcap_pump(void)
 long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
     if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e)));
-    if (g_dcf_top >= g_dcf_cap) { int nc = g_dcf_cap ? g_dcf_cap * 2 : 64; rt_dcf_t *np = (rt_dcf_t *)realloc(g_dcf, (size_t)nc * sizeof(rt_dcf_t)); if (!np) return 0; g_dcf = np; g_dcf_cap = nc; }
+    if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
+    if (g_dcf_top >= g_dcf_cap) { fprintf(stderr, "rt_cas: dcf overflow (%d) — raise RT_CAS_DCF_MAX\n", g_dcf_cap); abort(); }
     rt_dcf_t *c = &g_dcf[g_dcf_top++];
     c->cur = mark; c->top = top; c->subj = subj; c->pending = NULVCL;
     return rt_dcap_pump();
@@ -703,7 +734,8 @@ long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm
     rt_g_want_name = 1;
     long fbytes = rt_proc_call_open(varname + 1, 0);
     if (!fbytes) { rt_g_want_name = 0; return 0; }
-    if (g_capx_top >= g_capx_cap) { int nc = g_capx_cap ? g_capx_cap * 2 : 64; DESCR_t *np = (DESCR_t *)realloc(g_capx, (size_t)nc * sizeof(DESCR_t)); if (!np) { rt_g_want_name = 0; return 0; } g_capx = np; g_capx_cap = nc; }
+    if (!g_capx) { g_capx = (DESCR_t *)rt_cas_carve((size_t)RT_CAS_CAPX_MAX * sizeof(DESCR_t)); g_capx_cap = RT_CAS_CAPX_MAX; }
+    if (g_capx_top >= g_capx_cap) { fprintf(stderr, "rt_cas: capx overflow (%d) — raise RT_CAS_CAPX_MAX\n", g_capx_cap); abort(); }
     g_capx[g_capx_top++] = matched;
     return fbytes;
 }
@@ -795,7 +827,8 @@ extern int Σlen;
 typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
 static rt_dfx_t *g_dfx; static int g_dfx_top, g_dfx_cap;
 static rt_dfx_t *rt_dfx_push(void) {
-    if (g_dfx_top >= g_dfx_cap) { int nc = g_dfx_cap ? g_dfx_cap * 2 : 64; rt_dfx_t *np = (rt_dfx_t *)realloc(g_dfx, (size_t)nc * sizeof(rt_dfx_t)); if (!np) return (rt_dfx_t *)0; g_dfx = np; g_dfx_cap = nc; }
+    if (!g_dfx) { g_dfx = (rt_dfx_t *)rt_cas_carve((size_t)RT_CAS_DFX_MAX * sizeof(rt_dfx_t)); g_dfx_cap = RT_CAS_DFX_MAX; }
+    if (g_dfx_top >= g_dfx_cap) { fprintf(stderr, "rt_cas: dfx overflow (%d) — raise RT_CAS_DFX_MAX\n", g_dfx_cap); abort(); }
     rt_dfx_t *s = &g_dfx[g_dfx_top++]; s->val = NULVCL; s->failed = 0; s->dtx_used = 0; return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
