@@ -576,7 +576,7 @@ xchain0_n25_af:
  jmp xchain0_n25_as
  xchain0_n27_β:
  jmp xchain0_n25_af
-# IR_MATCH_DEFER
+# IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain0_n28_α:
  lea rdi, [rip + .S1]
  xor esi, esi
@@ -585,37 +585,15 @@ xchain0_n25_af:
  and rsp, -16
  call rt_defer_get_pat_fn@PLT
  mov rsp, [rsp + 8]
- xor ecx, ecx
- mov qword ptr [r12 + 912], rcx
  test rax, rax
  jz .Lx40_0
- mov qword ptr [r12 + 912], rax
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- mov rdi, qword ptr [r12 + 912]
- call rt_fn_frame_bytes@PLT
- mov rdi, rax
- call rt_zls_alloc@PLT
- mov rsp, [rsp + 8]
- mov qword ptr [r12 + 920], rax
- mov rcx, qword ptr [r12 + 912]
- mov rdi, rax
- xor esi, esi
- call rcx
- cmp eax, 1
- je .Lx40_1
- mov rdi, qword ptr [r12 + 920]
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_zls_release@PLT
- mov rsp, [rsp + 8]
- xor eax, eax
- mov qword ptr [r12 + 912], rax
- jmp xchain0_n25_af
-.Lx40_1:
+ lea rcx, [rip + .Lx40_4]
+ lea rdx, [rip + .Lx40_5]
+ jmp rax
+.Lx40_4:
  jmp xchain0_n25_as
+.Lx40_5:
+ jmp xchain0_n25_af
 .Lx40_0:
  push r14
  push r15
@@ -663,25 +641,15 @@ xchain0_n25_af:
  test eax, eax
  js xchain0_n25_af
  mov r14d, eax
+ lea rax, [rip + .Lx40_6]
+ sub rsp, 8
+ push rax
  jmp xchain0_n25_as
- xchain0_n28_β:
- mov rcx, qword ptr [r12 + 912]
- test rcx, rcx
- jz xchain0_n25_af
- mov rdi, qword ptr [r12 + 920]
- mov esi, 1
- call rcx
- cmp eax, 1
- je .Lx40_1
- mov rdi, qword ptr [r12 + 920]
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_zls_release@PLT
- mov rsp, [rsp + 8]
- xor eax, eax
- mov qword ptr [r12 + 912], rax
+.Lx40_6:
+ add rsp, 16
  jmp xchain0_n25_af
+ xchain0_n28_β:
+ jmp qword ptr [rsp]
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [r12 + 816], 1
