@@ -94,7 +94,7 @@
  * Select SCRIP_ZETA_PORT=6 / --zeta-port 6; NOT the compiled default. */
 #define ZC_PORT_FORTH        6
 #ifndef ZC_PORT
-#define ZC_PORT ZC_PORT_CSTACK
+#define ZC_PORT ZC_PORT_FORTH
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_INIT_ZERO  0
