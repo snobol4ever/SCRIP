@@ -669,6 +669,18 @@ inline std::string x86_frame_lea(const char * reg, int off) {
     return std::string(" lea ") + reg + ", " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_movsxd_frame(dst64, off) — movsxd dst64, dword ptr [ζ+off]: the FRAME-SOURCE form of movsxd, mirroring
+ * x86_frame_lea exactly (REX.W + opcode + x86_r12_modrm) but with opcode 0x63.  The register-source encoder
+ * x86_movsxd builds a mod=11 reg/reg byte and reads x86_rnum(src) — for a memory operand string that yields
+ * reg 0 (eax), so the register encoder emits `movsxd dst, eax` in BINARY while TEXT string-concats the correct
+ * memory form: the exact mode-3/mode-4 divergence that corrupted scan-nary saved_δ (2026-07-13).  Source is
+ * 32-bit by movsxd definition, so the text form carries `dword ptr`. */
+inline std::string x86_movsxd_frame(const char * dst64, int off) {
+    int g = x86_rnum(dst64);
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x63; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    return std::string(" movsxd ") + dst64 + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_mov_imm(int off, long imm) {
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, 0); c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
@@ -1153,7 +1165,13 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     }
     if (!strcmp(mnem, "cmp64"))  { if (b.kind == XK_IMM) return x86_cmp_imm64(a.txt, b.imm); return std::string(); }
     if (!strcmp(mnem, "test"))   { return x86_test(a.txt, b.txt); }
-    if (!strcmp(mnem, "movsxd")) { return x86_movsxd(a.txt, b.txt); }
+    if (!strcmp(mnem, "movsxd")) {
+        if (a.kind == XK_REG && b.kind == XK_FR32) return x86_movsxd_frame(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_REG)  return x86_movsxd(a.txt, b.txt);
+        fprintf(stderr, "FATAL x86(\"movsxd\"): no dispatch arm for operand pair kinds (%d, %d) — dest '%s', src '%s'.  A movsxd emitting the reg/reg form for a memory source is the mode-3/mode-4 divergence class (scan-nary saved_delta, 2026-07-13); add the encoder + dispatch case here (R7).\n",
+                a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+        abort();
+    }
     if (!strcmp(mnem, "movzx"))  { (void)b; return x86_movzx_subj_byte(a.txt); }
     if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
     if (!strcmp(mnem, "movsd"))  {
