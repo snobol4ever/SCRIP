@@ -209,6 +209,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
         IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); if (rr) ir_operand_push(nd, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_DECL: if (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
+        IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[1]->v.sval;
+        IR_t * rr = NULL; IR_t * e; if (t->n > 2 && t->c[2]) { e = lower_rv(cx, t->c[2], nd, ω, &rr); }
+        else { IR_t * u = build(cx, IR_CALL, nd, ω); IR_LIT(u).sval = "__rk_undef"; rr = u; e = u; }
+        if (rr) ir_operand_push(nd, rr); *res = nd; return e; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_ARR_SET: if (t->n > 2 && t->c[0] && t->c[0]->t == TT_VAR) {
         IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = t->c[0]->v.sval;
         IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "arr_set_pure", 0, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
