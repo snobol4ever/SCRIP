@@ -25,4 +25,9 @@ typedef struct {
 } PlProgram;
 PlProgram *prolog_parse(const char *src, const char *filename);
 void prolog_program_free(PlProgram *prog);
+int prolog_op_table_count(void);
+int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out);
+int prolog_op_table_add(const char *name, int prec, const char *type);
+int prolog_op_user_count(void);
+int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char **type_out);
 #endif

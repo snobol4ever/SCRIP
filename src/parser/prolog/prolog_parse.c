@@ -147,6 +147,45 @@ static int op_type_classify(const char *type, Assoc *assoc_out, Fixity *fix_out)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *op_type_unclassify(Assoc assoc, Fixity fix) {
+    if (fix == FIX_INFIX)   return (assoc == ASSOC_NONE) ? "xfx" : (assoc == ASSOC_RIGHT) ? "xfy" : "yfx";
+    if (fix == FIX_PREFIX)  return (assoc == ASSOC_RIGHT) ? "fy" : "fx";
+    return (assoc == ASSOC_LEFT) ? "yf" : "xf";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bin_ops_count(void) { int n = 0; for (const OpEntry *op = BIN_OPS; op->name; op++) n++; return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_op_table_count(void) { return bin_ops_count() + g_uinfix_n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out) {
+    int nbin = bin_ops_count();
+    const OpEntry *e;
+    if (idx < 0 || idx >= nbin + g_uinfix_n) return 0;
+    e = (idx < nbin) ? &BIN_OPS[idx] : &g_uinfix[idx - nbin];
+    if (name_out) *name_out = e->name;
+    if (prec_out) *prec_out = e->prec;
+    if (type_out) *type_out = op_type_unclassify(e->assoc, e->fixity);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_op_table_add(const char *name, int prec, const char *type) {
+    Assoc assoc; Fixity fix;
+    if (!name || !type) return 0;
+    if (!op_type_classify(type, &assoc, &fix)) return 0;
+    user_op_add(name, prec, assoc, fix);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_op_user_count(void) { return g_uinfix_n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char **type_out) {
+    if (i < 0 || i >= g_uinfix_n) return 0;
+    if (name_out) *name_out = g_uinfix[i].name;
+    if (prec_out) *prec_out = g_uinfix[i].prec;
+    if (type_out) *type_out = op_type_unclassify(g_uinfix[i].assoc, g_uinfix[i].fixity);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void register_op_one(int prec, const char *type, tree_t *namenode) {
     if (!namenode) return;
     if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i]); return; }

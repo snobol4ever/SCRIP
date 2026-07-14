@@ -154,6 +154,8 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$bag_prep_b") || !strcmp(name, "$bag_prep_s") || !strcmp(name, "$keysort") || !strcmp(name, "$bag_group")) return 1;
     if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter") || !strcmp(name, "$call")) return 1;
     if (!strcmp(name, "$clause") || !strcmp(name, "$current_predicate") || !strcmp(name, "$predicate_property")) return 1;
+    if (!strcmp(name, "$current_op")) return 1;
+    if (!strcmp(name, "$op")) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1061,6 +1063,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         o[n] = 0; DESCR_t r = pl_mk_atom(o);
         if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$op") && nargs == 3) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        extern int prolog_op_table_add(const char *, int, const char *);
+        extern Term *rt_pl_cell_to_term(void *);
+        DESCR_t pv = rt_pl_deref_val(args[0]); DESCR_t tv = rt_pl_deref_val(args[1]);
+        if (pv.v != DT_I) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        const char *tystr = pl_atom_str(tv); if (!tystr || !tystr[0]) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        int prec = (int)pv.i; int added = 0;
+        DESCR_t nv = rt_pl_deref_val(args[2]); const char *single = pl_atom_str(nv);
+        if (single && single[0] && strcmp(single, "[]") != 0) { added = prolog_op_table_add(single, prec, tystr); }
+        else { DESCR_t tmp = args[2]; Term *lt = rt_pl_cell_to_term(&tmp); lt = lt ? term_deref(lt) : (Term *)0; int guard = 0;
+            while (lt && lt->tag == TERM_COMPOUND && lt->compound.arity == 2 && guard++ < 4096) { Term *hd = term_deref(lt->compound.args[0]); if (hd && hd->tag == TERM_ATOM) { extern const char *prolog_atom_name(int); const char *hn = prolog_atom_name(hd->atom_id); if (hn && prolog_op_table_add(hn, prec, tystr)) added = 1; } lt = term_deref(lt->compound.args[1]); } }
+        if (!added) { rt_pl_iso_throw_pi("domain_error", "operator_specifier", tystr, 0); *out = FAILDESCR; return 1; }
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$char_code") && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
@@ -2649,6 +2666,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "read", 1, "$read" }, { "read_term", 2, "$read" },
         { "succ", 2, "$succ" }, { "plus", 3, "$plus" }, { "atom_length", 2, "$atom_length" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" },
         { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "write", 1, "$write" },
+        { "op", 3, "$op" },
         { 0, 0, 0 } };
     if (!nm) return (const char *)0;
     for (int i = 0; tab[i].nm; i++) if (!strcmp(nm, tab[i].nm) && ar == tab[i].ar) return tab[i].tgt;
@@ -2985,6 +3003,7 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
     if (fn && resume && !strcmp(fn, "$clause") && nargs >= 2) { extern DESCR_t rt_pl_clause_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_clause_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$current_predicate") && nargs >= 1) { extern DESCR_t rt_pl_current_predicate_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_predicate_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$predicate_property") && nargs >= 2) { extern DESCR_t rt_pl_predicate_property_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_predicate_property_gen(args, nargs, resume); }
+    if (fn && resume && !strcmp(fn, "$current_op") && nargs >= 3) { extern DESCR_t rt_pl_current_op_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_op_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$sub_atom") && nargs >= 5) return rt_pl_sub_atom_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$bag_group") && nargs >= 3) { extern DESCR_t rt_pl_bag_group_gen(DESCR_t *, int, int64_t *); return rt_pl_bag_group_gen(args, nargs, resume); }
     if (fn && resume && nargs == 2 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
