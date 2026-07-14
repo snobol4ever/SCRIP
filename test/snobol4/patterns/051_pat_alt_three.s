@@ -174,26 +174,34 @@ main_α_body:
  .string "OUTPUT"
 # IR_MATCH_ALT_NARY
  xchain0_n7_α:
- mov dword ptr [r12 + 272], r14d
- mov dword ptr [r12 + 276], 0
+ sub rsp, 16
+ mov dword ptr [rsp + 0], r14d
+ mov dword ptr [rsp + 4], 0
  jmp xchain0_n9_α
+xchain0_n7_s0:
+ jmp xchain0_n7_as
+xchain0_n7_s1:
+ jmp xchain0_n7_as
+xchain0_n7_s2:
+ jmp xchain0_n7_as
 xchain0_n7_as:
  jmp xchain0_n8_α
  xchain0_n7_β:
- mov eax, dword ptr [r12 + 276]
+ mov eax, dword ptr [rsp + 4]
  cmp eax, 0
  je xchain0_n9_β
  cmp eax, 1
  je xchain0_n10_β
  jmp xchain0_n11_β
 xchain0_n7_af:
- add dword ptr [r12 + 276], 1
- mov r14d, dword ptr [r12 + 272]
- mov eax, dword ptr [r12 + 276]
+ add dword ptr [rsp + 4], 1
+ mov r14d, dword ptr [rsp + 0]
+ mov eax, dword ptr [rsp + 4]
  cmp eax, 1
  je xchain0_n10_α
  cmp eax, 2
  je xchain0_n11_α
+ add rsp, 16
  jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
  xchain0_n8_α:
@@ -229,7 +237,7 @@ xchain0_n7_af:
  test eax, eax
  jne xchain0_n7_af
  add r14d, 5
- jmp xchain0_n7_as
+ jmp xchain0_n7_s0
  xchain0_n9_β:
  sub r14d, 5
  jmp xchain0_n7_af
@@ -247,7 +255,7 @@ xchain0_n7_af:
  test eax, eax
  jne xchain0_n7_af
  add r14d, 6
- jmp xchain0_n7_as
+ jmp xchain0_n7_s1
  xchain0_n10_β:
  sub r14d, 6
  jmp xchain0_n7_af
@@ -265,7 +273,7 @@ xchain0_n7_af:
  test eax, eax
  jne xchain0_n7_af
  add r14d, 6
- jmp xchain0_n7_as
+ jmp xchain0_n7_s2
  xchain0_n11_β:
  sub r14d, 6
  jmp xchain0_n7_af

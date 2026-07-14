@@ -27,26 +27,34 @@ lea rax, [rip + xchain0_n0_β]
 mov qword ptr [r12 + 96], rax
 # IR_MATCH_ALT_NARY
  xchain0_n0_α:
- mov dword ptr [r12 + 32], r14d
- mov dword ptr [r12 + 36], 0
+ sub rsp, 16
+ mov dword ptr [rsp + 0], r14d
+ mov dword ptr [rsp + 4], 0
  jmp xchain0_n1_α
+xchain0_n0_s0:
+ jmp xchain0_n0_as
+xchain0_n0_s1:
+ jmp xchain0_n0_as
+xchain0_n0_s2:
+ jmp xchain0_n0_as
 xchain0_n0_as:
  jmp proc_PAT$0_γ
  xchain0_n0_β:
- mov eax, dword ptr [r12 + 36]
+ mov eax, dword ptr [rsp + 4]
  cmp eax, 0
  je xchain0_n1_β
  cmp eax, 1
  je xchain0_n2_β
  jmp xchain0_n3_β
 xchain0_n0_af:
- add dword ptr [r12 + 36], 1
- mov r14d, dword ptr [r12 + 32]
- mov eax, dword ptr [r12 + 36]
+ add dword ptr [rsp + 4], 1
+ mov r14d, dword ptr [rsp + 0]
+ mov eax, dword ptr [rsp + 4]
  cmp eax, 1
  je xchain0_n2_α
  cmp eax, 2
  je xchain0_n3_α
+ add rsp, 16
  jmp proc_PAT$0_ω
 # IR_MATCH_LIT
  xchain0_n1_α:
@@ -62,7 +70,7 @@ xchain0_n0_af:
  test eax, eax
  jne xchain0_n0_af
  add r14d, 1
- jmp xchain0_n0_as
+ jmp xchain0_n0_s0
  xchain0_n1_β:
  sub r14d, 1
  jmp xchain0_n0_af
@@ -80,7 +88,7 @@ xchain0_n0_af:
  test eax, eax
  jne xchain0_n0_af
  add r14d, 1
- jmp xchain0_n0_as
+ jmp xchain0_n0_s1
  xchain0_n2_β:
  sub r14d, 1
  jmp xchain0_n0_af
@@ -98,7 +106,7 @@ xchain0_n0_af:
  test eax, eax
  jne xchain0_n0_af
  add r14d, 1
- jmp xchain0_n0_as
+ jmp xchain0_n0_s2
  xchain0_n3_β:
  sub r14d, 1
  jmp xchain0_n0_af

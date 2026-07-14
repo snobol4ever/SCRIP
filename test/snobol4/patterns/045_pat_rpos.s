@@ -254,32 +254,17 @@ xchain0_n5_af:
  jmp xchain0_n5_as
  xchain0_n9_β:
  jmp xchain0_n5_af
-# IR_MATCH_CAPTURE_SAVE push
+# IR_MATCH_CAPTURE_SAVE fc cell
  xchain0_n10_α:
- lea rdi, [r12 + 320]
- mov esi, r14d
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_cap_push@PLT
- mov rsp, [rsp + 8]
+ sub rsp, 16
+ mov dword ptr [rsp + 0], r14d
  jmp xchain0_n13_α
  xchain0_n10_β:
- lea rdi, [r12 + 320]
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_cap_pop@PLT
- mov rsp, [rsp + 8]
+ add rsp, 16
  jmp xchain0_n5_af
 # IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
  xchain0_n11_α:
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- lea rdi, [r12 + 320]
- call rt_cap_top@PLT
- mov rsp, [rsp + 8]
+ mov eax, dword ptr [rsp + 0]
  lea rcx, [rip + .S0]
  mov qword ptr [rbp + 0], rcx
  mov esi, eax

@@ -184,16 +184,21 @@ main_α_body:
  .quad 2
 # IR_MATCH_RTAB
  xchain0_n8_α:
- mov dword ptr [r12 + 272], r14d
+ sub rsp, 16
+ mov dword ptr [rsp + 0], r14d
  mov rax, 2
  mov ecx, r15d
  sub ecx, eax
  cmp r14d, ecx
- jg xchain0_n5_β
+ jle .Lx11_240
+ add rsp, 16
+ jmp xchain0_n5_β
+.Lx11_240:
  mov r14d, ecx
  jmp xchain0_n9_α
  xchain0_n8_β:
- mov r14d, dword ptr [r12 + 272]
+ mov r14d, dword ptr [rsp + 0]
+ add rsp, 16
  jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
  xchain0_n9_α:
