@@ -809,13 +809,13 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION: bb_emit_x86(bb_indirect_goto()); return 0;
     case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); bb_emit_x86(bb_gen_scan()); } return 0;
-    case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
-    case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
+    case IR_SCAN_TAB:             { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_tab()); }    return 0;   /* ZB-ICN-FC-1: Icon's first FORTH cell — saved-cursor scratch at op_off+16 rides rsp; grant set HERE (post-DRIVE_FILL reset), result stays flat at op_off+0 */
+    case IR_SCAN_MOVE:            { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_move()); }   return 0;   /* ZB-ICN-FC-2: move is tab's twin — saved-cursor scratch at op_off+16 rides rsp; grant set HERE (post-DRIVE_FILL reset) */
     case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
     case IR_SCAN_ANY:             bb_emit_x86(bb_scan_any());    return 0;
     case IR_SCAN_MANY:            bb_emit_x86(bb_scan_many());   return 0;
     case IR_SCAN_FIND:            bb_emit_x86(bb_scan_find());   return 0;
-    case IR_SCAN_MATCH:           bb_emit_x86(bb_scan_match());  return 0;
+    case IR_SCAN_MATCH:           { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_match()); }  return 0;   /* ZB-ICN-FC-3: {0,1} match's needle scratch at op_off+16/+24 rides an rsp cell (transient alpha->gamma; single-yield keeps LIFO clean even in a scan) */
     case IR_SCAN_POS:             bb_emit_x86(bb_scan_pos());    return 0;
     case IR_SCAN_BAL:             bb_emit_x86(bb_scan_bal());    return 0;
     case IR_GLIT:                 { g_emit.op_name1 = IR_LIT(nd).sval; bb_emit_x86(bb_rk_glit()); } return 0;   /* RK-GRAM-3b grammar literal-match leaf */
