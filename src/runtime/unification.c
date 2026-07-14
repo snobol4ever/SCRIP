@@ -1216,6 +1216,39 @@ DESCR_t rt_pl_predicate_property_gen(DESCR_t *args, int nargs, int64_t *resume) 
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *name; int prec; const char *type; } pl_op_cand_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { pl_op_cand_t *v; int n; int i; int mark; } pl_curop_it_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_current_op_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern pl_trail_t g_pl_trail;
+    extern int prolog_op_table_count(void);
+    extern int prolog_op_table_get(int, const char **, int *, const char **);
+    extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
+    if (nargs < 3 || !resume) return FAILDESCR;
+    if (*resume == 0) {
+        Term *nm = pl_cell_to_term((pl_cell_t *)&args[2]); nm = nm ? term_deref(nm) : (Term *)0;
+        if (nm && nm->tag != TERM_VAR && nm->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return FAILDESCR; }
+        int cap = prolog_op_table_count(); if (cap < 0) cap = 0;
+        pl_curop_it_t *it = (pl_curop_it_t *)rt_ws_alloc(sizeof *it);
+        it->v = (pl_op_cand_t *)rt_ws_alloc((size_t)(cap + 1) * sizeof(pl_op_cand_t)); it->n = 0;
+        for (int r = 0; r < cap; r++) { const char *onm = 0; int op = 0; const char *ot = 0; if (prolog_op_table_get(r, &onm, &op, &ot) && onm && ot) { it->v[it->n].name = onm; it->v[it->n].prec = op; it->v[it->n].type = ot; it->n++; } }
+        it->i = 0; it->mark = pl_trail_mark(&g_pl_trail);
+        *resume = (int64_t)(intptr_t)it;
+    }
+    pl_curop_it_t *it = (pl_curop_it_t *)(intptr_t)*resume;
+    while (it->i < it->n) {
+        pl_trail_unwind(&g_pl_trail, it->mark);
+        pl_op_cand_t cand = it->v[it->i++];
+        Term *precT = term_new_int(cand.prec);
+        Term *typeT = term_new_atom(prolog_atom_intern(cand.type));
+        Term *nameT = term_new_atom(prolog_atom_intern(cand.name));
+        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], precT, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[1], typeT, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[2], nameT, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     extern pl_trail_t g_pl_trail;
     dyn_cursor_t *cur = (dyn_cursor_t *)cursor;
