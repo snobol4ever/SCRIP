@@ -7220,7 +7220,9 @@ xchain347_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 160]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 168], rax
@@ -7340,7 +7342,9 @@ xchain347_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 128]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 136], rax
@@ -7566,7 +7570,9 @@ xchain356_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 96]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 104], rax
@@ -7726,7 +7732,9 @@ xchain356_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 368]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 376], rax
@@ -7830,7 +7838,9 @@ xchain356_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 400]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 408], rax
@@ -7934,7 +7944,9 @@ xchain356_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 176]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 184], rax
@@ -8038,7 +8050,9 @@ xchain356_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 208]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 216], rax
@@ -8142,7 +8156,9 @@ xchain356_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 272]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 280], rax
@@ -8246,7 +8262,9 @@ xchain356_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 304]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 312], rax
@@ -8418,7 +8436,9 @@ xchain376_n0_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 64]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 72], rax
@@ -8567,7 +8587,9 @@ xchain376_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 144]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 152], rax
@@ -8878,7 +8900,9 @@ xchain390_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 160]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 168], rax
@@ -8998,7 +9022,9 @@ xchain390_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 128]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 136], rax
@@ -9224,7 +9250,9 @@ xchain399_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 96]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 104], rax
@@ -9384,7 +9412,9 @@ xchain399_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 368]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 376], rax
@@ -9488,7 +9518,9 @@ xchain399_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 400]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 408], rax
@@ -9592,7 +9624,9 @@ xchain399_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 176]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 184], rax
@@ -9696,7 +9730,9 @@ xchain399_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 208]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 216], rax
@@ -9800,7 +9836,9 @@ xchain399_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 272]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 280], rax
@@ -9904,7 +9942,9 @@ xchain399_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 304]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 312], rax
@@ -10076,7 +10116,9 @@ xchain419_n0_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 64]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 72], rax
@@ -10225,7 +10267,9 @@ xchain419_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 144]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 152], rax
@@ -10536,7 +10580,9 @@ xchain433_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 160]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 168], rax
@@ -10656,7 +10702,9 @@ xchain433_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 128]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 136], rax
@@ -10882,7 +10930,9 @@ xchain442_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 96]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 104], rax
@@ -11042,7 +11092,9 @@ xchain442_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 368]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 376], rax
@@ -11146,7 +11198,9 @@ xchain442_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 400]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 408], rax
@@ -11250,7 +11304,9 @@ xchain442_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 176]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 184], rax
@@ -11354,7 +11410,9 @@ xchain442_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 208]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 216], rax
@@ -11458,7 +11516,9 @@ xchain442_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 272]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 280], rax
@@ -11562,7 +11622,9 @@ xchain442_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 304]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 312], rax
@@ -11734,7 +11796,9 @@ xchain462_n0_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 64]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 72], rax
@@ -11883,7 +11947,9 @@ xchain462_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 144]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 152], rax
@@ -12194,7 +12260,9 @@ xchain476_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 160]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 168], rax
@@ -12314,7 +12382,9 @@ xchain476_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 128]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 136], rax
@@ -12540,7 +12610,9 @@ xchain485_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 96]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 104], rax
@@ -12700,7 +12772,9 @@ xchain485_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 368]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 376], rax
@@ -12804,7 +12878,9 @@ xchain485_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 400]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 408], rax
@@ -12908,7 +12984,9 @@ xchain485_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 176]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 184], rax
@@ -13012,7 +13090,9 @@ xchain485_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 208]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 216], rax
@@ -13116,7 +13196,9 @@ xchain485_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 272]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 280], rax
@@ -13220,7 +13302,9 @@ xchain485_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 304]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 312], rax
@@ -13392,7 +13476,9 @@ xchain505_n0_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 64]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 72], rax
@@ -13541,7 +13627,9 @@ xchain505_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 144]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 152], rax
@@ -13852,7 +13940,9 @@ xchain519_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 160]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 168], rax
@@ -13972,7 +14062,9 @@ xchain519_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 128]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 136], rax
@@ -14198,7 +14290,9 @@ xchain528_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 96]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 104], rax
@@ -14358,7 +14452,9 @@ xchain528_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 368]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 376], rax
@@ -14462,7 +14558,9 @@ xchain528_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 400]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 408], rax
@@ -14566,7 +14664,9 @@ xchain528_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 176]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 184], rax
@@ -14670,7 +14770,9 @@ xchain528_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 208]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 216], rax
@@ -14774,7 +14876,9 @@ xchain528_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 272]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 280], rax
@@ -14878,7 +14982,9 @@ xchain528_n6_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 304]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 312], rax
@@ -15050,7 +15156,9 @@ xchain548_n0_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 64]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 72], rax
@@ -15199,7 +15307,9 @@ xchain548_n2_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 144]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 152], rax
@@ -18922,7 +19032,9 @@ xchain559_n76_af:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 5568]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 5576], rax

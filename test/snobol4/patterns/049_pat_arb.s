@@ -294,10 +294,6 @@ xchain0_n5_af:
  jmp main_γ
 # IR_MATCH_ARB
  xchain0_n12_α:
- sub rsp, 16
- mov rcx, qword ptr [r12 + 312]
- mov qword ptr [rsp + 0], rcx
- mov qword ptr [r12 + 312], rsp
  mov dword ptr [r12 + 304], 0
  mov eax, r14d
  mov dword ptr [r12 + 308], eax
@@ -312,10 +308,6 @@ xchain0_n5_af:
  jmp xchain0_n9_α
 .Lx19_0:
  mov r14d, dword ptr [r12 + 308]
- mov rax, qword ptr [r12 + 312]
- mov rcx, qword ptr [rax + 0]
- mov qword ptr [r12 + 312], rcx
- lea rsp, [rax + 16]
  jmp xchain0_n8_β
 # IR_ASSIGN global
  xchain0_n13_α:

@@ -129,10 +129,6 @@ xchain0_n4_af:
  jmp xchain0_n0_af
 # IR_MATCH_ARB
  xchain0_n5_α:
- sub rsp, 16
- mov rcx, qword ptr [r12 + 136]
- mov qword ptr [rsp + 0], rcx
- mov qword ptr [r12 + 136], rsp
  mov dword ptr [r12 + 128], 0
  mov eax, r14d
  mov dword ptr [r12 + 132], eax
@@ -147,10 +143,6 @@ xchain0_n4_af:
  jmp xchain0_n3_α
 .Lx12_0:
  mov r14d, dword ptr [r12 + 132]
- mov rax, qword ptr [r12 + 136]
- mov rcx, qword ptr [rax + 0]
- mov qword ptr [r12 + 136], rcx
- lea rsp, [rax + 16]
  jmp xchain0_n2_β
 # IR_MATCH_LIT
  xchain0_n6_α:
@@ -416,7 +408,9 @@ main_α_body:
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, 65536
+ mov rdi, qword ptr [r12 + 320]
+ call rt_fn_frame_bytes@PLT
+ mov rdi, rax
  call rt_zls_alloc@PLT
  mov rsp, [rsp + 8]
  mov qword ptr [r12 + 328], rax
