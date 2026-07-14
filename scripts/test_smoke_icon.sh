@@ -4,7 +4,7 @@
 #   mode 4 = --compile (standalone x86-64 asm -> assemble -> link libscrip_rt.so -> run -> compare).
 # NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --run) was DELETED — the harness no longer
 #    invokes --run. m3 is now the primary correctness mode (it replaced the m2 oracle's build-sanity role).
-#    DONE BAR: m3 AND m4 each zero silent FAIL (all 12 emit natively today; add [SMX]-DECLINED tracking here if
+#    DONE BAR: m3 AND m4 each zero silent FAIL (all 14 emit natively today; add [SMX]-DECLINED tracking here if
 #    a future Icon test legitimately declines a rung).
 # Exit 0 iff mode-3 has zero FAIL AND mode-4 has zero FAIL AND m3 PASS >= $MODE3_MIN AND m4 PASS >= $MODE4_MIN.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude  DATE: 2026-05-30 (de-interp'd to 2-mode 2026-06-15)
@@ -60,6 +60,25 @@ EOF
 icon "string_op" "abcd" << 'EOF'
 procedure main()
   write("ab" || "cd");
+end
+EOF
+
+# scan-nary concat (IR_SCAN_SEQUENCE): guards the mode-3 movsxd frame-source encoder (2026-07-13).
+# Pre-fix, mode-3 read saved_δ from eax (movsxd reg/reg form) and printed "" while mode-4 printed
+# "hell"; the box is otherwise uncovered by the corpus, which is why the divergence hid. Both modes
+# must now agree on "hell" (contiguous arms: subject span == arm-value concatenation).
+icon "scan_seq_concat" "hell" << 'EOF'
+procedure main()
+  write("hello" ? (tab(3)||tab(5)));
+end
+EOF
+
+# scan-nary concat with a BACKWARD arm (item 1, 2026-07-13): tab(4) consumes [1:4]="hel", tab(2) moves
+# backward and consumes [4:2]="el" -> "helel". The former subject-span value gave "h" (span [saved_δ,δ)=[0:1]);
+# the box now concatenates each arm's own value slot, so non-contiguous/backward arms are correct in both modes.
+icon "scan_seq_concat_backward" "helel" << 'EOF'
+procedure main()
+  write("hello" ? (tab(4)||tab(2)));
 end
 EOF
 
