@@ -635,6 +635,22 @@ static void lower_pl_clause_into(lcx_t * cx, const tree_t * clause, int arity, I
     if (centry_out) *centry_out = next;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_is_bounded(const IR_t * nd) {
+    if (!nd) return 0;
+    switch (nd->op) {
+    case IR_CALL_BUILTIN_PROLOG: { const char * fn = nd->sval; if (!fn || !fn[0]) return 0; if (!strcmp(fn, "$retract")) return 0; return 1; }
+    case IR_CUT: case IR_SUCCEED: case IR_FAIL: case IR_GOTO: case IR_MOVE_LABEL: return 1;
+    case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL: case IR_VAR: case IR_VAR_REF: return 1;
+    case IR_CALL_BUILTIN_GEN: case IR_DISJUNCTION: case IR_CALL_PROC_STAGED: case IR_CALL: return 0;
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_bounded_dump(const IR_graph_t * g) {
+    static int on = -1; if (on < 0) on = getenv("SCRIP_PL_BOUNDED_DUMP") ? 1 : 0; if (!on || !g) return;
+    for (int i = 0; i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; const char * fn = (nd->op == IR_CALL_BUILTIN_PROLOG) ? nd->sval : (const char *) 0; fprintf(stderr, "PLBND op=%d bounded=%d sval=%s\n", (int) nd->op, pl_goal_is_bounded(nd), fn ? fn : "-"); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     IR_graph_t * g = IR_alloc(256);
@@ -659,6 +675,7 @@ IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     }
     if (hu) free(hu);
     g->nslots = max_var_slot(clause, arity - 1) + 1;
+    pl_bounded_dump(g);
     if (arity == 0 && !bentry) { g->entry = succeed; g->body_root = NULL; return g; }
     g->entry = next;
     g->body_root = NULL;
