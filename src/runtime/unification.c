@@ -110,6 +110,28 @@ void rt_pl_write_canonical_cell(void *cell)
     pl_write_canonical(pl_cell_to_term((pl_cell_t *)cell));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_opt_is_true(Term *o) { if (!o) return 0; o = term_deref(o); if (o && o->tag == TERM_COMPOUND && o->compound.arity == 1) { Term *a = term_deref(o->compound.args[0]); return a && a->tag == TERM_ATOM && !strcmp(prolog_atom_name(a->atom_id), "true"); } return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
+{
+    extern void pl_write_term_opts(Term *, int, int, int, long);
+    Term *t = term_cell ? pl_cell_to_term((pl_cell_t *)term_cell) : (Term *)0;
+    Term *lst = opts_cell ? term_deref(pl_cell_to_term((pl_cell_t *)opts_cell)) : (Term *)0;
+    int quoted = 0, ignore_ops = 0, numbervars = 0; long max_depth = 0;
+    while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) {
+        Term *o = term_deref(lst->compound.args[0]);
+        if (o && o->tag == TERM_COMPOUND && o->compound.arity == 1) {
+            const char *on = prolog_atom_name(o->compound.functor);
+            if (on && !strcmp(on, "quoted")) quoted = pl_opt_is_true(o);
+            else if (on && !strcmp(on, "ignore_ops")) ignore_ops = pl_opt_is_true(o);
+            else if (on && !strcmp(on, "numbervars")) numbervars = pl_opt_is_true(o);
+            else if (on && !strcmp(on, "max_depth")) { Term *a = term_deref(o->compound.args[0]); if (a && a->tag == TERM_INT) max_depth = a->ival; }
+        }
+        lst = term_deref(lst->compound.args[1]);
+    }
+    pl_write_term_opts(t, quoted, ignore_ops, numbervars, max_depth);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
 {
     extern pl_trail_t g_pl_trail;

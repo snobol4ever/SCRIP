@@ -147,6 +147,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
     if (!strcmp(name, "$format1") || !strcmp(name, "$format2") || !strcmp(name, "$copy_term")) return 1;
+    if (!strcmp(name, "$write_term")) return 1;
     if (!strcmp(name, "$functor") || !strcmp(name, "$arg") || !strcmp(name, "$univ")) return 1;
     if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
     if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
@@ -1176,6 +1177,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!fmt) { *out = FAILDESCR; return 1; }
         if (nargs == 2) { DESCR_t t1 = args[1]; rt_pl_format_cell(fmt, (void *)plw_det_cell(&t1)); }
         else rt_pl_format_cell(fmt, (void *)0);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$write_term") && nargs == 2) {
+        extern void rt_pl_write_term_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        rt_pl_write_term_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$copy_term") && nargs == 2) {
@@ -2652,6 +2659,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "integer", 1, "$tt_integer" }, { "float", 1, "$tt_float" }, { "atomic", 1, "$tt_atomic" },
         { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" },
         { "format", 1, "$format1" }, { "format", 2, "$format2" },
+        { "write_term", 2, "$write_term" },
         { "atom_string", 2, "$aop_atom_string" }, { "number_string", 2, "$aop_number_string" }, { "atom_number", 2, "$aop_atom_number" },
         { "string_upper", 2, "$aop_string_upper" }, { "string_lower", 2, "$aop_string_lower" },
         { "string_concat", 3, "$aop_string_concat" }, { "string_length", 2, "$aop_string_length" }, { "string_to_atom", 2, "$aop_string_to_atom" },

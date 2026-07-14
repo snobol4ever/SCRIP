@@ -351,4 +351,85 @@ static void pl_write_canonical_term(Term *t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_write_canonical(Term *t) { pl_write_canonical_term(t); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_wt_atom(const char *name, int quoted) {
+    if (!name) name = "?";
+    if (quoted && atom_needs_quoting(name)) { putchar('\''); for (const char *p=name;*p;p++){if(*p=='\'')putchar('\'');putchar(*p);} putchar('\''); }
+    else printf("%s", name);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_wt(Term *t, int quoted, int ignore_ops, int numbervars, long max_depth, long depth) {
+    t = term_deref(t);
+    if (!t) { pl_wt_atom("[]", quoted); return; }
+    if (max_depth > 0 && depth >= max_depth) { printf("..."); return; }
+    switch (t->tag) {
+        case TERM_ATOM: pl_wt_atom(prolog_atom_name(t->atom_id), quoted); break;
+        case TERM_VAR: printf("_G%d", t->var_slot); break;
+        case TERM_INT: printf("%ld", t->ival); break;
+        case TERM_FLOAT: {
+            double fv = t->fval; char fb[64];
+            for (int pr = 15; pr <= 17; pr++) { snprintf(fb, sizeof fb, "%.*g", pr, fv); if (strtod(fb, NULL) == fv) break; }
+            if (!strpbrk(fb, ".eEnN")) { size_t n = strlen(fb); if (n+2 < sizeof fb) { fb[n]='.'; fb[n+1]='0'; fb[n+2]='\0'; } }
+            fputs(fb, stdout); break;
+        }
+        case TERM_COMPOUND: {
+            const char *fn = prolog_atom_name(t->compound.functor); if (!fn) fn = "?";
+            if (numbervars && strcmp(fn,"$VAR")==0 && t->compound.arity==1) {
+                Term *n = term_deref(t->compound.args[0]);
+                if (n && n->tag == TERM_INT) { long num=n->ival; int letter=(int)(num%26); long suf=num/26; if(suf==0) printf("%c",'A'+letter); else printf("%c%ld",'A'+letter,suf); break; }
+            }
+            if (!ignore_ops && t->compound.functor == ATOM_DOT && t->compound.arity == 2) {
+                printf("["); pl_wt(t->compound.args[0], quoted, ignore_ops, numbervars, max_depth, depth+1);
+                Term *tail = term_deref(t->compound.args[1]); long dd = depth+1;
+                while (tail && tail->tag==TERM_COMPOUND && tail->compound.functor==ATOM_DOT && tail->compound.arity==2) {
+                    if (max_depth > 0 && dd >= max_depth) { printf("|..."); tail = (Term *)0; break; }
+                    printf(","); pl_wt(tail->compound.args[0], quoted, ignore_ops, numbervars, max_depth, dd+1);
+                    tail = term_deref(tail->compound.args[1]); dd++;
+                }
+                if (tail && !(tail->tag==TERM_ATOM && tail->atom_id==ATOM_NIL)) { printf("|"); pl_wt(tail, quoted, ignore_ops, numbervars, max_depth, dd); }
+                printf("]"); break;
+            }
+            struct { const char *name; int arity; int prec; int right_assoc; } ops[] = {
+                {":-",2,1200,1},{";",2,1100,1},{"->",2,1050,1},{",",2,1000,1},
+                {"=",2,700,0},{"\\=",2,700,0},{"is",2,700,0},{"=:=",2,700,0},{"=\\=",2,700,0},
+                {"<",2,700,0},{">",2,700,0},{"=<",2,700,0},{">=",2,700,0},
+                {"==",2,700,0},{"\\==",2,700,0},{"@<",2,700,0},{"@>",2,700,0},{"@=<",2,700,0},{"@>=",2,700,0},
+                {"=..",2,700,0},{"+",2,500,0},{"-",2,500,0},
+                {"*",2,400,0},{"/",2,400,0},{"//",2,400,0},{"mod",2,400,0},{"rem",2,400,0},{"<<",2,400,0},{">>",2,400,0},
+                {"**",2,200,1},{"^",2,200,1},{"-",1,200,0},{"\\+",1,900,0},{"not",1,900,0},{NULL,0,0,0}
+            };
+            int is_op = 0;
+            if (!ignore_ops) for (int i = 0; ops[i].name; i++) if (strcmp(fn,ops[i].name)==0 && t->compound.arity==ops[i].arity) {
+                is_op = 1;
+                if (ops[i].arity == 2) {
+                    Term *la=term_deref(t->compound.args[0]), *ra=term_deref(t->compound.args[1]); int lp=-1, rp=-1;
+                    if (la&&la->tag==TERM_COMPOUND) { const char *lf=prolog_atom_name(la->compound.functor); if(lf) lp=pl_op_prec(lf,la->compound.arity); }
+                    if (ra&&ra->tag==TERM_COMPOUND) { const char *rf=prolog_atom_name(ra->compound.functor); if(rf) rp=pl_op_prec(rf,ra->compound.arity); }
+                    int my = ops[i].prec;
+                    if ((lp>my)||(lp==my&&ops[i].right_assoc)) { printf("("); pl_wt(t->compound.args[0],quoted,ignore_ops,numbervars,max_depth,depth+1); printf(")"); }
+                    else pl_wt(t->compound.args[0], quoted, ignore_ops, numbervars, max_depth, depth+1);
+                    if (isalpha((unsigned char)fn[0])) printf(" %s ", fn); else printf("%s", fn);
+                    if ((rp>my)||(rp==my&&!ops[i].right_assoc)) { printf("("); pl_wt(t->compound.args[1],quoted,ignore_ops,numbervars,max_depth,depth+1); printf(")"); }
+                    else pl_wt(t->compound.args[1], quoted, ignore_ops, numbervars, max_depth, depth+1);
+                } else {
+                    Term *arg = term_deref(t->compound.args[0]); int ap = -1;
+                    if (arg&&arg->tag==TERM_COMPOUND) { const char *af=prolog_atom_name(arg->compound.functor); if(af) ap=pl_op_prec(af,arg->compound.arity); }
+                    if (isalpha((unsigned char)fn[0])) printf("%s ", fn); else printf("%s", fn);
+                    if (ap >= ops[i].prec) { printf("("); pl_wt(t->compound.args[0],quoted,ignore_ops,numbervars,max_depth,depth+1); printf(")"); }
+                    else pl_wt(t->compound.args[0], quoted, ignore_ops, numbervars, max_depth, depth+1);
+                }
+                break;
+            }
+            if (!is_op) {
+                pl_wt_atom(fn, quoted); printf("(");
+                for (int i = 0; i < t->compound.arity; i++) { if(i) printf(","); pl_wt(t->compound.args[i],quoted,ignore_ops,numbervars,max_depth,depth+1); }
+                printf(")");
+            }
+            break;
+        }
+        default: break;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void pl_write_term_opts(Term *t, int quoted, int ignore_ops, int numbervars, long max_depth) { pl_wt(t, quoted, ignore_ops, numbervars, max_depth, 0); }
 static int _aid_plus=-1, _aid_minus=-1, _aid_times=-1, _aid_div=-1, _aid_mod=-1;
