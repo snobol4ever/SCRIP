@@ -1903,6 +1903,17 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
     return 1;
 }
 extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; }
+/* s60 EVAL/CODE-RSP (Lon ruling s59: EVAL/CODE = the DEFER shape): runtime-compiled EVAL statement chains and
+ * CODE fragments speak the same jmp-entry protocol — self-allocating rsp activation, 32B wire header, wired
+ * outside-γ/ω, jump back, never call/ret.  runtime_eval.c brackets its emit_chain calls with this pair and
+ * enters through rt_chain_enter (the C-side resolve→wire→jmp).  Same K_total formula as the PAT$ gate above. */
+extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
+    extern int zls_g_region(const IR_graph_t *);
+    int rg = g ? zls_g_region(g) : -1;
+    if (rg <= 0) rg = 4096;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
