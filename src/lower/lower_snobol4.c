@@ -6,6 +6,8 @@
 #include "lower.h"
 #include "bb_program.h"
 #include "parser/icon/icon_lex.h"
+#include "zeta_choices.h"
+int rt_zeta_port_mode(void);
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; } sprearg_t;
@@ -711,6 +713,7 @@ static const char * sno_cset_fold(const tree_t * a) {
 static int sno_is_pattern_rhs(const tree_t * t);
 static int sno_pat_supported(const tree_t * t);
 static int sno_pat_contains_arbno(const tree_t * t);
+static int sno_arbno_chain_on(void) { return rt_zeta_port_mode() == ZC_PORT_FORTH; }   /* ZB-ITER-1a: nested ARBNO admitted iff the s52 rsp linked-frame-chain is active (ZC_PORT_FORTH); the zcol default (fixed-stride realloc array) cannot nest, so it stays refused */
 static const char * sno_pat_collect(const tree_t * pat);
 static struct { const char * var; const char * procname; const tree_t * pat; } g_sno_fz[SNO_PAT_MAX];
 static int g_sno_nfz = 0;
@@ -956,7 +959,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * 2026-07-12, lands at ZB-ITER under ZLS_ARBNO_STACK).  In-body fence seal = R tagged φ: a cut pops to
          * the previous iteration and ARBNO-level backtrack continues, per ARBNO ≡ (ε | P·ARBNO(P)). */
         if (!(t->n > 0) || !t->c[0]) sno_fatal("ARBNO requires a pattern argument", NULL);
-        if (sno_pat_contains_arbno(t->c[0])) sno_fatal("nested ARBNO awaits the rsp iteration-frame chain (ZLS_ARBNO_STACK — GOAL-SNOBOL4-BB ZB-ITER)", NULL);
+        if (sno_pat_contains_arbno(t->c[0]) && !sno_arbno_chain_on()) sno_fatal("nested ARBNO awaits the rsp iteration-frame chain (ZC_PORT_FORTH — GOAL-SNOBOL4-BB ZB-ITER-1a)", NULL);
         IR_t * R = lc_build(g, IR_MATCH_ARBNO, succ, NULL);
         sno_ω_to(R, fail);
         int before = g->n;
@@ -1237,7 +1240,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_ABORT || k == TT_FAIL) return 1;                   /* SN4-BAREKW s34: manual Ch.9 pp.124-125 — both are pure WIRING (own no runtime state) */
     if (k == TT_BAL) return 1;                                     /* SN4-BAL s34: LANDED — IR_MATCH_BAL + bb_match_bal */
     if (k == TT_SUCCEED) return 0;                                 /* SN4-BAREKW s34: NOT YET LOWERED — honest refusal, NOT a silent DEFER(unset). SUCCEED needs a β->γ. */
-    if (k == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && !sno_pat_contains_arbno(t->c[0]);
+    if (k == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_arbno_chain_on() || !sno_pat_contains_arbno(t->c[0]));
     if (k == TT_VAR) return t->v.sval != NULL;
     if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (k == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
