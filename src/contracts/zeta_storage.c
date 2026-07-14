@@ -109,7 +109,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_REM:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_DEFER:
-        zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "defer.blob fn (+0 8B: compiled DT_P entry stashed at α; 0 = non-blob/callout activation or exhausted — β's jz→ω guard)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "defer.blob zeta frame (+8 8B: rt_zls_alloc'd blob frame, LIVE across β resumes; released on exhaust — NCB-2/SZ-1)", nd); return 1;
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "defer.pad (ZS-2 jmp-entry, Lon s58: the fn/frame cell pair is DELETED — the blob is a jmp-entered new activation that self-allocates on rsp with a 32B wire header, so there is nothing to stash and nothing to guard; quad KEPT at 16B so no later node's offset shifts)", nd); return 1;
     case IR_MATCH_TAB: case IR_MATCH_RTAB:
         /* UNIFORM-BETA WIRING (Claude, this session, per Lon "EVERY BB must be wired properly"): TAB/RTAB
          * OVERWRITE r14d (mov, not add) — the only match primitives whose cursor effect is unrecoverable by

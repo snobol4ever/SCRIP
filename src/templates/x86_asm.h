@@ -96,6 +96,10 @@ inline std::string x86_cqo() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b2(0x48, 0x99)) : std::string(" cqo\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rep_stosb() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b2(0xF3, 0xAA)) : std::string(" rep stosb\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_xorps_xmm0() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0x57, 0xC0)) : std::string(" xorps xmm0, xmm0\n");
 }
@@ -1063,6 +1067,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, ".string")) return MEDIUM_BINARY ? std::string() : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
     if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : std::string(" ret\n");
     if (!strcmp(mnem, "cqo")) return x86_cqo();
+    if (!strcmp(mnem, "rep_stosb")) return x86_rep_stosb();
     if (!strcmp(mnem, "def")) {
         if (a.kind == XK_PORT) return x86_deflabel(a.port);
         if (a.kind == XK_ILBL) return x86_deflabel_id(a.lbl);
