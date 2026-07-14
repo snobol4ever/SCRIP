@@ -818,7 +818,9 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_SCAN_MATCH:           bb_emit_x86(bb_scan_match());  return 0;
     case IR_SCAN_POS:             bb_emit_x86(bb_scan_pos());    return 0;
     case IR_SCAN_BAL:             bb_emit_x86(bb_scan_bal());    return 0;
-    case IR_GLIT:                 { g_emit.op_name1 = IR_LIT(nd).sval; bb_emit_x86(bb_rk_glit()); } return 0;   /* RK-GRAM-3b grammar literal-match leaf */    case IR_RETURN: {
+    case IR_GLIT:                 { g_emit.op_name1 = IR_LIT(nd).sval; bb_emit_x86(bb_rk_glit()); } return 0;   /* RK-GRAM-3b grammar literal-match leaf */
+    case IR_GCC:                  { g_emit.op_name1 = IR_LIT(nd).sval; bb_emit_x86(bb_rk_gcc());  } return 0;   /* RK-GRAM-3b grammar char-class leaf */
+    case IR_RETURN: {
         IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
         g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
@@ -1520,6 +1522,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_RETURN:
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_GLIT:
+        g_emit.op_name1 = IR_LIT(nd).sval; DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_GCC:
         g_emit.op_name1 = IR_LIT(nd).sval; DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     default:
         drive_unowned(nd); break;

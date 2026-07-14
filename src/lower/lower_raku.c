@@ -626,6 +626,35 @@ static int rk_gram_pure_literal(const char * body, char * out, int outsz) {
     out[op] = '\0'; return (i == n && op > 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_gram_class_members(const char * nm) {
+    if (!nm) return NULL;
+    if (!strcmp(nm, "digit"))  return "0123456789";
+    if (!strcmp(nm, "alpha"))  return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (!strcmp(nm, "alnum"))  return "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (!strcmp(nm, "upper"))  return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (!strcmp(nm, "lower"))  return "abcdefghijklmnopqrstuvwxyz";
+    if (!strcmp(nm, "space"))  return " \t\n\r";
+    if (!strcmp(nm, "xdigit")) return "0123456789abcdefABCDEF";
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_gram_pure_charclass(const char * body) {
+    if (!body) return NULL;
+    int n = (int) strlen(body); int i = 0;
+    while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
+    if (i >= n || body[i] != '<') return NULL;
+    i++;
+    if (i < n && body[i] == '.') i++;
+    int s = i; char nm[64]; int nl = 0;
+    while (i < n && (isalnum((unsigned char)body[i]) || body[i] == '_') && nl < 63) nm[nl++] = body[i++];
+    nm[nl] = '\0';
+    if (i == s || i >= n || body[i] != '>') return NULL;
+    i++;
+    while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
+    if (i != n) return NULL;
+    return rk_gram_class_members(nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_lower_grammar_boxes(const tree_t * prog) {
     extern int g_opt_dump_bb; static int nat = -1; if (nat < 0) nat = getenv("RK_GRAM_NATIVE") ? 1 : 0;
     if (!g_opt_dump_bb && !nat) return;
@@ -642,11 +671,13 @@ static void rk_lower_grammar_boxes(const tree_t * prog) {
             const char * rname = (rd->n > 0 && rd->c[0] && rd->c[0]->v.sval) ? rd->c[0]->v.sval : NULL;
             const char * body  = (rd->n > 1 && rd->c[1] && rd->c[1]->v.sval) ? rd->c[1]->v.sval : NULL;
             if (!rname || !body) continue;
-            char lit[256];
-            if (!rk_gram_pure_literal(body, lit, sizeof lit)) continue;
+            char lit[256]; int is_lit = rk_gram_pure_literal(body, lit, sizeof lit);
+            const char * cset = is_lit ? NULL : rk_gram_pure_charclass(body);
+            if (!is_lit && !cset) continue;
             char pn[320]; snprintf(pn, sizeof pn, "gram__%s__%s", gname, rname);
             IR_graph_t * gg = IR_alloc(64);
-            IR_t * nd = lc_build(gg, IR_GLIT, NULL, NULL); IR_LIT(nd).sval = lp_strdup(lit);
+            IR_t * nd = is_lit ? lc_build(gg, IR_GLIT, NULL, NULL) : lc_build(gg, IR_GCC, NULL, NULL);
+            IR_LIT(nd).sval = lp_strdup(is_lit ? lit : cset);
             gg->entry = nd;
             int gidx = bb_program_add(&g_stage2.bbp, gg);
             int pidx = stage2_proc_grow(&g_stage2);
