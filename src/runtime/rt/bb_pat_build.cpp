@@ -69,5 +69,6 @@ extern "C" void *bb_compile_pat_tree(const void *tv) {
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
+    { extern int zls_g_region(const IR_graph_t *); extern void rt_fn_frame_bytes_register(void *, int); int rg = zls_g_region(g); if (fn && rg > 0) rt_fn_frame_bytes_register((void *)fn, rg); }
     return (void *)fn;
 }

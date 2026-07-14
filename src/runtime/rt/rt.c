@@ -446,6 +446,22 @@ void *rt_proc_get_fn(const char *name)
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static struct { void *fn; int bytes; } g_blob_fb[512];
+static int g_blob_fb_n = 0;
+void rt_fn_frame_bytes_register(void *fn, int bytes)
+{
+    if (!fn || bytes <= 0) return;
+    for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) { if (bytes > g_blob_fb[i].bytes) g_blob_fb[i].bytes = bytes; return; }
+    if (g_blob_fb_n < (int)(sizeof g_blob_fb / sizeof *g_blob_fb)) { g_blob_fb[g_blob_fb_n].fn = fn; g_blob_fb[g_blob_fb_n].bytes = bytes; g_blob_fb_n++; }
+}
+long rt_fn_frame_bytes(void *fn)
+{
+    if (!fn) return 0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn && g_rt_gen_procs[i].frame_bytes > 0) return (long)g_rt_gen_procs[i].frame_bytes;
+    for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) return (long)g_blob_fb[i].bytes;
+    return (long)PROC_FRAME_QWORDS * 8;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_generator(const char *name, int is_gen)
 {
     if (!name) return;

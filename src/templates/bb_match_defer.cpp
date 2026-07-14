@@ -10,6 +10,7 @@ extern "C" int   rt_defer_close    (int cur_delta);
 extern "C" void *rt_frame_prep     (void *fb, long fbytes);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *rt_zls_alloc      (long bytes);
+extern "C" long  rt_fn_frame_bytes (void *fn);
 extern "C" void  rt_zls_release    (void *fb);
 extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
@@ -36,7 +37,9 @@ std::string bb_match_defer() {
          + x86("jz",   "L0")
          + x86("mov",  FRQ(dscr()), "rax")
          + x86_align_enter()
-         + x86("mov",  "rdi", (long)65536)
+         + x86("mov",  "rdi", FRQ(dscr()))
+         + x86("call", "rt_fn_frame_bytes", (uint64_t)(uintptr_t)(void *)(long (*)(void *))rt_fn_frame_bytes)
+         + x86("mov",  "rdi", "rax")
          + x86("call", "rt_zls_alloc", (uint64_t)(uintptr_t)(void *)(void *(*)(long))rt_zls_alloc)
          + x86_align_leave()
          + x86("mov",  FRQ(dscr() + 8), "rax")
