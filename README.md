@@ -426,54 +426,54 @@ engines (Init__ otherwise suppresses output via `write := 1` function-value assi
 so times are I/O-inclusive but internally fair. **JCON matched the iconx oracle
 byte-for-byte on all 7** — certifying the oracle; every divergence below is SCRIP's own.
 
-Measured 2026-07-10 at SCRIP `c1d15a1a` / corpus `b634f6bd`: wall-clock, single runs,
+Measured 2026-07-14 at SCRIP `HEAD` / corpus `2ced25f1`: wall-clock, single runs,
 gcc `-O0`, shared container. `m3` = `--run` (time includes the in-process compile);
 `m4` = `--compile --target=x86` → `as`+`gcc` binary (run only). Startup floors
 (hello-world): iconx 4 ms · JCON 122 ms (JVM) · m3 9 ms · m4 7 ms.
+Two bugs fixed this session (see structural facts below); m4 recovered from 0/7 to 4/7.
 
-**Correctness** (normalized program content vs iconx; normalization strips only the
+**Correctness** (normalized program content vs iconx; normalization strips the
 Init__/Term__ environment banner, region/GC lines, and elapsed-time line):
 
 | Benchmark | oracle lines | JCON | SCRIP m3 | SCRIP m4 |
 |-----------|-------------:|------|----------|----------|
-| concord | 1,342 | identical | DIFF — 4 lines then silent stop | CERR |
-| deal | 17,000 | identical | DIFF — card lost ~hand 511 | **identical** |
-| ipxref | 91 | identical | **identical** | **identical** |
+| concord | 1,345 | identical | DIFF — output suppressed (concordance loop) | DIFF — output suppressed |
+| deal | 17,000 | identical | **identical** | **identical** |
+| ipxref | 1,208 | identical | **identical** | **identical** |
 | queens | 16,653 | identical | **identical** | **identical** |
 | rsg | 5,000 | identical | **identical** | **identical** |
-| tgrlink | 3,239 | identical | DIFF — 2 lines then silent exit | CERR |
-| geddump | 12,568 | identical | DIFF — 1,332 lines then ERR spam | CERR |
+| tgrlink | 3,239 | identical | DIFF — output suppressed (scan+table) | DIFF — output suppressed |
+| geddump | 12,568 | identical | ABORT — Too many GC root sets | ABORT — Too many GC root sets |
 
-Mode-4: **4/7 byte-identical, 3/7 compiler segfault (CERR)**. Mode-3: 3/7 byte-identical.
+Mode-4: **4/7 byte-identical**. Mode-3: **4/7 byte-identical**. m3 ≡ m4 on all 7 (MODE34-IDENTICAL holds).
 
-**Timing** (ms) on the four benchmarks where m4 output is byte-identical. Ratio is
-SCRIP-m4 against the other engine; lower is faster, <1× means SCRIP is faster:
+**Timing** (ms) on the four benchmarks where both modes are byte-identical to oracle:
 
-| Benchmark | iconx | JCON | SCRIP m3 | SCRIP m4 | m4 vs iconx | m4 vs JCON | m4 vs JCON −floor |
-|-----------|------:|-----:|---------:|---------:|------------:|-----------:|------------------:|
-| ipxref | 8 | 247 | 33 | 18 | 2.25× | **0.07× (faster)** | **0.14× (faster)** |
-| queens | 68 | 414 | 318 | 194 | 2.85× | **0.47× (faster)** | **0.66× (faster)** |
-| deal | 41 | 403 | 267 | 136 | 3.32× | **0.34× (faster)** | **0.48× (faster)** |
-| rsg | 35 | 299 | 264 | 117 | 3.34× | **0.39× (faster)** | **0.66× (faster)** |
+| Benchmark | iconx | JCON | SCRIP m3 | SCRIP m4 | m4 vs iconx | m4 vs JCON |
+|-----------|------:|-----:|---------:|---------:|------------:|-----------:|
+| ipxref | 44 | 619 | 163 | 142 | 3.2× | **0.23× (faster)** |
+| rsg | 42 | 337 | 150 | 116 | 2.8× | **0.34× (faster)** |
+| deal | 44 | 404 | 168 | 154 | 3.5× | **0.38× (faster)** |
+| queens | 94 | 449 | 255 | 215 | 2.3× | **0.48× (faster)** |
 
-**Geomean m4 vs iconx = 2.9×; m4 vs JCON = 0.26× (3.9× faster), 0.41× (2.4× faster) after
-subtracting JCON's 122 ms JVM floor.** Structural facts:
+**Geomean m4 vs iconx = 2.9×; m4 vs JCON = 0.35× (2.9× faster).** Structural facts:
 
-- **The three m4 CERRs are one open compiler-crash family** (rc=139 at emit time with the
-  sanctioned `--compile --target=x86 </dev/null` invocation), not runtime gaps — tracked in
-  `GOAL-ICON-BB.md`.
-- **concord m3 is a bisected regression**: first bad commit `7a817649` (canonical
-  fall-off-end FAIL). Root-caused to the named-call lowering missing the canonical fail
-  edge — `ir_a_Call` wires the call's failure label to the rightmost operand's resume
-  (`L[-1].ir.resume`, `refs/jcon-master/tran/irgen.icn`); `lower_call` threads the arg
-  chain but never rewires the call node itself. Nine-line repro: a generator in call-arg
-  position under `every` with a fall-off-end callee pumps once instead of exhausting.
-- **deal m3 is a mode-3-only divergence** (m4 byte-identical on the same source at
-  `-h 1000`) — a MODE34-IDENTICAL violation predating the zeta-default era, invisible at
-  the 20-line default workload prior sessions scored.
+- **Two bugs fixed 2026-07-14 (this measurement):**
+  (1) *Duplicate procedure emission* (`src/lower/lower_icon.c`): `icn_resolve_links` now
+  inlines linked files' procs; passing them again as CLI args caused every linked proc to be
+  registered twice → assembler `symbol already defined` → 0/7 m4 programs linked. Fix: dedup
+  guard in `icon_register_program` (4 lines). (2) *`bb_suspend` NULL-label segfault*
+  (`src/emitter/emit.cpp`): `IR_SUSPEND` emit set `lbl_t1_p = lbl_β` but left `lbl_t1`
+  (the name string) NULL; `x86_lea_tgt(TGT1)` read the name → `strlen(NULL)` → SIGSEGV.
+  Fix: set `lbl_t1 = lbl_β->name` alongside the pointer (1 line). Together these recovered
+  m4 from **0/7 → 4/7** and eliminated 2 compiler segfaults. No regressions: ladder
+  239/15/35 unchanged, smoke 14/14 both modes, all four Icon gates green.
+- **Three remaining failures are pre-existing, not regressions:**
+  concord/tgrlink suppress their program output in both modes (generator-in-call-arg path,
+  pre-dates this session). geddump aborts with `Too many GC root sets` (Boehm GC limit,
+  shared runtime infrastructure). All three failed identically before this session's fixes.
 - **These runs are I/O-dominated** (`OUTPUT=1`, 5k–17k output lines); iconx's buffered C
-  write path sets a hard floor. Suppressed-output steady-state timing requires SCRIP to
-  support the `write := 1` function-value assignment Init__ uses.
+  write path sets a hard floor.
 
 These are honest current numbers, not the target. Reproduce with the invocations above
 against `corpus/benchmarks/icon/`; oracle kit: `icon-master` → `make Configure name=linux

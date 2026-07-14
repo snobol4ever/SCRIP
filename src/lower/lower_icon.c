@@ -1121,6 +1121,9 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
                 name = (proc->v.sval && *proc->v.sval) ? proc->v.sval : ((proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR && proc->c[0]->v.sval && *proc->c[0]->v.sval) ? proc->c[0]->v.sval : NULL);
             }
             if (name) {
+                int _dup = 0;
+                for (int _qi = 0; _qi < s2->proc_count; _qi++) if (s2->proc_table[_qi].name && !strcmp(s2->proc_table[_qi].name, name)) { _dup = 1; break; }
+                if (_dup) continue;
                 int _pi = stage2_proc_grow(s2);
                 s2->proc_table[_pi].name     = name;
                 s2->proc_table[_pi].proc     = proc;
