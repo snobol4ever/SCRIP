@@ -59,7 +59,8 @@ static void perror_at(Parser *p, int line, const char *msg) {
     p->nerrors++;
 }
 typedef enum { ASSOC_NONE, ASSOC_LEFT, ASSOC_RIGHT } Assoc;
-typedef struct { const char *name; int prec; Assoc assoc; } OpEntry;
+typedef enum { FIX_INFIX, FIX_PREFIX, FIX_POSTFIX } Fixity;
+typedef struct { const char *name; int prec; Assoc assoc; Fixity fixity; } OpEntry;
 static const OpEntry BIN_OPS[] = {
     { ":-",   1200, ASSOC_NONE  },
     { "-->",  1200, ASSOC_NONE  },
@@ -109,24 +110,40 @@ static const OpEntry BIN_OPS[] = {
 static OpEntry *g_uinfix = NULL;
 static int g_uinfix_n = 0, g_uinfix_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void user_infix_add(const char *name, int prec, Assoc assoc) {
-    for (int i = 0; i < g_uinfix_n; i++) if (strcmp(g_uinfix[i].name, name) == 0) { g_uinfix[i].prec = prec; g_uinfix[i].assoc = assoc; return; }
+static void user_op_add(const char *name, int prec, Assoc assoc, Fixity fixity) {
+    for (int i = 0; i < g_uinfix_n; i++) if (g_uinfix[i].fixity == fixity && strcmp(g_uinfix[i].name, name) == 0) { g_uinfix[i].prec = prec; g_uinfix[i].assoc = assoc; return; }
     if (g_uinfix_n >= g_uinfix_cap) { g_uinfix_cap = g_uinfix_cap ? g_uinfix_cap * 2 : 8; g_uinfix = (OpEntry *)realloc(g_uinfix, g_uinfix_cap * sizeof(OpEntry)); }
-    g_uinfix[g_uinfix_n].name = strdup(name); g_uinfix[g_uinfix_n].prec = prec; g_uinfix[g_uinfix_n].assoc = assoc; g_uinfix_n++;
+    g_uinfix[g_uinfix_n].name = strdup(name); g_uinfix[g_uinfix_n].prec = prec; g_uinfix[g_uinfix_n].assoc = assoc; g_uinfix[g_uinfix_n].fixity = fixity; g_uinfix_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const OpEntry *find_binop(const char *name) {
     for (const OpEntry *op = BIN_OPS; op->name; op++)
         if (strcmp(op->name, name) == 0) return op;
     for (int i = 0; i < g_uinfix_n; i++)
-        if (strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
+        if (g_uinfix[i].fixity == FIX_INFIX && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int op_type_to_assoc(const char *type, Assoc *assoc_out) {
-    if (strcmp(type, "xfx") == 0) { *assoc_out = ASSOC_NONE;  return 1; }
-    if (strcmp(type, "xfy") == 0) { *assoc_out = ASSOC_RIGHT; return 1; }
-    if (strcmp(type, "yfx") == 0) { *assoc_out = ASSOC_LEFT;  return 1; }
+static const OpEntry *find_prefix(const char *name) {
+    for (int i = 0; i < g_uinfix_n; i++)
+        if (g_uinfix[i].fixity == FIX_PREFIX && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const OpEntry *find_postfix(const char *name) {
+    for (int i = 0; i < g_uinfix_n; i++)
+        if (g_uinfix[i].fixity == FIX_POSTFIX && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int op_type_classify(const char *type, Assoc *assoc_out, Fixity *fix_out) {
+    if (strcmp(type, "xfx") == 0) { *fix_out = FIX_INFIX;   *assoc_out = ASSOC_NONE;  return 1; }
+    if (strcmp(type, "xfy") == 0) { *fix_out = FIX_INFIX;   *assoc_out = ASSOC_RIGHT; return 1; }
+    if (strcmp(type, "yfx") == 0) { *fix_out = FIX_INFIX;   *assoc_out = ASSOC_LEFT;  return 1; }
+    if (strcmp(type, "fy")  == 0) { *fix_out = FIX_PREFIX;  *assoc_out = ASSOC_RIGHT; return 1; }
+    if (strcmp(type, "fx")  == 0) { *fix_out = FIX_PREFIX;  *assoc_out = ASSOC_NONE;  return 1; }
+    if (strcmp(type, "yf")  == 0) { *fix_out = FIX_POSTFIX; *assoc_out = ASSOC_LEFT;  return 1; }
+    if (strcmp(type, "xf")  == 0) { *fix_out = FIX_POSTFIX; *assoc_out = ASSOC_NONE;  return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -134,8 +151,8 @@ static void register_op_one(int prec, const char *type, tree_t *namenode) {
     if (!namenode) return;
     if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i]); return; }
     if (namenode->t != TT_QLIT || !namenode->v.sval) return;
-    Assoc assoc;
-    if (op_type_to_assoc(type, &assoc)) user_infix_add(namenode->v.sval, prec, assoc);
+    Assoc assoc; Fixity fix;
+    if (op_type_classify(type, &assoc, &fix)) user_op_add(namenode->v.sval, prec, assoc, fix);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void register_op_directive(tree_t *goal) {
@@ -145,6 +162,13 @@ static void register_op_directive(tree_t *goal) {
     tree_t *pn = goal->c[0], *tn = goal->c[1], *nn = goal->c[2];
     if (!pn || pn->t != TT_ILIT || !tn || tn->t != TT_QLIT || !tn->v.sval) return;
     register_op_one((int)pn->v.ival, tn->v.sval, nn);
+}
+static int prefix_arg_starts(Token pk) {
+    switch (pk.kind) {
+        case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_CUT: return 1;
+        case TK_ATOM: case TK_OP: return (find_prefix(pk.text) != NULL) || (find_binop(pk.text) == NULL);
+        default: return 0;
+    }
 }
 static Term *parse_term(Parser *p, int max_prec);
 static Term *parse_primary(Parser *p);
@@ -256,6 +280,14 @@ static Term *parse_primary(Parser *p) {
                     return term_new_compound(fid, 1, args1);
                 }
             }
+            const OpEntry *pre_a = find_prefix(tk.text);
+            if (pre_a && prefix_arg_starts(pk)) {
+                int fid = prolog_atom_intern(tk.text);
+                int argmax = (pre_a->assoc == ASSOC_RIGHT) ? pre_a->prec : pre_a->prec - 1;
+                Term *arg = parse_term(p, argmax);
+                Term *pargs[1] = { arg };
+                return term_new_compound(fid, 1, pargs);
+            }
             int id = prolog_atom_intern(tk.text);
             return term_new_atom(id);
         }
@@ -343,6 +375,13 @@ static Term *parse_primary(Parser *p) {
                     free(args);
                     return t;
                 }
+                const OpEntry *pre_o = find_prefix(tk.text);
+                if (pre_o && prefix_arg_starts(pk2)) {
+                    int argmax = (pre_o->assoc == ASSOC_RIGHT) ? pre_o->prec : pre_o->prec - 1;
+                    Term *arg = parse_term(p, argmax);
+                    Term *pargs[1] = { arg };
+                    return term_new_compound(id, 1, pargs);
+                }
                 return term_new_atom(id);
             }
         }
@@ -385,7 +424,11 @@ static Term *parse_term(Parser *p, int max_prec) {
         else if (pk.kind == TK_NECK  && max_prec >= 1200) optext = ":-";
         else break;
         const OpEntry *op = optext ? find_binop(optext) : NULL;
-        if (!op || op->prec > max_prec) break;
+        if (!op || op->prec > max_prec) {
+            const OpEntry *po = optext ? find_postfix(optext) : NULL;
+            if (po && po->prec <= max_prec) { lexer_next(&p->lx); int pid = prolog_atom_intern(po->name); Term *pa[1] = { lhs }; lhs = term_new_compound(pid, 1, pa); continue; }
+            break;
+        }
         lexer_next(&p->lx);
         int rprec = (op->assoc == ASSOC_LEFT) ? op->prec - 1 : op->prec;
         Term *rhs = parse_term(p, rprec);
@@ -561,6 +604,14 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             }
             if (strcmp(tk.text, "[]") == 0)
                 return ast_node_new(TT_MAKELIST);
+            const OpEntry *pre_a = find_prefix(tk.text);
+            if (pre_a && prefix_arg_starts(pk)) {
+                tree_t *fnc = ast_node_new(TT_FNC);
+                fnc->v.sval = strdup(tk.text);
+                tree_t *arg = pt_term(p, ts, (pre_a->assoc == ASSOC_RIGHT) ? pre_a->prec : pre_a->prec - 1);
+                if (arg) ast_push(fnc, arg);
+                return fnc;
+            }
             tree_t *n = ast_node_new(TT_QLIT);
             n->v.sval = strdup(tk.text);
             return n;
@@ -653,6 +704,14 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
                     return fnc;
                 }
+                const OpEntry *pre_o = find_prefix(tk.text);
+                if (pre_o && prefix_arg_starts(pk3)) {
+                    tree_t *fnc = ast_node_new(TT_FNC);
+                    fnc->v.sval = strdup(tk.text);
+                    tree_t *arg = pt_term(p, ts, (pre_o->assoc == ASSOC_RIGHT) ? pre_o->prec : pre_o->prec - 1);
+                    if (arg) ast_push(fnc, arg);
+                    return fnc;
+                }
                 tree_t *n = ast_node_new(TT_QLIT);
                 n->v.sval = strdup(tk.text);
                 return n;
@@ -693,7 +752,11 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
         else if (pk.kind == TK_NECK  && max_prec >= 1200)       optext = ":-";
         else break;
         const OpEntry *op = optext ? find_binop(optext) : NULL;
-        if (!op || op->prec > max_prec) break;
+        if (!op || op->prec > max_prec) {
+            const OpEntry *po = optext ? find_postfix(optext) : NULL;
+            if (po && po->prec <= max_prec) { lexer_next(&p->lx); tree_t *pf = ast_node_new(TT_FNC); pf->v.sval = strdup(po->name); ast_push(pf, lhs); lhs = pf; continue; }
+            break;
+        }
         lexer_next(&p->lx);
         int rprec = (op->assoc == ASSOC_LEFT) ? op->prec - 1 : op->prec;
         tree_t *rhs = pt_term(p, ts, rprec);
