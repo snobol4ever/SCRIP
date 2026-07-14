@@ -589,7 +589,8 @@ static long rt_dcap_pump(void)
         if (e->varname && e->varname[0] == '*') {
             rt_g_want_name = 1;
             long fb = rt_proc_call_open(e->varname + 1, 0);
-            if (!fb) { rt_g_want_name = 0; continue; }
+            if (!fb) { rt_g_want_name = 0; fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' is not an invocable proc; conditional assignment skipped\n", e->varname); continue; }
+            if (!strncmp(e->varname + 1, "EXPR$", 5)) rt_g_want_name = 1;
             c->pending = d;
             return fb;
         }
@@ -623,7 +624,7 @@ long rt_dcap_step(DESCR_t fret)
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     DESCR_t nm = rt_proc_call_epilogue(fret);
     rt_g_want_name = 0;
-    if (!IS_FAIL_fn(nm)) rt_assign_var(nm, c->pending);
+    if (!IS_FAIL_fn(nm)) { if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, c->pending); } else rt_assign_var(nm, c->pending); }
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

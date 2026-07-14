@@ -30,7 +30,7 @@ void ir_delete_all(stage2_t *s2)
 int stage2_label_grow(stage2_t *s2)
 {
     if (s2->label_count >= s2->label_cap) {
-        s2->label_cap *= 2;
+        s2->label_cap = s2->label_cap ? s2->label_cap * 2 : 16;
         s2->label_table = realloc(s2->label_table, (size_t)s2->label_cap * sizeof(LabelEntry));
     }
     int idx = s2->label_count++;
@@ -41,7 +41,7 @@ int stage2_label_grow(stage2_t *s2)
 int stage2_proc_grow(stage2_t *s2)
 {
     if (s2->proc_count >= s2->proc_cap) {
-        s2->proc_cap *= 2;
+        s2->proc_cap = s2->proc_cap ? s2->proc_cap * 2 : 16;
         s2->proc_table = realloc(s2->proc_table, (size_t)s2->proc_cap * sizeof(ProcEntry));
     }
     int idx = s2->proc_count++;

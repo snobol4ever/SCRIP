@@ -2,12 +2,12 @@
 #include "rt/rt_arena.h"
 #include <stdlib.h>
 #include <string.h>
-#include <alloca.h>
 #include <math.h>
 #include "core.h"
 #include "sil_macros.h"
 #include "../parser/snobol4/scrip_cc.h"
 #include "IR.h"
+#include "stage2.h"
 extern int exec_stmt(const char  *subj_name,
                           DESCR_t     *subj_var,
                           DESCR_t      pat,
@@ -19,12 +19,13 @@ extern int         Δ;
 typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void          *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn  emit_chain(void *entry, void *out, const char *prefix);
-extern void           rt_eval_run(eval_chain_fn fn, void *zeta);
+extern void           rt_eval_run(eval_chain_fn fn, long fbytes);
 extern void           ast_tree_free_dyn(tree_t *p);
 extern void           IR_free_dyn(void *g);
 extern size_t         bb_pool_mark(void);
 extern void           bb_pool_release(size_t mark);
 #define EVAL_TMP "ZZEVALZZ"
+#define EVAL_FRAME_BYTES 4096
 #define EVAL_RETAIN_BUDGET (2 * 1024 * 1024)
 typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
@@ -70,10 +71,18 @@ __asm__(
 "  pushq %r13\n"
 "  pushq %r14\n"
 "  pushq %r15\n"
-"  movq %rdi, %rax\n"
-"  movq %rsi, %rdi\n"
+"  movq %rdi, %r12\n"
+"  movq %rsi, %r13\n"
+"  subq %r13, %rsp\n"
+"  movq %rsp, %rdi\n"
+"  movq %r13, %rcx\n"
+"  shrq $3, %rcx\n"
+"  xorl %eax, %eax\n"
+"  rep stosq\n"
+"  movq %rsp, %rdi\n"
 "  xorl %esi, %esi\n"
-"  call *%rax\n"
+"  call *%r12\n"
+"  addq %r13, %rsp\n"
 "  popq %r15\n"
 "  popq %r14\n"
 "  popq %r13\n"
@@ -81,7 +90,51 @@ __asm__(
 "  popq %rbx\n"
 "  ret\n"
 );
-void rt_eval_run(eval_chain_fn fn, void *zeta);
+void rt_eval_run(eval_chain_fn fn, long fbytes);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Deferred-expression thunks (`. *F(X)`) minted by a RUNTIME compile.  lower_snobol4 mints one EXPR$N proc per
+ * deferred operand and files it in g_stage2; the driver does the register+emit walk for the main program, and
+ * this is that same two-phase walk for the fragment path, over just the procs the fragment added [pc0, count).
+ * Without it the dcap pump's rt_proc_call_open on EXPR$N finds no body and the conditional assignment is a
+ * no-op.  dyn_scope=1 on every thunk, so the pump's open lands the dyn prologue and the NRETURN'd NAME rides
+ * the rt_g_want_name the pump re-arms. */
+static void eval_thunks_emit_from(int pc0)
+{
+    extern void rt_proc_register(const char *name, const char **pnames, int nparams);
+    extern void rt_proc_set_fn(const char *name, eval_chain_fn fn);
+    extern void rt_proc_set_generator(const char *name, int is_gen);
+    extern void rt_proc_set_variadic(const char *name, int is_var);
+    extern void rt_proc_set_dyn_scope(const char *name, int v);
+    extern void rt_proc_set_result_name(const char *name, const char *rname);
+    extern void ir_drive_slot_assign(IR_graph_t *g);
+    extern int g_gen_proc_active;
+    extern int g_frame_active;
+    extern IR_graph_t *g_emit_cfg;
+    for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
+        const char *pname = g_stage2.proc_table[pi].name;
+        int idx = g_stage2.proc_table[pi].bb_idx;
+        if (!pname || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
+        rt_proc_register(pname, (const char **)0, 0);
+        rt_proc_set_generator(pname, g_stage2.proc_table[pi].is_generator);
+        rt_proc_set_variadic(pname, g_stage2.proc_table[pi].is_variadic);
+        rt_proc_set_dyn_scope(pname, g_stage2.proc_table[pi].dyn_scope);
+        if (g_stage2.proc_table[pi].result_name) rt_proc_set_result_name(pname, g_stage2.proc_table[pi].result_name);
+    }
+    IR_graph_t *cfg_sv = g_emit_cfg;
+    int fa = g_frame_active; g_frame_active = 1;
+    int ga = g_gen_proc_active;
+    for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
+        const char *pname = g_stage2.proc_table[pi].name;
+        int idx = g_stage2.proc_table[pi].bb_idx;
+        if (!pname || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
+        ir_drive_slot_assign(g_stage2.bbp.table[idx]);
+        g_emit_cfg = g_stage2.bbp.table[idx];
+        g_gen_proc_active = g_stage2.proc_table[pi].is_generator;
+        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");
+        if (pfn) rt_proc_set_fn(pname, pfn);
+    }
+    g_gen_proc_active = ga; g_frame_active = fa; g_emit_cfg = cfg_sv;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_build_chain(const char *s)
 {
@@ -104,24 +157,30 @@ static eval_chain_fn eval_build_chain(const char *s)
     ast_push(st, ast_attr_expr(":repl", e));
     tree_t *prog = ast_stmt_new(TT_PROGRAM);
     ast_push(prog, st);
+    extern void sno_expr_salt_next(void);
+    extern int sno_expr_mark(void);
+    extern void sno_expr_thunks_build(int x0);
+    sno_expr_salt_next();
+    int xm = sno_expr_mark();
+    int pc0 = g_stage2.proc_count;
     void *g = lower_snobol4(prog);
     if (!g) { ast_tree_free_dyn(prog); return NULL; }
+    sno_expr_thunks_build(xm);
     extern int g_frame_active;
     extern IR_graph_t *g_emit_cfg;
     IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
     int fa = g_frame_active; g_frame_active = 1;
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
     g_frame_active = fa; g_emit_cfg = cfg_sv;
+    eval_thunks_emit_from(pc0);
     IR_free_dyn(g);
     ast_tree_free_dyn(prog);
     return fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_chain_run_capture(eval_chain_fn fn) {
-    int64_t eval_frame[512];
-    memset(eval_frame, 0, sizeof eval_frame);
     DESCR_t saved = NV_GET_fn(EVAL_TMP);
-    rt_eval_run(fn, (void *)eval_frame);
+    rt_eval_run(fn, EVAL_FRAME_BYTES);
     DESCR_t result = NV_GET_fn(EVAL_TMP);
     NV_SET_fn(EVAL_TMP, saved);
     return result;
@@ -195,11 +254,7 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
 static void run_code_chain(eval_chain_fn fn)
 {
     if (!fn) return;
-    extern int rt_zeta_cstack(void);
-    if (rt_zeta_cstack()) { void *frame = alloca((size_t)GOTO_FRAME_BYTES); memset(frame, 0, (size_t)GOTO_FRAME_BYTES); rt_eval_run(fn, frame); return; }
-    void *frame = rt_ws_alloc(GOTO_FRAME_BYTES);
-    if (!frame) { fprintf(stderr, "[SNO] rt_goto_transfer: transfer frame allocation failed\n"); exit(1); }
-    rt_eval_run(fn, frame);
+    rt_eval_run(fn, GOTO_FRAME_BYTES);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_goto_transfer(const char *name)
@@ -271,10 +326,8 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
         if (expr_d.slen == 3) {
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
-            int64_t eval_frame[512];
-            memset(eval_frame, 0, sizeof eval_frame);
             DESCR_t saved = NV_GET_fn(EVAL_TMP);
-            rt_eval_run(fn, (void *)eval_frame);
+            rt_eval_run(fn, EVAL_FRAME_BYTES);
             DESCR_t result = NV_GET_fn(EVAL_TMP);
             NV_SET_fn(EVAL_TMP, saved);
             return result;
