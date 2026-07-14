@@ -87,12 +87,6 @@ extern cap_t *bb_cap_new(bb_box_fn child_fn, void *child_state, const char *varn
 extern cap_t *bb_cap_new_call(bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 extern void *bb_arbno_new(void *fn, void *state);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_frame(void)
-{
-    static void *g_main_frame = (void *)0;
-    if (!g_main_frame) { g_main_frame = rt_zls2_push(8192L * 8L); memset(g_main_frame, 0, (size_t)(8192L * 8L)); }
-    return g_main_frame;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_nv_cstr(const char *name)
 {
