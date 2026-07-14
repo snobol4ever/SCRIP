@@ -19,6 +19,8 @@ typedef struct { const char * fname; const char * entry; const char * result_nam
 #define SNO_EXPR_MAX 256
 static struct { const char * name; const tree_t * expr; } g_sno_exprs[SNO_EXPR_MAX];
 static int g_sno_nexpr = 0;
+static int g_sno_expr_salt = 0;
+void sno_expr_salt_next(void) { g_sno_expr_salt++; }
 static const char * sno_expr_collect(const tree_t * expr);
 #define SNO_PAT_MAX 256
 static struct { const char * name; const tree_t * pat; } g_sno_pats[SNO_PAT_MAX];
@@ -69,7 +71,7 @@ static void sno_reg_var(const char * nm) { if (nm && nm[0] && nm[0] != '&') glob
 static const char * sno_expr_collect(const tree_t * expr) {
     if (!expr) sno_fatal("unevaluated-expression operator (*) with no operand", NULL);
     if (g_sno_nexpr >= SNO_EXPR_MAX) sno_fatal("too many unevaluated expressions (*) in one program", NULL);
-    char buf[32]; snprintf(buf, sizeof buf, "EXPR$%d", g_sno_nexpr);
+    char buf[32]; if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPR$%dF%d", g_sno_nexpr, g_sno_expr_salt); else snprintf(buf, sizeof buf, "EXPR$%d", g_sno_nexpr);
     g_sno_exprs[g_sno_nexpr].name = lp_strdup(buf);
     g_sno_exprs[g_sno_nexpr].expr = expr;
     return g_sno_exprs[g_sno_nexpr++].name;
@@ -1614,6 +1616,37 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs) {
     for (int i = 0; i < t->n; i++) sno_prescan_expr(t->c[i], defs, ndefs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sno_expr_mark(void) { return g_sno_nexpr; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_expr_thunks_build(int x0) {
+    int sv = g_sno_in_patproc;
+    g_sno_in_patproc = 1;
+    for (int xi = x0; xi < g_sno_nexpr; xi++) {
+        IR_graph_t * gx = IR_alloc(256);
+        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = g_sno_exprs[xi].name; ex.pat_fail = NULL; ex.pat_seal = NULL;
+        IR_t * ok = lc_build(gx, IR_SUCCEED, NULL, NULL);
+        IR_t * no = lc_build(gx, IR_FAIL, NULL, NULL);
+        IR_t * sJ = lc_build(gx, IR_GOTO, ok, NULL);
+        IR_t * fJ = lc_build(gx, IR_GOTO, no, NULL);
+        sno_reg_var(g_sno_exprs[xi].name);
+        IR_t * asn = lc_build(gx, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = (char *) g_sno_exprs[xi].name;
+        IR_t * vr = NULL; IR_t * e = sx_lower(&ex, g_sno_exprs[xi].expr, asn, fJ, &vr);
+        ir_operand_push(asn, vr);
+        gx->entry = e;
+        int xpi = stage2_proc_grow(&g_stage2);
+        g_stage2.proc_table[xpi].name = g_sno_exprs[xi].name;
+        g_stage2.proc_table[xpi].proc = NULL;
+        g_stage2.proc_table[xpi].entry_pc = -1;
+        g_stage2.proc_table[xpi].nparams = 0;
+        g_stage2.proc_table[xpi].lower_sc.n = 0;
+        g_stage2.proc_table[xpi].is_generator = 0;
+        g_stage2.proc_table[xpi].dyn_scope = 1;
+        g_stage2.proc_table[xpi].result_name = g_sno_exprs[xi].name;
+        g_stage2.proc_table[xpi].bb_idx = bb_program_add(&g_stage2.bbp, gx);
+    }
+    g_sno_in_patproc = sv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_sno_nexpr = 0;
@@ -1730,30 +1763,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].result_name = defs[di].result_name;
         g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
     }
+    sno_expr_thunks_build(0);
     g_sno_in_patproc = 1;
-    for (int xi = 0; xi < g_sno_nexpr; xi++) {
-        IR_graph_t * gx = IR_alloc(256);
-        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = g_sno_exprs[xi].name; ex.pat_fail = NULL; ex.pat_seal = NULL;
-        IR_t * ok = lc_build(gx, IR_SUCCEED, NULL, NULL);
-        IR_t * no = lc_build(gx, IR_FAIL, NULL, NULL);
-        IR_t * sJ = lc_build(gx, IR_GOTO, ok, NULL);
-        IR_t * fJ = lc_build(gx, IR_GOTO, no, NULL);
-        sno_reg_var(g_sno_exprs[xi].name);
-        IR_t * asn = lc_build(gx, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = (char *) g_sno_exprs[xi].name;
-        IR_t * vr = NULL; IR_t * e = sx_lower(&ex, g_sno_exprs[xi].expr, asn, fJ, &vr);
-        ir_operand_push(asn, vr);
-        gx->entry = e;
-        int xpi = stage2_proc_grow(&g_stage2);
-        g_stage2.proc_table[xpi].name = g_sno_exprs[xi].name;
-        g_stage2.proc_table[xpi].proc = NULL;
-        g_stage2.proc_table[xpi].entry_pc = -1;
-        g_stage2.proc_table[xpi].nparams = 0;
-        g_stage2.proc_table[xpi].lower_sc.n = 0;
-        g_stage2.proc_table[xpi].is_generator = 0;
-        g_stage2.proc_table[xpi].dyn_scope = 1;
-        g_stage2.proc_table[xpi].result_name = g_sno_exprs[xi].name;
-        g_stage2.proc_table[xpi].bb_idx = bb_program_add(&g_stage2.bbp, gx);
-    }
     for (int pi2 = 0; pi2 < g_sno_npat; pi2++) {
         IR_graph_t * gp = IR_alloc(512);
         scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL;
