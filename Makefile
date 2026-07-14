@@ -191,6 +191,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_scan_alternate.cpp \
     $(SRC)/templates/bb_rk_glit.cpp \
     $(SRC)/templates/bb_rk_gcc.cpp \
+    $(SRC)/runtime/rt_gram_trampoline.S \
     $(SRC)/templates/xa_stubs.cpp \
     $(SRC)/templates/xa_macro_library.cpp \
     $(SRC)/templates/xa_bb_macro_library.cpp \
@@ -423,6 +424,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_alternate.cpp -o $(OBJ)/bb_scan_alternate.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rk_glit.cpp -o $(OBJ)/bb_rk_glit.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rk_gcc.cpp -o $(OBJ)/bb_rk_gcc.o
+	$(CC) -c $(SRC)/runtime/rt_gram_trampoline.S -o $(OBJ)/rt_gram_trampoline.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_move.cpp  -o $(OBJ)/bb_scan_move.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_upto.cpp  -o $(OBJ)/bb_scan_upto.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_any.cpp   -o $(OBJ)/bb_scan_any.o
