@@ -347,7 +347,7 @@ int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
  * Returns 0 (no participation) for every other node kind — the hook stays inert exactly where it is today. */
 int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
     if (!nd || base_off < 0) return 0;
-    if (nd->op == IR_MATCH_ARB)   { if (slot_off) *slot_off = base_off + 8;  if (k) *k = 16; return ZLS2_BUMP | ZLS2_RELEASE; }
+    /* IR_MATCH_ARB moved to the fc_geom fixed-cell path (RUNG ZB-FC-4, Lon s50 ALL-STACK ruling ARCH-ZETA S14): ARB is a fixed 8-byte generator (counter+saved-cursor), never a linked activation, so it takes the clean sub-rsp/add-rsp fixed cell like SPAN/BAL, NOT the zls2 linked-block BUMP|RELEASE grant.  Its zls2 grant is DELETED here; fc_geom returns k=16 for it. */
     if (nd->op == IR_MATCH_ARBNO) {
         long ph = IR_LIT(nd).ival;
         int ops = ph == 0 ? ZLS2_BUMP : ph == 2 ? ZLS2_RELEASE : 0;
@@ -385,6 +385,7 @@ int fc_save_active(const IR_t * nd);
 int fc_geom(const IR_t * nd, long * k) {
     if (!nd) return 0;
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-FC-3c: delta at cell+0; ungranted SAVE stays zero-cell = the flat rt_cap array path */
+    if (nd->op == IR_MATCH_ARB)    { if (k) *k = 16; return 1; }   /* ZB-FC-4 (Lon s50 S14): the 8-byte counter+saved-cursor cell, ex-zls2, now a clean fixed FORTH cell */
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_RTAB)   { if (k) *k = 16; return 1; }
