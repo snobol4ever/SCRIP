@@ -246,6 +246,16 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         cx->try_catch = save;
         IR_t * te = build(cx, IR_CALL, bentry, ω); IR_LIT(te).sval = "try_enter";
         *res = kexit; return te; }
+    case TT_ANON_BLOCK: { const char * bn = t->v.sval ? t->v.sval : "?";
+        tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__blk_ref";
+        tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__blk_ref"; ast_push(mc, nmv);
+        tree_t * bq = ast_node_new(TT_QLIT); bq->v.sval = (char *)bn; ast_push(mc, bq);
+        return lower_rcall(cx, mc, "__blk_ref", 1, γ, ω, res); }
+    case TT_INVOKE: {
+        tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__blk_invoke";
+        tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__blk_invoke"; ast_push(mc, nmv);
+        for (int i = 0; i < t->n; i++) ast_push(mc, t->c[i]);
+        return lower_rcall(cx, mc, "__blk_invoke", 1, γ, ω, res); }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
         if (nm && rk_is_multi_name(nm)) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
@@ -753,7 +763,30 @@ static void raku_register_program(stage2_t * s2, const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_collect_blocks(const tree_t * t, tree_t ** out, int * n, int max) {
+    if (!t || *n >= max) return;
+    if (t->t == TT_ANON_BLOCK && !t->v.sval) out[(*n)++] = (tree_t *) t;
+    for (int i = 0; i < t->n; i++) rk_collect_blocks(t->c[i], out, n, max);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_hoist_anon_blocks(tree_t * prog) {
+    if (!prog) return;
+    static tree_t * blks[512]; int nb = 0; rk_collect_blocks(prog, blks, &nb, 512);
+    static int g_blk_ctr = 0;
+    for (int i = 0; i < nb; i++) {
+        tree_t * blk = blks[i]; char nm[64]; snprintf(nm, sizeof nm, "__blk_%d", ++g_blk_ctr);
+        char * pn = lp_strdup(nm); blk->v.sval = pn;
+        tree_t * sd = ast_node_new(TT_SUB_DECL); sd->v.ival = 0;
+        tree_t * nn = ast_node_new(TT_VAR); nn->v.sval = pn; ast_push(sd, nn);
+        const tree_t * body = (blk->n > 0) ? blk->c[0] : NULL;
+        if (body) { for (int k = 0; k < body->n; k++) ast_push(sd, body->c[k]); ((tree_t *) body)->n = 0; }
+        blk->n = 0;
+        ast_push(prog, sd);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) {
+    rk_hoist_anon_blocks((tree_t *) prog);
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
     rk_lower_grammar_boxes(prog);

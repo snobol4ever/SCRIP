@@ -197,7 +197,7 @@ int rt_builtin_is_known(const char *name)
         "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
         "die", "script_die",
         "callsame", "nextsame", "callwith",
-        "__multi_call", "__param_check",
+        "__multi_call", "__param_check", "__blk_ref", "__blk_invoke",
         "TIME", "DATE",
         "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek",
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
@@ -1455,6 +1455,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < na && k < 64; k++) g_call_args[k] = aa[k];
         *out = rt_call_proc_descr(wname, na); return 1;
+    }
+    if (!strcmp(fn, "__blk_ref") && nargs == 1) {
+        const char *bn = VARVAL_fn(args[0]); DESCR_t b; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : "");
+        *out = b; return 1;
+    }
+    if (!strcmp(fn, "__blk_invoke") && nargs >= 1) {
+        const char *bn = (args[0].v == DT_BLK) ? args[0].s : VARVAL_fn(args[0]); if (!bn || !*bn) { *out = FAILDESCR; return 1; }
+        int na = nargs - 1; extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        for (int k = 0; k < na && k < 64; k++) g_call_args[k] = args[k + 1];
+        *out = rt_call_proc_descr(bn, na); return 1;
     }
     if (!strcmp(fn, "__param_check") && nargs >= 2) {
         const char *ptype = VARVAL_fn(args[0]); if (!ptype) ptype = "Any";

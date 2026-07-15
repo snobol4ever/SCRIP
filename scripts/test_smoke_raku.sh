@@ -1643,6 +1643,32 @@ sub main() {
 }
 EOF
 
+# --- RK-BLK-a: bare block as a first-class value (Code/Block per src/core.c/Block.rakumod). A `{ ... }` in
+#     expression position is hoisted to an anonymous 0-ary proc; the value is a DT_BLK descriptor carrying
+#     the proc name; `$b()` invokes it via the runtime proc registry (both modes, no new box/template).
+raku "blk_store_invoke" "5" << 'EOF'
+sub main() { my $b = { say 5; }; $b(); }
+EOF
+raku "blk_invoke_twice" "$(printf '9\n9')" << 'EOF'
+sub main() { my $b = { say 9; }; $b(); $b(); }
+EOF
+raku "blk_return_value" "6" << 'EOF'
+sub main() { my $b = { return 3; }; say $b() + $b(); }
+EOF
+raku "blk_two_distinct" "$(printf '2\n1')" << 'EOF'
+sub main() { my $a = { say 1; }; my $b = { say 2; }; $b(); $a(); }
+EOF
+raku "blk_calls_sub" "7" << 'EOF'
+sub g() { say 7; }
+sub main() { my $b = { g(); }; $b(); }
+EOF
+raku "blk_anon_sub_store" "8" << 'EOF'
+sub main() { my $s = sub { say 8; }; $s(); }
+EOF
+raku "blk_anon_sub_return" "4" << 'EOF'
+sub main() { my $s = sub { return 4; }; say $s(); }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

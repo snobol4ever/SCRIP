@@ -858,6 +858,13 @@ call_expr
           if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
           $$=e; }
     | IDENT '(' ')'  { $$=make_call($1); }
+    | VAR_SCALAR '(' arg_list ')'
+        { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node($1));
+          ExprList *args=$3;
+          if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
+          $$=e; }
+    | VAR_SCALAR '(' ')'
+        { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node($1)); $$=e; }
     | IDENT '.' KW_NEW '(' named_arg_list ')'
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
@@ -981,6 +988,8 @@ atom
           fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
           $$ = fe; }
     | '(' expr ')'    { $$=$2; }
+    | block           { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$1); $$=b; }
+    | KW_SUB block    { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$2); $$=b; }
     ;
 %%
 extern void *raku_yy_scan_string(const char *);
