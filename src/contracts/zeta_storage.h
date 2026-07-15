@@ -39,3 +39,4 @@ void fc_anchor_register(const IR_t * nd);
 int fc_anchor_active(const IR_t * nd);
 void fc_anchor_head_register(const IR_t * nd);
 int fc_anchor_head_active(const IR_t * nd);
+void fc_tables_reset(void);
