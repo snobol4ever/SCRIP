@@ -852,8 +852,8 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_flat_disp = 0; \
-    if (ZC_FRAME == ZC_FRAME_RSP) { int _fld = fc_leaf_disp(nd); if (_fld > 0) g_emit.op_flat_disp = _fld; } /* R12-ERAD s65: rsp-frame flat compensation, registrar-driven, one delivery point */ \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_flat_disp = 0; g_emit.op_anchored = 0; g_emit.op_anchor_head = 0; \
+    if (ZC_FRAME == ZC_FRAME_RSP) { int _fld = fc_leaf_disp(nd); if (_fld > 0) g_emit.op_flat_disp = _fld; extern int fc_anchor_active(const IR_t *); extern int fc_anchor_head_active(const IR_t *); g_emit.op_anchored = fc_anchor_active(nd); if (nd->op == IR_MATCH_HEAD) g_emit.op_anchor_head = fc_anchor_head_active(nd); } /* R12-ERAD s65 + ANCHOR-WINDOW s66: rsp-frame flat compensation OR the r12 window view, registrar-driven, one delivery point */ \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
@@ -1789,6 +1789,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }
+    g_emit.op_anchored = 0; g_emit.op_anchor_head = 0;   /* ANCHOR-WINDOW s66: everything below (β landings, epilogue) is NOT a node — never let the last node's r12 view leak into post-loop x86_zr/FRQ refs (measured: main_γ emitted mov rsp,[r12+600] and SEGV'd on libc's r12) */
     if (g_emit.flat_jmp_entry) {
         /* PROC-CONV: EMPTY body (n==0) — α_body would otherwise fall into the res landing below and run its
          * `add rsp,8; pop zr` on the initial α pass (no frontier record present ⇒ rsp/zr corruption ⇒ the ω-half

@@ -1337,6 +1337,15 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
          * direction failure keeps the flat path byte-verbatim (degrade never die). */
         int fp_stmt = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_pat, g->n, 1, &fp_stmt);
         if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
+        /* ANCHOR-WINDOW s66: the grant-DECLINE fallback.  A declined statement no longer stays "honestly broken" under RSP -- its whole match window (head + release + every pattern-range node) runs
+         * r12-viewed, the anchored HEAD's alpha materializing the view from rsp.  ARBNO's repointable-zr chain dance, the flat rt_cap capture array, DEFER wiring: all the s64-proven code paths work
+         * verbatim because zr is once again a real register.  Cells still ride rsp (ports unchanged); r12 is window-local and dead at statement exit. */
+        if (!fc_lin && ZC_FRAME == ZC_FRAME_RSP) {
+            extern void fc_anchor_register(const IR_t *); extern void fc_anchor_head_register(const IR_t *);
+            fc_anchor_head_register(head);
+            fc_anchor_register(head); fc_anchor_register(release); if (splice) fc_anchor_register(splice);
+            for (int k = before_pat; k < g->n; k++) if (g->all[k]) fc_anchor_register(g->all[k]);
+        }
         /* R12-ERAD s65 + ALT-LIFT: per-leaf flat displacement for ZC_FRAME_RSP via fc_leaf_walk (zeta_storage.c registrar).  Same range, same order (allocation = flow on the linear spine), prefix
          * starts at 32 = HEAD's self-pushed cell; each pattern node's body depth = prefix-before + own granted cell.  Granted ALT arms restart at prefix+16 (alternatives, not concatenation); nodes
          * after a granted ALT see prefix+16+fpmax (the pad stubs' uniform yield depth).  Registered only under the statement grant: a declined statement has no static depth (that is WHY it declined)
