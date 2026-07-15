@@ -4,6 +4,7 @@ extern "C" {
 #include "machine/bb_pool.h"
 }
 #include "emit.h"
+extern "C" void fc_tables_reset(void);
 extern "C" {
 extern IR_graph_t *g_emit_cfg;
 extern int g_frame_active;
@@ -72,6 +73,7 @@ extern "C" void bb_build_break_blob(const char *name, const char *cset) {
 extern "C" void *bb_compile_pat_tree(const void *tv) {
     bb_pool_init();
     zls_reset();
+    fc_tables_reset();
     IR_graph_t *g = sno_pat_tree_graph_rt((const tree_t *)tv);
     if (!g || !g->entry) return (void *)0;
     optimizer_run(g);

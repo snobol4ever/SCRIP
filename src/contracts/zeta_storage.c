@@ -602,3 +602,11 @@ int fc_anchor_head_active(const IR_t * nd) {
     for (int i = 0; i < fcah_n; i++) if (fcah[i] == nd) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_tables_reset -- s67 (the 140/test_case wild-jump fix).  The three fc side tables are keyed by RAW NODE POINTER and were only ever fed by the MAIN lowering; a RUNTIME compile (EVAL chain, CODE
+ * fragment, rt pattern tree) lowers fresh IR whose malloc'd nodes can land on a FREED prior graph's addresses (eval_build_chain ends in IR_free_dyn) -- a stale fcanc hit then emits ONE r12-viewed box
+ * inside an otherwise rsp-viewed self-allocated blob, whose [r12+disp] writes land ABOVE the shim anchor, straight over the C caller's frame (measured: EVAL_fn's return address = 0x21; the blob at
+ * +0xa5 wrote 0x148(%r12) while its own allocation was sub 0x1b0,%rsp).  A stale fcl hit is the same disease with a silent wrong-displacement payload.  Every runtime-compile entry resets the fc
+ * tables before lowering: emission consults them only for the graph lowered SINCE the reset, and all pre-reset graphs are already emitted (mode-3 emits main wholesale before run).  The zls tables
+ * share the pointer-keying and are NOT reset here (bb_compile_pat_tree's zls_reset is the existing precedent; the zls lifecycle question routes to GC-W-1's frame-map design). */
+void fc_tables_reset(void) { fcl_n = 0; fcanc_n = 0; fcah_n = 0; }

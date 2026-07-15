@@ -65,17 +65,18 @@ static void eval_cache_put(const char *s, eval_chain_fn fn) {
 }
 /* rt_chain_enter — the s59 DEFER shape for EVAL/CODE (Lon: "no CALL/RET — a JUMP and a JUMP BACK").  Resolve
  * happened in C (cache/compile/registry lookup); this shim WIRES outside-γ→rcx and outside-ω→rdx to one shared
- * landing, ANCHORS pre-transfer rsp in the frame register (the jmp-entry header saves it at [+24] and both
- * exits restore it), and JUMPS.  The chain is a NEW ACTIVATION: it self-allocates its own frame (K_total baked
- * at emit time from its region), γ-exits with rsp at the deep frontier (resume record live, never consumed —
- * one-shot) or ω-exits with rsp absolutely unwound; either way the landing's `mov rsp, r12` wholesale-reclaims
- * the activation and any interior residue, exactly the seal-cut argument.  The trailing ret is the C builtin
- * boundary, not the transfer.  ⚠ EXACTLY FIVE PUSHES — the SysV 16-byte stack alignment is load-bearing through
- * the jmp: rsp is 8 mod 16 at entry, +40 bytes of pushes makes it 0 mod 16, and the blob's `sub rsp,K_total`
- * (K_total 16-aligned) carries that alignment into the activation.  A sixth push (the first cut saved rbp)
- * left every C callee reached FROM the chain on a misaligned stack and SEGV'd in libc's SSE printf path —
- * measured, gdb, rsp=...be8.  rbp needs no save here: it is the align-save register the chains manage
- * themselves (x86_align_enter/leave).  PROC-CONV converted the last call-regime citizen (LBL__ pseudo-procs,
+ * landing and JUMPS.  R12-ERAD s67: the r12 anchor + `mov r12,rsp` wholesale reclaim are DELETED — the s65
+ * shared epilogue already converted chain exits to ABSOLUTE unwind on BOTH edges (measured in the live blob:
+ * γ and ω each `mov [rsp+K-24/-16],rax; lea rsp,[rsp+K]; jmp *rax`, interior failures funnel through the
+ * blob-local epilogue first), so the landing always arrives at exactly the pre-jmp rsp and r12 rides through
+ * as an ordinary callee-save.  The chain is a NEW ACTIVATION: it self-allocates its own frame (K_total baked
+ * at emit time from its region) and is one-shot.  The trailing ret is the C builtin boundary, not the
+ * transfer.  ⚠ EXACTLY FIVE PUSHES — the SysV 16-byte stack alignment is load-bearing through the jmp: rsp is
+ * 8 mod 16 at entry, +40 bytes of pushes makes it 0 mod 16, and the blob's `sub rsp,K_total` (K_total
+ * 16-aligned) carries that alignment into the activation.  A sixth push (the first cut saved rbp) left every
+ * C callee reached FROM the chain on a misaligned stack and SEGV'd in libc's SSE printf path — measured, gdb,
+ * rsp=...be8.  rbp needs no save here: it is the align-save register the chains manage themselves
+ * (x86_align_enter/leave).  PROC-CONV converted the last call-regime citizen (LBL__ pseudo-procs,
  * rt_goto_transfer arm 4) to this same transfer; the donated-frame shim rt_callregime_run is deleted. */
 __asm__(
 ".text\n"
@@ -89,10 +90,8 @@ __asm__(
 "  movq %rdi, %rax\n"
 "  leaq 1f(%rip), %rcx\n"
 "  movq %rcx, %rdx\n"
-"  movq %rsp, %r12\n"
 "  jmp *%rax\n"
 "1:\n"
-"  movq %r12, %rsp\n"
 "  popq %r15\n"
 "  popq %r14\n"
 "  popq %r13\n"
@@ -153,6 +152,7 @@ static eval_chain_fn eval_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
     { extern void bb_pool_init(void); bb_pool_init(); }
+    { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); }
     size_t n = strlen(s);
     char *src = (char *)malloc(n + 4);
     if (!src) return NULL;
@@ -296,6 +296,7 @@ DESCR_t code(const char *src)
 {
     if (!src || !*src) return FAILDESCR;
     { extern void bb_pool_init(void); bb_pool_init(); }
+    { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); }
     extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
     extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx);
     extern const char *sno_stmt_label(const tree_t *s);
