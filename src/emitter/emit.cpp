@@ -439,6 +439,7 @@ int g_scan_regs_live = 0;
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
 static int   g_flat_chain_set_n = 0;
 static bb_label_t *g_limit_gen_beta = NULL;
+static bb_label_t *g_scan_body_beta = NULL;
 static bb_label_t *g_create_body_entry = NULL;
 static bb_label_t *g_move_label_tgt = NULL;
 static bb_label_t *g_suspend_dobody_beta = NULL;
@@ -808,7 +809,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION: bb_emit_x86(bb_indirect_goto()); return 0;
-    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_tab()); }    return 0;   /* ZB-ICN-FC-1: Icon's first FORTH cell — saved-cursor scratch at op_off+16 rides rsp; grant set HERE (post-DRIVE_FILL reset), result stays flat at op_off+0 */
     case IR_SCAN_MOVE:            { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_move()); }   return 0;   /* ZB-ICN-FC-2: move is tab's twin — saved-cursor scratch at op_off+16 rides rsp; grant set HERE (post-DRIVE_FILL reset) */
     case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
@@ -1729,6 +1730,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { int _s0 = nd_slot(op0); if (_s0 >= 0 && bb_slot_get(nodes[i]) < 0) bb_slot_register(nodes[i], _s0); }
         }
         g_limit_gen_beta = NULL;
+        g_scan_body_beta = NULL;
         g_create_body_entry = NULL;
         g_move_label_tgt = NULL;
         g_suspend_dobody_beta = NULL;
@@ -1769,6 +1771,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_LIMIT) {
             IR_t *gen = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
             if (gen) for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; }
+        }
+        if (nodes[i]->op == IR_SCAN) {
+            IR_t *bv = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : NULL;
+            g_scan_body_beta = NULL;
+            if (bv && ir_is_generator_kind(bv->op)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
         }
         emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }

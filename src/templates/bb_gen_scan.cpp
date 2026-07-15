@@ -7,6 +7,8 @@ extern "C" {
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta);
 void rt_scan_leave(uint64_t *out3);
+ScanSubjRegs rt_scan_reenter(void);
+uint64_t rt_scan_sync_in(void);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -41,6 +43,13 @@ std::string bb_gen_scan() {
              + x86("mov", "r15", FRQ(_.op_off + 16))
              + x86_gamma()
              + x86_beta()
+             + IF(_.lbl_t0_p != 0,
+                   x86("call", "rt_scan_reenter", (uint64_t)(uintptr_t)(void *)rt_scan_reenter)
+                 + x86("mov", "r13", "rax")
+                 + x86("mov", "r15", "rdx")
+                 + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
+                 + x86("mov", "r14", "rax")
+                 + x86_jmp_tgt(X86T_TGT0))
              + x86_omega())
          + IF(_.op_sb != 1 && _.op_off < 0, x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)"));
 }
