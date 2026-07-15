@@ -362,6 +362,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "sub_atom") && t->n == 5) pl_ensure_gen_builtin_pred("$sub_atom", "sub_atom", 5);
+        if (!strcmp(nm, "between") && t->n == 3) pl_ensure_gen_builtin_pred("$between", "between", 3);
+        if (!strcmp(nm, "for") && t->n == 3) pl_ensure_gen_builtin_pred("$for", "for", 3);
         if (!strcmp(nm, "$bag_group") && t->n == 3) pl_ensure_gen_builtin_pred("$bag_group", "$bag_group", 3);
         if (!strcmp(nm, "clause") && t->n == 2) pl_ensure_gen_builtin_pred("$clause", "clause", 2);
         if (!strcmp(nm, "current_predicate") && t->n == 1) pl_ensure_gen_builtin_pred("$current_predicate", "current_predicate", 1);
