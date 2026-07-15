@@ -314,10 +314,16 @@ stmt
         { tree_t *c=make_call(testop_rt($1)); free($1); ExprList *a=$2; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
     | KW_SAY expr ';'
         { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,$2); $$=c; }
+    | KW_SAY expr ',' arg_list ';'
+        { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
     | KW_SAY '(' expr ',' expr ')' ';'
         { tree_t *c=ast_node_new(TT_SAY_FH); expr_add_child(c,$3); expr_add_child(c,$5); $$=c; }
     | KW_PRINT expr ';'
         { tree_t *c=ast_node_new(TT_PRINT); expr_add_child(c,$2); $$=c; }
+    | KW_PRINT expr ',' arg_list ';'
+        { tree_t *c=ast_node_new(TT_PRINT); expr_add_child(c,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
     | KW_PRINT '(' expr ',' expr ')' ';'
         { tree_t *c=ast_node_new(TT_PRINT_FH); expr_add_child(c,$3); expr_add_child(c,$5); $$=c; }
     | KW_TAKE expr ';'
