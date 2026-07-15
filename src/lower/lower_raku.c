@@ -219,6 +219,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = t->c[0]->v.sval;
         IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "arr_set_pure", 0, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_USE_DECL: { IR_t * nd = build(cx, IR_SUCCEED, γ, ω); *res = nd; return nd; }
     case TT_SAY: case TT_SAY_FH: return lower_rcall(cx, t, "write", 0, γ, ω, res);
     case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "writes", 0, γ, ω, res);
     case TT_DIE: return lower_rcall(cx, t, "die", 0, γ, ω, res);

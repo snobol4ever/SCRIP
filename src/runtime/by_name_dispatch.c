@@ -174,6 +174,7 @@ int rt_builtin_is_known(const char *name)
     if (!name) return 0;
     if (rt_proc_is_registered(name)) return 0;
     if (builtin_is_generator(name))  return 0;
+    if (!strncmp(name, "__rk_test_", 10)) return 1;
     static const char *known[] = {
         "write", "writes", "stop",
         "integer", "real", "string", "numeric", "char", "ord", "cset",
@@ -936,9 +937,73 @@ static void plc_iso_evaluable(DESCR_t v) {
     rt_pl_iso_throw_pi("type_error", "evaluable", "?", 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long g_tap_run = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long g_tap_failed = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long g_tap_planned = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_tap_no_plan = 1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long g_tap_todo_upto = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char g_tap_todo_reason[512] = "";
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_tap_done_run = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_tap_truthy(DESCR_t v) {
+    if (IS_FAIL_fn(v)) return 0;
+    if (IS_INT_fn(v)) return (v.i != 0);
+    if (IS_REAL_fn(v)) return (v.r != 0.0);
+    if (v.v == DT_SNUL) return 0;
+    { const char *s = v.s ? v.s : ""; return (s[0] != '\0' && !(s[0] == '0' && s[1] == '\0')); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
+    size_t o = 0; if (!desc) { out[0] = '\0'; return; }
+    for (size_t i = 0; desc[i] && o + 4 < cap; i++) {
+        if (desc[i] == '#') { out[o++] = ' '; out[o++] = '\\'; out[o++] = '#'; }
+        else if (desc[i] == '\n') { out[o++] = '\n'; out[o++] = '#'; out[o++] = ' '; }
+        else out[o++] = desc[i];
+    }
+    out[o] = '\0';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
+    char esc[1024]; char line[2048]; int in_todo;
+    g_tap_run++;
+    in_todo = (g_tap_todo_reason[0] != '\0' && g_tap_run <= g_tap_todo_upto);
+    if (!cond && !(g_tap_run <= g_tap_todo_upto)) g_tap_failed++;
+    rk_tap_desc_escape(desc ? desc : "", esc, sizeof esc);
+    snprintf(line, sizeof line, "%sok %ld - %s%s%s", cond ? "" : "not ", g_tap_run, prefix ? prefix : "", esc, in_todo ? g_tap_todo_reason : "");
+    puts(line); fflush(stdout);
+    return cond;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tap_diag(const char *msg) {
+    fprintf(stderr, "# %s\n", msg ? msg : ""); fflush(stderr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
+    if (!strncmp(fn, "__rk_test_", 10)) {
+        const char *op = fn + 10; char sb1[512]; char sb2[512]; char msg[1024];
+        if (!strcmp(op, "plan")) { long n = (nargs > 0 && IS_INT_fn(args[0])) ? (long)args[0].i : 0; g_tap_planned = n; g_tap_no_plan = 0; printf("1..%ld\n", n); fflush(stdout); *out = NULVCL; return 1; }
+        if (!strcmp(op, "ok")) { int c = (nargs > 0) ? rk_tap_truthy(args[0]) : 0; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "nok")) { int c = (nargs > 0) ? !rk_tap_truthy(args[0]) : 1; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "is")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = !strcmp(g, e); char gd[512]; char ed[512]; snprintf(gd, sizeof gd, "%s", g); snprintf(ed, sizeof ed, "%s", e); const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); if (!c) { char b[1024]; snprintf(b, sizeof b, "expected: '%s'", ed); rk_tap_diag(b); snprintf(b, sizeof b, "     got: '%s'", gd); rk_tap_diag(b); } *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "isnt")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = strcmp(g, e) != 0; const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "pass")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(1, d, ""); *out = INTVAL(1); return 1; }
+        if (!strcmp(op, "flunk")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(0, d, ""); *out = INTVAL(0); return 1; }
+        if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag(d); *out = NULVCL; return 1; }
+        if (!strcmp(op, "todo")) { const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; long n = (nargs > 1 && IS_INT_fn(args[1])) ? (long)args[1].i : 1; g_tap_todo_upto = g_tap_run + n; snprintf(g_tap_todo_reason, sizeof g_tap_todo_reason, " # TODO %s", r); *out = NULVCL; return 1; }
+        if (!strcmp(op, "skip")) { const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; long n = (nargs > 1 && IS_INT_fn(args[1])) ? (long)args[1].i : 1; for (long i = 0; i < n; i++) rk_tap_proclaim(1, r, "# SKIP "); *out = NULVCL; return 1; }
+        if (!strcmp(op, "skip_rest")) { const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "<unknown>"; if (g_tap_no_plan) { rk_tap_diag("A plan is required in order to use skip-rest"); *out = NULVCL; return 1; } for (long i = g_tap_run; i < g_tap_planned; ) { rk_tap_proclaim(1, r, "# SKIP "); i = g_tap_run; } *out = NULVCL; return 1; }
+        if (!strcmp(op, "done")) { g_tap_done_run = 1; if (g_tap_no_plan) { g_tap_planned = g_tap_run; printf("1..%ld\n", g_tap_planned); fflush(stdout); } if ((g_tap_planned || g_tap_run) && g_tap_planned != g_tap_run) { snprintf(msg, sizeof msg, "You planned %ld test%s, but ran %ld", g_tap_planned, g_tap_planned == 1 ? "" : "s", g_tap_run); rk_tap_diag(msg); } if (g_tap_failed) { snprintf(msg, sizeof msg, "You failed %ld test%s of %ld", g_tap_failed, g_tap_failed == 1 ? "" : "s", g_tap_run); rk_tap_diag(msg); } *out = NULVCL; return 1; }
+        *out = NULVCL; return 1;
+    }
     if (!strncmp(fn, "$ax_", 4)) {
         extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
         const char *op = fn + 4;
