@@ -20,7 +20,6 @@ typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void          *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn  emit_chain(void *entry, void *out, const char *prefix);
 extern void           rt_chain_enter(eval_chain_fn fn);
-extern void           rt_callregime_run(eval_chain_fn fn, long fbytes);
 extern int            emit_jmp_entry_for_chain(IR_graph_t *g);
 extern void           emit_jmp_entry_clear(void);
 extern void           ast_tree_free_dyn(tree_t *p);
@@ -76,9 +75,8 @@ static void eval_cache_put(const char *s, eval_chain_fn fn) {
  * (K_total 16-aligned) carries that alignment into the activation.  A sixth push (the first cut saved rbp)
  * left every C callee reached FROM the chain on a misaligned stack and SEGV'd in libc's SSE printf path —
  * measured, gdb, rsp=...be8.  rbp needs no save here: it is the align-save register the chains manage
- * themselves (x86_align_enter/leave).  rt_callregime_run is the OLD donated-frame call shim retained VERBATIM for the
- * one citizen this rung does not own: LBL__ main-program pseudo-procs (rt_goto_transfer arm 4) — those are
- * procs, and procs convert at PROC-CONV. */
+ * themselves (x86_align_enter/leave).  PROC-CONV converted the last call-regime citizen (LBL__ pseudo-procs,
+ * rt_goto_transfer arm 4) to this same transfer; the donated-frame shim rt_callregime_run is deleted. */
 __asm__(
 ".text\n"
 ".globl rt_chain_enter\n"
@@ -101,34 +99,8 @@ __asm__(
 "  popq %r12\n"
 "  popq %rbx\n"
 "  ret\n"
-".globl rt_callregime_run\n"
-"rt_callregime_run:\n"
-"  pushq %rbx\n"
-"  pushq %r12\n"
-"  pushq %r13\n"
-"  pushq %r14\n"
-"  pushq %r15\n"
-"  movq %rdi, %r12\n"
-"  movq %rsi, %r13\n"
-"  subq %r13, %rsp\n"
-"  movq %rsp, %rdi\n"
-"  movq %r13, %rcx\n"
-"  shrq $3, %rcx\n"
-"  xorl %eax, %eax\n"
-"  rep stosq\n"
-"  movq %rsp, %rdi\n"
-"  xorl %esi, %esi\n"
-"  call *%r12\n"
-"  addq %r13, %rsp\n"
-"  popq %r15\n"
-"  popq %r14\n"
-"  popq %r13\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  ret\n"
 );
 void rt_chain_enter(eval_chain_fn fn);
-void rt_callregime_run(eval_chain_fn fn, long fbytes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Deferred-expression thunks (`. *F(X)`) minted by a RUNTIME compile.  lower_snobol4 mints one EXPR$N proc per
  * deferred operand and files it in g_stage2; the driver does the register+emit walk for the main program, and
@@ -168,8 +140,11 @@ static void eval_thunks_emit_from(int pc0)
         ir_drive_slot_assign(g_stage2.bbp.table[idx]);
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;
+        { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*);
+          if (!emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx])) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]); }
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");
         if (pfn) rt_proc_set_fn(pname, pfn);
+        emit_jmp_entry_clear();
     }
     g_gen_proc_active = ga; g_frame_active = fa; g_emit_cfg = cfg_sv;
 }
@@ -308,7 +283,7 @@ void rt_goto_transfer(const char *name)
         extern void *rt_proc_get_fn(const char *);
         char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name);
         fn = (eval_chain_fn)rt_proc_get_fn(lname);
-        if (fn) { rt_callregime_run(fn, GOTO_FRAME_BYTES); return; }
+        if (fn) { rt_chain_enter(fn); return; }
     }
     {
         DESCR_t d = NV_GET_fn(name);

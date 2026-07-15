@@ -7,7 +7,9 @@ extern "C" {
 extern "C" long  rt_defer_open     (const char *varname, int ival_flag);
 extern "C" long  rt_defer_step     (DESCR_t fret);
 extern "C" int   rt_defer_close    (int cur_delta);
-extern "C" void *rt_frame_prep     (void *fb, long fbytes);
+extern "C" void *rt_proc_open_fn   (void);
+extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
+extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
@@ -64,16 +66,33 @@ std::string bb_match_defer() {
          + x86("def",  "L2")
          + x86("test", "rax", "rax")
          + x86("je",   "L3")
-         + x86_frame_sink()
-         + x86_frame_base("rdi")
-         + x86("mov",  "rsi", "rax")
-         + x86("call", "rt_frame_prep", (uint64_t)(uintptr_t)(void *)(void *(*)(void *, long))rt_frame_prep)
-         + x86_frame_base("rdi")
-         + x86("xor", "esi", "esi")
-         + x86("call", "rax")
+         + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
+         + x86("push", "r12")
+         + x86("sub",  "rsp", 8L)
+         + x86_lea_id("rcx", 7)
+         + x86_lea_id("rdx", 8)
+         + x86("mov",  "r12", "rsp")
+         + x86_jmp_reg("rax")
+         + x86("def",  L(7))
+         + x86("mov",  "rax", "rsp")
+         + x86("mov",  "rax", RDQ("rax", 8))
+         + x86("mov",  "rdi", RDQ("rax", 0))
+         + x86("mov",  "rsi", RDQ("rax", 8))
+         + x86("mov",  "rsp", "r12")
+         + x86("add",  "rsp", 8L)
+         + x86("pop",  "r12")
+         + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
-         + x86_frame_unsink()
+         + x86("call", "rt_defer_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_defer_step)
+         + x86("jmp",  "L2")
+         + x86("def",  L(8))
+         + x86("mov",  "rsp", "r12")
+         + x86("add",  "rsp", 8L)
+         + x86("pop",  "r12")
+         + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
+         + x86("mov",  "rdi", "rax")
+         + x86("mov",  "rsi", "rdx")
          + x86("call", "rt_defer_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_defer_step)
          + x86("jmp",  "L2")
          + x86("def",  "L3")

@@ -5,13 +5,17 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 long    rt_proc_call_open(const char *name, int nargs);
+void   *rt_proc_open_fn(void);
 void   *rt_frame_prep(void *fb, long fbytes);
-DESCR_t rt_proc_call_epilogue(DESCR_t fret);
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
+DESCR_t rt_proc_call_epilogue_ω(void);
+DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 DESCR_t rt_faildescr(void);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame(void *act);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
 int  rt_proc_is_generator(const char *name);
+int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 int  rt_proc_is_registered(const char *name);
 int  bb_slot_get(IR_t * nd);
@@ -87,9 +91,16 @@ static std::string bcps_det_arm() {
     int bidx = bcps_beta_pair_idx(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t openfn_fp; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t prep_fp;  { void * (*fp)(void *, long) = rt_frame_prep; prep_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t epi_fp;   { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue; epi_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t epir_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_ret; epir_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    /* PROC-CONV regime selector (the rt_proc_is_generator precedent at the gen gate below): dyn procs speak
+     * jmp-entry; lexical procs (dyn_scope=0, args bound into a caller-made frame) keep the call-regime window
+     * until NCB-1d.  The rt table is populated before any emission in both media, so this is emit-time-static. */
+    int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()
@@ -102,18 +113,42 @@ static std::string bcps_det_arm() {
          + x86("call", "rt_proc_call_open", open_fp)
          + x86("test", "rax", "rax")
          + x86("je", L(1))
-         + x86_frame_sink()
-         + x86_frame_base("rdi")
-         + x86("mov", "rsi", "rax")
-         + x86("call", "rt_frame_prep", prep_fp)
-         + x86_frame_base("rdi")
-         + x86("xor", "esi", "esi")
-         + x86("call", "rax")
-         + x86("mov", "rdi", "rax")
-         + x86("mov", "rsi", "rdx")
-         + x86_frame_unsink()
-         + x86("call", "rt_proc_call_epilogue", epi_fp)
-         + x86("jmp", L(2))
+         + (is_dyn
+            ? x86("call", "rt_proc_open_fn", openfn_fp)
+            + x86("push", "r12")
+            + x86("sub", "rsp", 8L)
+            + x86_lea_id("rcx", 3)
+            + x86_lea_id("rdx", 4)
+            + x86("mov", "r12", "rsp")
+            + x86_jmp_reg("rax")
+            + x86("def", L(3))
+            + x86("mov", "rax", "rsp")
+            + x86("mov", "rax", RDQ("rax", 8))
+            + x86("mov", "rdi", RDQ("rax", 0))
+            + x86("mov", "rsi", RDQ("rax", 8))
+            + x86("mov", "rsp", "r12")
+            + x86("add", "rsp", 8L)
+            + x86("pop", "r12")
+            + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
+            + x86("jmp", L(2))
+            + x86("def", L(4))
+            + x86("mov", "rsp", "r12")
+            + x86("add", "rsp", 8L)
+            + x86("pop", "r12")
+            + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
+            + x86("jmp", L(2))
+            : x86_frame_sink()
+            + x86_frame_base("rdi")
+            + x86("mov", "rsi", "rax")
+            + x86("call", "rt_frame_prep", prep_fp)
+            + x86_frame_base("rdi")
+            + x86("xor", "esi", "esi")
+            + x86("call", "rax")
+            + x86("mov", "rdi", "rax")
+            + x86("mov", "rsi", "rdx")
+            + x86_frame_unsink()
+            + x86("call", "rt_proc_call_epilogue_ret", epir_fp)
+            + x86("jmp", L(2)))
          + x86("def", L(1))
          + x86("call", "rt_faildescr", fail_fp)
          + x86("def", L(2))
