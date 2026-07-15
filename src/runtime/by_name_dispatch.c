@@ -192,6 +192,7 @@ int rt_builtin_is_known(const char *name)
         "__apply__",
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
+        "__rk_hash",
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
@@ -1670,6 +1671,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_hash")) {
+        size_t total = 1; char kb[256]; char vb[256];
+        for (int i = 0; i + 1 < nargs; i += 2) { total += strlen(to_cstring(args[i], kb, sizeof kb)) + strlen(to_cstring(args[i + 1], vb, sizeof vb)) + 2; }
+        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        for (int i = 0; i + 1 < nargs; i += 2) { const char *k = to_cstring(args[i], kb, sizeof kb); const char *v = to_cstring(args[i + 1], vb, sizeof vb);
+            if (p > 0) buf[p++] = '\x01'; size_t kl = strlen(k); memcpy(buf + p, k, kl); p += kl; buf[p++] = '\x02'; size_t vl = strlen(v); memcpy(buf + p, v, vl); p += vl; }
+        buf[p] = '\0'; *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "reverse") && nargs >= 1) {
         const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
