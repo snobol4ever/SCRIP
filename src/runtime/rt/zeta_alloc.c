@@ -2,17 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <gc.h>
 #include "zeta_choices.h"
 #include "rt_slab.h"
+#include "rt_arena.h"
 #include "zeta_alloc.h"
 #define ZLS_HDR 16L
-#define ZLS_ROOT_CHUNK (8L * 1024 * 1024)
-static char *g_zls_arena = (char *)0;
-static char *g_zls_top = (char *)0;
-static char *g_zls_end = (char *)0;
-static char *g_zls_hiwater = (char *)0;
-static char *g_zls_rooted = (char *)0;
+#define ZLS_ZB_BYTES ((size_t)ZC_ZBLOCK_KB << 10)
+#define ZBF_WS 1L
+static rt_arena_t g_zls_zb;
+static int g_zls_zb_up = 0;
 static void *g_zls_cur = (void *)0;
 static long  g_zls_allocs = 0;
 static long  g_zls_releases = 0;
@@ -23,52 +21,40 @@ static int   g_zls_report_reg = 0;
 static void rt_zls_report(void)
 {
     long depth = 0; void *it = g_zls_cur; while (it) { depth += 1; it = ((void **)((char *)it - ZLS_HDR))[0]; }
-    if (getenv("SCRIP_ZLS_PIN_PROBE")) { extern void GC_gcollect(void); extern size_t GC_get_heap_size(void); extern size_t GC_get_free_bytes(void); size_t h0 = GC_get_heap_size(), f0 = GC_get_free_bytes(); GC_gcollect(); GC_gcollect(); fprintf(stderr, "[PIN] pre: heap=%.1fMB free=%.1fMB | post-2x-gcollect: heap=%.1fMB free=%.1fMB | chain_depth=%ld\n", h0/1048576.0, f0/1048576.0, GC_get_heap_size()/1048576.0, GC_get_free_bytes()/1048576.0, depth); }
     if (!getenv("SCRIP_ZETA_TELEM") && !getenv("SCRIP_ZLS_LIFO_PROBE")) return;
     fprintf(stderr, "[ZLS] chain_depth=%ld live=%ld %s\n", depth, g_zls_allocs - g_zls_releases, depth == (g_zls_allocs - g_zls_releases) ? "COHERENT" : "ORPHANED");
-    fprintf(stderr, "[ZLS] ZC_ALLOC=%d ZC_INIT=%d ZC_POISON=%d arena=%dMB hiwater=%ldB allocs=%ld releases=%ld live=%ld nonhead=%ld bytes=%ld\n", (int)ZC_ALLOC, (int)ZC_INIT, (int)ZC_POISON, (int)ZC_ARENA_MB,
-            g_zls_arena ? (long)(g_zls_hiwater - g_zls_arena) : 0L, g_zls_allocs, g_zls_releases, g_zls_allocs - g_zls_releases, g_zls_nonhead, g_zls_bytes);
+    fprintf(stderr, "[ZLS] ZC_INIT=%d ZC_POISON=%d zblock=%ldKB allocs=%ld releases=%ld live=%ld nonhead=%ld bytes=%ld\n", (int)ZC_INIT, (int)ZC_POISON,
+            (long)ZC_ZBLOCK_KB, g_zls_allocs, g_zls_releases, g_zls_allocs - g_zls_releases, g_zls_nonhead, g_zls_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_zls_arena_init(void)
-{
-    long mb = (long)ZC_ARENA_MB;
-    /* TR-2: backing rebased from private mmap to the slab pool (rt_slab.c is the ONE
-     * malloc caller). Contiguous + lazily faulted, so the reserve costs address space,
-     * not RSS — the property MAP_NORESERVE gave us. Semantics unchanged: same bump
-     * cursor, same ZLS_HDR chain, same GC_add_roots root registration below. */
-    g_zls_arena = (char *)rt_slab_region((size_t)mb << 20);
-    if (!g_zls_arena) { fprintf(stderr, "[ZLS] zeta arena slab failed (%ld MB) — lower ZC_ARENA_MB\n", mb); abort(); }
-    g_zls_top = g_zls_arena; g_zls_end = g_zls_arena + ((size_t)mb << 20); g_zls_hiwater = g_zls_arena; g_zls_rooted = g_zls_arena;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZA-FLIP s67 (GC-U-2, Lon's s36 destination): the long-lived-ζ provider is rt_arena_zblock_get/put — FIXED ZC_ZBLOCK_KB blocks recycled through the A_COEXPR free list — replacing per-block
+ * GC_MALLOC/GC_FREE.  The zblock list is UNIFORM-SIZE by contract (rt_arena_zblock_get aborts on mixed sizes — this is the s39 fork made concrete), so requests larger than one ζ block route to the
+ * grow-only WORKSPACE (rt_ws_alloc) with ZBF_WS flagged in the header's size word (sizes are 16-aligned, low bits free); release leaves WS blocks in place (immortal until GC-W-2 collects the
+ * workspace — the TR-4-sanctioned transitional state).  The prev/size chain, zero/poison semantics, counters and the g_gc_pending collector trigger are VERBATIM; rooting compensation is inherited,
+ * not rebuilt: both providers are rt_slab-backed and RT_SLAB_GC_ROOTS (s37) roots every slab until TR-4 deletes libgc.  This file is now libgc-FREE — the rung's stated TR-4 unblock. */
 void *rt_zls_alloc(long bytes)
 {
     long sz = (bytes + 15L) & ~15L;
+    long flag = 0L;
     char *base;
     extern int g_gc_pending; extern long rt_gc_collect(void);
     if (g_gc_pending) { g_gc_pending = 0; rt_gc_collect(); }
     if (!g_zls_report_reg) { g_zls_report_reg = 1; atexit(rt_zls_report); }
-#if ZC_ALLOC == ZC_ALLOC_MALLOC
-    base = (char *)GC_MALLOC((size_t)(ZLS_HDR + sz));
-    if (!base) { fprintf(stderr, "[ZLS] GC-mode activation alloc failed (%ld bytes)\n", ZLS_HDR + sz); abort(); }
-#else
-    if (!g_zls_arena) rt_zls_arena_init();
-    base = g_zls_top;
-    if (base + ZLS_HDR + sz > g_zls_end) { fprintf(stderr, "[ZLS] zeta arena exhausted (%d MB reserve, hiwater %ldB) — raise ZC_ARENA_MB\n", (int)ZC_ARENA_MB, (long)(g_zls_hiwater - g_zls_arena)); abort(); }
-    g_zls_top = base + ZLS_HDR + sz;
-    if (g_zls_top > g_zls_hiwater) {
-        g_zls_hiwater = g_zls_top;
-        while (g_zls_rooted < g_zls_hiwater) { char *nx = g_zls_rooted + ZLS_ROOT_CHUNK; if (nx > g_zls_end) nx = g_zls_end; GC_add_roots(g_zls_rooted, nx); g_zls_rooted = nx; }
+    if ((size_t)(ZLS_HDR + sz) <= ZLS_ZB_BYTES) {
+        if (!g_zls_zb_up) { rt_arena_init(&g_zls_zb, A_COEXPR); g_zls_zb_up = 1; }
+        base = (char *)rt_arena_zblock_get(&g_zls_zb, ZLS_ZB_BYTES);
+    } else {
+        base = (char *)rt_ws_alloc((size_t)(ZLS_HDR + sz));
+        flag = ZBF_WS;
     }
-#endif
+    if (!base) { fprintf(stderr, "[ZLS] activation alloc failed (%ld bytes)\n", ZLS_HDR + sz); abort(); }
 #if ZC_INIT == ZC_INIT_ZERO
     memset(base, 0, (size_t)(ZLS_HDR + sz));
 #elif ZC_POISON == ZC_POISON_FILL
     memset(base, 0xAA, (size_t)(ZLS_HDR + sz));
 #endif
     ((void **)base)[0] = g_zls_cur;
-    ((long *)base)[1] = sz;
+    ((long *)base)[1] = sz | flag;
     g_zls_cur = (void *)(base + ZLS_HDR);
     g_zls_allocs += 1;
     g_zls_bytes += (long)(ZLS_HDR + sz);
@@ -79,7 +65,7 @@ void *rt_zls_frames_head(void) { return g_zls_cur; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_zls_frame_prev(void *fb) { return fb ? ((void **)((char *)fb - ZLS_HDR))[0] : (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_zls_frame_size(void *fb) { return fb ? ((long *)((char *)fb - ZLS_HDR))[1] : 0L; }
+long rt_zls_frame_size(void *fb) { return fb ? (((long *)((char *)fb - ZLS_HDR))[1] & ~15L) : 0L; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_zls_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); p = e ? (atoi(e) != 0) : (ZC_POISON == ZC_POISON_FILL); } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -99,17 +85,12 @@ void rt_zls_release(void *fb)
     g_zls_releases += 1;
     if (fb == g_zls_cur) { g_zls_cur = ((void **)base)[0]; }
     else { void *it = g_zls_cur; g_zls_nonhead += 1; while (it && rt_zls_frame_prev(it) != fb) it = rt_zls_frame_prev(it); if (!it) return; ((void **)((char *)it - ZLS_HDR))[0] = ((void **)base)[0]; }
-#if ZC_ALLOC == ZC_ALLOC_MALLOC
-    if (rt_zls_poison()) { long psz = ((long *)base)[1]; memset(base, 0xDD, (size_t)(ZLS_HDR + psz)); return; }
-    GC_FREE(base);
-#elif ZC_ALLOC == ZC_ALLOC_BUMP_LIFO
-    if (base >= g_zls_arena && base + ZLS_HDR + ((long *)base)[1] == g_zls_top) {
-#if ZC_POISON == ZC_POISON_FILL
-        memset(base, 0xDD, (size_t)(g_zls_top - base));
-#endif
-        g_zls_top = base;
-    }
-#endif
+    /* ZA-FLIP s67: unlink verbatim above; reclaim below.  A ζ block goes back on the A_COEXPR reuse list (poison-then-put is safe: rt_arena_zblock_get re-zeroes reuse under RT_ARENA_ZERO and the
+     * alloc's ZC_INIT memset covers HDR+sz, so quarantine-by-leak — the old MALLOC arm's poison behavior — is retired).  A ZBF_WS oversize block stays where it is (workspace is grow-only until
+     * GC-W-2); poison still fires on it so a stale read is loud. */
+    { long rawsz = ((long *)base)[1]; long psz = rawsz & ~15L;
+      if (rt_zls_poison()) memset(base, 0xDD, (size_t)(ZLS_HDR + psz));
+      if (!(rawsz & ZBF_WS)) rt_arena_zblock_put(&g_zls_zb, base); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB-OWNED-ζ GRAPH-EXIT STEP (Lon directive, this session).  rt_zls_mark/rt_zls_release_to — the graph-scale
@@ -165,9 +146,8 @@ void *rt_zls_arbno_step1_load(void) { if (getenv("SCRIP_ARBNO_STEP1_TRACE")) fpr
  * ZC_ZLS2_MB of contiguous virtual space that commits page-by-page on touch — the mmap stand-in for the C
  * stack's kernel-grown virtue; the discipline itself is backing-agnostic and moves to rsp-on-the-C-stack
  * when the direct-jmp call convention retires the proc trampoline (no C frame may then interleave above a
- * live BB frame — Lon's caveat, made true by construction).  GC visibility: the WHOLE reserve is rooted
- * once at init; libgc scans only committed pages' contents lazily via its dirty logic, and untouched
- * NORESERVE pages read as zero — acceptable for bring-up, revisit if root-scan cost shows in telemetry. */
+ * live BB frame — Lon's caveat, made true by construction).  GC visibility (ZA-FLIP s67): the slab backing
+ * is rooted by RT_SLAB_GC_ROOTS (s37) — the per-arena GC_add_roots this file used to do is deleted. */
 static char *g_zls2_lo = (char *)0;
 static char *g_zls2_hi = (char *)0;
 void *rt_zls2_init(void)
@@ -179,7 +159,6 @@ void *rt_zls2_init(void)
         g_zls2_lo = (char *)rt_slab_region((size_t)mb << 20);
         if (!g_zls2_lo) { fprintf(stderr, "[ZLS2] arena slab failed (%ld MB) — lower ZC_ZLS2_MB\n", mb); abort(); }
         g_zls2_hi = g_zls2_lo + ((size_t)mb << 20);
-        GC_add_roots(g_zls2_lo, g_zls2_hi);
     }
     return (void *)g_zls2_hi;
 }
