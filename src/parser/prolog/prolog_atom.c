@@ -93,7 +93,7 @@ void prolog_atom_init(void) {
 #include <stddef.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_atom(int atom_id) {
-    Term *t = rt_ws_alloc(sizeof(Term));
+    Term *t = rt_pl_cterm_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag     = TERM_ATOM;
     t->atom_id = atom_id;
@@ -101,7 +101,7 @@ Term *term_new_atom(int atom_id) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_var(int var_slot) {
-    Term *t = rt_ws_alloc(sizeof(Term));
+    Term *t = rt_pl_cterm_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag        = TERM_VAR;
     t->var_slot   = var_slot;
@@ -110,13 +110,13 @@ Term *term_new_var(int var_slot) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_compound(int functor, int arity, Term **args) {
-    Term *t = rt_ws_alloc(sizeof(Term));
+    Term *t = rt_pl_cterm_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag              = TERM_COMPOUND;
     t->compound.functor = functor;
     t->compound.arity   = arity;
     if (arity > 0 && args) {
-        t->compound.args = rt_ws_alloc(arity * sizeof(Term *));
+        t->compound.args = rt_pl_cterm_alloc(arity * sizeof(Term *));
         memcpy(t->compound.args, args, arity * sizeof(Term *));
     } else {
         t->compound.args = NULL;
@@ -125,7 +125,7 @@ Term *term_new_compound(int functor, int arity, Term **args) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_int(long ival) {
-    Term *t = rt_ws_alloc(sizeof(Term));
+    Term *t = rt_pl_cterm_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag  = TERM_INT;
     t->ival = ival;
@@ -133,7 +133,7 @@ Term *term_new_int(long ival) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Term *term_new_float(double fval) {
-    Term *t = rt_ws_alloc(sizeof(Term));
+    Term *t = rt_pl_cterm_alloc(sizeof(Term));
     memset(t, 0, sizeof(Term));
     t->tag  = TERM_FLOAT;
     t->fval = fval;

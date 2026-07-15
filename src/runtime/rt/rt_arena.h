@@ -51,4 +51,8 @@ void         rt_arena_zblock_put(rt_arena_t *a, void *blk);
 void        *rt_ws_alloc(size_t n);
 void        *rt_ws_realloc(void *p, size_t n);   /* grow-only; old size read from the title word */
 char        *rt_ws_strdup(const char *s);
+/* PL-WS RECLAIMABLE COMPOUND ARENA (GC-W-2): A_TRANS default home for Prolog term_new_*; reclaims on backtrack. */
+void        *rt_pl_cterm_alloc(size_t n);
+arena_mark_t rt_pl_cterm_mark(void);
+void         rt_pl_cterm_release(arena_mark_t m);
 #endif
