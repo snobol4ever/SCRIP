@@ -1561,6 +1561,7 @@ inline std::string x86_port_hook(int site, int port) {
  * plain assignment. Confirmed via hex dump of the corrupted bytes, not assumed; then confirmed the fix by
  * finding bb_emit_x86's actual tag loop, the same consumer every ordinary bb_*.cpp template already uses.) */
 inline std::string x86_zeta_mark_call(int off) {
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap in the BB equation — the FORTH frame IS the zeta; anchor slot already holds the rsp snapshot */
     return x86("push", "rsi")
          + x86_align_enter()
          + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_zls_mark)
@@ -1570,6 +1571,7 @@ inline std::string x86_zeta_mark_call(int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zeta_release_to_call(int off) {
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap release — the FORTH frame unwinds via add rsp,K at ω */
     return x86_align_enter()
          + x86("mov",  "rdi", FRQ(off))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release_to)

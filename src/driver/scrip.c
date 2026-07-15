@@ -1028,14 +1028,19 @@ int main(int argc, char **argv)
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { printf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; printf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 printf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; printf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
+            if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing */
+                if (bbg->nparams >= 1) printf("  # R12-ERAD FENCE: main(args) stuffing pending under RSP self-alloc\n");
+            } else {
             printf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
             if (bbg->nparams >= 1)
                 printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
+            }
             printf("  xor esi, esi\n");
             printf("  call main_\xce\xb1\n");
             printf("  xor eax, eax\n");
-            printf("  add rsp, 65536\n  add rsp, 24\n"); /* ZS-1 */
+            if (ZC_FRAME == ZC_FRAME_RSP) printf("  add rsp, 24\n"); /* R12-ERAD */
+            else printf("  add rsp, 65536\n  add rsp, 24\n"); /* ZS-1 */
             printf("  ret\n");
             int rc;
             {
@@ -1203,13 +1208,18 @@ int main(int argc, char **argv)
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva);
+            if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing */
+                if (sbbg->nparams >= 1) printf("  # R12-ERAD FENCE: main(args) stuffing pending under RSP self-alloc\n");
+            } else {
             printf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
             if (sbbg->nparams >= 1)
                 printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
+            }
             printf("  xor esi, esi\n");
             printf("  call flat_\xce\xb1\n");
-            printf("  xor eax, eax\n  add rsp, 65536\n  add rsp, 24\n  ret\n"); /* ZS-1 */
+            if (ZC_FRAME == ZC_FRAME_RSP) printf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
+            else printf("  xor eax, eax\n  add rsp, 65536\n  add rsp, 24\n  ret\n"); /* ZS-1 */
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
@@ -1328,8 +1338,9 @@ int main(int argc, char **argv)
                 abort();
             }
             ir_delete_all(s2);
-            void *mf = alloca(65536); memset(mf, 0, 65536); /* ZS-1: main zeta frame on the driver's own stack (was rt_frame() arena memo) */
-            if (bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
+            void *mf = NULL;
+            if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1: main zeta frame on the driver's own stack (was rt_frame() arena memo); R12-ERAD: under RSP the blob self-allocates, rdi unused */
+            if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             { extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, mf, 0, m3_gva_arena); else (void)fn(mf, 0); }
             goto run_done;
         }
@@ -1411,7 +1422,8 @@ int main(int argc, char **argv)
                 g_frame_active = 0;
                 ir_delete_all(s2);
                 if (fn) {
-                    void *mf = alloca(65536); memset(mf, 0, 65536); /* ZS-1 */
+                    void *mf = NULL;
+                    if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
                     extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, mf, 0, m3_gva_arena); else (void)fn(mf, 0);
                     { extern int g_gva_active; g_gva_active = 0; } goto run_done;
                 }

@@ -28,8 +28,8 @@ std::string bb_match_head() {
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
          + IF(hfc(), x86("sub", "rsp", (long)32))
-         + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
-         + x86("mov", FRQ(_.op_off + 8), "rax")
+         + IF(hfc() && ZC_FRAME != ZC_FRAME_RSP, x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark) + x86("mov", FRQ(_.op_off + 8), "rax"))
+         /* R12-ERAD: under RSP the FORTH cell base (rsp after sub) IS the ζ mark — rsp+16 already holds it; slot+8 (arena mark) unused */
          + (hfc() ? x86("mov", "rax", "rsp") + x86("add", "rax", (long)32) + x86("mov", FRQ(_.op_off + 16), "rax")
                   : x86_zls2_mark_save(_.op_off + 16))
          + x86("mov", "rdi", FRQ(_.op_sa))
@@ -60,12 +60,16 @@ std::string bb_match_head() {
          + x86("jne", L(1))
          + x86("jmp", L(0))
          + x86("def", L(1))
-         + IF(hfc(),  x86("mov",  "rdi", FRQ(_.op_off + 8)))
-         + x86_align_enter()
-         + IF(!hfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
-         + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
-         + x86_zls2_release_to_call(_.op_off + 16)
-         + x86_align_leave()
+         /* R12-ERAD (ZC_FRAME_RSP + hfc): cell's rsp-mark lives at [rsp+16] (32B FORTH cell field +16).
+          * No align dance open — bare mov rsp,[rsp+16] pops the 32B cell and restores pre-HEAD rsp. */
+         + (hfc() && ZC_FRAME == ZC_FRAME_RSP
+             ? x86("mov", "rsp", "qword ptr [rsp + 16]")
+             : ( IF(hfc(), x86("mov", "rdi", FRQ(_.op_off + 8)))
+               + x86_align_enter()
+               + IF(!hfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
+               + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
+               + x86_zls2_release_to_call(_.op_off + 16)
+               + x86_align_leave()))
          /* rbp-dcap ω (all anchors exhausted): truncate = store mirror ← MARK, then restore the C caller's
           * rbp.  This IS the old rt_dcap_end_fail, inline — the depth array died with the ring. */
          + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
