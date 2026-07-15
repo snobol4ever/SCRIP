@@ -1723,6 +1723,18 @@ EOF
 raku "hash_pairlist_strkey" "6" << 'EOF'
 my %h = "k1" => 5, "k2" => 6; say %h<k2>;
 EOF
+raku "say_listop_ints" "123" << 'EOF'
+say 1, 2, 3;
+EOF
+raku "say_listop_strs" "abc" << 'EOF'
+say "a", "b", "c";
+EOF
+raku "say_listop_mixed" "x is 5" << 'EOF'
+my $x = 5; say "x is ", $x;
+EOF
+raku "print_listop" "ab" << 'EOF'
+print "a", "b"; say "";
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
