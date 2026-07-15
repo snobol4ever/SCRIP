@@ -86,17 +86,19 @@ main_α_body:
  lea rcx, [rip + g_dcap_top]
  mov rbp, qword ptr [rcx + 0]
  mov qword ptr [rsp + 192], rbp
- mov qword ptr [rsp + 176], rsp
+ mov rax, rsp
+ sub rsp, 32
+ mov qword ptr [rsp + 16], rax
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [rsp + 168], rax
- mov dword ptr [rsp + 160], 0
+ mov qword ptr [rsp + 8], rax
+ mov dword ptr [rsp + 0], 0
 .Lx5_0:
- mov r14d, dword ptr [rsp + 160]
+ mov r14d, dword ptr [rsp + 0]
  jmp xchain0_n5_α
  xchain0_n3_β:
- add dword ptr [rsp + 160], 1
- mov eax, dword ptr [rsp + 160]
+ add dword ptr [rsp + 0], 1
+ mov eax, dword ptr [rsp + 0]
  cmp eax, r15d
  jg .Lx5_1
  lea rcx, [rip + g_anchor]
@@ -105,10 +107,10 @@ main_α_body:
  jne .Lx5_1
  jmp .Lx5_0
 .Lx5_1:
- mov rax, qword ptr [rsp + 168]
+ mov rax, qword ptr [rsp + 8]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 176]
+ mov rsp, qword ptr [rsp + 16]
  lea rcx, [rip + g_dcap_top]
  mov rax, qword ptr [rsp + 192]
  mov qword ptr [rcx + 0], rax
@@ -126,15 +128,13 @@ main_α_body:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "no match"
-# IR_MATCH_CAPTURE_SAVE push
+# IR_MATCH_CAPTURE_SAVE fc cell
  xchain0_n5_α:
- lea rdi, [rsp + 240]
- mov esi, r14d
- call rt_cap_push@PLT
+ sub rsp, 16
+ mov dword ptr [rsp + 0], r14d
  jmp xchain0_n7_α
  xchain0_n5_β:
- lea rdi, [rsp + 240]
- call rt_cap_pop@PLT
+ add rsp, 16
  jmp xchain0_n3_β
 # IR_ASSIGN global
  xchain0_n6_α:
@@ -178,8 +178,7 @@ xchain0_n7_af:
  jmp xchain0_n5_β
 # IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
  xchain0_n8_α:
- lea rdi, [rsp + 240]
- call rt_cap_top@PLT
+ mov eax, dword ptr [rsp + 16]
  lea rcx, [rip + .S0]
  mov qword ptr [rbp + 0], rcx
  mov esi, eax
@@ -230,10 +229,10 @@ xchain0_n7_af:
  jmp xchain0_n7_af
 # IR_MATCH_RELEASE
  xchain0_n11_α:
- mov rax, qword ptr [rsp + 168]
+ mov rax, qword ptr [rsp + 40]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 176]
+ mov rsp, qword ptr [rsp + 48]
  push r14
  push r15
  push r13

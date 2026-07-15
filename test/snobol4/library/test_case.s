@@ -336,26 +336,27 @@ main_α_body:
  jmp xchain0_n20_α
 # IR_MATCH_HEAD
  xchain0_n18_α:
- mov rdi, qword ptr [rsp + 704]
- mov rsi, qword ptr [rsp + 712]
+ mov r12, rsp
+ mov rdi, qword ptr [r12 + 704]
+ mov rsi, qword ptr [r12 + 712]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 664], rbp
+ mov qword ptr [r12 + 664], rbp
  lea rcx, [rip + g_dcap_top]
  mov rbp, qword ptr [rcx + 0]
- mov qword ptr [rsp + 656], rbp
- mov qword ptr [rsp + 640], rsp
+ mov qword ptr [r12 + 656], rbp
+ mov qword ptr [r12 + 640], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [rsp + 632], rax
- mov dword ptr [rsp + 624], 0
+ mov qword ptr [r12 + 632], rax
+ mov dword ptr [r12 + 624], 0
 .Lx21_0:
- mov r14d, dword ptr [rsp + 624]
+ mov r14d, dword ptr [r12 + 624]
  jmp xchain0_n21_α
  xchain0_n18_β:
- add dword ptr [rsp + 624], 1
- mov eax, dword ptr [rsp + 624]
+ add dword ptr [r12 + 624], 1
+ mov eax, dword ptr [r12 + 624]
  cmp eax, r15d
  jg .Lx21_1
  lea rcx, [rip + g_anchor]
@@ -364,14 +365,14 @@ main_α_body:
  jne .Lx21_1
  jmp .Lx21_0
 .Lx21_1:
- mov rax, qword ptr [rsp + 632]
+ mov rax, qword ptr [r12 + 632]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 640]
+ mov rsp, qword ptr [r12 + 640]
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 656]
+ mov rax, qword ptr [r12 + 656]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 664]
+ mov rbp, qword ptr [r12 + 664]
  jmp xchain0_n15_α
 # IR_ASSIGN gva
  xchain0_n19_α:
@@ -522,10 +523,10 @@ main_α_body:
  jmp xchain0_n27_α
 # IR_MATCH_RELEASE
  xchain0_n24_α:
- mov rax, qword ptr [rsp + 632]
+ mov rax, qword ptr [r12 + 632]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 640]
+ mov rsp, qword ptr [r12 + 640]
  push r14
  push r15
  push r13
@@ -562,32 +563,33 @@ main_α_body:
  pop r15
  pop r14
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 656]
+ mov rax, qword ptr [r12 + 656]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 664]
+ mov rbp, qword ptr [r12 + 664]
  jmp xchain0_n28_α
 # IR_MATCH_HEAD
  xchain0_n25_α:
- mov rdi, qword ptr [rsp + 976]
- mov rsi, qword ptr [rsp + 984]
+ mov r12, rsp
+ mov rdi, qword ptr [r12 + 976]
+ mov rsi, qword ptr [r12 + 984]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 936], rbp
+ mov qword ptr [r12 + 936], rbp
  lea rcx, [rip + g_dcap_top]
  mov rbp, qword ptr [rcx + 0]
- mov qword ptr [rsp + 928], rbp
- mov qword ptr [rsp + 912], rsp
+ mov qword ptr [r12 + 928], rbp
+ mov qword ptr [r12 + 912], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [rsp + 904], rax
- mov dword ptr [rsp + 896], 0
+ mov qword ptr [r12 + 904], rax
+ mov dword ptr [r12 + 896], 0
 .Lx30_0:
- mov r14d, dword ptr [rsp + 896]
+ mov r14d, dword ptr [r12 + 896]
  jmp xchain0_n29_α
  xchain0_n25_β:
- add dword ptr [rsp + 896], 1
- mov eax, dword ptr [rsp + 896]
+ add dword ptr [r12 + 896], 1
+ mov eax, dword ptr [r12 + 896]
  cmp eax, r15d
  jg .Lx30_1
  lea rcx, [rip + g_anchor]
@@ -596,14 +598,14 @@ main_α_body:
  jne .Lx30_1
  jmp .Lx30_0
 .Lx30_1:
- mov rax, qword ptr [rsp + 904]
+ mov rax, qword ptr [r12 + 904]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 912]
+ mov rsp, qword ptr [r12 + 912]
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 928]
+ mov rax, qword ptr [r12 + 928]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 936]
+ mov rbp, qword ptr [r12 + 936]
  jmp xchain0_n20_α
 # IR_ASSIGN gva
  xchain0_n26_α:
@@ -781,10 +783,10 @@ main_α_body:
  .string "OUTPUT"
 # IR_MATCH_RELEASE
  xchain0_n33_α:
- mov rax, qword ptr [rsp + 904]
+ mov rax, qword ptr [r12 + 904]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 912]
+ mov rsp, qword ptr [r12 + 912]
  push r14
  push r15
  push r13
@@ -821,32 +823,33 @@ main_α_body:
  pop r15
  pop r14
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 928]
+ mov rax, qword ptr [r12 + 928]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 936]
+ mov rbp, qword ptr [r12 + 936]
  jmp xchain0_n37_α
 # IR_MATCH_HEAD
  xchain0_n34_α:
- mov rdi, qword ptr [rsp + 1248]
- mov rsi, qword ptr [rsp + 1256]
+ mov r12, rsp
+ mov rdi, qword ptr [r12 + 1248]
+ mov rsi, qword ptr [r12 + 1256]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 1208], rbp
+ mov qword ptr [r12 + 1208], rbp
  lea rcx, [rip + g_dcap_top]
  mov rbp, qword ptr [rcx + 0]
- mov qword ptr [rsp + 1200], rbp
- mov qword ptr [rsp + 1184], rsp
+ mov qword ptr [r12 + 1200], rbp
+ mov qword ptr [r12 + 1184], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [rsp + 1176], rax
- mov dword ptr [rsp + 1168], 0
+ mov qword ptr [r12 + 1176], rax
+ mov dword ptr [r12 + 1168], 0
 .Lx41_0:
- mov r14d, dword ptr [rsp + 1168]
+ mov r14d, dword ptr [r12 + 1168]
  jmp xchain0_n38_α
  xchain0_n34_β:
- add dword ptr [rsp + 1168], 1
- mov eax, dword ptr [rsp + 1168]
+ add dword ptr [r12 + 1168], 1
+ mov eax, dword ptr [r12 + 1168]
  cmp eax, r15d
  jg .Lx41_1
  lea rcx, [rip + g_anchor]
@@ -855,14 +858,14 @@ main_α_body:
  jne .Lx41_1
  jmp .Lx41_0
 .Lx41_1:
- mov rax, qword ptr [rsp + 1176]
+ mov rax, qword ptr [r12 + 1176]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 1184]
+ mov rsp, qword ptr [r12 + 1184]
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 1200]
+ mov rax, qword ptr [r12 + 1200]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 1208]
+ mov rbp, qword ptr [r12 + 1208]
  jmp xchain0_n27_α
 # IR_ASSIGN gva
  xchain0_n35_α:
@@ -1033,10 +1036,10 @@ main_α_body:
  .string "OUTPUT"
 # IR_MATCH_RELEASE
  xchain0_n42_α:
- mov rax, qword ptr [rsp + 1176]
+ mov rax, qword ptr [r12 + 1176]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 1184]
+ mov rsp, qword ptr [r12 + 1184]
  push r14
  push r15
  push r13
@@ -1073,32 +1076,33 @@ main_α_body:
  pop r15
  pop r14
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 1200]
+ mov rax, qword ptr [r12 + 1200]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 1208]
+ mov rbp, qword ptr [r12 + 1208]
  jmp xchain0_n44_α
 # IR_MATCH_HEAD
  xchain0_n43_α:
- mov rdi, qword ptr [rsp + 1520]
- mov rsi, qword ptr [rsp + 1528]
+ mov r12, rsp
+ mov rdi, qword ptr [r12 + 1520]
+ mov rsi, qword ptr [r12 + 1528]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 1480], rbp
+ mov qword ptr [r12 + 1480], rbp
  lea rcx, [rip + g_dcap_top]
  mov rbp, qword ptr [rcx + 0]
- mov qword ptr [rsp + 1472], rbp
- mov qword ptr [rsp + 1456], rsp
+ mov qword ptr [r12 + 1472], rbp
+ mov qword ptr [r12 + 1456], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [rsp + 1448], rax
- mov dword ptr [rsp + 1440], 0
+ mov qword ptr [r12 + 1448], rax
+ mov dword ptr [r12 + 1440], 0
 .Lx52_0:
- mov r14d, dword ptr [rsp + 1440]
+ mov r14d, dword ptr [r12 + 1440]
  jmp xchain0_n45_α
  xchain0_n43_β:
- add dword ptr [rsp + 1440], 1
- mov eax, dword ptr [rsp + 1440]
+ add dword ptr [r12 + 1440], 1
+ mov eax, dword ptr [r12 + 1440]
  cmp eax, r15d
  jg .Lx52_1
  lea rcx, [rip + g_anchor]
@@ -1107,14 +1111,14 @@ main_α_body:
  jne .Lx52_1
  jmp .Lx52_0
 .Lx52_1:
- mov rax, qword ptr [rsp + 1448]
+ mov rax, qword ptr [r12 + 1448]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 1456]
+ mov rsp, qword ptr [r12 + 1456]
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 1472]
+ mov rax, qword ptr [r12 + 1472]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 1480]
+ mov rbp, qword ptr [r12 + 1480]
  jmp xchain0_n36_α
 # IR_LIT_STRING
  xchain0_n44_α:
@@ -1235,10 +1239,10 @@ main_α_body:
  .string "OUTPUT"
 # IR_MATCH_RELEASE
  xchain0_n47_α:
- mov rax, qword ptr [rsp + 1448]
+ mov rax, qword ptr [r12 + 1448]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 1456]
+ mov rsp, qword ptr [r12 + 1456]
  push r14
  push r15
  push r13
@@ -1275,9 +1279,9 @@ main_α_body:
  pop r15
  pop r14
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 1472]
+ mov rax, qword ptr [r12 + 1472]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 1480]
+ mov rbp, qword ptr [r12 + 1480]
  jmp xchain0_n48_α
 # IR_LIT_STRING
  xchain0_n48_α:
