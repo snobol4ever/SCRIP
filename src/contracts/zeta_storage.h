@@ -25,9 +25,12 @@ const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off);
 void         zls_dump(FILE * fp);
 #endif
 
-void fc_alt_register(const IR_t * nd, int n, const int * fp);
+void fc_alt_register(const IR_t * nd, int n, const int * fp, const int * ab, const int * ae);
 int fc_alt_fpmax(const IR_t * nd);
 int fc_alt_fp(const IR_t * nd, int j);
+int fc_alt_n(const IR_t * nd);
+int fc_alt_extent(const IR_t * nd, int * b, int * e);
+int fc_alt_arm_range(const IR_t * nd, int j, int * b, int * e);
 void fc_seq_register(const IR_t * nd);
 int fc_seq_active(const IR_t * nd);
 void fc_head_register(const IR_t * nd, int fp);

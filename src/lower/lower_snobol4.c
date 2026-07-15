@@ -811,6 +811,56 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_in_arbno = 0;   /* ZB-FC-3b: >0 while lowering an ARBNO body; balanced, so it always returns to 0 (EVAL/CODE mint fresh graphs in-process) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
+    /* ALT-LIFT (the s65 named follow-on): the ONE eligibility+footprint walk all four grant sites share.  A GRANTED ALTERNATE contributes 16 (its own cell) + fpmax (the S10d padded arm -- only one arm
+     * is live at yield, padded to max by the sigma stubs) and its arm allocation extent is SKIPPED (the naive range sum counted every arm's leaves = the exact over-count the pre-lift decline existed
+     * to avoid).  An UNGRANTED ALTERNATE still declines the whole range.  fc_geom(ALT)=16 for granted ALTs, so the ALT case MUST run before the fc_geom catch or the arm extent is never skipped. */
+    extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_extent(const IR_t *, int *, int *);
+    int lin = 1;
+    for (int k = k0; k < k1; k++) {
+        IR_t * x = g->all[k];
+        if (!x) continue;
+        if (x->op == IR_MATCH_ALTERNATE) {
+            int _b = 0, _e = 0;
+            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (fp) *fp += 16 + fc_alt_fpmax(x); if (_e > k + 1) k = _e - 1; continue; }
+            lin = 0; continue;
+        }
+        { long fck; if (fc_geom(x, &fck)) { if (fp) *fp += (int)fck; continue; } }
+        switch (x->op) {
+        case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+        case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+        case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+        case IR_GOTO: break;
+        case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL: if (!lit_ok) lin = 0; break;   /* R12-ERAD s65: constant primitive args allocate inline -- statement+SEQ whitelists only */
+        default: lin = 0;
+        }
+    }
+    return lin;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fc_leaf_walk(IR_graph_t * g, int k0, int k1, int pfx) {
+    /* ALT-LIFT leaf-displacement twin of fc_walk_range: registers every node's static rsp->flat distance.  A granted ALT: itself at pfx+16 (window refs bypass, uniformity only); each ARM restarts at
+     * pfx+16 (arms are alternatives on top of A's cell, not concatenation -- recursion handles nested granted ALTs); nodes AFTER the ALT see pfx+16+fpmax (every arm yields at the uniform padded depth,
+     * the pad stubs' whole purpose).  Returns the running pfx so callers could chain; ungranted ALTs never reach here (the grant walk declined the whole range first). */
+    extern void fc_leaf_register(const IR_t *, int); extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_n(const IR_t *); extern int fc_alt_arm_range(const IR_t *, int, int *, int *);
+    for (int k = k0; k < k1; k++) {
+        IR_t * x = g->all[k];
+        if (!x || x->op == IR_GOTO) continue;
+        if (x->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(x) >= 0) {
+            int _nA = fc_alt_n(x), _elast = k + 1;
+            fc_leaf_register(x, pfx + 16);
+            for (int j = 0; j < _nA; j++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, j, &_b, &_e)) { fc_leaf_walk(g, _b, _e, pfx + 16); if (_e > _elast) _elast = _e; } }
+            pfx += 16 + fc_alt_fpmax(x);
+            if (_elast > k + 1) k = _elast - 1;
+            continue;
+        }
+        long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
+        fc_leaf_register(x, pfx + (int)own);
+        pfx += (int)own;
+    }
+    return pfx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail) {
     /* SN4-NARY-SEQ (Lon directive 2026-07-12, this session; same glue mechanism as SN4-NARY-ALT and the
      * same design rule — a construct earns a node iff it OWNS RUNTIME STATE): ONE IR_MATCH_SEQUENCE node S
@@ -830,7 +880,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
     IR_graph_t * g = cx->g;
     IR_t * S = lc_build(g, IR_MATCH_SEQUENCE, succ, NULL);
     sno_ω_to(S, fail);
-    int fc_linear = 1;   /* ZB-FC-3b: eligibility only -- SEQ needs NO footprint arithmetic (zeta_storage.c fc_seq_*); every element must merely respect the S10c port invariant */
+    int fc_linear = 1;   /* ZB-FC-3b + ALT-LIFT: eligibility only -- SEQ needs NO footprint arithmetic (zeta_storage.c fc_seq_*); every element must merely respect the S10c port invariant, and a granted ALT is port-invariant with footprint 16+fpmax (pushes at alpha, pads at sigma, pops at omega) */
     for (int i = 0; i < ne; i++) {
         int before = g->n;
         IR_t * ei = sno_pat_node(cx, elems[i], S, S);
@@ -840,16 +890,8 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
             if (!x) continue;
             if (x->ω.node == S) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
             if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
-            { long fck; if (fc_geom(x, &fck)) continue; }   /* granted leaf: pushes at alpha, pops at EVERY omega -- port-invariant by construction */
-            switch (x->op) {
-            case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
-            case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
-            case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
-            case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:   /* R12-ERAD s65: constant primitive args allocate inline in the element range -- zero-cell value nodes (the fc_head whitelist twin) */
-            case IR_GOTO: break;
-            default: fc_linear = 0;   /* ALTERNATE / ARBNO / ARB / DEFER / ABORT / unknown: decline the whole SEQ -- it stays flat, the pre-rung path */
-            }
         }
+        if (!fc_walk_range(g, before, g->n, 1, NULL)) fc_linear = 0;
         ir_operand_push(S, ei);
         ir_operand_push(S, ri);
     }
@@ -1023,28 +1065,16 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, itail); /* COND backtrack-in: resume or pop */
         ir_operand_push(nd, pe);                                   /* [0] inner entry */
         ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's slot */
-        {   /* ZB-FC-3c (ARCH-ZETA S13 Tier C; plan of record = the s47 COND-CROSS-BOX-READ finding): SAVE
+        {   /* ZB-FC-3c (ARCH-ZETA S13 Tier C; plan of record = the s47 COND-CROSS-BOX-READ finding) + ALT-LIFT: SAVE
              * gets a 16-byte cell (delta at cell+0, rt_cap array retired on the granted path) and COND reads
              * it CROSS-BOX at [rsp + fp(inner)] -- static by S10c (cells pop at omega not gamma, so the whole
-             * inner subtree is still suspended at COND.alpha).  fp(inner) = the ALT arm loop's range sum,
-             * exact ONLY for fc-LINEAR spines; the fence is TWO-DIRECTIONAL (the ZB-FC-3b lesson mirrored):
-             * ARBNO/ALT/ARB/DEFER *inside* the inner breaks the static displacement, and a capture *inside*
-             * an ARBNO body (sno_in_arbno) breaks the port invariant -- either direction declines BOTH
-             * registrations and the capture keeps today's flat array path verbatim (degrade never die). */
-            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0);
-            for (int k = before_i; k < g->n; k++) {
-                IR_t * x = g->all[k];
-                if (!x) continue;
-                if (x->op == IR_MATCH_ALTERNATE) { fc_lin = 0; continue; }
-                { long fck; if (fc_geom(x, &fck)) { fp_inner += (int)fck; continue; } }
-                switch (x->op) {
-                case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
-                case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
-                case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
-                case IR_GOTO: break;
-                default: fc_lin = 0;
-                }
-            }
+             * inner subtree is still suspended at COND.alpha).  fp(inner) via the shared fc_walk_range: a
+             * granted ALT inner contributes 16+fpmax (its pad stubs ran at sigma before control reaches
+             * COND.alpha, so the padded depth IS the suspended depth); ungranted ALT/ARBNO/ARB/DEFER inside
+             * the inner still declines, as does a capture *inside* an ARBNO body (sno_in_arbno) -- either
+             * direction declines BOTH registrations and the capture keeps today's flat array path verbatim
+             * (degrade never die). */
+            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_i, g->n, 0, &fp_inner);
             if (fc_lin) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); }
         }
         return save;                                               /* capture entry is the SAVE node */
@@ -1070,22 +1100,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, itail);
         ir_operand_push(nd, pe);
         ir_operand_push(nd, save);
-        {   /* ZB-FC-3c: $ is the IDENTICAL topology at op_phase 2 (the s47 finding's C5 -- one mechanism,
-             * two phases); same eligibility walk, same two-directional fence, same registrations. */
-            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0);
-            for (int k = before_i; k < g->n; k++) {
-                IR_t * x = g->all[k];
-                if (!x) continue;
-                if (x->op == IR_MATCH_ALTERNATE) { fc_lin = 0; continue; }
-                { long fck; if (fc_geom(x, &fck)) { fp_inner += (int)fck; continue; } }
-                switch (x->op) {
-                case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
-                case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
-                case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
-                case IR_GOTO: break;
-                default: fc_lin = 0;
-                }
-            }
+        {   /* ZB-FC-3c + ALT-LIFT: $ is the IDENTICAL topology at op_phase 2 (the s47 finding's C5 -- one mechanism,
+             * two phases); same shared walk, same two-directional fence, same registrations. */
+            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_i, g->n, 0, &fp_inner);
             if (fc_lin) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); }
         }
         return save;
@@ -1181,7 +1198,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * A = lc_build(g, IR_MATCH_ALTERNATE, succ, NULL);
         sno_ω_to(A, fail);
         (void)0; /* A is first-allocated: the construct tail TT_SEQ resume re-points land A.β */
-        int fc_fp[16]; int fc_linear = (na <= 10);   /* ZB-FC-3a: N>10 exceeds the 3N+2<=32 pair budget */
+        int fc_fp[16]; int fc_ab[16]; int fc_ae[16]; int fc_linear = (na <= 10);   /* ZB-FC-3a: N>10 exceeds the 3N+2<=32 pair budget */
         for (int i = 0; i < na; i++) {
             int before = g->n;
             IR_t * ei = sno_pat_node(cx, alts[i], A, A);
@@ -1192,27 +1209,15 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 if (!x) continue;
                 if (x->ω.node == A) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
                 if (x->γ.node == A) { if (x->op == IR_GOTO && x->ω.node == A) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
-                /* ZB-FC-3a (ARCH-ZETA S13 Tier C): EXACT static arm footprint for the S10d pad-to-max law.
-                 * Nested ALTERNATE declines FIRST (a granted nested ALT's yield fp is 16+FPMAX_inner, not the
-                 * range sum -- range-sum is exact ONLY for linear spines); then granted leaves count 16 each
-                 * (all suspended at arm yield); then the linear whitelist (zero-cell leaves / SEQ whose
-                 * elements are all in-range and all live at yield / captures / wiring); ANYTHING ELSE
-                 * declines the whole ALT -- it stays flat, the pre-rung path. */
-                if (x->op == IR_MATCH_ALTERNATE) { fc_linear = 0; continue; }
-                { long fck; if (fc_geom(x, &fck)) { fp_i += (int)fck; continue; } }
-                switch (x->op) {
-                case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
-                case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
-                case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
-                case IR_GOTO: break;
-                default: fc_linear = 0;
-                }
             }
-            if (i < 16) fc_fp[i] = fp_i;
+            /* ZB-FC-3a (ARCH-ZETA S13 Tier C) + ALT-LIFT: EXACT static arm footprint for the S10d pad-to-max law, via the shared walk -- a nested GRANTED ALT now contributes 16+FPMAX_inner with its arm
+             * extent skipped (the pre-lift blanket decline is retired); an UNGRANTED nested ALT or anything unknown still declines the whole outer ALT (stays flat, degrade never die). */
+            if (!fc_walk_range(g, before, g->n, 0, &fp_i)) fc_linear = 0;
+            if (i < 16) { fc_fp[i] = fp_i; fc_ab[i] = before; fc_ae[i] = g->n; }
             ir_operand_push(A, ei);
             ir_operand_push(A, ri);
         }
-        if (fc_linear) { extern void fc_alt_register(const IR_t *, int, const int *); fc_alt_register(A, (int)na, fc_fp); }
+        if (fc_linear) { extern void fc_alt_register(const IR_t *, int, const int *, const int *, const int *); fc_alt_register(A, (int)na, fc_fp, fc_ab, fc_ae); }
         IR_LIT(A).ival = (long)na;   /* promoted → _.op_ival = N for the template's dispatch chains (walk_bb_node line ~697); the σ/φ inside-edge tags carry membership, so no extent is needed */
         return A;
     }
@@ -1326,44 +1331,17 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     int before_pat = g->n;
     IR_t * pat_entry = sno_pat_node(cx, ptt, release, head);
     lc_γ_to(head, pat_entry);
-    {   /* ZB-FC-3d (partition ruling, s49): the statement grant.  The 3c eligibility walk VERBATIM, run over
-         * the PATTERN range only ([before_pat, g->n) -- head/release/splice/repl-chain allocate before it,
-         * pre-chains and the subject chain after, so the range is pattern-pure by construction).  fp_stmt =
-         * the fc_geom range sum = the suspended-cell depth at RELEASE.alpha (every box on a LINEAR success
-         * path is gamma-suspended, S10c).  The v1 fence is ALT-FREE: a granted ALTERNATE's arms all sit in
-         * the range but only one padded arm is live at yield, so the linear sum over-counts -- ALTERNATE
-         * declines the whole statement (the per-ALT 16+fpmax lift is a named follow-on).  Either-direction
-         * failure keeps the flat path byte-verbatim (degrade never die). */
-        int fp_stmt = 0; int fc_lin = (sno_in_arbno == 0);
-        for (int k = before_pat; k < g->n; k++) {
-            IR_t * x = g->all[k];
-            if (!x) continue;
-            if (x->op == IR_MATCH_ALTERNATE) { fc_lin = 0; continue; }
-            { long fck; if (fc_geom(x, &fck)) { fp_stmt += (int)fck; continue; } }
-            switch (x->op) {
-            case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
-            case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
-            case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
-            case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:   /* R12-ERAD s65: constant pattern-primitive args allocate INLINE in the range (only runtime args hoist to pre-chains, SEMANTIC PIN 1) — zero-cell value nodes, port-invariant by triviality */
-            case IR_GOTO: break;
-            default: fc_lin = 0;
-            }
-        }
+    {   /* ZB-FC-3d (partition ruling, s49) + ALT-LIFT (the s65 named follow-on, landed): the statement grant.  The shared fc_walk_range over the PATTERN range only ([before_pat, g->n) -- head/release/
+         * splice/repl-chain allocate before it, pre-chains and the subject chain after, so the range is pattern-pure by construction).  fp_stmt = the fc_geom range sum PLUS 16+fpmax per granted
+         * ALTERNATE (arm extents skipped -- only one padded arm is live at yield, the exact over-count the old blanket decline existed to avoid).  UNGRANTED ALTs and unknowns still decline; either-
+         * direction failure keeps the flat path byte-verbatim (degrade never die). */
+        int fp_stmt = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_pat, g->n, 1, &fp_stmt);
         if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
-        /* R12-ERAD s65: per-leaf flat displacement for ZC_FRAME_RSP (fc_leaf registrar, zeta_storage.c).  Same range, same order (allocation = flow on the linear spine), prefix starts at 32 = HEAD's
-         * self-pushed cell; each pattern node's body depth = prefix-before + own granted cell (zero-cell leaves still carry the prefix -- their beta undo re-reads the flat OPERAND slot).  Registered
-         * only under the statement grant: a declined statement has no static depth (that is WHY it declined) and its emission stays on the flat path, honestly broken under RSP until the ALT lift. */
-        if (fc_lin) {
-            extern void fc_leaf_register(const IR_t *, int);
-            int pfx = 32;
-            for (int k = before_pat; k < g->n; k++) {
-                IR_t * x = g->all[k];
-                if (!x || x->op == IR_GOTO) continue;
-                long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
-                fc_leaf_register(x, pfx + (int)own);
-                pfx += (int)own;
-            }
-        }
+        /* R12-ERAD s65 + ALT-LIFT: per-leaf flat displacement for ZC_FRAME_RSP via fc_leaf_walk (zeta_storage.c registrar).  Same range, same order (allocation = flow on the linear spine), prefix
+         * starts at 32 = HEAD's self-pushed cell; each pattern node's body depth = prefix-before + own granted cell.  Granted ALT arms restart at prefix+16 (alternatives, not concatenation); nodes
+         * after a granted ALT see prefix+16+fpmax (the pad stubs' uniform yield depth).  Registered only under the statement grant: a declined statement has no static depth (that is WHY it declined)
+         * and its emission stays on the flat path, honestly broken under RSP until its own lift. */
+        if (fc_lin) fc_leaf_walk(g, before_pat, g->n, 32);
     }
     /* OPERAND-EDGE HOIST (2026-07-10, SEMANTIC PIN 1 — manual p85-86: primitive args are captured at pattern
      * CONSTRUCTION, once per statement execution, BEFORE the scan begins; only *V defers).  Every runtime-arg
