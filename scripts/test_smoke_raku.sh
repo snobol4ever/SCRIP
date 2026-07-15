@@ -1708,6 +1708,21 @@ EOF
 raku "wordlist_hash_subscript_coexist" "5" << 'EOF'
 my %h; %h<k> = 5; my @w = <a b c>; say %h<k>;
 EOF
+raku "hash_pairlist_first" "1" << 'EOF'
+my %h = a => 1, b => 2; say %h<a>;
+EOF
+raku "hash_pairlist_second" "2" << 'EOF'
+my %h = a => 1, b => 2; say %h<b>;
+EOF
+raku "hash_pairlist_paren" "20" << 'EOF'
+my %h = (x => 10, y => 20); say %h<y>;
+EOF
+raku "hash_pairlist_elems" "3" << 'EOF'
+my %h = a => 1, b => 2, c => 3; say %h.elems;
+EOF
+raku "hash_pairlist_strkey" "6" << 'EOF'
+my %h = "k1" => 5, "k2" => 6; say %h<k2>;
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

@@ -226,6 +226,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> mul_expr unary_expr postfix_expr call_expr block
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt
 %type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl role_decl
+%type <node> pair_list
 %type <sval> is_clauses
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
 %right '=' OP_BIND
@@ -277,6 +278,10 @@ stmt
           $$ = expr_binary(TT_ASSIGN, var_node($2), call); }
     | KW_MY VAR_HASH '=' expr ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
+    | KW_MY VAR_HASH '=' pair_list ';'
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
+    | KW_MY VAR_HASH '=' '(' pair_list ')' ';'
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), $5); }
     | KW_MY IDENT VAR_SCALAR '=' expr ';'
         { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,$5); $$=e; }
     | KW_MY IDENT VAR_ARRAY '=' expr ';'
@@ -771,6 +776,16 @@ named_arg_list
         { exprlist_append($1, leaf_sval(TT_QLIT, $3)); free($3);
           exprlist_append($1, $5);
           $$ = $1; }
+    ;
+pair_list
+    : IDENT OP_FATARROW expr
+        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,$1)); free($1); expr_add_child(c,$3); $$=c; }
+    | LIT_STR OP_FATARROW expr
+        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,$1)); expr_add_child(c,$3); $$=c; }
+    | pair_list ',' IDENT OP_FATARROW expr
+        { expr_add_child($1,leaf_sval(TT_QLIT,$3)); free($3); expr_add_child($1,$5); $$=$1; }
+    | pair_list ',' LIT_STR OP_FATARROW expr
+        { expr_add_child($1,leaf_sval(TT_QLIT,$3)); expr_add_child($1,$5); $$=$1; }
     ;
 param_list
     : VAR_SCALAR             { $$=exprlist_append(exprlist_new(),var_node($1)); }
