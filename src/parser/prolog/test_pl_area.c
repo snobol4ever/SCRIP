@@ -2,13 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <gc.h>
 static int fails = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void check(int cond, const char *what) { if (!cond) { fprintf(stderr, "FAIL: %s\n", what); fails++; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
-    GC_INIT();
     pl_area_t a;
     pl_area_init(&a, 1u * 1024u * 1024u);
     check(a.base != (char *)0, "init mmap succeeded");
@@ -47,7 +45,6 @@ int main(void) {
     pl_area_reset(&a, a.base);
     uint64_t *area_word = (uint64_t *)pl_area_bump(&a, 16);
     *area_word = 0x1234567890ABCDEFull;
-    GC_gcollect();
     check(*area_word == 0x1234567890ABCDEFull, "area memory intact across GC (area is not a GC-managed region)");
     if (fails == 0) printf("PASS test_pl_area: all checks ok (mmap bump/mark/reset/grow + GC-invisible)\n");
     else printf("FAIL test_pl_area: %d check(s) failed\n", fails);

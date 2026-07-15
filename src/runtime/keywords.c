@@ -236,17 +236,17 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
     }
     if (!strcmp(kw,"regions")) {
         if (idx == 0) return INTVAL(0);
-        if (idx == 1 || idx == 2) return INTVAL((long)GC_get_heap_size());
+        if (idx == 1 || idx == 2) { extern size_t rt_slab_pool_bytes(void); return INTVAL((long)rt_slab_pool_bytes()); }
         return FAILDESCR;
     }
     if (!strcmp(kw,"storage")) {
-        long used = (long)(GC_get_heap_size() - GC_get_free_bytes());
+        extern size_t rt_slab_pool_bytes(void); extern long rt_gcheap_free(void); long used = (long)rt_slab_pool_bytes() - rt_gcheap_free();
         if (idx == 0) return INTVAL(0);
         if (idx == 1 || idx == 2) return INTVAL(used);
         return FAILDESCR;
     }
     if (!strcmp(kw,"collections")) {
-        long g = (long)GC_get_gc_no();
+        extern long rt_gc_runs_count(void); long g = rt_gc_runs_count();
         if (idx == 0) return INTVAL(g);
         if (idx == 1) return INTVAL(0);
         if (idx == 2) return INTVAL(g);

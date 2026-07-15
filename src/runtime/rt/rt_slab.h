@@ -11,7 +11,7 @@
  * (silent, stress-only corruption — the exact TR-2 lesson). Registering every slab as a GC root
  * restores precisely the reachability the old allocator gave for free. DELETE AT TR-4 with libgc. */
 #ifndef RT_SLAB_GC_ROOTS
-#define RT_SLAB_GC_ROOTS 1
+#define RT_SLAB_GC_ROOTS 0
 #endif
 
 typedef struct rt_slab {

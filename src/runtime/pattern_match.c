@@ -1187,7 +1187,7 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
      * element store to hold index i, ZERO element i (the fresh-iteration rule — body boxes may read-before-
      * write via rt_cap_push and a reused index must not leak a popped iteration's state; POP never zeroes,
      * resume needs the state), return its address.  ZC_COLLECTION = MALLOC (D7): realloc house style, with
-     * the zeta_alloc GC_add_roots trick so capture-stack GC pointers INSIDE elements stay collector-visible;
+     * the zeta arena (TR-4 s67: the libgc rooting this once leaned on is gone with libgc; the unified collector's root story is GC-W-1's);
      * roots move with the block.  Known v1 lifetime residual (watermarked): the block is reused across
      * anchor retries and statement re-executions within a frame, but leaks at frame death — the per-
      * activation grown-collection release list (5f) or the GC backing (GC-4) retires this. */
@@ -1197,16 +1197,14 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
         int nc = *cap_cell > 0 ? *cap_cell : 4;
         while (nc < i + 1) nc *= 2;
         char * op = (char *)*ptr_cell;
-        if (op) GC_remove_roots(op, op + (size_t)*cap_cell * (size_t)elem_sz);
         char * np = (char *)realloc(op, (size_t)nc * (size_t)elem_sz);
         if (!np) rt_bomb("rt_zcol_push: collection realloc failed");
         memset(np + (size_t)*cap_cell * (size_t)elem_sz, 0, (size_t)(nc - *cap_cell) * (size_t)elem_sz);
-        GC_add_roots(np, np + (size_t)nc * (size_t)elem_sz);
         *ptr_cell = np; *cap_cell = nc;
     }
 #elif ZC_COLLECTION == ZC_COL_ARENA
     /* BB-OWNED-ζ pivot (statement-scope mark/release_to, this session): grow onto the SAME LIFO arena
-     * rt_zls_alloc/rt_zls_release already use, instead of realloc.  No GC_add_roots/GC_remove_roots here —
+     * rt_zls_alloc/rt_zls_release already use, instead of realloc.  No per-table root churn here (TR-4) —
      * rt_zls_alloc already widened the arena's root range to cover every byte up to the new hiwater
      * (zeta_alloc.c rt_zls_alloc), so a block living INSIDE the arena is already GC-visible by construction;
      * per-block rooting was only ever needed for the malloc arm, where each block was its own separate

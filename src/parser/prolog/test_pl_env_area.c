@@ -2,13 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <gc.h>
 static int fails = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void check(int cond, const char *what) { if (!cond) { fprintf(stderr, "FAIL: %s\n", what); fails++; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
-    GC_INIT();
     pl_area_t e = { (char *)0, (char *)0, (char *)0, 0 };
     check(pl_env_mark(&e) == 0, "mark of un-reserved area is 0");
     pl_env_reset(&e, 0);
@@ -44,7 +42,6 @@ int main(void) {
     check(pl_env_mark(&e) == caller, "deterministic-pop reclaimed the callee frame");
     uint64_t *w = (uint64_t *)pl_env_bump(&e, 16);
     *w = 0x0FEEDFACE0BADF00Dull;
-    GC_gcollect();
     check(*w == 0x0FEEDFACE0BADF00Dull, "env-area memory intact across GC (mmap region, not GC-managed)");
     if (fails == 0) printf("PASS test_pl_env_area: all checks ok (lazy mmap + 16-align + int-offset mark/reset + GC-invisible)\n");
     else printf("FAIL test_pl_env_area: %d check(s) failed\n", fails);

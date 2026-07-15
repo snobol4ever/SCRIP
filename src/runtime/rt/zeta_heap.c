@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
-#include <gc.h>
 #include "rt_slab.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZH_HDR 16L
@@ -30,7 +29,7 @@ static void zh_init(void)
 {
     long mb = 32; const char *e = getenv("SCRIP_ZH_MB"); if (e && atol(e) > 0) mb = atol(e);
     g_zh_cap = mb * 1024L * 1024L;
-    /* TR-2: slab-pool backing (was GC_MALLOC_UNCOLLECTABLE). ⚠ CORRECTNESS COMPENSATION:
+    /* TR-2: slab-pool backing. TR-4 s67: the libgc root registration this block once carried is deleted with libgc itself; the historical compensation note:
      * uncollectable-GC memory is still SCANNED by libgc for pointers; malloc'd memory is
      * NOT. ZH blocks hold DESCR pointers into GC-managed objects, so the region must be
      * registered as a root or those objects become unreachable and get collected out from
@@ -39,22 +38,21 @@ static void zh_init(void)
      * LIVE/DEAD/POISON header protocol below is untouched, per the rung's brief. */
     g_zh_base = (char *)rt_slab_region((size_t)g_zh_cap);
     if (!g_zh_base) { fprintf(stderr, "[ZH] FATAL: slab alloc failed (%ld MB)\n", mb); abort(); }
-    GC_add_roots(g_zh_base, g_zh_base + g_zh_cap);
     g_zh_cur = g_zh_base;
-    g_zh_tab_cap = ZH_TAB_INIT; g_zh_tab = (char **)GC_MALLOC_UNCOLLECTABLE(sizeof(char *) * g_zh_tab_cap); if (!g_zh_tab) abort();
+    g_zh_tab_cap = ZH_TAB_INIT; { extern void *rt_ws_alloc(size_t); g_zh_tab = (char **)rt_ws_alloc(sizeof(char *) * g_zh_tab_cap); } if (!g_zh_tab) abort();
     if (!g_zh_atexit) { g_zh_atexit = 1; if (zh_telem()) atexit(zh_report); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned zh_handle_get(void)
 {
     if (g_zh_free_n) return g_zh_free[--g_zh_free_n];
-    if (g_zh_tab_next >= g_zh_tab_cap) { unsigned nc = g_zh_tab_cap * 2; char **nt = (char **)GC_MALLOC_UNCOLLECTABLE(sizeof(char *) * nc); if (!nt) abort(); memcpy(nt, g_zh_tab, sizeof(char *) * g_zh_tab_cap); GC_FREE(g_zh_tab); g_zh_tab = nt; g_zh_tab_cap = nc; }
+    if (g_zh_tab_next >= g_zh_tab_cap) { unsigned nc = g_zh_tab_cap * 2; extern void *rt_ws_realloc(void *, size_t); char **nt = (char **)rt_ws_realloc(g_zh_tab, sizeof(char *) * nc); if (!nt) abort(); g_zh_tab = nt; g_zh_tab_cap = nc; }
     return g_zh_tab_next++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zh_handle_put(unsigned h)
 {
-    if (g_zh_free_n >= g_zh_free_cap) { unsigned nc = g_zh_free_cap ? g_zh_free_cap * 2 : ZH_TAB_INIT; unsigned *nf = (unsigned *)GC_MALLOC_UNCOLLECTABLE(sizeof(unsigned) * nc); if (!nf) abort(); if (g_zh_free) { memcpy(nf, g_zh_free, sizeof(unsigned) * g_zh_free_n); GC_FREE(g_zh_free); } g_zh_free = nf; g_zh_free_cap = nc; }
+    if (g_zh_free_n >= g_zh_free_cap) { unsigned nc = g_zh_free_cap ? g_zh_free_cap * 2 : ZH_TAB_INIT; extern void *rt_ws_alloc(size_t); extern void *rt_ws_realloc(void *, size_t); unsigned *nf = g_zh_free ? (unsigned *)rt_ws_realloc(g_zh_free, sizeof(unsigned) * nc) : (unsigned *)rt_ws_alloc(sizeof(unsigned) * nc); if (!nf) abort(); g_zh_free = nf; g_zh_free_cap = nc; }
     g_zh_tab[h] = 0; g_zh_free[g_zh_free_n++] = h;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
