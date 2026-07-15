@@ -528,6 +528,8 @@ static DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
 DESCR_t rt_proc_call_epilogue(DESCR_t fret);
+DESCR_t rt_proc_call_epilogue_γ(void);
+DESCR_t rt_proc_call_epilogue_ω(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
@@ -791,21 +793,52 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* EPILOGUE LEAF — everything from the Σ restore through the monitor return event.  Takes the callee's raw
- * return descriptor, yields the call's result.  Strict leaf: calls no BB. */
-DESCR_t rt_proc_call_epilogue(DESCR_t fret)
+/* EPILOGUE BODY — everything from the Σ restore through the monitor return event.  ONE body, TWO entries: the
+ * port is a STATIC fact at each entry (γ passes 0, ω passes 1), never a flag re-derived from a sentinel.  The
+ * IR already knows the port — lower_snobol4.c routes RETURN→exitnd(γ) and FRETURN→failnd(ω) — so the call
+ * regime's IS_FAIL_fn round-trip is an impedance mismatch, not information.  PROC-CONV (R12-FREE rung 2) wires
+ * γ/ω to separate landings; each landing knows its port BY BEING that landing, so `failed` arrives as a
+ * constant and the shim below is deleted.  Strict leaf: calls no BB.  ⚠ The c.lex arm is PORT-AGNOSTIC today —
+ * it reads [fb+0] whether the callee reached RETURN or FRETURN, ignoring the port entirely.  Preserved VERBATIM
+ * here (this refactor is watermark-neutral by construction); it needs a ruling before the transfer converts. */
+static DESCR_t rt_proc_epilogue_body(rt_pcall_t c, int failed)
 {
-    rt_k_level--;
-    if (g_pcall_top <= 0) return FAILDESCR;
-    rt_pcall_t c = g_pcall[--g_pcall_top];
     if (c.lex) return rt_nret_fix(*(DESCR_t *)c.fb, c.wn);
     Σ = c.save_Σ; Σlen = c.save_Σlen;
     DESCR_t *rcell = rt_call_fastpath_ok() ? c.p->rcell : (DESCR_t *)0;
-    DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c.rname));
+    DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c.rname));
     result = rt_nret_fix(result, c.wn);
     rt_name_restore(c.save_base);
     if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
     return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* γ ENTRY — RETURN and NRETURN.  Manual Ch.8: RETURN yields a value for the caller.  NRETURN yields a NAME and
+ * is a γ citizen too — lower_snobol4.c routes its SNO$NRET node to exitnd, the same γ as RETURN, the flag
+ * riding in rt_g_ret_by_name.  There is no fifth port (RULES.md: FOUR PORTS = FOUR GREEK NAMES ALWAYS). */
+DESCR_t rt_proc_call_epilogue_γ(void)
+{
+    rt_k_level--;
+    if (g_pcall_top <= 0) return FAILDESCR;
+    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ω ENTRY — FRETURN.  Manual Ch.8 verbatim: "Transferring to the special label FRETURN returns from a function
+ * signaling failure to the caller.  No value is returned as the function result." */
+DESCR_t rt_proc_call_epilogue_ω(void)
+{
+    rt_k_level--;
+    if (g_pcall_top <= 0) return FAILDESCR;
+    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* CALL-REGIME SHIM — the sentinel round-trip, retained VERBATIM in behavior until PROC-CONV converts the
+ * transfer.  Every existing call site keeps reaching the epilogue through here, which is what makes this rung
+ * watermark-neutral.  When the transfer becomes wire+jmp, the landings reach the two entries above directly
+ * and this function — with IS_FAIL_fn — goes away. */
+DESCR_t rt_proc_call_epilogue(DESCR_t fret)
+{
+    return IS_FAIL_fn(fret) ? rt_proc_call_epilogue_ω() : rt_proc_call_epilogue_γ();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LEXICAL PROLOGUE LEAF — the rt_call_proc_descr protocol: no name saves, args bound INTO the frame, result
