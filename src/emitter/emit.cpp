@@ -676,6 +676,7 @@ extern "C" int zls2_geom(const IR_t *, int, int *, long *);   /* zeta_storage.c 
 extern "C" int fc_geom(const IR_t *, long *);                 /* zeta_storage.c — ZC_PORT_FORTH per-box fixed-cell geometry (RUNG ZB-FC-0) */
 extern "C" int fc_cond_fp(const IR_t *);                      /* zeta_storage.c — ZB-FC-3c COND/IMM cross-box displacement = fp(inner); -1 = ungranted */
 extern "C" int fc_head_fp(const IR_t *);                      /* zeta_storage.c — ZB-FC-3d statement grant: fp(pattern) for HEAD's window + RELEASE's cross-box reads; -1 = ungranted */
+extern "C" int fc_leaf_disp(const IR_t *);                    /* zeta_storage.c — R12-ERAD s65: per-leaf flat displacement under ZC_FRAME_RSP; -1 = unregistered (deliver 0) */
 extern "C" int fc_seq_active(const IR_t *);                   /* zeta_storage.c — ZB-FC-3b: this SEQUENCE is FORTH-converted (zero LOCALS; sigma/phi become static edge re-points) */
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 int walk_bb_node(IR_t * nd, FILE * out) {
@@ -851,7 +852,8 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_flat_disp = 0; \
+    if (ZC_FRAME == ZC_FRAME_RSP) { int _fld = fc_leaf_disp(nd); if (_fld > 0) g_emit.op_flat_disp = _fld; } /* R12-ERAD s65: rsp-frame flat compensation, registrar-driven, one delivery point */ \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
@@ -1802,10 +1804,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(&lbl_res);
         if (g_is_text) {
             char _res[96];
-            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", x86_zr());
+            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", (ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) ? "r12" : x86_zr());   /* R12-ERAD s65: pat blobs re-pin r12, never rsp */
             emit_text_n(_res, strlen(_res));
         } else {
-            int z = x86_zr_num();
+            int z = (ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) ? 12 : x86_zr_num();
             ef_b4(0x48, 0x83, 0xC4, 0x08);
             if (z >= 8) ef_b2(0x41, (uint8_t)(0x58 | (z & 7))); else ef_b1((uint8_t)(0x58 | (z & 7)));
         }
@@ -1926,9 +1928,10 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
  * pair; ordinary procs join via emit_jmp_entry_for_proc once PROC-CONV (R12-FREE ladder rung 2) wires the site. */
 extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
     if (!pname || strncmp(pname, "PAT$", 4) != 0) return 0;
+    g_emit.flat_pat = 1;   /* R12-ERAD s65: suspending blob — r12-island flavor */
     return emit_jmp_entry_arm_region(g);
 }
-extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; }
+extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_pat = 0; }
 /* PROC-CONV (R12-FREE ladder rung 2): ordinary DEFINE'd procs arm the SAME jmp-entry regime.  The regime
  * selector is dyn_scope: a DYN proc's args ride the name dictionary (save/restore), so a self-allocated zeroed
  * frame is correct; a LEXICAL proc (dyn_scope=0 — Icon/Prolog/Raku frontends) binds args INTO a caller-made

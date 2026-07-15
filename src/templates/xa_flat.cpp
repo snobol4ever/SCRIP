@@ -170,6 +170,19 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (!g_frame_active || g_emit_frame_caller_dl > 0) { fprintf(stderr, "FATAL xa_flat: jmp-entry blob must be frame-active with no display reg (frame_active=%d caller_dl=%d)\n", g_frame_active, g_emit_frame_caller_dl); abort(); }
                 int kt = g_emit.flat_frame_bytes;
                 if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat: jmp-entry K_total=%d (must be 16-mult >= 48: 32B wire header + region)\n", kt); abort(); }
+                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65 BINARY twin: header above the frame (pat blobs fall through to the zr arms — zr is r12 for them) */
+                    std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                     /* sub rsp, K_total */
+                                  + bytes(4, "\x48\x89\x8C\x24") + u32le((uint32_t)(kt - 24))          /* mov [rsp + kt-24], rcx — outside-γ wire */
+                                  + bytes(4, "\x48\x89\x94\x24") + u32le((uint32_t)(kt - 16))          /* mov [rsp + kt-16], rdx — outside-ω wire */
+                                  + bytes(3, "\x48\x89\xE7")                                            /* mov rdi, rsp */
+                                  + bytes(1, "\xB9") + u32le((uint32_t)(kt - 32))                         /* mov ecx, K_region — stosb stops below the header */
+                                  + bytes(2, "\x31\xC0")
+                                  + bytes(2, "\xF3\xAA")
+                                  + xaf_gva_reload_bin()
+                                  + xaf_anchor_enter_bin();
+                    out_site = 0; out_lbl = nullptr; out_def = false;
+                    return r;
+                }
                 std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                         /* sub rsp, K_total — the activation self-allocates */
                               + bytes(4, "\x48\x89\x4C\x24") + std::string(1, (char)0x08)               /* mov [rsp+8],  rcx — outside-γ wire */
                               + bytes(4, "\x48\x89\x54\x24") + std::string(1, (char)0x10)               /* mov [rsp+16], rdx — outside-ω wire */
@@ -236,6 +249,15 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_emit.flat_jmp_entry) {
                 int kt = g_emit.flat_frame_bytes;
+                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65: HEADER ABOVE THE FRAME — [E-32, E) holds the wires, frame = [base, E-32), rsp = base.  The old header-below layout put the wires
+                     * directly under rsp, where the FIRST push (a HEAD cell, a callee's sub) clobbered them — recursive procs and any pattern inside a proc died exactly there.  Wires at
+                     * [rsp + kt-24/-16]; the rep stosb count kt-32 stops below the header; the LIFO exits unwind the full kt.  Pat blobs fall through to the zr arms (zr = r12 for them). */
+                    char b[640];
+                    snprintf(b, sizeof b,
+                        "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
+                        kt, kt - 24, kt - 16, kt - 32);
+                    return banner + b + xaf_gva_reload_text() + xaf_anchor_enter_text();
+                }
                 char b[640];
                 snprintf(b, sizeof b,
                     "  sub rsp, %d\n  mov [rsp+8], rcx\n  mov [rsp+16], rdx\n  mov [rsp+24], %s\n  lea %s, [rsp+32]\n  mov rdi, %s\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
@@ -291,6 +313,20 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                  * (out_site/out_lbl/out_def describe THAT patch); the RETURN VALUE is γ piece B; out_fail =
                  * the ω-half. */
                 int kt = g_emit.flat_frame_bytes;
+                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65 BINARY twin of the TEXT LIFO exits: γ = mov rdi,[rsp] / mov rsi,[rsp+8] / mov rax,[rsp+kt-24] / lea rsp,[rsp+kt] / jmp rax; ω = mov rax,[rsp+kt-16] / lea / jmp */
+                    std::string sg = bytes(4, "\x48\x8B\x3C\x24")                          /* mov rdi, [rsp] */
+                                   + bytes(5, "\x48\x8B\x74\x24\x08")                      /* mov rsi, [rsp+8] */
+                                   + bytes(4, "\x48\x8B\x84\x24") + u32le((uint32_t)(kt - 24))   /* mov rax, [rsp + kt-24] — γ wire in the ABOVE header */
+                                   + bytes(4, "\x48\x8D\xA4\x24") + u32le((uint32_t)kt)          /* lea rsp, [rsp + kt] — full unwind incl. header */
+                                   + bytes(2, "\xFF\xE0");                                 /* jmp rax */
+                    std::string fo = bytes(4, "\x48\x8B\x84\x24") + u32le((uint32_t)(kt - 16))   /* mov rax, [rsp + kt-16] — ω wire */
+                                   + bytes(4, "\x48\x8D\xA4\x24") + u32le((uint32_t)kt)
+                                   + bytes(2, "\xFF\xE0");
+                    out_site = 0; out_lbl = (bb_label_t *)0; out_def = false;
+                    if (out_succ) *out_succ = sg;
+                    if (out_fail) *out_fail = fo;
+                    return std::string();
+                }
                 std::string succA = xaf_push_frame()                                       /* push zr — record payload: region base */
                                   + bytes(3, "\x48\x8D\x05");                              /* lea rax, [rip + res-landing] */
                 out_site = (int)succA.size(); out_lbl = g_emit.flat_res_p; out_def = false;
@@ -369,6 +405,19 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_emit.flat_jmp_entry) {
                 int kt = g_emit.flat_frame_bytes;
+                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65: DETERMINATE LIFO exits, r12-free.  γ loads the result DESCR (frame slot 0) into rdi:rsi PRE-unwind (the landing's epilogue_γ takes it
+                     * BY VALUE — the frame is dead memory after the lea), reads the outside-γ wire at [rsp+kt−24] (the ABOVE header), fully unwinds frame+header (lea +kt rejoins the caller's pre-jmp rsp),
+                     * and jmps the wire — no resume record: SNOBOL4 procs are determinate (β: jmp ω exists but fires only on a post-return re-entry, which is UB by the same determinacy).  ω mirrors with
+                     * the [rsp+kt−16] wire.  GUARDED ASSUMPTION (relative lea): every exit path out of a match statement restores rsp through HEAD-ω/RELEASE before reaching proc-ω (the every-ω-pops law);
+                     * a seal cut arriving DEEP would need an absolute form — the crosscheck is the tripwire.  Pat blobs (SUSPENDING) fall through to the zr arms below with zr = r12. */
+                    char sg[288], fo[352];
+                    snprintf(sg, sizeof sg, "mov rdi, [rsp]\nmov rsi, [rsp + 8]\nmov rax, [rsp + %d]\nlea rsp, [rsp + %d]\njmp rax\n", kt - 24, kt);
+                    snprintf(fo, sizeof fo, "%s%smov rax, [rsp + %d]\nlea rsp, [rsp + %d]\njmp rax\n",
+                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt);
+                    if (out_succ) *out_succ = std::string(sg);
+                    if (out_fail) *out_fail = std::string(fo);
+                    return std::string();
+                }
                 char sa[224], sb2[224], fb[320];
                 snprintf(sa, sizeof sa, "push %s\nlea rax, [rip + %s]\n", x86_zr(), (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
                 snprintf(sb2, sizeof sb2, "push rax\nmov rax, [%s-24]\nmov %s, [%s-8]\njmp rax\n", x86_zr(), x86_zr(), x86_zr());

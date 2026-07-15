@@ -507,6 +507,18 @@ int fc_head_fp(const IR_t * nd) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_leaf_* -- R12-ERAD s65 (ZC_FRAME_RSP flat-displacement registrar).  Under rsp-as-frame the flat frame sits ABOVE the pushed FORTH cells, so every non-window FR/FRQ inside a granted match window
+ * must add the box's static depth D = 32 (HEAD's self-cell) + prefix (granted cells suspended before this box on the LINEAR spine, S10c: every passed box is gamma-suspended) + own cell.  LOWER fills
+ * this in the SAME fc_head walk that computes fp_stmt (allocation order = flow order for linear spines -- SEQ lowers elements left-to-right); the v1 fence declines ALTERNATE statements wholesale so
+ * the prefix is exact by the same argument as fp.  Consumed by FR/FRQ via g_emit.op_flat_disp (dispatch-delivered, default 0); R12/RBP builds never read it.  Side table keyed by node ptr (fch style). */
+static struct { const IR_t * nd; int d; } fcl[1024];
+static int fcl_n = 0;
+void fc_leaf_register(const IR_t * nd, int d) { if (!nd || d < 0 || fcl_n >= 1024) return; fcl[fcl_n].nd = nd; fcl[fcl_n].d = d; fcl_n++; }
+int fc_leaf_disp(const IR_t * nd) {
+    for (int i = 0; i < fcl_n; i++) if (fcl[i].nd == nd) return fcl[i].d;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->off + (zls_locals_shifted(nd->op) ? 16 : 0); }
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return 0; int end = e->off; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].off + zf[i].size > end) end = zf[i].off + zf[i].size; int b = end - e->off; return (b + 15) & ~15; }

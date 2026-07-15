@@ -113,7 +113,19 @@ static std::string bcps_det_arm() {
          + x86("call", "rt_proc_call_open", open_fp)
          + x86("test", "rax", "rax")
          + x86("je", L(1))
-         + (is_dyn
+         + (is_dyn && ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat
+            /* R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi. */
+            ? x86("call", "rt_proc_open_fn", openfn_fp)
+            + x86_lea_id("rcx", 3)
+            + x86_lea_id("rdx", 4)
+            + x86_jmp_reg("rax")
+            + x86("def", L(3))
+            + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
+            + x86("jmp", L(2))
+            + x86("def", L(4))
+            + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
+            + x86("jmp", L(2))
+            : is_dyn
             ? x86("call", "rt_proc_open_fn", openfn_fp)
             + x86("push", "r12")
             + x86("sub", "rsp", 8L)

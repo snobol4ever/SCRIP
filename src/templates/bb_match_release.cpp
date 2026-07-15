@@ -9,6 +9,7 @@ extern "C" void rt_zls_release_to(void *mark);
 extern "C" long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
 extern "C" long rt_dcap_step(DESCR_t fret);
 extern "C" const char *g_dcap_top;
+extern "C" uint64_t g_patstk_sp;
 extern "C" void rt_dcap_end_ok_close(void);
 extern "C" void *rt_proc_open_fn(void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
@@ -31,12 +32,18 @@ std::string bb_match_release() {
          ? x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)")
          : x86("comment", "IR_MATCH_RELEASE")
          + x86_alpha()
-         + (_.op_dval != 0.0 ? IF(rfc(), x86("mov", "eax", rspd((int)_.op_fc_disp)) + x86("mov", FR(_.op_off), "eax"))
-                             + x86("mov", FRQ(_.op_off + 24), "r14") : std::string())
-         + IF(rfc(),  x86("mov",  "rdi", rspq((int)_.op_fc_disp + 8)))
-         + x86_align_enter()
-         + IF(!rfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
-         + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
+         /* R12-ERAD s65 (ZC_FRAME_RSP non-pat): pre-unwind rsp = base − 32 − fp(pattern), so the two FLAT re-homes compensate by op_fc_disp + 32 (explicit rspd/rspq).  The arena release is GATED OUT
+          * wholesale: no heap in the BB equation — the rspd unwind (bare mov rsp,[cell+16] once the G1 dances no-op) IS the release of HEAD's cell and every suspended pattern cell.
+          * Statement-success also reclaims side-stack residue (S10e) from the reincarnated +8 slot before the rsp unwind. */
+         + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (rfc() ? x86("mov", "rax", rspq((int)_.op_fc_disp + 8)) : x86("mov", "rax", FRQ(_.op_off + 8)))
+             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
+             + x86("mov", RDQ("rcx", 0), "rax"))
+         + (_.op_dval != 0.0 ? IF(rfc(), x86("mov", "eax", rspd((int)_.op_fc_disp)) + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? x86("mov", rspd((int)(_.op_off + _.op_fc_disp + 32)), "eax") : x86("mov", FR(_.op_off), "eax")))
+                             + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && rfc() ? x86("mov", rspq((int)(_.op_off + 24 + _.op_fc_disp + 32)), "r14") : x86("mov", FRQ(_.op_off + 24), "r14")) : std::string())
+         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, IF(rfc(),  x86("mov",  "rdi", rspq((int)_.op_fc_disp + 8)))
+             + x86_align_enter()
+             + IF(!rfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
+             + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to))
          + (rfc() ? x86_zls2_release_to_rspd((int)_.op_fc_disp + 16) : x86_zls2_release_to_call(_.op_off + 16))
          + x86_align_leave()
          /* ⛔ THE XFER WINDOW MUST OPEN *AFTER* THE ZETA RELEASE.  x86_zls2_release_to_call does not merely
@@ -54,7 +61,7 @@ std::string bb_match_release() {
           * that immunity into the ctx). */
          + x86("mov",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
          + x86("mov",  RDQ("rcx", 0), "rbp")
-         + x86("mov",  "rdi", FRQ(_.op_off + 32))
+         + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? x86("mov", "rdi", rspq((int)(_.op_off + 32 + 32))) : x86("mov",  "rdi", FRQ(_.op_off + 32)))   /* R12-ERAD s65: this read sits INSIDE the 32B xfer window (post-unwind, so no fc_disp); +32 is the xfer window depth */
          + x86("mov",  "rsi", "rbp")
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
@@ -66,29 +73,28 @@ std::string bb_match_release() {
          + x86("test", "rax", "rax")
          + x86("je",   L(2))
          + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         + x86("push", "r12")
-         + x86("sub",  "rsp", 8L)
+         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("push", "r12") + x86("sub",  "rsp", 8L))
          + x86_lea_id("rcx", 3)
          + x86_lea_id("rdx", 4)
-         + x86("mov",  "r12", "rsp")
+         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("mov",  "r12", "rsp"))
          + x86_jmp_reg("rax")
          + x86("def",  L(3))
-         + x86("mov",  "rax", "rsp")
-         + x86("mov",  "rax", RDQ("rax", 8))
-         + x86("mov",  "rdi", RDQ("rax", 0))
-         + x86("mov",  "rsi", RDQ("rax", 8))
-         + x86("mov",  "rsp", "r12")
-         + x86("add",  "rsp", 8L)
-         + x86("pop",  "r12")
+         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("mov",  "rax", "rsp")
+             + x86("mov",  "rax", RDQ("rax", 8))
+             + x86("mov",  "rdi", RDQ("rax", 0))
+             + x86("mov",  "rsi", RDQ("rax", 8))
+             + x86("mov",  "rsp", "r12")
+             + x86("add",  "rsp", 8L)
+             + x86("pop",  "r12"))
          + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
          + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
          + x86("jmp",  L(1))
          + x86("def",  L(4))
-         + x86("mov",  "rsp", "r12")
-         + x86("add",  "rsp", 8L)
-         + x86("pop",  "r12")
+         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("mov",  "rsp", "r12")
+             + x86("add",  "rsp", 8L)
+             + x86("pop",  "r12"))
          + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")

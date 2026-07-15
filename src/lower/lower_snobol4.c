@@ -845,6 +845,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
             case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
             case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
             case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+            case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:   /* R12-ERAD s65: constant primitive args allocate inline in the element range -- zero-cell value nodes (the fc_head whitelist twin) */
             case IR_GOTO: break;
             default: fc_linear = 0;   /* ALTERNATE / ARBNO / ARB / DEFER / ABORT / unknown: decline the whole SEQ -- it stays flat, the pre-rung path */
             }
@@ -1343,11 +1344,26 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
             case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
             case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
             case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+            case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:   /* R12-ERAD s65: constant pattern-primitive args allocate INLINE in the range (only runtime args hoist to pre-chains, SEMANTIC PIN 1) — zero-cell value nodes, port-invariant by triviality */
             case IR_GOTO: break;
             default: fc_lin = 0;
             }
         }
         if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
+        /* R12-ERAD s65: per-leaf flat displacement for ZC_FRAME_RSP (fc_leaf registrar, zeta_storage.c).  Same range, same order (allocation = flow on the linear spine), prefix starts at 32 = HEAD's
+         * self-pushed cell; each pattern node's body depth = prefix-before + own granted cell (zero-cell leaves still carry the prefix -- their beta undo re-reads the flat OPERAND slot).  Registered
+         * only under the statement grant: a declined statement has no static depth (that is WHY it declined) and its emission stays on the flat path, honestly broken under RSP until the ALT lift. */
+        if (fc_lin) {
+            extern void fc_leaf_register(const IR_t *, int);
+            int pfx = 32;
+            for (int k = before_pat; k < g->n; k++) {
+                IR_t * x = g->all[k];
+                if (!x || x->op == IR_GOTO) continue;
+                long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
+                fc_leaf_register(x, pfx + (int)own);
+                pfx += (int)own;
+            }
+        }
     }
     /* OPERAND-EDGE HOIST (2026-07-10, SEMANTIC PIN 1 — manual p85-86: primitive args are captured at pattern
      * CONSTRUCTION, once per statement execution, BEFORE the scan begins; only *V defers).  Every runtime-arg
