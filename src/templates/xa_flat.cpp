@@ -186,6 +186,19 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
+                if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH self-alloc, byte twin of the TEXT arm — sub rsp,K / mov rdi,rsp / mov ecx,K / xor eax,eax / rep stosb */
+                    std::string r = bytes(3, "\x48\x81\xEC") + u32le(65544)
+                                  + bytes(3, "\x48\x89\xE7")
+                                  + bytes(1, "\xB9") + u32le(65544)
+                                  + bytes(2, "\x31\xC0")
+                                  + bytes(2, "\xF3\xAA")
+                                  + xaf_gva_reload_bin()
+                                  + xaf_anchor_enter_bin()
+                                  + bytes(3, "\x83\xFE\x00")
+                                  + bytes(2, "\x0F\x85") + u32le(0);
+                    out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
+                    return r;
+                }
                 std::string disp;
                 if      (g_emit_frame_caller_dl == 1) disp = bytes(2, "\x41\x55") + xaf_mov_dreg_frame(13) + bytes(4, "\x48\x83\xEC\x08");
                 else if (g_emit_frame_caller_dl == 2) disp = bytes(2, "\x41\x56") + xaf_mov_dreg_frame(14) + bytes(4, "\x48\x83\xEC\x08");
@@ -231,6 +244,13 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
+                if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
+                    char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", 65544, 65544); /* 65536+8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
+                    std::string pro = banner + fb + xaf_gva_reload_text() + xaf_anchor_enter_text();
+                    if (g_gen_proc_active || g_resumable_callable_active)
+                        pro += std::string("  cmp esi, 0\n") + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
+                    return pro;
+                }
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
                 std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", " + x86_zr() + "\n  sub rsp, 8\n") : std::string();
                 std::string pro = banner + "push " + std::string(x86_zr()) + "\n  mov " + x86_zr() + ", rdi\n" + xaf_gva_reload_text() + disp + xaf_anchor_enter_text();
@@ -287,6 +307,25 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (out_fail) *out_fail = fail_half;
                 return succB;
             }
+            if (g_frame_active && ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: BINARY twin of the TEXT RSP epilogue — eax code, anchor-leave normalize, FAILDESCR at [rsp+0], add rsp,K, ret */
+                std::string succ_half = bytes(1, "\xB8") + u32le(1)
+                                      + bytes(2, "\x31\xD2")
+                                      + xaf_anchor_leave_bin()
+                                      + bytes(3, "\x48\x81\xC4") + u32le(65544)
+                                      + bytes(1, "\xC3");
+                std::string fail_half = xaf_anchor_leave_bin()
+                                      + bytes(3, "\xC7\x04\x24") + u32le(99)
+                                      + bytes(4, "\xC7\x44\x24\x04") + u32le(0)
+                                      + bytes(5, "\x48\xC7\x44\x24\x08") + u32le(0)
+                                      + bytes(1, "\xB8") + u32le(99)
+                                      + bytes(2, "\x31\xD2")
+                                      + bytes(3, "\x48\x81\xC4") + u32le(65544)
+                                      + bytes(1, "\xC3");
+                out_site = (int)succ_half.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
+                if (out_succ) *out_succ = succ_half;
+                if (out_fail) *out_fail = fail_half;
+                return succ_half + fail_half;
+            }
             std::string dpop;
             if      (g_frame_active && g_emit_frame_caller_dl == 1) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5D");
             else if (g_frame_active && g_emit_frame_caller_dl == 2) dpop = bytes(4, "\x48\x83\xC4\x08") + bytes(2, "\x41\x5E");
@@ -341,6 +380,16 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
+                if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: anchor-leave normalizes rsp to frame base, FAILDESCR lands at [rsp+0], add rsp,K rejoins the caller's ret-addr */
+                    std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + "add rsp, 65544\n" + "ret\n";
+                    std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                         + xaf_anchor_leave_text()
+                         + "mov dword ptr [rsp+0], 99\n" + "mov dword ptr [rsp+4], 0\n" + "mov qword ptr [rsp+8], 0\n"
+                         + "mov eax, 99\n" + "xor edx, edx\n" + "add rsp, 65544\n" + "ret\n";
+                    if (out_succ) *out_succ = succ_half;
+                    if (out_fail) *out_fail = fail_half;
+                    return succ_half + fail_half;
+                }
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
                 std::string dpop = xaf_anchor_leave_text() + (dreg ? (std::string("add rsp, 8\npop ") + dreg + "\n") : std::string());
                 std::string succ_half = std::string("mov eax, 1\n")
