@@ -960,6 +960,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     if (nd->op == IR_MATCH_ALTERNATE && fc_alt_active(nd) && fc_sig && fc_sig[i])
         for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
+    if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }   /* CV10: arm-value slots delivered to bb_scan_sequence (op_parts channel, IR_ALT precedent; 32-arm cap) */
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
