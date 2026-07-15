@@ -1669,6 +1669,22 @@ raku "blk_anon_sub_return" "4" << 'EOF'
 sub main() { my $s = sub { return 4; }; say $s(); }
 EOF
 
+raku "bare_block_stmt_toplevel" "42" << 'EOF'
+{ say(42); }
+EOF
+raku "bare_block_stmt_in_sub" "5" << 'EOF'
+sub main() { my $x = 5; { say($x); } }
+EOF
+raku "bare_block_two_stmts" "$(printf '1\n2')" << 'EOF'
+{ say(1); say(2); }
+EOF
+raku "bare_block_then_stmt" "$(printf '1\n2')" << 'EOF'
+{ say(1); } say(2);
+EOF
+raku "bare_block_value_preserved" "7" << 'EOF'
+my $b = { say(7); }; $b();
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
