@@ -149,6 +149,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$format1") || !strcmp(name, "$format2") || !strcmp(name, "$copy_term")) return 1;
     if (!strcmp(name, "$write_term")) return 1;
     if (!strcmp(name, "$functor") || !strcmp(name, "$arg") || !strcmp(name, "$univ")) return 1;
+    if (!strcmp(name, "$can_compare")) return 1;
     if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
     if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
     if (!strcmp(name, "$sub_atom") || !strcmp(name, "$atom_to_term") || !strcmp(name, "$read")) return 1;
@@ -1215,6 +1216,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int op = (!strcmp(fn + 6, "lt")) ? 0 : (!strcmp(fn + 6, "le")) ? 1 : (!strcmp(fn + 6, "gt")) ? 2 : (!strcmp(fn + 6, "ge")) ? 3 : (!strcmp(fn + 6, "eq")) ? 4 : 5;
         DESCR_t t0 = args[0], t1 = args[1];
         int ok = rt_pl_atop_cell(op, (void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$can_compare") && nargs == 2) {
+        extern int rt_pl_can_compare_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_can_compare_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$char_type") && nargs == 2) {
@@ -2737,7 +2744,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "compound", 1, "$tt_compound" }, { "callable", 1, "$tt_callable" }, { "ground", 1, "$tt_ground" }, { "is_list", 1, "$tt_is_list" },
         { "var", 1, "$tt_var" }, { "nonvar", 1, "$tt_nonvar" }, { "atom", 1, "$tt_atom" }, { "number", 1, "$tt_number" },
         { "integer", 1, "$tt_integer" }, { "float", 1, "$tt_float" }, { "atomic", 1, "$tt_atomic" },
-        { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" },
+        { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" }, { "?=", 2, "$can_compare" },
         { "format", 1, "$format1" }, { "format", 2, "$format2" },
         { "write_term", 2, "$write_term" },
         { "atom_string", 2, "$aop_atom_string" }, { "number_string", 2, "$aop_number_string" }, { "atom_number", 2, "$aop_atom_number" },

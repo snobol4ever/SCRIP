@@ -606,6 +606,18 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
     return c != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_can_compare_cell(void *a_cell, void *b_cell)
+{
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *a = (pl_cell_t *)a_cell, *b = (pl_cell_t *)b_cell;
+    if (!a || !b) return 0;
+    int mark = pl_trail_mark(&g_pl_trail);
+    int unified = pl_unify(a, b, &g_pl_trail);
+    int moved = (pl_trail_mark(&g_pl_trail) != mark);
+    pl_trail_unwind(&g_pl_trail, mark);
+    return !unified || !moved;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
