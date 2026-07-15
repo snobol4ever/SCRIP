@@ -275,6 +275,22 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
             *res = call; return e;
         }
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
+        if (bname && pas_name_is_byref(cx, bname)) {
+            int _sl = -1; const char * _rn = pas_resolve_name(cx, bname, &_sl);
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * vr = build(cx, IR_VAR, NULL, ω); IR_LIT(vr).sval = _rn;
+            IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure";
+            IR_t * e;
+            {
+                const tree_t ** av = (const tree_t **) calloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
+                for (int k = 0; k < lhs->n; k++) av[an++] = lhs->c[k];
+                av[an++] = rhs;
+                e = pas_call_args(cx, call, 2.0, av, an, ω);
+            }
+            γ_to(vr, e ? e : asn);
+            ir_operand_push(asn, vr); ir_operand_push(asn, call);
+            *res = asn; return vr;
+        }
         IR_t * asn = lower_assign_var(cx, bname, γ, ω);
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure";
         IR_t * e;
