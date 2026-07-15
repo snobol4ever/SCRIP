@@ -7,8 +7,15 @@ proc_EXPR$0_α:
     .global proc_EXPR$0_β
     .global proc_EXPR$0_γ
     .global proc_EXPR$0_ω
-push r12
-  mov r12, rdi
+  sub rsp, 176
+  mov [rsp+8], rcx
+  mov [rsp+16], rdx
+  mov [rsp+24], r12
+  lea r12, [rsp+32]
+  mov rdi, r12
+  mov ecx, 144
+  xor eax, eax
+  rep stosb
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
   mov qword ptr [r12 + 136], rsp
@@ -68,14 +75,18 @@ proc_EXPR$0_α_body:
  jmp proc_EXPR$0_γ
  xchain0_n3_β:
  jmp proc_EXPR$0_ω
+proc_EXPR$0_res:
+add rsp, 8
+pop r12
 proc_EXPR$0_β:
 jmp proc_EXPR$0_ω
 proc_EXPR$0_γ:
-mov eax, 1
-xor edx, edx
-mov rsp, qword ptr [r12 + 136]
-pop r12
-ret
+push r12
+lea rax, [rip + proc_EXPR$0_res]
+push rax
+mov rax, [r12-24]
+mov r12, [r12-8]
+jmp rax
  push rsp
  push qword ptr [rsp]
  and rsp, -16
@@ -83,15 +94,10 @@ ret
  call rt_zls_release_to@PLT
  mov rsp, [rsp + 8]
 proc_EXPR$0_ω:
-# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
-mov dword ptr [r12+0], 99
-mov dword ptr [r12+4], 0
-mov qword ptr [r12+8], 0
-mov eax, 99
-xor edx, edx
-mov rsp, qword ptr [r12 + 136]
-pop r12
-ret
+mov rax, [r12-16]
+lea rsp, [r12 + 144]
+mov r12, [r12-8]
+jmp rax
   .globl proc_EXPR$1_α
 proc_EXPR$1_α:
 #=======================================================================================================================
@@ -99,8 +105,15 @@ proc_EXPR$1_α:
     .global proc_EXPR$1_β
     .global proc_EXPR$1_γ
     .global proc_EXPR$1_ω
-push r12
-  mov r12, rdi
+  sub rsp, 112
+  mov [rsp+8], rcx
+  mov [rsp+16], rdx
+  mov [rsp+24], r12
+  lea r12, [rsp+32]
+  mov rdi, r12
+  mov ecx, 80
+  xor eax, eax
+  rep stosb
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
   mov qword ptr [r12 + 72], rsp
@@ -133,14 +146,18 @@ proc_EXPR$1_α_body:
  jmp proc_EXPR$1_γ
  xchain5_n1_β:
  jmp proc_EXPR$1_ω
+proc_EXPR$1_res:
+add rsp, 8
+pop r12
 proc_EXPR$1_β:
 jmp proc_EXPR$1_ω
 proc_EXPR$1_γ:
-mov eax, 1
-xor edx, edx
-mov rsp, qword ptr [r12 + 72]
-pop r12
-ret
+push r12
+lea rax, [rip + proc_EXPR$1_res]
+push rax
+mov rax, [r12-24]
+mov r12, [r12-8]
+jmp rax
  push rsp
  push qword ptr [rsp]
  and rsp, -16
@@ -148,15 +165,10 @@ ret
  call rt_zls_release_to@PLT
  mov rsp, [rsp + 8]
 proc_EXPR$1_ω:
-# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
-mov dword ptr [r12+0], 99
-mov dword ptr [r12+4], 0
-mov qword ptr [r12+8], 0
-mov eax, 99
-xor edx, edx
-mov rsp, qword ptr [r12 + 72]
-pop r12
-ret
+mov rax, [r12-16]
+lea rsp, [r12 + 80]
+mov r12, [r12-8]
+jmp rax
   .globl proc_EXPR$2_α
 proc_EXPR$2_α:
 #=======================================================================================================================
@@ -164,8 +176,15 @@ proc_EXPR$2_α:
     .global proc_EXPR$2_β
     .global proc_EXPR$2_γ
     .global proc_EXPR$2_ω
-push r12
-  mov r12, rdi
+  sub rsp, 208
+  mov [rsp+8], rcx
+  mov [rsp+16], rdx
+  mov [rsp+24], r12
+  lea r12, [rsp+32]
+  mov rdi, r12
+  mov ecx, 176
+  xor eax, eax
+  rep stosb
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
   mov qword ptr [r12 + 168], rsp
@@ -236,14 +255,18 @@ proc_EXPR$2_α_body:
  jmp proc_EXPR$2_γ
  xchain8_n3_β:
  jmp proc_EXPR$2_ω
+proc_EXPR$2_res:
+add rsp, 8
+pop r12
 proc_EXPR$2_β:
 jmp proc_EXPR$2_ω
 proc_EXPR$2_γ:
-mov eax, 1
-xor edx, edx
-mov rsp, qword ptr [r12 + 168]
-pop r12
-ret
+push r12
+lea rax, [rip + proc_EXPR$2_res]
+push rax
+mov rax, [r12-24]
+mov r12, [r12-8]
+jmp rax
  push rsp
  push qword ptr [rsp]
  and rsp, -16
@@ -251,15 +274,10 @@ ret
  call rt_zls_release_to@PLT
  mov rsp, [rsp + 8]
 proc_EXPR$2_ω:
-# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
-mov dword ptr [r12+0], 99
-mov dword ptr [r12+4], 0
-mov qword ptr [r12+8], 0
-mov eax, 99
-xor edx, edx
-mov rsp, qword ptr [r12 + 168]
-pop r12
-ret
+mov rax, [r12-16]
+lea rsp, [r12 + 176]
+mov r12, [r12-8]
+jmp rax
 proc_startup:
   sub rsp, 8
   .section .rodata

@@ -447,22 +447,33 @@ main_α_body:
 .Lx24_2:
  test rax, rax
  je .Lx24_3
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx24_7]
+ lea rdx, [rip + .Lx24_8]
+ mov r12, rsp
+ jmp rax
+.Lx24_7:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_defer_step@PLT
+ jmp .Lx24_2
+.Lx24_8:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_defer_step@PLT
  jmp .Lx24_2
 .Lx24_3:
@@ -550,22 +561,33 @@ main_α_body:
 .Lx28_1:
  test rax, rax
  je .Lx28_2
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx28_3]
+ lea rdx, [rip + .Lx28_4]
+ mov r12, rsp
+ jmp rax
+.Lx28_3:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_dcap_step@PLT
+ jmp .Lx28_1
+.Lx28_4:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_dcap_step@PLT
  jmp .Lx28_1
 .Lx28_2:
@@ -692,22 +714,33 @@ main_α_body:
 .Lx34_2:
  test rax, rax
  je .Lx34_3
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx34_7]
+ lea rdx, [rip + .Lx34_8]
+ mov r12, rsp
+ jmp rax
+.Lx34_7:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_defer_step@PLT
+ jmp .Lx34_2
+.Lx34_8:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_defer_step@PLT
  jmp .Lx34_2
 .Lx34_3:
@@ -810,22 +843,33 @@ main_α_body:
 .Lx39_1:
  test rax, rax
  je .Lx39_2
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx39_3]
+ lea rdx, [rip + .Lx39_4]
+ mov r12, rsp
+ jmp rax
+.Lx39_3:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_dcap_step@PLT
+ jmp .Lx39_1
+.Lx39_4:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_dcap_step@PLT
  jmp .Lx39_1
 .Lx39_2:
@@ -952,22 +996,33 @@ main_α_body:
 .Lx45_2:
  test rax, rax
  je .Lx45_3
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx45_7]
+ lea rdx, [rip + .Lx45_8]
+ mov r12, rsp
+ jmp rax
+.Lx45_7:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_defer_step@PLT
+ jmp .Lx45_2
+.Lx45_8:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_defer_step@PLT
  jmp .Lx45_2
 .Lx45_3:
@@ -1063,22 +1118,33 @@ main_α_body:
 .Lx50_1:
  test rax, rax
  je .Lx50_2
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx50_3]
+ lea rdx, [rip + .Lx50_4]
+ mov r12, rsp
+ jmp rax
+.Lx50_3:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_dcap_step@PLT
+ jmp .Lx50_1
+.Lx50_4:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_dcap_step@PLT
  jmp .Lx50_1
 .Lx50_2:
@@ -1182,22 +1248,33 @@ main_α_body:
 .Lx54_2:
  test rax, rax
  je .Lx54_3
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx54_7]
+ lea rdx, [rip + .Lx54_8]
+ mov r12, rsp
+ jmp rax
+.Lx54_7:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_defer_step@PLT
+ jmp .Lx54_2
+.Lx54_8:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_defer_step@PLT
  jmp .Lx54_2
 .Lx54_3:
@@ -1266,22 +1343,33 @@ main_α_body:
 .Lx57_1:
  test rax, rax
  je .Lx57_2
- mov rcx, rsp
- sub rsp, rax
- sub rsp, 16
- and rsp, -16
- mov qword ptr [rsp + 0], rcx
- mov rdi, rsp
- add rdi, 16
- mov rsi, rax
- call rt_frame_prep@PLT
- mov rdi, rsp
- add rdi, 16
- xor esi, esi
- call rax
+ call rt_proc_open_fn@PLT
+ push r12
+ sub rsp, 8
+ lea rcx, [rip + .Lx57_3]
+ lea rdx, [rip + .Lx57_4]
+ mov r12, rsp
+ jmp rax
+.Lx57_3:
+ mov rax, rsp
+ mov rax, qword ptr [rax + 8]
+ mov rdi, qword ptr [rax + 0]
+ mov rsi, qword ptr [rax + 8]
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
- mov rsp, qword ptr [rsp + 0]
+ call rt_dcap_step@PLT
+ jmp .Lx57_1
+.Lx57_4:
+ mov rsp, r12
+ add rsp, 8
+ pop r12
+ call rt_proc_call_epilogue_ω@PLT
+ mov rdi, rax
+ mov rsi, rdx
  call rt_dcap_step@PLT
  jmp .Lx57_1
 .Lx57_2:
