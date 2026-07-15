@@ -21,16 +21,9 @@ main:
   mov edx, 1
   call gva_register@PLT
   mov rbx, rax
-  sub rsp, 65536
-  mov rdi, rsp
-  mov ecx, 8192
-  xor eax, eax
-  rep stosq
-  mov rdi, rsp
   xor esi, esi
   call main_α
   xor eax, eax
-  add rsp, 65536
   add rsp, 24
   ret
 main_α:
@@ -39,25 +32,20 @@ main_α:
     .global main_β
     .global main_γ
     .global main_ω
-push r12
-  mov r12, rdi
+  sub rsp, 65544
+  mov rdi, rsp
+  mov ecx, 65544
+  xor eax, eax
+  rep stosb
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  mov qword ptr [r12 + 312], rsp
- push rsi
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_zls_mark@PLT
- mov rsp, [rsp + 8]
- mov qword ptr [r12 + 304], rax
- pop rsi
+  mov qword ptr [rsp + 312], rsp
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
- mov qword ptr [r12 + 144], 1
+ mov qword ptr [rsp + 144], 1
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [r12 + 152], rax
+ mov qword ptr [rsp + 152], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp xchain0_n2_α
@@ -68,20 +56,20 @@ main_α_body:
  xchain0_n1_α:
 # BOX CALL define(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+144] -> [zr+112]
- mov rax, qword ptr [r12 + 144]
- mov qword ptr [r12 + 112], rax
- mov rax, qword ptr [r12 + 152]
- mov qword ptr [r12 + 120], rax
+ mov rax, qword ptr [rsp + 144]
+ mov qword ptr [rsp + 112], rax
+ mov rax, qword ptr [rsp + 152]
+ mov qword ptr [rsp + 120], rax
   .section .rodata
   .Lbynamefn2: .string "define"
   .section .text
   .intel_syntax noprefix
  lea rdi, [rip + .Lbynamefn2]
- lea rsi, [r12 + 112]
+ lea rsi, [rsp + 112]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [r12 + 96], rax
- mov qword ptr [r12 + 104], rdx
+ mov qword ptr [rsp + 96], rax
+ mov qword ptr [rsp + 104], rdx
  cmp eax, 99
  je xchain0_n2_α
  jmp xchain0_n2_α
@@ -94,11 +82,11 @@ main_α_body:
   .section .text
   .intel_syntax noprefix
  lea rdi, [rip + .Lbynamefn3]
- lea rsi, [r12 + 192]
+ lea rsi, [rsp + 192]
  mov edx, 0
  call rt_call_arr@PLT
- mov qword ptr [r12 + 176], rax
- mov qword ptr [r12 + 184], rdx
+ mov qword ptr [rsp + 176], rax
+ mov qword ptr [rsp + 184], rdx
  cmp eax, 99
  je xchain0_n4_α
  jmp xchain0_n3_α
@@ -106,9 +94,9 @@ main_α_body:
  jmp xchain0_n4_α
 # IR_LIT_STRING
  xchain0_n3_α:
- mov qword ptr [r12 + 224], 1
+ mov qword ptr [rsp + 224], 1
  mov rax, qword ptr [rip + .Lx4_0]
- mov qword ptr [r12 + 232], rax
+ mov qword ptr [rsp + 232], rax
  jmp xchain0_n5_α
  xchain0_n3_β:
  jmp main_γ
@@ -118,9 +106,9 @@ main_α_body:
  .string "FAIL 1014/001: freturn should cause statement failure"
 # IR_LIT_STRING
  xchain0_n4_α:
- mov qword ptr [r12 + 272], 1
+ mov qword ptr [rsp + 272], 1
  mov rax, qword ptr [rip + .Lx5_0]
- mov qword ptr [r12 + 280], rax
+ mov qword ptr [rsp + 280], rax
  jmp xchain0_n6_α
  xchain0_n4_β:
  jmp main_γ
@@ -130,23 +118,23 @@ main_α_body:
  .string "PASS 1014_func_freturn (1/1)"
 # IR_ASSIGN gva
  xchain0_n5_α:
- mov rax, qword ptr [r12 + 224]
- mov rdx, qword ptr [r12 + 232]
+ mov rax, qword ptr [rsp + 224]
+ mov rdx, qword ptr [rsp + 232]
  mov qword ptr [rbx + 0], rax
  mov qword ptr [rbx + 8], rdx
- mov qword ptr [r12 + 208], rax
- mov qword ptr [r12 + 216], rdx
+ mov qword ptr [rsp + 208], rax
+ mov qword ptr [rsp + 216], rdx
  jmp main_γ
  xchain0_n5_β:
  jmp main_γ
 # IR_ASSIGN gva
  xchain0_n6_α:
- mov rax, qword ptr [r12 + 272]
- mov rdx, qword ptr [r12 + 280]
+ mov rax, qword ptr [rsp + 272]
+ mov rdx, qword ptr [rsp + 280]
  mov qword ptr [rbx + 0], rax
  mov qword ptr [rbx + 8], rdx
- mov qword ptr [r12 + 256], rax
- mov qword ptr [r12 + 264], rdx
+ mov qword ptr [rsp + 256], rax
+ mov qword ptr [rsp + 264], rdx
  jmp main_γ
  xchain0_n6_β:
  jmp main_γ
@@ -155,22 +143,15 @@ jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, qword ptr [r12 + 312]
-pop r12
+mov rsp, qword ptr [rsp + 312]
+add rsp, 65544
 ret
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- mov rdi, qword ptr [r12 + 304]
- call rt_zls_release_to@PLT
- mov rsp, [rsp + 8]
 main_ω:
-# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
-mov dword ptr [r12+0], 99
-mov dword ptr [r12+4], 0
-mov qword ptr [r12+8], 0
+mov rsp, qword ptr [rsp + 312]
+mov dword ptr [rsp+0], 99
+mov dword ptr [rsp+4], 0
+mov qword ptr [rsp+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, qword ptr [r12 + 312]
-pop r12
+add rsp, 65544
 ret
