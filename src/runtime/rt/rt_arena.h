@@ -55,4 +55,5 @@ char        *rt_ws_strdup(const char *s);
 void        *rt_pl_cterm_alloc(size_t n);
 arena_mark_t rt_pl_cterm_mark(void);
 void         rt_pl_cterm_release(arena_mark_t m);
+void         rt_pl_cterm_roots(void **base, size_t *bytes);
 #endif
