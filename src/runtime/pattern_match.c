@@ -584,6 +584,8 @@ void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_
 #define RT_PATSTK_ISLAND_BYTES (8u << 20)
 uint64_t g_patstk_sp = 0;
 uint64_t g_pat_main_rsp = 0;
+uint64_t g_zwin_view = 0;
+uint64_t g_zwin_stmt = 0;
 static const char *g_patstk_base = 0;
 void rt_patstk_lazy_init(void) {
     extern void *rt_slab_region(size_t);

@@ -309,8 +309,13 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "r12" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* R12-ERAD s65: PAT$ suspending blobs are r12-frame ISLANDS on the side stack — their interior keeps the immune-base architecture verbatim.  ANCHOR-WINDOW s66: grant-declined statements likewise run r12-viewed (materialized from rsp at the anchored HEAD, window-scoped, dead at statement exit) */
-inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? 12 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "r12" : (_.op_anchored || _.op_anchor_head) ? "r12" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* R12-ERAD s65: PAT$ suspending blobs are r12-frame ISLANDS on the side stack — their interior keeps the immune-base architecture verbatim.  ANCHOR-WINDOW s66: grant-declined statements likewise run r12-viewed (materialized from rsp at the anchored HEAD, window-scoped, dead at statement exit) */
+inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? 12 : (_.op_anchored || _.op_anchor_head) ? 12 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+extern "C" { extern uint64_t g_zwin_view; extern uint64_t g_zwin_stmt; }
+inline std::string x86_zws_reload();
+inline int x86_zwv_on() { return ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && (_.op_anchored || _.op_anchor_head); }
+inline std::string x86_zwv_pub();
+inline std::string x86_zwv_reload();
 inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "dword ptr [r12 + " : "dword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
 inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "qword ptr [r12 + " : "qword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -664,6 +669,17 @@ inline std::string x86_cmp_imm(const char * reg, long imm) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" cmp ") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rsp_modrm(int regfield, int off) {
+    /* Literal-RSP modrm (s68): the x86_rsp_* family encodes base=rsp ALWAYS, independent of the zeta frame register.  Pre-s68 these delegated to x86_r12_modrm and free-rode on the r12/rsp low-3-bit pun
+     * (12&7 == 4&7 == 4, REX.B never emitted) — the pun broke the day zr_num() could be 11.  rm=100 + SIB 0x24, mod by disp width, off==0 legal at mod=00. */
+    std::string s; int rf = regfield & 7;
+    int mod = (off == 0) ? 0 : (off >= -128 && off <= 127) ? 1 : 2;
+    s += (char)((mod << 6) | (rf << 3) | 4); s += (char)0x24;
+    if (mod == 1) s += (char)(int8_t)off;
+    else if (mod == 2) s += u32le((uint32_t)off);
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_r12_modrm(int regfield, int off) {
     /* Frame-base modrm, generalized 2026-07-08 session 2 (name kept for grep continuity with its 17 call
      * sites; "r12" in the name now means "the ζ frame register", x86_zr_num()).  r12 (low3=100): SIB byte
@@ -861,30 +877,30 @@ inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store64(int off, const char * reg) {
     int g = x86_rnum(reg); uint8_t rex = 0x48; if (g >= 8) rex |= 0x04;
-    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x89; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov qword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store32_imm(int off, long imm) {
-    if (MEDIUM_BINARY) { std::string c; c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += (char)0xC7; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return std::string(" mov dword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string((uint32_t)imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_load64(const char * reg, int off) {
     int g = x86_rnum(reg); uint8_t rex = 0x48; if (g >= 8) rex |= 0x04;
-    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x8B; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov ") + reg + ", qword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store32(int off, const char * reg) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x89; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov dword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_load32(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x8B; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1088,12 +1104,12 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     }
     if (!strcmp(mnem, "call")) {
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
-                                                    : (std::string(" call ") + x86_portname(a.port) + "\n"));
-        if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
+                                                    : (std::string(" call ") + x86_portname(a.port) + "\n")) + x86_zwv_reload();
+        if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u) + x86_zwv_reload();
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n" + x86_zwv_reload();
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
-            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n"));
+            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n")) + x86_zwv_reload();
         }
         return std::string();
     }
@@ -1667,3 +1683,8 @@ inline void bb_emit_x86(const std::string & s) {
     }
 }
 #endif
+
+inline std::string x86_zwv_pub()    { return x86_zwv_on() ? x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_view, "g_zwin_view") + x86("mov", RDQ("rcx", 0), "r11") : std::string(); }
+inline std::string x86_zwv_reload() { return x86_zwv_on() ? x86("mov", "r11", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_view, "g_zwin_view") + x86("mov", "r11", RDQ("r11", 0)) : std::string(); }
+inline std::string x86_zws_reload() { return x86_zwv_on() ? x86("mov", "r11", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_stmt, "g_zwin_stmt") + x86("mov", "r11", RDQ("r11", 0)) : std::string(); }
+inline std::string x86_zws_pub()    { return x86_zwv_on() ? x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_stmt, "g_zwin_stmt") + x86("mov", RDQ("rcx", 0), "r11") : std::string(); }
