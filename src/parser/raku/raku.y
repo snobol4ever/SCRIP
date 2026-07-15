@@ -208,6 +208,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_MULTI KW_PROTO
 %token <sval> OP_NAME
 %token <sval> KW_HANDLES
+%token <sval> WORDLIST
 %token OP_COLON_D OP_COLON_U
 %token YADA
 %token KW_GRAMMAR KW_TOKEN KW_RULE KW_REGEX
@@ -955,6 +956,14 @@ atom
     : LIT_INT         { tree_t *e=ast_node_new(TT_ILIT); e->v.ival=$1; $$=e; }
     | LIT_FLOAT       { tree_t *e=ast_node_new(TT_FLIT); e->v.dval=$1; $$=e; }
     | LIT_STR         { $$=leaf_sval(TT_QLIT,$1); }
+    | WORDLIST
+        { tree_t *call=make_call("__rk_arr"); char *s=$1; int wc=0;
+          while(*s){ while(*s==' '||*s=='\t')s++; if(!*s)break; char *w=s;
+            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1);
+            memcpy(tok,w,L); tok[L]='\0'; expr_add_child(call,leaf_sval(TT_QLIT,tok)); free(tok); wc++; }
+          free($1);
+          if(wc==1){ tree_t *only=call->c[0]; call->c[0]=NULL; call->n=0; $$=only; }
+          else { $$=call; } }
     | LIT_INTERP_STR  { $$=lower_interp_str($1); }
     | VAR_SCALAR      { $$=var_node($1); }
     | VAR_ARRAY       { $$=var_node($1); }
