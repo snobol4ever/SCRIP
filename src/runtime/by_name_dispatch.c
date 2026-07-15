@@ -921,6 +921,11 @@ void rt_pl_iso_throw_permission(const char *op, const char *type, const char *nm
     plc_iso_ball(plc_iso_comp("permission_error", 3, kids));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_iso_throw_type(const char *type, DESCR_t culprit) {
+    DESCR_t kids[2]; kids[0] = plc_iso_atom(type ? type : "?"); kids[1] = culprit;
+    plc_iso_ball(plc_iso_comp("type_error", 2, kids));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_proc_defined_static(const char *name, long arity) {
     if (!name) return 0;
     char key[256]; snprintf(key, sizeof key, "%s/%ld", name, arity);
@@ -2914,6 +2919,41 @@ static int plc_next(plc_slv_t *s) {
     }
     return 0;
 }
+typedef struct { long long cur; long long hi; int mark; } plc_between_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_is_unbound(DESCR_t v) { return v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_int_check(DESCR_t v, long long *out) {
+    if (plc_is_unbound(v)) { rt_pl_iso_throw_instantiation(); return 0; }
+    if (v.v == (DTYPE_t)DT_I) { *out = (long long)v.i; return 1; }
+    rt_pl_iso_throw_type("integer", v); return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_between_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern DESCR_t rt_pl_deref_val(DESCR_t);
+    if (nargs < 3) return FAILDESCR;
+    if (*resume == 0) {
+        long long lo = 0, hi = 0;
+        if (!plc_int_check(rt_pl_deref_val(args[0]), &lo)) return FAILDESCR;
+        if (!plc_int_check(rt_pl_deref_val(args[1]), &hi)) return FAILDESCR;
+        DESCR_t x = rt_pl_deref_val(args[2]);
+        if (!plc_is_unbound(x)) { long long i = 0; if (!plc_int_check(x, &i)) return FAILDESCR; if (i >= lo && i <= hi) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *resume = -1; return r; } return FAILDESCR; }
+        plc_between_t *it = (plc_between_t *)rt_ws_alloc(sizeof *it);
+        it->cur = lo; it->hi = hi; it->mark = pl_trail_mark(&g_pl_trail);
+        *resume = (int64_t)(intptr_t)it;
+    }
+    if (*resume == -1) return FAILDESCR;
+    plc_between_t *it = (plc_between_t *)(intptr_t)*resume;
+    while (it->cur <= it->hi) {
+        long long i = it->cur++;
+        pl_trail_unwind(&g_pl_trail, it->mark); plw_zh_kill_to(it->mark);
+        DESCR_t iv; iv.v = (DTYPE_t)DT_I; iv.slen = 0; iv.i = i;
+        if (plw_unify_vals(args[2], iv)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark); plw_zh_kill_to(it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *s; int len; int b; int l; int mark; } plc_subatom_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_sub_atom_gen(DESCR_t *args, int nargs, int64_t *resume) {
@@ -3078,6 +3118,8 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
     if (fn && resume && !strcmp(fn, "$predicate_property") && nargs >= 2) { extern DESCR_t rt_pl_predicate_property_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_predicate_property_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$current_op") && nargs >= 3) { extern DESCR_t rt_pl_current_op_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_op_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$sub_atom") && nargs >= 5) return rt_pl_sub_atom_gen(args, nargs, resume);
+    if (fn && resume && !strcmp(fn, "$between") && nargs >= 3) return rt_pl_between_gen(args, nargs, resume);
+    if (fn && resume && !strcmp(fn, "$for") && nargs >= 3) { DESCR_t a3[3]; a3[0] = args[1]; a3[1] = args[2]; a3[2] = args[0]; return rt_pl_between_gen(a3, 3, resume); }
     if (fn && resume && !strcmp(fn, "$bag_group") && nargs >= 3) { extern DESCR_t rt_pl_bag_group_gen(DESCR_t *, int, int64_t *); return rt_pl_bag_group_gen(args, nargs, resume); }
     if (fn && resume && nargs == 2 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
         DESCR_t a3[3]; a3[0] = args[0]; a3[1] = args[1]; a3[2] = INTVAL((*resume > 0) ? *resume : 1);
