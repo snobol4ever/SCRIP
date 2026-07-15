@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <gc.h>
 #include "zeta_choices.h"
 #include "rt_slab.h"
 #include "gc_heap.h"
@@ -100,12 +99,8 @@ char *rt_str_alloc(long n)
      * n characters + NUL. Zero-initialized on BOTH paths — manual pin 3's "all words within a block must be
      * properly filled in", discharged mechanically the ZC_INIT_ZERO way. Fallback = libgc atomic, intact. */
     long want = (n < 0 ? 0 : n) + 1;
-#if ZC_HEAP_STRINGS == ZC_HEAP_SCRIP
     _Static_assert(DT_S == 1, "value-world heap types carry DTYPE_t verbatim");
     return (char *)rt_gcheap_alloc((uint16_t)DT_S, (uint64_t)want);
-#else
-    { char *b = (char *)GC_MALLOC_ATOMIC((size_t)want); if (b) memset(b, 0, (size_t)want); return b; }
-#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_str_dup(const char *s)
@@ -323,3 +318,7 @@ long rt_gc_collect(void)
 {
     return gc_collect_ex(1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* TR-4 s67: the two counters the &STORAGE/&COLLECTIONS keywords and the FREESPACE arm re-point at now that libgc's GC_get_* queries are gone. */
+long rt_gcheap_free(void) { return (long)(g_hp_end - g_hp_top); }
+long rt_gc_runs_count(void) { return g_gc_runs; }

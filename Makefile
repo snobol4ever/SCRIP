@@ -34,7 +34,7 @@ CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/
 ZCFLAGS ?=
 CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED $(ZCFLAGS)
 CRT     := $(CBASE) -DDYN_ENGINE_LINKED $(ZCFLAGS)
-LIBS    := -lgc -lm -lpthread
+LIBS    := -lm -lpthread
 
 # Runner defaults
 SNO          ?= $(error SNO is required — e.g. make run SNO=prog.sno)
@@ -274,7 +274,7 @@ out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) \
 	    $(RT_PIC_SRCS) \
-	    -lgc -lm -lstdc++ -lpthread \
+	    -lm -lstdc++ -lpthread \
 	    -o out/libscrip_rt.so
 	@echo "Built: out/libscrip_rt.so"
 

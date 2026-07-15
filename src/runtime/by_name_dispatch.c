@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
-#include <gc/gc.h>
 #include <math.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name)
@@ -3880,7 +3879,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         size_t vl = strlen(val); char *buf = rt_ws_alloc(vl+1); memcpy(buf, val, vl); buf[vl] = '\0';
         *out = STRVAL(buf); return 1;
     }
-    if (!strcmp(fn,"collect") && nargs <= 2) { GC_gcollect(); *out = NULVCL; return 1; }
+    if (!strcmp(fn,"collect") && nargs <= 2) { extern long rt_gc_collect(void); rt_gc_collect(); *out = NULVCL; return 1; }
     if (!strcmp(fn,"left") && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int sl=(int)strlen(s);
