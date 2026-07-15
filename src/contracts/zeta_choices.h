@@ -13,6 +13,10 @@
 #ifndef ZC_ALLOC
 #define ZC_ALLOC ZC_ALLOC_MALLOC
 #endif
+/* ZA-FLIP s67 (GC-U-2): the fixed reusable ζ-block class rt_zls_alloc issues through rt_arena_zblock_get/put — requests over one block route to the grow-only workspace (ZBF_WS). */
+#ifndef ZC_ZBLOCK_KB
+#define ZC_ZBLOCK_KB 64
+#endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_COL_MALLOC 0
 #define ZC_COL_ARENA  1
