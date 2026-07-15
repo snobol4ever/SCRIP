@@ -378,6 +378,8 @@ stmt
         { tree_t *e=ast_node_new(TT_TRY); ast_push(e,$2); ast_push(e,$4); $$=e; }
     | KW_CATCH block
         { tree_t *e=ast_node_new(TT_CATCH); ast_push(e,$2); $$=e; }
+    | block
+        { $$=$1; }
     | unless_stmt       { $$=$1; }
     | until_stmt        { $$=$1; }
     | repeat_stmt       { $$=$1; }
