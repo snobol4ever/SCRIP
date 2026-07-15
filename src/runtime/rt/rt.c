@@ -803,7 +803,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
  * here (this refactor is watermark-neutral by construction); it needs a ruling before the transfer converts. */
 static DESCR_t rt_proc_epilogue_body(rt_pcall_t c, int failed)
 {
-    if (c.lex) return rt_nret_fix(*(DESCR_t *)c.fb, c.wn);
+    if (c.lex) return failed ? FAILDESCR : rt_nret_fix(*(DESCR_t *)c.fb, c.wn);
     Σ = c.save_Σ; Σlen = c.save_Σlen;
     DESCR_t *rcell = rt_call_fastpath_ok() ? c.p->rcell : (DESCR_t *)0;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c.rname));
