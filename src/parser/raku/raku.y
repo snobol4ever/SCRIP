@@ -260,6 +260,10 @@ stmt
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
     | KW_MY VAR_SCALAR ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), ast_node_new(TT_NUL)); }
+    | KW_MY VAR_ARRAY ';'
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), make_call("__rk_undef")); }
+    | KW_MY VAR_HASH ';'
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), make_call("__rk_undef")); }
     | KW_MY VAR_ARRAY '=' expr ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
     | KW_MY VAR_ARRAY '=' expr ',' arg_list ';'

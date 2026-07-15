@@ -1684,6 +1684,18 @@ EOF
 raku "bare_block_value_preserved" "7" << 'EOF'
 my $b = { say(7); }; $b();
 EOF
+raku "my_array_uninit_elems" "0" << 'EOF'
+my @a; say @a.elems;
+EOF
+raku "my_hash_uninit_elems" "0" << 'EOF'
+my %h; say %h.elems;
+EOF
+raku "my_array_uninit_then_stmt" "ok" << 'EOF'
+my @a; say "ok";
+EOF
+raku "my_hash_uninit_store_get" "1" << 'EOF'
+my %h; %h<x> = 1; say %h<x>;
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
