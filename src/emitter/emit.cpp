@@ -1896,30 +1896,38 @@ static void emit_chain_operand_refs(IR_t *entry) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZS-2 (Lon s58/s59): lower-synthetic PAT$N pattern procs are consumed ONLY through SNO$MKPAT → DT_P → the
- * jmp-entry DEFER transfer ($ is not a SNOBOL4 identifier character, so no user code can call them), so their
- * chains must speak the jmp-entry protocol: self-allocating activation with the 32B wire header, wired
- * outside-γ/ω, jmp back — never call/ret.  The four driver proc-emission loops bracket PAT$ emissions with
- * this pair; every other proc stays call-regime until PROC-CONV (R12-FREE ladder rung 2). */
-extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
-    if (!pname || strncmp(pname, "PAT$", 4) != 0) return 0;
+/* ZS-2/PROC-CONV: derive the jmp-entry region from the graph and arm the self-allocating regime (flat_jmp_entry
+ * + K_total = 32B wire header + zls region, 16-mult).  The emitted activation is IDENTICAL for every citizen —
+ * PAT$ patprocs, EVAL/CODE chains, ordinary procs — so the three gates below differ ONLY in which they admit. */
+static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     extern int zls_g_region(const IR_graph_t *);
     int rg = g ? zls_g_region(g) : -1;
     if (rg <= 0) rg = 4096;
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
     return 1;
 }
+/* ZS-2 (Lon s58/s59): lower-synthetic PAT$N pattern procs are consumed ONLY through SNO$MKPAT → DT_P → the
+ * jmp-entry DEFER transfer ($ is not a SNOBOL4 identifier character, so no user code can call them), so their
+ * chains must speak the jmp-entry protocol: self-allocating activation with the 32B wire header, wired
+ * outside-γ/ω, jmp back — never call/ret.  The four driver proc-emission loops bracket PAT$ emissions with this
+ * pair; ordinary procs join via emit_jmp_entry_for_proc once PROC-CONV (R12-FREE ladder rung 2) wires the site. */
+extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
+    if (!pname || strncmp(pname, "PAT$", 4) != 0) return 0;
+    return emit_jmp_entry_arm_region(g);
+}
 extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; }
+/* PROC-CONV (R12-FREE ladder rung 2): ordinary DEFINE'd procs arm the SAME jmp-entry regime, name-agnostic (no
+ * PAT$ guard).  INERT until step 2 routes the call-site transfer from `call rax` to resolve→wire→jmp/jmp-back —
+ * arming the regime here changes no emitted bytes because nothing yet calls this entry. */
+extern "C" int emit_jmp_entry_for_proc(IR_graph_t *g) {
+    return emit_jmp_entry_arm_region(g);
+}
 /* s60 EVAL/CODE-RSP (Lon ruling s59: EVAL/CODE = the DEFER shape): runtime-compiled EVAL statement chains and
  * CODE fragments speak the same jmp-entry protocol — self-allocating rsp activation, 32B wire header, wired
  * outside-γ/ω, jump back, never call/ret.  runtime_eval.c brackets its emit_chain calls with this pair and
  * enters through rt_chain_enter (the C-side resolve→wire→jmp).  Same K_total formula as the PAT$ gate above. */
 extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
-    extern int zls_g_region(const IR_graph_t *);
-    int rg = g ? zls_g_region(g) : -1;
-    if (rg <= 0) rg = 4096;
-    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
-    return 1;
+    return emit_jmp_entry_arm_region(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
