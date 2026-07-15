@@ -114,3 +114,22 @@ char *rt_ws_strdup(const char *s) {
     memcpy(q, s, n + 1);
     return q;
 }
+
+/* --- PL-WS RECLAIMABLE COMPOUND ARENA (GC-W-2): A_TRANS so rt_arena_release is LEGAL; the default home for Prolog term_new_* so search-built terms reclaim on backtrack. Survivors (findall bags, asserted clauses) stay on rt_ws_alloc/g_ws. PL-WS-1 routes term construction here but adds NO mark/release yet (still grow-only ⇒ behavior-neutral); PL-WS-2 anchors mark/release to the trail choice-point edges. --- */
+static rt_arena_t g_pl_cterm;
+static int g_pl_cterm_up = 0;
+
+void *rt_pl_cterm_alloc(size_t n) {
+    if (!g_pl_cterm_up) { rt_arena_init(&g_pl_cterm, A_TRANS); g_pl_cterm_up = 1; }
+    return rt_arena_alloc(&g_pl_cterm, n);
+}
+
+arena_mark_t rt_pl_cterm_mark(void) {
+    if (!g_pl_cterm_up) { rt_arena_init(&g_pl_cterm, A_TRANS); g_pl_cterm_up = 1; }
+    return rt_arena_mark(&g_pl_cterm);
+}
+
+void rt_pl_cterm_release(arena_mark_t m) {
+    if (!g_pl_cterm_up) return;
+    rt_arena_release(&g_pl_cterm, m);
+}
