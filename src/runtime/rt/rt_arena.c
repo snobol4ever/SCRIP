@@ -115,21 +115,49 @@ char *rt_ws_strdup(const char *s) {
     return q;
 }
 
-/* --- PL-WS RECLAIMABLE COMPOUND ARENA (GC-W-2): A_TRANS so rt_arena_release is LEGAL; the default home for Prolog term_new_* so search-built terms reclaim on backtrack. Survivors (findall bags, asserted clauses) stay on rt_ws_alloc/g_ws. PL-WS-1 routes term construction here but adds NO mark/release yet (still grow-only ⇒ behavior-neutral); PL-WS-2 anchors mark/release to the trail choice-point edges. --- */
-static rt_arena_t g_pl_cterm;
-static int g_pl_cterm_up = 0;
-
+/* PL-WS RECLAIMABLE COMPOUND ARENA (GC-W-2): base-pinned ISLAND, g_dcap/CAS class (pattern_match rt_cas/rt_dcap). Reserved once via rt_slab_region; never moved/freed; cursor-bumped. */
+/* ABORT FIX (PL-WS-2 step 1): the old slab-drawing A_TRANS arena rooted EVERY slab, so a deep search overflowed libgc MAX_ROOT_SETS; this island is ONE 16MB-class slab = ONE root, constant. */
+/* GC rides the single RT_SLAB_GC_ROOTS registration; rt_pl_cterm_roots exports [base,cur) for a future MARK/ADJUST. mark=save top; release=rewind top (+poison under SCRIP_PL_CTERM_POISON). */
+/* PL-WS-1 routed term_new_* here; step 1 pins the backing (no release CALLS yet => behavior-neutral); step 2 anchors mark/release to the trail choice-point edges with escape-copy of survivors. */
+#define RT_PL_CTERM_ISLAND_BYTES ((size_t)16u << 20)
+#define RT_PL_CTERM_POISON 0xDE
+static uint8_t *g_pl_cterm_base = 0;
+static uint8_t *g_pl_cterm_cur  = 0;
+static uint8_t *g_pl_cterm_end  = 0;
+static int rt_pl_cterm_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_PL_CTERM_POISON"); p = e ? (atoi(e) != 0) : 0; } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_pl_cterm_lazy_init(void) {
+    extern void *rt_slab_region(size_t);
+    if (g_pl_cterm_base) return;
+    g_pl_cterm_base = (uint8_t *)rt_slab_region(RT_PL_CTERM_ISLAND_BYTES);
+    if (!g_pl_cterm_base) { fprintf(stderr, "rt_pl_cterm: island reserve failed\n"); abort(); }
+    g_pl_cterm_cur = g_pl_cterm_base;
+    g_pl_cterm_end = g_pl_cterm_base + RT_PL_CTERM_ISLAND_BYTES;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_cterm_alloc(size_t n) {
-    if (!g_pl_cterm_up) { rt_arena_init(&g_pl_cterm, A_TRANS); g_pl_cterm_up = 1; }
-    return rt_arena_alloc(&g_pl_cterm, n);
+    if (!g_pl_cterm_base) rt_pl_cterm_lazy_init();
+    size_t need = AL16(n);
+    if ((size_t)(g_pl_cterm_end - g_pl_cterm_cur) < need) { fprintf(stderr, "rt_pl_cterm: island exhausted (%zu used)\n", (size_t)(g_pl_cterm_cur - g_pl_cterm_base)); abort(); }
+    uint8_t *p = g_pl_cterm_cur;
+    g_pl_cterm_cur += need;
+#if RT_ARENA_ZERO
+    memset(p, 0, need);
+#endif
+    return p;
 }
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 arena_mark_t rt_pl_cterm_mark(void) {
-    if (!g_pl_cterm_up) { rt_arena_init(&g_pl_cterm, A_TRANS); g_pl_cterm_up = 1; }
-    return rt_arena_mark(&g_pl_cterm);
+    if (!g_pl_cterm_base) rt_pl_cterm_lazy_init();
+    arena_mark_t m = { (rt_slab_t *)0, g_pl_cterm_cur };
+    return m;
 }
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_cterm_release(arena_mark_t m) {
-    if (!g_pl_cterm_up) return;
-    rt_arena_release(&g_pl_cterm, m);
+    if (!g_pl_cterm_base || !m.cur) return;
+    if (m.cur < g_pl_cterm_base || m.cur > g_pl_cterm_cur) { fprintf(stderr, "rt_pl_cterm: release out of range (non-LIFO)\n"); abort(); }
+    if (rt_pl_cterm_poison() && g_pl_cterm_cur > m.cur) memset(m.cur, RT_PL_CTERM_POISON, (size_t)(g_pl_cterm_cur - m.cur));
+    g_pl_cterm_cur = m.cur;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_cterm_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_pl_cterm_base; if (bytes) *bytes = (size_t)(g_pl_cterm_cur - g_pl_cterm_base); }
