@@ -174,6 +174,7 @@ static void emit_proc(PNodeList *procs, tree_t *proc) {
     pnl_push(procs, st);
 }
 static tree_t *mk_array_fill(long long high);
+static tree_t *pas_str_to_alpha(const char *s, long long lo, long long high);
 static tree_t *mk_array_init(const char *name, long long high);
 static int pas_array_high_get(const char *name, long long *out);
 static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, int is_function, int decl_level, const char **lnames, int lcount) {
@@ -430,6 +431,14 @@ static tree_t *mk_array_fill(long long high) {
     buf[p] = '\0';
     tree_t *q = ast_node_new(TT_QLIT); q->v.sval = buf; return q;
 }
+static tree_t *pas_str_to_alpha(const char *s, long long lo, long long high) {
+    if (!s) s = ""; if (lo < 0) lo = 0;
+    size_t sl = strlen(s); long long n = high + 1; if (n < lo + (long long)sl) n = lo + (long long)sl; if (n < 1) n = 1;
+    char *buf = (char *)malloc((size_t)n * 12 + 1); size_t p = 0;
+    for (long long k = 0; k < n; k++) { if (k) buf[p++] = '\001'; long long si = k - lo; unsigned ch = (si >= 0 && si < (long long)sl) ? (unsigned char)s[si] : (si >= 0 ? (unsigned)' ' : 0u); p += (size_t)snprintf(buf + p, 12, "%u", ch); }
+    buf[p] = '\0';
+    tree_t *q = ast_node_new(TT_QLIT); q->v.sval = buf; return q;
+}
 static int pas_array_is_pure_num(const char *name) {
     if (!name) return 0;
     if (pas_is_chararr(name)) return 0;
@@ -663,6 +672,9 @@ assignment:
               else s2 = leaf_s(TT_VAR, $1->v.sval);
               ast_push(e, mk_assign(s2, ilit(0)));
               $$ = e;
+          } else if ($1 && $1->t == TT_VAR && $1->v.sval && pas_is_chararr($1->v.sval) && $3 && $3->t == TT_QLIT && $3->v.sval) {
+              long long _cah; if (!pas_array_high_get($1->v.sval, &_cah)) _cah = (long long)strlen($3->v.sval);
+              $$ = mk_assign($1, pas_str_to_alpha($3->v.sval, pas_chararr_lo($1->v.sval), _cah));
           } else { $$ = mk_assign($1, pas_bool($3)); } }
     ;
 selector:
