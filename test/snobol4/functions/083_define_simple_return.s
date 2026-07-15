@@ -8,31 +8,21 @@ proc_double_α:
     .global proc_double_γ
     .global proc_double_ω
   sub rsp, 448
-  mov [rsp+8], rcx
-  mov [rsp+16], rdx
-  mov [rsp+24], r12
-  lea r12, [rsp+32]
-  mov rdi, r12
+  mov [rsp + 424], rcx
+  mov [rsp + 432], rdx
+  mov rdi, rsp
   mov ecx, 416
   xor eax, eax
   rep stosb
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  mov qword ptr [r12 + 408], rsp
- push rsi
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_zls_mark@PLT
- mov rsp, [rsp + 8]
- mov qword ptr [r12 + 400], rax
- pop rsi
+  mov qword ptr [rsp + 408], rsp
 proc_double_α_body:
 # IR_LIT_INTEGER
  xchain0_n0_α:
- mov qword ptr [r12 + 144], 6
+ mov qword ptr [rsp + 144], 6
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [r12 + 152], rax
+ mov qword ptr [rsp + 152], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp proc_double_γ
@@ -42,84 +32,76 @@ proc_double_α_body:
  xchain0_n1_α:
  mov rax, qword ptr [rbx + 16]
  mov rdx, qword ptr [rbx + 24]
- mov qword ptr [r12 + 176], rax
- mov qword ptr [r12 + 184], rdx
+ mov qword ptr [rsp + 176], rax
+ mov qword ptr [rsp + 184], rdx
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp proc_double_γ
  xchain0_n2_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [r12 + 176]
+ mov eax, dword ptr [rsp + 176]
  cmp eax, 100
  je .Lx3_0
- mov eax, dword ptr [r12 + 176]
+ mov eax, dword ptr [rsp + 176]
  cmp eax, 6
  jne .Lx3_2
 .Lx3_1:
  mov rax, 2
- mov rcx, qword ptr [r12 + 184]
+ mov rcx, qword ptr [rsp + 184]
  imul rax, rcx
- mov qword ptr [r12 + 112], 6
- mov qword ptr [r12 + 120], rax
+ mov qword ptr [rsp + 112], 6
+ mov qword ptr [rsp + 120], rax
  jmp xchain0_n3_α
 .Lx3_0:
- mov rdi, qword ptr [r12 + 144]
- mov rsi, qword ptr [r12 + 152]
- mov rdx, qword ptr [r12 + 176]
- mov rcx, qword ptr [r12 + 184]
+ mov rdi, qword ptr [rsp + 144]
+ mov rsi, qword ptr [rsp + 152]
+ mov rdx, qword ptr [rsp + 176]
+ mov rcx, qword ptr [rsp + 184]
  mov r8d, 2
- lea r9, [r12 + 112]
+ lea r9, [rsp + 112]
  call rt_binop_overload@PLT
  test eax, eax
  jne .Lx3_3
 .Lx3_2:
- mov rdi, qword ptr [r12 + 144]
- mov rsi, qword ptr [r12 + 152]
- mov rdx, qword ptr [r12 + 176]
- mov rcx, qword ptr [r12 + 184]
+ mov rdi, qword ptr [rsp + 144]
+ mov rsi, qword ptr [rsp + 152]
+ mov rdx, qword ptr [rsp + 176]
+ mov rcx, qword ptr [rsp + 184]
  mov r8d, 2
  call rt_num_arith@PLT
  cmp eax, 99
  je proc_double_γ
- mov qword ptr [r12 + 112], rax
- mov qword ptr [r12 + 120], rdx
+ mov qword ptr [rsp + 112], rax
+ mov qword ptr [rsp + 120], rdx
 .Lx3_3:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp proc_double_γ
 # IR_ASSIGN gva
  xchain0_n3_α:
- mov rax, qword ptr [r12 + 112]
- mov rdx, qword ptr [r12 + 120]
+ mov rax, qword ptr [rsp + 112]
+ mov rdx, qword ptr [rsp + 120]
  mov qword ptr [rbx + 0], rax
  mov qword ptr [rbx + 8], rdx
- mov qword ptr [r12 + 96], rax
- mov qword ptr [r12 + 104], rdx
+ mov qword ptr [rsp + 96], rax
+ mov qword ptr [rsp + 104], rdx
  jmp proc_double_γ
  xchain0_n3_β:
  jmp proc_double_γ
 proc_double_res:
 add rsp, 8
-pop r12
+pop rsp
 proc_double_β:
 jmp proc_double_ω
 proc_double_γ:
-push r12
-lea rax, [rip + proc_double_res]
-push rax
-mov rax, [r12-24]
-mov r12, [r12-8]
+mov rdi, [rsp]
+mov rsi, [rsp + 8]
+mov rax, [rsp + 424]
+lea rsp, [rsp + 448]
 jmp rax
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- mov rdi, qword ptr [r12 + 400]
- call rt_zls_release_to@PLT
- mov rsp, [rsp + 8]
 proc_double_ω:
-mov rax, [r12-16]
-lea rsp, [r12 + 416]
-mov r12, [r12-8]
+mov rax, [rsp + 432]
+lea rsp, [rsp + 448]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -174,16 +156,9 @@ main:
   mov edx, 2
   call gva_register@PLT
   mov rbx, rax
-  sub rsp, 65536
-  mov rdi, rsp
-  mov ecx, 8192
-  xor eax, eax
-  rep stosq
-  mov rdi, rsp
   xor esi, esi
   call main_α
   xor eax, eax
-  add rsp, 65536
   add rsp, 24
   ret
 main_α:
@@ -192,37 +167,29 @@ main_α:
     .global main_β
     .global main_γ
     .global main_ω
-push r12
-  mov r12, rdi
+  sub rsp, 65544
+  mov rdi, rsp
+  mov ecx, 65544
+  xor eax, eax
+  rep stosb
   lea rax, [rip + g_gva_base]
   mov rbx, qword ptr [rax]
-  mov qword ptr [r12 + 408], rsp
- push rsi
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_zls_mark@PLT
- mov rsp, [rsp + 8]
- mov qword ptr [r12 + 400], rax
- pop rsi
+  mov qword ptr [rsp + 408], rsp
 main_α_body:
 # IR_LIT_INTEGER
  xchain5_n0_α:
- mov qword ptr [r12 + 272], 6
+ mov qword ptr [rsp + 272], 6
  mov rax, qword ptr [rip + .Lx6_0]
- mov qword ptr [r12 + 280], rax
+ mov qword ptr [rsp + 280], rax
  jmp xchain5_n1_α
  xchain5_n0_β:
  jmp xchain5_n3_α
 .Lx6_0:
  .quad 5
  xchain5_n1_α:
- push rsp
- push qword ptr [rsp]
- and rsp, -16
  mov edi, 0
- mov rsi, qword ptr [r12 + 272]
- mov rdx, qword ptr [r12 + 280]
+ mov rsi, qword ptr [rsp + 272]
+ mov rdx, qword ptr [rsp + 280]
  call rt_arg_stage@PLT
  mov rdi, qword ptr [rip + .Lx8_0]
  mov esi, 1
@@ -230,34 +197,20 @@ main_α_body:
  test rax, rax
  je .Lx8_1
  call rt_proc_open_fn@PLT
- push r12
- sub rsp, 8
  lea rcx, [rip + .Lx8_3]
  lea rdx, [rip + .Lx8_4]
- mov r12, rsp
  jmp rax
 .Lx8_3:
- mov rax, rsp
- mov rax, qword ptr [rax + 8]
- mov rdi, qword ptr [rax + 0]
- mov rsi, qword ptr [rax + 8]
- mov rsp, r12
- add rsp, 8
- pop r12
  call rt_proc_call_epilogue_γ@PLT
  jmp .Lx8_2
 .Lx8_4:
- mov rsp, r12
- add rsp, 8
- pop r12
  call rt_proc_call_epilogue_ω@PLT
  jmp .Lx8_2
 .Lx8_1:
  call rt_faildescr@PLT
 .Lx8_2:
- mov rsp, [rsp + 8]
- mov qword ptr [r12 + 224], rax
- mov qword ptr [r12 + 232], rdx
+ mov qword ptr [rsp + 224], rax
+ mov qword ptr [rsp + 232], rdx
  cmp eax, 99
  je xchain5_n3_α
  jmp xchain5_n2_α
@@ -269,12 +222,12 @@ main_α_body:
  .string "double"
 # IR_ASSIGN global
  xchain5_n2_α:
- mov rsi, qword ptr [r12 + 224]
- mov rdx, qword ptr [r12 + 232]
+ mov rsi, qword ptr [rsp + 224]
+ mov rdx, qword ptr [rsp + 232]
  mov rdi, qword ptr [rip + .Lx9_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 208], rax
- mov qword ptr [r12 + 216], rdx
+ mov qword ptr [rsp + 208], rax
+ mov qword ptr [rsp + 216], rdx
  jmp xchain5_n3_α
  xchain5_n2_β:
  jmp xchain5_n3_α
@@ -284,21 +237,18 @@ main_α_body:
  .string "OUTPUT"
 # IR_LIT_INTEGER
  xchain5_n3_α:
- mov qword ptr [r12 + 368], 6
+ mov qword ptr [rsp + 368], 6
  mov rax, qword ptr [rip + .Lx10_0]
- mov qword ptr [r12 + 376], rax
+ mov qword ptr [rsp + 376], rax
  jmp xchain5_n4_α
  xchain5_n3_β:
  jmp main_γ
 .Lx10_0:
  .quad 21
  xchain5_n4_α:
- push rsp
- push qword ptr [rsp]
- and rsp, -16
  mov edi, 0
- mov rsi, qword ptr [r12 + 368]
- mov rdx, qword ptr [r12 + 376]
+ mov rsi, qword ptr [rsp + 368]
+ mov rdx, qword ptr [rsp + 376]
  call rt_arg_stage@PLT
  mov rdi, qword ptr [rip + .Lx12_0]
  mov esi, 1
@@ -306,34 +256,20 @@ main_α_body:
  test rax, rax
  je .Lx12_1
  call rt_proc_open_fn@PLT
- push r12
- sub rsp, 8
  lea rcx, [rip + .Lx12_3]
  lea rdx, [rip + .Lx12_4]
- mov r12, rsp
  jmp rax
 .Lx12_3:
- mov rax, rsp
- mov rax, qword ptr [rax + 8]
- mov rdi, qword ptr [rax + 0]
- mov rsi, qword ptr [rax + 8]
- mov rsp, r12
- add rsp, 8
- pop r12
  call rt_proc_call_epilogue_γ@PLT
  jmp .Lx12_2
 .Lx12_4:
- mov rsp, r12
- add rsp, 8
- pop r12
  call rt_proc_call_epilogue_ω@PLT
  jmp .Lx12_2
 .Lx12_1:
  call rt_faildescr@PLT
 .Lx12_2:
- mov rsp, [rsp + 8]
- mov qword ptr [r12 + 320], rax
- mov qword ptr [r12 + 328], rdx
+ mov qword ptr [rsp + 320], rax
+ mov qword ptr [rsp + 328], rdx
  cmp eax, 99
  je main_γ
  jmp xchain5_n5_α
@@ -345,12 +281,12 @@ main_α_body:
  .string "double"
 # IR_ASSIGN global
  xchain5_n5_α:
- mov rsi, qword ptr [r12 + 320]
- mov rdx, qword ptr [r12 + 328]
+ mov rsi, qword ptr [rsp + 320]
+ mov rdx, qword ptr [rsp + 328]
  mov rdi, qword ptr [rip + .Lx13_0]
  call NV_SET_fn@PLT
- mov qword ptr [r12 + 304], rax
- mov qword ptr [r12 + 312], rdx
+ mov qword ptr [rsp + 304], rax
+ mov qword ptr [rsp + 312], rdx
  jmp main_γ
  xchain5_n5_β:
  jmp main_γ
@@ -363,22 +299,15 @@ jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, qword ptr [r12 + 408]
-pop r12
+mov rsp, qword ptr [rsp + 408]
+add rsp, 65544
 ret
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- mov rdi, qword ptr [r12 + 400]
- call rt_zls_release_to@PLT
- mov rsp, [rsp + 8]
 main_ω:
-# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure
-mov dword ptr [r12+0], 99
-mov dword ptr [r12+4], 0
-mov qword ptr [r12+8], 0
+mov rsp, qword ptr [rsp + 408]
+mov dword ptr [rsp+0], 99
+mov dword ptr [rsp+4], 0
+mov qword ptr [rsp+8], 0
 mov eax, 99
 xor edx, edx
-mov rsp, qword ptr [r12 + 408]
-pop r12
+add rsp, 65544
 ret
