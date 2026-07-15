@@ -1696,6 +1696,18 @@ EOF
 raku "my_hash_uninit_store_get" "1" << 'EOF'
 my %h; %h<x> = 1; say %h<x>;
 EOF
+raku "wordlist_elems" "3" << 'EOF'
+my @a = <a b c>; say @a.elems;
+EOF
+raku "wordlist_index" "b" << 'EOF'
+my @a = <a b c>; say @a[1];
+EOF
+raku "wordlist_direct_elems" "3" << 'EOF'
+say <x y z>.elems;
+EOF
+raku "wordlist_hash_subscript_coexist" "5" << 'EOF'
+my %h; %h<k> = 5; my @w = <a b c>; say %h<k>;
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
