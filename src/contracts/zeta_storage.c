@@ -410,13 +410,25 @@ int fc_geom(const IR_t * nd, long * k) {
  * the pre-rung path, degrade never die).  Side table keyed by node pointer (the zls_entry precedent; PEERS
  * RULE forbids IR_t fields, and operand-appending would corrupt flat_drive's N = n_operands/2).  Node-ptr
  * staleness exposure identical to the zls tables (fresh process per compile; EVAL graphs mint fresh nodes). */
-static struct { const IR_t * nd; int n; int fp[16]; } fca[256];
+static struct { const IR_t * nd; int n; int fp[16]; int ab[16]; int ae[16]; } fca[256];
 static int fca_n = 0;
-void fc_alt_register(const IR_t * nd, int n, const int * fp) {
+void fc_alt_register(const IR_t * nd, int n, const int * fp, const int * ab, const int * ae) {
     if (!nd || n <= 0 || n > 10 || fca_n >= 256) return;   /* N>10 exceeds the 3N+2 <= XA_BB_EMIT_PAIR_MAX(32) stub budget -- silent decline */
     fca[fca_n].nd = nd; fca[fca_n].n = n;
-    for (int i = 0; i < n && i < 16; i++) fca[fca_n].fp[i] = fp[i];
+    for (int i = 0; i < n && i < 16; i++) { fca[fca_n].fp[i] = fp[i]; fca[fca_n].ab[i] = ab ? ab[i] : -1; fca[fca_n].ae[i] = ae ? ae[i] : -1; }
     fca_n++;
+}
+int fc_alt_n(const IR_t * nd) {
+    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) return fca[i].n;
+    return -1;
+}
+int fc_alt_extent(const IR_t * nd, int * b, int * e) {
+    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) { if (fca[i].ab[0] < 0 || fca[i].ae[fca[i].n - 1] < 0) return 0; if (b) *b = fca[i].ab[0]; if (e) *e = fca[i].ae[fca[i].n - 1]; return 1; }
+    return 0;
+}
+int fc_alt_arm_range(const IR_t * nd, int j, int * b, int * e) {
+    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) { if (j < 0 || j >= fca[i].n || fca[i].ab[j] < 0) return 0; if (b) *b = fca[i].ab[j]; if (e) *e = fca[i].ae[j]; return 1; }
+    return 0;
 }
 int fc_alt_fpmax(const IR_t * nd) {
     for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) { int m = 0; for (int j = 0; j < fca[i].n; j++) if (fca[i].fp[j] > m) m = fca[i].fp[j]; return m; }
