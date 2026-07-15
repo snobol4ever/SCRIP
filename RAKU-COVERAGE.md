@@ -1,6 +1,6 @@
 # RAKU-COVERAGE.md — computed by scripts/raku_roast_scoreboard.sh
 
-**Generated:** 2026-07-15T12:08:10Z · scrip `e18b038a` · roast `b2cbe8a`
+**Generated:** 2026-07-15T13:10:40Z · scrip `c021e731` · roast `b2cbe8a`
 
 This table is the ONLY sanctioned source of a Raku coverage claim (RAKU-100 ladder,
 COMPLETION DEFINITION). Prose estimates are superseded by whatever this prints.
@@ -9,11 +9,11 @@ COMPLETION DEFINITION). Prose estimates are superseded by whatever this prints.
 
 | Verdict | Files | % of in-tier |
 |---------|-------|--------------|
-| **PASS** | 1 | **0.1%** |
+| **PASS** | 2 | **0.2%** |
 | FAIL (runs, some `not ok`) | 0 | 0.0% |
-| PARSE-FAIL | 940 | 95.3% |
+| PARSE-FAIL | 936 | 94.9% |
 | NO-TAP (ran, emitted no TAP) | 2 | 0.2% |
-| CRASH / TIMEOUT | 2 | 0.2% |
+| CRASH / TIMEOUT | 5 | 0.5% |
 | missing from roast tree | 41 | — |
 | **IN-TIER DENOMINATOR** | **986** | 100% |
 
@@ -29,7 +29,7 @@ COMPLETION DEFINITION). Prose estimates are superseded by whatever this prints.
 | S02-names-vars | 0 | 8 | 0.0% |
 | S02-one-pass-parsing | 0 | 1 | 0.0% |
 | S02-packages | 0 | 1 | 0.0% |
-| S02-types | 0 | 54 | 0.0% |
+| S02-types | 1 | 54 | 1.9% |
 | S03-binding | 0 | 7 | 0.0% |
 | S03-feeds | 0 | 1 | 0.0% |
 | S03-junctions | 0 | 4 | 0.0% |
