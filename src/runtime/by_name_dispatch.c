@@ -2477,6 +2477,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t rvl = strlen(rv);
         if (!strchr(cur, SOH)) {
             size_t slen = strlen(cur);
+            if (idx == 0) { char *e0 = rt_ws_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; *out = STRVAL(e0); return 1; }
             if (idx < 1 || (size_t)idx > slen) { *out = FAILDESCR; return 1; }
             char *buf = rt_ws_alloc(slen * 5 + rvl + 4);
             size_t pos = 0; buf[pos++] = '0';
