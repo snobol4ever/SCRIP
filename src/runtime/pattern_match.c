@@ -581,6 +581,20 @@ static void *rt_cas_carve(size_t bytes)
 }
 void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_base; if (bytes) *bytes = g_cas_used; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_PATSTK_ISLAND_BYTES (8u << 20)
+uint64_t g_patstk_sp = 0;
+uint64_t g_pat_main_rsp = 0;
+static const char *g_patstk_base = 0;
+void rt_patstk_lazy_init(void) {
+    extern void *rt_slab_region(size_t);
+    if (!g_patstk_sp) {
+        g_patstk_base = (const char *)rt_slab_region(RT_PATSTK_ISLAND_BYTES);
+        if (!g_patstk_base) { fprintf(stderr, "rt_patstk: island reserve failed\n"); abort(); }
+        g_patstk_sp = (uint64_t)(uintptr_t)(g_patstk_base + RT_PATSTK_ISLAND_BYTES);
+        g_patstk_sp &= ~(uint64_t)15;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_DCAP_ISLAND_BYTES (4u << 20)
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;

@@ -137,7 +137,7 @@
  * activations (suspends/coexprs) live off-spine.  Selectable at BUILD TIME ONLY — set ZC_FRAME here or -DZC_FRAME=…; the env/runtime
  * switch is deleted (Lon 2026-07-09: never flipped at runtime). */
 #ifndef ZC_FRAME
-#define ZC_FRAME ZC_FRAME_R12
+#define ZC_FRAME ZC_FRAME_RSP  /* R12-ERAD s65: RSP is now the default (replaces ZC_FRAME_R12 that was here through s64) */
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM SELECTOR (Lon directive 2026-07-09: "we will want a command line switch to select the ZETA

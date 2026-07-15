@@ -441,6 +441,7 @@ typedef struct {
     long                         op_fc_fpmax;      /* ZB-FC-3a: pad-to-max footprint for a granted ALTERNATE; -1 = not a granted ALT */
     int                          op_fc_arm_fp[16]; /* ZB-FC-3a: per-arm EXACT static footprints (pads = fpmax - fp[j]) */
     long                         op_fc_disp;       /* ZB-FC-3c: COND/IMM cross-box read displacement to SAVE's cell = fp(inner) ([rsp + disp] at the yield frontier, S10c); -1 = ungranted, the flat rt_cap array path */
+    long                         op_flat_disp;     /* R12-ERAD s65: under ZC_FRAME_RSP the static bytes between rsp and the FLAT frame base at this box's own code (32 HEAD cell + suspended-prefix + own cell, LOWER's fc_leaf registrar); FR/FRQ add it to every non-window ref; 0 = at base (the non-pattern default and every R12/RBP build) */
     long                         op_fc_wbytes;     /* ZB-FC-3d: WINDOW-ONLY width for a self-pushing box (HEAD): feeds the FR/FRQ rebase like op_fc_bytes but NEVER arms the alpha-sub/omega-add hook (the box pushes itself, the statement UNWIND releases); 0 = no window */
     int                          op_fc_seq;        /* ZB-FC-3b: 1 = this IR_MATCH_SEQUENCE is FORTH-converted (ZERO cell -- seq_i/delta retired; the LIFO stack position IS the element index, so sigma/phi become static edge re-points and the box owns no rsp storage) */
     int                          op_arbno_chain;   /* ZB-FC-4 (Lon s50 S14): 1 = this IR_MATCH_ARBNO uses the s32 LINKED FRAME CHAIN on rsp (per-iteration nodes pushed by beta, chained by prev-link, unwound at omega via the saved pre-alpha rsp) instead of the rt_zcol_push heap COLLECTION; set under ZC_PORT_FORTH only, so default is byte-identical */
@@ -523,6 +524,7 @@ typedef struct {
     const char *                 prev_instr_name;
     int                          flat_wired;
     int                          flat_jmp_entry;      /* ZS-2 (Lon s58): rtpat/rtlen/rtbrk blob regime — jmp-entered new activation, self-allocates on rsp, 32B wire header at [rsp+0..31], γ suspends / ω unwinds via the wired outside edges; NO esi dispatch, NO ret */
+    int                          flat_pat;         /* R12-ERAD s65: this jmp-entry graph is a PAT$ SUSPENDING blob — r12-frame island arms in xa_flat + r12 FR prefix (set by emit_jmp_entry_for_patproc, cleared with flat_jmp_entry) */
     int                          flat_frame_bytes;    /* ZS-2: K_total for the jmp-entry prologue's sub rsp (32B header + zls region, 16-mult), computed by the blob builder BEFORE emit from zls_g_region */
     struct bb_label_t *          flat_res_p;          /* ZS-2: the β-resume landing stub (lea r12,[rsp+32] falling into lbl_β); prologue stores its address into the [rsp+0] wire */
     struct bb_label_t *          flat_succ_p;

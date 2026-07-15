@@ -309,10 +309,10 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }
-inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
-inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "dword ptr [rsp + " : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
-inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "qword ptr [rsp + " : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
+inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "r12" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* R12-ERAD s65: PAT$ suspending blobs are r12-frame ISLANDS on the side stack — their interior keeps the immune-base architecture verbatim */
+inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? 12 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "dword ptr [r12 + " : "dword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
+inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "qword ptr [r12 + " : "qword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM accessor — runtime-selectable BY DESIGN (Lon 2026-07-09, contrast the ZC_FRAME build
  * constant above); see zeta_choices.h ZC_ZETA block for the rung map.  RUNG-1 seams read THIS, never getenv,
@@ -755,7 +755,7 @@ inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "dword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off); return b[i]; }
+inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "dword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? (int)_.op_flat_disp : 0)); return b[i]; }   /* R12-ERAD s65: rsp-frame flat refs sit op_flat_disp above rsp while cells are pushed; the compensated NUMBER rides the string, so the binary twin (x86_parse XK_FR32 atoi) follows for free; pat blobs are r12-immune */
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
@@ -780,7 +780,7 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "qword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off); return b[i]; }
+inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "qword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? (int)_.op_flat_disp : 0)); return b[i]; }   /* R12-ERAD s65: same compensation as FR — one number, both mediums */
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
@@ -1219,10 +1219,12 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
  * meaningless across it (push/and both touch or depend on rsp) — callers already treat a C call as a full
  * clobber, so nothing new. */
 inline std::string x86_align_enter() {
+    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string();   /* R12-ERAD s65 (ZB-OWN-1a G1): base ≡ 0 mod 16 (K=65544 phase pad) and every rsp motion in the body is a 16-multiple (32B HEAD cell, 16B leaf cells, 32B xfer, 16-rounded zls blocks) ⇒ rsp ≡ 0 mod 16 at every C-call site ⇒ the dance is a no-op — and MUST be one: its own pushes are what displaced every flat ref inside it.  Pat blobs (r12-island, rsp sinks) keep the dance. */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b1(0x54) + x86_b3(0xFF, 0x34, 0x24) + x86_b2(0x48, 0x83) + x86_b2(0xE4, 0xF0));
     return std::string(" push rsp\n push qword ptr [rsp]\n and rsp, -16\n");
 }
 inline std::string x86_align_leave() {
+    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string();   /* R12-ERAD s65: paired with the enter no-op above */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x48, 0x8B, 0x64) + x86_b2(0x24, 0x08));
     return std::string(" mov rsp, [rsp + 8]\n");
 }
@@ -1278,9 +1280,11 @@ inline std::string x86_frame_unsink() {
  * call sites (no live cursor) — that is why bcps_det_arm is safe today, and it stops being safe the moment a
  * deterministic call is reached with r14 live. */
 inline std::string x86_xfer_enter() {
+    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L);   /* R12-ERAD s65: 32B keeps the G1 16-align invariant; the ONE interior flat ref (RELEASE's mark read) is hand-compensated +32 at the template */
     return x86("push", "r14") + x86("push", "r15") + x86("push", "r13");
 }
 inline std::string x86_xfer_leave() {
+    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
     return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1561,7 +1565,7 @@ inline std::string x86_port_hook(int site, int port) {
  * plain assignment. Confirmed via hex dump of the corrupted bytes, not assumed; then confirmed the fix by
  * finding bb_emit_x86's actual tag loop, the same consumer every ordinary bb_*.cpp template already uses.) */
 inline std::string x86_zeta_mark_call(int off) {
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap in the BB equation — the FORTH frame IS the zeta; anchor slot already holds the rsp snapshot */
+    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string(); /* R12-ERAD: no heap in the BB equation — the FORTH frame IS the zeta; anchor slot already holds the rsp snapshot */
     return x86("push", "rsi")
          + x86_align_enter()
          + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_zls_mark)
@@ -1571,7 +1575,7 @@ inline std::string x86_zeta_mark_call(int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zeta_release_to_call(int off) {
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap release — the FORTH frame unwinds via add rsp,K at ω */
+    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string(); /* R12-ERAD: no heap release — the FORTH frame unwinds via add rsp,K at ω */
     return x86_align_enter()
          + x86("mov",  "rdi", FRQ(off))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release_to)

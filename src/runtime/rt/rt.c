@@ -862,6 +862,37 @@ DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
  * reclaim, because the epilogue's own C frame would otherwise be carved straight through the retained region.
  * ω arrives with the activation already ABSOLUTELY unwound by the blob's ω-half (rsp = the r12 anchor exactly).
  * The tail-jmp hands rax:rdx (DESCR_t) straight back to the C caller. */
+#if defined(ZC_FRAME) && defined(ZC_FRAME_RSP) && ZC_FRAME == ZC_FRAME_RSP
+/* R12-ERAD s65: under rsp-frames the blob's LIFO exits fully unwind BEFORE the jmp (γ delivers frame0 in rdi:rsi pre-unwind), so both landings arrive at the pre-jmp rsp — the r12 anchor is deleted. */
+__asm__(
+".text\n"
+".globl rt_proc_enter\n"
+"rt_proc_enter:\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  movq %rdi, %rax\n"
+"  leaq 2f(%rip), %rcx\n"
+"  leaq 3f(%rip), %rdx\n"
+"  jmp *%rax\n"
+"2:\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  jmp rt_proc_call_epilogue_γ\n"
+"3:\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  jmp rt_proc_call_epilogue_ω\n"
+);
+#else
 __asm__(
 ".text\n"
 ".globl rt_proc_enter\n"
@@ -896,6 +927,7 @@ __asm__(
 "  popq %rbx\n"
 "  jmp rt_proc_call_epilogue_ω\n"
 );
+#endif
 DESCR_t rt_proc_enter(void *fn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* OPEN-FN LEAF — the emitted call site's fn fetch.  Under the call regime the entry rode back out of

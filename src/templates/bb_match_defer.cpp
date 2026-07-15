@@ -9,10 +9,13 @@ extern "C" long  rt_defer_step     (DESCR_t fret);
 extern "C" int   rt_defer_close    (int cur_delta);
 extern "C" void *rt_proc_open_fn   (void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
+extern "C" uint64_t g_patstk_sp;
+extern "C" uint64_t g_pat_main_rsp;
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
+static inline int dswap() { return ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
@@ -37,12 +40,15 @@ std::string bb_match_defer() {
          + x86_align_leave()
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
+         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_lea_id("rcx", 4)
          + x86_lea_id("rdx", 5)
          + x86_jmp_reg("rax")
          + x86("def",  L(4))
+         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_gamma()
          + x86("def",  L(5))
+         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_omega()
          + x86("def",  "L0")
          /* NCB-1c M1 (2026-07-11): the *X / DT_X transfer is EMITTED — open returns fbytes (a call is owed),
@@ -67,30 +73,21 @@ std::string bb_match_defer() {
          + x86("test", "rax", "rax")
          + x86("je",   "L3")
          + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         + x86("push", "r12")
-         + x86("sub",  "rsp", 8L)
-         + x86_lea_id("rcx", 7)
-         + x86_lea_id("rdx", 8)
-         + x86("mov",  "r12", "rsp")
+         + IF(!dswap(), x86("push","r12")+x86("sub","rsp",8L))
+         + x86_lea_id("rcx",7)
+         + x86_lea_id("rdx",8)
+         + IF(!dswap(), x86("mov","r12","rsp"))
          + x86_jmp_reg("rax")
          + x86("def",  L(7))
-         + x86("mov",  "rax", "rsp")
-         + x86("mov",  "rax", RDQ("rax", 8))
-         + x86("mov",  "rdi", RDQ("rax", 0))
-         + x86("mov",  "rsi", RDQ("rax", 8))
-         + x86("mov",  "rsp", "r12")
-         + x86("add",  "rsp", 8L)
-         + x86("pop",  "r12")
-         + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
+         + IF(!dswap(), x86("mov","rax","rsp")+x86("mov","rax",RDQ("rax",8))+x86("mov","rdi",RDQ("rax",0))+x86("mov","rsi",RDQ("rax",8))+x86("mov","rsp","r12")+x86("add","rsp",8L)+x86("pop","r12"))
+         + x86("call","rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
          + x86("call", "rt_defer_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_defer_step)
          + x86("jmp",  "L2")
          + x86("def",  L(8))
-         + x86("mov",  "rsp", "r12")
-         + x86("add",  "rsp", 8L)
-         + x86("pop",  "r12")
-         + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
+         + IF(!dswap(), x86("mov","rsp","r12")+x86("add","rsp",8L)+x86("pop","r12"))
+         + x86("call","rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
          + x86("call", "rt_defer_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_defer_step)
@@ -109,14 +106,18 @@ std::string bb_match_defer() {
           * re-enters it exactly like a blob activation and the exhaust falls to ω (the old fn==0 jz guard's
           * job, now wired instead of tested). */
          + x86_lea_id("rax", 6)
+         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_sub("rsp", 8)
          + x86("push", "rax")
+         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_gamma()
          + x86("def",  L(6))
          + x86_add("rsp", 16)
+         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_omega()
          /* β: the LIFO law has rsp at the suspended activation's own base — jump through its [+0] wire (blob:
           * the chain's %s_res landing re-pins the frame reg and resumes; callout: the exhaust stub above). */
          + x86_beta()
+         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_jmp_mem("rsp", 0);
 }
