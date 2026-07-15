@@ -527,9 +527,11 @@ static DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret
 /* NCB-1 leaves (defined below, beside the dyn trampolines they were split out of). */
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
-DESCR_t rt_proc_call_epilogue(DESCR_t fret);
-DESCR_t rt_proc_call_epilogue_γ(void);
+void   *rt_proc_open_fn(void);
+DESCR_t rt_proc_enter(void *fn);
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
+DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
@@ -548,12 +550,13 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
      * dyn_scope delegation to rt_call_named_proc is gone: dyn and lexical now differ only INSIDE the leaves. */
     long fbytes = rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
-    char *fb; if (rt_zeta_cstack()) fb = (char *)alloca((size_t)fbytes); else fb = (char *)rt_zls2_push(fbytes);
-    DESCR_t (*fn)(void *, int) = (DESCR_t (*)(void *, int))rt_frame_prep((void *)fb, fbytes);
-    DESCR_t fret = fn((void *)fb, 0);
-    DESCR_t result = rt_proc_call_epilogue(fret);
-    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)(fb + fbytes));
-    return result;
+    if (!p->dyn_scope) {
+        void *fb = alloca((size_t)fbytes);
+        void *fn2 = rt_frame_prep(fb, fbytes);
+        DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
+        return rt_proc_call_epilogue_ret(fret);
+    }
+    return rt_proc_enter((void *)p->fn);
 }
 #define RT_INITIAL_MAX 8192
 static int64_t g_initial_fired[RT_INITIAL_MAX];
@@ -801,9 +804,9 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
  * constant and the shim below is deleted.  Strict leaf: calls no BB.  ⚠ The c.lex arm is PORT-AGNOSTIC today —
  * it reads [fb+0] whether the callee reached RETURN or FRETURN, ignoring the port entirely.  Preserved VERBATIM
  * here (this refactor is watermark-neutral by construction); it needs a ruling before the transfer converts. */
-static DESCR_t rt_proc_epilogue_body(rt_pcall_t c, int failed)
+static DESCR_t rt_proc_epilogue_body(rt_pcall_t c, int failed, DESCR_t frame0)
 {
-    if (c.lex) return failed ? FAILDESCR : rt_nret_fix(*(DESCR_t *)c.fb, c.wn);
+    if (c.lex) return failed ? FAILDESCR : rt_nret_fix(frame0, c.wn);
     Σ = c.save_Σ; Σlen = c.save_Σlen;
     DESCR_t *rcell = rt_call_fastpath_ok() ? c.p->rcell : (DESCR_t *)0;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c.rname));
@@ -816,29 +819,92 @@ static DESCR_t rt_proc_epilogue_body(rt_pcall_t c, int failed)
 /* γ ENTRY — RETURN and NRETURN.  Manual Ch.8: RETURN yields a value for the caller.  NRETURN yields a NAME and
  * is a γ citizen too — lower_snobol4.c routes its SNO$NRET node to exitnd, the same γ as RETURN, the flag
  * riding in rt_g_ret_by_name.  There is no fifth port (RULES.md: FOUR PORTS = FOUR GREEK NAMES ALWAYS). */
-DESCR_t rt_proc_call_epilogue_γ(void)
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
-    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 0);
+    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 0, frame0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ω ENTRY — FRETURN.  Manual Ch.8 verbatim: "Transferring to the special label FRETURN returns from a function
- * signaling failure to the caller.  No value is returned as the function result." */
+ * signaling failure to the caller.  No value is returned as the function result."  Arriving here IS the failure
+ * signal (s61 RULING 1); no frame value is read — s62 ruling (c): a failing lexical proc returns FAILDESCR. */
 DESCR_t rt_proc_call_epilogue_ω(void)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
-    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 1);
+    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 1, NULVCL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* CALL-REGIME SHIM — the sentinel round-trip, retained VERBATIM in behavior until PROC-CONV converts the
- * transfer.  Every existing call site keeps reaching the epilogue through here, which is what makes this rung
- * watermark-neutral.  When the transfer becomes wire+jmp, the landings reach the two entries above directly
- * and this function — with IS_FAIL_fn — goes away. */
-DESCR_t rt_proc_call_epilogue(DESCR_t fret)
+/* RET-REGIME EPILOGUE — the call/ret close.  Under jmp-entry the two wires made the IS_FAIL discriminator
+ * redundant and it was deleted (s61 finding); a call-regime return has ONE edge, so the discriminator is
+ * STRUCTURAL there, not redundant.  LEXICAL procs (dyn_scope=0: args bound into a caller-made frame — the
+ * Icon/Prolog/Raku frontends) stay call-regime wholesale this rung; NCB-1d converts the static-link family. */
+DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
 {
-    return IS_FAIL_fn(fret) ? rt_proc_call_epilogue_ω() : rt_proc_call_epilogue_γ();
+    if (IS_FAIL_fn(fret)) return rt_proc_call_epilogue_ω();
+    /* The call-regime lexical protocol returns only a STATUS in rax:rdx; the RESULT lives at [fb+0]
+     * (prologue_lex: "result read back from [fb+0]"; the s61 finding: the lex arm discards fret).
+     * Lift it here so the γ entry's frame0 carries the same datum the dyn landing reads from slot 0. */
+    DESCR_t frame0 = fret;
+    if (g_pcall_top > 0 && g_pcall[g_pcall_top - 1].lex && g_pcall[g_pcall_top - 1].fb)
+        frame0 = *(DESCR_t *)g_pcall[g_pcall_top - 1].fb;
+    return rt_proc_call_epilogue_γ(frame0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PROC-CONV (R12-FREE rung 2) — THE TWO-LANDING TRANSFER SHIM.  rt_chain_enter's shape with the one change the
+ * s61 finding mandates: γ and ω get SEPARATE landings, each statically knowing its port, so the FAILDESCR
+ * sentinel round-trip (the proc-level LAST_OK) is deleted rather than re-derived.  ⚠ EXACTLY FIVE PUSHES —
+ * SysV 16-byte alignment is load-bearing through the jmp (rsp 8 mod 16 at entry, +40B = 0 mod 16; the blob's
+ * 16-mult `sub rsp,K_total` carries it in — the measured s60 correction).  γ arrives with the activation
+ * RETAINED at the deep frontier ([rsp+0]=β-landing, [rsp+8]=region base — the one-shot resume record); the
+ * landing lifts frame0 (the lex result slot, [base+0..15]) into rdi:rsi BEFORE the wholesale `mov rsp,r12`
+ * reclaim, because the epilogue's own C frame would otherwise be carved straight through the retained region.
+ * ω arrives with the activation already ABSOLUTELY unwound by the blob's ω-half (rsp = the r12 anchor exactly).
+ * The tail-jmp hands rax:rdx (DESCR_t) straight back to the C caller. */
+__asm__(
+".text\n"
+".globl rt_proc_enter\n"
+"rt_proc_enter:\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  movq %rdi, %rax\n"
+"  leaq 2f(%rip), %rcx\n"
+"  leaq 3f(%rip), %rdx\n"
+"  movq %rsp, %r12\n"
+"  jmp *%rax\n"
+"2:\n"
+"  movq 8(%rsp), %rax\n"
+"  movq 0(%rax), %rdi\n"
+"  movq 8(%rax), %rsi\n"
+"  movq %r12, %rsp\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  jmp rt_proc_call_epilogue_γ\n"
+"3:\n"
+"  movq %r12, %rsp\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  jmp rt_proc_call_epilogue_ω\n"
+);
+DESCR_t rt_proc_enter(void *fn);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* OPEN-FN LEAF — the emitted call site's fn fetch.  Under the call regime the entry rode back out of
+ * rt_frame_prep; under jmp-entry there is no caller-made frame to prep, so the site asks for the entry alone.
+ * Strict leaf: reads the pcall record the open just pushed. */
+void *rt_proc_open_fn(void)
+{
+    if (g_pcall_top <= 0) return (void *)0;
+    return (void *)g_pcall[g_pcall_top - 1].p->fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LEXICAL PROLOGUE LEAF — the rt_call_proc_descr protocol: no name saves, args bound INTO the frame, result
@@ -859,6 +925,21 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
     g_pcall_top++;
     rt_k_level++;
     return fbytes;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* C-SIDE LEXICAL CALL WINDOW — the call-regime completion for lexical procs reached through the C transfer
+ * fns (deferred callbacks, APPLY, FUNC_ENTRY hooks, first-class proc values).  Stages the caller's arg array
+ * into g_call_args (rt_frame_bind_args reads there), runs the lex prologue, makes the frame in C, transfers
+ * by call, closes through the ret-regime epilogue.  Mirrors the emitted lexical window in bcps_det_arm. */
+static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
+{
+    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
+    for (int i = 0; i < nargs; i++) g_call_args[i] = args ? args[i] : NULVCL;
+    long fbytes = (long)rt_proc_call_prologue_lex(p, nargs, wn);
+    void *fb = alloca((size_t)fbytes);
+    void *fn2 = rt_frame_prep(fb, fbytes);
+    DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
+    return rt_proc_call_epilogue_ret(fret);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* OPEN LEAF — the one entry the emitted call site uses.  Finds the proc, selects the protocol, runs the
@@ -907,12 +988,9 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     int _wn = rt_g_want_name; rt_g_want_name = 0;
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
-    int fbytes = rt_proc_call_prologue(p, args, nargs, _wn);
-    void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
-    memset(fb, 0, (size_t)fbytes);
-    DESCR_t fret = p->fn(fb, 0);
-    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
-    return rt_proc_call_epilogue(fret);
+    if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
+    (void)rt_proc_call_prologue(p, args, nargs, _wn);
+    return rt_proc_enter((void *)p->fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
@@ -921,12 +999,9 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     rt_proc_t *p = &g_rt_gen_procs[idx];
     if (!p->fn) return FAILDESCR;
     int _wn = rt_g_want_name; rt_g_want_name = 0;
-    int fbytes = rt_proc_call_prologue(p, args, nargs, _wn);
-    void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
-    memset(fb, 0, (size_t)fbytes);
-    DESCR_t fret = p->fn(fb, 0);
-    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
-    return rt_proc_call_epilogue(fret);
+    if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
+    (void)rt_proc_call_prologue(p, args, nargs, _wn);
+    return rt_proc_enter((void *)p->fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name)

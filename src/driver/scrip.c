@@ -727,7 +727,7 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern void emit_jmp_entry_clear(void); emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); }
+                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1129,7 +1129,7 @@ int main(int argc, char **argv)
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern void emit_jmp_entry_clear(void); emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); }
+                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
@@ -1301,7 +1301,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern void emit_jmp_entry_clear(void); emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); }
+                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
                 bb_box_fn pfn = emit_chain(s2->bbp.table[idx]->entry, NULL, "proc_flat");
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1395,7 +1395,7 @@ int main(int argc, char **argv)
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern void emit_jmp_entry_clear(void); emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); }
+                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
                 bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, "proc_flat");
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }

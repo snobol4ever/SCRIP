@@ -646,14 +646,12 @@ long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_dcap_step(DESCR_t fret)
+long rt_dcap_step(DESCR_t nm)
 {
-    extern DESCR_t rt_proc_call_epilogue(DESCR_t fret);
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    DESCR_t nm = rt_proc_call_epilogue(fret);
     rt_g_want_name = 0;
     if (!IS_FAIL_fn(nm)) { if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, c->pending); } else rt_assign_var(nm, c->pending); }
     return rt_dcap_pump();
@@ -740,12 +738,10 @@ long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cap_finish(DESCR_t fret)
+void rt_cap_finish(DESCR_t nm)
 {
-    extern DESCR_t rt_proc_call_epilogue(DESCR_t fret);
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
-    DESCR_t nm = rt_proc_call_epilogue(fret);
     rt_g_want_name = 0;
     DESCR_t matched = g_capx_top > 0 ? g_capx[--g_capx_top] : (DESCR_t){ .v = DT_S, .slen = 0, .s = "" };
     if (!IS_FAIL_fn(nm)) rt_assign_var(nm, matched);
@@ -848,13 +844,11 @@ long rt_defer_open(const char *varname, int ival_flag)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_defer_step(DESCR_t fret)
+long rt_defer_step(DESCR_t val)
 {
-    extern DESCR_t rt_proc_call_epilogue(DESCR_t fret);
     extern long rt_proc_call_open(const char *name, int nargs);
     if (g_dfx_top <= 0) return 0;
     rt_dfx_t *s = &g_dfx[g_dfx_top - 1];
-    DESCR_t val = rt_proc_call_epilogue(fret);
     if (IS_FAIL_fn(val)) { s->failed = 1; return 0; }
     if (val.v == DT_X && !s->dtx_used) { s->dtx_used = 1; long fb = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb) s->failed = 1; return fb; }
     s->val = val;

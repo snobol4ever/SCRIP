@@ -1559,6 +1559,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     IR_t *nodes[CH_MAX]; int n = 0;
     IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
+    /* PROC-CONV: an EMPTY body (bare `:(RETURN)` / `:(FRETURN)` — the terminal is a childless SUCCEED/FAIL, so
+     * the BFS below collects ZERO nodes) must not let lbl_α_body FALL THROUGH into the jmp-entry lbl_res landing
+     * (`add rsp,8; pop zr`), which corrupts rsp/zr on the initial α pass — res is reachable ONLY via the outside
+     * `jmp qword [rsp+0]` backtrack.  A non-empty body's last node always JMPs to lbl_γ/lbl_ω (both defined AFTER
+     * res), so it never falls in; only n==0 does.  Record the terminal so α_body can jump straight to it. */
+    int flat_empty_body_fail = (entry && entry->op == IR_FAIL) ? 1 : 0;
+    int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
     entry = entry;
     queue[qt++] = entry;
     while (qh < qt) {
@@ -1780,6 +1787,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }
     if (g_emit.flat_jmp_entry) {
+        /* PROC-CONV: EMPTY body (n==0) — α_body would otherwise fall into the res landing below and run its
+         * `add rsp,8; pop zr` on the initial α pass (no frontier record present ⇒ rsp/zr corruption ⇒ the ω-half
+         * then unwinds through a garbage frame reg and wild-jumps).  A bare `:(FRETURN)` terminates in IR_FAIL ⇒
+         * jump to lbl_ω; a bare `:(RETURN)` / fall-off-end terminates in IR_SUCCEED ⇒ lbl_γ.  A non-empty body's
+         * last node always JMPs to γ/ω explicitly (both defined after res), so this guard is n==0-only. */
+        if (n == 0) emit_jmp_label(flat_empty_body_fail ? &lbl_ω : &lbl_γ, JMP_JMP);
         /* ZS-2 β-resume landing (Lon s58/s59): γ left a 16B resume record AT THE DEEP FRONTIER —
          * [rsp+0] = this landing's address (read, not popped, by the outside `jmp qword [rsp+0]`),
          * [rsp+8] = the suspended activation's frame reg (region base).  Interior suspended cells live
@@ -1916,10 +1929,15 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
     return emit_jmp_entry_arm_region(g);
 }
 extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; }
-/* PROC-CONV (R12-FREE ladder rung 2): ordinary DEFINE'd procs arm the SAME jmp-entry regime, name-agnostic (no
- * PAT$ guard).  INERT until step 2 routes the call-site transfer from `call rax` to resolve→wire→jmp/jmp-back —
- * arming the regime here changes no emitted bytes because nothing yet calls this entry. */
-extern "C" int emit_jmp_entry_for_proc(IR_graph_t *g) {
+/* PROC-CONV (R12-FREE ladder rung 2): ordinary DEFINE'd procs arm the SAME jmp-entry regime.  The regime
+ * selector is dyn_scope: a DYN proc's args ride the name dictionary (save/restore), so a self-allocated zeroed
+ * frame is correct; a LEXICAL proc (dyn_scope=0 — Icon/Prolog/Raku frontends) binds args INTO a caller-made
+ * frame via rt_frame_prep, which jmp-entry has no place for — those stay call-regime until NCB-1d converts the
+ * static-link family.  LBL__ main-program pseudo-procs are dyn_scope=0 but take no args and are entered only
+ * through rt_chain_enter (rt_goto_transfer arm 4), which IS the jmp transfer — they arm by name. */
+extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_generator, IR_graph_t *g) {
+    if (is_generator) return 0;
+    if (!dyn_scope && !(pname && strncmp(pname, "LBL__", 5) == 0)) return 0;
     return emit_jmp_entry_arm_region(g);
 }
 /* s60 EVAL/CODE-RSP (Lon ruling s59: EVAL/CODE = the DEFER shape): runtime-compiled EVAL statement chains and

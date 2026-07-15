@@ -6,7 +6,9 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
-extern "C" void *rt_frame_prep(void *fb, long fbytes);
+extern "C" void *rt_proc_open_fn(void);
+extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
+extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void rt_cap_finish(DESCR_t fret);
 extern "C" void rt_cap_push(void *slot, int delta);
 extern "C" void rt_cap_pop(void *slot);
@@ -104,16 +106,33 @@ std::string bb_match_capture() {
             * never the shared x86_frame_sink (non-SNOBOL graphs carry a non-cursor rbp). */
            + x86("mov",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
            + x86("mov",  RDQ("rcx", 0), "rbp")
-           + x86_frame_sink()
-           + x86_frame_base("rdi")
-           + x86("mov",  "rsi", "rax")
-           + x86("call", "rt_frame_prep", (uint64_t)(uintptr_t)(void *)(void *(*)(void *, long))rt_frame_prep)
-           + x86_frame_base("rdi")
-           + x86("xor", "esi", "esi")
-           + x86("call", "rax")
+           + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
+           + x86("push", "r12")
+           + x86("sub",  "rsp", 8L)
+           + x86_lea_id("rcx", 2)
+           + x86_lea_id("rdx", 3)
+           + x86("mov",  "r12", "rsp")
+           + x86_jmp_reg("rax")
+           + x86("def",  L(2))
+           + x86("mov",  "rax", "rsp")
+           + x86("mov",  "rax", RDQ("rax", 8))
+           + x86("mov",  "rdi", RDQ("rax", 0))
+           + x86("mov",  "rsi", RDQ("rax", 8))
+           + x86("mov",  "rsp", "r12")
+           + x86("add",  "rsp", 8L)
+           + x86("pop",  "r12")
+           + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
            + x86("mov",  "rdi", "rax")
            + x86("mov",  "rsi", "rdx")
-           + x86_frame_unsink()
+           + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+           + x86("jmp",  L(1))
+           + x86("def",  L(3))
+           + x86("mov",  "rsp", "r12")
+           + x86("add",  "rsp", 8L)
+           + x86("pop",  "r12")
+           + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
+           + x86("mov",  "rdi", "rax")
+           + x86("mov",  "rsi", "rdx")
            + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
            + x86("def",  L(1))
            + x86_anchor_leave()
