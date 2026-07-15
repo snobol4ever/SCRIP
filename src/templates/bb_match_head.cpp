@@ -28,6 +28,9 @@ std::string bb_match_head() {
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
+         /* ANCHOR-WINDOW s66: a grant-declined statement's HEAD materializes the window view FIRST — r12 = rsp = the flat frame base (no cells pushed between statements, S10e) — so every FR/FRQ in the
+          * window (op_anchored boxes emit r12-based refs) is motion-immune exactly as under the s64 R12 frame; window-local, dead at statement exit, the granted fast path never emits it. */
+         + IF(ZC_FRAME == ZC_FRAME_RSP && _.op_anchor_head, x86("mov", "r12", "rsp"))
          /* R12-ERAD s65 (ZC_FRAME_RSP): FLAT-FIRST ordering — subject load, rt_match_enter, and the rbp/dcap mirror saves all run at rsp = frame base (D=0), THEN the 32B cell pushes and only
           * window-relative writes follow.  Under R12 the original order is byte-verbatim (rsp motion is invisible to r12-based refs).  The RSP cell field +16 = pre-push rsp = the frame base; the
           * old arena-mark slot +8 reincarnates as the PATTERN SIDE-STACK mark (S10e statement bracket for suspended activations).  Pat blobs (flat_pat, r12-island) take the R12 arm. */

@@ -583,3 +583,22 @@ void zls_dump(FILE * fp) {
         for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) fprintf(fp, ";   vslot +%-5d 16  DESCR    %s\n", zv[v].off, zv[v].name ? zv[v].name : "?");
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_anchor_* -- ANCHOR-WINDOW s66 (the grant-decline fallback under ZC_FRAME_RSP).  A statement whose pattern range fails the fc_walk_range grant (ARBNO's dynamic per-iteration depth, ungranted
+ * ALTs, DEFER, unknowns) registers its HEAD as an anchor-head and every node in [head..release + pattern range] as anchored.  Emission delivers _.op_anchored per box: the box's zeta view is r12,
+ * MATERIALIZED FROM RSP at the anchored HEAD's alpha (mov r12, rsp before the self-cell push) -- the flat frame stays rsp-resident, r12 is a window-local alias into it, the exact s64-proven
+ * configuration per-statement.  Granted statements never enter these tables and keep the pure-rsp fast path.  Side tables keyed by node ptr (the fcl precedent). */
+static const IR_t * fcanc[8192];
+static int fcanc_n = 0;
+void fc_anchor_register(const IR_t * nd) { if (!nd || fcanc_n >= 8192) return; fcanc[fcanc_n++] = nd; }
+int fc_anchor_active(const IR_t * nd) {
+    for (int i = 0; i < fcanc_n; i++) if (fcanc[i] == nd) return 1;
+    return 0;
+}
+static const IR_t * fcah[512];
+static int fcah_n = 0;
+void fc_anchor_head_register(const IR_t * nd) { if (!nd || fcah_n >= 512) return; fcah[fcah_n++] = nd; }
+int fc_anchor_head_active(const IR_t * nd) {
+    for (int i = 0; i < fcah_n; i++) if (fcah[i] == nd) return 1;
+    return 0;
+}

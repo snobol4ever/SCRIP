@@ -309,10 +309,10 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "r12" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* R12-ERAD s65: PAT$ suspending blobs are r12-frame ISLANDS on the side stack — their interior keeps the immune-base architecture verbatim */
-inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? 12 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
-inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "dword ptr [r12 + " : "dword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
-inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "qword ptr [r12 + " : "qword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
+inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "r12" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* R12-ERAD s65: PAT$ suspending blobs are r12-frame ISLANDS on the side stack — their interior keeps the immune-base architecture verbatim.  ANCHOR-WINDOW s66: grant-declined statements likewise run r12-viewed (materialized from rsp at the anchored HEAD, window-scoped, dead at statement exit) */
+inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? 12 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "dword ptr [r12 + " : "dword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
+inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "qword ptr [r12 + " : "qword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM accessor — runtime-selectable BY DESIGN (Lon 2026-07-09, contrast the ZC_FRAME build
  * constant above); see zeta_choices.h ZC_ZETA block for the rung map.  RUNG-1 seams read THIS, never getenv,
@@ -755,7 +755,7 @@ inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "dword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? (int)_.op_flat_disp : 0)); return b[i]; }   /* R12-ERAD s65: rsp-frame flat refs sit op_flat_disp above rsp while cells are pushed; the compensated NUMBER rides the string, so the binary twin (x86_parse XK_FR32 atoi) follows for free; pat blobs are r12-immune */
+inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "dword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && !_.op_anchored ? (int)_.op_flat_disp : 0)); return b[i]; }   /* R12-ERAD s65: rsp-frame flat refs sit op_flat_disp above rsp while cells are pushed; the compensated NUMBER rides the string, so the binary twin (x86_parse XK_FR32 atoi) follows for free; pat blobs and anchored windows are r12-immune (no disp) */
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
@@ -780,7 +780,7 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "qword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? (int)_.op_flat_disp : 0)); return b[i]; }   /* R12-ERAD s65: same compensation as FR — one number, both mediums */
+inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "qword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && !_.op_anchored ? (int)_.op_flat_disp : 0)); return b[i]; }   /* R12-ERAD s65: same compensation as FR — one number, both mediums; anchored windows r12-immune */
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
