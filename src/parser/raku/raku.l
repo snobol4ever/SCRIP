@@ -21,6 +21,7 @@ int raku_get_lineno(void) { return raku_yylineno; }
 %option prefix="raku_yy"
 %option yylineno
 %x STR_DQ STR_SQ STR_RE STR_SUBST_PAT STR_SUBST_REPL STR_REBODY
+%x POD
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
 ALNUM    [A-Za-z0-9_]
@@ -30,7 +31,28 @@ WS       [ \t\r]
 {WS}+           { }
 \n              { }
 "#"[^\n]*       { }
+^"=begin"[^\n]*\n   { BEGIN(POD); }
+^"=for"[^\n]*\n     { BEGIN(POD); }
+^"="[A-Za-z][^\n]*\n { BEGIN(POD); }
+<POD>^"=end"[^\n]*\n { BEGIN(INITIAL); }
+<POD>^"=cut"[^\n]*\n { BEGIN(INITIAL); }
+<POD>[^\n]*\n        { }
+<POD>[^\n]+          { }
+<POD><<EOF>>         { BEGIN(INITIAL); yyterminate(); }
 "my"            { return KW_MY; }
+"use"           { return KW_USE; }
+"plan"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"ok"            { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"nok"           { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"is"            { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"isnt"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"done-testing"  { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"skip-rest"     { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"skip"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"todo"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"diag"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"pass"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"flunk"         { raku_yylval.sval = strdup(yytext); return TESTOP; }
 "say"           { return KW_SAY; }
 "print"         { return KW_PRINT; }
 "if"            { return KW_IF; }
@@ -138,7 +160,7 @@ WS       [ \t\r]
 "$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
 "@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
-{ALPHA}{ALNUM}* { raku_yylval.sval = strdup(yytext); return IDENT; }
+{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = strdup(yytext); return IDENT; }
 "\""            { raku_strpos = 0; BEGIN(STR_DQ); }
 <STR_DQ>"\"" {
     raku_strbuf[raku_strpos] = '\0';

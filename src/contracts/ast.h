@@ -59,6 +59,7 @@ typedef enum tree_e {
     TT_HANDLES_DECL,
     TT_ARR_DECL,
     TT_HASH_DECL,
+    TT_USE_DECL,
     TT_CONJ,
     TT_KIND_COUNT
 } tree_e;
@@ -216,6 +217,7 @@ static const char * const tt_e_name[TT_KIND_COUNT] = {
     [TT_HANDLES_DECL]     = "TT_HANDLES_DECL",
     [TT_ARR_DECL]         = "TT_ARR_DECL",
     [TT_HASH_DECL]        = "TT_HASH_DECL",
+    [TT_USE_DECL]         = "TT_USE_DECL",
 };
 #endif
 #ifdef __cplusplus

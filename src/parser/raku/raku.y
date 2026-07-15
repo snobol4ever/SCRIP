@@ -57,6 +57,23 @@ static tree_t *var_node(const char *name) {
     return leaf_sval(TT_VAR, strip_sigil(name));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static const char *testop_rt(const char *s) {
+    if (!s) return "__rk_test_ok";
+    if (!strcmp(s, "plan")) return "__rk_test_plan";
+    if (!strcmp(s, "ok")) return "__rk_test_ok";
+    if (!strcmp(s, "nok")) return "__rk_test_nok";
+    if (!strcmp(s, "is")) return "__rk_test_is";
+    if (!strcmp(s, "isnt")) return "__rk_test_isnt";
+    if (!strcmp(s, "done-testing")) return "__rk_test_done";
+    if (!strcmp(s, "skip-rest")) return "__rk_test_skip_rest";
+    if (!strcmp(s, "skip")) return "__rk_test_skip";
+    if (!strcmp(s, "todo")) return "__rk_test_todo";
+    if (!strcmp(s, "diag")) return "__rk_test_diag";
+    if (!strcmp(s, "pass")) return "__rk_test_pass";
+    if (!strcmp(s, "flunk")) return "__rk_test_flunk";
+    return "__rk_test_ok";
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *make_call(const char *name) {
     tree_t *e = leaf_sval(TT_FNC, name);
     tree_t *n = ast_node_new(TT_VAR); n->v.sval = intern(name);
@@ -178,6 +195,8 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <ival> VAR_CAPTURE
 %token <ival> VAR_FH
 %token <sval> VAR_NAMED_CAPTURE
+%token KW_USE
+%token <sval> TESTOP
 %token KW_MY KW_SAY KW_PRINT KW_IF KW_ELSE KW_ELSIF KW_WHILE KW_FOR
 %token KW_SUB KW_GATHER KW_TAKE KW_RETURN
 %token KW_GIVEN KW_WHEN KW_DEFAULT
@@ -273,6 +292,16 @@ stmt
         { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); $$=e; }
     | KW_MY IDENT VAR_HASH ';'
         { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); $$=e; }
+    | KW_USE IDENT ';'
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); $$=u; }
+    | TESTOP ';'
+        { $$=make_call(testop_rt($1)); free($1); }
+    | TESTOP '(' arg_list ')' ';'
+        { tree_t *c=make_call(testop_rt($1)); free($1); ExprList *a=$3; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
+    | TESTOP '(' ')' ';'
+        { $$=make_call(testop_rt($1)); free($1); }
+    | TESTOP arg_list ';'
+        { tree_t *c=make_call(testop_rt($1)); free($1); ExprList *a=$2; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
     | KW_SAY expr ';'
         { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,$2); $$=c; }
     | KW_SAY '(' expr ',' expr ')' ';'
@@ -517,6 +546,18 @@ is_clauses
             } else { $$ = $1; }
             free($2); free($3);
         }
+    | is_clauses TESTOP IDENT
+        {
+            char tag = 0;
+            if ($2 && !strcmp($2, "is")) tag = 'i';
+            else if ($2 && !strcmp($2, "does")) tag = 'd';
+            if (tag && $3) {
+                size_t l2 = strlen($3);
+                if (!$1) { char *m = (char *)malloc(l2 + 2); m[0] = tag; memcpy(m + 1, $3, l2 + 1); $$ = m; }
+                else { size_t l1 = strlen($1); char *m = (char *)malloc(l1 + l2 + 3); memcpy(m, $1, l1); m[l1] = '\x01'; m[l1 + 1] = tag; memcpy(m + l1 + 2, $3, l2 + 1); free($1); $$ = m; }
+            } else { $$ = $1; }
+            free($2); free($3);
+        }
     ;
 class_body_list
     :  { $$ = exprlist_new(); }
@@ -563,7 +604,21 @@ class_body_list
           else fv = leaf_sval(TT_VAR, $3);
           free($3); free($4); free($5);
           $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_TWIGIL TESTOP IDENT ';'
+        { tree_t *fv;
+          if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); }
+          else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern($3); }
+          else fv = leaf_sval(TT_VAR, $3);
+          free($3); free($4); free($5);
+          $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_SCALAR IDENT IDENT ';'
+        { tree_t *fv; const char *fn = strip_sigil($3);
+          if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
+          else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
+          else fv = leaf_sval(TT_VAR, fn);
+          free($3); free($4); free($5);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_SCALAR TESTOP IDENT ';'
         { tree_t *fv; const char *fn = strip_sigil($3);
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
           else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
@@ -593,7 +648,21 @@ class_body_list
           else fv = leaf_sval(TT_VAR, $4);
           free($3); free($4); free($5); free($6);
           $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_TWIGIL TESTOP IDENT ';'
+        { tree_t *fv;
+          if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($4); }
+          else if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern($4); }
+          else fv = leaf_sval(TT_VAR, $4);
+          free($3); free($4); free($5); free($6);
+          $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_SCALAR IDENT IDENT ';'
+        { tree_t *fv; const char *fn = strip_sigil($4);
+          if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
+          else if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
+          else fv = leaf_sval(TT_VAR, fn);
+          free($3); free($4); free($5); free($6);
+          $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS IDENT VAR_SCALAR TESTOP IDENT ';'
         { tree_t *fv; const char *fn = strip_sigil($4);
           if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
           else if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
