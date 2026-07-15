@@ -21,6 +21,8 @@ const char *scan_subj  = "";
 int         scan_pos   = 1;
 ScanEntry scan_stack[SCAN_STACK_MAX];
 int         scan_depth = 0;
+ScanEntry scan_saved[SCAN_STACK_MAX];
+int         scan_saved_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
@@ -56,10 +58,38 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
 void rt_scan_leave(uint64_t *out3) {
     if (scan_depth > 0) {
         scan_depth--;
+        if (scan_saved_depth < SCAN_STACK_MAX) {
+            scan_saved[scan_saved_depth].subj  = scan_subj;
+            scan_saved[scan_saved_depth].pos   = scan_pos;
+            scan_saved[scan_saved_depth].sigma = scan_stack[scan_depth].sigma;
+            scan_saved[scan_saved_depth].delta = scan_stack[scan_depth].delta;
+            scan_saved[scan_saved_depth].Delta = scan_stack[scan_depth].Delta;
+            scan_saved_depth++;
+        }
         scan_subj = scan_stack[scan_depth].subj;
         scan_pos  = scan_stack[scan_depth].pos;
         if (out3) { out3[0] = scan_stack[scan_depth].sigma; out3[1] = scan_stack[scan_depth].delta; out3[2] = scan_stack[scan_depth].Delta; }
     } else if (out3) { out3[0] = 0; out3[1] = 0; out3[2] = 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+ScanSubjRegs rt_scan_reenter(void) {
+    ScanSubjRegs r; r.ptr = 0; r.len = 0;
+    if (scan_saved_depth <= 0) return r;
+    scan_saved_depth--;
+    if (scan_depth < SCAN_STACK_MAX) {
+        scan_stack[scan_depth].subj  = scan_subj;
+        scan_stack[scan_depth].pos   = scan_pos;
+        scan_stack[scan_depth].sigma = scan_saved[scan_saved_depth].sigma;
+        scan_stack[scan_depth].delta = scan_saved[scan_saved_depth].delta;
+        scan_stack[scan_depth].Delta = scan_saved[scan_saved_depth].Delta;
+        scan_depth++;
+    }
+    scan_subj = scan_saved[scan_saved_depth].subj;
+    scan_pos  = scan_saved[scan_saved_depth].pos;
+    if (!scan_subj) scan_subj = "";
+    r.ptr = (uint64_t)(uintptr_t)scan_subj;
+    r.len = (uint64_t)strlen(scan_subj);
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }

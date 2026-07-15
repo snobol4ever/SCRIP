@@ -581,7 +581,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
         ir_operand_push(leave_succ, enter);
         ir_operand_push(leave_fail, enter);
-        IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], leave_succ, leave_fail, &bv);
+        /* SCAN-α-FORCE: IR_SCAN is generator-kind (ir_query.c), so build()'s auto-β stamp would land the
+         * body's success/fail edges on leave_*'s β (re-enter) instead of α (env-restore), skipping the
+         * leave entirely. Interpose α-stamped GOTOs. (Same trampoline idiom as the STMT-BOUNDARY case.) */
+        IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
+        IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
+        IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
         if (bv) ir_operand_push(leave_succ, bv);
         icn_retag_scan_body(cx->g, 0);
         lc_γ_to(enter, b_entry);
@@ -590,7 +595,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(enter, sr);
         IR_t * subj_beta = cx->beta;
         if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
-        cx->beta = (subj_beta && subj_beta != ω) ? subj_beta : ω; *res = leave_succ; return s_entry; }
+        /* RESUME-THROUGH-SCAN (canonical ir_a_Scan: /bounded & p.ir.resume -> ScanSwap + goto p.body.ir.resume).
+         * NARROWING GUARD: only a GENERATOR body has a meaningful resume; a compound/bounded body (while, ...)
+         * re-pumped through its β restarts its own loop forever, so those keep the subject-resume chain. */
+        cx->beta = (bv && ir_is_generator_kind(bv->op)) ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
+        *res = leave_succ; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CREATE: {
         IR_t * nd = build(cx, IR_CREATE, γ, ω);
