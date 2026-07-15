@@ -75,26 +75,27 @@ main_α_body:
  jmp xchain0_n4_α
 # IR_MATCH_HEAD
  xchain0_n3_α:
- mov rdi, qword ptr [rsp + 448]
- mov rsi, qword ptr [rsp + 456]
+ mov r12, rsp
+ mov rdi, qword ptr [r12 + 448]
+ mov rsi, qword ptr [r12 + 456]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 200], rbp
+ mov qword ptr [r12 + 200], rbp
  lea rcx, [rip + g_dcap_top]
  mov rbp, qword ptr [rcx + 0]
- mov qword ptr [rsp + 192], rbp
- mov qword ptr [rsp + 176], rsp
+ mov qword ptr [r12 + 192], rbp
+ mov qword ptr [r12 + 176], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [rsp + 168], rax
- mov dword ptr [rsp + 160], 0
+ mov qword ptr [r12 + 168], rax
+ mov dword ptr [r12 + 160], 0
 .Lx5_0:
- mov r14d, dword ptr [rsp + 160]
+ mov r14d, dword ptr [r12 + 160]
  jmp xchain0_n5_α
  xchain0_n3_β:
- add dword ptr [rsp + 160], 1
- mov eax, dword ptr [rsp + 160]
+ add dword ptr [r12 + 160], 1
+ mov eax, dword ptr [r12 + 160]
  cmp eax, r15d
  jg .Lx5_1
  lea rcx, [rip + g_anchor]
@@ -103,14 +104,14 @@ main_α_body:
  jne .Lx5_1
  jmp .Lx5_0
 .Lx5_1:
- mov rax, qword ptr [rsp + 168]
+ mov rax, qword ptr [r12 + 168]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 176]
+ mov rsp, qword ptr [r12 + 176]
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 192]
+ mov rax, qword ptr [r12 + 192]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 200]
+ mov rbp, qword ptr [r12 + 200]
  jmp xchain0_n4_α
 # IR_LIT_STRING
  xchain0_n4_α:
@@ -126,24 +127,24 @@ main_α_body:
  .string "fail"
 # IR_MATCH_SEQ_NARY
  xchain0_n5_α:
- mov dword ptr [rsp + 224], r14d
- mov dword ptr [rsp + 228], 0
+ mov dword ptr [r12 + 224], r14d
+ mov dword ptr [r12 + 228], 0
  jmp xchain0_n8_α
 xchain0_n5_as:
- mov eax, dword ptr [rsp + 228]
+ mov eax, dword ptr [r12 + 228]
  add eax, 1
- mov dword ptr [rsp + 228], eax
+ mov dword ptr [r12 + 228], eax
  cmp eax, 1
  je xchain0_n10_α
  cmp eax, 2
  je xchain0_n11_α
  jmp xchain0_n7_α
  xchain0_n5_β:
- mov dword ptr [rsp + 228], 3
+ mov dword ptr [r12 + 228], 3
 xchain0_n5_af:
- mov eax, dword ptr [rsp + 228]
+ mov eax, dword ptr [r12 + 228]
  sub eax, 1
- mov dword ptr [rsp + 228], eax
+ mov dword ptr [r12 + 228], eax
  cmp eax, 0
  je xchain0_n9_β
  cmp eax, 1
@@ -168,10 +169,10 @@ xchain0_n5_af:
  .string "OUTPUT"
 # IR_MATCH_RELEASE
  xchain0_n7_α:
- mov rax, qword ptr [rsp + 168]
+ mov rax, qword ptr [r12 + 168]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [rsp + 176]
+ mov rsp, qword ptr [r12 + 176]
  push r14
  push r15
  push r13
@@ -208,15 +209,15 @@ xchain0_n5_af:
  pop r15
  pop r14
  lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [rsp + 192]
+ mov rax, qword ptr [r12 + 192]
  mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [rsp + 200]
+ mov rbp, qword ptr [r12 + 200]
  jmp xchain0_n13_α
 # IR_LIT_INTEGER
  xchain0_n8_α:
- mov qword ptr [rsp + 256], 6
+ mov qword ptr [r12 + 256], 6
  mov rax, qword ptr [rip + .Lx12_0]
- mov qword ptr [rsp + 264], rax
+ mov qword ptr [r12 + 264], rax
  jmp xchain0_n9_α
  xchain0_n8_β:
  jmp xchain0_n5_af
@@ -232,17 +233,17 @@ xchain0_n5_af:
  jmp xchain0_n5_af
 # IR_MATCH_ARBNO_NARY (ZB-FC-4 rsp linked-frame-chain)
  xchain0_n10_α:
- mov dword ptr [rsp + 304], r14d
- mov dword ptr [rsp + 308], r14d
- mov dword ptr [rsp + 312], 0
- mov qword ptr [rsp + 328], rsp
- mov qword ptr [rsp + 320], 0
+ mov dword ptr [r12 + 304], r14d
+ mov dword ptr [r12 + 308], r14d
+ mov dword ptr [r12 + 312], 0
+ mov qword ptr [r12 + 328], rsp
+ mov qword ptr [r12 + 320], 0
  jmp xchain0_n5_as
  xchain0_n10_β:
- mov r14d, dword ptr [rsp + 308]
- mov rax, qword ptr [rsp + 320]
+ mov r14d, dword ptr [r12 + 308]
+ mov rax, qword ptr [r12 + 320]
  sub rsp, 96
- mov qword ptr [rsp + 0], rsp
+ mov qword ptr [rsp + 0], r12
  mov qword ptr [rsp + 8], r14
  mov qword ptr [rsp + 16], rax
  mov eax, 0
@@ -255,41 +256,41 @@ xchain0_n5_af:
  mov qword ptr [rsp + 72], rax
  mov qword ptr [rsp + 80], rax
  mov qword ptr [rsp + 88], rax
- mov qword ptr [rsp + 320], rsp
- mov rsp, rsp
- add rsp, -312
+ mov qword ptr [r12 + 320], rsp
+ mov r12, rsp
+ add r12, -312
  jmp xchain0_n14_α
 xchain0_n10_as:
- mov eax, dword ptr [rsp + 320]
+ mov eax, dword ptr [r12 + 320]
  cmp r14d, eax
  je xchain0_n14_β
- mov rsp, qword ptr [rsp + 312]
- mov eax, dword ptr [rsp + 312]
+ mov r12, qword ptr [r12 + 312]
+ mov eax, dword ptr [r12 + 312]
  add eax, 1
- mov dword ptr [rsp + 312], eax
- mov dword ptr [rsp + 308], r14d
+ mov dword ptr [r12 + 312], eax
+ mov dword ptr [r12 + 308], r14d
  jmp xchain0_n5_as
 xchain0_n10_af:
- mov rax, qword ptr [rsp + 328]
- mov rsp, qword ptr [rsp + 312]
- mov ecx, dword ptr [rsp + 312]
+ mov rax, qword ptr [r12 + 328]
+ mov r12, qword ptr [r12 + 312]
+ mov ecx, dword ptr [r12 + 312]
  test ecx, ecx
  jz .Lx15_2
  sub ecx, 1
- mov dword ptr [rsp + 312], ecx
+ mov dword ptr [r12 + 312], ecx
  add rsp, 96
- mov qword ptr [rsp + 320], rax
- lea rsp, [rax + -312]
+ mov qword ptr [r12 + 320], rax
+ lea r12, [rax + -312]
  jmp xchain0_n14_β
 .Lx15_2:
- mov r14d, dword ptr [rsp + 304]
- mov rsp, qword ptr [rsp + 328]
+ mov r14d, dword ptr [r12 + 304]
+ mov rsp, qword ptr [r12 + 328]
  jmp xchain0_n5_af
 # IR_LIT_INTEGER
  xchain0_n11_α:
- mov qword ptr [rsp + 416], 6
+ mov qword ptr [r12 + 416], 6
  mov rax, qword ptr [rip + .Lx16_0]
- mov qword ptr [rsp + 424], rax
+ mov qword ptr [r12 + 424], rax
  jmp xchain0_n12_α
  xchain0_n11_β:
  jmp xchain0_n5_af
