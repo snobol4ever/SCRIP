@@ -14,8 +14,11 @@ extern "C" uint64_t g_pat_main_rsp;
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" const char *g_dcap_top;
+extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
 static inline int dswap() { return ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat; }
+static inline int rspd()  { static int v = -1; if (v < 0) v = getenv("SCRIP_RSPDIFF") ? 1 : 0; return v; }
+static inline std::string rspd_snap(uint64_t *cell, const char *nm) { return IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)cell,nm) + x86("mov",RDQ("rcx",0),"rsp")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
@@ -41,13 +44,16 @@ std::string bb_match_defer() {
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
+         + IF(dswap(), rspd_snap(&g_rspd_save, "g_rspd_save"))
          + x86_lea_id("rcx", 4)
          + x86_lea_id("rdx", 5)
          + x86_jmp_reg("rax")
          + x86("def",  L(4))
+         + IF(dswap(), rspd_snap(&g_rspd_g4, "g_rspd_g4"))
          + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_gamma()
          + x86("def",  L(5))
+         + IF(dswap(), rspd_snap(&g_rspd_g5, "g_rspd_g5"))
          + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_omega()
          + x86("def",  "L0")
@@ -107,17 +113,20 @@ std::string bb_match_defer() {
           * job, now wired instead of tested). */
          + x86_lea_id("rax", 6)
          + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
+         + IF(dswap(), rspd_snap(&g_rspd_s2, "g_rspd_s2"))
          + x86_sub("rsp", 8)
          + x86("push", "rax")
          + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_gamma()
          + x86("def",  L(6))
          + x86_add("rsp", 16)
+         + IF(dswap(), rspd_snap(&g_rspd_g6, "g_rspd_g6"))
          + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_omega()
          /* β: the LIFO law has rsp at the suspended activation's own base — jump through its [+0] wire (blob:
           * the chain's %s_res landing re-pins the frame reg and resumes; callout: the exhaust stub above). */
          + x86_beta()
          + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
+         + IF(dswap(), rspd_snap(&g_rspd_beta, "g_rspd_beta"))
          + x86_jmp_mem("rsp", 0);
 }
