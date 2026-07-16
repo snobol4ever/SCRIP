@@ -26,26 +26,18 @@ std::string bb_call_fn_str(IR_t * pBB) {
     int argbase = resoff + 16;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     std::string s = x86_alpha()
-                  + x86("comment", emit_fmt("BOX IR_CALL %s(...) -> rt_call_arr [operand-marshal, FAIL->ω]", fn));
-    for (int i = 0; i < nargs; i++) {
-        IR_t * ai = (subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i);
-        IR_graph_t * sg = (subs && subs[i]) ? subs[i] : NULL;
-        int dst = argbase + i * 16;
-        s += marshal_call_arg(ai, sg, dst, _.node, i);
-    }
-uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    if (MEDIUM_TEXT) {
-        std::string fl = emit_fmt(".Lrkfn%d", g_flat_node_id++);
-        s += x86("directive", ".section .rodata")
-           + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-           + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
-        s += x86("directive", (std::string(" lea rdi, [rip + ") + fl + "]").c_str());
-    } else {
-        s += x86("mov", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, "??");
-    }
+                  + x86("comment", std::string("BOX IR_CALL ") + fn + "(...) -> rt_call_arr [operand-marshal, FAIL->ω]");
+    for (int i = 0; i < nargs; i++)
+        s += marshal_call_arg((subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i), (subs && subs[i]) ? subs[i] : NULL, argbase + i * 16, _.node, i);
+    std::string fl = std::string(".Lrkfn") + std::to_string(g_flat_node_id++);
+    s += x86("directive", ".section .rodata");
+    s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
+    s += x86("directive", ".section .text");
+    s += x86("directive", ".intel_syntax noprefix");
+    s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
     s += x86("lea", "rsi", FRQ(argbase));
     s += x86("mov32", "edx", (long)nargs);
-    s += x86("call", "rt_call_arr", fptr);
+    s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
     s += x86("cmp", "eax", (long)99);
