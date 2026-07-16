@@ -25,32 +25,8 @@ static inline int  rfc()      { return x86_port_mode() == ZC_PORT_FORTH && _.op_
 static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
 static inline const char * rspq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_match_release() {
-    x86_begin();
-    if (!PLATFORM_X86) return std::string();
-    return _.op_off < 0
-         ? x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)")
-         : x86("comment", "IR_MATCH_RELEASE")
-         + x86_alpha()
-         /* R12-ERAD s65 (ZC_FRAME_RSP non-pat): pre-unwind rsp = base − 32 − fp(pattern), so the two FLAT re-homes compensate by op_fc_disp + 32 (explicit rspd/rspq).  The arena release is GATED OUT
-          * wholesale: no heap in the BB equation — the rspd unwind (bare mov rsp,[cell+16] once the G1 dances no-op) IS the release of HEAD's cell and every suspended pattern cell.
-          * Statement-success also reclaims side-stack residue (S10e) from the reincarnated +8 slot before the rsp unwind. */
-         + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (rfc() ? x86("mov", "rax", rspq((int)_.op_fc_disp + 8)) : x86("mov", "rax", FRQ(_.op_off + 8)))
-             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-             + x86("mov", RDQ("rcx", 0), "rax"))
-         + (_.op_dval != 0.0 ? IF(rfc(), x86("mov", "eax", rspd((int)_.op_fc_disp)) + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? x86("mov", rspd((int)(_.op_off + _.op_fc_disp + 32)), "eax") : x86("mov", FR(_.op_off), "eax")))
-                             + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && rfc() ? x86("mov", rspq((int)(_.op_off + 24 + _.op_fc_disp + 32)), "r14") : x86("mov", FRQ(_.op_off + 24), "r14")) : std::string())
-         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, IF(rfc(),  x86("mov",  "rdi", rspq((int)_.op_fc_disp + 8)))
-             + x86_align_enter()
-             + IF(!rfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
-             + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to))
-         + (rfc() ? x86_zls2_release_to_rspd((int)_.op_fc_disp + 16) : x86_zls2_release_to_call(_.op_off + 16))
-         + x86_align_leave()
-         /* ⛔ THE XFER WINDOW MUST OPEN *AFTER* THE ZETA RELEASE.  x86_zls2_release_to_call does not merely
-          * call — it RESETS rsp to the statement's zeta mark (`mov rsp, [frame+off]`, closing and re-opening
-          * the align dance around itself).  Pushes taken before it are ABANDONED by that reset, and the
-          * matching pops then read garbage off the zeta region — a segfault in mode-4 and silent corruption in
-          * mode-3.  Cost of learning this: one full crosscheck (m4 167/124).  Save AFTER the release. */
+static std::string release_pump() {
+    return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
          /* rbp-dcap: mirror rbp out FIRST (a *VAR commit transfer below may run a nested match whose head
@@ -112,4 +88,42 @@ std::string bb_match_release() {
          + x86("mov", RDQ("rcx", 0), "rax")
          + x86("mov", "rbp", FRQ(_.op_off + 40))
          + x86_gamma();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_match_release() {
+    x86_begin();
+    if (!PLATFORM_X86) return std::string();
+    return _.op_off < 0
+         ? x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)")
+         : _.op_tail
+         ? x86("comment", "IR_MATCH_RELEASE (R12-EXIT-1 tail: bracket read off the TOP ELEMENT, then the one-mov unwind collapses every element, every suspended cell, and HEAD's cell together)")
+         + x86_alpha()
+         + x86("mov", "rax", rspq((int)_.op_fc_disp + 0))
+         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
+         + x86("mov", RDQ("rcx", 0), "rax")
+         + x86("mov", "rsp", rspq((int)_.op_fc_disp + 8))
+         + release_pump()
+         : x86("comment", "IR_MATCH_RELEASE")
+         + x86_alpha()
+         /* R12-ERAD s65 (ZC_FRAME_RSP non-pat): pre-unwind rsp = base − 32 − fp(pattern), so the two FLAT re-homes compensate by op_fc_disp + 32 (explicit rspd/rspq).  The arena release is GATED OUT
+          * wholesale: no heap in the BB equation — the rspd unwind (bare mov rsp,[cell+16] once the G1 dances no-op) IS the release of HEAD's cell and every suspended pattern cell.
+          * Statement-success also reclaims side-stack residue (S10e) from the reincarnated +8 slot before the rsp unwind. */
+         + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (rfc() ? x86("mov", "rax", rspq((int)_.op_fc_disp + 8)) : x86("mov", "rax", FRQ(_.op_off + 8)))
+             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
+             + x86("mov", RDQ("rcx", 0), "rax"))
+         + (_.op_dval != 0.0 ? IF(rfc(), x86("mov", "eax", rspd((int)_.op_fc_disp)) + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? x86("mov", rspd((int)(_.op_off + _.op_fc_disp + 32)), "eax") : x86("mov", FR(_.op_off), "eax")))
+                             + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && rfc() ? x86("mov", rspq((int)(_.op_off + 24 + _.op_fc_disp + 32)), "r14") : x86("mov", FRQ(_.op_off + 24), "r14")) : std::string())
+         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, IF(rfc(),  x86("mov",  "rdi", rspq((int)_.op_fc_disp + 8)))
+             + x86_align_enter()
+             + IF(!rfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
+             + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to))
+         + (rfc() ? x86_zls2_release_to_rspd((int)_.op_fc_disp + 16) : x86_zls2_release_to_call(_.op_off + 16))
+         + x86_align_leave()
+         /* ⛔ THE XFER WINDOW MUST OPEN *AFTER* THE ZETA RELEASE.  x86_zls2_release_to_call does not merely
+          * call — it RESETS rsp to the statement's zeta mark (`mov rsp, [frame+off]`, closing and re-opening
+          * the align dance around itself).  Pushes taken before it are ABANDONED by that reset, and the
+          * matching pops then read garbage off the zeta region — a segfault in mode-4 and silent corruption in
+          * mode-3.  Cost of learning this: one full crosscheck (m4 167/124).  Save AFTER the release. */
+         + release_pump();
+
 }
