@@ -397,14 +397,13 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
 __attribute__((constructor)) static void rt_pin_init(void) {
     void * p = mmap((void *)RT_PIN_BASE, RT_PIN_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (p != (void *)RT_PIN_BASE) { fprintf(stderr, "rt_pin_init: RT_PIN_BASE 0x%lx unavailable (got %p) -- REG-0 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_PIN_BASE, p); abort(); }
+    void * g = mmap((void *)RT_GVA_VA, RT_GVA_ISLAND_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+    if (g != (void *)RT_GVA_VA) { fprintf(stderr, "rt_pin_init: RT_GVA_VA 0x%lx unavailable (got %p) -- REG-1 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_GVA_VA, g); abort(); }
 }
 DESCR_t *rt_gva_island(int n) {
-    extern void *rt_slab_region(size_t);
-    static DESCR_t *base = (DESCR_t *)0;
-    if (!base) { base = (DESCR_t *)rt_slab_region(RT_GVA_ISLAND_BYTES); if (!base) { fprintf(stderr, "rt_gva_island: island reserve failed\n"); abort(); } }
     if ((size_t)n * sizeof(DESCR_t) > RT_GVA_ISLAND_BYTES) { fprintf(stderr, "rt_gva_island: %d slots exceed the island (raise RT_GVA_ISLAND_BYTES)\n", n); abort(); }
-    if (n > 0) memset(base, 0, (size_t)n * sizeof(DESCR_t));
-    return base;
+    if (n > 0) memset((void *)RT_GVA_VA, 0, (size_t)n * sizeof(DESCR_t));
+    return (DESCR_t *)RT_GVA_VA;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_registered(const char *name)
