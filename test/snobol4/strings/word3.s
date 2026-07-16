@@ -63,20 +63,21 @@ xchain0_n0_af:
  xchain0_n3_β:
  add rsp, 16
  jmp xchain0_n2_β
-# IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
+# IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n4_α:
  mov eax, dword ptr [rsp + 16]
+ mov rdi, qword ptr [1879048192]
  lea rcx, [rip + .S0]
- mov qword ptr [rbp + 0], rcx
+ mov qword ptr [rdi + 0], rcx
  mov esi, eax
- mov qword ptr [rbp + 8], rsi
+ mov qword ptr [rdi + 8], rsi
  mov edx, r14d
  sub edx, eax
- mov qword ptr [rbp + 16], rdx
- add rbp, 24
+ mov qword ptr [rdi + 16], rdx
+ add qword ptr [1879048192], 24
  jmp xchain0_n5_α
  xchain0_n4_β:
- sub rbp, 24
+ sub qword ptr [1879048192], 24
  jmp xchain0_n11_β
 # IR_MATCH_SEQ_NARY (ZB-FC-3b: zero cell, LIFO-structural)
  xchain0_n5_α:
@@ -95,20 +96,21 @@ xchain0_n5_af:
  xchain0_n6_β:
  add rsp, 16
  jmp xchain0_n5_β
-# IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
+# IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n7_α:
  mov eax, dword ptr [rsp + 16]
+ mov rdi, qword ptr [1879048192]
  lea rcx, [rip + .S1]
- mov qword ptr [rbp + 0], rcx
+ mov qword ptr [rdi + 0], rcx
  mov esi, eax
- mov qword ptr [rbp + 8], rsi
+ mov qword ptr [rdi + 8], rsi
  mov edx, r14d
  sub edx, eax
- mov qword ptr [rbp + 16], rdx
- add rbp, 24
+ mov qword ptr [rdi + 16], rdx
+ add qword ptr [1879048192], 24
  jmp xchain0_n8_α
  xchain0_n7_β:
- sub rbp, 24
+ sub qword ptr [1879048192], 24
  jmp xchain0_n14_β
 # IR_MATCH_SEQ_NARY (ZB-FC-3b: zero cell, LIFO-structural)
  xchain0_n8_α:
@@ -127,20 +129,21 @@ xchain0_n8_af:
  xchain0_n9_β:
  add rsp, 16
  jmp xchain0_n8_β
-# IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
+# IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n10_α:
  mov eax, dword ptr [rsp + 16]
+ mov rdi, qword ptr [1879048192]
  lea rcx, [rip + .S2]
- mov qword ptr [rbp + 0], rcx
+ mov qword ptr [rdi + 0], rcx
  mov esi, eax
- mov qword ptr [rbp + 8], rsi
+ mov qword ptr [rdi + 8], rsi
  mov edx, r14d
  sub edx, eax
- mov qword ptr [rbp + 16], rdx
- add rbp, 24
+ mov qword ptr [rdi + 16], rdx
+ add qword ptr [1879048192], 24
  jmp xchain0_n0_as
  xchain0_n10_β:
- sub rbp, 24
+ sub qword ptr [1879048192], 24
  jmp xchain0_n17_β
 # IR_MATCH_BREAK
  xchain0_n11_α:
@@ -474,27 +477,26 @@ main_α_body:
  jmp xchain34_n3_α
 # IR_MATCH_HEAD
  xchain34_n6_α:
- mov r12, rsp
- mov rdi, qword ptr [r12 + 368]
- mov rsi, qword ptr [r12 + 376]
+ mov qword ptr [rsp + 296], rbp
+ mov rbp, rsp
+ mov rdi, qword ptr [rbp + 368]
+ mov rsi, qword ptr [rbp + 376]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [r12 + 296], rbp
- lea rcx, [rip + g_dcap_top]
- mov rbp, qword ptr [rcx + 0]
- mov qword ptr [r12 + 288], rbp
- mov qword ptr [r12 + 272], rsp
+ mov rax, qword ptr [1879048192]
+ mov qword ptr [rbp + 288], rax
+ mov qword ptr [rbp + 272], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [r12 + 264], rax
- mov dword ptr [r12 + 256], 0
+ mov qword ptr [rbp + 264], rax
+ mov dword ptr [rbp + 256], 0
 .Lx43_0:
- mov r14d, dword ptr [r12 + 256]
+ mov r14d, dword ptr [rbp + 256]
  jmp xchain34_n7_α
  xchain34_n6_β:
- add dword ptr [r12 + 256], 1
- mov eax, dword ptr [r12 + 256]
+ add dword ptr [rbp + 256], 1
+ mov eax, dword ptr [rbp + 256]
  cmp eax, r15d
  jg .Lx43_1
  lea rcx, [rip + g_anchor]
@@ -503,14 +505,13 @@ main_α_body:
  jne .Lx43_1
  jmp .Lx43_0
 .Lx43_1:
- mov rax, qword ptr [r12 + 264]
+ mov rax, qword ptr [rbp + 264]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [r12 + 272]
- lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [r12 + 288]
- mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [r12 + 296]
+ mov rsp, qword ptr [rbp + 272]
+ mov rax, qword ptr [rbp + 288]
+ mov qword ptr [1879048192], rax
+ mov rbp, qword ptr [rbp + 296]
  jmp xchain34_n3_α
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain34_n7_α:
@@ -543,8 +544,6 @@ main_α_body:
  push r15
  push r13
  sub rsp, 8
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S5]
  xor esi, esi
  call rt_defer_open@PLT
@@ -604,18 +603,16 @@ main_α_body:
  jmp qword ptr [rsp]
 # IR_MATCH_RELEASE
  xchain34_n8_α:
- mov rax, qword ptr [r12 + 264]
+ mov rax, qword ptr [rbp + 264]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [r12 + 272]
+ mov rsp, qword ptr [rbp + 272]
  push r14
  push r15
  push r13
  sub rsp, 8
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  mov rdi, qword ptr [rsp + 320]
- mov rsi, rbp
+ mov rsi, qword ptr [1879048192]
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx46_1:
@@ -643,10 +640,9 @@ main_α_body:
  pop r13
  pop r15
  pop r14
- lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [r12 + 288]
- mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [r12 + 296]
+ mov rax, qword ptr [rbp + 288]
+ mov qword ptr [1879048192], rax
+ mov rbp, qword ptr [rbp + 296]
  jmp xchain34_n9_α
 # IR_VAR
  xchain34_n9_α:

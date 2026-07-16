@@ -114,15 +114,14 @@ main_α_body:
  jmp main_γ
 # IR_MATCH_HEAD
  xchain0_n7_α:
+ mov qword ptr [rsp + 248], rbp
  mov rdi, qword ptr [rsp + 432]
  mov rsi, qword ptr [rsp + 440]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 248], rbp
- lea rcx, [rip + g_dcap_top]
- mov rbp, qword ptr [rcx + 0]
- mov qword ptr [rsp + 240], rbp
+ mov rax, qword ptr [1879048192]
+ mov qword ptr [rsp + 240], rax
  mov rax, rsp
  sub rsp, 32
  mov qword ptr [rsp + 16], rax
@@ -148,9 +147,8 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rsp + 16]
- lea rcx, [rip + g_dcap_top]
  mov rax, qword ptr [rsp + 240]
- mov qword ptr [rcx + 0], rax
+ mov qword ptr [1879048192], rax
  mov rbp, qword ptr [rsp + 248]
  jmp main_γ
 # IR_MATCH_SEQ_NARY (ZB-FC-3b: zero cell, LIFO-structural)
@@ -172,10 +170,8 @@ xchain0_n8_af:
  push r15
  push r13
  sub rsp, 8
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  mov rdi, qword ptr [rsp + 272]
- mov rsi, rbp
+ mov rsi, qword ptr [1879048192]
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx14_1:
@@ -203,9 +199,8 @@ xchain0_n8_af:
  pop r13
  pop r15
  pop r14
- lea rcx, [rip + g_dcap_top]
  mov rax, qword ptr [rsp + 240]
- mov qword ptr [rcx + 0], rax
+ mov qword ptr [1879048192], rax
  mov rbp, qword ptr [rsp + 248]
  jmp xchain0_n13_α
 # IR_MATCH_POS
@@ -224,20 +219,21 @@ xchain0_n8_af:
  xchain0_n11_β:
  add rsp, 16
  jmp xchain0_n10_β
-# IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
+# IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n12_α:
  mov eax, dword ptr [rsp + 0]
+ mov rdi, qword ptr [1879048192]
  lea rcx, [rip + .S0]
- mov qword ptr [rbp + 0], rcx
+ mov qword ptr [rdi + 0], rcx
  mov esi, eax
- mov qword ptr [rbp + 8], rsi
+ mov qword ptr [rdi + 8], rsi
  mov edx, r14d
  sub edx, eax
- mov qword ptr [rbp + 16], rdx
- add rbp, 24
+ mov qword ptr [rdi + 16], rdx
+ add qword ptr [1879048192], 24
  jmp xchain0_n8_as
  xchain0_n12_β:
- sub rbp, 24
+ sub qword ptr [1879048192], 24
  jmp xchain0_n14_β
 # IR_VAR
  xchain0_n13_α:
