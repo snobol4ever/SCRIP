@@ -1398,9 +1398,10 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                 for (int k = before_pat; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->op == IR_MATCH_ARBNO) { n_arb++; i_arb = k; } }
                 if (n_arb == 1) {
                     IR_t * R = g->all[i_arb];
-                    int fence_seal = (R->n_operands > 3 && R->operands[3] == R);
+                    /* L2 (s71): fence-sealed bodies (operands[3]==R) ADMIT — the seal is an EDGE property (the template's PAIR(1) departures retarget its seal glue via op_tail_seal); element geometry,
+                     * walks, and every other v1 gate are identical to the unsealed case, so the range discovery no longer branches on it. */
                     int i_b0 = -1, i_b1 = -1;
-                    if (!fence_seal && R->n_operands >= 3) for (int j = before_pat; j < g->n; j++) { if (g->all[j] == R->operands[1]) i_b0 = j; if (g->all[j] == R->operands[2]) i_b1 = j; }
+                    if (R->n_operands >= 3) for (int j = before_pat; j < g->n; j++) { if (g->all[j] == R->operands[1]) i_b0 = j; if (g->all[j] == R->operands[2]) i_b1 = j; }
                     if (i_b0 > i_arb && i_b1 >= i_b0) {
                         int cap_left = 0;
                         for (int k = before_pat; k < i_arb; k++) { IR_t * x = g->all[k]; if (x && (x->op == IR_MATCH_ASSIGN_SAVE || x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM)) { cap_left = 1; break; } }

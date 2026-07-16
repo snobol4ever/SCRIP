@@ -22,7 +22,11 @@ static std::string bb_match_arbno_tail() {
      * fail-glue pop `add rsp, op_sb` lands EXACTLY on the previous element's yield frontier (LIFO + fixed size = arithmetic, never indirection); exhaust pops op_sb ONLY (the resumed-epsilon cascade's
      * box-omega pops already consumed the FPB phantom pad -- popping KA here overshot flat by FPB, the s71 measured SEGV: oracle-identical trace then exit 139 at first FPB>0 exhaust) and omega runs at flat depth.
      * Every reference is [rsp + compile-time-const] -- no view register, no dynamic count in any address. */
-    int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl;
+    /* L2 FENCE SEAL (s71; the flat path's PAIR(1)->na_f re-aim with the element scheme's depth fixed): resume a committed iteration ABANDONS it.  Every PAIR(1) departure in this template -- the sigma
+     * null-progress je and phi's post-pop resume -- runs at the UNIFORM yield depth rsp = elem - FPB (the alpha phantom pad + S10c suspension invariant), and external resume routes to this box's beta
+     * (extend), never PAIR(1); so the whole seal is ONE glue: L(3) arithmetic-pops the dead suspended body (its alternatives are forbidden -- skipping the sealed boxes' omegas IS the seal) and falls
+     * through into phi, whose elem0 dance then cascades pop-by-pop to exhaust exactly as SPITBOL cuts left (manual ln 4716).  The epsilon element exits at the flag check before any body code runs. */
+    int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl, SEAL = _.op_tail_seal;
     int KA = (int)_.op_sb + FPB, HDRA = FPB + HDRB;
     return x86("comment", "IR_MATCH_ARBNO_TAIL (R12-EXIT-1 carry-the-tail rsp elements)")
          + x86_alpha()
@@ -53,15 +57,16 @@ static std::string bb_match_arbno_tail() {
          + x86("def", PAIR(2))
          + x86("mov", "eax", trd(HDRA + 0))
          + x86("cmp", "r14d", "eax")
-         + x86("je",  PAIR(1))
+         + x86("je",  SEAL ? L(3) : PAIR(1))
          + x86("mov", trd(HDRA + 4), "r14d")
          + x86_gamma()
+         + IF(SEAL, x86("def", L(3)) + IF(FPB > 0, x86("add", "rsp", (long)FPB)))
          + x86("def", PAIR(3))
          + x86("mov", "eax", trd(HDRB + 8))
          + x86("test", "eax", "eax")
          + x86("jnz", L(2))
          + x86("add", "rsp", (long)_.op_sb)
-         + x86("jmp", PAIR(1))
+         + x86("jmp", SEAL ? L(3) : PAIR(1))
          + x86("def", L(2))
          + x86("mov", "r14d", trd(HDRB + 0))
          + x86("add", "rsp", (long)_.op_sb)
