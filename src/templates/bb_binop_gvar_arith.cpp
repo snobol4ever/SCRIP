@@ -18,10 +18,10 @@ std::string bb_binop_gvar_arith() {
     union { int64_t q; uint64_t u; } _ufl; _ufl.q = _.bb_li; uint64_t _powl = _ufl.u;
     union { int64_t q; uint64_t u; } _ufr; _ufr.q = _.bb_ri; uint64_t _powr = _ufr.u;
     auto gva_ld = [&](const char *reg, int k, const char *nm, const char *pl, int lb) -> std::string {
-        return x86("mov", "rdx", RDQ("rbx", k * 16))
+        return x86("mov", "rdx", ABSQ(RT_GVA_VA + k * 16))
              + x86("cmp", "edx", (long)DT_I)
              + x86("jne", L(lb))
-             + x86("mov", reg, RDQ("rbx", k * 16 + 8))
+             + x86("mov", reg, ABSQ(RT_GVA_VA + k * 16 + 8))
              + x86("jmp", L(lb + 1))
              + x86("def", L(lb))
              + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) nm, pl)
