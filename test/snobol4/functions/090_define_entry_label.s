@@ -14,14 +14,12 @@ proc_bumpit_α:
   mov ecx, 320
   xor eax, eax
   rep stosb
-  lea rax, [rip + g_gva_base]
-  mov rbx, qword ptr [rax]
   mov qword ptr [rsp + 312], rsp
 proc_bumpit_α_body:
 # IR_VAR
  xchain0_n0_α:
- mov rax, qword ptr [rbx + 16]
- mov rdx, qword ptr [rbx + 24]
+ mov rax, qword ptr [1879052304]
+ mov rdx, qword ptr [1879052312]
  mov qword ptr [rsp + 144], rax
  mov qword ptr [rsp + 152], rdx
  jmp xchain0_n1_α
@@ -81,8 +79,8 @@ proc_bumpit_α_body:
  xchain0_n3_α:
  mov rax, qword ptr [rsp + 112]
  mov rdx, qword ptr [rsp + 120]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 96], rax
  mov qword ptr [rsp + 104], rdx
  jmp proc_bumpit_γ
@@ -139,9 +137,6 @@ proc_startup:
 __gva_names:
   .quad .Lgvan0
   .quad .Lgvan1
-  .section .bss
-  .align 16
-__gva: .space 32, 0
   .section .text
   .intel_syntax noprefix
   .globl main
@@ -151,11 +146,12 @@ main:
   push rsi
   call core_lib_init@PLT
   call proc_startup
+  mov edi, 2
+  call rt_gva_island@PLT
+  mov rsi, rax
   lea rdi, [rip + __gva_names]
-  lea rsi, [rip + __gva]
   mov edx, 2
   call gva_register@PLT
-  mov rbx, rax
   xor esi, esi
   call main_α
   xor eax, eax
@@ -172,8 +168,6 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  lea rax, [rip + g_gva_base]
-  mov rbx, qword ptr [rax]
   mov qword ptr [rsp + 312], rsp
 main_α_body:
 # IR_LIT_INTEGER

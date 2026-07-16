@@ -5,9 +5,6 @@
   .align 8
 __gva_names:
   .quad .Lgvan0
-  .section .bss
-  .align 16
-__gva: .space 16, 0
   .section .text
   .intel_syntax noprefix
   .globl main
@@ -16,11 +13,12 @@ main:
   push rdi
   push rsi
   call core_lib_init@PLT
+  mov edi, 1
+  call rt_gva_island@PLT
+  mov rsi, rax
   lea rdi, [rip + __gva_names]
-  lea rsi, [rip + __gva]
   mov edx, 1
   call gva_register@PLT
-  mov rbx, rax
   xor esi, esi
   call main_α
   xor eax, eax
@@ -37,8 +35,6 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  lea rax, [rip + g_gva_base]
-  mov rbx, qword ptr [rax]
   mov qword ptr [rsp + 1624], rsp
 main_α_body:
 # IR_LIT_REAL
@@ -164,8 +160,8 @@ main_α_body:
  xchain0_n9_α:
  mov rax, qword ptr [rsp + 304]
  mov rdx, qword ptr [rsp + 312]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 288], rax
  mov qword ptr [rsp + 296], rdx
  jmp main_γ
@@ -259,8 +255,8 @@ main_α_body:
  xchain0_n16_α:
  mov rax, qword ptr [rsp + 544]
  mov rdx, qword ptr [rsp + 552]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 528], rax
  mov qword ptr [rsp + 536], rdx
  jmp main_γ
@@ -354,8 +350,8 @@ main_α_body:
  xchain0_n23_α:
  mov rax, qword ptr [rsp + 784]
  mov rdx, qword ptr [rsp + 792]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 768], rax
  mov qword ptr [rsp + 776], rdx
  jmp main_γ
@@ -449,8 +445,8 @@ main_α_body:
  xchain0_n30_α:
  mov rax, qword ptr [rsp + 1024]
  mov rdx, qword ptr [rsp + 1032]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 1008], rax
  mov qword ptr [rsp + 1016], rdx
  jmp main_γ
@@ -551,8 +547,8 @@ main_α_body:
  xchain0_n38_α:
  mov rax, qword ptr [rsp + 1264]
  mov rdx, qword ptr [rsp + 1272]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 1248], rax
  mov qword ptr [rsp + 1256], rdx
  jmp main_γ
@@ -572,8 +568,8 @@ main_α_body:
  xchain0_n40_α:
  mov rax, qword ptr [rsp + 1584]
  mov rdx, qword ptr [rsp + 1592]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 1568], rax
  mov qword ptr [rsp + 1576], rdx
  jmp main_γ
@@ -637,8 +633,8 @@ main_α_body:
  xchain0_n44_α:
  mov rax, qword ptr [rsp + 1536]
  mov rdx, qword ptr [rsp + 1544]
- mov qword ptr [rbx + 0], rax
- mov qword ptr [rbx + 8], rdx
+ mov qword ptr [1879052288], rax
+ mov qword ptr [1879052296], rdx
  mov qword ptr [rsp + 1520], rax
  mov qword ptr [rsp + 1528], rdx
  jmp main_γ

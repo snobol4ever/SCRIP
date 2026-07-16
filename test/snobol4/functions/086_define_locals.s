@@ -14,14 +14,12 @@ proc_swap_α:
   mov ecx, 560
   xor eax, eax
   rep stosb
-  lea rax, [rip + g_gva_base]
-  mov rbx, qword ptr [rax]
   mov qword ptr [rsp + 552], rsp
 proc_swap_α_body:
 # IR_VAR
  xchain0_n0_α:
- mov rax, qword ptr [rbx + 16]
- mov rdx, qword ptr [rbx + 24]
+ mov rax, qword ptr [1879052304]
+ mov rdx, qword ptr [1879052312]
  mov qword ptr [rsp + 112], rax
  mov qword ptr [rsp + 120], rdx
  jmp xchain0_n1_α
@@ -31,8 +29,8 @@ proc_swap_α_body:
  xchain0_n1_α:
  mov rax, qword ptr [rsp + 112]
  mov rdx, qword ptr [rsp + 120]
- mov qword ptr [rbx + 48], rax
- mov qword ptr [rbx + 56], rdx
+ mov qword ptr [1879052336], rax
+ mov qword ptr [1879052344], rdx
  mov qword ptr [rsp + 96], rax
  mov qword ptr [rsp + 104], rdx
  jmp xchain0_n2_α
@@ -40,8 +38,8 @@ proc_swap_α_body:
  jmp xchain0_n2_α
 # IR_VAR
  xchain0_n2_α:
- mov rax, qword ptr [rbx + 32]
- mov rdx, qword ptr [rbx + 40]
+ mov rax, qword ptr [1879052320]
+ mov rdx, qword ptr [1879052328]
  mov qword ptr [rsp + 160], rax
  mov qword ptr [rsp + 168], rdx
  jmp xchain0_n3_α
@@ -51,8 +49,8 @@ proc_swap_α_body:
  xchain0_n3_α:
  mov rax, qword ptr [rsp + 160]
  mov rdx, qword ptr [rsp + 168]
- mov qword ptr [rbx + 16], rax
- mov qword ptr [rbx + 24], rdx
+ mov qword ptr [1879052304], rax
+ mov qword ptr [1879052312], rdx
  mov qword ptr [rsp + 144], rax
  mov qword ptr [rsp + 152], rdx
  jmp xchain0_n4_α
@@ -60,8 +58,8 @@ proc_swap_α_body:
  jmp xchain0_n4_α
 # IR_VAR
  xchain0_n4_α:
- mov rax, qword ptr [rbx + 48]
- mov rdx, qword ptr [rbx + 56]
+ mov rax, qword ptr [1879052336]
+ mov rdx, qword ptr [1879052344]
  mov qword ptr [rsp + 208], rax
  mov qword ptr [rsp + 216], rdx
  jmp xchain0_n5_α
@@ -71,8 +69,8 @@ proc_swap_α_body:
  xchain0_n5_α:
  mov rax, qword ptr [rsp + 208]
  mov rdx, qword ptr [rsp + 216]
- mov qword ptr [rbx + 32], rax
- mov qword ptr [rbx + 40], rdx
+ mov qword ptr [1879052320], rax
+ mov qword ptr [1879052328], rdx
  mov qword ptr [rsp + 192], rax
  mov qword ptr [rsp + 200], rdx
  jmp xchain0_n6_α
@@ -80,8 +78,8 @@ proc_swap_α_body:
  jmp xchain0_n6_α
 # IR_VAR
  xchain0_n6_α:
- mov rax, qword ptr [rbx + 16]
- mov rdx, qword ptr [rbx + 24]
+ mov rax, qword ptr [1879052304]
+ mov rdx, qword ptr [1879052312]
  mov qword ptr [rsp + 320], rax
  mov qword ptr [rsp + 328], rdx
  jmp xchain0_n7_α
@@ -113,8 +111,8 @@ proc_swap_α_body:
  jmp proc_swap_γ
 # IR_VAR
  xchain0_n9_α:
- mov rax, qword ptr [rbx + 32]
- mov rdx, qword ptr [rbx + 40]
+ mov rax, qword ptr [1879052320]
+ mov rdx, qword ptr [1879052328]
  mov qword ptr [rsp + 384], rax
  mov qword ptr [rsp + 392], rdx
  jmp xchain0_n10_α
@@ -206,9 +204,6 @@ __gva_names:
   .quad .Lgvan1
   .quad .Lgvan2
   .quad .Lgvan3
-  .section .bss
-  .align 16
-__gva: .space 64, 0
   .section .text
   .intel_syntax noprefix
   .globl main
@@ -218,11 +213,12 @@ main:
   push rsi
   call core_lib_init@PLT
   call proc_startup
+  mov edi, 4
+  call rt_gva_island@PLT
+  mov rsi, rax
   lea rdi, [rip + __gva_names]
-  lea rsi, [rip + __gva]
   mov edx, 4
   call gva_register@PLT
-  mov rbx, rax
   xor esi, esi
   call main_α
   xor eax, eax
@@ -239,8 +235,6 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  lea rax, [rip + g_gva_base]
-  mov rbx, qword ptr [rax]
   mov qword ptr [rsp + 552], rsp
 main_α_body:
 # IR_LIT_STRING

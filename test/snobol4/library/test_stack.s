@@ -11,9 +11,6 @@ __gva_names:
   .quad .Lgvan1
   .quad .Lgvan2
   .quad .Lgvan3
-  .section .bss
-  .align 16
-__gva: .space 64, 0
   .section .text
   .intel_syntax noprefix
   .globl main
@@ -22,11 +19,12 @@ main:
   push rdi
   push rsi
   call core_lib_init@PLT
+  mov edi, 4
+  call rt_gva_island@PLT
+  mov rsi, rax
   lea rdi, [rip + __gva_names]
-  lea rsi, [rip + __gva]
   mov edx, 4
   call gva_register@PLT
-  mov rbx, rax
   xor esi, esi
   call main_α
   xor eax, eax
@@ -43,8 +41,6 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  lea rax, [rip + g_gva_base]
-  mov rbx, qword ptr [rax]
   mov qword ptr [rsp + 2232], rsp
 main_α_body:
 # IR_LIT_STRING
@@ -742,8 +738,8 @@ main_α_body:
  jmp xchain0_n43_α
 # IR_VAR
  xchain0_n43_α:
- mov rax, qword ptr [rbx + 0]
- mov rdx, qword ptr [rbx + 8]
+ mov rax, qword ptr [1879052288]
+ mov rdx, qword ptr [1879052296]
  mov qword ptr [rsp + 1456], rax
  mov qword ptr [rsp + 1464], rdx
  jmp xchain0_n44_α
@@ -797,8 +793,8 @@ main_α_body:
  xchain0_n47_α:
  mov rax, qword ptr [rsp + 1536]
  mov rdx, qword ptr [rsp + 1544]
- mov qword ptr [rbx + 16], rax
- mov qword ptr [rbx + 24], rdx
+ mov qword ptr [1879052304], rax
+ mov qword ptr [1879052312], rdx
  mov qword ptr [rsp + 1520], rax
  mov qword ptr [rsp + 1528], rdx
  jmp xchain0_n48_α
@@ -806,8 +802,8 @@ main_α_body:
  jmp xchain0_n48_α
 # IR_VAR
  xchain0_n48_α:
- mov rax, qword ptr [rbx + 16]
- mov rdx, qword ptr [rbx + 24]
+ mov rax, qword ptr [1879052304]
+ mov rdx, qword ptr [1879052312]
  mov qword ptr [rsp + 1888], rax
  mov qword ptr [rsp + 1896], rdx
  jmp xchain0_n49_α
@@ -1074,8 +1070,8 @@ xchain0_n51_af:
  jmp xchain0_n63_α
 # IR_VAR
  xchain0_n63_α:
- mov rax, qword ptr [rbx + 32]
- mov rdx, qword ptr [rbx + 40]
+ mov rax, qword ptr [1879052320]
+ mov rdx, qword ptr [1879052328]
  mov qword ptr [rsp + 1968], rax
  mov qword ptr [rsp + 1976], rdx
  jmp xchain0_n64_α
@@ -1105,8 +1101,8 @@ xchain0_n51_af:
  jmp xchain0_n65_α
 # IR_VAR
  xchain0_n65_α:
- mov rax, qword ptr [rbx + 48]
- mov rdx, qword ptr [rbx + 56]
+ mov rax, qword ptr [1879052336]
+ mov rdx, qword ptr [1879052344]
  mov qword ptr [rsp + 2048], rax
  mov qword ptr [rsp + 2056], rdx
  jmp xchain0_n66_α
