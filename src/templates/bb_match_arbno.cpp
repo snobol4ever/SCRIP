@@ -19,7 +19,8 @@ static std::string bb_match_arbno_tail() {
      * {entry-cursor@+0, yield-cursor@+4, elem0-flag@+8} + 16B bracket copy {patstk mark@+16, rsp mark@+24}; op_sb = align16(span+rspan+32); HDRB = span+rspan (elem-relative header base, staged in
      * op_sa); HDRA = fp_body + HDRB (header base from the UNIFORM yield depth rsp = elem - fp_body, which alpha's phantom body pad establishes for the epsilon yield and S10c gamma-suspension
      * maintains for every extension).  alpha pushes op_sb+fp_body copying the bracket from HEAD's cell at [rsp + KA + fp_left + k]; beta pushes op_sb copying it from the current element; the
-     * fail-glue pop `add rsp, op_sb` lands EXACTLY on the previous element's yield frontier (LIFO + fixed size = arithmetic, never indirection); exhaust pops KA and omega runs at flat depth.
+     * fail-glue pop `add rsp, op_sb` lands EXACTLY on the previous element's yield frontier (LIFO + fixed size = arithmetic, never indirection); exhaust pops op_sb ONLY (the resumed-epsilon cascade's
+     * box-omega pops already consumed the FPB phantom pad -- popping KA here overshot flat by FPB, the s71 measured SEGV: oracle-identical trace then exit 139 at first FPB>0 exhaust) and omega runs at flat depth.
      * Every reference is [rsp + compile-time-const] -- no view register, no dynamic count in any address. */
     int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl;
     int KA = (int)_.op_sb + FPB, HDRA = FPB + HDRB;
@@ -63,7 +64,7 @@ static std::string bb_match_arbno_tail() {
          + x86("jmp", PAIR(1))
          + x86("def", L(2))
          + x86("mov", "r14d", trd(HDRB + 0))
-         + x86("add", "rsp", (long)KA)
+         + x86("add", "rsp", (long)_.op_sb)
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
