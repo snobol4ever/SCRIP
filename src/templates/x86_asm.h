@@ -258,6 +258,8 @@ inline std::string x86_jcc(const char * mnem, int port) {
  * zeta_alloc.c (flag > SCRIP_ZETA_PORT env > ZC_PORT default), exactly the x86_zeta_mode() pattern below.
  * Emit-side seams read THIS, never getenv, never argv. */
 extern "C" int rt_zeta_port_mode(void);
+extern "C" void *rt_zh_bump_slow(long bytes);
+inline void *rt_zh_bump_slow_addr() { return (void *)rt_zh_bump_slow; }
 inline int x86_port_mode() { return rt_zeta_port_mode(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZC_PORT_FORTH (RUNG ZB-FC-0, Lon 2026-07-12; design zeta_choices.h ZC_PORT_FORTH + ARCH-ZETA S10).
@@ -843,6 +845,15 @@ inline std::string x86_abs_disp32_addsub_imm8(int is_sub, long va, long imm) {
     return std::string(is_sub ? " sub" : " add") + " qword ptr [" + std::to_string(va) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_cmp_reg_abs64(const char * reg, long va) {
+    int g = x86_rnum(reg);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x3B; c += (char)(0x04 | ((g & 7) << 3)); c += (char)0x25;
+        c += u32le((uint32_t)va); return x86_Lrec(c);
+    }
+    return std::string(" cmp ") + reg + ", qword ptr [" + std::to_string(va) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_load32(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1236,6 +1247,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "cmp")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_cmp(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_cmp_imm(a.txt, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_ABS64) return x86_cmp_reg_abs64(a.txt, b.imm);
         return std::string();
     }
     if (!strcmp(mnem, "cmp64"))  { if (b.kind == XK_IMM) return x86_cmp_imm64(a.txt, b.imm); return std::string(); }
@@ -1576,6 +1588,26 @@ inline std::string x86_port_hook(int site, int port) {
     }
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);
+    /* REG-4 slice A (s77) -- HEAP-ZETA alpha (C2's second flavor, GC-U-2b HZ-1's register half): the box's
+     * zeta comes from the pinned bump frontier.  rax = frontier (the box's base), commit = store frontier+K,
+     * guard ja -> rt_zh_bump_slow refill (lazy-inits on the zero page).  Omega emits NOTHING by C3 design
+     * (LIVE/DEAD lifecycle owns reclamation).  Frame plumbing for heap residence = HZ-1's census slice; the
+     * cell->rbx promotion = REG-4b (the pend park->promote pattern).  Internal labels 60/61 sit far above any
+     * box's own L(n) usage. */
+    if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_HEAP)
+        s += x86("mov", "rax", ABSQ(RT_WS_TOP))
+           + x86("mov", "rcx", "rax")
+           + x86("add", "rcx", (long)_.op_zls2_bytes)
+           + x86("cmp", "rcx", ABSQ(RT_WS_LIMIT))
+           + x86("ja",  L(60))
+           + x86("mov", ABSQ(RT_WS_TOP), "rcx")
+           + x86("jmp", L(61))
+           + x86("def", L(60))
+           + x86_align_enter()
+           + x86("mov", "edi", (long)_.op_zls2_bytes)
+           + x86("call", "rt_zh_bump_slow", (uint64_t)(uintptr_t)(void *)rt_zh_bump_slow_addr())
+           + x86_align_leave()
+           + x86("def", L(61));
     /* RUNG ZB-OWN-0 (Lon 2026-07-11) -- UNIVERSAL BB-owned shadow, absolute cell positioning: cell =
      * statement-mark - C_i at every alpha AND beta define of an entry-holding node.  DEF sites only (flags
      * clean); beta idempotent; no omega code by design.  rax/rcx/rdi, the stated DEF-site register contract. */
