@@ -19,6 +19,7 @@ extern "C" uint64_t g_patstk_sp;   /* R12-ERAD s65: pattern side stack frontier 
  * RELEASE re-homes the match START there pre-unwind for REPLACE (the splice-survivor partition).  L(1)'s zls-mark read hoists BEFORE align_enter (a window read inside the align dance is wrong -- the
  * 3c lesson); rdi rides the pushes.  Ungranted: every line byte-verbatim today's path (degrade never die). */
 static inline int hfc() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0; }
+static inline const char * rspq40(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_head() {
     x86_begin();
@@ -27,9 +28,16 @@ std::string bb_match_head() {
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
-         /* ANCHOR-WINDOW s66: a grant-declined statement's HEAD materializes the window view FIRST — r12 = rsp = the flat frame base (no cells pushed between statements, S10e) — so every FR/FRQ in the
-          * window (op_anchored boxes emit r12-based refs) is motion-immune exactly as under the s64 R12 frame; window-local, dead at statement exit, the granted fast path never emits it. */
-         + IF(ZC_FRAME == ZC_FRAME_RSP && _.op_anchor_head, x86("mov", "r12", "rsp"))
+         /* REG-3 FRAME-RBP: EVERY head saves the outer rbp at flat +40 (the slot REG-2 parked — re-tenanted
+          * here as the saved-outer-rbp of the frame chain; rsp-explicit store because the anchored view's own
+          * FRQ resolves to the not-yet-valid rbp; the flat_pat arm rides its live r12 island view and is
+          * push-immune).  A grant-DECLINED statement's HEAD then materializes the window view — rbp = rsp =
+          * the flat frame base (no cells pushed between statements, S10e) — so every FR/FRQ in the window
+          * (op_anchored boxes emit rbp-based refs) is motion-immune exactly as under the dead s64/s66 r12
+          * window, and BOTH statement exits restore rbp from +40 (the s61 both-edges lesson).  The saved-rbp
+          * chain is the LIFO activation linkage of the s73 six-register map. */
+         + (_.flat_pat ? x86("mov", FRQ(_.op_off + 40), "rbp") : x86("mov", rspq40((int)_.op_off + 40), "rbp"))
+         + IF(ZC_FRAME == ZC_FRAME_RSP && _.op_anchor_head, x86("mov", "rbp", "rsp"))
          /* R12-ERAD s65 (ZC_FRAME_RSP): FLAT-FIRST ordering — subject load, rt_match_enter, and the rbp/dcap mirror saves all run at rsp = frame base (D=0), THEN the 32B cell pushes and only
           * window-relative writes follow.  Under R12 the original order is byte-verbatim (rsp motion is invisible to r12-based refs).  The RSP cell field +16 = pre-push rsp = the frame base; the
           * old arena-mark slot +8 reincarnates as the PATTERN SIDE-STACK mark (S10e statement bracket for suspended activations).  Pat blobs (flat_pat, r12-island) take the R12 arm. */
@@ -88,5 +96,9 @@ std::string bb_match_head() {
           * rt_dcap_end_fail, inline — the depth array died with the ring; the rbp restore died with the park. */
          + x86("mov", "rax", FRQ(_.op_off + 32))
          + x86("mov", ABSQ(RT_CAS_TOP), "rax")
+         /* REG-3 fail-edge restore: rbp ← saved outer (+40).  FRQ is correct in ALL THREE frame classes here:
+          * anchored → [rbp+off] with rbp==base (the classic frame-pointer pop), granted → [rsp+off] with rsp
+          * unwound to base, flat_pat → [r12+off] island view. */
+         + x86("mov", "rbp", FRQ(_.op_off + 40))
          + x86_omega();
 }
