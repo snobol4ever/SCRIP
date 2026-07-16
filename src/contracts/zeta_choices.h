@@ -97,6 +97,16 @@
  * because alpha writes before any read); widening is per-kind, verified against the S10c port invariant.
  * Select SCRIP_ZETA_PORT=6 / --zeta-port 6; NOT the compiled default. */
 #define ZC_PORT_FORTH        6
+/* ZC_PORT_HEAP (REG-4 slice A, GOAL-SNOBOL4-BB RUNG REG-MAP; = GC-U-2b HZ-1's register half, s77): the
+ * HEAP-ZETA port flavor of the C2 two-flavor law — α allocates the box's ζ from the pinned bump frontier
+ * [RT_WS_TOP] guarded by [RT_WS_LIMIT] (ja → rt_zh_bump_slow refill; lazy init falls out of the guard since
+ * the REG-0 page is zero-filled), ω emits NOTHING (C3: escapee reclamation = the region's own LIVE/DEAD
+ * lifecycle, never collected, never slid).  SLICE A IS THE ALLOCATION HALF ONLY: the box receives its ζ base
+ * in rax, but FR/FRQ frame plumbing under heap residence (x86_zr for escapee classes) is HZ-1's census slice,
+ * and the frontier's promotion from the cell into REGISTER rbx (the s73 map's GC-TOP tenant) is the named
+ * REG-4b follow-up — the exact park→promote sequence proven on pend (REG-2 → REG-6).  Select
+ * SCRIP_ZETA_PORT=7; NOT the compiled default (default FORTH ⇒ this arm is dormant ⇒ byte-identity). */
+#define ZC_PORT_HEAP         7
 #ifndef ZC_PORT
 #define ZC_PORT ZC_PORT_FORTH
 #endif

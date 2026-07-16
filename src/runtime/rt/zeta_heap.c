@@ -144,3 +144,18 @@ long rt_zh_live_count(void)
     while (src && src < g_zh_cur) { zh_hdr_t *hd = (zh_hdr_t *)src; if (hd->state == ZH_LIVE) n++; src += (long)hd->total; }
     return n;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* REG-4 slice A (s77): the HEAP-ZETA bump frontier behind the pinned cells.  Own slab sub-region, SEPARATE from the handled zh_hdr_t blocks above so rt_zh_live_count's walk stays intact.  The emitted
+ * α (ZC_PORT_HEAP, x86_asm.h port hook) reads [RT_WS_TOP], guards against [RT_WS_LIMIT], and commits inline; THIS function is the ja slow path — refill a fresh block, satisfy the pending request from
+ * its head, publish the new frontier/limit.  Zero-filled REG-0 page ⇒ first guard trips ⇒ lazy init needs no constructor.  Old-block tail residue is LEAKED BY DESIGN v0 (C3: LIVE/DEAD lifecycle owns
+ * reclamation when the region promotes).  Single-threaded by the emitted-code contract; rbx promotion (REG-4b) changes the register story, not this refill. */
+#include "pin_va.h"
+#define ZH_BUMP_BLK (1u << 20)
+void *rt_zh_bump_slow(long bytes)
+{
+    long need = (bytes + 15) & ~15L; size_t blk = (size_t)(need + 16 > (long)ZH_BUMP_BLK ? (size_t)(need + 16) : (size_t)ZH_BUMP_BLK);
+    char *base = (char *)rt_slab_region(blk);
+    if (!base) { fprintf(stderr, "[ZH-BUMP] FATAL: refill of %zu bytes failed\n", blk); abort(); }
+    *(char **)RT_WS_TOP = base + need; *(char **)RT_WS_LIMIT = base + blk;
+    return base;
+}
