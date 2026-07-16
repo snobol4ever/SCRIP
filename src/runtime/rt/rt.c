@@ -1,4 +1,5 @@
 #include "rt.h"
+#include "../contracts/pin_va.h"
 #include <alloca.h>
 #include "gc_heap.h"
 #include "core.h"
@@ -393,6 +394,10 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_GVA_ISLAND_BYTES ((size_t)16u << 20)
+__attribute__((constructor)) static void rt_pin_init(void) {
+    void * p = mmap((void *)RT_PIN_BASE, RT_PIN_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+    if (p != (void *)RT_PIN_BASE) { fprintf(stderr, "rt_pin_init: RT_PIN_BASE 0x%lx unavailable (got %p) -- REG-0 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_PIN_BASE, p); abort(); }
+}
 DESCR_t *rt_gva_island(int n) {
     extern void *rt_slab_region(size_t);
     static DESCR_t *base = (DESCR_t *)0;
