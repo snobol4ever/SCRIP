@@ -22,8 +22,6 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  lea rax, [rip + g_gva_base]
-  mov rbx, qword ptr [rax]
   mov qword ptr [rsp + 136], rsp
 main_α_body:
 # IR_KEYWORD_SNOBOL4_read
