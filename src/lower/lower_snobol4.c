@@ -1407,7 +1407,29 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                     tl_why = "body-range";
                     if (i_b0 > i_arb && i_b1 >= i_b0) {
                         int cap_left = 0;
-                        for (int k = before_pat; k < i_arb; k++) { IR_t * x = g->all[k]; if (x && (x->op == IR_MATCH_ASSIGN_SAVE || x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM)) { cap_left = 1; break; } }
+                        /* WRAP-CAPTURE LIFT (R12-EXIT-1, Lon ruling this session: the wrap SAVE is one more predetermined 16 in the element sum).  A left-range capture is admissible iff it WRAPS the
+                         * ARBNO: its COND/IMM's inner entry (operands[0]) is the ARBNO node R itself (innermost) or the previous wrap's SAVE (a nested wrap -- the capture entry IS the SAVE node), and
+                         * its SAVE sits at the very next allocation index with the operand[1] back-edge intact.  Pairs collect INNERMOST-FIRST (zeta_storage flat-cell/slot indexing law); any left-range
+                         * ASSIGN the chain does not consume keeps today's conservative decline (tl_why "cap-left" -- e.g. a capture over the LEFT CONTEXT, whose COND fires at flat depth with a baked
+                         * inner fp that the element scheme would desync). Cap 4 pairs (element-bloat bound; overflow declines). */
+                        int n_wrap = 0; const IR_t * wsv[4]; const IR_t * wcd[4];
+                        { const IR_t * inner_want = R;
+                          for (;;) {
+                              int found = -1;
+                              for (int k = before_pat; k < i_arb; k++) { IR_t * x = g->all[k]; if (x && (x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM) && x->n_operands > 1 && x->operands[0] == inner_want) { found = k; break; } }
+                              if (found < 0) break;
+                              IR_t * sv = (found + 1 < g->n) ? g->all[found + 1] : NULL;
+                              if (!sv || sv->op != IR_MATCH_ASSIGN_SAVE || g->all[found]->operands[1] != sv || n_wrap >= 4) { cap_left = 1; break; }
+                              wcd[n_wrap] = g->all[found]; wsv[n_wrap] = sv; n_wrap++;
+                              inner_want = sv;
+                          }
+                          for (int k = before_pat; k < i_arb && !cap_left; k++) {
+                              IR_t * x = g->all[k];
+                              if (!x || (x->op != IR_MATCH_ASSIGN_SAVE && x->op != IR_MATCH_ASSIGN_COND && x->op != IR_MATCH_ASSIGN_IMM)) continue;
+                              int used = 0; for (int w = 0; w < n_wrap; w++) if (x == wsv[w] || x == wcd[w]) { used = 1; break; }
+                              if (!used) cap_left = 1;
+                          }
+                        }
                         /* L1b PROMOTION PROTOCOL (Lon ruling this session: the capture is just another predetermined size).  A deferred body capture PROMOTES to its FORTH cell iff the statement takes
                          * the element path — the walk already proved its inner linear and computed fp_inner; on the element path the cell is exactly SPAN's 16, LIFO with the element.  UNPROMOTABLE
                          * residues (their enclosing footprints were baked at lowering time WITHOUT the 16, so granting now would desync depth): (a) a capture inside a granted-ALT arm extent (the fca
@@ -1438,9 +1460,12 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                         tl_why = cap_left ? "cap-left" : cap_bad ? "cap-bad" : "walk";
                         if (!cap_left && !cap_bad && fc_tail_walk(g, before_pat, i_arb) && fc_tail_walk(g, i_b0, i_b1 + 1) && fc_tail_walk(g, i_b1 + 1, g->n)) {
                             { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int);
-                              for (int d = 0; d < scd_n; d++) if (promo[d]) { fc_save_register(scd[d].save); fc_cond_register(scd[d].nd, scd[d].fp_inner); } }
+                              for (int d = 0; d < scd_n; d++) if (promo[d]) { fc_save_register(scd[d].save); fc_cond_register(scd[d].nd, scd[d].fp_inner); }
+                              for (int w = 0; w < n_wrap; w++) fc_save_register(wsv[w]); }   /* WRAP-CAPTURE: the flat cell (delta at +0) -- its 16 joins fpl via fc_geom before finalize */
                             extern void fc_tail_candidate(const IR_t *, const IR_t *, int, int, int, int, int);
                             fc_tail_candidate(head, R, before_pat, i_arb, i_b0, i_b1, g->n);
+                            { extern void fc_tail_wrap(const IR_t *, const IR_t *, const IR_t *);
+                              for (int w = 0; w < n_wrap; w++) fc_tail_wrap(R, wsv[w], wcd[w]); }   /* WRAP-CAPTURE: finalize widens opsb by 16*nw and registers each COND's yield-depth read */
                             if (pat_entry && pat_entry->op == IR_MATCH_SEQUENCE) { extern void fc_seq_register(const IR_t *); fc_seq_register(pat_entry); }
                             tail_ok = 1;
                         }
