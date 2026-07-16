@@ -311,11 +311,6 @@ inline int x86_selfload_mode() {
  * choice unchanged. */
 inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "r12" : (_.op_anchored || _.op_anchor_head) ? "r12" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* R12-ERAD s65: PAT$ suspending blobs are r12-frame ISLANDS on the side stack — their interior keeps the immune-base architecture verbatim.  ANCHOR-WINDOW s66: grant-declined statements likewise run r12-viewed (materialized from rsp at the anchored HEAD, window-scoped, dead at statement exit) */
 inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? 12 : (_.op_anchored || _.op_anchor_head) ? 12 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
-extern "C" { extern uint64_t g_zwin_view; extern uint64_t g_zwin_stmt; }
-inline std::string x86_zws_reload();
-inline int x86_zwv_on() { return ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && (_.op_anchored || _.op_anchor_head); }
-inline std::string x86_zwv_pub();
-inline std::string x86_zwv_reload();
 inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "dword ptr [r12 + " : "dword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
 inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? ((_.flat_pat || _.op_anchored) ? "qword ptr [r12 + " : "qword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1104,12 +1099,12 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     }
     if (!strcmp(mnem, "call")) {
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
-                                                    : (std::string(" call ") + x86_portname(a.port) + "\n")) + x86_zwv_reload();
-        if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u) + x86_zwv_reload();
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n" + x86_zwv_reload();
+                                                    : (std::string(" call ") + x86_portname(a.port) + "\n"));
+        if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
-            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n")) + x86_zwv_reload();
+            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n"));
         }
         return std::string();
     }
@@ -1169,6 +1164,11 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_lea_subj_cursor(a.txt);
         if (a.kind == XK_REG && b.kind == XK_REG)                   return x86_lea_subj_cursor(a.txt);
         if (b.txt && strstr(b.txt, "rip"))                          return x86_bomb("lea: unsealed [rip + label] operand — use the [rip + __] sealed form with (ptr,label) args");
+        if (b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64) {
+            fprintf(stderr, "FATAL x86(\"lea\"): no dispatch arm for frame/cell operand kind %d — dest '%s', src '%s'.  A lea that emits nothing is the ZB-FC-1 silent-drop corruption class (measured: bb_match_arbno's PAIR(2)/PAIR(3) view leas were dropped for months, masked only by r12 being callee-saved); add the encoder + dispatch case here (R7).\n",
+                    b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+            abort();
+        }
         return std::string();
     }
     if (!strcmp(mnem, "add")) {
@@ -1684,7 +1684,3 @@ inline void bb_emit_x86(const std::string & s) {
 }
 #endif
 
-inline std::string x86_zwv_pub()    { return x86_zwv_on() ? x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_view, "g_zwin_view") + x86("mov", RDQ("rcx", 0), "r11") : std::string(); }
-inline std::string x86_zwv_reload() { return x86_zwv_on() ? x86("mov", "r11", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_view, "g_zwin_view") + x86("mov", "r11", RDQ("r11", 0)) : std::string(); }
-inline std::string x86_zws_reload() { return x86_zwv_on() ? x86("mov", "r11", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_stmt, "g_zwin_stmt") + x86("mov", "r11", RDQ("r11", 0)) : std::string(); }
-inline std::string x86_zws_pub()    { return x86_zwv_on() ? x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_zwin_stmt, "g_zwin_stmt") + x86("mov", RDQ("rcx", 0), "r11") : std::string(); }
