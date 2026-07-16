@@ -1010,7 +1010,6 @@ int main(int argc, char **argv)
                 for (int k = 0; k < n_gva_icn; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
                 printf("  .align 8\n__gva_names:\n");
                 for (int k = 0; k < n_gva_icn; k++) printf("  .quad .Lgvan%d\n", k);
-                printf("  .section .bss\n  .align 16\n__gva: .space %d, 0\n", n_gva_icn * 16);
                 printf("  .section .text\n  .intel_syntax noprefix\n");
             }
             printf("  .globl main\n");
@@ -1024,7 +1023,7 @@ int main(int argc, char **argv)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 printf("  call proc_startup\n");
-            if (n_gva_icn > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn);
+            if (n_gva_icn > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn, n_gva_icn);
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { printf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; printf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 printf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; printf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
@@ -1188,7 +1187,6 @@ int main(int argc, char **argv)
                 for (int k = 0; k < n_gva; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
                 printf("  .align 8\n__gva_names:\n");
                 for (int k = 0; k < n_gva; k++) printf("  .quad .Lgvan%d\n", k);
-                printf("  .section .bss\n  .align 16\n__gva: .space %d, 0\n", n_gva * 16);
                 printf("  .section .text\n  .intel_syntax noprefix\n");
             }
             int n_proc_slot = proc_slot_count();
@@ -1207,7 +1205,7 @@ int main(int argc, char **argv)
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
-            if (n_gva > 0) printf("  lea rdi, [rip + __gva_names]\n  lea rsi, [rip + __gva]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva);
+            if (n_gva > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva, n_gva);
             if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing */
                 if (sbbg->nparams >= 1) printf("  # R12-ERAD FENCE: main(args) stuffing pending under RSP self-alloc\n");
             } else {
