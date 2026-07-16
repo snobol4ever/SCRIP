@@ -77,9 +77,9 @@ static int bcps_result_slot() {
  *    two internal labels): skipping it would leave the save reg holding OUR rsp, and the enclosing graph's
  *    epilogue would then restore the wrong rsp.
  *  · F4 — the callee ABI already admits this call: xa_flat's prologue takes (rdi = frame base, esi = entry),
- *    pushes the ζ frame reg, anchors its own rsp, SELF-LOADS rbx from g_gva_base (so rbx is an invariant, not
- *    caller state), and already dispatches on esi.  The C frame was never a callee-saved shield — that it once
- *    looked like one was the -O0 accident that produced the 083 segfault, fixed durably by the self-load.
+ *    pushes the ζ frame reg and anchors its own rsp; GVA is register-free since REG-1 (templates read the pinned
+ *    island absolute at RT_GVA_VA, so no register carries GVA state across the C window — the durable form of the
+ *    083 fix; the interim reload-cell self-load is deleted), and it already dispatches on esi.
  *  · The callee is handed fb = rsp AFTER the bump, so its own pushes land BELOW the frame it is given.
  *  · Register order respects x86_call_ro clobbering rax (movabs rax; call rax): fbytes is copied out of rax
  *    into rsi BEFORE the frame_prep call, and the returned DESCR is moved out of rax:rdx into rdi:rsi BEFORE
