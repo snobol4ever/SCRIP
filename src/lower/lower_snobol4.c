@@ -861,6 +861,26 @@ static int fc_leaf_walk(IR_graph_t * g, int k0, int k1, int pfx) {
     return pfx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
+    /* R12-EXIT-1 CARRY-THE-TAIL admission walk (fc_walk_range's shape, ARBNO-statement flavor): every node in the range must be a granted/zero-cell leaf, SEQUENCE, capture pair, wiring, or inline
+     * literal.  ALTERNATE declines wholesale v1 (its pad-to-max fpmax would have to enter the element footprint -- a named follow-on); ARBNO/DEFER/unknowns decline as ever.  Runtime-arg primitives
+     * are excluded at the CALLER via cx->npre (their pre-chain operand slots are FLAT, unreachable at element depth without the deleted scratch-load). */
+    for (int k = k0; k < k1 && k < g->n; k++) {
+        IR_t * x = g->all[k];
+        if (!x) continue;
+        if (x->op == IR_MATCH_ALTERNATE) return 0;
+        { long fck; if (fc_geom(x, &fck)) continue; }
+        switch (x->op) {
+        case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+        case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+        case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+        case IR_GOTO: case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL: break;
+        default: return 0;
+        }
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail) {
     /* SN4-NARY-SEQ (Lon directive 2026-07-12, this session; same glue mechanism as SN4-NARY-ALT and the
      * same design rule — a construct earns a node iff it OWNS RUNTIME STATE): ONE IR_MATCH_SEQUENCE node S
@@ -1341,10 +1361,37 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
          * r12-viewed, the anchored HEAD's alpha materializing the view from rsp.  ARBNO's repointable-zr chain dance, the flat rt_cap capture array, DEFER wiring: all the s64-proven code paths work
          * verbatim because zr is once again a real register.  Cells still ride rsp (ports unchanged); r12 is window-local and dead at statement exit. */
         if (!fc_lin && ZC_FRAME == ZC_FRAME_RSP) {
+            /* R12-EXIT-1 CARRY-THE-TAIL candidacy (tried BEFORE the anchored fallback): exactly ONE spine ARBNO, no REPLACE, no runtime-arg pre-chain (cx->npre), no capture allocated left of the
+             * ARBNO (a COND/SAVE preceding it may wrap it -- conservative decline), left/body/right ranges walk clean, ARBNO body-bracket operands resolve.  A candidate registers with zeta_storage's
+             * fct (geometry finalizes in the layout pass where zls offsets exist) and its spine SEQ converts to the static-wiring grant (an ungranted SEQ's runtime seq_i is a FLAT slot read at every
+             * seam = dynamic depth once elements exist -- the exact class this rung deletes).  Anything short of the full test declines to the anchored window verbatim (degrade never die). */
+            int tail_ok = 0;
+            if (cx->npre == 0 && !has_repl) {
+                int i_arb = -1, n_arb = 0;
+                for (int k = before_pat; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->op == IR_MATCH_ARBNO) { n_arb++; i_arb = k; } }
+                if (n_arb == 1) {
+                    IR_t * R = g->all[i_arb];
+                    int fence_seal = (R->n_operands > 3 && R->operands[3] == R);
+                    int i_b0 = -1, i_b1 = -1;
+                    if (!fence_seal && R->n_operands >= 3) for (int j = before_pat; j < g->n; j++) { if (g->all[j] == R->operands[1]) i_b0 = j; if (g->all[j] == R->operands[2]) i_b1 = j; }
+                    if (i_b0 > i_arb && i_b1 >= i_b0) {
+                        int cap_left = 0;
+                        for (int k = before_pat; k < i_arb; k++) { IR_t * x = g->all[k]; if (x && (x->op == IR_MATCH_ASSIGN_SAVE || x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM)) { cap_left = 1; break; } }
+                        if (!cap_left && fc_tail_walk(g, before_pat, i_arb) && fc_tail_walk(g, i_b0, i_b1 + 1) && fc_tail_walk(g, i_b1 + 1, g->n)) {
+                            extern void fc_tail_candidate(const IR_t *, const IR_t *, int, int, int, int, int);
+                            fc_tail_candidate(head, R, before_pat, i_arb, i_b0, i_b1, g->n);
+                            if (pat_entry && pat_entry->op == IR_MATCH_SEQUENCE) { extern void fc_seq_register(const IR_t *); fc_seq_register(pat_entry); }
+                            tail_ok = 1;
+                        }
+                    }
+                }
+            }
+            if (!tail_ok) {
             extern void fc_anchor_register(const IR_t *); extern void fc_anchor_head_register(const IR_t *);
             fc_anchor_head_register(head);
             fc_anchor_register(head); fc_anchor_register(release); if (splice) fc_anchor_register(splice);
             for (int k = before_pat; k < g->n; k++) if (g->all[k]) fc_anchor_register(g->all[k]);
+            }
         }
         /* R12-ERAD s65 + ALT-LIFT: per-leaf flat displacement for ZC_FRAME_RSP via fc_leaf_walk (zeta_storage.c registrar).  Same range, same order (allocation = flow on the linear spine), prefix
          * starts at 32 = HEAD's self-pushed cell; each pattern node's body depth = prefix-before + own granted cell.  Granted ALT arms restart at prefix+16 (alternatives, not concatenation); nodes

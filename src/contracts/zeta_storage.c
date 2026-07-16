@@ -29,6 +29,9 @@ static zls_mark_t   zm[ZLS_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[ZLS_MAX_ENTRIES]; static int zx_n = 0;
 typedef struct { const IR_t * nd; int min_off; int span; } zls_ageom_t;
 static zls_ageom_t  za[1024];             static int za_n = 0;
+static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; } fct[64];
+static int fct_n = 0;
+void fc_leaf_register(const IR_t * nd, int d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_reset(void) { ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; za_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -311,6 +314,30 @@ void zls_build(IR_graph_t * g) {
         if (mn == 0x7fffffff) za[za_n++] = (zls_ageom_t){ nd, 16, 0 };
         else                  za[za_n++] = (zls_ageom_t){ nd, mn, mx - mn };
     }
+    /* R12-EXIT-1 CARRY-THE-TAIL finalize (see the fc_tail_* block below): LOWER registered structural candidates; only HERE do zls offsets exist, so windows, footprints, op_sb, and every range leaf's
+     * fcl displacement land in this pass.  Left leaves take the flat formula (32 + prefix + own, the fc_leaf_walk math verbatim); body leaves rebase into the element ([rsp + off + d] = elem + off - bmn
+     * with rsp = elem - prefix - own, so d = prefix + own - bmn, routinely NEGATIVE -- the fcl relax above); right leaves add fp_body + span (their window sits after the body window and rsp is deeper by
+     * the suspended body cells).  The ARBNO node itself registers nothing (its tail arm speaks raw [rsp+const], no FR). */
+    { extern int fc_geom(const IR_t *, long *);
+      for (int c = 0; c < fct_n; c++) {
+        if (fct[c].fin) continue;
+        { int in = 0; for (int j = 0; j < g->n; j++) if (g->all[j] == fct[c].arbno) { in = 1; break; } if (!in) continue; }
+        int b0 = fct[c].b0, b1 = fct[c].b1, i0 = fct[c].i0, ia = fct[c].ia, r1 = fct[c].r1; long k1 = 0;
+        int bmn = 0x7fffffff, bmx = 0, rmn = 0x7fffffff, rmx = 0;
+        for (int j = b0; j <= b1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; if (e->off < bmn) bmn = e->off; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > bmx) bmx = zf[f].off + zf[f].size; }
+        for (int j = b1 + 1; j < r1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; if (e->off < rmn) rmn = e->off; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > rmx) rmx = zf[f].off + zf[f].size; }
+        int span = (bmn == 0x7fffffff) ? 0 : bmx - bmn;
+        int rspan = (rmn == 0x7fffffff) ? 0 : rmx - rmn;
+        int fpl = 0, fpb = 0, fpr = 0;
+        for (int j = i0; j < ia && j < g->n; j++) if (g->all[j] && fc_geom(g->all[j], &k1)) fpl += (int)k1;
+        for (int j = b0; j <= b1 && j < g->n; j++) if (g->all[j] && fc_geom(g->all[j], &k1)) fpb += (int)k1;
+        for (int j = b1 + 1; j < r1 && j < g->n; j++) if (g->all[j] && fc_geom(g->all[j], &k1)) fpr += (int)k1;
+        { int pfx = 32; for (int j = i0; j < ia && j < g->n; j++) { IR_t * x = g->all[j]; if (!x || x->op == IR_GOTO || x == (IR_t *)fct[c].arbno) continue; long own = 0; if (fc_geom(x, &k1)) own = k1; fc_leaf_register(x, pfx + (int)own); pfx += (int)own; } }
+        { int pfx = 0; int mb = (bmn == 0x7fffffff) ? 0 : bmn; for (int j = b0; j <= b1 && j < g->n; j++) { IR_t * x = g->all[j]; if (!x || x->op == IR_GOTO) continue; long own = 0; if (fc_geom(x, &k1)) own = k1; fc_leaf_register(x, pfx + (int)own - mb); pfx += (int)own; } }
+        { int pfx = 0; int mr = (rmn == 0x7fffffff) ? 0 : rmn; for (int j = b1 + 1; j < r1 && j < g->n; j++) { IR_t * x = g->all[j]; if (!x || x->op == IR_GOTO) continue; long own = 0; if (fc_geom(x, &k1)) own = k1; fc_leaf_register(x, fpb + pfx + (int)own + span - mr); pfx += (int)own; } }
+        fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 15) & ~15; fct[c].fin = 1;
+      }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
@@ -525,10 +552,10 @@ int fc_head_fp(const IR_t * nd) {
  * the prefix is exact by the same argument as fp.  Consumed by FR/FRQ via g_emit.op_flat_disp (dispatch-delivered, default 0); R12/RBP builds never read it.  Side table keyed by node ptr (fch style). */
 static struct { const IR_t * nd; int d; } fcl[1024];
 static int fcl_n = 0;
-void fc_leaf_register(const IR_t * nd, int d) { if (!nd || d < 0 || fcl_n >= 1024) return; fcl[fcl_n].nd = nd; fcl[fcl_n].d = d; fcl_n++; }
+void fc_leaf_register(const IR_t * nd, int d) { if (!nd || fcl_n >= 1024) return; fcl[fcl_n].nd = nd; fcl[fcl_n].d = d; fcl_n++; }   /* R12-EXIT-1: negative d is legal (element-region rebase = prefix+own-window_min); the unregistered sentinel moved -1 -> INT_MIN (0x80000000) so -1 is an ordinary displacement */
 int fc_leaf_disp(const IR_t * nd) {
     for (int i = 0; i < fcl_n; i++) if (fcl[i].nd == nd) return fcl[i].d;
-    return -1;
+    return (int)0x80000000;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->off + (zls_locals_shifted(nd->op) ? 16 : 0); }
@@ -603,10 +630,36 @@ int fc_anchor_head_active(const IR_t * nd) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_tail_* -- RUNG R12-EXIT-1 CARRY-THE-TAIL (Lon directive s68, the static-size proof: "the operator that is the argument has a pre-determined size -- you know the size").  A statement whose only
+ * grant-blocker is ONE spine ARBNO converts to the sliding-rsp element scheme: alpha AND beta both push a fixed-size element (op_sb = align16(body window span + right-spine window span + 16B header
+ * {entry-cursor, yield-cursor, elem0-flag} + 16B bracket copy {patstk mark, rsp mark} -- the HEAD-cell essentials carried forward so RELEASE unwinds from the TOP element at static depth, never a
+ * dynamic count in an address)); alpha's push is op_sb + fp_body (the phantom body pad) so EVERY yield sits at elem - fp_body uniformly (S10c: body cells stay suspended at gamma) and the fail-glue's
+ * `add rsp, op_sb` pop lands EXACTLY on the previous element's yield frontier -- LIFO + known size = arithmetic, never indirection.  LOWER registers the structural CANDIDATE (index ranges); this
+ * file's layout pass FINALIZES geometry (windows need zls offsets, which exist only here) and registers every range leaf's fcl displacement with the element-region formula.  Declines degrade to the
+ * anchored window verbatim (never die).  Residues (rulings of record, not this rung's): nested ARBNO -> ZB-ITER; DEFER windows -> R12-EXIT-2; REPLACE statements, ALTERNATE anywhere, runtime-arg
+ * primitives (pre-chain flat operand slots), and captures allocated left of the ARBNO all decline v1. */
+void fc_tail_candidate(const IR_t * head, const IR_t * arbno, int i0, int ia, int b0, int b1, int r1) {
+    if (!head || !arbno || fct_n >= 64) return;
+    fct[fct_n].head = head; fct[fct_n].arbno = arbno; fct[fct_n].i0 = i0; fct[fct_n].ia = ia; fct[fct_n].b0 = b0; fct[fct_n].b1 = b1; fct[fct_n].r1 = r1;
+    fct[fct_n].fpl = 0; fct[fct_n].fpb = 0; fct[fct_n].fpr = 0; fct[fct_n].span = 0; fct[fct_n].rspan = 0; fct[fct_n].opsb = 0; fct[fct_n].fin = 0; fct_n++;
+}
+int fc_tail_arbno(const IR_t * nd, int * fpb, int * fpl, int * opsb, int * hdrb) {
+    for (int i = 0; i < fct_n; i++) if (fct[i].arbno == nd && fct[i].fin) { if (fpb) *fpb = fct[i].fpb; if (fpl) *fpl = fct[i].fpl; if (opsb) *opsb = fct[i].opsb; if (hdrb) *hdrb = fct[i].span + fct[i].rspan; return 1; }
+    return 0;
+}
+int fc_tail_release(const IR_t * head, int * brdisp) {
+    for (int i = 0; i < fct_n; i++) if (fct[i].head == head && fct[i].fin) { if (brdisp) *brdisp = fct[i].fpr + fct[i].fpb + fct[i].span + fct[i].rspan + 16; return 1; }
+    return 0;
+}
+int fc_tail_head(const IR_t * head) {
+    for (int i = 0; i < fct_n; i++) if (fct[i].head == head) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* fc_tables_reset -- s67 (the 140/test_case wild-jump fix).  The three fc side tables are keyed by RAW NODE POINTER and were only ever fed by the MAIN lowering; a RUNTIME compile (EVAL chain, CODE
  * fragment, rt pattern tree) lowers fresh IR whose malloc'd nodes can land on a FREED prior graph's addresses (eval_build_chain ends in IR_free_dyn) -- a stale fcanc hit then emits ONE r12-viewed box
  * inside an otherwise rsp-viewed self-allocated blob, whose [r12+disp] writes land ABOVE the shim anchor, straight over the C caller's frame (measured: EVAL_fn's return address = 0x21; the blob at
  * +0xa5 wrote 0x148(%r12) while its own allocation was sub 0x1b0,%rsp).  A stale fcl hit is the same disease with a silent wrong-displacement payload.  Every runtime-compile entry resets the fc
  * tables before lowering: emission consults them only for the graph lowered SINCE the reset, and all pre-reset graphs are already emitted (mode-3 emits main wholesale before run).  The zls tables
  * share the pointer-keying and are NOT reset here (bb_compile_pat_tree's zls_reset is the existing precedent; the zls lifecycle question routes to GC-W-1's frame-map design). */
-void fc_tables_reset(void) { fcl_n = 0; fcanc_n = 0; fcah_n = 0; }
+void fc_tables_reset(void) { fcl_n = 0; fcanc_n = 0; fcah_n = 0; fct_n = 0; }

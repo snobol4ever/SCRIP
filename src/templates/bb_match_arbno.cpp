@@ -10,10 +10,69 @@ extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long ele
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline const char * trd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
+static inline const char * trq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
+static std::string tail_zero(int lo, int hi, const char * zr64) { std::string r; for (int k = lo; k < hi; k += 8) r += x86("mov", trq(k), zr64); return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_match_arbno_tail() {
+    /* R12-EXIT-1 CARRY-THE-TAIL (Lon s68 static-size proof; design of record at zeta_storage.c fc_tail_*).  Element = [0,span) body window + [span,span+rspan) right-spine window + 16B header
+     * {entry-cursor@+0, yield-cursor@+4, elem0-flag@+8} + 16B bracket copy {patstk mark@+16, rsp mark@+24}; op_sb = align16(span+rspan+32); HDRB = span+rspan (elem-relative header base, staged in
+     * op_sa); HDRA = fp_body + HDRB (header base from the UNIFORM yield depth rsp = elem - fp_body, which alpha's phantom body pad establishes for the epsilon yield and S10c gamma-suspension
+     * maintains for every extension).  alpha pushes op_sb+fp_body copying the bracket from HEAD's cell at [rsp + KA + fp_left + k]; beta pushes op_sb copying it from the current element; the
+     * fail-glue pop `add rsp, op_sb` lands EXACTLY on the previous element's yield frontier (LIFO + fixed size = arithmetic, never indirection); exhaust pops KA and omega runs at flat depth.
+     * Every reference is [rsp + compile-time-const] -- no view register, no dynamic count in any address. */
+    int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl;
+    int KA = (int)_.op_sb + FPB, HDRA = FPB + HDRB;
+    return x86("comment", "IR_MATCH_ARBNO_TAIL (R12-EXIT-1 carry-the-tail rsp elements)")
+         + x86_alpha()
+         + x86("sub", "rsp", (long)KA)
+         + x86("mov", "eax", 0L)
+         + tail_zero(FPB, FPB + HDRB, "rax")
+         + x86("mov", trd(HDRA + 0), "r14d")
+         + x86("mov", trd(HDRA + 4), "r14d")
+         + x86("stk32", (long)(HDRA + 8), 1L)
+         + x86("mov", "rax", trq(KA + FPL + 8))
+         + x86("mov", trq(HDRA + 16), "rax")
+         + x86("mov", "rax", trq(KA + FPL + 16))
+         + x86("mov", trq(HDRA + 24), "rax")
+         + x86_gamma()
+         + x86_beta()
+         + x86("mov", "r14d", trd(HDRA + 4))
+         + x86("mov", "rax", trq(HDRA + 16))
+         + x86("mov", "rcx", trq(HDRA + 24))
+         + x86("sub", "rsp", (long)_.op_sb)
+         + x86("mov", "edx", 0L)
+         + tail_zero(0, HDRB, "rdx")
+         + x86("mov", trd(HDRB + 0), "r14d")
+         + x86("mov", trd(HDRB + 4), "r14d")
+         + x86("stk32", (long)(HDRB + 8), 0L)
+         + x86("mov", trq(HDRB + 16), "rax")
+         + x86("mov", trq(HDRB + 24), "rcx")
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR(2))
+         + x86("mov", "eax", trd(HDRA + 0))
+         + x86("cmp", "r14d", "eax")
+         + x86("je",  PAIR(1))
+         + x86("mov", trd(HDRA + 4), "r14d")
+         + x86_gamma()
+         + x86("def", PAIR(3))
+         + x86("mov", "eax", trd(HDRB + 8))
+         + x86("test", "eax", "eax")
+         + x86("jnz", L(2))
+         + x86("add", "rsp", (long)_.op_sb)
+         + x86("jmp", PAIR(1))
+         + x86("def", L(2))
+         + x86("mov", "r14d", trd(HDRB + 0))
+         + x86("add", "rsp", (long)KA)
+         + x86_omega();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_arbno() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    return _.op_off < 0
+    return _.op_tail
+             ? bb_match_arbno_tail()
+         : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: COLLECTION geometry not staged (zls_arbno_geom)")
