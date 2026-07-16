@@ -77,9 +77,16 @@ static std::string release_pump() {
          + x86_anchor_leave()
          + x86_xfer_leave()
          /* REG-2 PEND-PARK success exit: the flush is done — truncate by storing cell ← MARK.  This mirrors
-          * head's ω exactly; the cell is back at this match's floor and rbp was never touched. */
+          * head's ω exactly; the cell is back at this match's floor and rbp was never touched by the pend. */
          + x86("mov", "rax", FRQ(_.op_off + 32))
          + x86("mov", ABSQ(RT_CAS_TOP), "rax")
+         /* REG-3 success-edge restore: rbp ← saved outer (+40), the other half of the s61 both-edges bracket.
+          * GATED on no-replacement: a replacement statement's REPLACE box runs AFTER this γ and reads its
+          * subject/start/end through the anchored window base — restoring here handed it the outer rbp and
+          * wiped whole lines (the wordcount/prep2 mine, bracketed by baseline-worktree .s diff s77).  When a
+          * replacement follows, REPLACE owns the restore at ITS exit.  Post-unwind + post-xfer_leave rsp==base,
+          * so FRQ resolves correctly whichever frame class release's own flags put it in. */
+         + IF(_.op_dval == 0.0, x86("mov", "rbp", FRQ(_.op_off + 40)))
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
