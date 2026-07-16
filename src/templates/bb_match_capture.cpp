@@ -13,7 +13,6 @@ extern "C" void rt_cap_finish(DESCR_t fret);
 extern "C" void rt_cap_push(void *slot, int delta);
 extern "C" void rt_cap_pop(void *slot);
 extern "C" int rt_cap_top(void *slot);
-extern "C" const char *g_dcap_top;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-FC-3c (ARCH-ZETA S13 Tier C, CAPTURES; plan of record = the s47 COND-CROSS-BOX-READ finding): when
@@ -62,31 +61,33 @@ std::string bb_match_capture() {
            + x86_align_leave()
            + x86_omega() )
          : (int)_.op_phase == 1
-         /* rbp-dcap COND (Lon 2026-07-13: "should not call a C function when all it must do is increment RBP
-          * and decrement RBP").  γ: write the 24B pend entry {varname@0, saved_delta@8, len@16} at [rbp] and
-          * bump — three qword stores, no packing (no shl/or encoders needed: 32-bit reg movs zero-extend).
-          * β: sub rbp,24, UNGUARDED — sound because within-alternative failure cascades transit the boxes
-          * (balanced, the Python LIFO theorem) and the alternative-SWITCH bypass is bulk-restored by
-          * bb_match_alternate's own rbp mark (SZ-2c gap, ported inline).  The residual rt_cap_top call is the
-          * SAVE-stack array read — ZB-FC-3c's named kill, NOT this rung's (F3, CAPTURE-SPINE finding). */
-         ? ( x86("comment", "IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)")
+         /* REG-2 PEND-PARK COND (was rbp-dcap, Lon 2026-07-13).  γ: scratch-load the pend top from the pinned
+          * cell [RT_CAS_TOP], write the 24B pend entry {varname@0, saved_delta@8, len@16} at [rdi] — three
+          * qword stores, no packing (32-bit reg movs zero-extend) — and bump the CELL by 24 (add-mem, imm8).
+          * β: sub-mem 24, single instruction (cost parity with the old sub rbp,24), UNGUARDED — sound because
+          * within-alternative failure cascades transit the boxes (balanced, the Python LIFO theorem) and the
+          * alternative-SWITCH bypass is bulk-restored by bb_match_alternate's own mark (SZ-2c gap, ported
+          * inline).  The cell is ALWAYS live, so the old mirror-out dance is gone by construction.  The
+          * residual rt_cap_top call is the SAVE-stack array read — ZB-FC-3c's named kill, NOT this rung's. */
+         ? ( x86("comment", "IR_MATCH_CAPTURE_COND (pend-park inline pend)")
            + x86_alpha()
            + IF(cfc(),  x86("mov", "eax", rspd((int)_.op_fc_disp)))
            + IF(!cfc(), x86_align_enter()
                       + x86("lea",  "rdi", FR(_.op_off))
                       + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
                       + x86_align_leave())
+           + x86("mov",  "rdi", ABSQ(RT_CAS_TOP))
            + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
-           + x86("mov",  RDQ("rbp", 0), "rcx")
+           + x86("mov",  RDQ("rdi", 0), "rcx")
            + x86("mov",  "esi", "eax")
-           + x86("mov",  RDQ("rbp", 8), "rsi")
+           + x86("mov",  RDQ("rdi", 8), "rsi")
            + x86("mov",  "edx", "r14d")
            + x86("sub",  "edx", "eax")
-           + x86("mov",  RDQ("rbp", 16), "rdx")
-           + x86("add",  "rbp", (long)24)
+           + x86("mov",  RDQ("rdi", 16), "rdx")
+           + x86("add",  ABSQ(RT_CAS_TOP), (long)24)
            + x86_gamma()
            + x86_beta()
-           + x86("sub",  "rbp", (long)24)
+           + x86("sub",  ABSQ(RT_CAS_TOP), (long)24)
            + x86_omega() )
          : ( x86("comment", "IR_MATCH_CAPTURE_IMM")
            + x86_alpha()
@@ -101,11 +102,8 @@ std::string bb_match_capture() {
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
-           /* rbp-dcap mirror-out: this *VAR transfer may run a nested match whose head loads g_dcap_top; a
-            * stale-low mirror would let its pends overwrite live entries above.  Match-family boxes only —
-            * never the shared x86_frame_sink (non-SNOBOL graphs carry a non-cursor rbp). */
-           + x86("mov",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
-           + x86("mov",  RDQ("rcx", 0), "rbp")
+           /* REG-2: the old rbp-dcap mirror-out died with the park — the pinned cell [RT_CAS_TOP] is always
+            * live, so a nested match's head reads the true top directly. */
            + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
            + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("push", "r12") + x86("sub",  "rsp", 8L))
            + x86_lea_id("rcx", 2)

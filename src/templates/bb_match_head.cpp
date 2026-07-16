@@ -8,7 +8,6 @@ typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 void * rt_zls_mark(void);
 void   rt_zls_release_to(void *mark);
-extern const char *g_dcap_top;
 extern long g_anchor;
 }
 #include "x86_asm.h"
@@ -43,14 +42,12 @@ std::string bb_match_head() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         /* rbp-dcap α: save the C caller's rbp (callee-saved contract — graphs stay rbp-free, match spans own
-          * the register), load the live pend cursor from the mirror (rt_match_enter just lazy-init'd the
-          * island), and save it as this match's MARK.  Nested heads see the outer's live top because every
-          * mid-match transfer window in a match-family box mirrors rbp out first. */
-         + x86("mov", FRQ(_.op_off + 40), "rbp")
-         + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
-         + x86("mov", "rbp", RDQ("rcx", 0))
-         + x86("mov", FRQ(_.op_off + 32), "rbp")
+         /* REG-2 PEND-PARK α: the pend top lives in the pinned cell [RT_CAS_TOP] (rt_match_enter just
+          * lazy-init'd the island and wrote the cell) — save it as this match's MARK.  No rbp: the cell is
+          * ALWAYS live, so nested heads read it directly and the old +40 caller-rbp save/restore is deleted
+          * (slot stays allocated v1 — reclaim is a follow-up, no op_off ripple). */
+         + x86("mov", "rax", ABSQ(RT_CAS_TOP))
+         + x86("mov", FRQ(_.op_off + 32), "rax")
          + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (hfc() ? x86("mov", "rax", "rsp") + x86("sub", "rsp", (long)32) + x86("mov", FRQ(_.op_off + 16), "rax")
                                                                : x86_zls2_mark_save(_.op_off + 16))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
@@ -87,11 +84,9 @@ std::string bb_match_head() {
                + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
                + x86_zls2_release_to_call(_.op_off + 16)
                + x86_align_leave()))
-         /* rbp-dcap ω (all anchors exhausted): truncate = store mirror ← MARK, then restore the C caller's
-          * rbp.  This IS the old rt_dcap_end_fail, inline — the depth array died with the ring. */
-         + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
+         /* REG-2 PEND-PARK ω (all anchors exhausted): truncate = store cell ← MARK.  This IS the old
+          * rt_dcap_end_fail, inline — the depth array died with the ring; the rbp restore died with the park. */
          + x86("mov", "rax", FRQ(_.op_off + 32))
-         + x86("mov", RDQ("rcx", 0), "rax")
-         + x86("mov", "rbp", FRQ(_.op_off + 40))
+         + x86("mov", ABSQ(RT_CAS_TOP), "rax")
          + x86_omega();
 }
