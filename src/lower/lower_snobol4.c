@@ -1393,15 +1393,18 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
              * fct (geometry finalizes in the layout pass where zls offsets exist) and its spine SEQ converts to the static-wiring grant (an ungranted SEQ's runtime seq_i is a FLAT slot read at every
              * seam = dynamic depth once elements exist -- the exact class this rung deletes).  Anything short of the full test declines to the anchored window verbatim (degrade never die). */
             int tail_ok = 0;
+            const char * tl_why = (cx->npre != 0) ? "npre" : has_repl ? "repl" : "gate";   /* SCRIP_TAIL_DIAG: first-failing-gate name, printed at the decline seam below (the OMEGA-DIAG precedent) */
             if (cx->npre == 0 && !has_repl) {
                 int i_arb = -1, n_arb = 0;
                 for (int k = before_pat; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->op == IR_MATCH_ARBNO) { n_arb++; i_arb = k; } }
+                tl_why = (n_arb == 0) ? "no-arbno" : (n_arb > 1) ? "multi-arbno" : tl_why;
                 if (n_arb == 1) {
                     IR_t * R = g->all[i_arb];
                     /* L2 (s71): fence-sealed bodies (operands[3]==R) ADMIT — the seal is an EDGE property (the template's PAIR(1) departures retarget its seal glue via op_tail_seal); element geometry,
                      * walks, and every other v1 gate are identical to the unsealed case, so the range discovery no longer branches on it. */
                     int i_b0 = -1, i_b1 = -1;
                     if (R->n_operands >= 3) for (int j = before_pat; j < g->n; j++) { if (g->all[j] == R->operands[1]) i_b0 = j; if (g->all[j] == R->operands[2]) i_b1 = j; }
+                    tl_why = "body-range";
                     if (i_b0 > i_arb && i_b1 >= i_b0) {
                         int cap_left = 0;
                         for (int k = before_pat; k < i_arb; k++) { IR_t * x = g->all[k]; if (x && (x->op == IR_MATCH_ASSIGN_SAVE || x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM)) { cap_left = 1; break; } }
@@ -1432,6 +1435,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                               if (!def_ok) { cap_bad = 1; break; }
                           }
                         }
+                        tl_why = cap_left ? "cap-left" : cap_bad ? "cap-bad" : "walk";
                         if (!cap_left && !cap_bad && fc_tail_walk(g, before_pat, i_arb) && fc_tail_walk(g, i_b0, i_b1 + 1) && fc_tail_walk(g, i_b1 + 1, g->n)) {
                             { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int);
                               for (int d = 0; d < scd_n; d++) if (promo[d]) { fc_save_register(scd[d].save); fc_cond_register(scd[d].nd, scd[d].fp_inner); } }
@@ -1444,6 +1448,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                 }
             }
             if (!tail_ok) {
+            if (getenv("SCRIP_TAIL_DIAG")) fprintf(stderr, "[TAIL-DIAG] decline: %s\n", tl_why);
             extern void fc_anchor_register(const IR_t *); extern void fc_anchor_head_register(const IR_t *);
             fc_anchor_head_register(head);
             fc_anchor_register(head); fc_anchor_register(release); if (splice) fc_anchor_register(splice);
