@@ -140,25 +140,6 @@ static std::string xaf_anchor_leave_text(void) {
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GVA-BASE RELOAD fragments (ZC_PORT_CSTACK rung, same session).  The rbx=GVA-slab contract previously
- * survived C trampolines by ACCIDENT of -O0 codegen (C functions rarely allocated rbx); the CSTACK alloca in
- * rt_call_named_proc made GCC's stack-clash probe loop use rbx (div rbx) — callee-saved correctly at the C
- * boundary, but p->fn runs INSIDE the window, and the proc body read [rbx+k*16] = garbage (083 segfault,
- * fault pc in the BB arena on mov rax,[rbx+0x10]).  Durable contract: under CSTACK every frame-active graph
- * self-loads rbx from the exported g_gva_base cell (set by gva_register — the one seam both m3 driver and m4
- * main registration flow through).  Medium split is the sanctioned R10 RO-load exception, the g_zls2_cur
- * precedent: TEXT rip-relative lea resolved by the -no-pie link, BINARY movabs of the in-process cell. */
-extern "C" void *g_gva_base;
-static std::string xaf_gva_reload_bin(void) {
-    if (!x86_port_cstack()) return std::string();
-    std::string c; c += (char)0x48; c += (char)0xB8; c += u64le((uint64_t)(uintptr_t)&g_gva_base);
-    c += (char)0x48; c += (char)0x8B; c += (char)0x18; return c;
-}
-static std::string xaf_gva_reload_text(void) {
-    if (!x86_port_cstack()) return std::string();
-    return std::string("  lea rax, [rip + g_gva_base]\n  mov rbx, qword ptr [rax]\n");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
@@ -178,7 +159,6 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                   + bytes(1, "\xB9") + u32le((uint32_t)(kt - 32))                         /* mov ecx, K_region — stosb stops below the header */
                                   + bytes(2, "\x31\xC0")
                                   + bytes(2, "\xF3\xAA")
-                                  + xaf_gva_reload_bin()
                                   + xaf_anchor_enter_bin();
                     out_site = 0; out_lbl = nullptr; out_def = false;
                     return r;
@@ -192,7 +172,6 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                    + bytes(1, "\xB9") + u32le((uint32_t)(kt - 32))                                       /* mov ecx, K_region */
                    + bytes(2, "\x31\xC0")                                                                /* xor eax, eax */
                    + bytes(2, "\xF3\xAA")                                                                /* rep stosb — zls_alloc zeroed (ZC_INIT_ZERO); the activation must too */
-                   + xaf_gva_reload_bin()
                    + xaf_anchor_enter_bin();
                 out_site = 0; out_lbl = nullptr; out_def = false;
                 return r;
@@ -205,7 +184,6 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                   + bytes(1, "\xB9") + u32le(65544)
                                   + bytes(2, "\x31\xC0")
                                   + bytes(2, "\xF3\xAA")
-                                  + xaf_gva_reload_bin()
                                   + xaf_anchor_enter_bin()
                                   + bytes(3, "\x83\xFE\x00")
                                   + bytes(2, "\x0F\x85") + u32le(0);
@@ -218,7 +196,6 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 else if (g_emit_frame_caller_dl == 3) disp = bytes(2, "\x41\x57") + xaf_mov_dreg_frame(15) + bytes(4, "\x48\x83\xEC\x08");
                 std::string r = xaf_push_frame()
                               + xaf_mov_frame_rdi()
-                              + xaf_gva_reload_bin()
                               + disp
                               + xaf_anchor_enter_bin()
                               + bytes(3, "\x83\xFE\x00")
@@ -256,26 +233,26 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     snprintf(b, sizeof b,
                         "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
                         kt, kt - 24, kt - 16, kt - 32);
-                    return banner + b + xaf_gva_reload_text() + xaf_anchor_enter_text();
+                    return banner + b + xaf_anchor_enter_text();
                 }
                 char b[640];
                 snprintf(b, sizeof b,
                     "  sub rsp, %d\n  mov [rsp+8], rcx\n  mov [rsp+16], rdx\n  mov [rsp+24], %s\n  lea %s, [rsp+32]\n  mov rdi, %s\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
                     kt, x86_zr(), x86_zr(), x86_zr(), kt - 32);
-                return banner + b + xaf_gva_reload_text() + xaf_anchor_enter_text();
+                return banner + b + xaf_anchor_enter_text();
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
                     char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", 65544, 65544); /* 65536+8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
-                    std::string pro = banner + fb + xaf_gva_reload_text() + xaf_anchor_enter_text();
+                    std::string pro = banner + fb + xaf_anchor_enter_text();
                     if (g_gen_proc_active || g_resumable_callable_active)
                         pro += std::string("  cmp esi, 0\n") + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                     return pro;
                 }
                 const char *dreg = (g_emit_frame_caller_dl == 1) ? "r13" : (g_emit_frame_caller_dl == 2) ? "r14" : (g_emit_frame_caller_dl == 3) ? "r15" : (const char *)0;
                 std::string disp = dreg ? (std::string("  push ") + dreg + "\n  mov " + dreg + ", " + x86_zr() + "\n  sub rsp, 8\n") : std::string();
-                std::string pro = banner + "push " + std::string(x86_zr()) + "\n  mov " + x86_zr() + ", rdi\n" + xaf_gva_reload_text() + disp + xaf_anchor_enter_text();
+                std::string pro = banner + "push " + std::string(x86_zr()) + "\n  mov " + x86_zr() + ", rdi\n" + disp + xaf_anchor_enter_text();
                 if (g_gen_proc_active || g_resumable_callable_active)
                     pro += std::string("  cmp esi, 0\n")
                          + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";

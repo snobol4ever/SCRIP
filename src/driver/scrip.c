@@ -346,13 +346,6 @@ extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void m3_enter_with_rbx(bb_box_fn fn, void *frame, int entry, void *gva_base) {
-    register void *r_di asm("rdi") = frame;
-    register long  r_si asm("rsi") = (long)entry;
-    register void *r_bx asm("rbx") = gva_base;
-    __asm__ volatile("call *%[f]" : : [f]"r"(fn), "r"(r_di), "r"(r_si), "r"(r_bx) : "rax","rcx","rdx","r8","r9","r10","r11","memory","cc");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1023,7 +1016,7 @@ int main(int argc, char **argv)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 printf("  call proc_startup\n");
-            if (n_gva_icn > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva_icn, n_gva_icn);
+            if (n_gva_icn > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { printf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; printf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 printf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; printf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
@@ -1205,7 +1198,7 @@ int main(int argc, char **argv)
             if (n_procs > 0) printf("  call proc_startup\n");
             else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
-            if (n_gva > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n  mov rbx, rax\n", n_gva, n_gva);
+            if (n_gva > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
             if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing */
                 if (sbbg->nparams >= 1) printf("  # R12-ERAD FENCE: main(args) stuffing pending under RSP self-alloc\n");
             } else {
@@ -1263,7 +1256,7 @@ int main(int argc, char **argv)
                     for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
                 }
-                if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via rbx-arena: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
+                if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -1339,7 +1332,7 @@ int main(int argc, char **argv)
             void *mf = NULL;
             if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1: main zeta frame on the driver's own stack (was rt_frame() arena memo); R12-ERAD: under RSP the blob self-allocates, rdi unused */
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
-            { extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, mf, 0, m3_gva_arena); else (void)fn(mf, 0); }
+            (void)fn(mf, 0);
             goto run_done;
         }
         {
@@ -1366,7 +1359,7 @@ int main(int argc, char **argv)
                     for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
                 }
-                if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via rbx-arena: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
+                if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
             drive_slots_all(s2);
             g_frame_active = 1;
@@ -1422,7 +1415,7 @@ int main(int argc, char **argv)
                 if (fn) {
                     void *mf = NULL;
                     if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
-                    extern int g_gva_active; if (g_gva_active && m3_gva_arena) m3_enter_with_rbx(fn, mf, 0, m3_gva_arena); else (void)fn(mf, 0);
+                    (void)fn(mf, 0);
                     { extern int g_gva_active; g_gva_active = 0; } goto run_done;
                 }
             }
