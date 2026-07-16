@@ -29,7 +29,7 @@ static zls_mark_t   zm[ZLS_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[ZLS_MAX_ENTRIES]; static int zx_n = 0;
 typedef struct { const IR_t * nd; int min_off; int span; } zls_ageom_t;
 static zls_ageom_t  za[1024];             static int za_n = 0;
-static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; } fct[64];
+static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
 void fc_leaf_register(const IR_t * nd, int d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -364,7 +364,7 @@ void zls_build(IR_graph_t * g) {
      * fcl displacement land in this pass.  Left leaves take the flat formula (32 + prefix + own, the fc_leaf_walk math verbatim); body leaves rebase into the element ([rsp + off + d] = elem + off - bmn
      * with rsp = elem - prefix - own, so d = prefix + own - bmn, routinely NEGATIVE -- the fcl relax above); right leaves add fp_body + span (their window sits after the body window and rsp is deeper by
      * the suspended body cells).  The ARBNO node itself registers nothing (its tail arm speaks raw [rsp+const], no FR). */
-    { extern int fc_geom(const IR_t *, long *);
+    { extern int fc_geom(const IR_t *, long *); extern void fc_cond_register(const IR_t *, int);
       for (int c = 0; c < fct_n; c++) {
         if (fct[c].fin) continue;
         { int in = 0; for (int j = 0; j < g->n; j++) if (g->all[j] == fct[c].arbno) { in = 1; break; } if (!in) continue; }
@@ -384,7 +384,8 @@ void zls_build(IR_graph_t * g) {
         fct_leaf_range(g, i0, ia, 32, 0, fct[c].arbno);
         { int mb = (bmn == 0x7fffffff) ? 0 : bmn; fct_leaf_range(g, b0, b1 + 1, 0, -mb, fct[c].arbno); }
         { int mr = (rmn == 0x7fffffff) ? 0 : rmn; fct_leaf_range(g, b1 + 1, r1, 0, fpb + span - mr, fct[c].arbno); }
-        fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 15) & ~15; fct[c].fin = 1;
+        fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 16 * fct[c].nw + 15) & ~15; fct[c].fin = 1;
+        for (int w = 0; w < fct[c].nw; w++) fc_cond_register(fct[c].wcd[w], fpb + span + rspan + 32 + 16 * w);   /* WRAP-CAPTURE: COND reads its element slot at the uniform yield depth (elem - fpb) */
       }
     }
 }
@@ -690,7 +691,21 @@ int fc_anchor_head_active(const IR_t * nd) {
 void fc_tail_candidate(const IR_t * head, const IR_t * arbno, int i0, int ia, int b0, int b1, int r1) {
     if (!head || !arbno || fct_n >= 64) return;
     fct[fct_n].head = head; fct[fct_n].arbno = arbno; fct[fct_n].i0 = i0; fct[fct_n].ia = ia; fct[fct_n].b0 = b0; fct[fct_n].b1 = b1; fct[fct_n].r1 = r1;
-    fct[fct_n].fpl = 0; fct[fct_n].fpb = 0; fct[fct_n].fpr = 0; fct[fct_n].span = 0; fct[fct_n].rspan = 0; fct[fct_n].opsb = 0; fct[fct_n].fin = 0; fct_n++;
+    fct[fct_n].fpl = 0; fct[fct_n].fpb = 0; fct[fct_n].fpr = 0; fct[fct_n].span = 0; fct[fct_n].rspan = 0; fct[fct_n].opsb = 0; fct[fct_n].fin = 0; fct[fct_n].nw = 0; fct_n++;
+}
+/* fc_tail_wrap / fc_tail_ncap -- R12-EXIT-1 WRAP-CAPTURE LIFT (Lon ruling this session, the static-size proof applied to the wrap shape ARBNO(body).V: the SAVE cell is just one more predetermined 16
+ * in the element sum).  LOWER's candidacy appends the wrap pairs INNERMOST-FIRST (j=0 = the pair whose COND wraps the ARBNO node itself); flow order therefore pushes the flat SAVE cells outermost-
+ * first, so at ARBNO.alpha the innermost cell sits at [flat + 0] and pair j at [flat + 16j] -- the alpha copy source [rsp + KA + 16j] with KA = op_sb + fp_body.  The element gains one 16-byte slot per
+ * pair directly above the bracket ([HDRB + 32 + 16j]); FINALIZE widens opsb by 16*nw and registers each COND's cross-box read at the UNIFORM YIELD DEPTH displacement fpb + span + rspan + 32 + 16j --
+ * the same fcc mechanism as the linear-inner grant, so bb_match_capture's cfc() arm consumes it with ZERO template change.  The pend entry COND records is BY-VALUE on the rbp-dcap stack (F2), so the
+ * slot only needs to be readable AT COND.alpha -- copy-forward through elements (the bracket's own mechanism) is sufficient, and the flat cell stays live for the exhaust path's SAVE.omega pop. */
+void fc_tail_wrap(const IR_t * arbno, const IR_t * save, const IR_t * cond) {
+    if (!arbno || !save || !cond) return;
+    for (int i = fct_n - 1; i >= 0; i--) if (fct[i].arbno == arbno) { if (fct[i].nw < 4) { fct[i].wsv[fct[i].nw] = save; fct[i].wcd[fct[i].nw] = cond; fct[i].nw++; } return; }
+}
+int fc_tail_ncap(const IR_t * nd) {
+    for (int i = 0; i < fct_n; i++) if (fct[i].arbno == nd && fct[i].fin) return fct[i].nw;
+    return 0;
 }
 int fc_tail_arbno(const IR_t * nd, int * fpb, int * fpl, int * opsb, int * hdrb) {
     for (int i = 0; i < fct_n; i++) if (fct[i].arbno == nd && fct[i].fin) { if (fpb) *fpb = fct[i].fpb; if (fpl) *fpl = fct[i].fpl; if (opsb) *opsb = fct[i].opsb; if (hdrb) *hdrb = fct[i].span + fct[i].rspan; return 1; }

@@ -13,10 +13,14 @@ static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 
 static inline const char * trd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
 static inline const char * trq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
 static std::string tail_zero(int lo, int hi, const char * zr64) { std::string r; for (int k = lo; k < hi; k += 8) r += x86("mov", trq(k), zr64); return r; }
+static std::string tail_cap_zero8(int base, int n, const char * zr64) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", trq(base + 16 * j + 8), zr64); return r; }
+static std::string tail_cap_copy(int dst, int src, int n) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", "rax", trq(src + 16 * j)) + x86("mov", trq(dst + 16 * j), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_tail() {
     /* R12-EXIT-1 CARRY-THE-TAIL (Lon s68 static-size proof; design of record at zeta_storage.c fc_tail_*).  Element = [0,span) body window + [span,span+rspan) right-spine window + 16B header
-     * {entry-cursor@+0, yield-cursor@+4, elem0-flag@+8} + 16B bracket copy {patstk mark@+16, rsp mark@+24}; op_sb = align16(span+rspan+32); HDRB = span+rspan (elem-relative header base, staged in
+     * {entry-cursor@+0, yield-cursor@+4, elem0-flag@+8} + 16B bracket copy {patstk mark@+16, rsp mark@+24} + one 16B WRAP-CAPTURE slot per ARBNO(body).V pair at [HDRB+32+16j] (delta at slot+0, alpha
+     * copies pair j from its flat SAVE cell at [KA+16j], beta carries the current element's slot forward, the wrap COND reads [HDRA+32+16j] at the uniform yield depth -- fcc-registered at finalize,
+     * zero capture-template change); op_sb = align16(span+rspan+32+16*ncap); HDRB = span+rspan (elem-relative header base, staged in
      * op_sa); HDRA = fp_body + HDRB (header base from the UNIFORM yield depth rsp = elem - fp_body, which alpha's phantom body pad establishes for the epsilon yield and S10c gamma-suspension
      * maintains for every extension).  alpha pushes op_sb+fp_body copying the bracket from HEAD's cell at [rsp + KA + fp_left + k]; beta pushes op_sb copying it from the current element; the
      * fail-glue pop `add rsp, op_sb` lands EXACTLY on the previous element's yield frontier (LIFO + fixed size = arithmetic, never indirection); exhaust pops op_sb ONLY (the resumed-epsilon cascade's
@@ -26,13 +30,14 @@ static std::string bb_match_arbno_tail() {
      * null-progress je and phi's post-pop resume -- runs at the UNIFORM yield depth rsp = elem - FPB (the alpha phantom pad + S10c suspension invariant), and external resume routes to this box's beta
      * (extend), never PAIR(1); so the whole seal is ONE glue: L(3) arithmetic-pops the dead suspended body (its alternatives are forbidden -- skipping the sealed boxes' omegas IS the seal) and falls
      * through into phi, whose elem0 dance then cascades pop-by-pop to exhaust exactly as SPITBOL cuts left (manual ln 4716).  The epsilon element exits at the flag check before any body code runs. */
-    int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl, SEAL = _.op_tail_seal;
+    int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl, SEAL = _.op_tail_seal, NCAP = _.op_tail_ncap;
     int KA = (int)_.op_sb + FPB, HDRA = FPB + HDRB;
     return x86("comment", "IR_MATCH_ARBNO_TAIL (R12-EXIT-1 carry-the-tail rsp elements)")
          + x86_alpha()
          + x86("sub", "rsp", (long)KA)
          + x86("mov", "eax", 0L)
          + tail_zero(FPB, FPB + HDRB, "rax")
+         + tail_cap_zero8(HDRA + 32, NCAP, "rax")
          + x86("mov", trd(HDRA + 0), "r14d")
          + x86("mov", trd(HDRA + 4), "r14d")
          + x86("stk32", (long)(HDRA + 8), 1L)
@@ -40,6 +45,7 @@ static std::string bb_match_arbno_tail() {
          + x86("mov", trq(HDRA + 16), "rax")
          + x86("mov", "rax", trq(KA + FPL + 16))
          + x86("mov", trq(HDRA + 24), "rax")
+         + tail_cap_copy(HDRA + 32, KA, NCAP)
          + x86_gamma()
          + x86_beta()
          + x86("mov", "r14d", trd(HDRA + 4))
@@ -53,6 +59,8 @@ static std::string bb_match_arbno_tail() {
          + x86("stk32", (long)(HDRB + 8), 0L)
          + x86("mov", trq(HDRB + 16), "rax")
          + x86("mov", trq(HDRB + 24), "rcx")
+         + tail_cap_zero8(HDRB + 32, NCAP, "rdx")
+         + tail_cap_copy(HDRB + 32, (int)_.op_sb + HDRA + 32, NCAP)
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
          + x86("mov", "eax", trd(HDRA + 0))
