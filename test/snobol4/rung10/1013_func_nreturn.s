@@ -177,7 +177,7 @@ main_α_body:
   .Lrkfn10: .string "SNO$WANTNM"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn10]
+ lea rdi, [rip + .Lrkfn10]
  lea rsi, [rsp + 544]
  mov edx, 1
  call rt_call_arr@PLT

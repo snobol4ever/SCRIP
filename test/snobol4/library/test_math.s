@@ -64,7 +64,7 @@ main_α_body:
   .Lrkfn4: .string "SNO$KWSET"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn4]
+ lea rdi, [rip + .Lrkfn4]
  lea rsi, [rsp + 112]
  mov edx, 2
  call rt_call_arr@PLT
@@ -111,7 +111,7 @@ main_α_body:
   .Lrkfn8: .string "max"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn8]
+ lea rdi, [rip + .Lrkfn8]
  lea rsi, [rsp + 256]
  mov edx, 2
  call rt_call_arr@PLT
@@ -173,7 +173,7 @@ main_α_body:
   .Lrkfn13: .string "min"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn13]
+ lea rdi, [rip + .Lrkfn13]
  lea rsi, [rsp + 400]
  mov edx, 2
  call rt_call_arr@PLT
@@ -235,7 +235,7 @@ main_α_body:
   .Lrkfn18: .string "max"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn18]
+ lea rdi, [rip + .Lrkfn18]
  lea rsi, [rsp + 544]
  mov edx, 2
  call rt_call_arr@PLT
@@ -297,7 +297,7 @@ main_α_body:
   .Lrkfn23: .string "min"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn23]
+ lea rdi, [rip + .Lrkfn23]
  lea rsi, [rsp + 688]
  mov edx, 2
  call rt_call_arr@PLT
@@ -354,7 +354,7 @@ main_α_body:
   .Lrkfn28: .string "abs"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn28]
+ lea rdi, [rip + .Lrkfn28]
  lea rsi, [rsp + 832]
  mov edx, 1
  call rt_call_arr@PLT

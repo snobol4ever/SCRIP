@@ -47,7 +47,7 @@ main_α_body:
   .Lrkfn2: .string "TABLE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn2]
+ lea rdi, [rip + .Lrkfn2]
  lea rsi, [rsp + 128]
  mov edx, 0
  call rt_call_arr@PLT

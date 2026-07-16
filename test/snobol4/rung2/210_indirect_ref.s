@@ -89,7 +89,7 @@ main_α_body:
   .Lrkfn5: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn5]
+ lea rdi, [rip + .Lrkfn5]
  lea rsi, [rsp + 240]
  mov edx, 1
  call rt_call_arr@PLT
@@ -144,7 +144,7 @@ main_α_body:
   .Lrkfn10: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn10]
+ lea rdi, [rip + .Lrkfn10]
  lea rsi, [rsp + 480]
  mov edx, 1
  call rt_call_arr@PLT

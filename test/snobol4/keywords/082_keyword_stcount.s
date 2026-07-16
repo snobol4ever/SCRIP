@@ -62,7 +62,7 @@ main_α_body:
   .Lrkfn3: .string "SNO$STMT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn3]
+ lea rdi, [rip + .Lrkfn3]
  lea rsi, [rsp + 448]
  mov edx, 1
  call rt_call_arr@PLT
@@ -115,7 +115,7 @@ main_α_body:
   .Lrkfn8: .string "SNO$STMT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn8]
+ lea rdi, [rip + .Lrkfn8]
  lea rsi, [rsp + 528]
  mov edx, 1
  call rt_call_arr@PLT
@@ -168,7 +168,7 @@ main_α_body:
   .Lrkfn13: .string "SNO$STMT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn13]
+ lea rdi, [rip + .Lrkfn13]
  lea rsi, [rsp + 608]
  mov edx, 1
  call rt_call_arr@PLT
@@ -287,7 +287,7 @@ main_α_body:
   .Lrkfn24: .string "SNO$STMT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn24]
+ lea rdi, [rip + .Lrkfn24]
  lea rsi, [rsp + 848]
  mov edx, 1
  call rt_call_arr@PLT
@@ -331,7 +331,7 @@ main_α_body:
   .Lrkfn28: .string "SNO$STMT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn28]
+ lea rdi, [rip + .Lrkfn28]
  lea rsi, [rsp + 688]
  mov edx, 1
  call rt_call_arr@PLT
@@ -405,7 +405,7 @@ main_α_body:
   .Lrkfn34: .string "SNO$STMT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn34]
+ lea rdi, [rip + .Lrkfn34]
  lea rsi, [rsp + 768]
  mov edx, 1
  call rt_call_arr@PLT

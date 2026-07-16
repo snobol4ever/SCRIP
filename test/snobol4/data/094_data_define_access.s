@@ -75,7 +75,7 @@ main_α_body:
   .Lrkfn3: .string "DATA"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn3]
+ lea rdi, [rip + .Lrkfn3]
  lea rsi, [rsp + 112]
  mov edx, 1
  call rt_call_arr@PLT
@@ -132,7 +132,7 @@ main_α_body:
   .Lrkfn8: .string "complex"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn8]
+ lea rdi, [rip + .Lrkfn8]
  lea rsi, [rsp + 208]
  mov edx, 2
  call rt_call_arr@PLT
@@ -174,7 +174,7 @@ main_α_body:
   .Lrkfn12: .string "real"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn12]
+ lea rdi, [rip + .Lrkfn12]
  lea rsi, [rsp + 384]
  mov edx, 1
  call rt_call_arr@PLT
@@ -220,7 +220,7 @@ main_α_body:
   .Lrkfn16: .string "imag"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn16]
+ lea rdi, [rip + .Lrkfn16]
  lea rsi, [rsp + 480]
  mov edx, 1
  call rt_call_arr@PLT

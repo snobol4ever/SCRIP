@@ -421,7 +421,7 @@ main_α_body:
   .Lrkfn37: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn37]
+ lea rdi, [rip + .Lrkfn37]
  lea rsi, [rsp + 128]
  mov edx, 1
  call rt_call_arr@PLT

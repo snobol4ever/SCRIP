@@ -108,7 +108,7 @@ proc_Push_α_body:
   .Lrkfn10: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn10]
+ lea rdi, [rip + .Lrkfn10]
  lea rsi, [rsp + 640]
  mov edx, 1
  call rt_call_arr@PLT
@@ -175,7 +175,7 @@ proc_Push_α_body:
   .Lrkfn16: .string "SNO$NRET"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn16]
+ lea rdi, [rip + .Lrkfn16]
  lea rsi, [rsp + 64]
  mov edx, 1
  call rt_call_arr@PLT
@@ -731,7 +731,7 @@ proc_Unary_α_body:
   .Lrkfn54: .string "SNO$WANTNM"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn54]
+ lea rdi, [rip + .Lrkfn54]
  lea rsi, [rsp + 1392]
  mov edx, 1
  call rt_call_arr@PLT
@@ -804,7 +804,7 @@ proc_Unary_α_body:
   .Lrkfn60: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn60]
+ lea rdi, [rip + .Lrkfn60]
  lea rsi, [rsp + 1648]
  mov edx, 1
  call rt_call_arr@PLT
@@ -870,7 +870,7 @@ proc_Unary_α_body:
   .Lrkfn66: .string "SNO$NRET"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn66]
+ lea rdi, [rip + .Lrkfn66]
  lea rsi, [rsp + 64]
  mov edx, 1
  call rt_call_arr@PLT
@@ -892,7 +892,7 @@ proc_Unary_α_body:
   .Lrkfn68: .string "EVAL"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn68]
+ lea rdi, [rip + .Lrkfn68]
  lea rsi, [rsp + 1472]
  mov edx, 1
  call rt_call_arr@PLT
@@ -1096,7 +1096,7 @@ proc_Binary_α_body:
   .Lrkfn82: .string "SNO$WANTNM"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn82]
+ lea rdi, [rip + .Lrkfn82]
  lea rsi, [rsp + 1904]
  mov edx, 1
  call rt_call_arr@PLT
@@ -1169,7 +1169,7 @@ proc_Binary_α_body:
   .Lrkfn88: .string "SNO$NAME"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn88]
+ lea rdi, [rip + .Lrkfn88]
  lea rsi, [rsp + 2352]
  mov edx, 1
  call rt_call_arr@PLT
@@ -1238,7 +1238,7 @@ proc_Binary_α_body:
   .Lrkfn94: .string "SNO$NRET"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn94]
+ lea rdi, [rip + .Lrkfn94]
  lea rsi, [rsp + 64]
  mov edx, 1
  call rt_call_arr@PLT
@@ -1326,7 +1326,7 @@ proc_Binary_α_body:
   .Lrkfn102: .string "EVAL"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn102]
+ lea rdi, [rip + .Lrkfn102]
  lea rsi, [rsp + 1984]
  mov edx, 1
  call rt_call_arr@PLT
@@ -15264,7 +15264,7 @@ main_α_body:
   .Lrkfn561: .string "TABLE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn561]
+ lea rdi, [rip + .Lrkfn561]
  lea rsi, [rsp + 128]
  mov edx, 0
  call rt_call_arr@PLT
@@ -15309,7 +15309,7 @@ main_α_body:
   .Lrkfn565: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn565]
+ lea rdi, [rip + .Lrkfn565]
  lea rsi, [rsp + 2448]
  mov edx, 1
  call rt_call_arr@PLT
@@ -15354,7 +15354,7 @@ main_α_body:
   .Lrkfn569: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn569]
+ lea rdi, [rip + .Lrkfn569]
  lea rsi, [rsp + 2544]
  mov edx, 1
  call rt_call_arr@PLT
@@ -15399,7 +15399,7 @@ main_α_body:
   .Lrkfn573: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn573]
+ lea rdi, [rip + .Lrkfn573]
  lea rsi, [rsp + 2640]
  mov edx, 1
  call rt_call_arr@PLT
@@ -15739,7 +15739,7 @@ main_α_body:
   .Lrkfn596: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn596]
+ lea rdi, [rip + .Lrkfn596]
  lea rsi, [rsp + 3600]
  mov edx, 1
  call rt_call_arr@PLT
@@ -15858,7 +15858,7 @@ main_α_body:
   .Lrkfn605: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn605]
+ lea rdi, [rip + .Lrkfn605]
  lea rsi, [rsp + 4272]
  mov edx, 1
  call rt_call_arr@PLT
@@ -15913,7 +15913,7 @@ main_α_body:
   .Lrkfn610: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn610]
+ lea rdi, [rip + .Lrkfn610]
  lea rsi, [rsp + 3968]
  mov edx, 1
  call rt_call_arr@PLT
@@ -15947,7 +15947,7 @@ main_α_body:
   .Lrkfn613: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn613]
+ lea rdi, [rip + .Lrkfn613]
  lea rsi, [rsp + 4832]
  mov edx, 1
  call rt_call_arr@PLT
@@ -16117,7 +16117,7 @@ main_α_body:
   .Lrkfn626: .string "SNO$KWSET"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn626]
+ lea rdi, [rip + .Lrkfn626]
  lea rsi, [rsp + 5248]
  mov edx, 2
  call rt_call_arr@PLT
@@ -16139,7 +16139,7 @@ main_α_body:
   .Lrkfn628: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn628]
+ lea rdi, [rip + .Lrkfn628]
  lea rsi, [rsp + 4048]
  mov edx, 1
  call rt_call_arr@PLT
@@ -16161,7 +16161,7 @@ main_α_body:
   .Lrkfn630: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn630]
+ lea rdi, [rip + .Lrkfn630]
  lea rsi, [rsp + 4528]
  mov edx, 1
  call rt_call_arr@PLT
@@ -16315,7 +16315,7 @@ main_α_body:
   .Lrkfn640: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn640]
+ lea rdi, [rip + .Lrkfn640]
  lea rsi, [rsp + 5088]
  mov edx, 1
  call rt_call_arr@PLT
@@ -16442,7 +16442,7 @@ main_α_body:
   .Lrkfn648: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn648]
+ lea rdi, [rip + .Lrkfn648]
  lea rsi, [rsp + 4608]
  mov edx, 1
  call rt_call_arr@PLT
@@ -16742,7 +16742,7 @@ xchain559_n76_af:
   .Lrkfn664: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn664]
+ lea rdi, [rip + .Lrkfn664]
  lea rsi, [rsp + 5168]
  mov edx, 1
  call rt_call_arr@PLT

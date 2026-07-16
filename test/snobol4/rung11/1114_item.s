@@ -113,7 +113,7 @@ main_α_body:
   .Lrkfn6: .string "SNO$WANTNM"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn6]
+ lea rdi, [rip + .Lrkfn6]
  lea rsi, [rsp + 240]
  mov edx, 1
  call rt_call_arr@PLT
@@ -602,7 +602,7 @@ main_α_body:
   .Lrkfn41: .string "SNO$WANTNM"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn41]
+ lea rdi, [rip + .Lrkfn41]
  lea rsi, [rsp + 1536]
  mov edx, 1
  call rt_call_arr@PLT
@@ -846,7 +846,7 @@ main_α_body:
   .Lrkfn65: .string "table"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn65]
+ lea rdi, [rip + .Lrkfn65]
  lea rsi, [rsp + 3536]
  mov edx, 0
  call rt_call_arr@PLT
@@ -1063,7 +1063,7 @@ main_α_body:
   .Lrkfn79: .string "SNO$WANTNM"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn79]
+ lea rdi, [rip + .Lrkfn79]
  lea rsi, [rsp + 3600]
  mov edx, 1
  call rt_call_arr@PLT

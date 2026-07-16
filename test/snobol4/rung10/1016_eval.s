@@ -376,7 +376,7 @@ main_α_body:
   .Lrkfn16: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn16]
+ lea rdi, [rip + .Lrkfn16]
  lea rsi, [rsp + 128]
  mov edx, 1
  call rt_call_arr@PLT
@@ -526,7 +526,7 @@ main_α_body:
   .Lrkfn27: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn27]
+ lea rdi, [rip + .Lrkfn27]
  lea rsi, [rsp + 496]
  mov edx, 1
  call rt_call_arr@PLT
@@ -625,7 +625,7 @@ main_α_body:
   .Lrkfn35: .string "SNO$MKEXPR"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn35]
+ lea rdi, [rip + .Lrkfn35]
  lea rsi, [rsp + 816]
  mov edx, 1
  call rt_call_arr@PLT
