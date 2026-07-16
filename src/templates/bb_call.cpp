@@ -9,45 +9,21 @@ extern "C" {
 #include "bb_templates.h"
 #include "ast.h"
 #include "../runtime/builtins/gen.h"
-extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
-extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
 extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);
-void rt_write_any_nl(DESCR_t d);
-int  rt_proc_is_registered(const char *name);
-int  rt_builtin_is_known(const char *name);
-int  rt_builtin_is_generator(const char *name);
 int  bb_slot_get(IR_t * nd);
-int  bb_node_id(IR_t * nd);
 int  bb_varslot_peek(const char * name);
 int  is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 int64_t rt_gvar_get_int(const char * name);
 extern int g_gva_active;
 int gva_index_of(const char * name);
-DESCR_t rt_gvar_get_descr(const char * name);
-int  rt_proc_index_of(const char * name);
-int  rt_proc_frame_nslots(const char * name);
-int  rt_proc_decl_level(const char * name);
-uint64_t rt_proc_byref_mask(const char * name);
-DESCR_t * rt_gvar_cell(const char * name);
-extern int g_emit_frame_caller_dl;
 DESCR_t NV_GET_fn(const char * name);
 int  rt_is_truthy(DESCR_t v);
 int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
-DESCR_t rt_concat_parts_d(void * parts, int n);
 }
 #include "x86_asm.h"
 static inline int zoff(const IR_t * nd) { return nd ? zls_off(nd) : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string pas_sl_setup(const char * fn) {
-    int callee_dl = rt_proc_decl_level(fn);
-    if (g_emit_frame_caller_dl < 0 || callee_dl < 1) return x86("mov32", "ecx", (long)0);
-    int h = (g_emit_frame_caller_dl + 1) - callee_dl;
-    if (h < 0) h = 0;
-    std::string s = x86("lea", "rcx", FRQ(0));
-    for (int i = 0; i < h; i++) s += x86("mov", "rcx", RDQ("rcx", 0));
-    return s;
-}
 extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_write_slot_str(IR_t *);
 extern std::string bb_call_write_binop_str(IR_t *);
@@ -79,9 +55,9 @@ static int lits_int_val(IR_t * nd, long long * out) {
 static int arith_kind_ok(IR_t * nd) {
     if (!nd) return 0;
     if (nd->op == IR_LIT_STRING) { long long _v; return lits_int_val(nd, &_v); }
-    if (nd->op == IR_LIT_INTEGER || nd->op == IR_OP_COUNT || nd->op == IR_OP_COUNT) return 1;
+    if (nd->op == IR_LIT_INTEGER) return 1;
     if (nd->op == IR_VAR && IR_LIT(nd).sval) return 1;
-    if (nd->op == IR_CALL || nd->op == IR_OP_COUNT || ir_is_call_kind(nd->op)) return 1;
+    if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) return 1;
     if (arith_is_arith_binop(nd)) return 1;
     return 0;
 }
@@ -99,31 +75,30 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
     std::string s;
     if (a->op == IR_VAR && IR_LIT(a).sval) {
         char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval);
-        std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(a).sval, b1) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
+        std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(a).sval, b1)
+                         + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
         if (k >= 0)
-            s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rax", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1))
-               + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
+            s += x86("mov", "rdx", RDQ("rbx", k * 16))
+               + x86("cmp", "edx", (long)DT_I)
+               + x86("jne", L(gk_lb))
+               + x86("mov", "rax", RDQ("rbx", k * 16 + 8))
+               + x86("jmp", L(gk_lb + 1))
+               + x86("def", L(gk_lb))
+               + slow
+               + x86("def", L(gk_lb + 1));
         else s += slow;
-    } else if (a->op == IR_OP_COUNT) {
-        s += x86("lea", "rax", FRQ(0));
-        for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
-        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(a).ival * 16 + 8));
-    } else if (a->op == IR_OP_COUNT) {
-        s += x86("lea", "rax", FRQ(0));
-        for (int h = 0; h < (int) IR_LIT(a).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
-        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(a).ival * 16 + 8));
-        s += x86("mov", "rax", RDQ("rax", 8));
     } else if (a->op == IR_LIT_INTEGER) {
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(a).ival);
     } else if (a->op == IR_LIT_STRING) {
         long long av = 0; if (!lits_int_val(a, &av)) return x86_bomb("marshal inline-arith: non-numeric string left operand");
         s += x86_movabs_r64("rax", (uint64_t)av);
-    } else if (a->op == IR_CALL || a->op == IR_OP_COUNT || ir_is_call_kind(a->op)) {
+    } else if (a->op == IR_CALL || ir_is_call_kind(a->op)) {
         int sc = zoff(a);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
-        return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
-        s += x86("mov", "rax", FRQ(sc + 8));
+        return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). "
+                        "If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, "
+                        "do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
     } else if (arith_is_arith_binop(a)) {
         s += marshal_arith_rax(sg, a);
     } else return x86_bomb("marshal inline-arith: unhandled left operand shape");
@@ -134,34 +109,31 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
     std::string s;
     if (b->op == IR_VAR && IR_LIT(b).sval) {
         char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval);
-        std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(b).sval, b2) + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
+        std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(b).sval, b2)
+                         + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
         slow += x86("mov", "rcx", "rax");
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
         if (k >= 0)
-            s += x86("mov", "rdx", RDQ("rbx", k * 16)) + x86("cmp", "edx", (long)DT_I) + x86("jne", L(gk_lb)) + x86("mov", "rcx", RDQ("rbx", k * 16 + 8)) + x86("jmp", L(gk_lb + 1))
-               + x86("def", L(gk_lb)) + slow + x86("def", L(gk_lb + 1));
+            s += x86("mov", "rdx", RDQ("rbx", k * 16))
+               + x86("cmp", "edx", (long)DT_I)
+               + x86("jne", L(gk_lb))
+               + x86("mov", "rcx", RDQ("rbx", k * 16 + 8))
+               + x86("jmp", L(gk_lb + 1))
+               + x86("def", L(gk_lb))
+               + slow
+               + x86("def", L(gk_lb + 1));
         else s += slow;
-    } else if (b->op == IR_OP_COUNT) {
-        s += x86("lea", "rax", FRQ(0));
-        for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
-        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(b).ival * 16 + 8));
-        s += x86("mov", "rcx", "rax");
-    } else if (b->op == IR_OP_COUNT) {
-        s += x86("lea", "rax", FRQ(0));
-        for (int h = 0; h < (int) IR_LIT(b).dval; h++) s += x86("mov", "rax", RDQ("rax", 0));
-        s += x86("mov", "rax", RDQ("rax", 16 + (int) IR_LIT(b).ival * 16 + 8));
-        s += x86("mov", "rax", RDQ("rax", 8));
-        s += x86("mov", "rcx", "rax");
     } else if (b->op == IR_LIT_INTEGER) {
         s += x86("mov", "rcx", (long)IR_LIT(b).ival);
     } else if (b->op == IR_LIT_STRING) {
         long long bv = 0; if (!lits_int_val(b, &bv)) return x86_bomb("marshal inline-arith: non-numeric string right operand");
         s += x86_movabs_r64("rcx", (uint64_t)bv);
-    } else if (b->op == IR_CALL || b->op == IR_OP_COUNT || ir_is_call_kind(b->op)) {
+    } else if (b->op == IR_CALL || ir_is_call_kind(b->op)) {
         int sc = zoff(b);
         if (sc < 0) return x86_bomb("marshal inline-arith: nested call has no LOWER slot grant (TMP-ERADICATE)");
-        return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
-        s += x86("mov", "rcx", FRQ(sc + 8));
+        return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). "
+                        "If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, "
+                        "do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
     } else if (arith_is_arith_binop(b)) {
         s += marshal_arith_rax(sg, b);
         s += x86("mov", "rcx", "rax");
@@ -183,8 +155,11 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
     case BINOP_ADD: s += x86("add",  "rax", "rcx"); break;
     case BINOP_SUB: s += x86("sub",  "rax", "rcx"); break;
     case BINOP_MUL: s += x86("imul", "rax", "rcx"); break;
-    case BINOP_DIV: s += x86("cqo") + x86("idiv", "rcx"); break;
-    case BINOP_MOD: s += x86("cqo") + x86("idiv", "rcx") + x86("mov", "rax", "rdx"); break;
+    case BINOP_DIV: s += x86("cqo")
+                       + x86("idiv", "rcx"); break;
+    case BINOP_MOD: s += x86("cqo")
+                       + x86("idiv", "rcx")
+                       + x86("mov", "rax", "rdx"); break;
     }
     return s;
 }
@@ -193,7 +168,8 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
         int ps = _.op_arg_slot[idx];
-        std::string s = x86("comment", emit_fmt("marshal arg%d = producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
+        std::string s = x86("comment", std::string("marshal arg") + std::to_string(idx)
+                          + " = producer-box slot [zr+" + std::to_string(ps) + "] -> [zr+" + std::to_string(aoff) + "]");
         s += x86("mov", "rax", FRQ(ps));
         s += x86("mov", FRQ(aoff), "rax");
         s += x86("mov", "rax", FRQ(ps + 8));
@@ -203,7 +179,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     if (!lf) return std::string();
     if (lf->op == IR_LIT_INTEGER) {
         std::string s;
-        s += x86("comment", emit_fmt("marshal arg%d = LIT_I -> [zr+%d]", idx, aoff));
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = LIT_I -> [zr+" + std::to_string(aoff) + "]");
         s += x86("mov", FRQ(aoff), (long)6);
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(lf).ival);
         s += x86("mov", FRQ(aoff + 8), "rax");
@@ -212,23 +188,17 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     if (lf->op == IR_LIT_REAL) {
         uint64_t bits; double d = IR_LIT(lf).dval; memcpy(&bits, &d, 8);
         std::string s;
-        s += x86("comment", emit_fmt("marshal arg%d = LIT_F -> [zr+%d]", idx, aoff));
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = LIT_F -> [zr+" + std::to_string(aoff) + "]");
         s += x86("mov", FRQ(aoff), (long)7);
         s += x86_movabs_r64("rax", bits);
         s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }
-    if (lf->op == IR_OP_COUNT) {
-        std::string s;
-        s += x86("comment", emit_fmt("marshal arg%d = LIT_NUL -> [zr+%d]", idx, aoff));
-        s += x86("mov", FRQ(aoff), (long)0);
-        s += x86("mov", FRQ(aoff + 8), (long)0);
-        return s;
-    }
     if (lf->op == IR_LIT_STRING) {
         int nseal = idx * 2, nskip = idx * 2 + 1;
         std::string s;
-        s += x86("comment", emit_fmt("marshal arg%d = LIT_S (string REG-RO sealed in-band) -> [zr+%d]", idx, aoff));
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx)
+           + " = LIT_S (string REG-RO sealed in-band) -> [zr+" + std::to_string(aoff) + "]");
         s += x86("mov", FRQ(aoff), (long)1);
         s += x86("mov", "rax", ROQ(nseal));
         s += x86("mov", FRQ(aoff + 8), "rax");
@@ -237,21 +207,24 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86_deflabel_id(nskip);
         return s;
     }
-    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || lf->op == IR_OP_COUNT || ir_is_call_kind(lf->op)) {
+    if ((lf->op == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || ir_is_call_kind(lf->op)) {
         int staged = (lf->op == IR_CALL_PROC_STAGED || lf->op == IR_PROC_GEN);
         if (owner && owner == _.node && staged && bb_slot_get(lf) >= 0) {
-            int ps = bb_slot_get(lf); std::string s = x86("comment", emit_fmt("marshal arg%d = spine call-result slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
+            int ps = bb_slot_get(lf); std::string s = x86("comment", std::string("marshal arg") + std::to_string(idx)
+                                      + " = spine call-result slot [zr+" + std::to_string(ps) + "] -> [zr+" + std::to_string(aoff) + "]");
             s += x86("mov", "rax", FRQ(ps));
             s += x86("mov", FRQ(aoff), "rax");
             s += x86("mov", "rax", FRQ(ps + 8));
             s += x86("mov", FRQ(aoff + 8), "rax");
             return s;
-        } return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
+        } return x86_bomb("bb_call: call-in-arith/marshal-arg via the PARKED marshal_single_call trampoline (dead at NCB-1b, 0/592 sweep). "
+                        "If you are seeing this, LOWER routed a shape here that it did not before: reuse the NCB-1b bcps_det_arm window, "
+                        "do NOT resurrect the trampoline. See bb_call.marshal-single-call-parked-e49b25db.cpp");
     }
     if (lf->op == IR_VAR && IR_LIT(lf).sval && IR_LIT(lf).sval[0] != '&' && is_global(IR_LIT(lf).sval)) {
         char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(lf).sval);
         std::string s;
-        s += x86("comment", emit_fmt("marshal arg%d = global VAR NV_GET -> [zr+%d]", idx, aoff));
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = global VAR NV_GET -> [zr+" + std::to_string(aoff) + "]");
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(lf).sval, b1);
         s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
         s += x86("mov", FRQ(aoff), "rax");
@@ -263,7 +236,8 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         int ps = is_local_var ? -1 : bb_slot_get(lf);
         if (ps < 0 && !is_local_var) ps = zoff(lf);
         if (ps >= 0) {
-            std::string s = x86("comment", emit_fmt("marshal arg%d = nested producer-box slot [zr+%d] -> [zr+%d]", idx, ps, aoff));
+            std::string s = x86("comment", std::string("marshal arg") + std::to_string(idx)
+                              + " = nested producer-box slot [zr+" + std::to_string(ps) + "] -> [zr+" + std::to_string(aoff) + "]");
             s += x86("mov", "rax", FRQ(ps));
             s += x86("mov", FRQ(aoff), "rax");
             s += x86("mov", "rax", FRQ(ps + 8));
@@ -275,58 +249,13 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         int voff = bb_varslot_peek(IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
         if (voff < 0) return x86_bomb("bb_call marshal: IR_VAR arg names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
         std::string s;
-        s += x86("comment", emit_fmt("marshal arg%d = varslot [zr+%d] -> [zr+%d]", idx, voff, aoff));
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = varslot [zr+" + std::to_string(voff) + "] -> [zr+" + std::to_string(aoff) + "]");
         s += x86("mov", "rax", FRQ(voff));
         s += x86("mov", FRQ(aoff), "rax");
         s += x86("mov", "rax", FRQ(voff + 8));
         s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int relop_call_fail_idx(const char * fn) {
-    if (!fn) return -1;
-    if (!strcmp(fn, "LT")) return BINOP_LT;
-    if (!strcmp(fn, "LE")) return BINOP_LE;
-    if (!strcmp(fn, "GT")) return BINOP_GT;
-    if (!strcmp(fn, "GE")) return BINOP_GE;
-    if (!strcmp(fn, "EQ")) return BINOP_EQ;
-    if (!strcmp(fn, "NE")) return BINOP_NE;
-    return -1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * relop_idx_fail_mnem(int op) {
-    return op == BINOP_LT ? "jge" : op == BINOP_LE ? "jg" : op == BINOP_GT ? "jle" : op == BINOP_GE ? "jl" : op == BINOP_EQ ? "jne" : "je";
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * relop_arg_simple_operand(IR_graph_t * sg) {
-    if (!sg || !sg->entry) return NULL;
-    IR_t * e = sg->entry;
-    if (e->γ.node && e->γ.node->op != IR_SUCCEED && e->γ.node->op != IR_FAIL) return NULL;
-    return arith_kind_ok(e) ? e : NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_relop_inline_str(IR_t * pBB, const char * fn, IR_graph_t ** subs, int relop) {
-    x86_begin();
-    int resoff = zoff(_.node);
-    if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_relop_inline: no LOWER slot grant (TMP-ERADICATE)");
-    IR_t * a = relop_arg_simple_operand(subs[0]);
-    IR_t * b = relop_arg_simple_operand(subs[1]);
-    int scratch = resoff + 16;
-    std::string s = x86_alpha()
-        + x86("comment", emit_fmt("BOX CALL %s(...) inline integer relop [four-port, FAIL->ω]", fn));
-    s += arith_opnd_a(NULL, a, 0);
-    s += x86("mov", FRQ(scratch), "rax");
-    s += arith_opnd_b(NULL, b, 2);
-    s += x86("mov", FRQ(resoff), (long)DT_SNUL);
-    s += x86("mov", FRQ(resoff + 8), (long)0);
-    s += x86("mov", "rax", FRQ(scratch));
-    s += x86("cmp", "rax", "rcx");
-    s += x86_omega(relop_idx_fail_mnem(relop));
-    s += x86_gamma();
-    s += x86_beta();
-    s += x86_omega();
-    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
@@ -341,12 +270,13 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     std::string fl = std::string(".Lbynamefn") + std::to_string((long long)_.nid);
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
-        + x86("comment", emit_fmt("BOX CALL %s(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]", fn));
+        + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
     for (int i = 0; i < (int)narg; i++)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     s += x86("directive", ".section .rodata")
        + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-       + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
+       + x86("directive", ".section .text")
+       + x86("directive", ".intel_syntax noprefix");
     s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
     s += x86("lea", "rsi", FRQ(argbase));
     s += x86("mov32", "edx", (long)narg);
@@ -374,14 +304,15 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     std::string fl = std::string(".Lbynamegenfn") + std::to_string((long long)_.nid);
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
-        + x86("comment", emit_fmt("BOX CALL_GEN %s(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]", fn));
+        + x86("comment", std::string("BOX CALL_GEN ") + fn + "(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]");
     for (int i = 0; i < (int)narg; i++)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     s += x86("mov", FRQ(genoff), (long)0);
     s += x86("def", L(60));
     s += x86("directive", ".section .rodata")
        + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-       + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix");
+       + x86("directive", ".section .text")
+       + x86("directive", ".intel_syntax noprefix");
     s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
     s += x86("lea", "rsi", FRQ(argbase));
     s += x86("mov32", "edx", (long)narg);
@@ -419,7 +350,11 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     if (e->op == IR_LIT_INTEGER) {
         s += x86("mov32", "edi", (long)6) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
     } else if (e->op == IR_LIT_STRING) {
-        s += x86("mov32", "edi", (long)1) + x86("mov", "rsi", ROQ(0)) + x86_jmp_id(1) + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "") + x86_deflabel_id(1);
+        s += x86("mov32", "edi", (long)1)
+           + x86("mov", "rsi", ROQ(0))
+           + x86_jmp_id(1)
+           + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "")
+           + x86_deflabel_id(1);
     } else if (e->op == IR_VAR && IR_LIT(e).sval) {
         int voff = bb_varslot_peek(IR_LIT(e).sval);
         if (voff < 0) return x86_alpha() + x86_bomb("bb_call_bool_truthy: IR_VAR cond names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
