@@ -1409,9 +1409,11 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                         int cap_left = 0;
                         /* WRAP-CAPTURE LIFT (R12-EXIT-1, Lon ruling this session: the wrap SAVE is one more predetermined 16 in the element sum).  A left-range capture is admissible iff it WRAPS the
                          * ARBNO: its COND/IMM's inner entry (operands[0]) is the ARBNO node R itself (innermost) or the previous wrap's SAVE (a nested wrap -- the capture entry IS the SAVE node), and
-                         * its SAVE sits at the very next allocation index with the operand[1] back-edge intact.  Pairs collect INNERMOST-FIRST (zeta_storage flat-cell/slot indexing law); any left-range
-                         * ASSIGN the chain does not consume keeps today's conservative decline (tl_why "cap-left" -- e.g. a capture over the LEFT CONTEXT, whose COND fires at flat depth with a baked
-                         * inner fp that the element scheme would desync). Cap 4 pairs (element-bloat bound; overflow declines). */
+                         * its SAVE sits at the very next allocation index with the operand[1] back-edge intact.  Pairs collect INNERMOST-FIRST (zeta_storage flat-cell/slot indexing law).  LEFT-CONTEXT
+                         * LIFT (R12-EXIT-1 residue, the 065/066 class): a left-range ASSIGN the chain does not consume is admissible iff it is ALREADY FLAT-GRANTED at lowering (sno_cap_fc with
+                         * sno_in_arbno==0: fc_save_active SAVE / fc_cond_fp>=0 COND-IMM) -- its 16 is in fpl via fc_geom, its COND fires and beta-transits at FLAT depth only (elements are born after
+                         * the fire and fully popped by exhaust before any beta, oracle-pinned pa2/pb2/pb3/pc2), so nothing else moves.  An UNGRANTED left capture (walk-failed inner) keeps the
+                         * conservative decline (tl_why "cap-left"). Cap 4 wrap pairs (element-bloat bound; overflow declines). */
                         int n_wrap = 0; const IR_t * wsv[4]; const IR_t * wcd[4];
                         { const IR_t * inner_want = R;
                           for (;;) {
@@ -1427,7 +1429,9 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                               IR_t * x = g->all[k];
                               if (!x || (x->op != IR_MATCH_ASSIGN_SAVE && x->op != IR_MATCH_ASSIGN_COND && x->op != IR_MATCH_ASSIGN_IMM)) continue;
                               int used = 0; for (int w = 0; w < n_wrap; w++) if (x == wsv[w] || x == wcd[w]) { used = 1; break; }
-                              if (!used) cap_left = 1;
+                              if (used) continue;
+                              { extern int fc_save_active(const IR_t *); extern int fc_cond_fp(const IR_t *);
+                                if (x->op == IR_MATCH_ASSIGN_SAVE ? !fc_save_active(x) : fc_cond_fp(x) < 0) cap_left = 1; }
                           }
                         }
                         /* L1b PROMOTION PROTOCOL (Lon ruling this session: the capture is just another predetermined size).  A deferred body capture PROMOTES to its FORTH cell iff the statement takes
