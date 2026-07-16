@@ -5755,8 +5755,6 @@ xchain347_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -5856,8 +5854,6 @@ xchain347_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -6065,8 +6061,6 @@ xchain356_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -6206,8 +6200,6 @@ xchain356_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -6291,8 +6283,6 @@ xchain356_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -6376,8 +6366,6 @@ xchain356_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -6461,8 +6449,6 @@ xchain356_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -6546,8 +6532,6 @@ xchain356_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -6631,8 +6615,6 @@ xchain356_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -6786,8 +6768,6 @@ xchain376_n0_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S7]
  xor esi, esi
  push rsp
@@ -6916,8 +6896,6 @@ xchain376_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S9]
  xor esi, esi
  push rsp
@@ -7217,8 +7195,6 @@ xchain390_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -7318,8 +7294,6 @@ xchain390_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -7527,8 +7501,6 @@ xchain399_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -7668,8 +7640,6 @@ xchain399_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -7753,8 +7723,6 @@ xchain399_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -7838,8 +7806,6 @@ xchain399_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -7923,8 +7889,6 @@ xchain399_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -8008,8 +7972,6 @@ xchain399_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -8093,8 +8055,6 @@ xchain399_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -8248,8 +8208,6 @@ xchain419_n0_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S7]
  xor esi, esi
  push rsp
@@ -8378,8 +8336,6 @@ xchain419_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S9]
  xor esi, esi
  push rsp
@@ -8679,8 +8635,6 @@ xchain433_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -8780,8 +8734,6 @@ xchain433_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -8989,8 +8941,6 @@ xchain442_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -9130,8 +9080,6 @@ xchain442_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -9215,8 +9163,6 @@ xchain442_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -9300,8 +9246,6 @@ xchain442_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -9385,8 +9329,6 @@ xchain442_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -9470,8 +9412,6 @@ xchain442_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -9555,8 +9495,6 @@ xchain442_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -9710,8 +9648,6 @@ xchain462_n0_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S7]
  xor esi, esi
  push rsp
@@ -9840,8 +9776,6 @@ xchain462_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S9]
  xor esi, esi
  push rsp
@@ -10141,8 +10075,6 @@ xchain476_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -10242,8 +10174,6 @@ xchain476_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -10451,8 +10381,6 @@ xchain485_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -10592,8 +10520,6 @@ xchain485_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -10677,8 +10603,6 @@ xchain485_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -10762,8 +10686,6 @@ xchain485_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -10847,8 +10769,6 @@ xchain485_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -10932,8 +10852,6 @@ xchain485_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -11017,8 +10935,6 @@ xchain485_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -11172,8 +11088,6 @@ xchain505_n0_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S7]
  xor esi, esi
  push rsp
@@ -11302,8 +11216,6 @@ xchain505_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S9]
  xor esi, esi
  push rsp
@@ -11603,8 +11515,6 @@ xchain519_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -11704,8 +11614,6 @@ xchain519_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -11913,8 +11821,6 @@ xchain528_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -12054,8 +11960,6 @@ xchain528_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -12139,8 +12043,6 @@ xchain528_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -12224,8 +12126,6 @@ xchain528_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S2]
  xor esi, esi
  push rsp
@@ -12309,8 +12209,6 @@ xchain528_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -12394,8 +12292,6 @@ xchain528_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S6]
  xor esi, esi
  push rsp
@@ -12479,8 +12375,6 @@ xchain528_n6_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S4]
  xor esi, esi
  push rsp
@@ -12634,8 +12528,6 @@ xchain548_n0_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S7]
  xor esi, esi
  push rsp
@@ -12764,8 +12656,6 @@ xchain548_n2_af:
  push r14
  push r15
  push r13
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S9]
  xor esi, esi
  push rsp
@@ -16189,27 +16079,26 @@ main_α_body:
  jmp xchain559_n49_α
 # IR_MATCH_HEAD
  xchain559_n72_α:
- mov r12, rsp
- mov rdi, qword ptr [r12 + 5632]
- mov rsi, qword ptr [r12 + 5640]
+ mov qword ptr [rsp + 5464], rbp
+ mov rbp, rsp
+ mov rdi, qword ptr [rbp + 5632]
+ mov rsi, qword ptr [rbp + 5640]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [r12 + 5464], rbp
- lea rcx, [rip + g_dcap_top]
- mov rbp, qword ptr [rcx + 0]
- mov qword ptr [r12 + 5456], rbp
- mov qword ptr [r12 + 5440], rsp
+ mov rax, qword ptr [1879048192]
+ mov qword ptr [rbp + 5456], rax
+ mov qword ptr [rbp + 5440], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
- mov qword ptr [r12 + 5432], rax
- mov dword ptr [r12 + 5424], 0
+ mov qword ptr [rbp + 5432], rax
+ mov dword ptr [rbp + 5424], 0
 .Lx645_0:
- mov r14d, dword ptr [r12 + 5424]
+ mov r14d, dword ptr [rbp + 5424]
  jmp xchain559_n76_α
  xchain559_n72_β:
- add dword ptr [r12 + 5424], 1
- mov eax, dword ptr [r12 + 5424]
+ add dword ptr [rbp + 5424], 1
+ mov eax, dword ptr [rbp + 5424]
  cmp eax, r15d
  jg .Lx645_1
  lea rcx, [rip + g_anchor]
@@ -16218,14 +16107,13 @@ main_α_body:
  jne .Lx645_1
  jmp .Lx645_0
 .Lx645_1:
- mov rax, qword ptr [r12 + 5432]
+ mov rax, qword ptr [rbp + 5432]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [r12 + 5440]
- lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [r12 + 5456]
- mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [r12 + 5464]
+ mov rsp, qword ptr [rbp + 5440]
+ mov rax, qword ptr [rbp + 5456]
+ mov qword ptr [1879048192], rax
+ mov rbp, qword ptr [rbp + 5464]
  jmp xchain559_n73_α
 # IR_LIT_STRING
  xchain559_n73_α:
@@ -16275,24 +16163,24 @@ main_α_body:
  jmp xchain559_n49_α
 # IR_MATCH_SEQ_NARY
  xchain559_n76_α:
- mov dword ptr [r12 + 5488], r14d
- mov dword ptr [r12 + 5492], 0
+ mov dword ptr [rbp + 5488], r14d
+ mov dword ptr [rbp + 5492], 0
  jmp xchain559_n81_α
 xchain559_n76_as:
- mov eax, dword ptr [r12 + 5492]
+ mov eax, dword ptr [rbp + 5492]
  add eax, 1
- mov dword ptr [r12 + 5492], eax
+ mov dword ptr [rbp + 5492], eax
  cmp eax, 1
  je xchain559_n83_α
  cmp eax, 2
  je xchain559_n84_α
  jmp xchain559_n80_α
  xchain559_n76_β:
- mov dword ptr [r12 + 5492], 3
+ mov dword ptr [rbp + 5492], 3
 xchain559_n76_af:
- mov eax, dword ptr [r12 + 5492]
+ mov eax, dword ptr [rbp + 5492]
  sub eax, 1
- mov dword ptr [r12 + 5492], eax
+ mov dword ptr [rbp + 5492], eax
  cmp eax, 0
  je xchain559_n82_β
  cmp eax, 1
@@ -16356,18 +16244,16 @@ xchain559_n76_af:
  .string "EXPR$13"
 # IR_MATCH_RELEASE
  xchain559_n80_α:
- mov rax, qword ptr [r12 + 5432]
+ mov rax, qword ptr [rbp + 5432]
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
- mov rsp, qword ptr [r12 + 5440]
+ mov rsp, qword ptr [rbp + 5440]
  push r14
  push r15
  push r13
  sub rsp, 8
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  mov rdi, qword ptr [rsp + 5488]
- mov rsi, rbp
+ mov rsi, qword ptr [1879048192]
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx656_1:
@@ -16395,16 +16281,15 @@ xchain559_n76_af:
  pop r13
  pop r15
  pop r14
- lea rcx, [rip + g_dcap_top]
- mov rax, qword ptr [r12 + 5456]
- mov qword ptr [rcx + 0], rax
- mov rbp, qword ptr [r12 + 5464]
+ mov rax, qword ptr [rbp + 5456]
+ mov qword ptr [1879048192], rax
+ mov rbp, qword ptr [rbp + 5464]
  jmp xchain559_n88_α
 # IR_LIT_INTEGER
  xchain559_n81_α:
- mov qword ptr [r12 + 5520], 6
+ mov qword ptr [rbp + 5520], 6
  mov rax, qword ptr [rip + .Lx657_0]
- mov qword ptr [r12 + 5528], rax
+ mov qword ptr [rbp + 5528], rax
  jmp xchain559_n82_α
  xchain559_n81_β:
  jmp xchain559_n76_af
@@ -16449,8 +16334,6 @@ xchain559_n76_af:
  push r15
  push r13
  sub rsp, 8
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  lea rdi, [rip + .S9]
  xor esi, esi
  call rt_defer_open@PLT
@@ -16510,9 +16393,9 @@ xchain559_n76_af:
  jmp qword ptr [rsp]
 # IR_LIT_INTEGER
  xchain559_n84_α:
- mov qword ptr [r12 + 5600], 6
+ mov qword ptr [rbp + 5600], 6
  mov rax, qword ptr [rip + .Lx660_0]
- mov qword ptr [r12 + 5608], rax
+ mov qword ptr [rbp + 5608], rax
  jmp xchain559_n85_α
  xchain559_n84_β:
  jmp xchain559_n76_af

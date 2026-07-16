@@ -73,15 +73,14 @@ main_α_body:
  jmp xchain0_n4_α
 # IR_MATCH_HEAD
  xchain0_n3_α:
+ mov qword ptr [rsp + 200], rbp
  mov rdi, qword ptr [rsp + 368]
  mov rsi, qword ptr [rsp + 376]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 200], rbp
- lea rcx, [rip + g_dcap_top]
- mov rbp, qword ptr [rcx + 0]
- mov qword ptr [rsp + 192], rbp
+ mov rax, qword ptr [1879048192]
+ mov qword ptr [rsp + 192], rax
  mov rax, rsp
  sub rsp, 32
  mov qword ptr [rsp + 16], rax
@@ -107,9 +106,8 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rsp + 16]
- lea rcx, [rip + g_dcap_top]
  mov rax, qword ptr [rsp + 192]
- mov qword ptr [rcx + 0], rax
+ mov qword ptr [1879048192], rax
  mov rbp, qword ptr [rsp + 200]
  jmp xchain0_n4_α
 # IR_LIT_STRING
@@ -158,10 +156,8 @@ xchain0_n5_af:
  push r15
  push r13
  sub rsp, 8
- lea rcx, [rip + g_dcap_top]
- mov qword ptr [rcx + 0], rbp
  mov rdi, qword ptr [rsp + 224]
- mov rsi, rbp
+ mov rsi, qword ptr [1879048192]
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx11_1:
@@ -189,9 +185,8 @@ xchain0_n5_af:
  pop r13
  pop r15
  pop r14
- lea rcx, [rip + g_dcap_top]
  mov rax, qword ptr [rsp + 192]
- mov qword ptr [rcx + 0], rax
+ mov qword ptr [1879048192], rax
  mov rbp, qword ptr [rsp + 200]
  jmp xchain0_n12_α
 # IR_MATCH_BREAK
@@ -244,20 +239,21 @@ xchain0_n5_af:
  xchain0_n10_β:
  add rsp, 16
  jmp xchain0_n9_β
-# IR_MATCH_CAPTURE_COND (rbp-dcap inline pend)
+# IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n11_α:
  mov eax, dword ptr [rsp + 16]
+ mov rdi, qword ptr [1879048192]
  lea rcx, [rip + .S1]
- mov qword ptr [rbp + 0], rcx
+ mov qword ptr [rdi + 0], rcx
  mov esi, eax
- mov qword ptr [rbp + 8], rsi
+ mov qword ptr [rdi + 8], rsi
  mov edx, r14d
  sub edx, eax
- mov qword ptr [rbp + 16], rdx
- add rbp, 24
+ mov qword ptr [rdi + 16], rdx
+ add qword ptr [1879048192], 24
  jmp xchain0_n5_as
  xchain0_n11_β:
- sub rbp, 24
+ sub qword ptr [1879048192], 24
  jmp xchain0_n13_β
 # IR_VAR
  xchain0_n12_α:
