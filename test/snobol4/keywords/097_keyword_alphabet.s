@@ -50,7 +50,7 @@ main_α_body:
   .Lrkfn3: .string "SIZE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn3]
+ lea rdi, [rip + .Lrkfn3]
  lea rsi, [rsp + 128]
  mov edx, 1
  call rt_call_arr@PLT
@@ -100,7 +100,7 @@ main_α_body:
   .Lrkfn7: .string "SIZE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn7]
+ lea rdi, [rip + .Lrkfn7]
  lea rsi, [rsp + 208]
  mov edx, 1
  call rt_call_arr@PLT
@@ -150,7 +150,7 @@ main_α_body:
   .Lrkfn11: .string "SIZE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn11]
+ lea rdi, [rip + .Lrkfn11]
  lea rsi, [rsp + 288]
  mov edx, 1
  call rt_call_arr@PLT

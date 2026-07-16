@@ -232,7 +232,7 @@ main_α_body:
   .Lrkfn11: .string "SNO$KWSET"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn11]
+ lea rdi, [rip + .Lrkfn11]
  lea rsi, [rsp + 112]
  mov edx, 2
  call rt_call_arr@PLT
@@ -335,7 +335,7 @@ main_α_body:
   .Lrkfn20: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn20]
+ lea rdi, [rip + .Lrkfn20]
  lea rsi, [rsp + 512]
  mov edx, 1
  call rt_call_arr@PLT

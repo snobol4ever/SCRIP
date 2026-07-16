@@ -49,7 +49,7 @@ main_α_body:
   .Lrkfn3: .string "DATATYPE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn3]
+ lea rdi, [rip + .Lrkfn3]
  lea rsi, [rsp + 208]
  mov edx, 1
  call rt_call_arr@PLT
@@ -107,7 +107,7 @@ main_α_body:
   .Lrkfn8: .string "DATATYPE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn8]
+ lea rdi, [rip + .Lrkfn8]
  lea rsi, [rsp + 416]
  mov edx, 1
  call rt_call_arr@PLT
@@ -139,7 +139,7 @@ main_α_body:
   .Lrkfn10: .string "REPLACE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn10]
+ lea rdi, [rip + .Lrkfn10]
  lea rsi, [rsp + 128]
  mov edx, 3
  call rt_call_arr@PLT
@@ -212,7 +212,7 @@ main_α_body:
   .Lrkfn16: .string "DATATYPE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn16]
+ lea rdi, [rip + .Lrkfn16]
  lea rsi, [rsp + 624]
  mov edx, 1
  call rt_call_arr@PLT
@@ -244,7 +244,7 @@ main_α_body:
   .Lrkfn18: .string "REPLACE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn18]
+ lea rdi, [rip + .Lrkfn18]
  lea rsi, [rsp + 336]
  mov edx, 3
  call rt_call_arr@PLT
@@ -317,7 +317,7 @@ main_α_body:
   .Lrkfn23: .string "REPLACE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn23]
+ lea rdi, [rip + .Lrkfn23]
  lea rsi, [rsp + 544]
  mov edx, 3
  call rt_call_arr@PLT

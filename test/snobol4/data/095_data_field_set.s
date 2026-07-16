@@ -75,7 +75,7 @@ main_α_body:
   .Lrkfn3: .string "DATA"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn3]
+ lea rdi, [rip + .Lrkfn3]
  lea rsi, [rsp + 112]
  mov edx, 1
  call rt_call_arr@PLT
@@ -122,7 +122,7 @@ main_α_body:
   .Lrkfn7: .string "point"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn7]
+ lea rdi, [rip + .Lrkfn7]
  lea rsi, [rsp + 208]
  mov edx, 2
  call rt_call_arr@PLT
@@ -164,7 +164,7 @@ main_α_body:
   .Lrkfn11: .string "x"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn11]
+ lea rdi, [rip + .Lrkfn11]
  lea rsi, [rsp + 352]
  mov edx, 1
  call rt_call_arr@PLT
@@ -210,7 +210,7 @@ main_α_body:
   .Lrkfn15: .string "y"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn15]
+ lea rdi, [rip + .Lrkfn15]
  lea rsi, [rsp + 448]
  mov edx, 1
  call rt_call_arr@PLT
@@ -292,7 +292,7 @@ main_α_body:
   .Lrkfn22: .string "x"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn22]
+ lea rdi, [rip + .Lrkfn22]
  lea rsi, [rsp + 656]
  mov edx, 1
  call rt_call_arr@PLT

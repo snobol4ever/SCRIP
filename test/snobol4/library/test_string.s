@@ -64,7 +64,7 @@ main_α_body:
   .Lrkfn4: .string "SNO$KWSET"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn4]
+ lea rdi, [rip + .Lrkfn4]
  lea rsi, [rsp + 112]
  mov edx, 2
  call rt_call_arr@PLT

@@ -64,7 +64,7 @@ main_α_body:
   .Lrkfn3: .string "integer"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn3]
+ lea rdi, [rip + .Lrkfn3]
  lea rsi, [rsp + 112]
  mov edx, 1
  call rt_call_arr@PLT
@@ -119,7 +119,7 @@ main_α_body:
   .Lrkfn8: .string "integer"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn8]
+ lea rdi, [rip + .Lrkfn8]
  lea rsi, [rsp + 240]
  mov edx, 1
  call rt_call_arr@PLT
@@ -165,7 +165,7 @@ main_α_body:
   .Lrkfn12: .string "integer"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn12]
+ lea rdi, [rip + .Lrkfn12]
  lea rsi, [rsp + 368]
  mov edx, 1
  call rt_call_arr@PLT

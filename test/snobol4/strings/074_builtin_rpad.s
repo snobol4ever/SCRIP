@@ -64,7 +64,7 @@ main_α_body:
   .Lrkfn4: .string "RPAD"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn4]
+ lea rdi, [rip + .Lrkfn4]
  lea rsi, [rsp + 176]
  mov edx, 2
  call rt_call_arr@PLT
@@ -86,7 +86,7 @@ main_α_body:
   .Lrkfn6: .string "SIZE"
   .section .text
   .intel_syntax noprefix
-   lea rdi, [rip + .Lrkfn6]
+ lea rdi, [rip + .Lrkfn6]
  lea rsi, [rsp + 128]
  mov edx, 1
  call rt_call_arr@PLT
