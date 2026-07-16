@@ -770,7 +770,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_MATCH_BAL:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_bal()); } return 0;                                                                                                            /* SN4-BAL (s34): generator over paren-balanced extents; no ZLS2 grant (in-frame, SPAN shape) */
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
     case IR_MATCH_ARBNO:          { extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
-                                    if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; }
+                                    if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; }
                                     else { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; int _chain = (x86_port_mode() == ZC_PORT_FORTH); g_emit.op_arbno_chain = _chain; g_emit.op_sb = (_sp + (_chain ? 24 : 16) + 15) & ~15; } else { g_emit.op_sa = -1; g_emit.op_sb = -1; g_emit.op_arbno_chain = 0; } }
                                     bb_emit_x86(bb_match_arbno()); } return 0;   /* SN4-NARY-ARBNO: one node, flat-driven; R12-EXIT-1 carry-the-tail (rsp elements, op_sa = HDRB) or heap COLLECTION / ZB-FC-4 chain; geometry staged here */
     case IR_MATCH_HEAD:           { extern int fc_tail_head(const IR_t *); int _th = (ZC_FRAME == ZC_FRAME_RSP && fc_tail_head(nd)); if (fc_head_fp(nd) >= 0 || _th) { g_emit.op_fc_wbytes = 24; g_emit.op_fc_base = g_emit.op_off; } if (_th) g_emit.op_tail = 1; bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 + ZB-FC-3d self-cell WINDOW + R12-EXIT-1 tail statements self-push too (bracket source) */
@@ -858,7 +858,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_flat_disp = 0; g_emit.op_anchored = 0; g_emit.op_anchor_head = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_flat_disp = 0; g_emit.op_anchored = 0; g_emit.op_anchor_head = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; \
     if (ZC_FRAME == ZC_FRAME_RSP) { int _fld = fc_leaf_disp(nd); if (_fld != (int)0x80000000) g_emit.op_flat_disp = _fld; extern int fc_anchor_active(const IR_t *); extern int fc_anchor_head_active(const IR_t *); g_emit.op_anchored = fc_anchor_active(nd); if (nd->op == IR_MATCH_HEAD) g_emit.op_anchor_head = fc_anchor_head_active(nd); } /* R12-ERAD s65 + ANCHOR-WINDOW s66 + R12-EXIT-1: rsp-frame flat/element compensation OR the r12 window view, registrar-driven, one delivery point; element-region disps are routinely negative so the unregistered sentinel is INT_MIN */ \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
@@ -1720,9 +1720,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
              * (S10d).  arm_of(source) = largest j with pos(entry_j) <= pos(source) in nodes[] order (arms are
              * allocated contiguously after A; entry_j is each arm's first-allocated node, the s31 convention). */
             if (gamma_is_sig && fc_sig[k] && fc_alt_active(nodes[k])) {
-                int _N = (int)(nodes[k]->n_operands / 2), _arm = 0, _src = -1;
+                /* arm_of(source) = the arm whose entry is NEAREST AT-OR-BELOW pos(source).  The prior "largest j with pos(entry_j) <= pos(source)" assumed arm entries allocate ASCENDING, but
+                 * right-first lowering allocates them DESCENDING (arm N-1's nodes get the LOWEST indices), so every source at-or-after entry_0 spuriously matched the last passing j — measured s71:
+                 * SPAN('a')|'b' routed SPAN's yield (already at full arm depth) through the literal arm's +16 pad stub, desyncing every later [rsp+const] until rsp died.  Equal-fp arms (163's
+                 * literal|literal, all stubs identical) masked it.  Nearest-below is order-agnostic: each arm's nodes sit contiguously at-or-after its own entry. */
+                int _N = (int)(nodes[k]->n_operands / 2), _arm = 0, _src = -1, _best = -1;
                 for (int _p = 0; _p < n; _p++) if (nodes[_p] == nodes[i]) { _src = _p; break; }
-                for (int _j = 0; _j < _N; _j++) { IR_t *_e = nodes[k]->operands[2 * _j]; for (int _p = 0; _p < n; _p++) if (nodes[_p] == _e) { if (_p <= _src) _arm = _j; break; } }
+                for (int _j = 0; _j < _N; _j++) { IR_t *_e = nodes[k]->operands[2 * _j]; for (int _p = 0; _p < n; _p++) if (nodes[_p] == _e) { if (_p <= _src && _p > _best) { _best = _p; _arm = _j; } break; } }
                 node_γ = fc_sig[k][_arm];
             }
             if (gamma_is_sig && fc_seq_on(nodes[k])) node_γ = fc_seq_sigma_tgt(nodes, n, k, i, lbls,  node_γ);   /* ZB-FC-3b: inside-success → NEXT element's α (static; rsp already correct) */
