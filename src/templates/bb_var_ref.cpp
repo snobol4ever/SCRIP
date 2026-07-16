@@ -17,7 +17,7 @@ std::string bb_var_ref() {
                  + "' has no addressable cell (NV-fallback global?) — needs a GVA/frame cell").c_str()))
              : x86("comment", "IR_VAR_REF")
              + x86_alpha()
-             + x86("lea",     "rdi", _.op_gva_k >= 0 ? RDQ("rbx", _.op_gva_k * 16) : FRQ(_.op_sa))
+             + (_.op_gva_k >= 0 ? x86("mov", "rdi", (long)(RT_GVA_VA + _.op_gva_k * 16)) : x86("lea", "rdi", FRQ(_.op_sa)))
              + x86("call",    "rt_var_ref_cell", (uint64_t)(uintptr_t)(void *)rt_var_ref_cell)
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
