@@ -13,7 +13,6 @@ extern "C" uint64_t g_patstk_sp;
 extern "C" uint64_t g_pat_main_rsp;
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
-extern "C" const char *g_dcap_top;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
 static inline int dswap() { return ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat; }
@@ -66,11 +65,8 @@ std::string bb_match_defer() {
           * register allocation.  Any transfer with a LIVE matcher cursor must save them itself — M3 and NCB-2's
           * generator arms included. */
          + x86_xfer_enter()
-         /* rbp-dcap mirror-out: the callout pump below transfers into proc bodies that may run their own
-          * matches — their heads load g_dcap_top and must see the live top (match-family boxes only; the
-          * shared x86_frame_sink stays clean because non-SNOBOL graphs carry a non-cursor rbp). */
-         + x86("mov",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_dcap_top, "g_dcap_top")
-         + x86("mov",  RDQ("rcx", 0), "rbp")
+         /* REG-2: the old rbp-dcap mirror-out died with the park — the pinned cell [RT_CAS_TOP] is always
+          * live, so a nested match's head reads the true top directly. */
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
          + x86("xor",  "esi", "esi")
          + x86_anchor_enter()

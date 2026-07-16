@@ -834,6 +834,15 @@ inline std::string x86_abs_disp32_store64(long va, const char * src) {
     return std::string(" mov qword ptr [") + std::to_string(va) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_abs_disp32_addsub_imm8(int is_sub, long va, long imm) {
+    if (imm < -128 || imm > 127) { fprintf(stderr, "FATAL x86_abs_disp32_addsub_imm8: imm %ld outside imm8 (REG-2 shape is imm8-only; widen the encoder before widening a client)\n", imm); abort(); }
+    if (MEDIUM_BINARY) {
+        std::string c; c += (char)0x48; c += (char)0x83; c += (char)(is_sub ? 0x2C : 0x04); c += (char)0x25;
+        c += u32le((uint32_t)va); c += (char)(uint8_t)(int8_t)imm; return x86_Lrec(c);
+    }
+    return std::string(is_sub ? " sub" : " add") + " qword ptr [" + std::to_string(va) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_load32(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1197,6 +1206,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "add")) {
         if (a.kind == XK_REG && b.kind == XK_REG)  return x86_add_rr(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM)  return x86_add(a.txt, b.imm);
+        if (a.kind == XK_ABS64 && b.kind == XK_IMM) return x86_abs_disp32_addsub_imm8(0, a.imm, b.imm);
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_add_to_reg(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
@@ -1211,6 +1221,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
     if (!strcmp(mnem, "sub")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_sub_rr(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_sub(a.txt, b.imm);
+        if (a.kind == XK_ABS64 && b.kind == XK_IMM) return x86_abs_disp32_addsub_imm8(1, a.imm, b.imm);
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_sub_from_reg(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_sub_from_reg32(a.txt, b.off);
         if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64) {
