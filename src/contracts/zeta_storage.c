@@ -212,6 +212,52 @@ static int zls_scope_new(int parent, int klass, const char * name) {
     return zs_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fct_fp_range / fct_leaf_range -- R12-EXIT-1 L1 (the s69 ALT-in-body lift): the FINALIZE-PASS twins of lower_snobol4.c's fc_walk_range/fc_leaf_walk ALT arms, verbatim shape.  A GRANTED ALTERNATE
+ * contributes 16 (own cell) + fpmax (the S10d padded arm -- only one arm is live at yield) with its arm allocation extent SKIPPED on the spine (the naive fc_geom range sum counts every arm's leaves =
+ * the exact over-count the pre-lift fc_tail_walk decline existed to avoid; fc_geom(granted ALT)=16, so the ALT case MUST run before the fc_geom catch).  Leaf displacements: the ALT itself registers
+ * at pfx+16+bias (window refs bypass, uniformity only); each ARM restarts at pfx+16 (arms are alternatives on top of the ALT's cell, not concatenation -- recursion covers nested granted ALTs, which
+ * fc_alt_register admits at statement level); nodes AFTER the ALT continue at pfx+16+fpmax (the pad stubs' uniform yield depth).  bias carries the region formula (0 left-flat / -bmn body /
+ * fpb+span-rmn right); skip = the ARBNO node itself (registers nothing; its tail arm speaks raw [rsp+const]).  An ungranted ALT cannot reach a finalized candidate (fc_tail_walk declined the
+ * statement), so the fc_alt guard here is belt-and-braces. */
+int fc_alt_fpmax(const IR_t *);
+int fc_alt_extent(const IR_t *, int *, int *);
+int fc_alt_n(const IR_t *);
+int fc_alt_arm_range(const IR_t *, int, int *, int *);
+int fc_geom(const IR_t *, long *);
+void fc_leaf_register(const IR_t *, int);
+static int fct_fp_range(IR_graph_t * g, int k0, int k1) {
+    int fp = 0; long fck = 0;
+    for (int j = k0; j < k1 && j < g->n; j++) {
+        IR_t * x = g->all[j];
+        if (!x) continue;
+        if (x->op == IR_MATCH_ALTERNATE) {
+            int _b = 0, _e = 0;
+            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { fp += 16 + fc_alt_fpmax(x); if (_e > j + 1) j = _e - 1; }
+            continue;
+        }
+        if (fc_geom(x, &fck)) fp += (int)fck;
+    }
+    return fp;
+}
+static int fct_leaf_range(IR_graph_t * g, int k0, int k1, int pfx, int bias, const IR_t * skip) {
+    for (int j = k0; j < k1 && j < g->n; j++) {
+        IR_t * x = g->all[j];
+        if (!x || x->op == IR_GOTO || x == skip) continue;
+        if (x->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(x) >= 0) {
+            int _nA = fc_alt_n(x), _elast = j + 1;
+            fc_leaf_register(x, pfx + 16 + bias);
+            for (int a = 0; a < _nA; a++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, a, &_b, &_e)) { fct_leaf_range(g, _b, _e, pfx + 16, bias, skip); if (_e > _elast) _elast = _e; } }
+            pfx += 16 + fc_alt_fpmax(x);
+            if (_elast > j + 1) j = _elast - 1;
+            continue;
+        }
+        long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
+        fc_leaf_register(x, pfx + (int)own + bias);
+        pfx += (int)own;
+    }
+    return pfx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
     if (!g) return;
     zls_graph_t * r = zls_g_find(g);
@@ -328,13 +374,16 @@ void zls_build(IR_graph_t * g) {
         for (int j = b1 + 1; j < r1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; if (e->off < rmn) rmn = e->off; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > rmx) rmx = zf[f].off + zf[f].size; }
         int span = (bmn == 0x7fffffff) ? 0 : bmx - bmn;
         int rspan = (rmn == 0x7fffffff) ? 0 : rmx - rmn;
-        int fpl = 0, fpb = 0, fpr = 0;
-        for (int j = i0; j < ia && j < g->n; j++) if (g->all[j] && fc_geom(g->all[j], &k1)) fpl += (int)k1;
-        for (int j = b0; j <= b1 && j < g->n; j++) if (g->all[j] && fc_geom(g->all[j], &k1)) fpb += (int)k1;
-        for (int j = b1 + 1; j < r1 && j < g->n; j++) if (g->all[j] && fc_geom(g->all[j], &k1)) fpr += (int)k1;
-        { int pfx = 32; for (int j = i0; j < ia && j < g->n; j++) { IR_t * x = g->all[j]; if (!x || x->op == IR_GOTO || x == (IR_t *)fct[c].arbno) continue; long own = 0; if (fc_geom(x, &k1)) own = k1; fc_leaf_register(x, pfx + (int)own); pfx += (int)own; } }
-        { int pfx = 0; int mb = (bmn == 0x7fffffff) ? 0 : bmn; for (int j = b0; j <= b1 && j < g->n; j++) { IR_t * x = g->all[j]; if (!x || x->op == IR_GOTO) continue; long own = 0; if (fc_geom(x, &k1)) own = k1; fc_leaf_register(x, pfx + (int)own - mb); pfx += (int)own; } }
-        { int pfx = 0; int mr = (rmn == 0x7fffffff) ? 0 : rmn; for (int j = b1 + 1; j < r1 && j < g->n; j++) { IR_t * x = g->all[j]; if (!x || x->op == IR_GOTO) continue; long own = 0; if (fc_geom(x, &k1)) own = k1; fc_leaf_register(x, fpb + pfx + (int)own + span - mr); pfx += (int)own; } }
+        /* L1 ALT-in-body lift: footprints + leaf displacements via the ALT-aware helpers (fct_fp_range/fct_leaf_range above) -- a granted ALT enters each range as 16+fpmax with its arm extent skipped,
+         * its arm leaves registering per-arm at pfx+16 with the same region bias.  ALT-free ranges reduce to the exact prior linear walks (same fc_geom sums, same formulas: left = 32+prefix+own flat,
+         * body = prefix+own-bmn, right = fpb+prefix+own+span-rmn). */
+        int fpl = fct_fp_range(g, i0, ia);
+        int fpb = fct_fp_range(g, b0, b1 + 1);
+        int fpr = fct_fp_range(g, b1 + 1, r1);
+        (void)k1;
+        fct_leaf_range(g, i0, ia, 32, 0, fct[c].arbno);
+        { int mb = (bmn == 0x7fffffff) ? 0 : bmn; fct_leaf_range(g, b0, b1 + 1, 0, -mb, fct[c].arbno); }
+        { int mr = (rmn == 0x7fffffff) ? 0 : rmn; fct_leaf_range(g, b1 + 1, r1, 0, fpb + span - mr, fct[c].arbno); }
         fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 15) & ~15; fct[c].fin = 1;
       }
     }

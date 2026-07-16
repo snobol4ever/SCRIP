@@ -811,6 +811,24 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_in_arbno = 0;   /* ZB-FC-3b: >0 while lowering an ARBNO body; balanced, so it always returns to 0 (EVAL/CODE mint fresh graphs in-process) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* sno_cap_defer -- R12-EXIT-1 L1b (Lon ruling this session: "all ARBNO needs to know is what size of children it has" -- the capture joins the predetermined-size list).  A capture lowered INSIDE an
+ * ARBNO body cannot register its FORTH cell at lowering time: the grant is only sound if the statement takes the ELEMENT path (LIFO fixed-size pushes, uniform depth), and candidacy is decided later;
+ * on the anchored/heap-flavor path the old rsp-moves-per-iteration premise still holds and the flat rt_cap array stays correct.  So the walk runs UNCONDITIONALLY here (fp_inner is real), the
+ * registration is DEFERRED, and the candidacy site PROMOTES iff the statement converts.  i_end = g->n at defer time = the inner allocation end (nesting detection).  The list is per-statement
+ * (cleared at each statement's pattern lower entry); nested-in-arbno captures and captures inside granted-ALT arm extents stay unpromotable (their enclosing fp was baked without the cell) and force
+ * the statement to decline to the anchored window (degrade never die). */
+static struct { const IR_t * nd; const IR_t * save; int nd_idx; int save_idx; int i_end; int fp_inner; } scd[64];
+static int scd_n = 0;
+static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp);
+static void sno_cap_defer_reset(void) { scd_n = 0; }
+static void sno_cap_fc(IR_graph_t * g, IR_t * nd, IR_t * save, int before_i) {
+    int fp_inner = 0; int walk_ok = fc_walk_range(g, before_i, g->n, 0, &fp_inner);
+    if (!walk_ok) return;                                          /* inner not fc-linear: flat rt_cap path verbatim, both paths */
+    if (sno_in_arbno == 0) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); return; }
+    if (scd_n >= 64) return;                                       /* silent defer-table overflow: capture stays ungranted, statement declines at the cap scan */
+    scd[scd_n].nd = nd; scd[scd_n].save = save; scd[scd_n].nd_idx = before_i - 2; scd[scd_n].save_idx = before_i - 1; scd[scd_n].i_end = g->n; scd[scd_n].fp_inner = fp_inner; scd_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
     /* ALT-LIFT (the s65 named follow-on): the ONE eligibility+footprint walk all four grant sites share.  A GRANTED ALTERNATE contributes 16 (its own cell) + fpmax (the S10d padded arm -- only one arm
      * is live at yield, padded to max by the sigma stubs) and its arm allocation extent is SKIPPED (the naive range sum counted every arm's leaves = the exact over-count the pre-lift decline existed
@@ -863,12 +881,20 @@ static int fc_leaf_walk(IR_graph_t * g, int k0, int k1, int pfx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
     /* R12-EXIT-1 CARRY-THE-TAIL admission walk (fc_walk_range's shape, ARBNO-statement flavor): every node in the range must be a granted/zero-cell leaf, SEQUENCE, capture pair, wiring, or inline
-     * literal.  ALTERNATE declines wholesale v1 (its pad-to-max fpmax would have to enter the element footprint -- a named follow-on); ARBNO/DEFER/unknowns decline as ever.  Runtime-arg primitives
-     * are excluded at the CALLER via cx->npre (their pre-chain operand slots are FLAT, unreachable at element depth without the deleted scratch-load). */
+     * literal.  L1 ALT-IN-BODY LIFT (the s69 named follow-on, landed): a GRANTED ALTERNATE is admissible -- its arms are linear by fc_alt_register's own admission, its footprint enters the element
+     * as 16+fpmax in the finalize pass (only one padded arm is live at yield, the S10d law), and its arm extent is SKIPPED here (arm leaves are alternatives, counted per-arm at finalize, not on the
+     * spine).  The ALT arm MUST run before the fc_geom catch (fc_geom(granted ALT)=16 -- the exact 163-regression slip the statement grant hit at s66).  An UNGRANTED ALTERNATE still declines
+     * wholesale; ARBNO/DEFER/unknowns decline as ever.  Runtime-arg primitives are excluded at the CALLER via cx->npre (their pre-chain operand slots are FLAT, unreachable at element depth without
+     * the deleted scratch-load). */
+    extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_extent(const IR_t *, int *, int *);
     for (int k = k0; k < k1 && k < g->n; k++) {
         IR_t * x = g->all[k];
         if (!x) continue;
-        if (x->op == IR_MATCH_ALTERNATE) return 0;
+        if (x->op == IR_MATCH_ALTERNATE) {
+            int _b = 0, _e = 0;
+            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > k + 1) k = _e - 1; continue; }
+            return 0;
+        }
         { long fck; if (fc_geom(x, &fck)) continue; }
         switch (x->op) {
         case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
@@ -1085,17 +1111,18 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, itail); /* COND backtrack-in: resume or pop */
         ir_operand_push(nd, pe);                                   /* [0] inner entry */
         ir_operand_push(nd, save);                                 /* [1] SAVE → COND.op_off = save's slot */
-        {   /* ZB-FC-3c (ARCH-ZETA S13 Tier C; plan of record = the s47 COND-CROSS-BOX-READ finding) + ALT-LIFT: SAVE
+        {   /* ZB-FC-3c (ARCH-ZETA S13 Tier C; plan of record = the s47 COND-CROSS-BOX-READ finding) + ALT-LIFT + L1b: SAVE
              * gets a 16-byte cell (delta at cell+0, rt_cap array retired on the granted path) and COND reads
              * it CROSS-BOX at [rsp + fp(inner)] -- static by S10c (cells pop at omega not gamma, so the whole
              * inner subtree is still suspended at COND.alpha).  fp(inner) via the shared fc_walk_range: a
              * granted ALT inner contributes 16+fpmax (its pad stubs ran at sigma before control reaches
              * COND.alpha, so the padded depth IS the suspended depth); ungranted ALT/ARBNO/ARB/DEFER inside
-             * the inner still declines, as does a capture *inside* an ARBNO body (sno_in_arbno) -- either
-             * direction declines BOTH registrations and the capture keeps today's flat array path verbatim
-             * (degrade never die). */
-            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_i, g->n, 0, &fp_inner);
-            if (fc_lin) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); }
+             * the inner still declines both registrations and the capture keeps today's flat array path
+             * verbatim (degrade never die).  Inside an ARBNO body the registration DEFERS to the statement
+             * candidacy site (sno_cap_fc): the cell is sound only on the ELEMENT path (Lon's static-size
+             * ruling -- the capture is just another predetermined 16 in the sum there), while a declined/
+             * anchored statement keeps the flat array (rsp still moves per iteration on that machinery). */
+            sno_cap_fc(g, nd, save, before_i);
         }
         return save;                                               /* capture entry is the SAVE node */
     }
@@ -1120,10 +1147,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, itail);
         ir_operand_push(nd, pe);
         ir_operand_push(nd, save);
-        {   /* ZB-FC-3c + ALT-LIFT: $ is the IDENTICAL topology at op_phase 2 (the s47 finding's C5 -- one mechanism,
-             * two phases); same shared walk, same two-directional fence, same registrations. */
-            int fp_inner = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_i, g->n, 0, &fp_inner);
-            if (fc_lin) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); }
+        {   /* ZB-FC-3c + ALT-LIFT + L1b: $ is the IDENTICAL topology at op_phase 2 (the s47 finding's C5 -- one mechanism,
+             * two phases); same shared walk, same two-directional fence, same registrations, same in-ARBNO deferral. */
+            sno_cap_fc(g, nd, save, before_i);
         }
         return save;
     }
@@ -1349,6 +1375,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     if (has_repl) IR_LIT(release).dval = 1.0;
     ir_operand_push(release, head);
     int before_pat = g->n;
+    sno_cap_defer_reset();   /* L1b: the deferred in-ARBNO capture list is per-statement — entries from a statement whose candidacy never consumed them (npre/REPLACE/multi-ARBNO early-outs) must not leak into the next statement's promotion scan */
     IR_t * pat_entry = sno_pat_node(cx, ptt, release, head);
     lc_γ_to(head, pat_entry);
     {   /* ZB-FC-3d (partition ruling, s49) + ALT-LIFT (the s65 named follow-on, landed): the statement grant.  The shared fc_walk_range over the PATTERN range only ([before_pat, g->n) -- head/release/
@@ -1377,7 +1404,36 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                     if (i_b0 > i_arb && i_b1 >= i_b0) {
                         int cap_left = 0;
                         for (int k = before_pat; k < i_arb; k++) { IR_t * x = g->all[k]; if (x && (x->op == IR_MATCH_ASSIGN_SAVE || x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM)) { cap_left = 1; break; } }
-                        if (!cap_left && fc_tail_walk(g, before_pat, i_arb) && fc_tail_walk(g, i_b0, i_b1 + 1) && fc_tail_walk(g, i_b1 + 1, g->n)) {
+                        /* L1b PROMOTION PROTOCOL (Lon ruling this session: the capture is just another predetermined size).  A deferred body capture PROMOTES to its FORTH cell iff the statement takes
+                         * the element path — the walk already proved its inner linear and computed fp_inner; on the element path the cell is exactly SPAN's 16, LIFO with the element.  UNPROMOTABLE
+                         * residues (their enclosing footprints were baked at lowering time WITHOUT the 16, so granting now would desync depth): (a) a capture inside a granted-ALT arm extent (the fca
+                         * arm fp is baked); (b) nested deferred captures (the outer's fp_inner is baked without the inner SAVE's cell).  Any capture in the element ranges that would stay UNGRANTED —
+                         * unpromotable residue, walk-failed inner, or a right-range capture that never granted — forces the statement to DECLINE to the anchored window: the flat rt_cap slot is a
+                         * PERSISTENT {buf,gen,sp} struct (pattern_match.c) and cannot live in transient element memory (the 163 finding — garbage nonzero buf in fresh element bytes reads/writes wild).
+                         * Promotion is applied ONLY after every gate passes: a declined statement must keep every capture ungranted (the anchored ARBNO machinery still moves rsp per iteration —
+                         * the sno_in_arbno gate's original and still-valid premise there). */
+                        int cap_bad = 0;
+                        char promo[64]; for (int d = 0; d < scd_n; d++) promo[d] = 0;
+                        { extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_extent(const IR_t *, int *, int *); extern int fc_cond_fp(const IR_t *);
+                          for (int d = 0; d < scd_n && !cap_bad; d++) {
+                              if (scd[d].save_idx < i_b0 || scd[d].nd_idx >= g->n) { cap_bad = 1; break; }   /* a deferred entry outside the element ranges has no sound home on either path — decline */
+                              int in_arm = 0;
+                              for (int k = i_b0; k < g->n; k++) { IR_t * x = g->all[k]; if (!x || x->op != IR_MATCH_ALTERNATE || fc_alt_fpmax(x) < 0) continue; int _b = 0, _e = 0; if (fc_alt_extent(x, &_b, &_e) && scd[d].nd_idx >= _b && scd[d].nd_idx < _e) { in_arm = 1; break; } }
+                              int nested = 0;
+                              for (int e = 0; e < scd_n; e++) { if (e == d) continue; if (scd[e].nd_idx > scd[d].save_idx && scd[e].nd_idx < scd[d].i_end) { nested = 1; break; } }
+                              if (in_arm || nested) cap_bad = 1; else promo[d] = 1;
+                          }
+                          if (!cap_bad) for (int k = i_b0; k < g->n; k++) {   /* any element-range COND/IMM neither granted nor promotable-deferred = the rt_cap path = the 163 mine */
+                              IR_t * x = g->all[k];
+                              if (!x || (x->op != IR_MATCH_ASSIGN_COND && x->op != IR_MATCH_ASSIGN_IMM)) continue;
+                              if (fc_cond_fp(x) >= 0) continue;
+                              int def_ok = 0; for (int d = 0; d < scd_n; d++) if (scd[d].nd == x && promo[d]) { def_ok = 1; break; }
+                              if (!def_ok) { cap_bad = 1; break; }
+                          }
+                        }
+                        if (!cap_left && !cap_bad && fc_tail_walk(g, before_pat, i_arb) && fc_tail_walk(g, i_b0, i_b1 + 1) && fc_tail_walk(g, i_b1 + 1, g->n)) {
+                            { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int);
+                              for (int d = 0; d < scd_n; d++) if (promo[d]) { fc_save_register(scd[d].save); fc_cond_register(scd[d].nd, scd[d].fp_inner); } }
                             extern void fc_tail_candidate(const IR_t *, const IR_t *, int, int, int, int, int);
                             fc_tail_candidate(head, R, before_pat, i_arb, i_b0, i_b1, g->n);
                             if (pat_entry && pat_entry->op == IR_MATCH_SEQUENCE) { extern void fc_seq_register(const IR_t *); fc_seq_register(pat_entry); }
