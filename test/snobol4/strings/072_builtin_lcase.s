@@ -24,6 +24,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 136], rsp
   mov r12, qword ptr [1879048192]
+  mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
 # IR_KEYWORD_SNOBOL4_read
@@ -60,6 +61,7 @@ main_γ:
 mov eax, 1
 xor edx, edx
 mov rsp, qword ptr [rsp + 136]
+mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 main_ω:
@@ -69,5 +71,6 @@ mov dword ptr [rsp+4], 0
 mov qword ptr [rsp+8], 0
 mov eax, 99
 xor edx, edx
+mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
