@@ -1,5 +1,8 @@
 #include "rt.h"
 #include "rt_arena.h"
+#include "rt_coexpr.h"
+#include <unistd.h>
+#include <stddef.h>
 #include "../contracts/pin_va.h"
 #include <alloca.h>
 #include "gc_heap.h"
@@ -582,12 +585,92 @@ int64_t rt_initial_fire(int64_t site)
     if (g_initial_fired_n < RT_INITIAL_MAX) g_initial_fired[g_initial_fired_n++] = site;
     return 1;
 }
+/* GENP slice-2 (Lon 2026-07-17 directive: "co-expressions and generator PROCEDURES get their OWN stack PER INSTANCE"): a generator-proc activation = a scrip_coctx_t on its own pthread stack (GC-heap
+ * carved + registered per GC-U-6/7, rt_coexpr.c).  The jmp-entry body runs UNCHANGED on the instance stack (self-allocates, recursion/depth all natural); bb_suspend's flat_gen arm transmits the value
+ * via rt_genp_yield (scrip_coret) and resumes by falling through when the caller re-activates; real return/fail unwind through rt_proc_enter's existing γ/ω landings into rt_genp_entry_c, which
+ * transmits the final value (done=1) or failure (done=2) and parks — scrip_coexpr_destroy joins the parked thread.  done: 0=live(yield) 1=returned(final value, not resumable) 2=failed. */
+typedef struct rt_genp_s {
+    struct rt_genp_s *next;                                                                             /* offset 0 — live-instance list, the resume-window discriminator (rt_genp_lookup)   */
+    uint64_t          regs[5];                                                                          /* offsets 8..47: caller's rbx r12 r13 r14 r15, restored by rt_genp_thread_entry     */
+    scrip_coctx_t     co;
+    DESCR_t           args[CALL_ARGS_MAX];
+    int               nargs;
+    void             *fn;
+    const char       *name;
+    int               done;
+} rt_genp_s;
+_Static_assert(offsetof(rt_genp_s, next) == 0 && offsetof(rt_genp_s, regs) == 8, "rt_genp_s layout drift vs rt_genp_thread_entry asm offsets");
+static rt_genp_s *g_genp_head = (rt_genp_s *)0;
+extern void rt_genp_entry_c(rt_genp_s *g);
+extern void rt_genp_thread_entry(void *arg);
+__asm__(
+".text\n"
+".globl rt_genp_thread_entry\n"
+"rt_genp_thread_entry:\n"
+"  movq  8(%rdi), %rbx\n"
+"  movq 16(%rdi), %r12\n"
+"  movq 24(%rdi), %r13\n"
+"  movq 32(%rdi), %r14\n"
+"  movq 40(%rdi), %r15\n"
+"  jmp rt_genp_entry_c\n"
+);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_genp_entry_c(rt_genp_s *g)
+{
+    for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
+    long fb = rt_proc_call_open(g->name, g->nargs);
+    DESCR_t r = FAILDESCR;
+    if (fb) r = rt_proc_enter(g->fn);
+    if (IS_FAIL(r)) { g->done = 2; scrip_cofail(); }
+    else            { uint64_t d[2]; memcpy(d, &r, 16); g->done = 1; scrip_coret(d[0], d[1], (void *)0); }
+    for (;;) pause();                                                                                   /* unreachable: both arms switch away and park; destroy joins */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_genp_yield(uint64_t d0, uint64_t d1) { scrip_coret(d0, d1, (void *)0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rt_genp_s *rt_genp_lookup(void *h) { for (rt_genp_s *g = g_genp_head; g; g = g->next) if ((void *)g == h) return g; return (rt_genp_s *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_genp_destroy(rt_genp_s *g)
+{
+    scrip_coexpr_destroy(&g->co);
+    rt_genp_s **pp = &g_genp_head; while (*pp && *pp != g) pp = &(*pp)->next; if (*pp) *pp = g->next;
+    free(g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t out2[2], void **hout)
+{
+    DESCR_t r;
+    if (!ok || g->done == 2) { if (hout) *hout = (void *)0; rt_genp_destroy(g); return FAILDESCR; }
+    memcpy(&r, out2, 16);
+    if (g->done == 1) { if (hout) *hout = (void *)0; rt_genp_destroy(g); return r; }
+    if (hout) *hout = (void *)g;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 {
     rt_proc_t *p = (rt_proc_t *)0;
     for (int i = 0; i < g_rt_gen_proc_count; i++)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
     if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
+    if (p->jmp_entry && rt_proc_is_generator(name)) {   /* GENP slice-2: per-instance-stack generator.  Capture the caller's callee-saved regs FIRST (O0 keeps them untouched this early — the emitted caller's rbx/r12 GVA/ζ bases and any live scan triad ride into the instance thread via rt_genp_thread_entry); copy the staged args (caller blocks on the activate handshake, so the replay on the instance thread is race-free); first activation and every resume go through the ONE scrip_coexpr_activate window. */
+        uint64_t cregs[5];
+        __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
+        rt_genp_s *g = (rt_genp_s *)calloc(1, sizeof *g);
+        if (!g) { if (hout) *hout = (void *)0; return FAILDESCR; }
+        memcpy(g->regs, cregs, sizeof cregs);
+        g->nargs = nargs; if (g->nargs > CALL_ARGS_MAX) g->nargs = CALL_ARGS_MAX; if (g->nargs < 0) g->nargs = 0;
+        for (int i = 0; i < g->nargs; i++) g->args[i] = g_call_args[i];
+        g->fn = (void *)p->fn; g->name = p->name; g->done = 0;
+        scrip_co_ctx_init(&g->co, rt_genp_thread_entry, (void *)g);
+        scrip_co_gc_link(&g->co);
+        g->next = g_genp_head; g_genp_head = g;
+        uint64_t out2[2] = { 0, 0 };
+        rt_k_level++;
+        int ok = scrip_coexpr_activate(&g->co, 0, 0, out2);
+        rt_k_level--;
+        return rt_genp_triage(g, ok, out2, hout);
+    }
     if (p->jmp_entry) {   /* NCB-1d: a DET jmp-entry callee reached through the value/generator window (proc values in `every (!plist)()`, computed calls) — one-shot: the recorded regime says the body self-allocates and fully unwinds, so entering it with `call fn(fb,0)` would jmp a garbage γ-wire (rung37_proc_lookup crash).  Route through the two-landing shim (args are already staged in g_call_args by the value marshaller; the open pushes the lex record); no resumable frame exists, so hout stays null and any β re-drive sees an exhausted generator. */
         long fb2 = rt_proc_call_open(name, nargs);
         if (!fb2) { if (hout) *hout = (void *)0; return FAILDESCR; }
@@ -645,6 +728,14 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
 {
     void *frame = hslot ? *hslot : (void *)0;
     if (!frame) return FAILDESCR;
+    { rt_genp_s *g = rt_genp_lookup(frame);                                                             /* GENP slice-2: live-instance list membership IS the flavor discriminator (a ZH handle or legacy fb pointer can never collide with a listed rt_genp_s address) */
+      if (g) {
+          uint64_t out2[2] = { 0, 0 };
+          rt_k_level++;
+          int ok = scrip_coexpr_activate(&g->co, 0, 0, out2);
+          rt_k_level--;
+          return rt_genp_triage(g, ok, out2, hslot);
+      } }
     if (rt_zeta_mode() == ZC_ZETA_ZH) {
         unsigned h = (unsigned)(uintptr_t)frame;
         rt_zh_pin(h);

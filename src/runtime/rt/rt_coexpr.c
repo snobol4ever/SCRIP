@@ -186,6 +186,26 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GENP slice-2: field-init an EMBEDDED ctx (rt_genp_s carries its scrip_coctx_t by value — same inits as scrip_coexpr_create minus the malloc/pkg) and the gc-list link, exported because g_co_gc_head is this TU's static.  Live-count rides the same g_scrip_coexpr_live the create/destroy pair maintains (destroy's unlink decrements it). */
+void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry_arg) {
+    extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
+    ctx->entry_fn  = entry_fn;
+    ctx->entry_arg = entry_arg;
+    ctx->alive = 0;
+    ctx->semp  = NULL;
+    ctx->activator   = NULL;
+    ctx->resume_addr = NULL;
+    ctx->dead        = 0;
+    ctx->xmit[0]     = 0;
+    ctx->xmit[1]     = 0;
+    ctx->stk_win     = 0;
+    ctx->stk_guard   = 0;
+    for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
+    ctx->gc_next = NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void scrip_co_gc_link(scrip_coctx_t *ctx) { ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_co_gc_root(void) { return &g_root_ctx; }

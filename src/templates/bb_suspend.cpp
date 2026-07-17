@@ -6,6 +6,10 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
+extern "C" void rt_genp_yield(uint64_t, uint64_t);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline bool genp_regime() { return _.flat_gen != 0; }
+static inline uint64_t genp_yield_fp() { void (*fp)(uint64_t, uint64_t) = rt_genp_yield; return (uint64_t)(uintptr_t)(void *)fp; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_suspend() {
     x86_begin();
@@ -18,7 +22,9 @@ std::string bb_suspend() {
              + x86("mov", FRQ(0), "rax")
              + x86("mov", "rax", FRQ(_.op_sa + 8))
              + x86("mov", FRQ(8), "rax")
-             + x86_gamma()
+             + (genp_regime()
+                    ? x86("mov", "rdi", FRQ(0)) + x86("mov", "rsi", FRQ(8)) + x86("call", "rt_genp_yield", genp_yield_fp())
+                    : x86_gamma())
              + x86_beta()
              + (_.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega());
     return std::string();
