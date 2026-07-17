@@ -113,8 +113,11 @@ static std::string bcps_det_arm() {
          + x86("call", "rt_proc_call_open", open_fp)
          + x86("test", "rax", "rax")
          + x86("je", L(1))
-         + (is_dyn && ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat
-            /* R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi. */
+         + (is_dyn && ZC_FRAME == ZC_FRAME_RSP
+            /* R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi.
+             * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
+             * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call).  Unexercised intersection (census
+             * 0/308): soundness is by the exit-class argument above, non-regression by the gates. */
             ? x86("call", "rt_proc_open_fn", openfn_fp)
             + x86_lea_id("rcx", 3)
             + x86_lea_id("rdx", 4)
@@ -126,12 +129,11 @@ static std::string bcps_det_arm() {
             + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
             + x86("jmp", L(2))
             : is_dyn
-            /* ⛔ REG-6 HAZARD FLAG (s80) on this legacy non-RSP/flat_pat arm — REG-7 AUDIT ITEM, unresolved by
-             * design: between `mov r12,rsp` below and the landing's `pop r12`, r12 is a STACK ANCHOR, not the
-             * pend top — a callee capture would bump the anchor (pend records onto the stack, corrupted
-             * landing).  Unexercised today (census 0/308, the s79 measurement) and slated for collapse into
-             * the anchor-free first arm at REG-7 once the LIFO-unwind property is audited for this class;
-             * left byte-identical here per Lon's explicit deferral (s79 "REG-7 audit item"). */
+            /* LEGACY-CONFIG ONLY (REG-7 s80 audit resolved; was the ⛔ REG-6 hazard flag): reachable solely
+             * when ZC_FRAME != ZC_FRAME_RSP after the guard widening above — configs where r12 IS the ζ frame
+             * (pre-REG-MAP tenancy), the pend top is NOT register-resident, and this rsp-anchor bracket is the
+             * correct suspending-exit protocol.  Under the RSP default this arm is unreachable, so the REG-6
+             * unsoundness (a callee capture bumping the anchor) cannot fire.  Delete with the legacy configs. */
             ? x86("call", "rt_proc_open_fn", openfn_fp)
             + x86("push", "r12")
             + x86("sub", "rsp", 8L)
