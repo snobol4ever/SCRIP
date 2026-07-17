@@ -113,6 +113,12 @@
 #ifndef ZC_ZH_IN_GCHEAP
 #define ZC_ZH_IN_GCHEAP 1
 #endif
+/* ZC_COEXPR_STACK_GCHEAP (GC-U-6 slice 3, s89 Lon rulings: coexprs OWN their stack; gen procs = ordinary BBs, LIFO on the calling spine — escapee class is coexpr ONLY): each coexpr pthread stack is
+ * CARVED from the collected span (HB_ZBLK window, page-aligned interior, low guard page PROT_NONE since setstack stacks get no libc guard), pinned-while-live (thread = liveness), and at
+ * scrip_coexpr_destroy the guard is restored RW and the title flips HB_FILL — gc SLIDE reclaims dead coexpr stacks.  0 = the anonymous pthread_attr_setstacksize arm intact for A/B. */
+#ifndef ZC_COEXPR_STACK_GCHEAP
+#define ZC_COEXPR_STACK_GCHEAP 1
+#endif
 #ifndef ZC_PORT
 #define ZC_PORT ZC_PORT_FORTH
 #endif

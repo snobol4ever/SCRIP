@@ -18,6 +18,7 @@ typedef struct scrip_coctx_t {
     void     *resume_addr;
     int       dead;
     uint64_t  xmit[2];
+    void *stk_win; unsigned long stk_guard;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
