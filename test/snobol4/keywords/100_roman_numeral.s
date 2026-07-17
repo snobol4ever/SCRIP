@@ -2134,7 +2134,7 @@ proc_roman_α_body:
  jmp xchain0_n139_α
 proc_roman_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_roman_β:
 jmp proc_roman_ω
 proc_roman_γ:

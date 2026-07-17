@@ -90,7 +90,7 @@ proc_bumpit_α_body:
  jmp proc_bumpit_γ
 proc_bumpit_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_bumpit_β:
 jmp proc_bumpit_ω
 proc_bumpit_γ:

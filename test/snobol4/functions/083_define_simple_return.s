@@ -90,7 +90,7 @@ proc_double_α_body:
  jmp proc_double_γ
 proc_double_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_double_β:
 jmp proc_double_ω
 proc_double_γ:
