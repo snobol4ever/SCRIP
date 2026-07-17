@@ -151,7 +151,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (!g_frame_active || g_emit_frame_caller_dl > 0) { fprintf(stderr, "FATAL xa_flat: jmp-entry blob must be frame-active with no display reg (frame_active=%d caller_dl=%d)\n", g_frame_active, g_emit_frame_caller_dl); abort(); }
                 int kt = g_emit.flat_frame_bytes;
                 if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat: jmp-entry K_total=%d (must be 16-mult >= 48: 32B wire header + region)\n", kt); abort(); }
-                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65 BINARY twin: header above the frame (pat blobs fall through to the zr arms — zr is r12 for them) */
+                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 BINARY twin: header above the frame.  REG-7 U5 (Lon FORTH ruling): pat blobs now take THIS arm too — rbp pinned at base, cells ride the one rsp stream; the legacy zr arm below serves non-RSP builds only */
                     std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                     /* sub rsp, K_total */
                                   + bytes(4, "\x48\x89\x8C\x24") + u32le((uint32_t)(kt - 24))          /* mov [rsp + kt-24], rcx — outside-γ wire */
                                   + bytes(4, "\x48\x89\x94\x24") + u32le((uint32_t)(kt - 16))          /* mov [rsp + kt-16], rdx — outside-ω wire */
@@ -232,7 +232,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_emit.flat_jmp_entry) {
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65: HEADER ABOVE THE FRAME — [E-32, E) holds the wires, frame = [base, E-32), rsp = base.  The old header-below layout put the wires
+                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 (+ REG-7 U5: pat blobs unified onto this arm — Lon FORTH ruling): HEADER ABOVE THE FRAME — [E-32, E) holds the wires, frame = [base, E-32), rsp = base.  The old header-below layout put the wires
                      * directly under rsp, where the FIRST push (a HEAD cell, a callee's sub) clobbered them — recursive procs and any pattern inside a proc died exactly there.  Wires at
                      * [rsp + kt-24/-16]; the rep stosb count kt-32 stops below the header; the LIFO exits unwind the full kt.  Pat blobs fall through to the zr arms (zr = r12 for them). */
                     char b[640];
@@ -300,7 +300,24 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                  * (out_site/out_lbl/out_def describe THAT patch); the RETURN VALUE is γ piece B; out_fail =
                  * the ω-half. */
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65 BINARY twin of the TEXT LIFO exits: γ = mov rdi,[rsp] / mov rsi,[rsp+8] / mov rax,[rsp+kt-24] / lea rsp,[rsp+kt] / jmp rax; ω = mov rax,[rsp+kt-16] / lea / jmp */
+                if (ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) {   /* REG-7 U5 (Lon FORTH ruling) BINARY twin: pat-blob SUSPEND exits on the rbp/header-above protocol.  γ retains the activation — 16B resume record {landing, rbp} pushed at the DEEP frontier, wires read through the PINNED rbp ([rbp+kt-24/-16], depth-immune), caller rbp restored self-referentially [rbp+kt-8] (U2b discipline).  ω unwinds ABSOLUTELY: lea rsp,[rbp+kt] rejoins pre-entry rsp at ANY arrival depth (seal cuts), reads-before-motion (rax and the lea both read rbp before its restore). */
+                    std::string succA = bytes(1, "\x55")                                     /* push rbp — record payload: flat base */
+                                      + bytes(3, "\x48\x8D\x05");                            /* lea rax, [rip + res-landing] */
+                    out_site = (int)succA.size(); out_lbl = g_emit.flat_res_p; out_def = false;
+                    succA += u32le(0);
+                    std::string succB = bytes(1, "\x50")                                     /* push rax — record top: the landing word */
+                                      + bytes(3, "\x48\x8B\x85") + u32le((uint32_t)(kt - 24))   /* mov rax, [rbp + kt-24] — outside-γ wire via pinned base */
+                                      + bytes(3, "\x48\x8B\xAD") + u32le((uint32_t)(kt - 8))    /* mov rbp, [rbp + kt-8] — caller restore, self-referential (U2b) */
+                                      + bytes(2, "\xFF\xE0");                                /* jmp rax */
+                    std::string fo = bytes(3, "\x48\x8B\x85") + u32le((uint32_t)(kt - 16))      /* mov rax, [rbp + kt-16] — outside-ω wire */
+                                   + bytes(3, "\x48\x8D\xA5") + u32le((uint32_t)kt)              /* lea rsp, [rbp + kt] — ABSOLUTE unwind to pre-entry rsp */
+                                   + bytes(3, "\x48\x8B\xAD") + u32le((uint32_t)(kt - 8))        /* mov rbp, [rbp + kt-8] — caller restore */
+                                   + bytes(2, "\xFF\xE0");
+                    if (out_succ) *out_succ = succA;
+                    if (out_fail) *out_fail = fo;
+                    return succB;
+                }
+                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 BINARY twin of the TEXT LIFO exits: γ = mov rdi,[rsp] / mov rsi,[rsp+8] / mov rax,[rsp+kt-24] / lea rsp,[rsp+kt] / jmp rax; ω = mov rax,[rsp+kt-16] / lea / jmp */
                     std::string sg = bytes(4, "\x48\x8B\x3C\x24")                          /* mov rdi, [rsp] */
                                    + bytes(5, "\x48\x8B\x74\x24\x08")                      /* mov rsi, [rsp+8] */
                                    + bytes(4, "\x48\x8B\x84\x24") + u32le((uint32_t)(kt - 24))   /* mov rax, [rsp + kt-24] — γ wire in the ABOVE header */
@@ -396,7 +413,17 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_emit.flat_jmp_entry) {
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_pat) {   /* R12-ERAD s65: DETERMINATE LIFO exits, r12-free.  γ loads the result DESCR (frame slot 0) into rdi:rsi PRE-unwind (the landing's epilogue_γ takes it
+                if (ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) {   /* REG-7 U5 (Lon FORTH ruling) TEXT twin: pat-blob SUSPEND exits, rbp/header-above.  γ retains the activation (16B record {landing, rbp} at the deep frontier, wires via pinned rbp, self-referential caller restore); ω unwinds ABSOLUTELY lea rsp,[rbp+kt] (seal cuts arrive at any depth), reads-before-motion. */
+                    char sa[224], sb2[224], fb2[320];
+                    snprintf(sa, sizeof sa, "push rbp\nlea rax, [rip + %s]\n", (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
+                    snprintf(sb2, sizeof sb2, "push rax\nmov rax, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 24, kt - 8);
+                    snprintf(fb2, sizeof fb2, "%s%smov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n",
+                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt, kt - 8);
+                    if (out_succ) *out_succ = std::string(sa);
+                    if (out_fail) *out_fail = std::string(fb2);
+                    return std::string(sb2);
+                }
+                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65: DETERMINATE LIFO exits, r12-free.  γ loads the result DESCR (frame slot 0) into rdi:rsi PRE-unwind (the landing's epilogue_γ takes it
                      * BY VALUE — the frame is dead memory after the lea), reads the outside-γ wire at [rsp+kt−24] (the ABOVE header), fully unwinds frame+header (lea +kt rejoins the caller's pre-jmp rsp),
                      * and jmps the wire — no resume record: SNOBOL4 procs are determinate (β: jmp ω exists but fires only on a post-return re-entry, which is UB by the same determinacy).  ω mirrors with
                      * the [rsp+kt−16] wire.  GUARDED ASSUMPTION (relative lea): every exit path out of a match statement restores rsp through HEAD-ω/RELEASE before reaching proc-ω (the every-ω-pops law);
