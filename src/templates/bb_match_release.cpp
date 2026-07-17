@@ -34,7 +34,7 @@ static std::string release_pump() {
           * match; the old ring snapshotted base pointers at record time, the pointer-free entry moves that
           * immunity into the ctx).  A *VAR body's own match inherits r12 callee-saved and restores it by its
           * own release/ω truncate before returning — the LIFO theorem, now in a register. */
-         + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? x86("mov", "rdi", rspq((int)(_.op_off + 32 + 32))) : x86("mov",  "rdi", FRQ(_.op_off + 32)))   /* R12-ERAD s65: this read sits INSIDE the 32B xfer window (post-unwind, so no fc_disp); +32 is the xfer window depth */
+         + (ZC_FRAME == ZC_FRAME_RSP ? x86("mov", "rdi", rspq((int)(_.op_off + 32 + 32))) : x86("mov",  "rdi", FRQ(_.op_off + 32)))   /* R12-ERAD s65: this read sits INSIDE the 32B xfer window (post-unwind, so no fc_disp); +32 is the xfer window depth */
          + x86("mov",  "rsi", "r12")
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
@@ -46,13 +46,13 @@ static std::string release_pump() {
          + x86("test", "rax", "rax")
          + x86("je",   L(2))
          + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("push", x86_zr()) + x86("sub",  "rsp", 8L))
+         + IF(ZC_FRAME != ZC_FRAME_RSP, x86("push", x86_zr()) + x86("sub",  "rsp", 8L))
          + x86_lea_id("rcx", 3)
          + x86_lea_id("rdx", 4)
-         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("mov",  x86_zr(), "rsp"))
+         + IF(ZC_FRAME != ZC_FRAME_RSP, x86("mov",  x86_zr(), "rsp"))
          + x86_jmp_reg("rax")
          + x86("def",  L(3))
-         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("mov",  "rax", "rsp")
+         + IF(ZC_FRAME != ZC_FRAME_RSP, x86("mov",  "rax", "rsp")
              + x86("mov",  "rax", RDQ("rax", 8))
              + x86("mov",  "rdi", RDQ("rax", 0))
              + x86("mov",  "rsi", RDQ("rax", 8))
@@ -65,7 +65,7 @@ static std::string release_pump() {
          + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
          + x86("jmp",  L(1))
          + x86("def",  L(4))
-         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("mov",  "rsp", x86_zr())
+         + IF(ZC_FRAME != ZC_FRAME_RSP, x86("mov",  "rsp", x86_zr())
              + x86("add",  "rsp", 8L)
              + x86("pop",  x86_zr()))
          + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
@@ -108,12 +108,12 @@ std::string bb_match_release() {
          /* R12-ERAD s65 (ZC_FRAME_RSP non-pat): pre-unwind rsp = base − 32 − fp(pattern), so the two FLAT re-homes compensate by op_fc_disp + 32 (explicit rspd/rspq).  The arena release is GATED OUT
           * wholesale: no heap in the BB equation — the rspd unwind (bare mov rsp,[cell+16] once the G1 dances no-op) IS the release of HEAD's cell and every suspended pattern cell.
           * Statement-success also reclaims side-stack residue (S10e) from the reincarnated +8 slot before the rsp unwind. */
-         + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (rfc() ? x86("mov", "rax", rspq((int)_.op_fc_disp + 8)) : x86("mov", "rax", FRQ(_.op_off + 8)))
+         + IF(ZC_FRAME == ZC_FRAME_RSP, (rfc() ? x86("mov", "rax", rspq((int)_.op_fc_disp + 8)) : x86("mov", "rax", FRQ(_.op_off + 8)))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", RDQ("rcx", 0), "rax"))
-         + (_.op_dval != 0.0 ? IF(rfc(), x86("mov", "eax", rspd((int)_.op_fc_disp)) + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? x86("mov", rspd((int)(_.op_off + _.op_fc_disp + 32)), "eax") : x86("mov", FR(_.op_off), "eax")))
-                             + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat && rfc() ? x86("mov", rspq((int)(_.op_off + 24 + _.op_fc_disp + 32)), "r14") : x86("mov", FRQ(_.op_off + 24), "r14")) : std::string())
-         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, IF(rfc(),  x86("mov",  "rdi", rspq((int)_.op_fc_disp + 8)))
+         + (_.op_dval != 0.0 ? IF(rfc(), x86("mov", "eax", rspd((int)_.op_fc_disp)) + (ZC_FRAME == ZC_FRAME_RSP ? x86("mov", rspd((int)(_.op_off + _.op_fc_disp + 32)), "eax") : x86("mov", FR(_.op_off), "eax")))
+                             + (ZC_FRAME == ZC_FRAME_RSP && rfc() ? x86("mov", rspq((int)(_.op_off + 24 + _.op_fc_disp + 32)), "r14") : x86("mov", FRQ(_.op_off + 24), "r14")) : std::string())
+         + IF(ZC_FRAME != ZC_FRAME_RSP, IF(rfc(),  x86("mov",  "rdi", rspq((int)_.op_fc_disp + 8)))
              + x86_align_enter()
              + IF(!rfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
              + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to))

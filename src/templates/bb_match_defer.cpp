@@ -13,7 +13,7 @@ extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
-static inline int dswap() { return ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat; }
+static inline int dswap() { return ZC_FRAME == ZC_FRAME_RSP; }   /* REG-7 U5: unconditional under RSP — the interior legacy dance is non-RSP-only now (Lon FORTH ruling) */
 static inline int rspd()  { static int v = -1; if (v < 0) v = getenv("SCRIP_RSPDIFF") ? 1 : 0; return v; }
 static inline std::string rspd_snap(uint64_t *cell, const char *nm) { return IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)cell,nm) + x86("mov",RDQ("rcx",0),"rsp")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -37,7 +37,7 @@ std::string bb_match_defer() {
      * newest frontier record (LIFO law: σ null-progress arrives right after the suspend; bb_match_arbno's φ
      * pop lea lands exactly on the previous iteration's record), so `jmp [rsp+0]` needs no resume slot —
      * amendment (d) measured.  Statement brackets already discard one-stream residue on both exits (S10e).
-     * The dswap() !arms below remain flat_pat-only: the interior transfer dance is unchanged. */
+     * The dswap() !arms below are non-RSP-only as of U5 s87 (the flat_pat island is retired): under RSP the pure one-stream protocol is unconditional. */
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
