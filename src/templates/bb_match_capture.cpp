@@ -61,11 +61,10 @@ std::string bb_match_capture() {
            + x86_align_leave()
            + x86_omega() )
          : (int)_.op_phase == 1
-         /* REG-6 PEND-PROMOTE COND (was REG-2 cell, was rbp-dcap).  γ: the pend top IS r12 — one reg-mov
-          * stages it in rdi (keeping the proven [rdi+0/8/16] store trio byte-identical; direct [r12+off]
-          * stores need the SIB arm x86_reg_disp32_store64 lacks — a named REG-7 refinement, NOT hand-encoded
-          * here per the s68 pun lesson), write the 24B pend entry {varname@0, saved_delta@8, len@16}, and
-          * bump r12 by 24 (add-reg imm8 — the cell's add-mem is gone).  β: sub r12,24, UNGUARDED — sound
+         /* REG-7 pend shapes (s80; was REG-6 rdi-staged, was REG-2 cell, was rbp-dcap).  γ: the pend top IS
+          * r12 and the 24B entry {varname@0, saved_delta@8, len@16} is written AT it directly — three
+          * [r12+0/8/16] stores through the family's new SIB arm (x86_rd32_modrm; the rdi staging mov is
+          * deleted, rdi now untouched here), then bump r12 by 24 (add-reg imm8).  β: sub r12,24, UNGUARDED — sound
           * because within-alternative failure cascades transit the boxes (balanced, the Python LIFO theorem)
           * and the alternative-SWITCH bypass is bulk-restored by bb_match_alternate's own mark (SZ-2c gap,
           * ported inline).  r12 is ALWAYS live (outer seed + callee-saved inheritance), so nested heads read
@@ -78,14 +77,13 @@ std::string bb_match_capture() {
                       + x86("lea",  "rdi", FR(_.op_off))
                       + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
                       + x86_align_leave())
-           + x86("mov",  "rdi", "r12")
            + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
-           + x86("mov",  RDQ("rdi", 0), "rcx")
+           + x86("mov",  RDQ("r12", 0), "rcx")
            + x86("mov",  "esi", "eax")
-           + x86("mov",  RDQ("rdi", 8), "rsi")
+           + x86("mov",  RDQ("r12", 8), "rsi")
            + x86("mov",  "edx", "r14d")
            + x86("sub",  "edx", "eax")
-           + x86("mov",  RDQ("rdi", 16), "rdx")
+           + x86("mov",  RDQ("r12", 16), "rdx")
            + x86("add",  "r12", (long)24)
            + x86_gamma()
            + x86_beta()
