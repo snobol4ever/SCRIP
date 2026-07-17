@@ -123,8 +123,11 @@ char *rt_str_dup(const char *s)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GC-U-6 slice 1 (s84) → GC-U-7 ROOTS (s90): THE WORKSPACE lives IN the collected span — rt_ws_* on rt_gcheap_alloc(HB_WS): ONE reserved-VA span, ONE cursor (g_hp_top), uniform rt_hblk_t titles,
  * gc_collect_ex the one collector over everything. HB_WS remains BLANKET-PINNED at reset — s90 MEASURED why it must (window-first probe): interned names and registry payloads live in HB_WS blocks
- * whose ONLY references sit in raw-malloc'd IR/driver structures no root layer can see; un-pinning HB_WS awaits the WS-class split (DESCR-only by_name results → collectable class; malloc-referenced
- * registries/names → immortal class; the TR-3 ROOT+EDGE rows already name the sides, TR-5's census the mechanism). HB_ZBLK is UN-PINNED and registration-governed: both clients cover themselves by
+ * whose ONLY references sit in raw-malloc'd IR/driver structures no root layer can see. THE WS-CLASS SPLIT (this session): HB_WSC is the COLLECTABLE workspace class — ZERO-POINTER char payloads
+ * referenced ONLY through DESCRs or conservatively-scanned locations (DESCR STRVALs, C locals/statics, ζ frames, coexpr spills) — allocated via rt_ws_alloc_c/rt_ws_strdup_c, NOT blanket-pinned at
+ * reset, honored by the ws_only conservative filters, promoted to HBF_PIN when marked (fwd=self, never slid — raw char* referents cannot be adjusted), RECLAIMED when dead (frontier-drop restored).
+ * Its payloads are NEVER transitively scanned (zero-pointer contract; scanning string bytes would mint false pins). rt_ws_* stays the IMMORTAL class (interned names, registries, pointer-bearing
+ * growth tables — anything a raw-malloc'd structure may reference). rt_ws_realloc grows into the IMMORTAL class regardless of source. HB_ZBLK is UN-PINNED and registration-governed: both clients cover themselves by
  * construction (rt_zh_bump_slow registers each refill window pin+range; coexpr stacks register at carve, unregister at destroy, retitle HB_FILL dead) — dead coexpr stacks now reclaim. Marked
  * HB_WS/HB_ZBLK blocks are PROMOTED to HBF_PIN at forward (fwd=self, never slid, never adjusted-through); their payloads get the transitive conservative scan (closes the s88 latent gap: DESCRs
  * inside WS blocks reference DT_S payloads nothing else roots). The grow-only realloc's old-size decode reads the rt_hblk_t (size - 16). */
@@ -145,6 +148,17 @@ char *rt_ws_strdup(const char *s)
 {
     if (!s) return (char *)0;
     { size_t n = strlen(s); char *q = (char *)rt_ws_alloc(n + 1); memcpy(q, s, n + 1); return q; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_ws_alloc_c(size_t n)
+{
+    return rt_gcheap_alloc((uint16_t)HB_WSC, (uint64_t)(n ? n : 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *rt_ws_strdup_c(const char *s)
+{
+    if (!s) return (char *)0;
+    { size_t n = strlen(s); char *q = (char *)rt_ws_alloc_c(n + 1); memcpy(q, s, n + 1); return q; }
 }
 /*====================================================================================================================================================================================================*/
 /* GC-1 MARK + GC-2 ADJUST + GC-3 SLIDE (ARCH-ZETA-LOCAL-STORAGE §6a/§6b/§6e) — the SIL 3-stage storage regeneration, v1 scope = the DT_S strings family (the only resident family after GC-0).
@@ -232,7 +246,7 @@ static void gc_cons_scan_t(const char *lo, const char *hi, int ws_only)
     const char *p = (const char *)(((uintptr_t)lo + 7u) & ~(uintptr_t)7u);
     for (; p + 8 <= hi; p += 8) { const char *q = *(const char *const *)p;
         if (!ws_only) rt_gc_pin_ptr(q);
-        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_WS || h->type == HB_ZBLK)) h->flags |= (HBF_MARK | HBF_PIN); } }
+        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC)) h->flags |= (HBF_MARK | HBF_PIN); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_cons_scan(const char *lo, const char *hi)
@@ -417,12 +431,15 @@ static long gc_collect_ex(int cons_stack)
             scanned[i] = 1; changed = 1; gc_cons_scan((const char *)(h + 1), (const char *)h + h->size); } }
       free(scanned); }
     dest = g_hp_arena;
+    { long pws = 0, pwsc = 0, pzb = 0, pval = 0, dwsc = 0;
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        if ((h->flags & HBF_MARK) && (h->type == HB_WS || h->type == HB_ZBLK)) h->flags |= HBF_PIN;
-        if (h->flags & HBF_PIN) { h->fwd = (uint64_t)h; nlive++; npin++; }
+        if ((h->flags & HBF_MARK) && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC)) h->flags |= HBF_PIN;
+        if (h->type == HB_WSC && !(h->flags & HBF_PIN)) dwsc++;
+        if (h->flags & HBF_PIN) { if (h->type == HB_WS) pws++; else if (h->type == HB_WSC) pwsc++; else if (h->type == HB_ZBLK) pzb++; else pval++; h->fwd = (uint64_t)h; nlive++; npin++; }
         else if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
         else h->fwd = 0;
         if (h->flags & HBF_PIN) dest = (char *)h + h->size; }
+    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC]   pin-classes ws=%ld wsc=%ld zblk=%ld val=%ld  wsc-dead=%ld\n", pws, pwsc, pzb, pval, dwsc); }
     for (long i = 0; i < g_gc_ncell; i++) { DESCR_t *d = g_gc_cells[i]; rt_hblk_t *h = gc_blk_of(d->s); if (h && h->fwd && h->fwd != (uint64_t)h) d->s = (char *)((rt_hblk_t *)h->fwd + 1) + (d->s - (char *)(h + 1)); }
     for (long i = 0; i < g_gc_nraw; i++) { const char **loc = g_gc_raws[i]; rt_hblk_t *h = gc_blk_of(*loc); if (h && h->fwd && h->fwd != (uint64_t)h) *loc = (const char *)((rt_hblk_t *)h->fwd + 1) + (*loc - (const char *)(h + 1)); }
     liveo = (rt_hblk_t **)malloc((size_t)(nlive ? nlive : 1) * sizeof(*liveo)); livef = (uint64_t *)malloc((size_t)(nlive ? nlive : 1) * sizeof(*livef)); if (!liveo || !livef) abort();
