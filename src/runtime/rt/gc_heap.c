@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include "zeta_choices.h"
 #include "rt_slab.h"
+#include "rt_arena.h"
 #include "gc_heap.h"
 #include "descr.h"
 /* GC-0 (ARCH-ZETA-LOCAL-STORAGE §6e) — scrip-owned bump heap, SIL title-word headers, libgc COEXISTENCE.
@@ -112,6 +113,29 @@ char *rt_str_dup(const char *s)
     char *b = rt_str_alloc(n);
     if (b) memcpy(b, s, (size_t)n);
     return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GC-U-6 slice 1 (s84): THE WORKSPACE lives IN the collected span — rt_ws_* re-pointed from the rt_arena.c slab chain onto rt_gcheap_alloc(HB_WS): ONE reserved-VA span, ONE cursor (g_hp_top),
+ * uniform rt_hblk_t titles, gc_collect_ex the one collector over everything. HB_WS blocks are IMMORTAL + IMMOVABLE v1 (clients hold raw C pointers in statics — the GC-U-5 sweep's registries and
+ * caches): the collector pins them at reset (MARK|PIN, fwd=self, slide barriers; sub-pin gaps become HB_FILL fill-window fodder as usual). Motion/reclaim arrives with root registration at GC-U-7.
+ * The grow-only realloc's old-size decode now reads the rt_hblk_t (payload = size - 16) instead of the retired (size<<8|flavor) arena title word. */
+void *rt_ws_alloc(size_t n)
+{
+    return rt_gcheap_alloc((uint16_t)HB_WS, (uint64_t)(n ? n : 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_ws_realloc(void *p, size_t n)
+{
+    if (!p) return rt_ws_alloc(n);
+    { rt_hblk_t *h = (rt_hblk_t *)p - 1; size_t old = (size_t)h->size - sizeof(rt_hblk_t);
+      if (n <= old) return p;
+      { void *q = rt_ws_alloc(n); memcpy(q, p, old); return q; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *rt_ws_strdup(const char *s)
+{
+    if (!s) return (char *)0;
+    { size_t n = strlen(s); char *q = (char *)rt_ws_alloc(n + 1); memcpy(q, s, n + 1); return q; }
 }
 /*====================================================================================================================================================================================================*/
 /* GC-1 MARK + GC-2 ADJUST + GC-3 SLIDE (ARCH-ZETA-LOCAL-STORAGE §6a/§6b/§6e) — the SIL 3-stage storage regeneration, v1 scope = the DT_S strings family (the only resident family after GC-0).
@@ -280,7 +304,7 @@ static long gc_collect_ex(int cons_stack)
     g_hp_win = (char *)0; g_hp_wend = (char *)0;
     g_gc_nblk = 0; { char *p = g_hp_arena; while (p < g_hp_top) { g_gc_nblk++; p += ((rt_hblk_t *)p)->size; } }
     g_gc_idx = (rt_hblk_t **)malloc((size_t)g_gc_nblk * sizeof(*g_gc_idx)); if (!g_gc_idx && g_gc_nblk) abort();
-    { char *p = g_hp_arena; long i = 0; while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i++] = h; p += h->size; } }
+    { char *p = g_hp_arena; long i = 0; while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN); if (h->type == HB_WS || h->type == HB_ZBLK) h->flags |= (uint16_t)(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i++] = h; p += h->size; } }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_ncell = 0; g_gc_nraw = 0; g_gc_interior = 0;
     if (cons_stack) { setjmp(jb); gc_cons_scan((const char *)&jb, (const char *)&jb + sizeof jb); { char *lo = &anchor, *hi = gc_stack_top(); if (lo < hi) gc_cons_scan((const char *)lo, (const char *)hi); } }

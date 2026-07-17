@@ -107,6 +107,12 @@
  * REG-4b follow-up — the exact park→promote sequence proven on pend (REG-2 → REG-6).  Select
  * SCRIP_ZETA_PORT=7; NOT the compiled default (default FORTH ⇒ this arm is dormant ⇒ byte-identity). */
 #define ZC_PORT_HEAP         7
+/* ZC_ZH_IN_GCHEAP (GC-U-6 slice 2, s88): rt_zh_bump_slow carves its refill blocks FROM the collected span via rt_gcheap_alloc(HB_ZBLK), not private rt_slab_region — the rbx-guarded [RT_WS_TOP]
+ * window is thereby a window INTO the ONE workspace and gc_collect_ex is the one collector over it (HB_ZBLK pinned-immortal v1 like slice 1's HB_WS: the v0 tail-residue leak becomes bounded pinned
+ * blocks inside the walkable span; reclamation of dead windows = GC-U-7's root registration).  0 = the intact private-slab arm for A/B (the ZC_HEAP_STRINGS precedent). */
+#ifndef ZC_ZH_IN_GCHEAP
+#define ZC_ZH_IN_GCHEAP 1
+#endif
 #ifndef ZC_PORT
 #define ZC_PORT ZC_PORT_FORTH
 #endif
