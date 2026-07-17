@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/mman.h>
+#include <limits.h>
+#include "zeta_choices.h"
+#include "gc_heap.h"
 #include "rt_coexpr.h"
 static int inited = 0;
 static pthread_attr_t attribs;
@@ -40,14 +44,25 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         old->thread = pthread_self();
         old->alive = 1;
         pthread_attr_init(&attribs);
+#if !ZC_COEXPR_STACK_GCHEAP
         if (pthread_attr_setstacksize(&attribs, (size_t)g_coexp_stksize) != 0)
             scrip_co_uerror("scrip_coexpr: cannot set coexpression stack size");
+#endif
+        old->stk_win = 0;
         inited = 1;
     }
     if (first != 0) {
     } else {
         scrip_co_makesem(new_ctx);
         new_ctx->alive = 1;
+#if ZC_COEXPR_STACK_GCHEAP
+        { long pg = sysconf(_SC_PAGESIZE); size_t total = (size_t)g_coexp_stksize + 3ul * (size_t)pg; char *w = (char *)rt_gcheap_alloc((uint16_t)HB_ZBLK, (uint64_t)total);
+          char *al = (char *)(((unsigned long)w + (unsigned long)pg - 1ul) & ~((unsigned long)pg - 1ul)); char *lo = al + pg; size_t sz = (size_t)((size_t)(w + total - lo) / (size_t)pg) * (size_t)pg;
+          if (sz < (size_t)PTHREAD_STACK_MIN) scrip_co_uerror("scrip_coexpr: gcheap stack window below PTHREAD_STACK_MIN");
+          if (mprotect(al, (size_t)pg, PROT_NONE) != 0) scrip_co_uerror("scrip_coexpr: guard mprotect failed");
+          if (pthread_attr_setstack(&attribs, lo, sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstack failed");
+          new_ctx->stk_win = (void *)w; new_ctx->stk_guard = (unsigned long)al; }
+#endif
         if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
     }
@@ -60,6 +75,9 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     ctx->alive = 0;
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
+#if ZC_COEXPR_STACK_GCHEAP
+    if (ctx->stk_win) { mprotect((void *)ctx->stk_guard, (size_t)sysconf(_SC_PAGESIZE), PROT_READ | PROT_WRITE); ((rt_hblk_t *)ctx->stk_win - 1)->type = (uint16_t)HB_FILL; ctx->stk_win = 0; }
+#endif
     sem_destroy(ctx->semp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
