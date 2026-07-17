@@ -187,6 +187,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                   + xaf_anchor_enter_bin()
                                   + (x86_port_mode() == ZC_PORT_HEAP ? bytes(4, "\x48\x8B\x1C\x25") + u32le((uint32_t)RT_WS_TOP) : std::string()) /* REG-4b OUTER SEED, byte twin of TEXT's mov rbx, qword ptr [RT_WS_TOP]: outermost graphs only — jmp-entry blobs inherit rbx live */
                                   + bytes(4, "\x4C\x8B\x24\x25") + u32le((uint32_t)RT_CAS_TOP) /* REG-6 OUTER SEED, byte twin of TEXT's mov r12, qword ptr [RT_CAS_TOP] (byte-verified vs as s80): r12 = live pend/dcap top for the whole graph — jmp-entry blobs/EVAL fragments inherit it via the callee-saved contract; cell pre-warmed by rt_pin_init's chained rt_dcap_lazy_init.  UNGATED: the pend stack is live in every port mode.  No epilogue publish: the pump takes the top BY ARGUMENT (rsi) and LIFO balance means top==base at every graph exit, so the cell stays truthful without one. */
+                                  + bytes(3, "\x48\x89\xE5") /* REG-7 U1 OUTER SEED, byte twin of TEXT's mov rbp, rsp (48 89 E5, byte-verified vs as s82): rbp = the activation FLAT BASE (REG-MAP law 1) — rsp == flat base here by LIFO balance, the frame view every FR/FRQ consumer flips to at U3.  DEAD WEIGHT until U3; jmp-entry blobs get their own save/seed/restore at U2 (pat blobs already have it, s79).  Bare clobber safe by the same callee-saved dance contract the rbx/r12 seeds above ride. */
                                   + bytes(3, "\x83\xFE\x00")
                                   + bytes(2, "\x0F\x85") + u32le(0);
                     out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
@@ -250,6 +251,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     std::string pro = banner + fb + xaf_anchor_enter_text();
                     if (x86_port_mode() == ZC_PORT_HEAP) pro += std::string("  mov rbx, ") + ABSQ(RT_WS_TOP) + "\n"; /* REG-4b OUTER SEED (twin of the BINARY arm's 48 8B 1C 25): outermost graphs only — jmp-entry blobs inherit rbx live through C's callee-saved contract */
                     pro += std::string("  mov r12, ") + ABSQ(RT_CAS_TOP) + "\n"; /* REG-6 OUTER SEED (twin of the BINARY arm's 4C 8B 24 25, byte-verified vs as s80): r12 = live pend/dcap top, UNGATED, inherited by jmp-entry blobs; cell pre-warmed by rt_pin_init.  No epilogue publish — pump takes rsi, LIFO balance keeps the cell truthful at exit. */
+                    pro += std::string("  mov rbp, rsp\n"); /* REG-7 U1 OUTER SEED (twin of the BINARY arm's 48 89 E5): rbp = activation flat base per REG-MAP law 1 — dead until U3's consumer flip; blobs save/seed/restore their own (s79 pat, U2 non-pat).  Bare clobber safe: the dance restores callee-saved regs, same as rbx/r12 above. */
                     if (g_gen_proc_active || g_resumable_callable_active)
                         pro += std::string("  cmp esi, 0\n") + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                     return pro;
