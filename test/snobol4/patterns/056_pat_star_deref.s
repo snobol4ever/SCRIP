@@ -40,6 +40,7 @@ main_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 472], rsp
+  mov r12, qword ptr [1879048192]
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
@@ -105,8 +106,7 @@ main_α_body:
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov rax, qword ptr [1879048192]
- mov qword ptr [rbp + 240], rax
+ mov qword ptr [rbp + 240], r12
  mov qword ptr [rbp + 224], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
@@ -130,8 +130,7 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rbp + 224]
- mov rax, qword ptr [rbp + 240]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rbp + 240]
  mov rbp, qword ptr [rbp + 248]
  jmp xchain0_n6_α
 # IR_LIT_STRING
@@ -263,7 +262,7 @@ main_α_body:
  xchain0_n10_α:
  lea rdi, [rbp + 288]
  call rt_cap_top@PLT
- mov rdi, qword ptr [1879048192]
+ mov rdi, r12
  lea rcx, [rip + .S1]
  mov qword ptr [rdi + 0], rcx
  mov esi, eax
@@ -271,10 +270,10 @@ main_α_body:
  mov edx, r14d
  sub edx, eax
  mov qword ptr [rdi + 16], rdx
- add qword ptr [1879048192], 24
+ add r12, 24
  jmp xchain0_n11_α
  xchain0_n10_β:
- sub qword ptr [1879048192], 24
+ sub r12, 24
  jmp xchain0_n9_β
 # IR_MATCH_RELEASE
  xchain0_n11_α:
@@ -287,7 +286,7 @@ main_α_body:
  push r13
  sub rsp, 8
  mov rdi, qword ptr [rsp + 272]
- mov rsi, qword ptr [1879048192]
+ mov rsi, r12
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx16_1:
@@ -315,8 +314,7 @@ main_α_body:
  pop r13
  pop r15
  pop r14
- mov rax, qword ptr [rbp + 240]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rbp + 240]
  mov rbp, qword ptr [rbp + 248]
  jmp xchain0_n12_α
 # IR_VAR

@@ -23,6 +23,7 @@ main_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 344], rsp
+  mov r12, qword ptr [1879048192]
 main_α_body:
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n0_α:

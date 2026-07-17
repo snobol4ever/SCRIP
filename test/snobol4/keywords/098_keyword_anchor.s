@@ -36,6 +36,7 @@ main_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 696], rsp
+  mov r12, qword ptr [1879048192]
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
@@ -126,8 +127,7 @@ main_α_body:
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov rax, qword ptr [1879048192]
- mov qword ptr [rsp + 320], rax
+ mov qword ptr [rsp + 320], r12
  mov rax, rsp
  sub rsp, 32
  mov qword ptr [rsp + 16], rax
@@ -153,8 +153,7 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rsp + 16]
- mov rax, qword ptr [rsp + 320]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rsp + 320]
  mov rbp, qword ptr [rsp + 328]
  jmp xchain0_n7_α
 # IR_LIT_STRING
@@ -213,7 +212,7 @@ main_α_body:
  push r13
  sub rsp, 8
  mov rdi, qword ptr [rsp + 352]
- mov rsi, qword ptr [1879048192]
+ mov rsi, r12
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx15_1:
@@ -241,8 +240,7 @@ main_α_body:
  pop r13
  pop r15
  pop r14
- mov rax, qword ptr [rsp + 320]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rsp + 320]
  mov rbp, qword ptr [rsp + 328]
  jmp xchain0_n11_α
 # IR_LIT_STRING
@@ -289,8 +287,7 @@ main_α_body:
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov rax, qword ptr [1879048192]
- mov qword ptr [rsp + 480], rax
+ mov qword ptr [rsp + 480], r12
  mov rax, rsp
  sub rsp, 32
  mov qword ptr [rsp + 16], rax
@@ -316,8 +313,7 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rsp + 16]
- mov rax, qword ptr [rsp + 480]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rsp + 480]
  mov rbp, qword ptr [rsp + 488]
  jmp xchain0_n15_α
 # IR_LIT_STRING
@@ -376,7 +372,7 @@ main_α_body:
  push r13
  sub rsp, 8
  mov rdi, qword ptr [rsp + 512]
- mov rsi, qword ptr [1879048192]
+ mov rsi, r12
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx26_1:
@@ -404,8 +400,7 @@ main_α_body:
  pop r13
  pop r15
  pop r14
- mov rax, qword ptr [rsp + 480]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rsp + 480]
  mov rbp, qword ptr [rsp + 488]
  jmp xchain0_n19_α
 # IR_LIT_STRING
