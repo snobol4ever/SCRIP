@@ -189,6 +189,13 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH self-alloc, byte twin of the TEXT arm — sub rsp,K / mov rdi,rsp / mov ecx,K / xor eax,eax / rep stosb */
+                    extern int g_gen_proc_active; extern int g_resumable_callable_active;
+                    if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix: a generator/resumable proc's frame MUST survive beta-resume, so it lives on the heap (rt_proc_call_gen_h -> rt_zls_alloc) and arrives in rdi; the box ADOPTS it as its rbp frame base (args already bound at [rbp+16]+, region pre-zeroed) instead of carving a throwaway rsp frame that discards the fb.  Restores the pre-s65 non-RSP `mov zr,rdi` the RSP conversion dropped when it applied the outer-graph self-alloc prologue to gen procs.  rsp stays free; both alpha and beta re-enter through this prefix. */
+                        std::string rg = bytes(1, "\x55") + bytes(3, "\x48\x89\xFD")
+                                       + bytes(3, "\x83\xFE\x00") + bytes(2, "\x0F\x85") + u32le(0);
+                        out_site = (int)rg.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
+                        return rg;
+                    }
                     std::string r = bytes(3, "\x48\x81\xEC") + u32le(65544)
                                   + bytes(3, "\x48\x89\xE7")
                                   + bytes(1, "\xB9") + u32le(65544)
@@ -260,6 +267,8 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
+                    if (g_gen_proc_active || g_resumable_callable_active)   /* PL-GEN-RSP fix (TEXT twin): adopt the heap fb (rdi) as the rbp frame base; frame survives beta-resume on the heap, rsp stays free */
+                        return banner + "  push rbp\n  mov rbp, rdi\n  cmp esi, 0\n  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                     char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", 65544, 65544); /* 65536+8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
                     std::string pro = banner + fb + xaf_anchor_enter_text();
                     if (x86_port_mode() == ZC_PORT_HEAP) pro += std::string("  mov rbx, ") + ABSQ(RT_WS_TOP) + "\n"; /* REG-4b OUTER SEED (twin of the BINARY arm's 48 8B 1C 25): outermost graphs only — jmp-entry blobs inherit rbx live through C's callee-saved contract */
@@ -362,6 +371,15 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                 return succB;
             }
             if (g_frame_active && ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: BINARY twin of the TEXT RSP epilogue — eax code, anchor-leave normalize, FAILDESCR at [rsp+0], add rsp,K, ret */
+                extern int g_gen_proc_active; extern int g_resumable_callable_active;
+                if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix: gen/resumable frame is the heap fb in rbp — result (IR_RETURN) and FAILDESCR land at [rbp+0]; pop caller rbp and ret, NO add rsp (the gen prologue carved no rsp frame) */
+                    std::string sg = bytes(1, "\x5D") + bytes(1, "\xC3");
+                    std::string fg = bytes(3, "\xC7\x45\x00") + u32le(99) + bytes(3, "\xC7\x45\x04") + u32le(0) + bytes(4, "\x48\xC7\x45\x08") + u32le(0) + bytes(1, "\x5D") + bytes(1, "\xC3");
+                    out_site = (int)sg.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
+                    if (out_succ) *out_succ = sg;
+                    if (out_fail) *out_fail = fg;
+                    return sg + fg;
+                }
                 std::string succ_half = bytes(1, "\xB8") + u32le(1)
                                       + bytes(2, "\x31\xD2")
                                       + xaf_anchor_leave_bin()
@@ -458,6 +476,15 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: anchor-leave normalizes rsp to frame base, FAILDESCR lands at [rsp+0], add rsp,K rejoins the caller's ret-addr */
+                    extern int g_gen_proc_active; extern int g_resumable_callable_active;
+                    if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix (TEXT twin): result/FAILDESCR at [rbp+0] (heap frame); pop rbp; ret; no add rsp */
+                        std::string sgt = std::string("pop rbp\nret\n");
+                        std::string fgt = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                             + "mov dword ptr [rbp+0], 99\nmov dword ptr [rbp+4], 0\nmov qword ptr [rbp+8], 0\npop rbp\nret\n";
+                        if (out_succ) *out_succ = sgt;
+                        if (out_fail) *out_fail = fgt;
+                        return sgt + fgt;
+                    }
                     std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + "mov rbp, [rsp + 65536]\n" + "add rsp, 65544\n" + "ret\n";
                     std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
                          + xaf_anchor_leave_text()
