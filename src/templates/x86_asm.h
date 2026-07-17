@@ -312,10 +312,10 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "r12" : (_.op_anchored || _.op_anchor_head) ? "rbp" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* R12-ERAD s65: PAT$ suspending blobs are r12-frame ISLANDS on the side stack — their interior keeps the immune-base architecture verbatim.  REG-3 FRAME-RBP: grant-declined statements run rbp-viewed (materialized from rsp at the anchored HEAD after saving the outer rbp at flat +40, window-scoped, restored at BOTH statement exits) — the anchored r12 window is DEAD */
-inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? 12 : (_.op_anchored || _.op_anchor_head) ? 5 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
-inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "dword ptr [r12 + " : _.op_anchored ? "dword ptr [rbp + " : "dword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
-inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "qword ptr [r12 + " : _.op_anchored ? "qword ptr [rbp + " : "qword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
+inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "rbp" : (_.op_anchored || _.op_anchor_head) ? "rbp" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-5 s79 (= R12-EXIT-3): PAT$ suspending blobs are rbp-framed — the caller's rbp rides the EXISTING header chain (save at [rsp+24] in the α, restore from [zr-8] on BOTH exit edges, record[+8] re-pin at the %s_res landing).  ⚠ op_anchor_head INSIDE a flat_pat graph would share rbp with the blob base = UNSUPPORTED; measured EMPTY across 155 feature + 33 corpus .s (s79); REG-7 deletes the window machinery.  REG-3: anchored statements rbp-viewed, outer rbp at flat+40 */
+inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? 5 : (_.op_anchored || _.op_anchor_head) ? 5 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "dword ptr [rbp + " : _.op_anchored ? "dword ptr [rbp + " : "dword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
+inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "qword ptr [rbp + " : _.op_anchored ? "qword ptr [rbp + " : "qword ptr [rsp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM accessor — runtime-selectable BY DESIGN (Lon 2026-07-09, contrast the ZC_FRAME build
  * constant above); see zeta_choices.h ZC_ZETA block for the rung map.  RUNG-1 seams read THIS, never getenv,
@@ -942,8 +942,8 @@ inline std::string x86_rsp_load32(const char * reg, int off) {
 inline std::string x86_rsp_add_imm32(int off, long imm) {
     if (MEDIUM_BINARY) {
         std::string c;
-        if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_r12_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
-        else                           { c += (char)0x81; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); }
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_rsp_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
+        else                           { c += (char)0x81; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
     return std::string(" add dword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string(imm) + "\n";
@@ -951,12 +951,12 @@ inline std::string x86_rsp_add_imm32(int off, long imm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_add_to_reg32(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x03; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
     return std::string(" add ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 inline std::string x86_rsp_sub_from_reg32(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x2B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x2B; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
     return std::string(" sub ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
