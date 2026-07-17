@@ -438,14 +438,13 @@ main_α_body:
  xchain9_n11_α:
  lea rdi, [rbp + 336]
  call rt_cap_top@PLT
- mov rdi, r12
  lea rcx, [rip + .S4]
- mov qword ptr [rdi + 0], rcx
+ mov qword ptr [r12 + 0], rcx
  mov esi, eax
- mov qword ptr [rdi + 8], rsi
+ mov qword ptr [r12 + 8], rsi
  mov edx, r14d
  sub edx, eax
- mov qword ptr [rdi + 16], rdx
+ mov qword ptr [r12 + 16], rdx
  add r12, 24
  jmp xchain9_n12_α
  xchain9_n11_β:
