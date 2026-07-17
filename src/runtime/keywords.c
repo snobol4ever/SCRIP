@@ -29,7 +29,7 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
         if (!strcmp(g_kw_cset_names[i].name, kw_name))
             return CSETVAL(g_kw_cset_names[i].ptr);
     const char *arena = cset_canonical(chars);
-    char *stable = strdup(arena);
+    char *stable = rt_ws_strdup(arena);
     int clen = (int)strlen(stable);
     if (g_kw_cset_count < KW_CSET_MAX) {
         g_kw_cset_names[g_kw_cset_count].ptr  = stable;
@@ -43,7 +43,7 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
 static void kw_cset_reg(const char *chars, const char *name, int len) {
     for (int i = 0; i < g_kw_cset_count; i++) if (!strcmp(g_kw_cset_names[i].name, name)) return;
     if (g_kw_cset_count >= KW_CSET_MAX) return;
-    g_kw_cset_names[g_kw_cset_count].ptr  = strdup(cset_canonical(chars));
+    g_kw_cset_names[g_kw_cset_count].ptr  = rt_ws_strdup(cset_canonical(chars));
     g_kw_cset_names[g_kw_cset_count].name = name;
     g_kw_cset_names[g_kw_cset_count].len  = len;
     g_kw_cset_count++;
@@ -102,7 +102,7 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             static char ascii_str[128];
             for (int c=1;c<128;c++) ascii_str[c-1]=(char)c; ascii_str[127]='\0';
-            char *stable = strdup(cset_canonical(ascii_str));
+            char *stable = rt_ws_strdup(cset_canonical(ascii_str));
             if (g_kw_cset_count < KW_CSET_MAX) {
                 g_kw_cset_names[g_kw_cset_count].ptr  = stable;
                 g_kw_cset_names[g_kw_cset_count].name = "&ascii";
@@ -118,7 +118,7 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             static char cset_str[256];
             for (int c=1;c<256;c++) cset_str[c-1]=(char)c; cset_str[255]='\0';
-            char *stable = strdup(cset_canonical(cset_str));
+            char *stable = rt_ws_strdup(cset_canonical(cset_str));
             if (g_kw_cset_count < KW_CSET_MAX) {
                 g_kw_cset_names[g_kw_cset_count].ptr  = stable;
                 g_kw_cset_names[g_kw_cset_count].name = "&cset";
