@@ -1384,9 +1384,9 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
          * direction failure keeps the flat path byte-verbatim (degrade never die). */
         int fp_stmt = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_pat, g->n, 1, &fp_stmt);
         if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
-        /* ANCHOR-WINDOW s66: the grant-DECLINE fallback.  A declined statement no longer stays "honestly broken" under RSP -- its whole match window (head + release + every pattern-range node) runs
-         * r12-viewed, the anchored HEAD's alpha materializing the view from rsp.  ARBNO's repointable-zr chain dance, the flat rt_cap capture array, DEFER wiring: all the s64-proven code paths work
-         * verbatim because zr is once again a real register.  Cells still ride rsp (ports unchanged); r12 is window-local and dead at statement exit. */
+        /* REG-7 U4 sweep (s86): the s66 ANCHOR-WINDOW decline fallback is DELETED -- a !tail_ok statement now runs the same unconditional-rbp frame as everything else (U1/U2/s79 seeds; FR/FRQ rbp-based
+         * post-U3; the ARBNO chain arm's zv() view decoupled s85).  Proof of deadness: the s85 flip probe -- crosscheck watermark-exact, .s byte-identical on 070/117/142/164/165 -- no live emission
+         * consulted the window predicate.  Candidacy below is unchanged; the only decline consequence left is the TAIL_DIAG print. */
         if (!fc_lin && ZC_FRAME == ZC_FRAME_RSP) {
             /* R12-EXIT-1 CARRY-THE-TAIL candidacy (tried BEFORE the anchored fallback): exactly ONE spine ARBNO, no REPLACE, no runtime-arg pre-chain (cx->npre), no capture allocated left of the
              * ARBNO (a COND/SAVE preceding it may wrap it -- conservative decline), left/body/right ranges walk clean, ARBNO body-bracket operands resolve.  A candidate registers with zeta_storage's
@@ -1476,13 +1476,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                     }
                 }
             }
-            if (!tail_ok) {
-            if (getenv("SCRIP_TAIL_DIAG")) fprintf(stderr, "[TAIL-DIAG] decline: %s\n", tl_why);
-            extern void fc_anchor_register(const IR_t *); extern void fc_anchor_head_register(const IR_t *);
-            fc_anchor_head_register(head);
-            fc_anchor_register(head); fc_anchor_register(release); if (splice) fc_anchor_register(splice);
-            for (int k = before_pat; k < g->n; k++) if (g->all[k]) fc_anchor_register(g->all[k]);
-            }
+            if (!tail_ok && getenv("SCRIP_TAIL_DIAG")) fprintf(stderr, "[TAIL-DIAG] decline: %s\n", tl_why);
         }
         /* R12-ERAD s65 + ALT-LIFT: per-leaf flat displacement for ZC_FRAME_RSP via fc_leaf_walk (zeta_storage.c registrar).  Same range, same order (allocation = flow on the linear spine), prefix
          * starts at 32 = HEAD's self-pushed cell; each pattern node's body depth = prefix-before + own granted cell.  Granted ALT arms restart at prefix+16 (alternatives, not concatenation); nodes

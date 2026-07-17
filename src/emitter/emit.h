@@ -441,8 +441,6 @@ typedef struct {
     long                         op_fc_fpmax;      /* ZB-FC-3a: pad-to-max footprint for a granted ALTERNATE; -1 = not a granted ALT */
     int                          op_fc_arm_fp[16]; /* ZB-FC-3a: per-arm EXACT static footprints (pads = fpmax - fp[j]) */
     long                         op_fc_disp;       /* ZB-FC-3c: COND/IMM cross-box read displacement to SAVE's cell = fp(inner) ([rsp + disp] at the yield frontier, S10c); -1 = ungranted, the flat rt_cap array path */
-    int                          op_anchored;      /* ANCHOR-WINDOW s66: this box belongs to a grant-DECLINED statement's match window under ZC_FRAME_RSP — its ζ view is rbp (REG-3: materialized from rsp at the anchored HEAD after the +40 outer-rbp save, restored at both statement exits); FR/FRQ emit rbp-based refs with NO disp; 0 = the granted pure-rsp fast path */
-    int                          op_anchor_head;   /* ANCHOR-WINDOW s66: this IR_MATCH_HEAD opens an anchored window — its α materializes the view (REG-3: mov rbp, rsp after the +40 outer-rbp save) before the self-cell push */
     int                          op_tail;          /* R12-EXIT-1 CARRY-THE-TAIL: this box participates in a tail-granted ARBNO statement (elements ride rsp, [rsp+const] everywhere, no window register) */
     int                          op_tail_fpb;      /* fp(body) — granted-cell footprint suspended at every yield; the α phantom pad and the σ/β header displacement */
     int                          op_tail_fpl;      /* fp(left-spine) — HEAD-cell distance at ARBNO α (bracket copy source) */

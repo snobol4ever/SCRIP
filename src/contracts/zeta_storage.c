@@ -661,24 +661,6 @@ void zls_dump(FILE * fp) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* fc_anchor_* -- ANCHOR-WINDOW s66 (the grant-decline fallback under ZC_FRAME_RSP).  A statement whose pattern range fails the fc_walk_range grant (ARBNO's dynamic per-iteration depth, ungranted
- * ALTs, DEFER, unknowns) registers its HEAD as an anchor-head and every node in [head..release + pattern range] as anchored.  Emission delivers _.op_anchored per box: the box's zeta view is r12,
- * MATERIALIZED FROM RSP at the anchored HEAD's alpha (mov r12, rsp before the self-cell push) -- the flat frame stays rsp-resident, r12 is a window-local alias into it, the exact s64-proven
- * configuration per-statement.  Granted statements never enter these tables and keep the pure-rsp fast path.  Side tables keyed by node ptr (the fcl precedent). */
-static const IR_t * fcanc[8192];
-static int fcanc_n = 0;
-void fc_anchor_register(const IR_t * nd) { if (!nd || fcanc_n >= 8192) return; fcanc[fcanc_n++] = nd; }
-int fc_anchor_active(const IR_t * nd) {
-    for (int i = 0; i < fcanc_n; i++) if (fcanc[i] == nd) return 1;
-    return 0;
-}
-static const IR_t * fcah[512];
-static int fcah_n = 0;
-void fc_anchor_head_register(const IR_t * nd) { if (!nd || fcah_n >= 512) return; fcah[fcah_n++] = nd; }
-int fc_anchor_head_active(const IR_t * nd) {
-    for (int i = 0; i < fcah_n; i++) if (fcah[i] == nd) return 1;
-    return 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* fc_tail_* -- RUNG R12-EXIT-1 CARRY-THE-TAIL (Lon directive s68, the static-size proof: "the operator that is the argument has a pre-determined size -- you know the size").  A statement whose only
  * grant-blocker is ONE spine ARBNO converts to the sliding-rsp element scheme: alpha AND beta both push a fixed-size element (op_sb = align16(body window span + right-spine window span + 16B header
@@ -720,10 +702,10 @@ int fc_tail_head(const IR_t * head) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* fc_tables_reset -- s67 (the 140/test_case wild-jump fix).  The three fc side tables are keyed by RAW NODE POINTER and were only ever fed by the MAIN lowering; a RUNTIME compile (EVAL chain, CODE
- * fragment, rt pattern tree) lowers fresh IR whose malloc'd nodes can land on a FREED prior graph's addresses (eval_build_chain ends in IR_free_dyn) -- a stale fcanc hit then emits ONE r12-viewed box
+/* fc_tables_reset -- s67 (the 140/test_case wild-jump fix; s86 U4 sweep deleted the fcanc/fcah tables, two remain).  The fc side tables are keyed by RAW NODE POINTER and were only ever fed by the MAIN
+ * lowering; a RUNTIME compile (EVAL chain, CODE fragment, rt pattern tree) lowers fresh IR whose malloc'd nodes can land on a FREED prior graph's addresses (eval_build_chain ends in IR_free_dyn) -- historically a stale fcanc hit emitted ONE r12-viewed box
  * inside an otherwise rsp-viewed self-allocated blob, whose [r12+disp] writes land ABOVE the shim anchor, straight over the C caller's frame (measured: EVAL_fn's return address = 0x21; the blob at
  * +0xa5 wrote 0x148(%r12) while its own allocation was sub 0x1b0,%rsp).  A stale fcl hit is the same disease with a silent wrong-displacement payload.  Every runtime-compile entry resets the fc
  * tables before lowering: emission consults them only for the graph lowered SINCE the reset, and all pre-reset graphs are already emitted (mode-3 emits main wholesale before run).  The zls tables
  * share the pointer-keying and are NOT reset here (bb_compile_pat_tree's zls_reset is the existing precedent; the zls lifecycle question routes to GC-W-1's frame-map design). */
-void fc_tables_reset(void) { fcl_n = 0; fcanc_n = 0; fcah_n = 0; fct_n = 0; }
+void fc_tables_reset(void) { fcl_n = 0; fct_n = 0; }
