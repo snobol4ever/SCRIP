@@ -10,6 +10,8 @@ proc_fib_α:
   sub rsp, 1072
   mov [rsp + 1048], rcx
   mov [rsp + 1056], rdx
+  mov [rsp + 1064], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 1040
   xor eax, eax
@@ -371,10 +373,12 @@ proc_fib_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 1048]
+mov rbp, [rbp + 1064]
 lea rsp, [rsp + 1072]
 jmp rax
 proc_fib_ω:
 mov rax, [rsp + 1056]
+mov rbp, [rbp + 1064]
 lea rsp, [rsp + 1072]
 jmp rax
 proc_startup:
@@ -446,6 +450,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 1032], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_INTEGER
  xchain23_n0_α:

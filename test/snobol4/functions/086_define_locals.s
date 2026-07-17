@@ -10,6 +10,8 @@ proc_swap_α:
   sub rsp, 592
   mov [rsp + 568], rcx
   mov [rsp + 576], rdx
+  mov [rsp + 584], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 560
   xor eax, eax
@@ -154,10 +156,12 @@ proc_swap_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 568]
+mov rbp, [rbp + 584]
 lea rsp, [rsp + 592]
 jmp rax
 proc_swap_ω:
 mov rax, [rsp + 576]
+mov rbp, [rbp + 584]
 lea rsp, [rsp + 592]
 jmp rax
 proc_startup:
@@ -237,6 +241,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 552], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
  xchain13_n0_α:

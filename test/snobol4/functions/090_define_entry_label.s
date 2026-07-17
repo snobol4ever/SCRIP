@@ -10,6 +10,8 @@ proc_bumpit_α:
   sub rsp, 352
   mov [rsp + 328], rcx
   mov [rsp + 336], rdx
+  mov [rsp + 344], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 320
   xor eax, eax
@@ -95,10 +97,12 @@ proc_bumpit_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 328]
+mov rbp, [rbp + 344]
 lea rsp, [rsp + 352]
 jmp rax
 proc_bumpit_ω:
 mov rax, [rsp + 336]
+mov rbp, [rbp + 344]
 lea rsp, [rsp + 352]
 jmp rax
 proc_startup:
@@ -170,6 +174,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 312], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_INTEGER
  xchain5_n0_α:

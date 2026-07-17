@@ -10,6 +10,8 @@ proc_upcase_α:
   sub rsp, 496
   mov [rsp + 472], rcx
   mov [rsp + 480], rdx
+  mov [rsp + 488], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 464
   xor eax, eax
@@ -103,10 +105,12 @@ proc_upcase_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 472]
+mov rbp, [rbp + 488]
 lea rsp, [rsp + 496]
 jmp rax
 proc_upcase_ω:
 mov rax, [rsp + 480]
+mov rbp, [rbp + 488]
 lea rsp, [rsp + 496]
 jmp rax
 proc_startup:
@@ -178,6 +182,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 456], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
  xchain7_n0_α:

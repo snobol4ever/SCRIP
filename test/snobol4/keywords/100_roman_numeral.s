@@ -10,6 +10,8 @@ proc_roman_α:
   sub rsp, 5696
   mov [rsp + 5672], rcx
   mov [rsp + 5680], rdx
+  mov [rsp + 5688], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 5664
   xor eax, eax
@@ -2139,10 +2141,12 @@ proc_roman_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 5672]
+mov rbp, [rbp + 5688]
 lea rsp, [rsp + 5696]
 jmp rax
 proc_roman_ω:
 mov rax, [rsp + 5680]
+mov rbp, [rbp + 5688]
 lea rsp, [rsp + 5696]
 jmp rax
 proc_startup:
@@ -2230,6 +2234,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 5656], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_INTEGER
  xchain182_n0_α:

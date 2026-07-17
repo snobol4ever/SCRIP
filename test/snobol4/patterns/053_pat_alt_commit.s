@@ -195,6 +195,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 552], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
  xchain9_n0_α:
