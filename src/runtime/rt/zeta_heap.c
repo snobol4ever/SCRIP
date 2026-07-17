@@ -150,11 +150,17 @@ long rt_zh_live_count(void)
  * its head, publish the new frontier/limit.  Zero-filled REG-0 page ⇒ first guard trips ⇒ lazy init needs no constructor.  Old-block tail residue is LEAKED BY DESIGN v0 (C3: LIVE/DEAD lifecycle owns
  * reclamation when the region promotes).  Single-threaded by the emitted-code contract; rbx promotion (REG-4b) changes the register story, not this refill. */
 #include "pin_va.h"
+#include "zeta_choices.h"
+#include "gc_heap.h"
 #define ZH_BUMP_BLK (1u << 20)
 void *rt_zh_bump_slow(long bytes)
 {
     long need = (bytes + 15) & ~15L; size_t blk = (size_t)(need + 16 > (long)ZH_BUMP_BLK ? (size_t)(need + 16) : (size_t)ZH_BUMP_BLK);
+#if ZC_ZH_IN_GCHEAP
+    char *base = (char *)rt_gcheap_alloc((uint16_t)HB_ZBLK, (uint64_t)blk);
+#else
     char *base = (char *)rt_slab_region(blk);
+#endif
     if (!base) { fprintf(stderr, "[ZH-BUMP] FATAL: refill of %zu bytes failed\n", blk); abort(); }
     *(char **)RT_WS_TOP = base + need; *(char **)RT_WS_LIMIT = base + blk;
     return base;

@@ -47,7 +47,7 @@ void         rt_arena_destroy(rt_arena_t *a);                  /* all slabs -> p
 /* A_COEXPR reusable ζ blocks (Lon s36): fixed-size, recycled on death. */
 void        *rt_arena_zblock_get(rt_arena_t *a, size_t block_sz);
 void         rt_arena_zblock_put(rt_arena_t *a, void *blk);
-/* THE WORKSPACE (TR-3): the one Region-2 instance; grow-only until GC-W-2. */
+/* THE WORKSPACE (TR-3 → GC-U-6 s84): rt_ws_* live in gc_heap.c — HB_WS-titled blocks in the ONE collected span; pinned-immortal v1, collector = gc_collect_ex. */
 void        *rt_ws_alloc(size_t n);
 void        *rt_ws_realloc(void *p, size_t n);   /* grow-only; old size read from the title word */
 char        *rt_ws_strdup(const char *s);

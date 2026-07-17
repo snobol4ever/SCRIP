@@ -88,32 +88,7 @@ void rt_arena_zblock_put(rt_arena_t *a, void *blk) {
     a->reuse = b;
 }
 
-/* --- THE WORKSPACE (RUNG TR-3, s37 three-region): the ONE Region-2 instance families flip onto; grow-only A_PROG until GC-W-2 collects it --- */
-static rt_arena_t g_ws;
-static int g_ws_up = 0;
-
-void *rt_ws_alloc(size_t n) {
-    if (!g_ws_up) { rt_arena_init(&g_ws, A_PROG); g_ws_up = 1; }
-    return rt_arena_alloc(&g_ws, n);
-}
-
-/* --- grow-only realloc: the D6 title word (size<<8|flavor at p-16) IS the old size; no free until GC-W-2 --- */
-void *rt_ws_realloc(void *p, size_t n) {
-    if (!p) return rt_ws_alloc(n);
-    size_t old = (size_t)(*(uint64_t *)((uint8_t *)p - 16) >> 8);
-    if (n <= old) return p;
-    void *q = rt_ws_alloc(n);
-    memcpy(q, p, old);
-    return q;
-}
-
-char *rt_ws_strdup(const char *s) {
-    if (!s) return (char *)0;
-    size_t n = strlen(s);
-    char *q = (char *)rt_ws_alloc(n + 1);
-    memcpy(q, s, n + 1);
-    return q;
-}
+/* --- THE WORKSPACE (TR-3 → GC-U-6 s84): rt_ws_* moved to gc_heap.c — HB_WS-titled blocks inside the ONE collected span (pinned-immortal v1); the g_ws slab chain is retired. --- */
 
 /* PL-WS RECLAIMABLE COMPOUND ARENA (GC-W-2): base-pinned ISLAND, g_dcap/CAS class (pattern_match rt_cas/rt_dcap). Reserved once via rt_slab_region; never moved/freed; cursor-bumped. */
 /* ABORT FIX (PL-WS-2 step 1): the old slab-drawing A_TRANS arena rooted EVERY slab, so a deep search overflowed libgc MAX_ROOT_SETS; this island is ONE 16MB-class slab = ONE root, constant. */
