@@ -30,6 +30,8 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2);
 scrip_coctx_t *scrip_co_gc_head(void);
 scrip_coctx_t *scrip_co_gc_root(void);
+void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry_arg);
+void scrip_co_gc_link(scrip_coctx_t *ctx);
 int scrip_co_main_known(pthread_t *out);
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi);
 #ifdef __cplusplus
