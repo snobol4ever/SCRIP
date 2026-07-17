@@ -1941,16 +1941,17 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
     g_emit.flat_pat = 1;   /* R12-ERAD s65: suspending blob — r12-island flavor */
     return emit_jmp_entry_arm_region(g);
 }
-extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_pat = 0; }
-/* PROC-CONV (R12-FREE ladder rung 2): ordinary DEFINE'd procs arm the SAME jmp-entry regime.  The regime
- * selector is dyn_scope: a DYN proc's args ride the name dictionary (save/restore), so a self-allocated zeroed
- * frame is correct; a LEXICAL proc (dyn_scope=0 — Icon/Prolog/Raku frontends) binds args INTO a caller-made
- * frame via rt_frame_prep, which jmp-entry has no place for — those stay call-regime until NCB-1d converts the
- * static-link family.  LBL__ main-program pseudo-procs are dyn_scope=0 but take no args and are entered only
- * through rt_chain_enter (rt_goto_transfer arm 4), which IS the jmp transfer — they arm by name. */
+extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; }
+/* PROC-CONV (R12-FREE ladder rung 2) + NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): ordinary procs arm the SAME jmp-entry regime.  DYN procs (SNOBOL4 DEFINE): args ride the name
+ * dictionary, a self-allocated zeroed frame is correct.  DET LEXICAL procs (dyn_scope=0 — Icon/Raku): NCB-1d retires their call-regime trampoline — the blob self-allocates and its prologue calls
+ * rt_jmp_frame_lexprep (NULVCL fill + rt_frame_bind_args from the staged g_call_args), so the caller-made-frame protocol is gone and flat_lex marks the graph for that prologue tail.  GENERATOR procs
+ * stay declined this rung (their activations ride rt_proc_call_gen_h / ZH — the per-instance-stack directive is the next slice).  LBL__ main-program pseudo-procs are dyn_scope=0 but take no args and
+ * are entered only through rt_chain_enter (rt_goto_transfer arm 4), which IS the jmp transfer — they arm with flat_lex=0 (no pcall record exists for lexprep to read). */
 extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_generator, IR_graph_t *g) {
     if (is_generator) return 0;
-    if (!dyn_scope && !(pname && strncmp(pname, "LBL__", 5) == 0)) return 0;
+    if (pname && strncmp(pname, "gram__", 6) == 0) return 0;   /* NCB-1d EXCLUSION: Raku grammar boxes speak the SCAN-ENTRY protocol (rk_gram_enter_box trampoline — subject triad r13/r14/r15, esi entry selector, call/ret, spec_t in rax:rdx), not the proc-call protocol; they keep the outermost call-regime body.  Name-keyed like the LBL__ gate below. */
+    int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
+    g_emit.flat_lex = (!dyn_scope && !is_lbl) ? 1 : 0;
     return emit_jmp_entry_arm_region(g);
 }
 /* s60 EVAL/CODE-RSP (Lon ruling s59: EVAL/CODE = the DEFER shape): runtime-compiled EVAL statement chains and

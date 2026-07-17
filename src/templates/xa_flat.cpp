@@ -6,6 +6,7 @@ extern "C" {
 #include "../emitter/emit.h"
 }
 #define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
+extern "C" void rt_jmp_frame_lexprep(void *, long);   /* NCB-1d: det-lexical jmp-entry prologue tail — NULVCL fill + rt_frame_bind_args on the self-allocated frame (rt.c) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (PLATFORM_X86) {
@@ -129,6 +130,7 @@ static std::string xaf_anchor_enter_bin(void) {
 }
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
+    if (ZC_FRAME == ZC_FRAME_RSP) return bytes(3, "\x48\x8B\xA5") + u32le((uint32_t)xaf_anchor_off());   /* mov rsp, [rbp + off] — FZ-E stratum 2 (s90): the anchor is a FRAME slot (U3 role split); the U5 zr→rsp seal made this read rsp-relative, valid only at depth 0 — SN4's LIFO balance masked it, Icon's retained scan-suspension cells (element cells left below rsp for β-backtrack) arrive DEEP and loaded garbage → rsp=heap → jmp 0 (sa2 bracketing).  Enter stays rsp-based: the prologue IS depth 0 (and in the outermost arm it precedes the rbp seed). */
     return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x8B);
 }
 static std::string xaf_anchor_enter_text(void) {
@@ -137,6 +139,7 @@ static std::string xaf_anchor_enter_text(void) {
 }
 static std::string xaf_anchor_leave_text(void) {
     if (!x86_port_cstack()) return std::string();
+    if (ZC_FRAME == ZC_FRAME_RSP) { char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_fb(), xaf_anchor_off()); return std::string(b); }   /* FZ-E stratum 2 (s90): frame-base read, TEXT twin of the BINARY 48 8B A5 — see the BINARY comment */
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -161,7 +164,12 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                   + bytes(1, "\xB9") + u32le((uint32_t)(kt - 32))                         /* mov ecx, K_region — stosb stops below the header */
                                   + bytes(2, "\x31\xC0")
                                   + bytes(2, "\xF3\xAA")
-                                  + xaf_anchor_enter_bin();
+                                  + xaf_anchor_enter_bin()
+                                  + (g_emit.flat_lex ? bytes(3, "\x48\x89\xE7")                            /* mov rdi, rsp — NCB-1d lexprep: fb = the just-allocated region base (== rbp seed) */
+                                                     + bytes(1, "\xBE") + u32le((uint32_t)(kt - 32))       /* mov esi, K_region — fill/bind stops below the header */
+                                                     + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_jmp_frame_lexprep)   /* movabs rax, rt_jmp_frame_lexprep — raw bytes, NOT x86_movabs_r64: this arm is the legacy raw-byte family, an L-record would corrupt the stream */
+                                                     + bytes(2, "\xFF\xD0")                                /* call rax — rsp = base ≡ 0 mod 16 here (caller jmps at ≡0, kt is a 16-mult), the SysV pre-call parity; clobbers only caller-saved regs, the wires+rbp are already in the header */
+                                                     : std::string());
                     out_site = 0; out_lbl = nullptr; out_def = false;
                     return r;
                 }
@@ -239,7 +247,9 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     snprintf(b, sizeof b,
                         "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
                         kt, kt - 24, kt - 16, kt - 8, kt - 32);
-                    return banner + b + xaf_anchor_enter_text();
+                    char lx[160]; lx[0] = 0;
+                    if (g_emit.flat_lex) snprintf(lx, sizeof lx, "  mov rdi, rsp\n  mov esi, %d\n  call rt_jmp_frame_lexprep@PLT\n", kt - 32);   /* NCB-1d TEXT twin of the BINARY lexprep tail: NULVCL fill + arg-bind on the self-allocated frame; rsp = base ≡ 0 mod 16, the SysV pre-call parity */
+                    return banner + b + xaf_anchor_enter_text() + lx;
                 }
                 char b[640];
                 snprintf(b, sizeof b,
@@ -317,16 +327,18 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = fo;
                     return succB;
                 }
-                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 BINARY twin of the TEXT LIFO exits: γ = mov rdi,[rsp] / mov rsi,[rsp+8] / mov rax,[rsp+kt-24] / lea rsp,[rsp+kt] / jmp rax; ω = mov rax,[rsp+kt-16] / lea / jmp */
-                    std::string sg = bytes(4, "\x48\x8B\x3C\x24")                          /* mov rdi, [rsp] */
-                                   + bytes(5, "\x48\x8B\x74\x24\x08")                      /* mov rsi, [rsp+8] */
-                                   + bytes(4, "\x48\x8B\x84\x24") + u32le((uint32_t)(kt - 24))   /* mov rax, [rsp + kt-24] — γ wire in the ABOVE header */
-                                   + bytes(3, "\x48\x8B\xAD") + u32le((uint32_t)(kt - 8))         /* mov rbp, [rbp + kt-8] — REG-7 U2b (γ): restore reads SELF-REFERENTIALLY through the still-seeded rbp (depth-immune, the FRQ-restore discipline of bb_match_head:101/bb_match_release:89); the rsp-based read was depth-unsafe on seal-cut arrivals (067 rbp=0 mine, s82) */
-                                   + bytes(4, "\x48\x8D\xA4\x24") + u32le((uint32_t)kt)          /* lea rsp, [rsp + kt] — full unwind incl. header */
+                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute form (the pat-arm ω discipline applied to BOTH edges).  The old rsp-relative reads ([rsp+0/8], [rsp+kt-24/-16], lea rsp,[rsp+kt]) rode the every-ω-pops
+                     * GUARDED ASSUMPTION (line-429 comment) that arrivals land with rsp == base — true for SNOBOL4's determinate procs, FALSE for Icon: `return expr` from inside nested generator/scan depth arrives DEEP.  All reads now go through the PINNED rbp (== base, the U2 seed),
+                     * the unwind is ABSOLUTE lea rsp,[rbp+kt], reads-before-motion (γ wire + result + lea all read rbp before its self-referential restore).  Byte-different, semantics-identical on at-base arrivals — the SN4 crosscheck watermark is the tripwire. */
+                    std::string sg = bytes(4, "\x48\x8B\x7D\x00")                          /* mov rdi, [rbp] — result DESCR word0 via the pinned base (frame slot 0, IR_RETURN's write) */
+                                   + bytes(4, "\x48\x8B\x75\x08")                          /* mov rsi, [rbp+8] — result word1 */
+                                   + bytes(3, "\x48\x8B\x85") + u32le((uint32_t)(kt - 24))   /* mov rax, [rbp + kt-24] — γ wire via base */
+                                   + bytes(3, "\x48\x8D\xA5") + u32le((uint32_t)kt)          /* lea rsp, [rbp + kt] — ABSOLUTE unwind to pre-entry rsp at ANY arrival depth */
+                                   + bytes(3, "\x48\x8B\xAD") + u32le((uint32_t)(kt - 8))    /* mov rbp, [rbp + kt-8] — caller restore, self-referential (U2b), LAST rbp read */
                                    + bytes(2, "\xFF\xE0");                                 /* jmp rax */
-                    std::string fo = bytes(4, "\x48\x8B\x84\x24") + u32le((uint32_t)(kt - 16))   /* mov rax, [rsp + kt-16] — ω wire */
-                                   + bytes(3, "\x48\x8B\xAD") + u32le((uint32_t)(kt - 8))         /* mov rbp, [rbp + kt-8] — REG-7 U2b (ω): self-referential, depth-immune */
-                                   + bytes(4, "\x48\x8D\xA4\x24") + u32le((uint32_t)kt)
+                    std::string fo = bytes(3, "\x48\x8B\x85") + u32le((uint32_t)(kt - 16))   /* mov rax, [rbp + kt-16] — ω wire via base */
+                                   + bytes(3, "\x48\x8D\xA5") + u32le((uint32_t)kt)          /* lea rsp, [rbp + kt] — ABSOLUTE unwind */
+                                   + bytes(3, "\x48\x8B\xAD") + u32le((uint32_t)(kt - 8))    /* mov rbp, [rbp + kt-8] — caller restore */
                                    + bytes(2, "\xFF\xE0");
                     out_site = 0; out_lbl = (bb_label_t *)0; out_def = false;
                     if (out_succ) *out_succ = sg;
@@ -423,15 +435,13 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = std::string(fb2);
                     return std::string(sb2);
                 }
-                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65: DETERMINATE LIFO exits, r12-free.  γ loads the result DESCR (frame slot 0) into rdi:rsi PRE-unwind (the landing's epilogue_γ takes it
-                     * BY VALUE — the frame is dead memory after the lea), reads the outside-γ wire at [rsp+kt−24] (the ABOVE header), fully unwinds frame+header (lea +kt rejoins the caller's pre-jmp rsp),
-                     * and jmps the wire — no resume record: SNOBOL4 procs are determinate (β: jmp ω exists but fires only on a post-return re-entry, which is UB by the same determinacy).  ω mirrors with
-                     * the [rsp+kt−16] wire.  GUARDED ASSUMPTION (relative lea): every exit path out of a match statement restores rsp through HEAD-ω/RELEASE before reaching proc-ω (the every-ω-pops law);
-                     * a seal cut arriving DEEP would need an absolute form — the crosscheck is the tripwire.  Pat blobs (SUSPENDING) fall through to the zr arms below with zr = r12. */
+                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute (TEXT twin of the BINARY arm above).  γ loads the result DESCR (frame slot 0, IR_RETURN's write) into rdi:rsi via the PINNED rbp PRE-unwind (the landing's
+                     * epilogue_γ takes it BY VALUE — the frame is dead memory after the lea), reads the outside-γ wire at [rbp+kt−24], unwinds ABSOLUTELY lea rsp,[rbp+kt] (Icon `return`/`fail` from nested generator/scan depth arrives with rsp DEEP — the old rsp-relative form's
+                     * every-ω-pops assumption holds only for SNOBOL4's determinate procs), restores caller rbp self-referentially LAST (reads-before-motion), and jmps the wire — no resume record (det: β fires only on a post-return re-entry, UB).  ω mirrors with the [rbp+kt−16] wire. */
                     char sg[288], fo[352];
-                    snprintf(sg, sizeof sg, "mov rdi, [rsp]\nmov rsi, [rsp + 8]\nmov rax, [rsp + %d]\nmov rbp, [rbp + %d]\nlea rsp, [rsp + %d]\njmp rax\n", kt - 24, kt - 8, kt);
-                    snprintf(fo, sizeof fo, "%s%smov rax, [rsp + %d]\nmov rbp, [rbp + %d]\nlea rsp, [rsp + %d]\njmp rax\n",
-                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt - 8, kt);
+                    snprintf(sg, sizeof sg, "mov rdi, [rbp]\nmov rsi, [rbp + 8]\nmov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 24, kt, kt - 8);
+                    snprintf(fo, sizeof fo, "%s%smov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n",
+                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt, kt - 8);
                     if (out_succ) *out_succ = std::string(sg);
                     if (out_fail) *out_fail = std::string(fo);
                     return std::string();

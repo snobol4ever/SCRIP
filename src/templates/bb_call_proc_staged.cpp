@@ -97,9 +97,10 @@ static std::string bcps_det_arm() {
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epir_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_ret; epir_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    /* PROC-CONV regime selector (the rt_proc_is_generator precedent at the gen gate below): dyn procs speak
-     * jmp-entry; lexical procs (dyn_scope=0, args bound into a caller-made frame) keep the call-regime window
-     * until NCB-1d.  The rt table is populated before any emission in both media, so this is emit-time-static. */
+    /* PROC-CONV regime selector — NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): under ZC_FRAME_RSP EVERY det proc call takes the jmp-entry wire — dyn (SNOBOL4) unchanged, det LEXICAL
+     * (Icon/Raku) newly joined: the callee blob self-allocates and its lexprep prologue tail binds the staged g_call_args, so the caller-made-frame window below is LEGACY-CONFIG ONLY now (both its arms).
+     * The rt table is populated before any emission in both media, so this is emit-time-static.  Congruence with the callee side: emit_jmp_entry_for_proc admits exactly the !is_generator procs, and this
+     * det arm is dispatched exactly on !rt_proc_is_generator — one truth source (scrip.c rt_proc_set_generator from proc_table). */
     int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     return x86_alpha()
          + x86_scan_sync_out()
@@ -113,7 +114,7 @@ static std::string bcps_det_arm() {
          + x86("call", "rt_proc_call_open", open_fp)
          + x86("test", "rax", "rax")
          + x86("je", L(1))
-         + (is_dyn && ZC_FRAME == ZC_FRAME_RSP
+         + (ZC_FRAME == ZC_FRAME_RSP
             /* R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi.
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call).  Unexercised intersection (census
