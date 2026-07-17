@@ -42,8 +42,8 @@ std::string bb_match_head() {
          /* REG-7 U3: the op_anchor_head window materialization (mov rbp,rsp) is DELETED — rbp already equals the flat base at every head via the activation seeds (U1 outer graph, U2 non-pat blobs, s79 pat blobs). */
          /* R12-ERAD s65 (ZC_FRAME_RSP): FLAT-FIRST ordering — subject load, rt_match_enter, and the rbp/dcap mirror saves all run at rsp = frame base (D=0), THEN the 32B cell pushes and only
           * window-relative writes follow.  Under R12 the original order is byte-verbatim (rsp motion is invisible to r12-based refs).  The RSP cell field +16 = pre-push rsp = the frame base; the
-          * old arena-mark slot +8 reincarnates as the PATTERN SIDE-STACK mark (S10e statement bracket for suspended activations).  Pat blobs (flat_pat, r12-island) take the R12 arm. */
-         + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, IF(hfc(), x86("sub", "rsp", (long)32))
+          * old arena-mark slot +8 reincarnates as the PATTERN SIDE-STACK mark (S10e statement bracket for suspended activations).  Non-RSP frames take the legacy arm (U5 s87: the pat-blob island is retired; under RSP there is ONE arm). */
+         + IF(ZC_FRAME != ZC_FRAME_RSP, IF(hfc(), x86("sub", "rsp", (long)32))
              + IF(hfc(), x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark) + x86("mov", FRQ(_.op_off + 8), "rax"))
              + (hfc() ? x86("mov", "rax", "rsp") + x86("add", "rax", (long)32) + x86("mov", FRQ(_.op_off + 16), "rax")
                       : x86_zls2_mark_save(_.op_off + 16)))
@@ -57,7 +57,7 @@ std::string bb_match_head() {
           * MARK, one direct frame store, the rax hop and the cell read both deleted.  Nested heads read the
           * live register.  The +40 caller-rbp slot stays dead-allocated v1 (REG-2 note stands). */
          + x86("mov", FRQ(_.op_off + 32), "r12")
-         + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (hfc() ? x86("mov", "rax", "rsp") + x86("sub", "rsp", (long)32) + x86("mov", FRQ(_.op_off + 16), "rax")
+         + IF(ZC_FRAME == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp") + x86("sub", "rsp", (long)32) + x86("mov", FRQ(_.op_off + 16), "rax")
                                                                : x86_zls2_mark_save(_.op_off + 16))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", "rax", RDQ("rcx", 0))
@@ -80,12 +80,12 @@ std::string bb_match_head() {
          /* R12-ERAD (ZC_FRAME_RSP + hfc): cell's rsp-mark lives at [rsp+16] (32B FORTH cell field +16).
           * No align dance open — bare mov rsp,[rsp+16] pops the 32B cell and restores pre-HEAD rsp.
           * s65: statement-fail also reclaims side-stack residue (S10e) from the reincarnated +8 slot. */
-         + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (hfc() ? x86("mov", "rax", "qword ptr [rsp + 8]") : x86("mov", "rax", FRQ(_.op_off + 8)))
+         + IF(ZC_FRAME == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "qword ptr [rsp + 8]") : x86("mov", "rax", FRQ(_.op_off + 8)))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", RDQ("rcx", 0), "rax"))
-         + (hfc() && ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat
+         + (hfc() && ZC_FRAME == ZC_FRAME_RSP
              ? x86("mov", "rsp", "qword ptr [rsp + 16]")
-             : ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat
+             : ZC_FRAME == ZC_FRAME_RSP
              ? x86_zls2_release_to_call(_.op_off + 16)   /* declined statement — the FORTH mark restore (bare mov rsp,[rsp+off], dances no-op'd); the arena call is gated out with the arena */
              : ( IF(hfc(), x86("mov", "rdi", FRQ(_.op_off + 8)))
                + x86_align_enter()
@@ -99,7 +99,7 @@ std::string bb_match_head() {
          + x86("mov", "r12", FRQ(_.op_off + 32))
          /* REG-3 fail-edge restore: rbp ← saved outer (+40).  FRQ is correct in ALL THREE frame classes here:
           * anchored → [rbp+off] with rbp==base (the classic frame-pointer pop), granted → [rsp+off] with rsp
-          * unwound to base, flat_pat → [r12+off] island view. */
+          * unwound to base, non-RSP legacy → [zr+off] frame view (U5 s87: pat-blob island retired). */
          + x86("mov", "rbp", FRQ(_.op_off + 40))
          + x86_omega();
 }

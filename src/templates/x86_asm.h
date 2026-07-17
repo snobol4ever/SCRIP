@@ -312,8 +312,8 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? "rbp" : "rsp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-5 s79 (= R12-EXIT-3): PAT$ suspending blobs are rbp-framed — the caller's rbp rides the EXISTING header chain (save at [rsp+24] in the α, restore from [zr-8] on BOTH exit edges, record[+8] re-pin at the %s_res landing).  REG-7 U4 sweep: the op_anchored/op_anchor_head window arms DELETED (s85 flip proof: crosscheck watermark-exact + byte-identical .s on 070/117/142/164/165 — no live emission consulted them).  The flat_pat arm is U5, gated on Lon's blob-interior ruling. */
-inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (_.flat_pat ? 5 : 4) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): ONE stream — under RSP zr IS rsp, no conditions.  History: the op_anchored window arms died at U4 (s86); the s79 flat_pat rbp-island died here (pat blobs now ride the U2/U2b header-above protocol — unified prologue + suspend epilogue arm, s87 slice 1). */
+inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): under RSP zr IS rsp, unconditionally — the ONE stream.  flat_pat no longer selects a register anywhere; it survives only as the xa_flat epilogue's suspend-vs-determinate protocol selector.  The s79 pat-blob rbp-island (save [rsp+24] / restore [zr-8] / record re-pin) is RETIRED — pat blobs ride the U2/U2b header-above protocol (prologue unified, suspend epilogue arm added s87 slice 1). */
 inline const char * x86_fb()         { return ZC_FRAME == ZC_FRAME_RSP ? "rbp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U3 FRAME BASE — the frame-slot role SPLIT OFF zr (zr keeps the cursor/anchor role until the U5 seal): under RSP the base is UNCONDITIONALLY rbp, seeded at every activation boundary (U1 outer graph, U2 non-pat blobs, s79 pat blobs), so frame refs need no depth compensation.  Consumers kept in lockstep: fr32/fr64 prefixes, x86_r12_modrm, x86_frame_rex, x86_frame_text_mem. */
 inline int          x86_fb_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 5 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
 inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "dword ptr [rbp + " : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }   /* REG-7 U3: unconditional rbp under RSP — the flat_pat/op_anchored branches collapsed; rbp is the frame base at every activation (U1/U2/s79 seeds) */
@@ -1291,12 +1291,12 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
  * meaningless across it (push/and both touch or depend on rsp) — callers already treat a C call as a full
  * clobber, so nothing new. */
 inline std::string x86_align_enter() {
-    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string();   /* R12-ERAD s65 (ZB-OWN-1a G1): base ≡ 0 mod 16 (K=65544 phase pad) and every rsp motion in the body is a 16-multiple (32B HEAD cell, 16B leaf cells, 32B xfer, 16-rounded zls blocks) ⇒ rsp ≡ 0 mod 16 at every C-call site ⇒ the dance is a no-op — and MUST be one: its own pushes are what displaced every flat ref inside it.  Pat blobs (r12-island, rsp sinks) keep the dance. */
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65 (ZB-OWN-1a G1): base ≡ 0 mod 16 (K=65544 phase pad) and every rsp motion in the body is a 16-multiple (32B HEAD cell, 16B leaf cells, 32B xfer, 16-rounded zls blocks) ⇒ rsp ≡ 0 mod 16 at every C-call site ⇒ the dance is a no-op — and MUST be one: its own pushes are what displaced every flat ref inside it.  Pat blobs (r12-island, rsp sinks) keep the dance. */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b1(0x54) + x86_b3(0xFF, 0x34, 0x24) + x86_b2(0x48, 0x83) + x86_b2(0xE4, 0xF0));
     return std::string(" push rsp\n push qword ptr [rsp]\n and rsp, -16\n");
 }
 inline std::string x86_align_leave() {
-    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string();   /* R12-ERAD s65: paired with the enter no-op above */
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65: paired with the enter no-op above */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x48, 0x8B, 0x64) + x86_b2(0x24, 0x08));
     return std::string(" mov rsp, [rsp + 8]\n");
 }
@@ -1352,11 +1352,11 @@ inline std::string x86_frame_unsink() {
  * call sites (no live cursor) — that is why bcps_det_arm is safe today, and it stops being safe the moment a
  * deterministic call is reached with r14 live. */
 inline std::string x86_xfer_enter() {
-    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L);   /* R12-ERAD s65: 32B keeps the G1 16-align invariant; the ONE interior flat ref (RELEASE's mark read) is hand-compensated +32 at the template */
+    if (ZC_FRAME == ZC_FRAME_RSP) return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L);   /* R12-ERAD s65: 32B keeps the G1 16-align invariant; the ONE interior flat ref (RELEASE's mark read) is hand-compensated +32 at the template */
     return x86("push", "r14") + x86("push", "r15") + x86("push", "r13");
 }
 inline std::string x86_xfer_leave() {
-    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
+    if (ZC_FRAME == ZC_FRAME_RSP) return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
     return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1669,7 +1669,7 @@ inline std::string x86_port_hook(int site, int port) {
  * plain assignment. Confirmed via hex dump of the corrupted bytes, not assumed; then confirmed the fix by
  * finding bb_emit_x86's actual tag loop, the same consumer every ordinary bb_*.cpp template already uses.) */
 inline std::string x86_zeta_mark_call(int off) {
-    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string(); /* R12-ERAD: no heap in the BB equation — the FORTH frame IS the zeta; anchor slot already holds the rsp snapshot */
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap in the BB equation — the FORTH frame IS the zeta; anchor slot already holds the rsp snapshot */
     return x86("push", "rsi")
          + x86_align_enter()
          + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_zls_mark)
@@ -1679,7 +1679,7 @@ inline std::string x86_zeta_mark_call(int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zeta_release_to_call(int off) {
-    if (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat) return std::string(); /* R12-ERAD: no heap release — the FORTH frame unwinds via add rsp,K at ω */
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap release — the FORTH frame unwinds via add rsp,K at ω */
     return x86_align_enter()
          + x86("mov",  "rdi", FRQ(off))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release_to)
