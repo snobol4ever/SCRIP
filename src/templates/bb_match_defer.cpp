@@ -65,8 +65,9 @@ std::string bb_match_defer() {
           * register allocation.  Any transfer with a LIVE matcher cursor must save them itself — M3 and NCB-2's
           * generator arms included. */
          + x86_xfer_enter()
-         /* REG-2: the old rbp-dcap mirror-out died with the park — the pinned cell [RT_CAS_TOP] is always
-          * live, so a nested match's head reads the true top directly. */
+         /* REG-6 (was REG-2): no mirror-out — r12 IS the live top and rides the callee-saved contract through
+          * the resolve C call and into the deferred pattern's nested execution, whose own head/release keep
+          * it LIFO-balanced back to this box's view. */
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
          + x86("xor",  "esi", "esi")
          + x86_anchor_enter()

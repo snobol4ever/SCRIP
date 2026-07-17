@@ -397,6 +397,7 @@ __attribute__((constructor)) static void rt_pin_init(void) {
     if (p != (void *)RT_PIN_BASE) { fprintf(stderr, "rt_pin_init: RT_PIN_BASE 0x%lx unavailable (got %p) -- REG-0 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_PIN_BASE, p); abort(); }
     void * g = mmap((void *)RT_GVA_VA, RT_GVA_ISLAND_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (g != (void *)RT_GVA_VA) { fprintf(stderr, "rt_pin_init: RT_GVA_VA 0x%lx unavailable (got %p) -- REG-1 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_GVA_VA, g); abort(); }
+    { extern void rt_dcap_lazy_init(void); rt_dcap_lazy_init(); }   /* REG-6 PEND-PROMOTE: the outer-graph prologue SEEDS r12 from [RT_CAS_TOP] before any match runs, so the island init can no longer ride rt_match_enter's lazy call alone -- chain it here, after the pin map it writes through, deterministic in BOTH modes (this constructor lives in scrip and libscrip_rt.so alike).  rt_match_enter's call stays as an idempotent no-op. */
 }
 DESCR_t *rt_gva_island(int n) {
     if ((size_t)n * sizeof(DESCR_t) > RT_GVA_ISLAND_BYTES) { fprintf(stderr, "rt_gva_island: %d slots exceed the island (raise RT_GVA_ISLAND_BYTES)\n", n); abort(); }

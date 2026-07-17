@@ -126,6 +126,12 @@ static std::string bcps_det_arm() {
             + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
             + x86("jmp", L(2))
             : is_dyn
+            /* ⛔ REG-6 HAZARD FLAG (s80) on this legacy non-RSP/flat_pat arm — REG-7 AUDIT ITEM, unresolved by
+             * design: between `mov r12,rsp` below and the landing's `pop r12`, r12 is a STACK ANCHOR, not the
+             * pend top — a callee capture would bump the anchor (pend records onto the stack, corrupted
+             * landing).  Unexercised today (census 0/308, the s79 measurement) and slated for collapse into
+             * the anchor-free first arm at REG-7 once the LIFO-unwind property is audited for this class;
+             * left byte-identical here per Lon's explicit deferral (s79 "REG-7 audit item"). */
             ? x86("call", "rt_proc_open_fn", openfn_fp)
             + x86("push", "r12")
             + x86("sub", "rsp", 8L)
