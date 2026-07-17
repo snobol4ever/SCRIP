@@ -36,6 +36,7 @@ main_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 968], rsp
+  mov r12, qword ptr [1879048192]
 main_α_body:
  xchain0_n0_α:
 # BOX IR_CALL TABLE(...) -> rt_call_arr [operand-marshal, FAIL->ω]

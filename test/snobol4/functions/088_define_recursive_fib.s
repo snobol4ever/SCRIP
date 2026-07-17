@@ -445,6 +445,7 @@ main_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 1032], rsp
+  mov r12, qword ptr [1879048192]
 main_α_body:
 # IR_LIT_INTEGER
  xchain23_n0_α:

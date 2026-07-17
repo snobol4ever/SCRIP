@@ -14955,6 +14955,7 @@ main_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 5768], rsp
+  mov r12, qword ptr [1879048192]
 main_α_body:
  xchain559_n0_α:
 # BOX IR_CALL TABLE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
@@ -16086,8 +16087,7 @@ main_α_body:
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov rax, qword ptr [1879048192]
- mov qword ptr [rbp + 5456], rax
+ mov qword ptr [rbp + 5456], r12
  mov qword ptr [rbp + 5440], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
@@ -16111,8 +16111,7 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rbp + 5440]
- mov rax, qword ptr [rbp + 5456]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rbp + 5456]
  mov rbp, qword ptr [rbp + 5464]
  jmp xchain559_n73_α
 # IR_LIT_STRING
@@ -16253,7 +16252,7 @@ xchain559_n76_af:
  push r13
  sub rsp, 8
  mov rdi, qword ptr [rsp + 5488]
- mov rsi, qword ptr [1879048192]
+ mov rsi, r12
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx656_1:
@@ -16281,8 +16280,7 @@ xchain559_n76_af:
  pop r13
  pop r15
  pop r14
- mov rax, qword ptr [rbp + 5456]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rbp + 5456]
  mov rbp, qword ptr [rbp + 5464]
  jmp xchain559_n88_α
 # IR_LIT_INTEGER

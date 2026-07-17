@@ -187,6 +187,7 @@ main_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 1096], rsp
+  mov r12, qword ptr [1879048192]
 main_α_body:
 # IR_LIT_STRING
  xchain7_n0_α:
@@ -462,8 +463,7 @@ main_α_body:
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov rax, qword ptr [1879048192]
- mov qword ptr [rbp + 672], rax
+ mov qword ptr [rbp + 672], r12
  mov qword ptr [rbp + 656], rsp
  lea rcx, [rip + g_patstk_sp]
  mov rax, qword ptr [rcx + 0]
@@ -487,8 +487,7 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rbp + 656]
- mov rax, qword ptr [rbp + 672]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rbp + 672]
  mov rbp, qword ptr [rbp + 680]
  jmp xchain7_n13_α
 # IR_LIT_STRING
@@ -615,7 +614,7 @@ main_α_body:
  push r13
  sub rsp, 8
  mov rdi, qword ptr [rsp + 704]
- mov rsi, qword ptr [1879048192]
+ mov rsi, r12
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
 .Lx37_1:
@@ -643,8 +642,7 @@ main_α_body:
  pop r13
  pop r15
  pop r14
- mov rax, qword ptr [rbp + 672]
- mov qword ptr [1879048192], rax
+ mov r12, qword ptr [rbp + 672]
  jmp xchain7_n27_α
 # IR_ASSIGN global
  xchain7_n26_α:
