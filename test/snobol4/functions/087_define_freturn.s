@@ -10,6 +10,8 @@ proc_ispos_α:
   sub rsp, 688
   mov [rsp + 664], rcx
   mov [rsp + 672], rdx
+  mov [rsp + 680], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 656
   xor eax, eax
@@ -108,10 +110,12 @@ proc_ispos_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 664]
+mov rbp, [rbp + 680]
 lea rsp, [rsp + 688]
 jmp rax
 proc_ispos_ω:
 mov rax, [rsp + 672]
+mov rbp, [rbp + 680]
 lea rsp, [rsp + 688]
 jmp rax
 proc_startup:
@@ -183,6 +187,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 648], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_INTEGER
  xchain9_n0_α:

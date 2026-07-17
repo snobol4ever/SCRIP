@@ -10,6 +10,8 @@ proc_EXPR$0_α:
   sub rsp, 176
   mov [rsp + 152], rcx
   mov [rsp + 160], rdx
+  mov [rsp + 168], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 144
   xor eax, eax
@@ -72,10 +74,12 @@ proc_EXPR$0_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 152]
+mov rbp, [rbp + 168]
 lea rsp, [rsp + 176]
 jmp rax
 proc_EXPR$0_ω:
 mov rax, [rsp + 160]
+mov rbp, [rbp + 168]
 lea rsp, [rsp + 176]
 jmp rax
   .globl proc_EXPR$1_α
@@ -88,6 +92,8 @@ proc_EXPR$1_α:
   sub rsp, 112
   mov [rsp + 88], rcx
   mov [rsp + 96], rdx
+  mov [rsp + 104], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 80
   xor eax, eax
@@ -123,10 +129,12 @@ proc_EXPR$1_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 88]
+mov rbp, [rbp + 104]
 lea rsp, [rsp + 112]
 jmp rax
 proc_EXPR$1_ω:
 mov rax, [rsp + 96]
+mov rbp, [rbp + 104]
 lea rsp, [rsp + 112]
 jmp rax
   .globl proc_EXPR$2_α
@@ -139,6 +147,8 @@ proc_EXPR$2_α:
   sub rsp, 208
   mov [rsp + 184], rcx
   mov [rsp + 192], rdx
+  mov [rsp + 200], rbp
+  mov rbp, rsp
   mov rdi, rsp
   mov ecx, 176
   xor eax, eax
@@ -212,10 +222,12 @@ proc_EXPR$2_γ:
 mov rdi, [rsp]
 mov rsi, [rsp + 8]
 mov rax, [rsp + 184]
+mov rbp, [rbp + 200]
 lea rsp, [rsp + 208]
 jmp rax
 proc_EXPR$2_ω:
 mov rax, [rsp + 192]
+mov rbp, [rbp + 200]
 lea rsp, [rsp + 208]
 jmp rax
 proc_startup:
@@ -343,6 +355,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 1064], rsp
   mov r12, qword ptr [1879048192]
+  mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
  xchain13_n0_α:
