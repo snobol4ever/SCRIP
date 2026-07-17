@@ -189,6 +189,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                   + xaf_anchor_enter_bin()
                                   + (x86_port_mode() == ZC_PORT_HEAP ? bytes(4, "\x48\x8B\x1C\x25") + u32le((uint32_t)RT_WS_TOP) : std::string()) /* REG-4b OUTER SEED, byte twin of TEXT's mov rbx, qword ptr [RT_WS_TOP]: outermost graphs only — jmp-entry blobs inherit rbx live */
                                   + bytes(4, "\x4C\x8B\x24\x25") + u32le((uint32_t)RT_CAS_TOP) /* REG-6 OUTER SEED, byte twin of TEXT's mov r12, qword ptr [RT_CAS_TOP] (byte-verified vs as s80): r12 = live pend/dcap top for the whole graph — jmp-entry blobs/EVAL fragments inherit it via the callee-saved contract; cell pre-warmed by rt_pin_init's chained rt_dcap_lazy_init.  UNGATED: the pend stack is live in every port mode.  No epilogue publish: the pump takes the top BY ARGUMENT (rsi) and LIFO balance means top==base at every graph exit, so the cell stays truthful without one. */
+                                  + bytes(4, "\x48\x89\xAC\x24") + u32le(65536) /* CALLER-RBP SAVE (ABI fix, mode-3): store caller rbp at [rsp+K-8] header slot before the seed clobbers rbp; restored before every ret.  The mode-3 caller (scrip main) is a canary-protected C fn that relies on rbp being preserved; mode-4's caller (main: wrapper) does not, so this was latent until the exit-code sweep. */
                                   + bytes(3, "\x48\x89\xE5") /* REG-7 U1 OUTER SEED, byte twin of TEXT's mov rbp, rsp (48 89 E5, byte-verified vs as s82): rbp = the activation FLAT BASE (REG-MAP law 1) — rsp == flat base here by LIFO balance, the frame view every FR/FRQ consumer flips to at U3.  DEAD WEIGHT until U3; jmp-entry blobs get their own save/seed/restore at U2 (pat blobs already have it, s79).  Bare clobber safe by the same callee-saved dance contract the rbx/r12 seeds above ride. */
                                   + bytes(3, "\x83\xFE\x00")
                                   + bytes(2, "\x0F\x85") + u32le(0);
@@ -253,6 +254,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     std::string pro = banner + fb + xaf_anchor_enter_text();
                     if (x86_port_mode() == ZC_PORT_HEAP) pro += std::string("  mov rbx, ") + ABSQ(RT_WS_TOP) + "\n"; /* REG-4b OUTER SEED (twin of the BINARY arm's 48 8B 1C 25): outermost graphs only — jmp-entry blobs inherit rbx live through C's callee-saved contract */
                     pro += std::string("  mov r12, ") + ABSQ(RT_CAS_TOP) + "\n"; /* REG-6 OUTER SEED (twin of the BINARY arm's 4C 8B 24 25, byte-verified vs as s80): r12 = live pend/dcap top, UNGATED, inherited by jmp-entry blobs; cell pre-warmed by rt_pin_init.  No epilogue publish — pump takes rsi, LIFO balance keeps the cell truthful at exit. */
+                    pro += std::string("  mov [rsp + 65536], rbp\n"); /* CALLER-RBP SAVE (ABI fix, twin of BINARY 48 89 AC 24 00 00 01 00): store caller rbp at [rsp+K-8] header slot before the seed clobbers it; restored before every ret */
                     pro += std::string("  mov rbp, rsp\n"); /* REG-7 U1 OUTER SEED (twin of the BINARY arm's 48 89 E5): rbp = activation flat base per REG-MAP law 1 — dead until U3's consumer flip; blobs save/seed/restore their own (s79 pat, U2 non-pat).  Bare clobber safe: the dance restores callee-saved regs, same as rbx/r12 above. */
                     if (g_gen_proc_active || g_resumable_callable_active)
                         pro += std::string("  cmp esi, 0\n") + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
@@ -334,6 +336,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                 std::string succ_half = bytes(1, "\xB8") + u32le(1)
                                       + bytes(2, "\x31\xD2")
                                       + xaf_anchor_leave_bin()
+                                      + bytes(4, "\x48\x8B\xAC\x24") + u32le(65536) /* CALLER-RBP RESTORE (ABI fix): rsp==base after anchor-leave, reload caller rbp from [rsp+K-8] header slot before rejoining the caller */
                                       + bytes(3, "\x48\x81\xC4") + u32le(65544)
                                       + bytes(1, "\xC3");
                 std::string fail_half = xaf_anchor_leave_bin()
@@ -342,6 +345,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(5, "\x48\xC7\x44\x24\x08") + u32le(0)
                                       + bytes(1, "\xB8") + u32le(99)
                                       + bytes(2, "\x31\xD2")
+                                      + bytes(4, "\x48\x8B\xAC\x24") + u32le(65536) /* CALLER-RBP RESTORE (ABI fix): reload caller rbp from [rsp+K-8] before rejoining the caller */
                                       + bytes(3, "\x48\x81\xC4") + u32le(65544)
                                       + bytes(1, "\xC3");
                 out_site = (int)succ_half.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
@@ -417,11 +421,11 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: anchor-leave normalizes rsp to frame base, FAILDESCR lands at [rsp+0], add rsp,K rejoins the caller's ret-addr */
-                    std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + "add rsp, 65544\n" + "ret\n";
+                    std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + "mov rbp, [rsp + 65536]\n" + "add rsp, 65544\n" + "ret\n";
                     std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
                          + xaf_anchor_leave_text()
                          + "mov dword ptr [rsp+0], 99\n" + "mov dword ptr [rsp+4], 0\n" + "mov qword ptr [rsp+8], 0\n"
-                         + "mov eax, 99\n" + "xor edx, edx\n" + "add rsp, 65544\n" + "ret\n";
+                         + "mov eax, 99\n" + "xor edx, edx\n" + "mov rbp, [rsp + 65536]\n" + "add rsp, 65544\n" + "ret\n";
                     if (out_succ) *out_succ = succ_half;
                     if (out_fail) *out_fail = fail_half;
                     return succ_half + fail_half;
