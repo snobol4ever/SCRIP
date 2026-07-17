@@ -1,18 +1,12 @@
 #ifndef ZETA_CHOICES_H
 #define ZETA_CHOICES_H
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define ZC_ALLOC_BUMP_INFINITE 0
-#define ZC_ALLOC_BUMP_LIFO     1
-#define ZC_ALLOC_MALLOC        2
-#define ZC_ALLOC_GC            3
-/* Lon ruling 2026-07-08 s6: TWO zeta lifetime classes, two providers, zero globals. Control-flow-lifetime
- * zeta rides the ZLS2 down-arena (the stack; r12-destined). LONG-LIVED zeta — persists its data state, freed
- * independent of control flow (suspended generator frames, COLLECTION captures) — lives on the HEAP: the v1
- * rt_zls_alloc/release pair IS that heap provider (malloc + GC roots, per-block free). The v1 up-arena is
- * therefore retired from the default build (never mmapped under MALLOC). */
-#ifndef ZC_ALLOC
-#define ZC_ALLOC ZC_ALLOC_MALLOC
-#endif
+/* ZC_ALLOC AXIS RETIRED (RK-ZETA-4 close, 2026-07-17): the BUMP_INFINITE/BUMP_LIFO/MALLOC/GC allocator choice is superseded and had ZERO code consumers left
+ * (sole reference was the zls_dump diagnostic label; the RK-ZETA-3 MALLOC-vs-BUMP_LIFO A/B was byte-identical BECAUSE the knob was disconnected, not because two
+ * live allocators agreed).  The law it once selected (Lon ruling 2026-07-08 s6) stands, implemented by the layered end state: TWO zeta lifetime classes, two
+ * providers, zero globals.  Control-flow-lifetime zeta rides the machine stack (ZC_PORT_FORTH fixed cells on rsp + the rbp value-slot frame under ZC_FRAME_RSP).
+ * LONG-LIVED zeta — persists its data state, freed independent of control flow (suspended generator frames, coexpr stacks, COLLECTION captures) — lives on the
+ * HEAP: rt_zls_alloc/release IS that provider, issuing fixed ZC_ZBLOCK_KB blocks through rt_arena_zblock_get/put (ZA-FLIP s67; GC-heap-carved when ZC_ZH_IN_GCHEAP). */
 /* ZA-FLIP s67 (GC-U-2): the fixed reusable ζ-block class rt_zls_alloc issues through rt_arena_zblock_get/put — requests over one block route to the grow-only workspace (ZBF_WS). */
 #ifndef ZC_ZBLOCK_KB
 #define ZC_ZBLOCK_KB 64
@@ -218,14 +212,8 @@
 #define ZLS2_RESTORE 2 /* RETIRED (Lon ruling 2026-07-08 s7): only α and ω participate — the ω landing on a β already adjusted the cursor via its own RELEASE; never granted (zls2_geom), no hook site keys on it; bit kept so the mask meaning stays recorded */
 #define ZLS2_RELEASE 4
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#if ZC_ALLOC == ZC_ALLOC_GC
-#error "ZC_ALLOC_GC is a stub until GC-3 lands (ARCH-ZETA-LOCAL-STORAGE.md section 6e)"
-#endif
 #if ZC_COLLECTION == ZC_COL_GC
 #error "ZC_COL_GC is a stub until GC-4 lands (ARCH-ZETA-LOCAL-STORAGE.md section 6e)"
-#endif
-#if ZC_COLLECTION == ZC_COL_ARENA && ZC_ALLOC == ZC_ALLOC_MALLOC
-#error "ZC_COL_ARENA (grow-in-place-when-top) requires a bump ZC_ALLOC arena"
 #endif
 #if ZC_PROMOTE == ZC_PROMOTE_ON
 #error "ZC_PROMOTE_ON is a stub until the heap-promotion rung lands (ARCH-ZETA-LOCAL-STORAGE.md section 7)"
