@@ -538,12 +538,12 @@ jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, qword ptr [rsp + 1272]
+mov rsp, qword ptr [rbp + 1272]
 mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 main_ω:
-mov rsp, qword ptr [rsp + 1272]
+mov rsp, qword ptr [rbp + 1272]
 mov dword ptr [rsp+0], 99
 mov dword ptr [rsp+4], 0
 mov qword ptr [rsp+8], 0
