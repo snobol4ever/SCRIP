@@ -823,6 +823,7 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     IR_t ** entry = (IR_t **) calloc((size_t) n, sizeof(IR_t *));
     for (int j = n - 1; j >= 0; j--) {
         IR_t * ωj = (j + 1 < n) ? entry[j + 1] : ω;
+        if (j + 1 < n && ωj && ir_is_generator_kind(ωj->op)) { IR_t * ft = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(ft, ωj); lc_ω_to(ft, ωj); ωj = ft; }   /* FZ-E: the fail CASCADE means "try the next alternative FRESH (α)"; the generic ω_to helper (line 16) β-promotes generator-kind targets, which is the backtrack-consumer rule — correct for re-driving a producer, WRONG here (SCAN_MATCH "a" ω was landing on the SCAN_SEQUENCE arm's β, a mid-flight resume of an arm that never ran → &null/SIGSEGV, the rung36 scan family).  The plain-tagged GOTO trampoline (the 587 succ_tramp idiom) absorbs the promotion: edges to a GOTO stay α, and the emitter's GOTO-chase (emit.cpp 1713) carries no β through its lc_γ_to link. */
         IR_t * ml = build(cx, IR_MOVE_LABEL, γ, ω);
         cx->beta = ωj;
         IR_t * ar = NULL; entry[j] = lower(cx, t->c[j], ml, ωj, &ar);

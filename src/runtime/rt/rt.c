@@ -328,7 +328,7 @@ int rt_k_level = 1;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic;
+    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int jmp_entry;   /* NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate. */
 } rt_proc_t;
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
@@ -355,7 +355,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_result_name(const char *name, const char *rname)
@@ -474,6 +474,15 @@ void rt_proc_set_variadic(const char *name, int is_var)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* NCB-1d REGIME RECORD — the driver proc loops (the same four that bracket emit_jmp_entry_for_proc) record here whether the proc's EMITTED body is a jmp-entry blob, in-process for mode 3 and via the
+ * printed startup registration for mode 4.  Blocks/rules/methods registered through rt_proc_set_fn outside those loops keep the default 0 and stay on the call-regime C window. */
+void rt_proc_set_jmpentry(const char *name, int on)
+{
+    if (!name) return;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].jmp_entry = on ? 1 : 0; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_generator(const char *name)
 {
     if (!name) return 0;
@@ -491,7 +500,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -555,6 +564,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     long fbytes = rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
+        if (p->jmp_entry) return rt_proc_enter((void *)p->fn);   /* NCB-1d: the RECORDED regime — a jmp-entry blob entered by C `call` would run its sub/wire prologue with garbage rcx/rdx and jmp a dead wire at γ (the blk_calls_sub crash); the open above already pushed the lex record, so the two-landing shim completes the same open→transfer→epilogue sequence */
         void *fb = alloca((size_t)fbytes);
         void *fn2 = rt_frame_prep(fb, fbytes);
         DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
@@ -578,6 +588,12 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     for (int i = 0; i < g_rt_gen_proc_count; i++)
         if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
     if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
+    if (p->jmp_entry) {   /* NCB-1d: a DET jmp-entry callee reached through the value/generator window (proc values in `every (!plist)()`, computed calls) — one-shot: the recorded regime says the body self-allocates and fully unwinds, so entering it with `call fn(fb,0)` would jmp a garbage γ-wire (rung37_proc_lookup crash).  Route through the two-landing shim (args are already staged in g_call_args by the value marshaller; the open pushes the lex record); no resumable frame exists, so hout stays null and any β re-drive sees an exhausted generator. */
+        long fb2 = rt_proc_call_open(name, nargs);
+        if (!fb2) { if (hout) *hout = (void *)0; return FAILDESCR; }
+        if (hout) *hout = (void *)0;
+        return rt_proc_enter((void *)p->fn);
+    }
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     long total = 16L + (long)fbytes;
@@ -971,6 +987,12 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
 {
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     for (int i = 0; i < nargs; i++) g_call_args[i] = args ? args[i] : NULVCL;
+#if defined(ZC_FRAME) && defined(ZC_FRAME_RSP) && ZC_FRAME == ZC_FRAME_RSP
+    if (p->jmp_entry) {   /* NCB-1d: the RECORDED regime — this body was emitted as a jmp-entry blob (driver-loop procs, !is_generator); the alloca+call window would run its sub/wire prologue with garbage rcx/rdx wires, so transfer through the two-landing shim (the blob lexpreps its own frame from the staged args).  Blocks/rules/methods registered outside the loops keep jmp_entry=0 and take the window below. */
+        (void)rt_proc_call_prologue_lex(p, nargs, wn);
+        return rt_proc_enter((void *)p->fn);
+    }
+#endif
     long fbytes = (long)rt_proc_call_prologue_lex(p, nargs, wn);
     void *fb = alloca((size_t)fbytes);
     void *fn2 = rt_frame_prep(fb, fbytes);
@@ -991,6 +1013,21 @@ long rt_proc_call_open(const char *name, int nargs)
      * the lexically-scoped frontends' formals. */
     if (p->dyn_scope) return (long)rt_proc_call_prologue(p, g_call_args, nargs, wn);
     return (long)rt_proc_call_prologue_lex(p, nargs, wn);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* LEXPREP LEAF (NCB-1d) — the DET-LEXICAL jmp-entry prologue's tail call: the blob has just self-allocated and
+ * zero-filled its region; for a lexical proc that region IS the frame, so overwrite with the lexical init
+ * (NULVCL slots) and bind the staged args at [fb + 16*(i+1)] — exactly rt_frame_prep's lex arm minus the fn
+ * fetch.  Strict leaf, protocol-agnostic at the call site: dyn/PAT$/EVAL/LBL__ graphs never emit the call
+ * (flat_lex gates it), and a non-lex top record no-ops defensively. */
+void rt_jmp_frame_lexprep(void *fb, long region_bytes)
+{
+    if (g_pcall_top <= 0) return;
+    rt_pcall_t *c = &g_pcall[g_pcall_top - 1];
+    if (!c->lex) return;
+    c->fb = fb;
+    { DESCR_t *zf = (DESCR_t *)fb; for (long zi = 0; zi < region_bytes / 16; zi++) zf[zi] = NULVCL; }
+    rt_frame_bind_args((char *)fb, c->p, c->nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* FRAME-PREP LEAF — the site has just made fbytes of frame available at fb (an rsp bump, once the call site is
