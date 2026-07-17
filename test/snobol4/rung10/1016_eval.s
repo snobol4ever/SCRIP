@@ -67,7 +67,7 @@ proc_EXPR$0_α_body:
  jmp proc_EXPR$0_ω
 proc_EXPR$0_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_EXPR$0_β:
 jmp proc_EXPR$0_ω
 proc_EXPR$0_γ:
@@ -122,7 +122,7 @@ proc_EXPR$1_α_body:
  jmp proc_EXPR$1_ω
 proc_EXPR$1_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_EXPR$1_β:
 jmp proc_EXPR$1_ω
 proc_EXPR$1_γ:
@@ -215,7 +215,7 @@ proc_EXPR$2_α_body:
  jmp proc_EXPR$2_ω
 proc_EXPR$2_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_EXPR$2_β:
 jmp proc_EXPR$2_ω
 proc_EXPR$2_γ:

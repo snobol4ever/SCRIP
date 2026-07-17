@@ -366,7 +366,7 @@ proc_fib_α_body:
  jmp proc_fib_γ
 proc_fib_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_fib_β:
 jmp proc_fib_ω
 proc_fib_γ:

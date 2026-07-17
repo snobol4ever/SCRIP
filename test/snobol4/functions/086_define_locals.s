@@ -149,7 +149,7 @@ proc_swap_α_body:
  .string "OUTPUT"
 proc_swap_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_swap_β:
 jmp proc_swap_ω
 proc_swap_γ:

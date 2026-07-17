@@ -98,7 +98,7 @@ proc_upcase_α_body:
  jmp proc_upcase_γ
 proc_upcase_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_upcase_β:
 jmp proc_upcase_ω
 proc_upcase_γ:

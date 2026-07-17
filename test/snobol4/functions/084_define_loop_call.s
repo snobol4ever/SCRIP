@@ -90,7 +90,7 @@ proc_bump_α_body:
  jmp proc_bump_γ
 proc_bump_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_bump_β:
 jmp proc_bump_ω
 proc_bump_γ:

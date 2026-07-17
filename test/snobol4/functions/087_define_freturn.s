@@ -103,7 +103,7 @@ proc_ispos_α_body:
  jmp proc_ispos_ω
 proc_ispos_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_ispos_β:
 jmp proc_ispos_ω
 proc_ispos_γ:

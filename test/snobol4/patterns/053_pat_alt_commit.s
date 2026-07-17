@@ -8,23 +8,15 @@ proc_PAT$0_α:
     .global proc_PAT$0_γ
     .global proc_PAT$0_ω
   sub rsp, 160
-  mov [rsp+8], rcx
-  mov [rsp+16], rdx
-  mov [rsp+24], rbp
-  lea rbp, [rsp+32]
-  mov rdi, rbp
+  mov [rsp + 136], rcx
+  mov [rsp + 144], rdx
+  mov [rsp + 152], rbp
+  mov rbp, rsp
+  mov rdi, rsp
   mov ecx, 128
   xor eax, eax
   rep stosb
-  mov qword ptr [rbp + 120], rsp
- push rsi
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- call rt_zls_mark@PLT
- mov rsp, [rsp + 8]
- mov qword ptr [rbp + 112], rax
- pop rsi
+  mov qword ptr [rsp + 120], rsp
 proc_PAT$0_α_body:
 lea rax, [rip + xchain0_n0_β]
 mov qword ptr [rbp + 96], rax
@@ -122,19 +114,13 @@ proc_PAT$0_γ:
 push rbp
 lea rax, [rip + proc_PAT$0_res]
 push rax
-mov rax, [rbp-24]
-mov rbp, [rbp-8]
+mov rax, [rbp + 136]
+mov rbp, [rbp + 152]
 jmp rax
- push rsp
- push qword ptr [rsp]
- and rsp, -16
- mov rdi, qword ptr [rbp + 112]
- call rt_zls_release_to@PLT
- mov rsp, [rsp + 8]
 proc_PAT$0_ω:
-mov rax, [rbp-16]
-lea rsp, [rbp + 128]
-mov rbp, [rbp-8]
+mov rax, [rbp + 144]
+lea rsp, [rbp + 160]
+mov rbp, [rbp + 152]
 jmp rax
 proc_startup:
   sub rsp, 8

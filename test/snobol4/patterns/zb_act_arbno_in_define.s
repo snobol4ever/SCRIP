@@ -297,7 +297,7 @@ xchain0_n13_af:
  jmp xchain0_n13_af
 proc_MATCHIT_res:
 add rsp, 8
-pop rsp
+pop rbp
 proc_MATCHIT_β:
 jmp proc_MATCHIT_ω
 proc_MATCHIT_γ:
