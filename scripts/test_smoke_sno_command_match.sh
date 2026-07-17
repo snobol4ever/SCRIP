@@ -21,7 +21,7 @@
 #   $SNOC $BEAUTY -I $INC > /tmp/beauty_full.c
 #   gcc -O0 -g /tmp/beauty_full.c $R/snobol4.c $R/mock_includes.c \
 #       $R/snobol4_pattern.c $REPO/src/runtime/engine.c \
-#       -I$R -I$REPO/src/runtime -lgc -lm -w -o /tmp/beauty_full_bin
+#       -I$R -I$REPO/src/runtime -lm -w -o /tmp/beauty_full_bin
 
 set -euo pipefail
 

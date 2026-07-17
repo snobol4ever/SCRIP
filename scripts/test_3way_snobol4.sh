@@ -27,7 +27,7 @@ for sno in "$B"/*.sno; do
   s=$(basename "${sno%.sno}")
   "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
   sc_res="-"; sc_ms="-"; sc_wall="-"
-  if [ -s "$W/$s.s" ] && gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lgc -lm -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then
+  if [ -s "$W/$s.s" ] && gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then
     run_wall "$W/$s.sc" "$W/$s.prog"; sc_wall=$WALL
     sc_res=$(res_of "$W/$s.sc"); sc_ms=$(selfms_of "$W/$s.sc")
   fi

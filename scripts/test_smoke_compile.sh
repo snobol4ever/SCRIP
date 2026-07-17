@@ -105,7 +105,7 @@ gcc -O0 -g -w -I"$ROOT/src" -I"$ROOT/src/emitter" -I"$ROOT/src/lower" -I"$ROOT/s
     "$ROOT/src/emitter/sm_codegen_x64_emit.c" \
     "$ROOT/src/emitter/sm_emit_template.c" \
     "$ROOT/src/machine/sm_prog.c" \
-    -L"$ROOT/out" -lscrip_rt -lgc -lm -Wl,-rpath,"$ROOT/out" \
+    -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" \
     -o "$TMP/unh_emitter" 2> "$TMP/unh_build.err" || {
     echo "FAIL unhandled-op harness build"; cat "$TMP/unh_build.err"; exit 1; }
 "$TMP/unh_emitter" "$TMP/unh.s" >/dev/null
@@ -350,7 +350,7 @@ grep -q "rt_match_blob@PLT" "$TMP/em7c.s" || {
     echo "FAIL EM-7c no rt_match_blob@PLT call"; exit 1; }
 gcc -c "$TMP/em7c.s" -o "$TMP/em7c.o" 2> "$TMP/em7c.as_err" || {
     echo "FAIL EM-7c .s does not assemble"; cat "$TMP/em7c.as_err"; exit 1; }
-gcc -no-pie "$TMP/em7c.o" -L"$ROOT/out" -lscrip_rt -lgc -lm \
+gcc -no-pie "$TMP/em7c.o" -L"$ROOT/out" -lscrip_rt -lm \
     -Wl,-rpath,"$ROOT/out" -o "$TMP/em7c_bin" 2> "$TMP/em7c.ld_err" || {
     echo "FAIL EM-7c link"; cat "$TMP/em7c.ld_err"; exit 1; }
 # EM-7c-symbolic-runtime-correctness: run the linked binary and verify

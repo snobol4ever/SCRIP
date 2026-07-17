@@ -270,7 +270,7 @@ verb=$(printf '%q' "$verb")
 "\$scrip_cc" -x86 -o "\$asm" "\$sno" 2>/dev/null || { echo "COMPILE_FAIL \$base"; printf 'COMPILE_FAIL,snobol4_x86,%s,,\n' "\$base" >> "$CSV"; exit 0; }
 cp -f "\$asm" "\$(dirname "\$sno")/\$base.s" 2>/dev/null || true
 nasm -f elf64 -I"\$rt_asm_inc" "\$asm" -o "\$obj" 2>/dev/null || { echo "ASM_FAIL \$base"; printf 'ASM_FAIL,snobol4_x86,%s,,\n' "\$base" >> "$CSV"; exit 0; }
-gcc -O0 -no-pie "\$obj" "\$lib" -lgc -lm -o "\$bin" 2>/dev/null || { echo "LINK_FAIL \$base"; printf 'LINK_FAIL,snobol4_x86,%s,,\n' "\$base" >> "$CSV"; exit 0; }
+gcc -O0 -no-pie "\$obj" "\$lib" -lm -o "\$bin" 2>/dev/null || { echo "LINK_FAIL \$base"; printf 'LINK_FAIL,snobol4_x86,%s,,\n' "\$base" >> "$CSV"; exit 0; }
 stdin_src=/dev/null; [[ -f "\$input" ]] && stdin_src="\$input"
 got=\$(timeout "\$tmo" "\$bin" < "\$stdin_src" 2>/dev/null) || got="__TIMEOUT__"
 exp=\$(cat "\$ref")

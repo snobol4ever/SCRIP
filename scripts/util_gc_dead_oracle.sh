@@ -30,7 +30,7 @@ make -j4 scrip WARN="-w -ffunction-sections -fdata-sections" > /tmp/oracle_build
   echo "[oracle] FAIL section build — first error:"; grep -E "error:|fatal error" /tmp/oracle_build.log | head -5; exit 1; }
 
 echo "[oracle] re-linking with --gc-sections --print-gc-sections ..."
-g++ -m64 -no-pie "$OBJ"/*.o -lgc -lm \
+g++ -m64 -no-pie "$OBJ"/*.o -lm \
     -Wl,--gc-sections -Wl,--print-gc-sections -o /tmp/scrip_gc 2> /tmp/oracle_gc_raw.txt || {
   echo "[oracle] FAIL gc-link"; tail -5 /tmp/oracle_gc_raw.txt; exit 1; }
 

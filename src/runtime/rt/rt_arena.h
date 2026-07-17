@@ -10,8 +10,8 @@
  *              rebased here at TR-2.
  *   A_COEXPR — reusable ζ blocks for co-expressions / generator procedures
  *              (Lon s36 "re-usable": fixed blocks recycled via a free list on death).
- * D3 (proposed default): allocations ZERO-FILLED (GC_malloc zero-filled; raw malloc
- *    does not — silent-breakage class). Flip: RT_ARENA_ZERO=0.
+ * D3 (proposed default): allocations ZERO-FILLED (raw malloc does not zero —
+ *    silent-breakage class). Flip: RT_ARENA_ZERO=0.
  * D6 (proposed default): A_PROG objects carry an 8-byte title word (size|flavor)
  *    as compaction insurance. Flip: RT_ARENA_TITLE=0. */
 #ifndef RT_ARENA_H

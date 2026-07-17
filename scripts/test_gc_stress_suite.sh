@@ -29,7 +29,7 @@ for sno in "$GCDIR"/*.sno; do
     b=$(basename "${sno%.sno}")
     "$SCRIP" --compile "$sno" > "$WORKDIR/$b.s" 2>/dev/null \
       && gcc -c "$WORKDIR/$b.s" -o "$WORKDIR/$b.o" 2>/dev/null \
-      && gcc "$WORKDIR/$b.o" -L"$RT_DIR" -lscrip_rt -lgc -lm -Wl,-rpath,"$RT_DIR" -o "$WORKDIR/$b" 2>/dev/null \
+      && gcc "$WORKDIR/$b.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$WORKDIR/$b" 2>/dev/null \
       || echo "COMPILE-FAIL $b (mode-4 cells will FAIL)"
 done
 for S in 0 25 7 1; do

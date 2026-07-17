@@ -70,7 +70,7 @@ run_test() {
     fi
 
     # Link
-    if ! gcc -no-pie "$o_file" $RT_OBJS -lgc -lm -o "$bin" 2>/dev/null; then
+    if ! gcc -no-pie "$o_file" $RT_OBJS -lm -o "$bin" 2>/dev/null; then
         echo -e "${RED}FAIL${RESET} $name  [link error]"
         FAIL=$((FAIL+1))
         [[ "$STOP_ON_FAIL" == "1" ]] && exit 1

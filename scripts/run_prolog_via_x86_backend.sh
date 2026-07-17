@@ -24,7 +24,7 @@ ASM="$WORK/$PLBASE.s"
 ( cd "$WORK" && as --64 -o "$WORK/prog.o" "$ASM" ) 2>"$WORK/as.err" || {
     echo "FAIL assembler:"; cat "$WORK/as.err" | head -20; exit 1
 }
-gcc -no-pie -o "$WORK/prog_bin" "$WORK/prog.o" "$LIBRT" -lgc -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>"$WORK/ld.err" || {
+gcc -no-pie -o "$WORK/prog_bin" "$WORK/prog.o" "$LIBRT" -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>"$WORK/ld.err" || {
     echo "FAIL link:"; cat "$WORK/ld.err" | head -20; exit 1
 }
 timeout 8 "$WORK/prog_bin" < /dev/null

@@ -22,7 +22,7 @@ run_compile() {
     local pl="$1" inp="$2" W; W="$(mktemp -d)"
     ( timeout 8 "$SCRIP" --compile --target=x86 "$pl" > "$W/p.s" 2>/dev/null < /dev/null ) || { rm -rf "$W"; return 1; }
     as --64 -o "$W/p.o" "$W/p.s" 2>/dev/null || { rm -rf "$W"; return 1; }
-    gcc -no-pie -o "$W/pbin" "$W/p.o" "$LIBRT" -lgc -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>/dev/null || { rm -rf "$W"; return 1; }
+    gcc -no-pie -o "$W/pbin" "$W/p.o" "$LIBRT" -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>/dev/null || { rm -rf "$W"; return 1; }
     printf '%s' "$inp" | timeout 8 "$W/pbin" 2>/dev/null; rm -rf "$W"
 }
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
