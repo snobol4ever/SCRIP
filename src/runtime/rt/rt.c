@@ -1,4 +1,5 @@
 #include "rt.h"
+#include "rt_arena.h"
 #include "../contracts/pin_va.h"
 #include <alloca.h>
 #include "gc_heap.h"
@@ -335,7 +336,7 @@ static int           g_rt_gen_proc_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gen_proc_grow(void) {
     if (g_rt_gen_proc_count < g_rt_gen_proc_cap) return;
-    int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64; rt_proc_t *np = (rt_proc_t *)realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
+    int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64; rt_proc_t *np = (rt_proc_t *)rt_ws_realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
     if (!np) return; g_rt_gen_procs = np; g_rt_gen_proc_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -680,7 +681,7 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
     if (p->cells_done) return;
     int np = p->nparams; const char **pn = p->pnames;
     if (np > 0 && pn) {
-        p->pcells = (DESCR_t **)malloc((size_t)np * sizeof(DESCR_t *));
+        p->pcells = (DESCR_t **)rt_ws_alloc((size_t)np * sizeof(DESCR_t *));
         if (p->pcells) for (int k = 0; k < np; k++) { const char *nm = pn[k]; p->pcells[k] = (nm && !rt_name_side_effecting(nm)) ? NV_PTR_fn(nm) : (DESCR_t *)0; }
     }
     { const char *rn = p->result_name ? p->result_name : p->name;
@@ -690,7 +691,7 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_name_save_grow(void) {
     if (g_name_save_top < g_name_save_cap) return;
-    int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt));
+    int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)rt_ws_realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt));
     if (!np) return; g_name_save = np; g_name_save_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -767,7 +768,7 @@ static void rt_pcall_grow(void)
 {
     if (g_pcall_top < g_pcall_cap) return;
     int nc = g_pcall_cap ? g_pcall_cap * 2 : 1024;
-    rt_pcall_t *np = (rt_pcall_t *)realloc(g_pcall, (size_t)nc * sizeof(rt_pcall_t));
+    rt_pcall_t *np = (rt_pcall_t *)rt_ws_realloc(g_pcall, (size_t)nc * sizeof(rt_pcall_t));
     if (!np) return;
     g_pcall = np; g_pcall_cap = nc;
 }

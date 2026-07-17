@@ -136,9 +136,9 @@ static int load_names_file_bin(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     int   cap = 64;
-    char **names = (char **)malloc(cap * sizeof(char *));
-    int   *lens  = (int  *)malloc(cap * sizeof(int));
-    if (!names || !lens) { fclose(f); free(names); free(lens); return -1; }
+    char **names = (char **)rt_ws_alloc(cap * sizeof(char *));
+    int   *lens  = (int  *)rt_ws_alloc(cap * sizeof(int));
+    if (!names || !lens) { fclose(f); return -1; }
     int n = 0;
     char *line = NULL; size_t lcap = 0;
     ssize_t got;
@@ -147,11 +147,11 @@ static int load_names_file_bin(const char *path) {
         if (got > 0 && line[got-1] == '\r') { line[got-1] = '\0'; got--; }
         if (n == cap) {
             cap *= 2;
-            names = (char **)realloc(names, cap * sizeof(char *));
-            lens  = (int  *)realloc(lens,  cap * sizeof(int));
+            names = (char **)rt_ws_realloc(names, cap * sizeof(char *));
+            lens  = (int  *)rt_ws_realloc(lens,  cap * sizeof(int));
             if (!names || !lens) { fclose(f); free(line); return -1; }
         }
-        char *copy = (char *)malloc((size_t)got + 1);
+        char *copy = (char *)rt_ws_alloc((size_t)got + 1);
         if (!copy) { fclose(f); free(line); return -1; }
         memcpy(copy, line, (size_t)got + 1);
         names[n] = copy;
@@ -184,8 +184,8 @@ static uint32_t intern_name_bin(const char *p, int len) {
     }
     if (g_bin_n_names == g_bin_names_cap) {
         int new_cap = g_bin_names_cap ? g_bin_names_cap * 2 : 64;
-        char **nn = (char **)realloc(g_bin_names, (size_t)new_cap * sizeof(char *));
-        int   *nl = (int  *)realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
+        char **nn = (char **)rt_ws_realloc(g_bin_names, (size_t)new_cap * sizeof(char *));
+        int   *nl = (int  *)rt_ws_realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
         if (!nn || !nl) {
             if (nn) g_bin_names = nn;
             if (nl) g_bin_name_lens = nl;
@@ -195,7 +195,7 @@ static uint32_t intern_name_bin(const char *p, int len) {
         g_bin_name_lens = nl;
         g_bin_names_cap = new_cap;
     }
-    char *copy = (char *)malloc((size_t)len + 1);
+    char *copy = (char *)rt_ws_alloc((size_t)len + 1);
     if (!copy) return MW_NAME_ID_NONE;
     if (len > 0) memcpy(copy, p, (size_t)len);
     copy[len] = '\0';
@@ -817,7 +817,7 @@ static void _io_chan_close(int ch) {
     _io_chan_setup();
     if (ch < 0 || ch >= IO_CHAN_MAX) return;
     if (_io_chan[ch].fp) { fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
-    if (_io_chan[ch].varname) { free(_io_chan[ch].varname); _io_chan[ch].varname = NULL; }
+    if (_io_chan[ch].varname) { _io_chan[ch].varname = NULL; }
     if (_io_chan[ch].buf)  { free(_io_chan[ch].buf); _io_chan[ch].buf = NULL; }
     _io_chan[ch].cap = 0;
     _io_chan[ch].is_output = 0;
@@ -2769,7 +2769,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _io_chan[ch].fp = f;
         _io_chan[ch].is_output = 0;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
+        _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
     } else {
         if (_input_fp && _input_fp != stdin) fclose(_input_fp);
         _input_fp = f;
@@ -2797,7 +2797,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         _io_chan[ch].fp = f;
         _io_chan[ch].is_output = 1;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
+        _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
     } else {
         fclose(f);
         return FAILDESCR;
