@@ -19,6 +19,7 @@ typedef struct scrip_coctx_t {
     int       dead;
     uint64_t  xmit[2];
     void *stk_win; unsigned long stk_guard;
+    struct scrip_coctx_t *gc_next; uint64_t gc_spill[6];
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
@@ -27,6 +28,10 @@ void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr);
 void scrip_cofail(void);
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]);
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2);
+scrip_coctx_t *scrip_co_gc_head(void);
+scrip_coctx_t *scrip_co_gc_root(void);
+int scrip_co_main_known(pthread_t *out);
+int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi);
 #ifdef __cplusplus
 }
 #endif
