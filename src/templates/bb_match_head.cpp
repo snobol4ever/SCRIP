@@ -39,7 +39,7 @@ std::string bb_match_head() {
           * window, and BOTH statement exits restore rbp from +40 (the s61 both-edges lesson).  The saved-rbp
           * chain is the LIFO activation linkage of the s73 six-register map. */
          + x86("mov", FRQ(_.op_off + 40), "rbp")
-         + IF(ZC_FRAME == ZC_FRAME_RSP && _.op_anchor_head, x86("mov", "rbp", "rsp"))
+         /* REG-7 U3: the op_anchor_head window materialization (mov rbp,rsp) is DELETED — rbp already equals the flat base at every head via the activation seeds (U1 outer graph, U2 non-pat blobs, s79 pat blobs). */
          /* R12-ERAD s65 (ZC_FRAME_RSP): FLAT-FIRST ordering — subject load, rt_match_enter, and the rbp/dcap mirror saves all run at rsp = frame base (D=0), THEN the 32B cell pushes and only
           * window-relative writes follow.  Under R12 the original order is byte-verbatim (rsp motion is invisible to r12-based refs).  The RSP cell field +16 = pre-push rsp = the frame base; the
           * old arena-mark slot +8 reincarnates as the PATTERN SIDE-STACK mark (S10e statement bracket for suspended activations).  Pat blobs (flat_pat, r12-island) take the R12 arm. */
