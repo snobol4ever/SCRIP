@@ -242,9 +242,9 @@ main_α:
 main_α_body:
 # IR_LIT_STRING
  xchain17_n0_α:
- mov qword ptr [rsp + 160], 1
+ mov qword ptr [rbp + 160], 1
  mov rax, qword ptr [rip + .Lx18_0]
- mov qword ptr [rsp + 168], rax
+ mov qword ptr [rbp + 168], rax
  jmp xchain17_n1_α
  xchain17_n0_β:
  jmp xchain17_n3_α
@@ -255,20 +255,20 @@ main_α_body:
  xchain17_n1_α:
 # BOX IR_CALL SNO$MKPAT(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+160] -> [zr+128]
- mov rax, qword ptr [rsp + 160]
- mov qword ptr [rsp + 128], rax
- mov rax, qword ptr [rsp + 168]
- mov qword ptr [rsp + 136], rax
+ mov rax, qword ptr [rbp + 160]
+ mov qword ptr [rbp + 128], rax
+ mov rax, qword ptr [rbp + 168]
+ mov qword ptr [rbp + 136], rax
   .section .rodata
   .Lrkfn20: .string "SNO$MKPAT"
   .section .text
   .intel_syntax noprefix
  lea rdi, [rip + .Lrkfn20]
- lea rsi, [rsp + 128]
+ lea rsi, [rbp + 128]
  mov edx, 1
  call rt_call_arr@PLT
- mov qword ptr [rsp + 112], rax
- mov qword ptr [rsp + 120], rdx
+ mov qword ptr [rbp + 112], rax
+ mov qword ptr [rbp + 120], rdx
  cmp eax, 99
  je xchain17_n3_α
  jmp xchain17_n2_α
@@ -276,12 +276,12 @@ main_α_body:
  jmp xchain17_n3_α
 # IR_ASSIGN gva
  xchain17_n2_α:
- mov rax, qword ptr [rsp + 112]
- mov rdx, qword ptr [rsp + 120]
+ mov rax, qword ptr [rbp + 112]
+ mov rdx, qword ptr [rbp + 120]
  mov qword ptr [1879052288], rax
  mov qword ptr [1879052296], rdx
- mov qword ptr [rsp + 96], rax
- mov qword ptr [rsp + 104], rdx
+ mov qword ptr [rbp + 96], rax
+ mov qword ptr [rbp + 104], rdx
  jmp xchain17_n3_α
  xchain17_n2_β:
  jmp xchain17_n3_α
@@ -291,8 +291,8 @@ main_α_body:
  call NV_GET_fn@PLT
  cmp eax, 99
  je main_γ
- mov qword ptr [rsp + 208], rax
- mov qword ptr [rsp + 216], rdx
+ mov qword ptr [rbp + 208], rax
+ mov qword ptr [rbp + 216], rdx
  jmp xchain17_n4_α
  xchain17_n3_β:
  jmp main_γ
@@ -302,12 +302,12 @@ main_α_body:
  .string "INPUT"
 # IR_ASSIGN gva
  xchain17_n4_α:
- mov rax, qword ptr [rsp + 208]
- mov rdx, qword ptr [rsp + 216]
+ mov rax, qword ptr [rbp + 208]
+ mov rdx, qword ptr [rbp + 216]
  mov qword ptr [1879052304], rax
  mov qword ptr [1879052312], rdx
- mov qword ptr [rsp + 192], rax
- mov qword ptr [rsp + 200], rdx
+ mov qword ptr [rbp + 192], rax
+ mov qword ptr [rbp + 200], rdx
  jmp xchain17_n5_α
  xchain17_n4_β:
  jmp main_γ
@@ -315,15 +315,14 @@ main_α_body:
  xchain17_n5_α:
  mov rax, qword ptr [1879052304]
  mov rdx, qword ptr [1879052312]
- mov qword ptr [rsp + 368], rax
- mov qword ptr [rsp + 376], rdx
+ mov qword ptr [rbp + 368], rax
+ mov qword ptr [rbp + 376], rdx
  jmp xchain17_n6_α
  xchain17_n5_β:
  jmp xchain17_n3_α
 # IR_MATCH_HEAD
  xchain17_n6_α:
- mov qword ptr [rsp + 296], rbp
- mov rbp, rsp
+ mov qword ptr [rbp + 296], rbp
  mov rdi, qword ptr [rbp + 368]
  mov rsi, qword ptr [rbp + 376]
  call rt_match_enter@PLT

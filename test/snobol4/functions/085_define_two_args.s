@@ -22,8 +22,8 @@ proc_add_α_body:
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
  mov rdx, qword ptr [1879052312]
- mov qword ptr [rsp + 144], rax
- mov qword ptr [rsp + 152], rdx
+ mov qword ptr [rbp + 144], rax
+ mov qword ptr [rbp + 152], rdx
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp proc_add_γ
@@ -31,65 +31,65 @@ proc_add_α_body:
  xchain0_n1_α:
  mov rax, qword ptr [1879052320]
  mov rdx, qword ptr [1879052328]
- mov qword ptr [rsp + 176], rax
- mov qword ptr [rsp + 184], rdx
+ mov qword ptr [rbp + 176], rax
+ mov qword ptr [rbp + 184], rdx
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp proc_add_γ
  xchain0_n2_α:
 # IR_BINOP_ARITH
- mov eax, dword ptr [rsp + 144]
+ mov eax, dword ptr [rbp + 144]
  cmp eax, 100
  je .Lx3_0
- mov eax, dword ptr [rsp + 176]
+ mov eax, dword ptr [rbp + 176]
  cmp eax, 100
  je .Lx3_0
- mov eax, dword ptr [rsp + 144]
+ mov eax, dword ptr [rbp + 144]
  cmp eax, 6
  jne .Lx3_2
- mov eax, dword ptr [rsp + 176]
+ mov eax, dword ptr [rbp + 176]
  cmp eax, 6
  jne .Lx3_2
 .Lx3_1:
- mov rax, qword ptr [rsp + 152]
- mov rcx, qword ptr [rsp + 184]
+ mov rax, qword ptr [rbp + 152]
+ mov rcx, qword ptr [rbp + 184]
  add rax, rcx
- mov qword ptr [rsp + 112], 6
- mov qword ptr [rsp + 120], rax
+ mov qword ptr [rbp + 112], 6
+ mov qword ptr [rbp + 120], rax
  jmp xchain0_n3_α
 .Lx3_0:
- mov rdi, qword ptr [rsp + 144]
- mov rsi, qword ptr [rsp + 152]
- mov rdx, qword ptr [rsp + 176]
- mov rcx, qword ptr [rsp + 184]
+ mov rdi, qword ptr [rbp + 144]
+ mov rsi, qword ptr [rbp + 152]
+ mov rdx, qword ptr [rbp + 176]
+ mov rcx, qword ptr [rbp + 184]
  mov r8d, 0
- lea r9, [rsp + 112]
+ lea r9, [rbp + 112]
  call rt_binop_overload@PLT
  test eax, eax
  jne .Lx3_3
 .Lx3_2:
- mov rdi, qword ptr [rsp + 144]
- mov rsi, qword ptr [rsp + 152]
- mov rdx, qword ptr [rsp + 176]
- mov rcx, qword ptr [rsp + 184]
+ mov rdi, qword ptr [rbp + 144]
+ mov rsi, qword ptr [rbp + 152]
+ mov rdx, qword ptr [rbp + 176]
+ mov rcx, qword ptr [rbp + 184]
  mov r8d, 0
  call rt_num_arith@PLT
  cmp eax, 99
  je proc_add_γ
- mov qword ptr [rsp + 112], rax
- mov qword ptr [rsp + 120], rdx
+ mov qword ptr [rbp + 112], rax
+ mov qword ptr [rbp + 120], rdx
 .Lx3_3:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp proc_add_γ
 # IR_ASSIGN gva
  xchain0_n3_α:
- mov rax, qword ptr [rsp + 112]
- mov rdx, qword ptr [rsp + 120]
+ mov rax, qword ptr [rbp + 112]
+ mov rdx, qword ptr [rbp + 120]
  mov qword ptr [1879052288], rax
  mov qword ptr [1879052296], rdx
- mov qword ptr [rsp + 96], rax
- mov qword ptr [rsp + 104], rdx
+ mov qword ptr [rbp + 96], rax
+ mov qword ptr [rbp + 104], rdx
  jmp proc_add_γ
  xchain0_n3_β:
  jmp proc_add_γ
@@ -187,9 +187,9 @@ main_α:
 main_α_body:
 # IR_LIT_INTEGER
  xchain5_n0_α:
- mov qword ptr [rsp + 288], 6
+ mov qword ptr [rbp + 288], 6
  mov rax, qword ptr [rip + .Lx6_0]
- mov qword ptr [rsp + 296], rax
+ mov qword ptr [rbp + 296], rax
  jmp xchain5_n1_α
  xchain5_n0_β:
  jmp xchain5_n4_α
@@ -197,9 +197,9 @@ main_α_body:
  .quad 3
 # IR_LIT_INTEGER
  xchain5_n1_α:
- mov qword ptr [rsp + 320], 6
+ mov qword ptr [rbp + 320], 6
  mov rax, qword ptr [rip + .Lx7_0]
- mov qword ptr [rsp + 328], rax
+ mov qword ptr [rbp + 328], rax
  jmp xchain5_n2_α
  xchain5_n1_β:
  jmp xchain5_n4_α
@@ -207,12 +207,12 @@ main_α_body:
  .quad 4
  xchain5_n2_α:
  mov edi, 0
- mov rsi, qword ptr [rsp + 288]
- mov rdx, qword ptr [rsp + 296]
+ mov rsi, qword ptr [rbp + 288]
+ mov rdx, qword ptr [rbp + 296]
  call rt_arg_stage@PLT
  mov edi, 1
- mov rsi, qword ptr [rsp + 320]
- mov rdx, qword ptr [rsp + 328]
+ mov rsi, qword ptr [rbp + 320]
+ mov rdx, qword ptr [rbp + 328]
  call rt_arg_stage@PLT
  mov rdi, qword ptr [rip + .Lx9_0]
  mov esi, 2
@@ -232,8 +232,8 @@ main_α_body:
 .Lx9_1:
  call rt_faildescr@PLT
 .Lx9_2:
- mov qword ptr [rsp + 224], rax
- mov qword ptr [rsp + 232], rdx
+ mov qword ptr [rbp + 224], rax
+ mov qword ptr [rbp + 232], rdx
  cmp eax, 99
  je xchain5_n4_α
  jmp xchain5_n3_α
@@ -245,12 +245,12 @@ main_α_body:
  .string "add"
 # IR_ASSIGN global
  xchain5_n3_α:
- mov rsi, qword ptr [rsp + 224]
- mov rdx, qword ptr [rsp + 232]
+ mov rsi, qword ptr [rbp + 224]
+ mov rdx, qword ptr [rbp + 232]
  mov rdi, qword ptr [rip + .Lx10_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 208], rax
- mov qword ptr [rsp + 216], rdx
+ mov qword ptr [rbp + 208], rax
+ mov qword ptr [rbp + 216], rdx
  jmp xchain5_n4_α
  xchain5_n3_β:
  jmp xchain5_n4_α
@@ -260,9 +260,9 @@ main_α_body:
  .string "OUTPUT"
 # IR_LIT_INTEGER
  xchain5_n4_α:
- mov qword ptr [rsp + 432], 6
+ mov qword ptr [rbp + 432], 6
  mov rax, qword ptr [rip + .Lx11_0]
- mov qword ptr [rsp + 440], rax
+ mov qword ptr [rbp + 440], rax
  jmp xchain5_n5_α
  xchain5_n4_β:
  jmp main_γ
@@ -270,9 +270,9 @@ main_α_body:
  .quad 10
 # IR_LIT_INTEGER
  xchain5_n5_α:
- mov qword ptr [rsp + 464], 6
+ mov qword ptr [rbp + 464], 6
  mov rax, qword ptr [rip + .Lx12_0]
- mov qword ptr [rsp + 472], rax
+ mov qword ptr [rbp + 472], rax
  jmp xchain5_n6_α
  xchain5_n5_β:
  jmp main_γ
@@ -280,12 +280,12 @@ main_α_body:
  .quad 32
  xchain5_n6_α:
  mov edi, 0
- mov rsi, qword ptr [rsp + 432]
- mov rdx, qword ptr [rsp + 440]
+ mov rsi, qword ptr [rbp + 432]
+ mov rdx, qword ptr [rbp + 440]
  call rt_arg_stage@PLT
  mov edi, 1
- mov rsi, qword ptr [rsp + 464]
- mov rdx, qword ptr [rsp + 472]
+ mov rsi, qword ptr [rbp + 464]
+ mov rdx, qword ptr [rbp + 472]
  call rt_arg_stage@PLT
  mov rdi, qword ptr [rip + .Lx14_0]
  mov esi, 2
@@ -305,8 +305,8 @@ main_α_body:
 .Lx14_1:
  call rt_faildescr@PLT
 .Lx14_2:
- mov qword ptr [rsp + 368], rax
- mov qword ptr [rsp + 376], rdx
+ mov qword ptr [rbp + 368], rax
+ mov qword ptr [rbp + 376], rdx
  cmp eax, 99
  je main_γ
  jmp xchain5_n7_α
@@ -318,12 +318,12 @@ main_α_body:
  .string "add"
 # IR_ASSIGN global
  xchain5_n7_α:
- mov rsi, qword ptr [rsp + 368]
- mov rdx, qword ptr [rsp + 376]
+ mov rsi, qword ptr [rbp + 368]
+ mov rdx, qword ptr [rbp + 376]
  mov rdi, qword ptr [rip + .Lx15_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 352], rax
- mov qword ptr [rsp + 360], rdx
+ mov qword ptr [rbp + 352], rax
+ mov qword ptr [rbp + 360], rdx
  jmp main_γ
  xchain5_n7_β:
  jmp main_γ

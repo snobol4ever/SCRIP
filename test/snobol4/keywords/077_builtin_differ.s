@@ -28,9 +28,9 @@ main_α:
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
- mov qword ptr [rsp + 160], 1
+ mov qword ptr [rbp + 160], 1
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rsp + 168], rax
+ mov qword ptr [rbp + 168], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp xchain0_n4_α
@@ -40,9 +40,9 @@ main_α_body:
  .string "abc"
 # IR_LIT_STRING
  xchain0_n1_α:
- mov qword ptr [rsp + 192], 1
+ mov qword ptr [rbp + 192], 1
  mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rsp + 200], rax
+ mov qword ptr [rbp + 200], rax
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n4_α
@@ -53,25 +53,25 @@ main_α_body:
  xchain0_n2_α:
 # BOX IR_CALL DIFFER(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+160] -> [zr+112]
- mov rax, qword ptr [rsp + 160]
- mov qword ptr [rsp + 112], rax
- mov rax, qword ptr [rsp + 168]
- mov qword ptr [rsp + 120], rax
+ mov rax, qword ptr [rbp + 160]
+ mov qword ptr [rbp + 112], rax
+ mov rax, qword ptr [rbp + 168]
+ mov qword ptr [rbp + 120], rax
 # marshal arg1 = producer-box slot [zr+192] -> [zr+128]
- mov rax, qword ptr [rsp + 192]
- mov qword ptr [rsp + 128], rax
- mov rax, qword ptr [rsp + 200]
- mov qword ptr [rsp + 136], rax
+ mov rax, qword ptr [rbp + 192]
+ mov qword ptr [rbp + 128], rax
+ mov rax, qword ptr [rbp + 200]
+ mov qword ptr [rbp + 136], rax
   .section .rodata
   .Lrkfn4: .string "DIFFER"
   .section .text
   .intel_syntax noprefix
  lea rdi, [rip + .Lrkfn4]
- lea rsi, [rsp + 112]
+ lea rsi, [rbp + 112]
  mov edx, 2
  call rt_call_arr@PLT
- mov qword ptr [rsp + 96], rax
- mov qword ptr [rsp + 104], rdx
+ mov qword ptr [rbp + 96], rax
+ mov qword ptr [rbp + 104], rdx
  cmp eax, 99
  je xchain0_n4_α
  jmp xchain0_n3_α
@@ -79,9 +79,9 @@ main_α_body:
  jmp xchain0_n4_α
 # IR_LIT_STRING
  xchain0_n3_α:
- mov qword ptr [rsp + 240], 1
+ mov qword ptr [rbp + 240], 1
  mov rax, qword ptr [rip + .Lx5_0]
- mov qword ptr [rsp + 248], rax
+ mov qword ptr [rbp + 248], rax
  jmp xchain0_n5_α
  xchain0_n3_β:
  jmp main_γ
@@ -91,9 +91,9 @@ main_α_body:
  .string "different"
 # IR_LIT_STRING
  xchain0_n4_α:
- mov qword ptr [rsp + 288], 1
+ mov qword ptr [rbp + 288], 1
  mov rax, qword ptr [rip + .Lx6_0]
- mov qword ptr [rsp + 296], rax
+ mov qword ptr [rbp + 296], rax
  jmp xchain0_n6_α
  xchain0_n4_β:
  jmp main_γ
@@ -103,12 +103,12 @@ main_α_body:
  .string "same"
 # IR_ASSIGN global
  xchain0_n5_α:
- mov rsi, qword ptr [rsp + 240]
- mov rdx, qword ptr [rsp + 248]
+ mov rsi, qword ptr [rbp + 240]
+ mov rdx, qword ptr [rbp + 248]
  mov rdi, qword ptr [rip + .Lx7_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 224], rax
- mov qword ptr [rsp + 232], rdx
+ mov qword ptr [rbp + 224], rax
+ mov qword ptr [rbp + 232], rdx
  jmp main_γ
  xchain0_n5_β:
  jmp main_γ
@@ -118,12 +118,12 @@ main_α_body:
  .string "OUTPUT"
 # IR_ASSIGN global
  xchain0_n6_α:
- mov rsi, qword ptr [rsp + 288]
- mov rdx, qword ptr [rsp + 296]
+ mov rsi, qword ptr [rbp + 288]
+ mov rdx, qword ptr [rbp + 296]
  mov rdi, qword ptr [rip + .Lx8_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 272], rax
- mov qword ptr [rsp + 280], rdx
+ mov qword ptr [rbp + 272], rax
+ mov qword ptr [rbp + 280], rdx
  jmp main_γ
  xchain0_n6_β:
  jmp main_γ

@@ -28,9 +28,9 @@ main_α:
 main_α_body:
 # IR_LIT_INTEGER
  xchain0_n0_α:
- mov qword ptr [rsp + 144], 6
+ mov qword ptr [rbp + 144], 6
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rsp + 152], rax
+ mov qword ptr [rbp + 152], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp main_γ
@@ -38,9 +38,9 @@ main_α_body:
  .quad 1
 # IR_LIT_INTEGER
  xchain0_n1_α:
- mov qword ptr [rsp + 176], 6
+ mov qword ptr [rbp + 176], 6
  mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rsp + 184], rax
+ mov qword ptr [rbp + 184], rax
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp main_γ
@@ -52,42 +52,42 @@ main_α_body:
  mov rax, 1
  mov rcx, 2
  add rax, rcx
- mov qword ptr [rsp + 112], 6
- mov qword ptr [rsp + 120], rax
+ mov qword ptr [rbp + 112], 6
+ mov qword ptr [rbp + 120], rax
  jmp xchain0_n3_α
 .Lx3_0:
- mov rdi, qword ptr [rsp + 144]
- mov rsi, qword ptr [rsp + 152]
- mov rdx, qword ptr [rsp + 176]
- mov rcx, qword ptr [rsp + 184]
+ mov rdi, qword ptr [rbp + 144]
+ mov rsi, qword ptr [rbp + 152]
+ mov rdx, qword ptr [rbp + 176]
+ mov rcx, qword ptr [rbp + 184]
  mov r8d, 0
- lea r9, [rsp + 112]
+ lea r9, [rbp + 112]
  call rt_binop_overload@PLT
  test eax, eax
  jne .Lx3_3
 .Lx3_2:
- mov rdi, qword ptr [rsp + 144]
- mov rsi, qword ptr [rsp + 152]
- mov rdx, qword ptr [rsp + 176]
- mov rcx, qword ptr [rsp + 184]
+ mov rdi, qword ptr [rbp + 144]
+ mov rsi, qword ptr [rbp + 152]
+ mov rdx, qword ptr [rbp + 176]
+ mov rcx, qword ptr [rbp + 184]
  mov r8d, 0
  call rt_num_arith@PLT
  cmp eax, 99
  je main_γ
- mov qword ptr [rsp + 112], rax
- mov qword ptr [rsp + 120], rdx
+ mov qword ptr [rbp + 112], rax
+ mov qword ptr [rbp + 120], rdx
 .Lx3_3:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp main_γ
 # IR_ASSIGN global
  xchain0_n3_α:
- mov rsi, qword ptr [rsp + 112]
- mov rdx, qword ptr [rsp + 120]
+ mov rsi, qword ptr [rbp + 112]
+ mov rdx, qword ptr [rbp + 120]
  mov rdi, qword ptr [rip + .Lx4_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 96], rax
- mov qword ptr [rsp + 104], rdx
+ mov qword ptr [rbp + 96], rax
+ mov qword ptr [rbp + 104], rdx
  jmp main_γ
  xchain0_n3_β:
  jmp main_γ
