@@ -127,8 +127,8 @@ char *rt_str_dup(const char *s)
  * referenced ONLY through DESCRs or conservatively-scanned locations (DESCR STRVALs, C locals/statics, ζ frames, coexpr spills) — allocated via rt_ws_alloc_c/rt_ws_strdup_c, NOT blanket-pinned at
  * reset, honored by the ws_only conservative filters, promoted to HBF_PIN when marked (fwd=self, never slid — raw char* referents cannot be adjusted), RECLAIMED when dead (frontier-drop restored).
  * Its payloads are NEVER transitively scanned (zero-pointer contract; scanning string bytes would mint false pins). rt_ws_* stays the IMMORTAL class (interned names, registries, pointer-bearing
- * growth tables — anything a raw-malloc'd structure may reference). rt_ws_realloc grows into the IMMORTAL class regardless of source. HB_ZBLK is UN-PINNED and registration-governed: both clients cover themselves by
- * construction (rt_zh_bump_slow registers each refill window pin+range; coexpr stacks register at carve, unregister at destroy, retitle HB_FILL dead) — dead coexpr stacks now reclaim. Marked
+ * growth tables — anything a raw-malloc'd structure may reference). rt_ws_realloc grows into the IMMORTAL class regardless of source. HB_ZBLK is UN-PINNED and registration-governed: both
+ * clients cover themselves by construction (rt_zh_bump_slow registers each refill window pin+range; coexpr stacks register at carve, unregister at destroy, retitle HB_FILL dead) — dead coexpr stacks now reclaim. Marked
  * HB_WS/HB_ZBLK blocks are PROMOTED to HBF_PIN at forward (fwd=self, never slid, never adjusted-through); their payloads get the transitive conservative scan (closes the s88 latent gap: DESCRs
  * inside WS blocks reference DT_S payloads nothing else roots). The grow-only realloc's old-size decode reads the rt_hblk_t (size - 16). */
 void *rt_ws_alloc(size_t n)
