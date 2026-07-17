@@ -10,24 +10,24 @@ proc_PAT$0_α:
   sub rsp, 560
   mov [rsp+8], rcx
   mov [rsp+16], rdx
-  mov [rsp+24], r12
-  lea r12, [rsp+32]
-  mov rdi, r12
+  mov [rsp+24], rbp
+  lea rbp, [rsp+32]
+  mov rdi, rbp
   mov ecx, 528
   xor eax, eax
   rep stosb
-  mov qword ptr [r12 + 520], rsp
+  mov qword ptr [rbp + 520], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
  and rsp, -16
  call rt_zls_mark@PLT
  mov rsp, [rsp + 8]
- mov qword ptr [r12 + 512], rax
+ mov qword ptr [rbp + 512], rax
  pop rsi
 proc_PAT$0_α_body:
 lea rax, [rip + xchain0_n0_β]
-mov qword ptr [r12 + 496], rax
+mov qword ptr [rbp + 496], rax
 # IR_MATCH_SEQ_NARY (ZB-FC-3b: zero cell, LIFO-structural)
  xchain0_n0_α:
  jmp xchain0_n1_α
@@ -39,9 +39,9 @@ xchain0_n0_af:
  jmp proc_PAT$0_ω
 # IR_LIT_INTEGER
  xchain0_n1_α:
- mov qword ptr [r12 + 64], 6
+ mov qword ptr [rbp + 64], 6
  mov rax, qword ptr [rip + .Lx3_0]
- mov qword ptr [r12 + 72], rax
+ mov qword ptr [rbp + 72], rax
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n0_af
@@ -344,26 +344,26 @@ xchain0_n8_af:
  jmp xchain0_n9_β
 proc_PAT$0_res:
 add rsp, 8
-pop r12
+pop rbp
 proc_PAT$0_β:
-jmp qword ptr [r12 + 496]
+jmp qword ptr [rbp + 496]
 proc_PAT$0_γ:
-push r12
+push rbp
 lea rax, [rip + proc_PAT$0_res]
 push rax
-mov rax, [r12-24]
-mov r12, [r12-8]
+mov rax, [rbp-24]
+mov rbp, [rbp-8]
 jmp rax
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, qword ptr [r12 + 512]
+ mov rdi, qword ptr [rbp + 512]
  call rt_zls_release_to@PLT
  mov rsp, [rsp + 8]
 proc_PAT$0_ω:
-mov rax, [r12-16]
-lea rsp, [r12 + 528]
-mov r12, [r12-8]
+mov rax, [rbp-16]
+lea rsp, [rbp + 528]
+mov rbp, [rbp-8]
 jmp rax
 proc_startup:
   sub rsp, 8

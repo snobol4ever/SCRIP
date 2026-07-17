@@ -10,24 +10,24 @@ proc_PAT$0_α:
   sub rsp, 160
   mov [rsp+8], rcx
   mov [rsp+16], rdx
-  mov [rsp+24], r12
-  lea r12, [rsp+32]
-  mov rdi, r12
+  mov [rsp+24], rbp
+  lea rbp, [rsp+32]
+  mov rdi, rbp
   mov ecx, 128
   xor eax, eax
   rep stosb
-  mov qword ptr [r12 + 120], rsp
+  mov qword ptr [rbp + 120], rsp
  push rsi
  push rsp
  push qword ptr [rsp]
  and rsp, -16
  call rt_zls_mark@PLT
  mov rsp, [rsp + 8]
- mov qword ptr [r12 + 112], rax
+ mov qword ptr [rbp + 112], rax
  pop rsi
 proc_PAT$0_α_body:
 lea rax, [rip + xchain0_n0_β]
-mov qword ptr [r12 + 96], rax
+mov qword ptr [rbp + 96], rax
 # IR_MATCH_ALT_NARY
  xchain0_n0_α:
  sub rsp, 16
@@ -115,26 +115,26 @@ xchain0_n0_af:
  jmp xchain0_n0_af
 proc_PAT$0_res:
 add rsp, 8
-pop r12
+pop rbp
 proc_PAT$0_β:
-jmp qword ptr [r12 + 96]
+jmp qword ptr [rbp + 96]
 proc_PAT$0_γ:
-push r12
+push rbp
 lea rax, [rip + proc_PAT$0_res]
 push rax
-mov rax, [r12-24]
-mov r12, [r12-8]
+mov rax, [rbp-24]
+mov rbp, [rbp-8]
 jmp rax
  push rsp
  push qword ptr [rsp]
  and rsp, -16
- mov rdi, qword ptr [r12 + 112]
+ mov rdi, qword ptr [rbp + 112]
  call rt_zls_release_to@PLT
  mov rsp, [rsp + 8]
 proc_PAT$0_ω:
-mov rax, [r12-16]
-lea rsp, [r12 + 128]
-mov r12, [r12-8]
+mov rax, [rbp-16]
+lea rsp, [rbp + 128]
+mov rbp, [rbp-8]
 jmp rax
 proc_startup:
   sub rsp, 8
