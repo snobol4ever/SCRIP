@@ -1814,10 +1814,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(&lbl_res);
         if (g_is_text) {
             char _res[96];
-            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", x86_zr());   /* REG-5 s79: the record[+8] re-pin routes through the selector — rbp for pat blobs, never rsp */
+            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", x86_fb());   /* REG-7 U5: the record[+8] payload is the FRAME BASE — rbp for RSP pat blobs (Lon FORTH ruling; zr is sealing to rsp and can no longer name it), r12/rbp legacy modes byte-identical via the fb selector */
             emit_text_n(_res, strlen(_res));
         } else {
-            int z = x86_zr_num();
+            int z = x86_fb_num();
             ef_b4(0x48, 0x83, 0xC4, 0x08);
             if (z >= 8) ef_b2(0x41, (uint8_t)(0x58 | (z & 7))); else ef_b1((uint8_t)(0x58 | (z & 7)));
         }
