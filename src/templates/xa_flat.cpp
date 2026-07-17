@@ -155,6 +155,8 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                     /* sub rsp, K_total */
                                   + bytes(4, "\x48\x89\x8C\x24") + u32le((uint32_t)(kt - 24))          /* mov [rsp + kt-24], rcx — outside-γ wire */
                                   + bytes(4, "\x48\x89\x94\x24") + u32le((uint32_t)(kt - 16))          /* mov [rsp + kt-16], rdx — outside-ω wire */
+                                  + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(kt - 8))           /* mov [rsp + kt-8], rbp — REG-7 U2: caller rbp saved in the TOP header pad (kt-8 picked over kt-32 to keep the pad adjacent to the region free; both were unused, FINDING s81 measurement 5) */
+                                  + bytes(3, "\x48\x89\xE5")                                            /* mov rbp, rsp — REG-7 U2 seed: rbp = this activation's flat base (mirror of the s79 pat-blob save/seed at [rsp+24]/zr; restored on BOTH exit edges in the epilogue arm) */
                                   + bytes(3, "\x48\x89\xE7")                                            /* mov rdi, rsp */
                                   + bytes(1, "\xB9") + u32le((uint32_t)(kt - 32))                         /* mov ecx, K_region — stosb stops below the header */
                                   + bytes(2, "\x31\xC0")
@@ -234,8 +236,8 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                      * [rsp + kt-24/-16]; the rep stosb count kt-32 stops below the header; the LIFO exits unwind the full kt.  Pat blobs fall through to the zr arms (zr = r12 for them). */
                     char b[640];
                     snprintf(b, sizeof b,
-                        "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
-                        kt, kt - 24, kt - 16, kt - 32);
+                        "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
+                        kt, kt - 24, kt - 16, kt - 8, kt - 32);
                     return banner + b + xaf_anchor_enter_text();
                 }
                 char b[640];
@@ -300,9 +302,11 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     std::string sg = bytes(4, "\x48\x8B\x3C\x24")                          /* mov rdi, [rsp] */
                                    + bytes(5, "\x48\x8B\x74\x24\x08")                      /* mov rsi, [rsp+8] */
                                    + bytes(4, "\x48\x8B\x84\x24") + u32le((uint32_t)(kt - 24))   /* mov rax, [rsp + kt-24] — γ wire in the ABOVE header */
+                                   + bytes(4, "\x48\x8B\xAC\x24") + u32le((uint32_t)(kt - 8))    /* mov rbp, [rsp + kt-8] — REG-7 U2 both-edge restore (γ): caller rbp back before the frame dies */
                                    + bytes(4, "\x48\x8D\xA4\x24") + u32le((uint32_t)kt)          /* lea rsp, [rsp + kt] — full unwind incl. header */
                                    + bytes(2, "\xFF\xE0");                                 /* jmp rax */
                     std::string fo = bytes(4, "\x48\x8B\x84\x24") + u32le((uint32_t)(kt - 16))   /* mov rax, [rsp + kt-16] — ω wire */
+                                   + bytes(4, "\x48\x8B\xAC\x24") + u32le((uint32_t)(kt - 8))    /* mov rbp, [rsp + kt-8] — REG-7 U2 both-edge restore (ω) */
                                    + bytes(4, "\x48\x8D\xA4\x24") + u32le((uint32_t)kt)
                                    + bytes(2, "\xFF\xE0");
                     out_site = 0; out_lbl = (bb_label_t *)0; out_def = false;
@@ -394,9 +398,9 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      * the [rsp+kt−16] wire.  GUARDED ASSUMPTION (relative lea): every exit path out of a match statement restores rsp through HEAD-ω/RELEASE before reaching proc-ω (the every-ω-pops law);
                      * a seal cut arriving DEEP would need an absolute form — the crosscheck is the tripwire.  Pat blobs (SUSPENDING) fall through to the zr arms below with zr = r12. */
                     char sg[288], fo[352];
-                    snprintf(sg, sizeof sg, "mov rdi, [rsp]\nmov rsi, [rsp + 8]\nmov rax, [rsp + %d]\nlea rsp, [rsp + %d]\njmp rax\n", kt - 24, kt);
-                    snprintf(fo, sizeof fo, "%s%smov rax, [rsp + %d]\nlea rsp, [rsp + %d]\njmp rax\n",
-                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt);
+                    snprintf(sg, sizeof sg, "mov rdi, [rsp]\nmov rsi, [rsp + 8]\nmov rax, [rsp + %d]\nmov rbp, [rsp + %d]\nlea rsp, [rsp + %d]\njmp rax\n", kt - 24, kt - 8, kt);
+                    snprintf(fo, sizeof fo, "%s%smov rax, [rsp + %d]\nmov rbp, [rsp + %d]\nlea rsp, [rsp + %d]\njmp rax\n",
+                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt - 8, kt);
                     if (out_succ) *out_succ = std::string(sg);
                     if (out_fail) *out_fail = std::string(fo);
                     return std::string();
