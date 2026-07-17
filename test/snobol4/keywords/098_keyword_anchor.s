@@ -41,9 +41,9 @@ main_α:
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
- mov qword ptr [rsp + 160], 1
+ mov qword ptr [rbp + 160], 1
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rsp + 168], rax
+ mov qword ptr [rbp + 168], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp xchain0_n3_α
@@ -53,9 +53,9 @@ main_α_body:
  .string "ANCHOR"
 # IR_LIT_INTEGER
  xchain0_n1_α:
- mov qword ptr [rsp + 192], 6
+ mov qword ptr [rbp + 192], 6
  mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rsp + 200], rax
+ mov qword ptr [rbp + 200], rax
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n3_α
@@ -64,25 +64,25 @@ main_α_body:
  xchain0_n2_α:
 # BOX IR_CALL SNO$KWSET(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+160] -> [zr+112]
- mov rax, qword ptr [rsp + 160]
- mov qword ptr [rsp + 112], rax
- mov rax, qword ptr [rsp + 168]
- mov qword ptr [rsp + 120], rax
+ mov rax, qword ptr [rbp + 160]
+ mov qword ptr [rbp + 112], rax
+ mov rax, qword ptr [rbp + 168]
+ mov qword ptr [rbp + 120], rax
 # marshal arg1 = producer-box slot [zr+192] -> [zr+128]
- mov rax, qword ptr [rsp + 192]
- mov qword ptr [rsp + 128], rax
- mov rax, qword ptr [rsp + 200]
- mov qword ptr [rsp + 136], rax
+ mov rax, qword ptr [rbp + 192]
+ mov qword ptr [rbp + 128], rax
+ mov rax, qword ptr [rbp + 200]
+ mov qword ptr [rbp + 136], rax
   .section .rodata
   .Lrkfn4: .string "SNO$KWSET"
   .section .text
   .intel_syntax noprefix
  lea rdi, [rip + .Lrkfn4]
- lea rsi, [rsp + 112]
+ lea rsi, [rbp + 112]
  mov edx, 2
  call rt_call_arr@PLT
- mov qword ptr [rsp + 96], rax
- mov qword ptr [rsp + 104], rdx
+ mov qword ptr [rbp + 96], rax
+ mov qword ptr [rbp + 104], rdx
  cmp eax, 99
  je xchain0_n3_α
  jmp xchain0_n3_α
@@ -90,9 +90,9 @@ main_α_body:
  jmp xchain0_n3_α
 # IR_LIT_STRING
  xchain0_n3_α:
- mov qword ptr [rsp + 240], 1
+ mov qword ptr [rbp + 240], 1
  mov rax, qword ptr [rip + .Lx5_0]
- mov qword ptr [rsp + 248], rax
+ mov qword ptr [rbp + 248], rax
  jmp xchain0_n4_α
  xchain0_n3_β:
  jmp xchain0_n5_α
@@ -102,12 +102,12 @@ main_α_body:
  .string "hello world"
 # IR_ASSIGN gva
  xchain0_n4_α:
- mov rax, qword ptr [rsp + 240]
- mov rdx, qword ptr [rsp + 248]
+ mov rax, qword ptr [rbp + 240]
+ mov rdx, qword ptr [rbp + 248]
  mov qword ptr [1879052288], rax
  mov qword ptr [1879052296], rdx
- mov qword ptr [rsp + 224], rax
- mov qword ptr [rsp + 232], rdx
+ mov qword ptr [rbp + 224], rax
+ mov qword ptr [rbp + 232], rdx
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp xchain0_n5_α
@@ -115,20 +115,20 @@ main_α_body:
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
  mov rdx, qword ptr [1879052296]
- mov qword ptr [rsp + 352], rax
- mov qword ptr [rsp + 360], rdx
+ mov qword ptr [rbp + 352], rax
+ mov qword ptr [rbp + 360], rdx
  jmp xchain0_n6_α
  xchain0_n5_β:
  jmp xchain0_n7_α
 # IR_MATCH_HEAD
  xchain0_n6_α:
- mov qword ptr [rsp + 328], rbp
- mov rdi, qword ptr [rsp + 352]
- mov rsi, qword ptr [rsp + 360]
+ mov qword ptr [rbp + 328], rbp
+ mov rdi, qword ptr [rbp + 352]
+ mov rsi, qword ptr [rbp + 360]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 320], r12
+ mov qword ptr [rbp + 320], r12
  mov rax, rsp
  sub rsp, 32
  mov qword ptr [rsp + 16], rax
@@ -154,14 +154,14 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rsp + 16]
- mov r12, qword ptr [rsp + 320]
- mov rbp, qword ptr [rsp + 328]
+ mov r12, qword ptr [rbp + 320]
+ mov rbp, qword ptr [rbp + 328]
  jmp xchain0_n7_α
 # IR_LIT_STRING
  xchain0_n7_α:
- mov qword ptr [rsp + 608], 1
+ mov qword ptr [rbp + 608], 1
  mov rax, qword ptr [rip + .Lx10_0]
- mov qword ptr [rsp + 616], rax
+ mov qword ptr [rbp + 616], rax
  jmp xchain0_n9_α
  xchain0_n7_β:
  jmp main_γ
@@ -189,12 +189,12 @@ main_α_body:
  jmp xchain0_n6_β
 # IR_ASSIGN global
  xchain0_n9_α:
- mov rsi, qword ptr [rsp + 608]
- mov rdx, qword ptr [rsp + 616]
+ mov rsi, qword ptr [rbp + 608]
+ mov rdx, qword ptr [rbp + 616]
  mov rdi, qword ptr [rip + .Lx13_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 592], rax
- mov qword ptr [rsp + 600], rdx
+ mov qword ptr [rbp + 592], rax
+ mov qword ptr [rbp + 600], rdx
  jmp main_γ
  xchain0_n9_β:
  jmp main_γ
@@ -241,14 +241,14 @@ main_α_body:
  pop r13
  pop r15
  pop r14
- mov r12, qword ptr [rsp + 320]
- mov rbp, qword ptr [rsp + 328]
+ mov r12, qword ptr [rbp + 320]
+ mov rbp, qword ptr [rbp + 328]
  jmp xchain0_n11_α
 # IR_LIT_STRING
  xchain0_n11_α:
- mov qword ptr [rsp + 400], 1
+ mov qword ptr [rbp + 400], 1
  mov rax, qword ptr [rip + .Lx16_0]
- mov qword ptr [rsp + 408], rax
+ mov qword ptr [rbp + 408], rax
  jmp xchain0_n12_α
  xchain0_n11_β:
  jmp xchain0_n13_α
@@ -258,12 +258,12 @@ main_α_body:
  .string "anchored match ok"
 # IR_ASSIGN global
  xchain0_n12_α:
- mov rsi, qword ptr [rsp + 400]
- mov rdx, qword ptr [rsp + 408]
+ mov rsi, qword ptr [rbp + 400]
+ mov rdx, qword ptr [rbp + 408]
  mov rdi, qword ptr [rip + .Lx17_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 384], rax
- mov qword ptr [rsp + 392], rdx
+ mov qword ptr [rbp + 384], rax
+ mov qword ptr [rbp + 392], rdx
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n13_α
@@ -275,20 +275,20 @@ main_α_body:
  xchain0_n13_α:
  mov rax, qword ptr [1879052288]
  mov rdx, qword ptr [1879052296]
- mov qword ptr [rsp + 512], rax
- mov qword ptr [rsp + 520], rdx
+ mov qword ptr [rbp + 512], rax
+ mov qword ptr [rbp + 520], rdx
  jmp xchain0_n14_α
  xchain0_n13_β:
  jmp xchain0_n15_α
 # IR_MATCH_HEAD
  xchain0_n14_α:
- mov qword ptr [rsp + 488], rbp
- mov rdi, qword ptr [rsp + 512]
- mov rsi, qword ptr [rsp + 520]
+ mov qword ptr [rbp + 488], rbp
+ mov rdi, qword ptr [rbp + 512]
+ mov rsi, qword ptr [rbp + 520]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
- mov qword ptr [rsp + 480], r12
+ mov qword ptr [rbp + 480], r12
  mov rax, rsp
  sub rsp, 32
  mov qword ptr [rsp + 16], rax
@@ -314,14 +314,14 @@ main_α_body:
  lea rcx, [rip + g_patstk_sp]
  mov qword ptr [rcx + 0], rax
  mov rsp, qword ptr [rsp + 16]
- mov r12, qword ptr [rsp + 480]
- mov rbp, qword ptr [rsp + 488]
+ mov r12, qword ptr [rbp + 480]
+ mov rbp, qword ptr [rbp + 488]
  jmp xchain0_n15_α
 # IR_LIT_STRING
  xchain0_n15_α:
- mov qword ptr [rsp + 656], 1
+ mov qword ptr [rbp + 656], 1
  mov rax, qword ptr [rip + .Lx21_0]
- mov qword ptr [rsp + 664], rax
+ mov qword ptr [rbp + 664], rax
  jmp xchain0_n17_α
  xchain0_n15_β:
  jmp main_γ
@@ -349,12 +349,12 @@ main_α_body:
  jmp xchain0_n14_β
 # IR_ASSIGN global
  xchain0_n17_α:
- mov rsi, qword ptr [rsp + 656]
- mov rdx, qword ptr [rsp + 664]
+ mov rsi, qword ptr [rbp + 656]
+ mov rdx, qword ptr [rbp + 664]
  mov rdi, qword ptr [rip + .Lx24_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 640], rax
- mov qword ptr [rsp + 648], rdx
+ mov qword ptr [rbp + 640], rax
+ mov qword ptr [rbp + 648], rdx
  jmp main_γ
  xchain0_n17_β:
  jmp main_γ
@@ -401,14 +401,14 @@ main_α_body:
  pop r13
  pop r15
  pop r14
- mov r12, qword ptr [rsp + 480]
- mov rbp, qword ptr [rsp + 488]
+ mov r12, qword ptr [rbp + 480]
+ mov rbp, qword ptr [rbp + 488]
  jmp xchain0_n19_α
 # IR_LIT_STRING
  xchain0_n19_α:
- mov qword ptr [rsp + 560], 1
+ mov qword ptr [rbp + 560], 1
  mov rax, qword ptr [rip + .Lx27_0]
- mov qword ptr [rsp + 568], rax
+ mov qword ptr [rbp + 568], rax
  jmp xchain0_n20_α
  xchain0_n19_β:
  jmp main_γ
@@ -418,12 +418,12 @@ main_α_body:
  .string "should not reach"
 # IR_ASSIGN global
  xchain0_n20_α:
- mov rsi, qword ptr [rsp + 560]
- mov rdx, qword ptr [rsp + 568]
+ mov rsi, qword ptr [rbp + 560]
+ mov rdx, qword ptr [rbp + 568]
  mov rdi, qword ptr [rip + .Lx28_0]
  call NV_SET_fn@PLT
- mov qword ptr [rsp + 544], rax
- mov qword ptr [rsp + 552], rdx
+ mov qword ptr [rbp + 544], rax
+ mov qword ptr [rbp + 552], rdx
  jmp main_γ
  xchain0_n20_β:
  jmp main_γ
