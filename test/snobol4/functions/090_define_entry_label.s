@@ -94,16 +94,16 @@ pop rbp
 proc_bumpit_β:
 jmp proc_bumpit_ω
 proc_bumpit_γ:
-mov rdi, [rsp]
-mov rsi, [rsp + 8]
-mov rax, [rsp + 328]
+mov rdi, [rbp]
+mov rsi, [rbp + 8]
+mov rax, [rbp + 328]
+lea rsp, [rbp + 352]
 mov rbp, [rbp + 344]
-lea rsp, [rsp + 352]
 jmp rax
 proc_bumpit_ω:
-mov rax, [rsp + 336]
+mov rax, [rbp + 336]
+lea rsp, [rbp + 352]
 mov rbp, [rbp + 344]
-lea rsp, [rsp + 352]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -132,6 +132,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 320
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   add rsp, 8
   ret
   .section .rodata

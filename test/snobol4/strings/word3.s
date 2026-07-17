@@ -330,6 +330,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 528
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   add rsp, 8
   ret
   .section .rodata
