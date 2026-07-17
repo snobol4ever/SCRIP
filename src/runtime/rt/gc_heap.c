@@ -1,7 +1,9 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <link.h>
 #include "zeta_choices.h"
 #include "rt_slab.h"
 #include "rt_arena.h"
@@ -23,6 +25,7 @@ static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
 static long  g_hp_blocks = 0;
 static int   g_hp_report_reg = 0;
+static void gc_static_segs_init(void);
 int g_gc_pending;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_verify(void)
@@ -56,6 +59,7 @@ static void rt_gcheap_init(void)
     g_hp_arena = (char *)rt_slab_region((size_t)mb << 20);
     if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower ZC_HEAP_MB\n", mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
+    gc_static_segs_init();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
@@ -72,7 +76,9 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
     /* Allocation order: (1) main bump at g_hp_top; (2) the FILL WINDOW — a secondary bump region installed by the collector inside the largest HB_FILL gap, needed when a conservative pin holds the
      * heap TOP at exhaustion time (the pinned block is near-always the allocating expression's own in-flight operand, so the top cannot retreat and all reclaimed space lands BELOW it — discovered by
-     * the 213/214 exhaustion tortures, 2026-07-05); (3) regenerate, recompute both, retry; (4) honest bomb. Window carves rewrite the remainder fill title in step, keeping rt_gcheap_verify green. */
+     * the 213/214 exhaustion tortures, 2026-07-05); (3) regenerate, recompute both, retry; (4) honest bomb. Window carves rewrite the remainder fill title in step, keeping rt_gcheap_verify green.
+     * s90 NOTE: a window-FIRST variant was built and WITHDRAWN — it exposed (not caused) the malloc→WS reference hole in the s90 finding: interned names live in HB_WS blocks reachable only from
+     * raw-malloc'd IR, so HB_WS stays blanket-pinned until the WS-class split; with WS pinned, window-first had no remaining motivation and the SIL top-bump order stands. */
     uint64_t total = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
     void *r;
     static long stress_n = -1, stress_c = 0;
@@ -115,10 +121,13 @@ char *rt_str_dup(const char *s)
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GC-U-6 slice 1 (s84): THE WORKSPACE lives IN the collected span — rt_ws_* re-pointed from the rt_arena.c slab chain onto rt_gcheap_alloc(HB_WS): ONE reserved-VA span, ONE cursor (g_hp_top),
- * uniform rt_hblk_t titles, gc_collect_ex the one collector over everything. HB_WS blocks are IMMORTAL + IMMOVABLE v1 (clients hold raw C pointers in statics — the GC-U-5 sweep's registries and
- * caches): the collector pins them at reset (MARK|PIN, fwd=self, slide barriers; sub-pin gaps become HB_FILL fill-window fodder as usual). Motion/reclaim arrives with root registration at GC-U-7.
- * The grow-only realloc's old-size decode now reads the rt_hblk_t (payload = size - 16) instead of the retired (size<<8|flavor) arena title word. */
+/* GC-U-6 slice 1 (s84) → GC-U-7 ROOTS (s90): THE WORKSPACE lives IN the collected span — rt_ws_* on rt_gcheap_alloc(HB_WS): ONE reserved-VA span, ONE cursor (g_hp_top), uniform rt_hblk_t titles,
+ * gc_collect_ex the one collector over everything. HB_WS remains BLANKET-PINNED at reset — s90 MEASURED why it must (window-first probe): interned names and registry payloads live in HB_WS blocks
+ * whose ONLY references sit in raw-malloc'd IR/driver structures no root layer can see; un-pinning HB_WS awaits the WS-class split (DESCR-only by_name results → collectable class; malloc-referenced
+ * registries/names → immortal class; the TR-3 ROOT+EDGE rows already name the sides, TR-5's census the mechanism). HB_ZBLK is UN-PINNED and registration-governed: both clients cover themselves by
+ * construction (rt_zh_bump_slow registers each refill window pin+range; coexpr stacks register at carve, unregister at destroy, retitle HB_FILL dead) — dead coexpr stacks now reclaim. Marked
+ * HB_WS/HB_ZBLK blocks are PROMOTED to HBF_PIN at forward (fwd=self, never slid, never adjusted-through); their payloads get the transitive conservative scan (closes the s88 latent gap: DESCRs
+ * inside WS blocks reference DT_S payloads nothing else roots). The grow-only realloc's old-size decode reads the rt_hblk_t (size - 16). */
 void *rt_ws_alloc(size_t n)
 {
     return rt_gcheap_alloc((uint16_t)HB_WS, (uint64_t)(n ? n : 1));
@@ -145,12 +154,22 @@ char *rt_ws_strdup(const char *s)
  * manual pin-3 XNBLK precedent): the live ζ chain (mode-4 has no zls maps at runtime; conservative-pin is the sound v1 until ZB-4 emits layouts), the C stack + setjmp register spill (covers rt-helper
  * locals holding raw payload ptrs across the triggering alloc — what makes allocation-site collection sound, §6d), and the CURRENT scan subject (Σ lives in r13, unrewritable — D10 pin-cell realized
  * as pin-the-block; OUTER subjects restore through scan_stack and adjust precisely). SLIDE runs a dest cursor; pins are barriers; sub-pin gaps get HB_FILL titles so the linear walk stays verifiable
- * and compact away next cycle. Dedup/cycle hash makes every cell adjust EXACTLY once (double-adjust is corruption — new addresses land back inside the arena). Coexprs suspended on pthreads hold
- * register snapshots this collector cannot see (§6b finding ii): any created coexpr ⇒ collection declines, exhaustion bombs honestly; fix home = the coexpr rungs. Triggers: exhaustion in
- * rt_gcheap_alloc (regenerate-then-retry, the SIL way), SCRIP_GC_STRESS=N every-N-allocs, and rt_gc_collect() exported for GC-7's COLLECT(). */
+ * and compact away next cycle. Dedup/cycle hash makes every cell adjust EXACTLY once (double-adjust is corruption — new addresses land inside the arena). GC-U-7 (s90) retired the §6b-finding-ii
+ * coexpr DECLINE: every scrip_coctx_t is enumerated (registry in rt_coexpr.c) — gc_spill (callee-saved regs spilled by scrip_coswitch just before every suspension) + xmit + entry pkg regs are
+ * scanned conservatively, each live stack window is a registered pin + conservative range, the suspended main [stack] region scans in full when a coexpr thread collects, and the current thread's
+ * anchor..top scan is window-aware. Registered pins/ranges (rt_gc_root_pin_add/rt_gc_root_range_add) + the writable-PT_LOAD statics scan (dl_iterate_phdr: exe + libscrip) run at EVERY collect, and
+ * gateway collects are now conservative too — raw HB_WS pointers in C locals across gateway seams must survive the un-pin (the fill window absorbs the residual top-pin ratchet risk, measured s90).
+ * Triggers: exhaustion in rt_gcheap_alloc (regenerate-then-retry, the SIL way), SCRIP_GC_STRESS=N every-N-allocs, and rt_gc_collect() exported for GC-7's COLLECT(). */
 #include <setjmp.h>
 #include "../core/core.h"
+#include "rt_coexpr.h"
 long g_scrip_coexpr_live;
+static const char **g_gc_rpin = (const char **)0;
+static long g_gc_rpin_n = 0, g_gc_rpin_cap = 0;
+static struct gc_rng_t { const char *lo, *hi; } *g_gc_rrng = (struct gc_rng_t *)0;
+static long g_gc_rrng_n = 0, g_gc_rrng_cap = 0;
+static struct gc_seg_t { char *lo, *hi; } *g_gc_segs = (struct gc_seg_t *)0;
+static long g_gc_nseg = -1, g_gc_seg_cap = 0;
 static rt_hblk_t **g_gc_idx = (rt_hblk_t **)0;
 static long g_gc_nblk = 0;
 static void **g_gc_hs = (void **)0;
@@ -172,7 +191,7 @@ void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0)
     if (!g_gc_pending) return;
     g_gc_pending = 0;
     g_gc_shield_arr = arr; g_gc_shield_n = n; g_gc_shield_r = r0;
-    gc_collect_ex(0);
+    gc_collect_ex(2);
     g_gc_shield_arr = (DESCR_t *)0; g_gc_shield_n = 0; g_gc_shield_r = (const char **)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -208,10 +227,17 @@ void rt_gc_pin_ptr(const char *p)
     if (h) h->flags |= (HBF_MARK | HBF_PIN);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_cons_scan(const char *lo, const char *hi)
+static void gc_cons_scan_t(const char *lo, const char *hi, int ws_only)
 {
     const char *p = (const char *)(((uintptr_t)lo + 7u) & ~(uintptr_t)7u);
-    for (; p + 8 <= hi; p += 8) rt_gc_pin_ptr(*(const char *const *)p);
+    for (; p + 8 <= hi; p += 8) { const char *q = *(const char *const *)p;
+        if (!ws_only) rt_gc_pin_ptr(q);
+        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_WS || h->type == HB_ZBLK)) h->flags |= (HBF_MARK | HBF_PIN); } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_cons_scan(const char *lo, const char *hi)
+{
+    gc_cons_scan_t(lo, hi, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_raw(const char **loc)
@@ -267,13 +293,79 @@ void rt_gc_visit_descr(DESCR_t *d)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_root_pin_add(const char *p)
+{
+    if (g_gc_rpin_n == g_gc_rpin_cap) { g_gc_rpin_cap = g_gc_rpin_cap ? g_gc_rpin_cap * 2 : 64;
+        g_gc_rpin = (const char **)realloc((void *)g_gc_rpin, (size_t)g_gc_rpin_cap * sizeof(*g_gc_rpin)); if (!g_gc_rpin) abort(); }
+    g_gc_rpin[g_gc_rpin_n++] = p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_root_pin_del(const char *p)
+{
+    for (long i = 0; i < g_gc_rpin_n; i++) if (g_gc_rpin[i] == p) { g_gc_rpin[i] = g_gc_rpin[--g_gc_rpin_n]; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_root_range_add(const char *lo, const char *hi)
+{
+    if (g_gc_rrng_n == g_gc_rrng_cap) { g_gc_rrng_cap = g_gc_rrng_cap ? g_gc_rrng_cap * 2 : 64;
+        g_gc_rrng = (struct gc_rng_t *)realloc((void *)g_gc_rrng, (size_t)g_gc_rrng_cap * sizeof(*g_gc_rrng)); if (!g_gc_rrng) abort(); }
+    g_gc_rrng[g_gc_rrng_n].lo = lo; g_gc_rrng[g_gc_rrng_n].hi = hi; g_gc_rrng_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_root_range_del(const char *lo)
+{
+    for (long i = 0; i < g_gc_rrng_n; i++) if (g_gc_rrng[i].lo == lo) { g_gc_rrng[i] = g_gc_rrng[--g_gc_rrng_n]; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_phdr_cb(struct dl_phdr_info *info, size_t sz, void *data)
+{
+    const char *nm = info->dlpi_name;
+    (void)sz; (void)data;
+    if (nm && nm[0] && !strstr(nm, "libscrip")) return 0;
+    for (int i = 0; i < (int)info->dlpi_phnum; i++) { const ElfW(Phdr) *ph = &info->dlpi_phdr[i];
+        if (ph->p_type != PT_LOAD || !(ph->p_flags & PF_W)) continue;
+        if (g_gc_nseg == g_gc_seg_cap) { g_gc_seg_cap = g_gc_seg_cap ? g_gc_seg_cap * 2 : 16;
+            g_gc_segs = (struct gc_seg_t *)realloc((void *)g_gc_segs, (size_t)g_gc_seg_cap * sizeof(*g_gc_segs)); if (!g_gc_segs) abort(); }
+        g_gc_segs[g_gc_nseg].lo = (char *)(info->dlpi_addr + ph->p_vaddr); g_gc_segs[g_gc_nseg].hi = g_gc_segs[g_gc_nseg].lo + ph->p_memsz; g_gc_nseg++; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_static_segs_init(void)
+{
+    /* ONE census, ON MAIN, at heap init — s90 probe measured __dl_iterate_phdr faulting when first driven lazily inside a collect running on a coexpr pthread; the segment set is load-time fixed. */
+    if (g_gc_nseg >= 0) return;
+    g_gc_nseg = 0;
+    dl_iterate_phdr(gc_phdr_cb, (void *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_stack_region(char **lo, char **hi)
+{
+    FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;
+    if (f) { while (fgets(ln, sizeof ln, f)) if (strstr(ln, "[stack]")) { sscanf(ln, "%lx-%lx", &a, &b); break; } fclose(f); }
+    *lo = (char *)a; *hi = b ? (char *)b : (char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *gc_stack_top(void)
 {
     if (g_gc_stktop) return g_gc_stktop;
-    { FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;
-      if (f) { while (fgets(ln, sizeof ln, f)) if (strstr(ln, "[stack]")) { sscanf(ln, "%lx-%lx", &a, &b); break; } fclose(f); } 
-      g_gc_stktop = b ? (char *)b : (char *)&f; }
+    { char *lo, *hi; gc_stack_region(&lo, &hi); g_gc_stktop = hi ? hi : (char *)&lo; }
     return g_gc_stktop;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_coexpr_roots(char **cur_hi)
+{
+    pthread_t self = pthread_self(), mainthr; scrip_coctx_t *c;
+    *cur_hi = (char *)0;
+    if (!scrip_co_main_known(&mainthr)) return;
+    if (!pthread_equal(self, mainthr)) { char *slo, *shi; gc_stack_region(&slo, &shi); if (slo && shi && slo < shi) gc_cons_scan((const char *)slo, (const char *)shi);
+        { scrip_coctx_t *r = scrip_co_gc_root(); gc_cons_scan((const char *)r->gc_spill, (const char *)r->gc_spill + sizeof r->gc_spill);
+          gc_cons_scan((const char *)r->xmit, (const char *)r->xmit + sizeof r->xmit); } }
+    for (c = scrip_co_gc_head(); c; c = c->gc_next) {
+        gc_cons_scan((const char *)c->gc_spill, (const char *)c->gc_spill + sizeof c->gc_spill);
+        gc_cons_scan((const char *)c->xmit, (const char *)c->xmit + sizeof c->xmit);
+        if (c->entry_arg) gc_cons_scan((const char *)c->entry_arg + 8, (const char *)c->entry_arg + 56);
+        { char *lo, *hi; if (scrip_co_stack_of(c, &lo, &hi) && lo < hi) { if (c->alive && pthread_equal(self, c->thread)) *cur_hi = hi; else gc_cons_scan((const char *)lo, (const char *)hi); } }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_zeta_frame(char *lo, char *hi)
@@ -299,21 +391,34 @@ static long gc_collect_ex(int cons_stack)
     extern void core_gc_roots(void); extern void gen_gc_roots(void); extern void rt_gc_root_args(void);
     jmp_buf jb; char anchor; long nlive = 0, npin = 0, nfill = 0, before_b, after_b; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0;
     if (g_gc_in || !g_hp_arena) return 0;
-    if (g_scrip_coexpr_live > 0) { static int warned = 0; if (!warned) { warned = 1; fprintf(stderr, "[ZGC] collection declined: %ld co-expression(s) live — suspended-thread register snapshots are invisible to the v1 collector (ARCH §6b finding ii; fix home = coexpr rungs)\n", g_scrip_coexpr_live); } return 0; }
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
     g_hp_win = (char *)0; g_hp_wend = (char *)0;
     g_gc_nblk = 0; { char *p = g_hp_arena; while (p < g_hp_top) { g_gc_nblk++; p += ((rt_hblk_t *)p)->size; } }
     g_gc_idx = (rt_hblk_t **)malloc((size_t)g_gc_nblk * sizeof(*g_gc_idx)); if (!g_gc_idx && g_gc_nblk) abort();
-    { char *p = g_hp_arena; long i = 0; while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN); if (h->type == HB_WS || h->type == HB_ZBLK) h->flags |= (uint16_t)(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i++] = h; p += h->size; } }
+    { char *p = g_hp_arena; long i = 0; while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN);
+        if (h->type == HB_WS) h->flags |= (uint16_t)(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i++] = h; p += h->size; } }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_ncell = 0; g_gc_nraw = 0; g_gc_interior = 0;
-    if (cons_stack) { setjmp(jb); gc_cons_scan((const char *)&jb, (const char *)&jb + sizeof jb); { char *lo = &anchor, *hi = gc_stack_top(); if (lo < hi) gc_cons_scan((const char *)lo, (const char *)hi); } }
+    for (long i = 0; i < g_gc_rpin_n; i++) rt_gc_pin_ptr(g_gc_rpin[i]);
+    for (long i = 0; i < g_gc_rrng_n; i++) if (g_gc_rrng[i].lo < g_gc_rrng[i].hi) gc_cons_scan(g_gc_rrng[i].lo, g_gc_rrng[i].hi);
+    gc_static_segs_init();
+    for (long i = 0; i < g_gc_nseg; i++) if (g_gc_segs[i].lo < g_gc_segs[i].hi) gc_cons_scan_t((const char *)g_gc_segs[i].lo, (const char *)g_gc_segs[i].hi, 1);
+    { char *chi; gc_coexpr_roots(&chi);
+      if (cons_stack) { int wso = (cons_stack == 2); setjmp(jb); gc_cons_scan_t((const char *)&jb, (const char *)&jb + sizeof jb, wso);
+        { char *lo = &anchor, *hi = chi ? chi : gc_stack_top(); if (lo < hi) gc_cons_scan_t((const char *)lo, (const char *)hi, wso); } } }
     gc_root_zeta();
     core_gc_roots(); gen_gc_roots(); rt_gc_root_args();
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
+    { char *scanned = (char *)calloc((size_t)(g_gc_nblk ? g_gc_nblk : 1), 1); int changed = 1; if (!scanned) abort();
+      while (changed) { changed = 0;
+        for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
+            if (scanned[i] || h->type != HB_WS || !(h->flags & (HBF_MARK | HBF_PIN))) continue;
+            scanned[i] = 1; changed = 1; gc_cons_scan((const char *)(h + 1), (const char *)h + h->size); } }
+      free(scanned); }
     dest = g_hp_arena;
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
+        if ((h->flags & HBF_MARK) && (h->type == HB_WS || h->type == HB_ZBLK)) h->flags |= HBF_PIN;
         if (h->flags & HBF_PIN) { h->fwd = (uint64_t)h; nlive++; npin++; }
         else if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
         else h->fwd = 0;

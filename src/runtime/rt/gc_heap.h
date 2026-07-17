@@ -35,4 +35,8 @@ void  rt_gc_point_arr(struct DESCR_t *arr, int n, const char **r0);
 void  rt_gc_visit_descr(struct DESCR_t *d);
 void  rt_gc_visit_raw(const char **loc);
 void  rt_gc_pin_ptr(const char *p);
+void  rt_gc_root_pin_add(const char *p);
+void  rt_gc_root_pin_del(const char *p);
+void  rt_gc_root_range_add(const char *lo, const char *hi);
+void  rt_gc_root_range_del(const char *lo);
 #endif
