@@ -639,12 +639,11 @@ static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RA
 static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP ? "GROUP" : k == ZSC_ITER ? "ITER" : k == ZSC_PAT ? "PAT" : k == ZSC_COEXPR ? "COEXPR" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_dump(FILE * fp) {
-    static const char * alloc_names[]    = { "BUMP_INFINITE", "BUMP_LIFO", "MALLOC", "GC" };
     static const char * col_names[]      = { "MALLOC", "ARENA", "GC" };
     static const char * selfload_names[] = { "OFF", "PLANE_CELL", "ASSERT", "STATIC" };
     static const char * init_names[]     = { "ZERO", "NONE", "CLONE" };
-    fprintf(fp, "; ZETA LOCAL STORAGE (ZLS layout, ZB-2) — choices: ALLOC=%s COLLECTION=%s SELFLOAD=%s INIT=%s POISON=%s TELEM=%s OVF=%s ARENA_MB=%d PROMOTE=%s\n",
-        alloc_names[ZC_ALLOC], col_names[ZC_COLLECTION], selfload_names[ZC_SELFLOAD], init_names[ZC_INIT],
+    fprintf(fp, "; ZETA LOCAL STORAGE (ZLS layout, ZB-2) — choices: COLLECTION=%s SELFLOAD=%s INIT=%s POISON=%s TELEM=%s OVF=%s ARENA_MB=%d PROMOTE=%s\n",
+        col_names[ZC_COLLECTION], selfload_names[ZC_SELFLOAD], init_names[ZC_INIT],
         ZC_POISON == ZC_POISON_FILL ? "FILL" : "OFF", ZC_TELEMETRY == ZC_TELEM_ON ? "ON" : "OFF", ZC_OVERFLOW == ZC_OVF_BOMB ? "BOMB" : "GUARD", (int)ZC_ARENA_MB, ZC_PROMOTE == ZC_PROMOTE_GATE ? "GATE" : "ON");
     fprintf(fp, "; kinds: DESCR = 16B t.p pair (GC traces payload) | RAW = int/cursor/counter (GC skips) | PTR_GC = heap pointer (GC traces+fixes) | PTR_CODE = continuation (GC skips, never relocates)\n");
     fprintf(fp, "; (audit) = kind provisional pending template audit — 2026-07-05 burndown: all shipped grants template-verified, audit=0; any NEW grant lands audit=1 until verified\n");
