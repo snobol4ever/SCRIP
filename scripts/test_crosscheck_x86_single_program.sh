@@ -42,7 +42,7 @@ gcc -O0 -g -c "$RT/x86/engine.c"               -I"$RT/x86" -I"$RT" -I"$TINY/src/
 gcc -no-pie "$WORK/beauty.o" \
     "$WORK/stmt_rt.o" "$WORK/snobol4.o" "$WORK/mock_includes.o" \
     "$WORK/snobol4_pattern.o" "$WORK/engine.o" \
-    -lgc -lm -o "$WORK/beauty_asm_bin" 2>&1 || {
+    -lm -o "$WORK/beauty_asm_bin" 2>&1 || {
     echo -e "${RED}FAIL${RESET} link failed"
     exit 1
 }

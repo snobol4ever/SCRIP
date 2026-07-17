@@ -141,7 +141,7 @@ run_test() {
         fi
 
         # link
-        if ! gcc -no-pie "$o_file" $LINK_OBJS -lgc -lm -w -no-pie -o "$bin" 2>"$WORK/${base}.link_err"; then
+        if ! gcc -no-pie "$o_file" $LINK_OBJS -lm -w -no-pie -o "$bin" 2>"$WORK/${base}.link_err"; then
             echo -e "${RED}FAIL${RESET} $base  [link error]"
             head -3 "$WORK/${base}.link_err"
             FAIL=$((FAIL+1))

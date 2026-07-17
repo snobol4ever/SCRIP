@@ -54,7 +54,7 @@ fi
 
 # LOCK 3 — m3 and m4 both produce the expected value.
 M3="$("$SCRIP" --run "$PROG" < /dev/null 2>/dev/null)"
-gcc -no-pie "$S" -L out -lscrip_rt -lgc -lm -o "$TMP/g_m4" 2>/dev/null
+gcc -no-pie "$S" -L out -lscrip_rt -lm -o "$TMP/g_m4" 2>/dev/null
 M4="$(LD_LIBRARY_PATH=out "$TMP/g_m4" 2>/dev/null)"
 if [ "$M3" = "$EXPECT" ] && [ "$M4" = "$EXPECT" ]; then
     echo "  PASS  LOCK 3: m3==m4==expected (3,42)"

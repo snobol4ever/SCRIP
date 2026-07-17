@@ -38,7 +38,7 @@ gcc -O0 -g -w \
 gcc -m64 -no-pie -rdynamic \
     -Wl,--wrap=eval_ast \
     "$OBJ"/*.o \
-    -lgc -lm \
+    -lm \
     -o "$ROOT/scrip-rs23-diag"
 
 [ -x "$ROOT/scrip-rs23-diag" ] || { echo "FAIL build"; exit 1; }

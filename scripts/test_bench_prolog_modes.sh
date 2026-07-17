@@ -22,7 +22,7 @@ for pl in "$B"/*.pl; do
   if echo "$asm" | grep -qE '^\s*\.(intel_syntax|text|globl)'; then
     printf '%s\n' "$asm" > "$W/$s.s"
     if (cd "$W" && as --64 -o "$s.o" "$s.s" 2>"$W/$s.aserr") \
-       && gcc -no-pie -o "$W/$s.bin" "$W/$s.o" "$RT/libscrip_rt.so" -lgc -lm -lstdc++ -Wl,-rpath,"$RT" 2>"$W/$s.lderr"; then
+       && gcc -no-pie -o "$W/$s.bin" "$W/$s.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>"$W/$s.lderr"; then
       m4out=$(cd "$W" && timeout "$T" ./$s.bin </dev/null 2>/dev/null | head -50)
       if [ "$m4out" = "$want" ]; then m4=PASS; else m4=FAIL; fi
     else m4=BUILD; fi

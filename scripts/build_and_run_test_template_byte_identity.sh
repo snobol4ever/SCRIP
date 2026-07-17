@@ -28,7 +28,7 @@ $CC $CFLAGS \
     "$RT/x86/emitter_text.c" \
     "$RT/x86/templates/sm_halt.c" \
     "$RT/x86/bb_emit.c" \
-    -lgc -lm \
+    -lm \
     -o "$OUT" 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then

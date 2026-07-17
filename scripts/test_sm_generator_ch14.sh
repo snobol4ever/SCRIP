@@ -44,7 +44,7 @@ OBJS=$(ls "$OBJ_DIR"/*.o | grep -v scrip_driver.o | tr '\n' ' ')
 gcc -m64 -no-pie \
     "$BUILD_DIR/sm_interp_test.o" \
     $OBJS \
-    -lgc -lm \
+    -lm \
     -o "$BUILD_DIR/sm_interp_test" 2>&1
 
 echo "=== Running sm_interp_test ==="

@@ -74,7 +74,7 @@ run_sno() {
             local t; t=$(mktemp -d)
             "$SCRIP" --compile "$sno" > "$t/p.s" 2>/dev/null &&
             nasm -f elf64 "$t/p.s" -o "$t/p.o" 2>/dev/null &&
-            gcc "$t/p.o" -lgc -lm -o "$t/p" 2>/dev/null &&
+            gcc "$t/p.o" -lm -o "$t/p" 2>/dev/null &&
             timeout "$TIMEOUT" "$t/p" 2>/dev/null || true
             rm -rf "$t" ;;
         jvm)

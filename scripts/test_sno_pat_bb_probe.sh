@@ -17,7 +17,7 @@ run_probe() {
     local name="$1" expect="$2"
     local bin; bin="$(mktemp /tmp/sno_probe_XXXXXX)"
     if ! gcc -O0 -g -w "${INC[@]}" -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES \
-         "$SRC/$name.c" -L "$OUT" -lscrip_rt -lgc -lm -lstdc++ -Wl,-rpath,"$OUT" -o "$bin" 2>/dev/null; then
+         "$SRC/$name.c" -L "$OUT" -lscrip_rt -lm -lstdc++ -Wl,-rpath,"$OUT" -o "$bin" 2>/dev/null; then
         echo "  FAIL $name (compile)"; FAIL=$((FAIL+1)); return
     fi
     local got; got="$(LD_LIBRARY_PATH="$OUT" timeout 8 "$bin" < /dev/null 2>/dev/null)"

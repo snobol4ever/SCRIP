@@ -26,6 +26,6 @@ nasm -f elf64 -I"$RT/asm/" "$WORK/prog.s" -o "$WORK/prog.o" 2>/dev/null
 gcc -no-pie "$WORK/prog.o" "$WORK/stmt_rt.o" "$WORK/snobol4.o" \
     "$WORK/mock_includes.o" "$WORK/pat.o" "$WORK/eng.o" \
     "$WORK/blk_alloc.o" "$WORK/blk_reloc.o" \
-    -lgc -lm -o "$WORK/prog_asm" 2>/dev/null
+    -lm -o "$WORK/prog_asm" 2>/dev/null
 
 exec "$WORK/prog_asm"

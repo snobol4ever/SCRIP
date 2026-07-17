@@ -20,7 +20,7 @@ for s in $ORDER; do
   CO=/tmp/_c3.$s.o; CE=/tmp/_c3.$s.e
   # --- SCRIP mode-4: compile once, run the native binary ---
   ./scrip --compile "$B/$s.sno" >/tmp/_c3.$s.s 2>/dev/null
-  if [ -s /tmp/_c3.$s.s ] && gcc -no-pie -x assembler /tmp/_c3.$s.s -L"$RT" -lscrip_rt -lgc -lm -Wl,-rpath,"$RT" -o /tmp/_c3.$s.bin 2>/dev/null; then
+  if [ -s /tmp/_c3.$s.s ] && gcc -no-pie -x assembler /tmp/_c3.$s.s -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o /tmp/_c3.$s.bin 2>/dev/null; then
     run /tmp/_c3.$s.bin; SCW=$WALL; SCR=$RC; SCS=$(selfms "$CO"); sans "$CO" >/tmp/_c3.$s.scrip
   else
     SCW=- ; SCR=BUILDERR; SCS=- ; : >/tmp/_c3.$s.scrip

@@ -3,9 +3,9 @@
 # Idempotent. Safe to run multiple times.
 # Usage: bash build/build_packages.sh
 set -euo pipefail
-PKGS="build-essential libgmp-dev m4 nasm libgc-dev wabt bison flex"
-# NOTE: libgc-dev is MANDATORY — fresh containers omit it; the build dies at src/runtime/core/core.h:8
-# ("gc/gc.h: No such file or directory") without it.  install_system_packages.sh MUST run before make.
+PKGS="build-essential libgmp-dev m4 nasm wabt bison flex"
+# NOTE: libgc-dev is GONE — GC-U-4 (s67) deleted Boehm from the tree/link; the -lgc script residue was
+# swept with this line's stale core.h claim. The ONE unified GC (gc_heap.c) needs no external library.
 MISSING=""
 for p in $PKGS; do
     dpkg -s "$p" &>/dev/null || MISSING="$MISSING $p"
