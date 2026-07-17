@@ -800,10 +800,18 @@ inline const char * RDQ(const char * base, int off) { static char b[8][40]; stat
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }   /* REG-1: pinned-island absolute (SIB no-base, va < 0x7FFFFFFF, identical bytes both mediums) */
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_rd32_modrm — the reg_disp32 family's ModRM(+SIB) tail (REG-7 s80).  Bases with low3==100 (rsp, r12)
+ * REQUIRE a SIB byte at every mod — the s68 pun class; until now the family either mis-encoded them silently
+ * (the disp's first byte would be eaten as a SIB) or, in store_imm32 alone, aborted loudly (the 2026-07-08 s2
+ * guard, retired by this helper).  SIB 0x24 = scale 00, index 100 (none), base 100 — REX.B distinguishes rsp
+ * from r12.  mod10+disp32 stays unconditional, the family's uniform-shape convention (see store_imm32's note).
+ * First customer: the REG-7 pend shapes — capture COND writes its 24B entry at [r12+0/8/16] directly. */
+inline void x86_rd32_modrm(std::string & c, int g, int b) { c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); if ((b & 7) == 4) c += (char)0x24; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_load64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
     return std::string(" mov ") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
@@ -812,7 +820,7 @@ inline std::string x86_reg_disp32_load64(const char * dst, const char * base, in
 inline std::string x86_reg_disp32_store64(const char * base, int disp, const char * src) {
     int g = x86_rnum(src), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x89; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x89; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
     return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
@@ -857,7 +865,7 @@ inline std::string x86_cmp_reg_abs64(const char * reg, long va) {
 inline std::string x86_reg_disp32_load32(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x8B; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x8B; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
     return std::string(" mov ") + dst + ", dword ptr [" + base + " + " + std::to_string(disp) + "]\n";
@@ -866,7 +874,7 @@ inline std::string x86_reg_disp32_load32(const char * dst, const char * base, in
 inline std::string x86_reg_disp32_store32(const char * base, int disp, const char * src) {
     int g = x86_rnum(src), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x89; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x89; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
     return std::string(" mov dword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
@@ -875,7 +883,7 @@ inline std::string x86_reg_disp32_store32(const char * base, int disp, const cha
 inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long imm) {
     int b = x86_rnum(base);
     if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xC7; c += (char)(0x80 | (b & 7)); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xC7; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
         return x86_Lrec(c);
     }
     return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
@@ -890,12 +898,12 @@ inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long 
  * fall-through is now a loud bomb (see the dispatch block) so this class of silent drop cannot recur.
  * Encoding: optional REX.B (no REX.W — 32-bit op), C7 /0, mod10 rm=base, disp32, imm32 — mod10+disp32
  * unconditionally, matching every sibling in the reg_disp32 family (they trade a shorter disp8 form for one
- * uniform shape; `as` agreement is irrelevant here because RDD text spells the same disp the binary encodes). */
+ * uniform shape; `as` agreement is irrelevant here because RDD text spells the same disp the binary encodes).
+ * The former (b&7)==4 abort is RETIRED — x86_rd32_modrm now emits the required SIB family-wide (REG-7 s80). */
 inline std::string x86_reg_disp32_store_imm32(const char * base, int disp, long imm) {
     int b = x86_rnum(base);
-    if ((b & 7) == 4) { fprintf(stderr, "FATAL x86_reg_disp32_store_imm32: base '%s' needs a SIB byte this encoder does not produce (whole reg_disp32 family limitation) — use a different base register\n", base); abort(); }
     if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x40; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0xC7; c += (char)(0x80 | (b & 7)); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
+        std::string c; uint8_t rex = 0x40; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0xC7; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
         return x86_Lrec(c);
     }
     return std::string(" mov dword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
@@ -904,7 +912,7 @@ inline std::string x86_reg_disp32_store_imm32(const char * base, int disp, long 
 inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
-        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D; c += (char)(0x80 | ((g & 7) << 3) | (b & 7));
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
     return std::string(" lea ") + dst + ", [" + base + " + " + std::to_string(disp) + "]\n";
