@@ -43,6 +43,7 @@ main_α:
   rep stosb
   mov qword ptr [rsp + 1656], rsp
   mov r12, qword ptr [1879048192]
+  mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
@@ -397,24 +398,12 @@ main_α_body:
  call rt_defer_get_pat_fn@PLT
  test rax, rax
  jz .Lx24_0
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  lea rcx, [rip + .Lx24_4]
  lea rdx, [rip + .Lx24_5]
  jmp rax
 .Lx24_4:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n24_α
 .Lx24_5:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n18_β
 .Lx24_0:
  push r14
@@ -454,29 +443,13 @@ main_α_body:
  js xchain0_n18_β
  mov r14d, eax
  lea rax, [rip + .Lx24_6]
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  sub rsp, 8
  push rax
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n24_α
 .Lx24_6:
  add rsp, 16
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n18_β
  xchain0_n21_β:
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  jmp qword ptr [rsp]
 # IR_LIT_STRING
  xchain0_n22_α:
@@ -631,24 +604,12 @@ main_α_body:
  call rt_defer_get_pat_fn@PLT
  test rax, rax
  jz .Lx34_0
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  lea rcx, [rip + .Lx34_4]
  lea rdx, [rip + .Lx34_5]
  jmp rax
 .Lx34_4:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n33_α
 .Lx34_5:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n25_β
 .Lx34_0:
  push r14
@@ -688,29 +649,13 @@ main_α_body:
  js xchain0_n25_β
  mov r14d, eax
  lea rax, [rip + .Lx34_6]
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  sub rsp, 8
  push rax
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n33_α
 .Lx34_6:
  add rsp, 16
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n25_β
  xchain0_n29_β:
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  jmp qword ptr [rsp]
 # IR_LIT_STRING
  xchain0_n30_α:
@@ -880,24 +825,12 @@ main_α_body:
  call rt_defer_get_pat_fn@PLT
  test rax, rax
  jz .Lx45_0
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  lea rcx, [rip + .Lx45_4]
  lea rdx, [rip + .Lx45_5]
  jmp rax
 .Lx45_4:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n42_α
 .Lx45_5:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n34_β
 .Lx45_0:
  push r14
@@ -937,29 +870,13 @@ main_α_body:
  js xchain0_n34_β
  mov r14d, eax
  lea rax, [rip + .Lx45_6]
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  sub rsp, 8
  push rax
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n42_α
 .Lx45_6:
  add rsp, 16
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n34_β
  xchain0_n38_β:
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  jmp qword ptr [rsp]
 # IR_LIT_STRING
  xchain0_n39_α:
@@ -1099,24 +1016,12 @@ main_α_body:
  call rt_defer_get_pat_fn@PLT
  test rax, rax
  jz .Lx54_0
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  lea rcx, [rip + .Lx54_4]
  lea rdx, [rip + .Lx54_5]
  jmp rax
 .Lx54_4:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n47_α
 .Lx54_5:
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n43_β
 .Lx54_0:
  push r14
@@ -1156,29 +1061,13 @@ main_α_body:
  js xchain0_n43_β
  mov r14d, eax
  lea rax, [rip + .Lx54_6]
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  sub rsp, 8
  push rax
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n47_α
 .Lx54_6:
  add rsp, 16
- lea rcx, [rip + g_patstk_sp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_pat_main_rsp]
- mov rsp, qword ptr [rcx + 0]
  jmp xchain0_n43_β
  xchain0_n45_β:
- lea rcx, [rip + g_pat_main_rsp]
- mov qword ptr [rcx + 0], rsp
- lea rcx, [rip + g_patstk_sp]
- mov rsp, qword ptr [rcx + 0]
  jmp qword ptr [rsp]
 # IR_ASSIGN global
  xchain0_n46_α:
@@ -1270,6 +1159,7 @@ main_γ:
 mov eax, 1
 xor edx, edx
 mov rsp, qword ptr [rsp + 1656]
+mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 main_ω:
@@ -1279,6 +1169,7 @@ mov dword ptr [rsp+4], 0
 mov qword ptr [rsp+8], 0
 mov eax, 99
 xor edx, edx
+mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 .section .rodata
