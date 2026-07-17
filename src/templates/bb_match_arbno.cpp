@@ -8,6 +8,10 @@ extern "C" {
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register, named by the scheme itself — rbp under ZC_FRAME_RSP (the s83-measured borrow, statement-bracketed by the head's +40 save), x86_zr()
+ * elsewhere (legacy byte-identity).  Decoupling the view from the op_anchored delivery makes the REG-7 U4 zr-arm flip a NO-OP for this template: the chain dance never consults the window predicate. */
+static inline const char * zv() { return ZC_FRAME == ZC_FRAME_RSP ? "rbp" : x86_zr(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * trd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
@@ -103,36 +107,40 @@ std::string bb_match_arbno() {
              + x86("mov", "r14d", FR(_.op_off + 4))
              + x86("mov", "rax", FRQ(_.op_off + 16))
              + x86("sub", "rsp", (long)_.op_sb)
-             + x86("mov", RSP(0), x86_zr())
+             + x86("mov", RSP(0), zv())
              + x86("mov", RSP(8), "r14")
              + x86("mov", RSP(16), "rax")
              + x86("mov", "eax", 0L)
              + arbno_zero_window((long)_.op_sb)
              + x86("mov", FRQ(_.op_off + 16), "rsp")
-             + x86("mov", x86_zr(), "rsp")
-             + x86("add", x86_zr(), (long)(24 - _.op_sa))
+             + x86("mov", zv(), "rsp")
+             + x86("add", zv(), (long)(24 - _.op_sa))
              + x86("jmp", PAIR(0))
              + x86("def", PAIR(2))
              + x86("mov", "eax", FR(_.op_sa - 16))
              + x86("cmp", "r14d", "eax")
              + x86("je",  PAIR(1))
-             + x86("mov", x86_zr(), FRQ(_.op_sa - 24))
+             + x86("mov", zv(), FRQ(_.op_sa - 24))
              + x86("mov", "eax", FR(_.op_off + 8))
              + x86("add", "eax", 1L)
              + x86("mov", FR(_.op_off + 8), "eax")
              + x86("mov", FR(_.op_off + 4), "r14d")
              + x86_gamma()
              + x86("def", PAIR(3))
+             /* ZB-ITER-3 φ (amendment (c)+(d)): element reads FIRST (prev link, prev view — both via the live view), then ONE depth-immune lea abandons the element AND every blob cell below it —
+              * rsp lands at elem+op_sb = the exact pre-push frontier, where the previous iteration's suspended body left its resume record, so the jmp PAIR(1) → defer-β `jmp [rsp+0]` composes with
+              * NO resume slot.  The old `add rsp,op_sb` was frontier-correct only when φ arrived at rsp==elem; the lea off the view is correct at ANY arrival depth (the U2b self-referential spirit). */
              + x86("mov", "rax", FRQ(_.op_sa - 8))
-             + x86("mov", x86_zr(), FRQ(_.op_sa - 24))
+             + x86("mov", "rdx", FRQ(_.op_sa - 24))
+             + x86("lea", "rsp", RDQ(zv(), (int)(_.op_sa - 24 + _.op_sb)))
+             + x86("mov", zv(), "rdx")
              + x86("mov", "ecx", FR(_.op_off + 8))
              + x86("test", "ecx", "ecx")
              + x86("jz",  L(2))
              + x86("sub", "ecx", 1L)
              + x86("mov", FR(_.op_off + 8), "ecx")
-             + x86("add", "rsp", (long)_.op_sb)
              + x86("mov", FRQ(_.op_off + 16), "rax")
-             + x86("lea", x86_zr(), RDQ("rax", 24 - _.op_sa))
+             + x86("lea", zv(), RDQ("rax", 24 - _.op_sa))
              + x86("jmp", PAIR(1))
              + x86("def", L(2))
              + x86("mov", "r14d", FR(_.op_off))

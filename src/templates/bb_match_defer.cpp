@@ -9,8 +9,6 @@ extern "C" long  rt_defer_step     (DESCR_t fret);
 extern "C" int   rt_defer_close    (int cur_delta);
 extern "C" void *rt_proc_open_fn   (void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
-extern "C" uint64_t g_patstk_sp;
-extern "C" uint64_t g_pat_main_rsp;
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
@@ -32,7 +30,14 @@ std::string bb_match_defer() {
      * activation's own base, whose [+0] wire holds its resume landing.  Recursion (*LIST) nests activations on
      * the stream; the s58 T2 static-slot clobber is unrepresentable — there are no slots.  The callout pump
      * (fn NULL: *X / DT_E-to-any) keeps its NCB-1c machinery and suspends a 16B one-shot cell whose [+0] wire
-     * lands its own exhaust stub, so the shared β needs no discrimination and no guard. */
+     * lands its own exhaust stub, so the shared β needs no discrimination and no guard.
+     * ZB-ITER-3 (s85, per the s84 plan amendment): the g_patstk ISLAND SWAP around the non-flat blob/pump
+     * paths is RETIRED — the blob self-allocates BELOW the caller frontier on the ONE rsp stream and suspends
+     * at γ there (the s59 pure protocol restored at the outer boundary).  Every β arrival has rsp AT the
+     * newest frontier record (LIFO law: σ null-progress arrives right after the suspend; bb_match_arbno's φ
+     * pop lea lands exactly on the previous iteration's record), so `jmp [rsp+0]` needs no resume slot —
+     * amendment (d) measured.  Statement brackets already discard one-stream residue on both exits (S10e).
+     * The dswap() !arms below remain flat_pat-only: the interior transfer dance is unchanged. */
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
          + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
@@ -42,18 +47,15 @@ std::string bb_match_defer() {
          + x86_align_leave()
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
-         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
-         + IF(dswap(), rspd_snap(&g_rspd_save, "g_rspd_save"))
+         + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86_lea_id("rcx", 4)
          + x86_lea_id("rdx", 5)
          + x86_jmp_reg("rax")
          + x86("def",  L(4))
-         + IF(dswap(), rspd_snap(&g_rspd_g4, "g_rspd_g4"))
-         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
+         + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
-         + IF(dswap(), rspd_snap(&g_rspd_g5, "g_rspd_g5"))
-         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
+         + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
          + x86("def",  "L0")
          /* NCB-1c M1 (2026-07-11): the *X / DT_X transfer is EMITTED — open returns fbytes (a call is owed),
@@ -109,21 +111,17 @@ std::string bb_match_defer() {
           * re-enters it exactly like a blob activation and the exhaust falls to ω (the old fn==0 jz guard's
           * job, now wired instead of tested). */
          + x86_lea_id("rax", 6)
-         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
-         + IF(dswap(), rspd_snap(&g_rspd_s2, "g_rspd_s2"))
+         + rspd_snap(&g_rspd_s2, "g_rspd_s2")
          + x86_sub("rsp", 8)
          + x86("push", "rax")
-         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
          + x86_gamma()
          + x86("def",  L(6))
          + x86_add("rsp", 16)
-         + IF(dswap(), rspd_snap(&g_rspd_g6, "g_rspd_g6"))
-         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov","rsp",RDQ("rcx",0)))
+         + rspd_snap(&g_rspd_g6, "g_rspd_g6")
          + x86_omega()
          /* β: the LIFO law has rsp at the suspended activation's own base — jump through its [+0] wire (blob:
           * the chain's %s_res landing re-pins the frame reg and resumes; callout: the exhaust stub above). */
          + x86_beta()
-         + IF(dswap(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_pat_main_rsp,"g_pat_main_rsp")+x86("mov",RDQ("rcx",0),"rsp")+x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)&g_patstk_sp,"g_patstk_sp")+x86("mov","rsp",RDQ("rcx",0)))
-         + IF(dswap(), rspd_snap(&g_rspd_beta, "g_rspd_beta"))
+         + rspd_snap(&g_rspd_beta, "g_rspd_beta")
          + x86_jmp_mem("rsp", 0);
 }
