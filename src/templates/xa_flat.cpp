@@ -185,6 +185,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                   + bytes(2, "\x31\xC0")
                                   + bytes(2, "\xF3\xAA")
                                   + xaf_anchor_enter_bin()
+                                  + (x86_port_mode() == ZC_PORT_HEAP ? bytes(4, "\x48\x8B\x1C\x25") + u32le((uint32_t)RT_WS_TOP) : std::string()) /* REG-4b OUTER SEED, byte twin of TEXT's mov rbx, qword ptr [RT_WS_TOP]: outermost graphs only — jmp-entry blobs inherit rbx live */
                                   + bytes(3, "\x83\xFE\x00")
                                   + bytes(2, "\x0F\x85") + u32le(0);
                     out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
@@ -246,6 +247,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
                     char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", 65544, 65544); /* 65536+8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
                     std::string pro = banner + fb + xaf_anchor_enter_text();
+                    if (x86_port_mode() == ZC_PORT_HEAP) pro += std::string("  mov rbx, ") + ABSQ(RT_WS_TOP) + "\n"; /* REG-4b OUTER SEED (twin of the BINARY arm's 48 8B 1C 25): outermost graphs only — jmp-entry blobs inherit rbx live through C's callee-saved contract */
                     if (g_gen_proc_active || g_resumable_callable_active)
                         pro += std::string("  cmp esi, 0\n") + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                     return pro;

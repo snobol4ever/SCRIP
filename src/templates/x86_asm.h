@@ -1588,26 +1588,38 @@ inline std::string x86_port_hook(int site, int port) {
     }
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);
-    /* REG-4 slice A (s77) -- HEAP-ZETA alpha (C2's second flavor, GC-U-2b HZ-1's register half): the box's
-     * zeta comes from the pinned bump frontier.  rax = frontier (the box's base), commit = store frontier+K,
-     * guard ja -> rt_zh_bump_slow refill (lazy-inits on the zero page).  Omega emits NOTHING by C3 design
-     * (LIVE/DEAD lifecycle owns reclamation).  Frame plumbing for heap residence = HZ-1's census slice; the
-     * cell->rbx promotion = REG-4b (the pend park->promote pattern).  Internal labels 60/61 sit far above any
-     * box's own L(n) usage. */
-    if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_HEAP)
-        s += x86("mov", "rax", ABSQ(RT_WS_TOP))
-           + x86("mov", "rcx", "rax")
-           + x86("add", "rcx", (long)_.op_zls2_bytes)
-           + x86("cmp", "rcx", ABSQ(RT_WS_LIMIT))
+    /* REG-4b (s78) -- HEAP-ZETA alpha, rbx PROMOTED (C2's second flavor; the pend park->promote pattern,
+     * REG-2 -> REG-6 proven): rbx IS the live bump frontier (the s73 map's GC-TOP tenant).  rax = rbx (the
+     * box's base), bump = add rbx,K (register arithmetic, no cell store on the fast path), guard ja ->
+     * rt_zh_bump_slow refill, which publishes the fresh frontier into [RT_WS_TOP] -- the slow path RELOADS
+     * rbx from that cell, so the cell is the SYNC POINT, live only across the refill (and at the outer-graph
+     * seed, xa_flat).  Cold/garbage rbx is NOT self-healing (garbage+K vs limit is unsigned luck, not law):
+     * the outer flat prologue SEEDS rbx from [RT_WS_TOP] (zero page -> rbx=0 -> first guard trips -> lazy
+     * init preserved); inner entries (jmp-entry procs, EVAL fragments) inherit rbx live through C's
+     * callee-saved contract and seed NOTHING.  Omega emits NOTHING by C3 design (LIVE/DEAD lifecycle owns
+     * reclamation).  Frame plumbing for heap residence = HZ-1's census slice.  Internal labels 60/61 sit far
+     * above any box's own L(n) usage.  HZ-1 SLICE 1 (s78): the fc_geom grant class IS the heap arm's client
+     * under ZC_PORT_HEAP -- C2 verbatim: the SAME static-K grant, flavor selected at the port layer (FORTH
+     * spends it as sub rsp,K; HEAP spends it as the rbx bump).  fc_geom is port-blind (geometry authority);
+     * every fc consumer is FORTH-gated (x86_fc_on / x86_fc_hit), so under HEAP the pops stay silent and the
+     * locals stay FLAT-FRAME -- the box's heap block is allocated-but-unread, the PROVING configuration:
+     * frontier arithmetic + slow refills exercised corpus-wide, semantics untouched.  Heap RESIDENCE (FR
+     * translation to the block base) is HZ-1 slice 2.  The zls2 bytes>0/ops==0 key stays first in the
+     * selector -- the recorded-future direct-sub discipline keeps its lane. */
+    { long hk = (_.op_zls2_bytes > 0 && _.op_zls2_ops == 0) ? _.op_zls2_bytes : (_.op_fc_bytes > 0 ? (long)_.op_fc_bytes : 0L);
+    if (site == X86H_DEF && port == X86P_ALPHA && hk > 0 && x86_port_mode() == ZC_PORT_HEAP)
+        s += x86("mov", "rax", "rbx")
+           + x86("add", "rbx", hk)
+           + x86("cmp", "rbx", ABSQ(RT_WS_LIMIT))
            + x86("ja",  L(60))
-           + x86("mov", ABSQ(RT_WS_TOP), "rcx")
            + x86("jmp", L(61))
            + x86("def", L(60))
            + x86_align_enter()
-           + x86("mov", "edi", (long)_.op_zls2_bytes)
+           + x86("mov", "edi", hk)
            + x86("call", "rt_zh_bump_slow", (uint64_t)(uintptr_t)(void *)rt_zh_bump_slow_addr())
            + x86_align_leave()
-           + x86("def", L(61));
+           + x86("mov", "rbx", ABSQ(RT_WS_TOP))
+           + x86("def", L(61)); }
     /* RUNG ZB-OWN-0 (Lon 2026-07-11) -- UNIVERSAL BB-owned shadow, absolute cell positioning: cell =
      * statement-mark - C_i at every alpha AND beta define of an entry-holding node.  DEF sites only (flags
      * clean); beta idempotent; no omega code by design.  rax/rcx/rdi, the stated DEF-site register contract. */
