@@ -50,12 +50,11 @@ std::string bb_match_head() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         /* REG-2 PEND-PARK α: the pend top lives in the pinned cell [RT_CAS_TOP] (rt_match_enter just
-          * lazy-init'd the island and wrote the cell) — save it as this match's MARK.  No rbp: the cell is
-          * ALWAYS live, so nested heads read it directly and the old +40 caller-rbp save/restore is deleted
-          * (slot stays allocated v1 — reclaim is a follow-up, no op_off ripple). */
-         + x86("mov", "rax", ABSQ(RT_CAS_TOP))
-         + x86("mov", FRQ(_.op_off + 32), "rax")
+         /* REG-6 PEND-PROMOTE α (was REG-2 cell): the pend top lives in r12 (seeded once at the outer-graph
+          * prologue from [RT_CAS_TOP]; jmp-entry blobs inherit it callee-saved) — save it as this match's
+          * MARK, one direct frame store, the rax hop and the cell read both deleted.  Nested heads read the
+          * live register.  The +40 caller-rbp slot stays dead-allocated v1 (REG-2 note stands). */
+         + x86("mov", FRQ(_.op_off + 32), "r12")
          + IF(ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat, (hfc() ? x86("mov", "rax", "rsp") + x86("sub", "rsp", (long)32) + x86("mov", FRQ(_.op_off + 16), "rax")
                                                                : x86_zls2_mark_save(_.op_off + 16))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
@@ -92,10 +91,10 @@ std::string bb_match_head() {
                + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
                + x86_zls2_release_to_call(_.op_off + 16)
                + x86_align_leave()))
-         /* REG-2 PEND-PARK ω (all anchors exhausted): truncate = store cell ← MARK.  This IS the old
-          * rt_dcap_end_fail, inline — the depth array died with the ring; the rbp restore died with the park. */
-         + x86("mov", "rax", FRQ(_.op_off + 32))
-         + x86("mov", ABSQ(RT_CAS_TOP), "rax")
+         /* REG-6 PEND-PROMOTE ω (all anchors exhausted): truncate = r12 ← MARK, one frame load — the rax hop
+          * and the cell store both deleted (was REG-2's inline rt_dcap_end_fail; the cell is never written
+          * during a match at all now — seed-read at prologue is its whole running life). */
+         + x86("mov", "r12", FRQ(_.op_off + 32))
          /* REG-3 fail-edge restore: rbp ← saved outer (+40).  FRQ is correct in ALL THREE frame classes here:
           * anchored → [rbp+off] with rbp==base (the classic frame-pointer pop), granted → [rsp+off] with rsp
           * unwound to base, flat_pat → [r12+off] island view. */

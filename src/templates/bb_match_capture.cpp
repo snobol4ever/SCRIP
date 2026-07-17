@@ -61,14 +61,16 @@ std::string bb_match_capture() {
            + x86_align_leave()
            + x86_omega() )
          : (int)_.op_phase == 1
-         /* REG-2 PEND-PARK COND (was rbp-dcap, Lon 2026-07-13).  γ: scratch-load the pend top from the pinned
-          * cell [RT_CAS_TOP], write the 24B pend entry {varname@0, saved_delta@8, len@16} at [rdi] — three
-          * qword stores, no packing (32-bit reg movs zero-extend) — and bump the CELL by 24 (add-mem, imm8).
-          * β: sub-mem 24, single instruction (cost parity with the old sub rbp,24), UNGUARDED — sound because
-          * within-alternative failure cascades transit the boxes (balanced, the Python LIFO theorem) and the
-          * alternative-SWITCH bypass is bulk-restored by bb_match_alternate's own mark (SZ-2c gap, ported
-          * inline).  The cell is ALWAYS live, so the old mirror-out dance is gone by construction.  The
-          * residual rt_cap_top call is the SAVE-stack array read — ZB-FC-3c's named kill, NOT this rung's. */
+         /* REG-6 PEND-PROMOTE COND (was REG-2 cell, was rbp-dcap).  γ: the pend top IS r12 — one reg-mov
+          * stages it in rdi (keeping the proven [rdi+0/8/16] store trio byte-identical; direct [r12+off]
+          * stores need the SIB arm x86_reg_disp32_store64 lacks — a named REG-7 refinement, NOT hand-encoded
+          * here per the s68 pun lesson), write the 24B pend entry {varname@0, saved_delta@8, len@16}, and
+          * bump r12 by 24 (add-reg imm8 — the cell's add-mem is gone).  β: sub r12,24, UNGUARDED — sound
+          * because within-alternative failure cascades transit the boxes (balanced, the Python LIFO theorem)
+          * and the alternative-SWITCH bypass is bulk-restored by bb_match_alternate's own mark (SZ-2c gap,
+          * ported inline).  r12 is ALWAYS live (outer seed + callee-saved inheritance), so nested heads read
+          * the register directly.  The residual rt_cap_top call is the SAVE-stack array read — ZB-FC-3c's
+          * named kill, NOT this rung's. */
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND (pend-park inline pend)")
            + x86_alpha()
            + IF(cfc(),  x86("mov", "eax", rspd((int)_.op_fc_disp)))
@@ -76,7 +78,7 @@ std::string bb_match_capture() {
                       + x86("lea",  "rdi", FR(_.op_off))
                       + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
                       + x86_align_leave())
-           + x86("mov",  "rdi", ABSQ(RT_CAS_TOP))
+           + x86("mov",  "rdi", "r12")
            + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
            + x86("mov",  RDQ("rdi", 0), "rcx")
            + x86("mov",  "esi", "eax")
@@ -84,10 +86,10 @@ std::string bb_match_capture() {
            + x86("mov",  "edx", "r14d")
            + x86("sub",  "edx", "eax")
            + x86("mov",  RDQ("rdi", 16), "rdx")
-           + x86("add",  ABSQ(RT_CAS_TOP), (long)24)
+           + x86("add",  "r12", (long)24)
            + x86_gamma()
            + x86_beta()
-           + x86("sub",  ABSQ(RT_CAS_TOP), (long)24)
+           + x86("sub",  "r12", (long)24)
            + x86_omega() )
          : ( x86("comment", "IR_MATCH_CAPTURE_IMM")
            + x86_alpha()
@@ -102,8 +104,8 @@ std::string bb_match_capture() {
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
-           /* REG-2: the old rbp-dcap mirror-out died with the park — the pinned cell [RT_CAS_TOP] is always
-            * live, so a nested match's head reads the true top directly. */
+           /* REG-6 (was REG-2): no mirror-out — r12 IS the live top, inherited callee-saved by any nested
+            * match a *VAR body runs, so its head reads the true top directly. */
            + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
            + IF(ZC_FRAME != ZC_FRAME_RSP || _.flat_pat, x86("push", x86_zr()) + x86("sub",  "rsp", 8L))
            + x86_lea_id("rcx", 2)

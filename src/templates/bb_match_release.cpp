@@ -28,13 +28,14 @@ static std::string release_pump() {
     return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
-         /* REG-2 PEND-PARK: the old mirror-out died with the park (the pinned cell [RT_CAS_TOP] IS the live
-          * top, so a nested match's head sees it directly).  Hand the pump its FIXED range and subject BY
-          * VALUE: rdi = MARK (head's saved cursor), rsi = TOP (read from the cell), rdx = subject base (r13 —
-          * immune to mid-pump Σ clobber by a nested match; the old ring snapshotted base pointers at record
-          * time, the pointer-free entry moves that immunity into the ctx). */
+         /* REG-6 PEND-PROMOTE (was REG-2 cell): r12 IS the live top — feed it straight into the pump's rsi,
+          * the cell read deleted.  Hand the pump its FIXED range and subject BY VALUE: rdi = MARK (head's
+          * saved cursor), rsi = TOP (r12), rdx = subject base (r13 — immune to mid-pump Σ clobber by a nested
+          * match; the old ring snapshotted base pointers at record time, the pointer-free entry moves that
+          * immunity into the ctx).  A *VAR body's own match inherits r12 callee-saved and restores it by its
+          * own release/ω truncate before returning — the LIFO theorem, now in a register. */
          + (ZC_FRAME == ZC_FRAME_RSP && !_.flat_pat ? x86("mov", "rdi", rspq((int)(_.op_off + 32 + 32))) : x86("mov",  "rdi", FRQ(_.op_off + 32)))   /* R12-ERAD s65: this read sits INSIDE the 32B xfer window (post-unwind, so no fc_disp); +32 is the xfer window depth */
-         + x86("mov",  "rsi", ABSQ(RT_CAS_TOP))
+         + x86("mov",  "rsi", "r12")
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          /* NCB-1c M3: the 0..N computed-name (*VAR) commit transfers are EMITTED — a pump.  open returns
@@ -76,10 +77,9 @@ static std::string release_pump() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         /* REG-2 PEND-PARK success exit: the flush is done — truncate by storing cell ← MARK.  This mirrors
-          * head's ω exactly; the cell is back at this match's floor and rbp was never touched by the pend. */
-         + x86("mov", "rax", FRQ(_.op_off + 32))
-         + x86("mov", ABSQ(RT_CAS_TOP), "rax")
+         /* REG-6 PEND-PROMOTE success exit: the flush is done — truncate = r12 ← MARK, one frame load,
+          * mirroring head's ω exactly; the rax hop and the cell store are gone. */
+         + x86("mov", "r12", FRQ(_.op_off + 32))
          /* REG-3 success-edge restore: rbp ← saved outer (+40), the other half of the s61 both-edges bracket.
           * GATED on no-replacement: a replacement statement's REPLACE box runs AFTER this γ and reads its
           * subject/start/end through the anchored window base — restoring here handed it the outer rbp and
