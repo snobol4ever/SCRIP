@@ -2138,16 +2138,16 @@ pop rbp
 proc_roman_β:
 jmp proc_roman_ω
 proc_roman_γ:
-mov rdi, [rsp]
-mov rsi, [rsp + 8]
-mov rax, [rsp + 5672]
+mov rdi, [rbp]
+mov rsi, [rbp + 8]
+mov rax, [rbp + 5672]
+lea rsp, [rbp + 5696]
 mov rbp, [rbp + 5688]
-lea rsp, [rsp + 5696]
 jmp rax
 proc_roman_ω:
-mov rax, [rsp + 5680]
+mov rax, [rbp + 5680]
+lea rsp, [rbp + 5696]
 mov rbp, [rbp + 5688]
-lea rsp, [rsp + 5696]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -2184,6 +2184,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 5664
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   add rsp, 8
   ret
   .section .rodata

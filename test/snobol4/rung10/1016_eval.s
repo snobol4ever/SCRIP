@@ -71,16 +71,16 @@ pop rbp
 proc_EXPR$0_β:
 jmp proc_EXPR$0_ω
 proc_EXPR$0_γ:
-mov rdi, [rsp]
-mov rsi, [rsp + 8]
-mov rax, [rsp + 152]
+mov rdi, [rbp]
+mov rsi, [rbp + 8]
+mov rax, [rbp + 152]
+lea rsp, [rbp + 176]
 mov rbp, [rbp + 168]
-lea rsp, [rsp + 176]
 jmp rax
 proc_EXPR$0_ω:
-mov rax, [rsp + 160]
+mov rax, [rbp + 160]
+lea rsp, [rbp + 176]
 mov rbp, [rbp + 168]
-lea rsp, [rsp + 176]
 jmp rax
   .globl proc_EXPR$1_α
 proc_EXPR$1_α:
@@ -126,16 +126,16 @@ pop rbp
 proc_EXPR$1_β:
 jmp proc_EXPR$1_ω
 proc_EXPR$1_γ:
-mov rdi, [rsp]
-mov rsi, [rsp + 8]
-mov rax, [rsp + 88]
+mov rdi, [rbp]
+mov rsi, [rbp + 8]
+mov rax, [rbp + 88]
+lea rsp, [rbp + 112]
 mov rbp, [rbp + 104]
-lea rsp, [rsp + 112]
 jmp rax
 proc_EXPR$1_ω:
-mov rax, [rsp + 96]
+mov rax, [rbp + 96]
+lea rsp, [rbp + 112]
 mov rbp, [rbp + 104]
-lea rsp, [rsp + 112]
 jmp rax
   .globl proc_EXPR$2_α
 proc_EXPR$2_α:
@@ -219,16 +219,16 @@ pop rbp
 proc_EXPR$2_β:
 jmp proc_EXPR$2_ω
 proc_EXPR$2_γ:
-mov rdi, [rsp]
-mov rsi, [rsp + 8]
-mov rax, [rsp + 184]
+mov rdi, [rbp]
+mov rsi, [rbp + 8]
+mov rax, [rbp + 184]
+lea rsp, [rbp + 208]
 mov rbp, [rbp + 200]
-lea rsp, [rsp + 208]
 jmp rax
 proc_EXPR$2_ω:
-mov rax, [rsp + 192]
+mov rax, [rbp + 192]
+lea rsp, [rbp + 208]
 mov rbp, [rbp + 200]
-lea rsp, [rsp + 208]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -255,6 +255,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 144
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   .section .rodata
   .Lstartup_pname1: .string "EXPR$1"
   .align 8
@@ -278,6 +281,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname1]
   mov esi, 80
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname1]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   .section .rodata
   .Lstartup_pname2: .string "EXPR$2"
   .align 8
@@ -301,6 +307,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname2]
   mov esi, 176
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname2]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   add rsp, 8
   ret
   .section .rodata

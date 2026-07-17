@@ -370,16 +370,16 @@ pop rbp
 proc_fib_β:
 jmp proc_fib_ω
 proc_fib_γ:
-mov rdi, [rsp]
-mov rsi, [rsp + 8]
-mov rax, [rsp + 1048]
+mov rdi, [rbp]
+mov rsi, [rbp + 8]
+mov rax, [rbp + 1048]
+lea rsp, [rbp + 1072]
 mov rbp, [rbp + 1064]
-lea rsp, [rsp + 1072]
 jmp rax
 proc_fib_ω:
-mov rax, [rsp + 1056]
+mov rax, [rbp + 1056]
+lea rsp, [rbp + 1072]
 mov rbp, [rbp + 1064]
-lea rsp, [rsp + 1072]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -408,6 +408,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1040
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   add rsp, 8
   ret
   .section .rodata

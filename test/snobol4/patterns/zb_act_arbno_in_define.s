@@ -301,16 +301,16 @@ pop rbp
 proc_MATCHIT_β:
 jmp proc_MATCHIT_ω
 proc_MATCHIT_γ:
-mov rdi, [rsp]
-mov rsi, [rsp + 8]
-mov rax, [rsp + 648]
+mov rdi, [rbp]
+mov rsi, [rbp + 8]
+mov rax, [rbp + 648]
+lea rsp, [rbp + 672]
 mov rbp, [rbp + 664]
-lea rsp, [rsp + 672]
 jmp rax
 proc_MATCHIT_ω:
-mov rax, [rsp + 656]
+mov rax, [rbp + 656]
+lea rsp, [rbp + 672]
 mov rbp, [rbp + 664]
-lea rsp, [rsp + 672]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -339,6 +339,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 640
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname0]
+  mov esi, 1
+  call rt_proc_set_jmpentry@PLT
   add rsp, 8
   ret
   .section .rodata
