@@ -331,7 +331,7 @@ int rt_k_level = 1;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int jmp_entry;   /* NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate. */
+    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int jmp_entry; int redefined;   /* NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate. */
 } rt_proc_t;
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
@@ -351,6 +351,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
             if (pnames)  g_rt_gen_procs[i].pnames  = pnames;
             if (nparams) g_rt_gen_procs[i].nparams = nparams;
             g_rt_gen_procs[i].cells_done = 0;
+            g_rt_gen_procs[i].redefined = 1;
             return;
         }
     }
@@ -1017,6 +1018,60 @@ DESCR_t rt_proc_call_epilogue_ω(void)
     if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2: same death tidy as the γ landing — normally a zero-iteration walk (the failing callee's own final unwind already popped to its entry mark), kept for the entries a non-unwinding failure path may leave */
     return rt_proc_epilogue_body(c, 1, NULVCL);
 }
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* BP-7 SCC SLIM LEAVES — the static-save-set call convention (GOAL-SNOBOL4-BB BP-7).  The emitted static arm performs the save-set old-value saves (GVA cell → caller rsp block) and the arg installs
+ * (frame slot → GVA cell) INLINE; these leaves carry only the per-call residue the loops never were: Σ save/restore, the pcall context, NRETURN wn, the monitor events, k_level, and the vtmark tidy.
+ * open_slim runs AFTER the inline saves and BEFORE the installs, so its null-padding of unpassed formals/locals and the result cell lands exactly where rt_name_save_push's install phase did; every
+ * guard is checked BEFORE any side effect so a 0 return falls back to the classic arm with nothing to undo (the inline saves it leaves behind are pure reads, discarded by the fallback's rsp restore). */
+long rt_proc_call_open_slim(const char *name, int np, int nargs)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p || !p->fn || !p->dyn_scope || p->is_generator || p->is_variadic || p->redefined || g_call_fastpath_off || p->nparams != np || nargs > np) return 0;
+    rt_proc_resolve_cells(p);
+    const char *rname = p->result_name ? p->result_name : p->name;
+    int wn = rt_g_want_name; rt_g_want_name = 0;
+    for (int k = nargs; k < np; k++) { if (p->pcells && p->pcells[k]) *p->pcells[k] = NULVCL; else if (p->pnames && p->pnames[k]) NV_SET_fn(p->pnames[k], NULVCL); }
+    { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
+      if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
+    rt_pcall_grow();
+    if (g_pcall_top < g_pcall_cap) {
+        rt_pcall_t *c = &g_pcall[g_pcall_top];
+        c->p = p; c->rname = rname; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = -1; c->wn = wn;
+        c->lex = 0; c->nargs = 0; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
+    }
+    g_pcall_top++;
+    if (g_monitor_bin) mon_emit_call_bin(p->name);
+    rt_k_level++;
+    return 1;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)
+{
+    rt_k_level--;
+    if (g_pcall_top <= 0) return FAILDESCR;
+    rt_pcall_t c = g_pcall[--g_pcall_top];
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);
+    Σ = c.save_Σ; Σlen = c.save_Σlen;
+    result = rt_nret_fix(result, c.wn);
+    if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
+    return result;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_call_epilogue_slim_ω(void)
+{
+    rt_k_level--;
+    if (g_pcall_top <= 0) return FAILDESCR;
+    rt_pcall_t c = g_pcall[--g_pcall_top];
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);
+    Σ = c.save_Σ; Σlen = c.save_Σlen;
+    DESCR_t result = rt_nret_fix(FAILDESCR, c.wn);
+    if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
+    return result;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? (p->result_name ? p->result_name : p->name) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* RET-REGIME EPILOGUE — the call/ret close.  Under jmp-entry the two wires made the IS_FAIL discriminator
  * redundant and it was deleted (s61 finding); a call-regime return has ONE edge, so the discriminator is
