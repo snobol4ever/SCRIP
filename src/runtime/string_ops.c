@@ -23,7 +23,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     if (IS_NULL_fn(b)) return a;
     if (so_is_list(a) && so_is_list(b)) {
         static int so_list_reg = 0;
-        if (!so_list_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); so_list_reg = 1; }
+        if (!so_list_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); so_list_reg = 1; }
         int64_t an = FIELD_GET_fn(a, "frame_size").i, bn = FIELD_GET_fn(b, "frame_size").i;
         DESCR_t *ae = (DESCR_t *)FIELD_GET_fn(a, "frame_elems").ptr;
         DESCR_t *be = (DESCR_t *)FIELD_GET_fn(b, "frame_elems").ptr;
@@ -32,7 +32,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
         for (int64_t i = 0; i < an; i++) ne[i] = ae ? ae[i] : NULVCL;
         for (int64_t i = 0; i < bn; i++) ne[an + i] = be ? be[i] : NULVCL;
         DESCR_t ep; ep.v = DT_DATA; ep.slen = 0; ep.ptr = (void *)ne;
-        return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"));
+        return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(n));
     }
     const char *asp, *bsp;
     long alc = -1;
