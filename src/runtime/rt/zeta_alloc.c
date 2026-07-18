@@ -68,6 +68,9 @@ void *rt_zls_frame_prev(void *fb) { return fb ? ((void **)((char *)fb - ZLS_HDR)
 long rt_zls_frame_size(void *fb) { return fb ? (((long *)((char *)fb - ZLS_HDR))[1] & ~15L) : 0L; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_zls_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); p = e ? (atoi(e) != 0) : (ZC_POISON == ZC_POISON_FILL); } return p; }
+static int rt_zls_reltrace(void) { static int p = -1; if (p < 0) p = getenv("SCRIP_ZLS_RELEASE_TRACE") != NULL; return p; }
+static int rt_zls_arbtrace(void) { static int p = -1; if (p < 0) p = getenv("SCRIP_ARBNO_STEP1_TRACE") != NULL; return p; }
+static int rt_zls2_tron(void) { static int p = -1; if (p < 0) p = getenv("SCRIP_ZLS2_TRACE") != NULL; return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CHAIN INTEGRITY (2026-07-12, MEASURED not reasoned). This function assumed fb is ALWAYS the chain head and spliced with an unconditional g_zls_cur = prev(fb). That assumption is FALSE: SCRIP_ZLS_LIFO_PROBE over the
  * whole corpus reports SNOBOL4 crosscheck 517/517 and Icon 20486/20488 perfectly LIFO (nonhead=0), but Prolog meta_qsort.pl issues 122 NON-HEAD releases. A non-head splice ORPHANS every block between the old head and fb:
@@ -81,7 +84,7 @@ void rt_zls_release(void *fb)
     char *base;
     if (!fb) return;
     base = (char *)fb - ZLS_HDR;
-    if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-RELEASE] fb=%p sz=%ld fn=%p (call #%ld)\n", fb, ((long *)base)[1], ((void **)fb)[0], g_zls_releases + 1);
+    if (rt_zls_reltrace()) fprintf(stderr, "[ZLS-RELEASE] fb=%p sz=%ld fn=%p (call #%ld)\n", fb, ((long *)base)[1], ((void **)fb)[0], g_zls_releases + 1);
     g_zls_releases += 1;
     if (fb == g_zls_cur) { g_zls_cur = ((void **)base)[0]; }
     else { void *it = g_zls_cur; g_zls_nonhead += 1; while (it && rt_zls_frame_prev(it) != fb) it = rt_zls_frame_prev(it); if (!it) return; ((void **)((char *)it - ZLS_HDR))[0] = ((void **)base)[0]; }
@@ -113,10 +116,10 @@ void rt_zls_release(void *fb)
  * mark" would be clobbered by an inner call before the outer call's epilogue reads it back — the same
  * single-carrier trap rt_zls_arbno_step1_store/load below is honestly scoped to avoid, at the LARGER scale
  * where it would corrupt the outer caller's own graph, not just lose one activation's pointer. */
-void *rt_zls_mark(void) { if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-MARK] returning g_zls_cur=%p\n", g_zls_cur); return g_zls_cur; }
+void *rt_zls_mark(void) { if (rt_zls_reltrace()) fprintf(stderr, "[ZLS-MARK] returning g_zls_cur=%p\n", g_zls_cur); return g_zls_cur; }
 void rt_zls_release_to(void *mark)
 {
-    if (getenv("SCRIP_ZLS_RELEASE_TRACE")) fprintf(stderr, "[ZLS-RELEASE-TO] called with mark=%p, g_zls_cur=%p\n", mark, g_zls_cur);
+    if (rt_zls_reltrace()) fprintf(stderr, "[ZLS-RELEASE-TO] called with mark=%p, g_zls_cur=%p\n", mark, g_zls_cur);
     while (g_zls_cur != mark) {
         void *cur = g_zls_cur;
         if (!cur) break;
@@ -136,8 +139,8 @@ void rt_zls_release_to(void *mark)
  * fix needs a real per-activation carrier, e.g. a correctly-widened slot or an explicit stack, and is
  * explicitly future work, not solved here). */
 static void *g_zls_arbno_step1_carrier = (void *)0;
-void rt_zls_arbno_step1_store(void *p) { if (getenv("SCRIP_ARBNO_STEP1_TRACE")) fprintf(stderr, "[ARBNO-S1] STORE %p (prev carrier was %p)\n", p, g_zls_arbno_step1_carrier); g_zls_arbno_step1_carrier = p; }
-void *rt_zls_arbno_step1_load(void) { if (getenv("SCRIP_ARBNO_STEP1_TRACE")) fprintf(stderr, "[ARBNO-S1] LOAD  %p\n", g_zls_arbno_step1_carrier); return g_zls_arbno_step1_carrier; }
+void rt_zls_arbno_step1_store(void *p) { if (rt_zls_arbtrace()) fprintf(stderr, "[ARBNO-S1] STORE %p (prev carrier was %p)\n", p, g_zls_arbno_step1_carrier); g_zls_arbno_step1_carrier = p; }
+void *rt_zls_arbno_step1_load(void) { if (rt_zls_arbtrace()) fprintf(stderr, "[ARBNO-S1] LOAD  %p\n", g_zls_arbno_step1_carrier); return g_zls_arbno_step1_carrier; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZLS2 ARENA (Lon directive 2026-07-08) — the DOWN-GROWING bare-bump ζ arena.  No headers, no per-alloc
  * runtime call, no per-alloc GC-root chunking: emitted code does `sub r12, K` at α and `add r12, K` at the
@@ -182,7 +185,7 @@ void *rt_zls2_push(long k)
     if (!g_zls2_cur) { rt_zls2_init(); g_zls2_cur = g_zls2_hi; }
     if (g_zls2_cur - k < g_zls2_lo) { fprintf(stderr, "[ZLS2] arena exhausted on push(%ld) — raise ZC_ZLS2_MB\n", k); abort(); }
     g_zls2_cur -= k;
-    if (getenv("SCRIP_ZLS2_TRACE")) fprintf(stderr, "[ZLS2] PUSH %ld -> cur=%p (used=%ld)\n", k, (void *)g_zls2_cur, (long)(g_zls2_hi - g_zls2_cur));
+    if (rt_zls2_tron()) fprintf(stderr, "[ZLS2] PUSH %ld -> cur=%p (used=%ld)\n", k, (void *)g_zls2_cur, (long)(g_zls2_hi - g_zls2_cur));
     return (void *)g_zls2_cur;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -200,7 +203,7 @@ void rt_zls2_pop(long k)
     if (!g_zls2_cur || g_zls2_cur + k > g_zls2_hi) { fprintf(stderr, "[ZLS2] pop(%ld) past arena top — unbalanced push/pop (LIFO discipline violated)\n", k); abort(); }
     if (rt_zls2_poison()) memset(g_zls2_cur, 0xDD, (size_t)k);
     g_zls2_cur += k;
-    if (getenv("SCRIP_ZLS2_TRACE")) fprintf(stderr, "[ZLS2] POP  %ld -> cur=%p (used=%ld)\n", k, (void *)g_zls2_cur, (long)(g_zls2_hi - g_zls2_cur));
+    if (rt_zls2_tron()) fprintf(stderr, "[ZLS2] POP  %ld -> cur=%p (used=%ld)\n", k, (void *)g_zls2_cur, (long)(g_zls2_hi - g_zls2_cur));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* rt_zls2_mark/rt_zls2_release_to — the ZLS2 twins of rt_zls_mark/rt_zls_release_to above, same statement-
@@ -214,7 +217,7 @@ void rt_zls2_pop(long k)
 void *rt_zls2_mark(void)
 {
     if (!g_zls2_cur) { rt_zls2_init(); g_zls2_cur = g_zls2_hi; }
-    if (getenv("SCRIP_ZLS2_TRACE")) fprintf(stderr, "[ZLS2] MARK cur=%p\n", (void *)g_zls2_cur);
+    if (rt_zls2_tron()) fprintf(stderr, "[ZLS2] MARK cur=%p\n", (void *)g_zls2_cur);
     return (void *)g_zls2_cur;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -224,7 +227,7 @@ void rt_zls2_release_to(void *mark)
     if (!m) return;
     if (m < g_zls2_cur) { fprintf(stderr, "[ZLS2] release_to(%p) BELOW cursor %p — LIFO discipline violated\n", mark, (void *)g_zls2_cur); abort(); }
     if (m > g_zls2_hi)  { fprintf(stderr, "[ZLS2] release_to(%p) past arena top %p\n", mark, (void *)g_zls2_hi); abort(); }
-    if (getenv("SCRIP_ZLS2_TRACE") && m != g_zls2_cur) fprintf(stderr, "[ZLS2] RELEASE_TO %p (reclaimed %ld)\n", mark, (long)(m - g_zls2_cur));
+    if (rt_zls2_tron() && m != g_zls2_cur) fprintf(stderr, "[ZLS2] RELEASE_TO %p (reclaimed %ld)\n", mark, (long)(m - g_zls2_cur));
     if (m != g_zls2_cur && rt_zls2_poison()) memset(g_zls2_cur, 0xDD, (size_t)(m - g_zls2_cur));
     g_zls2_cur = m;
 }
