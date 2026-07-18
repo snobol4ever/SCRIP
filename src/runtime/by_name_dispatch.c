@@ -804,6 +804,46 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     return rt_call_value(callee, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot) {
+    DESCR_t buf[64]; int n = 0;
+    if (lv.v == DT_DATA) {
+        DESCR_t tag = FIELD_GET_fn(lv, "gen_type");
+        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
+            int ln = (int)FIELD_GET_fn(lv, "frame_size").i;
+            DESCR_t ea = FIELD_GET_fn(lv, "frame_elems");
+            DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+            if (ln > 64) ln = 64;
+            if (arr) { for (int k = 0; k < ln; k++) buf[k] = arr[k]; n = ln; }
+        } else { buf[0] = lv; n = 1; }
+    } else { buf[0] = lv; n = 1; }
+    return rt_call_value_gen_h(callee, buf, n, hslot);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
+    extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
+    const char *nm = procval_name(callee);
+    if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    if (!nm || !rt_proc_is_registered(nm) || !rt_proc_jmp_entry(nm) || !rt_proc_is_generator(nm)) return (void *)0;
+    { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; }
+    if (!rt_proc_call_open(nm, n)) return (void *)0;
+    return rt_proc_fn(nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) {
+    DESCR_t buf[64]; int n = 0;
+    if (lv.v == DT_DATA) {
+        DESCR_t tag = FIELD_GET_fn(lv, "gen_type");
+        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
+            int ln = (int)FIELD_GET_fn(lv, "frame_size").i;
+            DESCR_t ea = FIELD_GET_fn(lv, "frame_elems");
+            DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+            if (ln > 64) ln = 64;
+            if (arr) { for (int k = 0; k < ln; k++) buf[k] = arr[k]; n = ln; }
+        } else { buf[0] = lv; n = 1; }
+    } else { buf[0] = lv; n = 1; }
+    return rt_call_value_spine_prep(callee, buf, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_resume_h(void **hslot) {
     extern DESCR_t rt_proc_resume_frame_h(void **hslot);
     if (!hslot || !*hslot) return FAILDESCR;

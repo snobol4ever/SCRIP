@@ -67,7 +67,10 @@ static int is_unop_tt(tree_e tt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_resumable(const tree_t * t) {
     if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0;
-    if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return icn_call_allow_gen(nm); }
+    if (t->t == TT_BANG_BINARY) return 1;
+    if (t->t == TT_FIELD || t->t == TT_NULL || t->t == TT_NONNULL) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
+    if (is_unop_tt(t->t)) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
+    if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return nm ? icn_call_allow_gen(nm) : 1; }
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
@@ -342,10 +345,23 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (lhs && lhs->t == TT_VAR && lhs->v.sval && lhs->v.sval[0] != '&' && !icn_is_local(cx, lhs->v.sval)) {
             callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval;
         } else callee = (tree_t *) lhs;
-        tree_t * fn = ast_node_new(TT_VAR); fn->v.sval = (char *) "__apply__";
-        tree_t * call = ast_node_new(TT_FNC);
-        ast_push(call, fn); ast_push(call, callee); if (rhs) ast_push(call, (tree_t *) rhs);
-        return lower(cx, call, γ, ω, res);
+        IR_t * cr = NULL; IR_t * ce = lower(cx, callee, NULL, ω, &cr);
+        IR_t * prevβ = cx->beta;
+        IR_t * nd = build(cx, IR_CALL_VALUE, γ, NULL);
+        ir_operand_push(nd, cr);
+        if (rhs) {
+            IR_LIT(nd).sval = (char *) "apply";
+            IR_t * ar = NULL; IR_t * ae = lower(cx, rhs, NULL, prevβ ? prevβ : ω, &ar); prevβ = cx->beta;
+            lc_γ_to(cr, ae);
+            ir_operand_push(nd, ar);
+            ω_to(nd, prevβ ? prevβ : ω);
+            lc_γ_to(ar, nd);
+        } else {
+            ω_to(nd, prevβ ? prevβ : ω);
+            lc_γ_to(cr, nd);
+        }
+        cx->beta = nd;
+        *res = nd; return ce;
     }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t, t->v.sval, γ, ω, res);
