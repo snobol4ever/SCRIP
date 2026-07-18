@@ -693,7 +693,7 @@ IR_graph_t * lower_prolog_clause(const tree_t * clause) {
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 extern int ir_is_generator_kind(IR_e t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int lower_pl_pred_graph_new(const tree_t * ch, int arity) {
+static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_deliver) {
     const tree_t * one[1]; const tree_t ** clauses; int nc;
     if (ch->t == TT_CLAUSE) { one[0] = ch; clauses = one; nc = 1; }
     else if (ch->t == TT_CHOICE && ch->n >= 1) { clauses = (const tree_t **) ch->c; nc = ch->n; }
@@ -715,12 +715,15 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity) {
     int maxlocal = -1;
     for (int k = nc - 1; k >= 0; k--) {
         IR_t * next_fail = uw[k + 1];
-        IR_t * ml = build(&cx, IR_MOVE_LABEL, succeed, fail);
+        IR_t * ml = build(&cx, suspend_deliver ? IR_SUSPEND : IR_MOVE_LABEL, succeed, fail);
         IR_t * ce = NULL; IR_t * redo = NULL;
         lower_pl_clause_into(&cx, clauses[k], arity, ml, next_fail, &ce, &redo);
         IR_t * ab = redo ? redo : next_fail;
-        IR_LIT(ml).ival = (ab && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;
-        ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, NULL);
+        if (suspend_deliver) { ir_operand_push(ml, mk); ir_operand_push(ml, ab); }
+        else {
+            IR_LIT(ml).ival = (ab && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;
+            ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, NULL);
+        }
         centry[k] = ce;
         if (k > 0) { IR_t * u = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, fail); IR_LIT(u).sval = "$unwind_nothrow"; ir_operand_push(u, mk); uw[k] = u; }
         maxlocal = max_var_slot(clauses[k], maxlocal);
@@ -831,7 +834,7 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
-    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, succeed, fail); IR_LIT(gen).sval = "$dyn_iter";
+    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, NULL, fail); IR_LIT(gen).sval = "$dyn_iter";
     IR_t * nmop = build(&cx, IR_LIT_STRING, NULL, NULL); IR_LIT(nmop).sval = strdup(name);
     ir_operand_push(gen, nmop);
     IR_t * prev = nmop;
@@ -839,7 +842,9 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
         IR_t * vr = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(vr).sval = pl_param_name(i);
         lc_γ_to(prev, vr); prev = vr; ir_operand_push(gen, vr);
     }
-    lc_γ_to(prev, gen);
+    IR_t * sp = build(&cx, IR_SUSPEND, succeed, fail);
+    ir_operand_push(sp, gen); ir_operand_push(sp, gen);
+    lc_γ_to(prev, gen); lc_γ_to(gen, sp);
     g->entry = nmop; g->body_root = gen;
     return bb_program_add(&g_stage2.bbp, g);
 }
@@ -853,14 +858,16 @@ static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm
     g->pnames = (const char **) calloc((size_t) nparams, sizeof(const char *)); for (int i = 0; i < nparams; i++) g->pnames[i] = pl_param_name(i);
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
-    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, succeed, fail); IR_LIT(gen).sval = gen_sval;
+    IR_t * gen = build(&cx, IR_CALL_BUILTIN_GEN, NULL, fail); IR_LIT(gen).sval = gen_sval;
     IR_t * prev = NULL; IR_t * first = NULL;
     for (int i = 0; i < nparams; i++) {
         IR_t * vr = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(vr).sval = pl_param_name(i);
         if (prev) lc_γ_to(prev, vr); else first = vr;
         prev = vr; ir_operand_push(gen, vr);
     }
-    lc_γ_to(prev, gen);
+    IR_t * sp = build(&cx, IR_SUSPEND, succeed, fail);
+    ir_operand_push(sp, gen); ir_operand_push(sp, gen);
+    lc_γ_to(prev, gen); lc_γ_to(gen, sp);
     g->entry = first; g->body_root = gen;
     int bb_idx = bb_program_add(&g_stage2.bbp, g);
     if (bb_idx < 0) return;
@@ -894,9 +901,9 @@ static void lower_pl_register_all_preds(void) {
                 static char nmbuf[200]; int kl = slash2 ? (int)(slash2 - key) : (int)strlen(key); if (kl > 199) kl = 199; memcpy(nmbuf, key, kl); nmbuf[kl] = 0;
                 bb_idx = lower_pl_dyniter_graph(nmbuf, ar);
             } else if (ch->t == TT_CLAUSE) {
-                bb_idx = lower_pl_pred_graph_new(ch, ar);
+                bb_idx = lower_pl_pred_graph_new(ch, ar, strcmp(key, "main/0") != 0);
             } else if (ch->t == TT_CHOICE) {
-                bb_idx = lower_pl_pred_graph_new(ch, ar);
+                bb_idx = lower_pl_pred_graph_new(ch, ar, strcmp(key, "main/0") != 0);
             }
             if (bb_idx >= 0) {
                 resolve_bb_register(key, ar, bb_idx);
@@ -971,7 +978,7 @@ static void pl_ll_maybe_lift(tree_t *fa) {
     for (int j = 0; j < nhead; j++) { tree_t *hv = ast_node_new(TT_VAR); hv->v.ival = j; ast_push(cl, hv); }
     ast_push(cl, pl_ll_copy_remap(g, remap, rn));
     free(remap);
-    int bb_idx = lower_pl_pred_graph_new(cl, nhead);
+    int bb_idx = lower_pl_pred_graph_new(cl, nhead, 1);
     if (bb_idx < 0) return;
     resolve_bb_register(key, nhead, bb_idx);
     { int pi = stage2_proc_grow(&g_stage2);

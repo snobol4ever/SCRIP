@@ -1762,7 +1762,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *dobody = nodes[i]->operands[1];
             if (dobody->op == IR_FAIL) { g_suspend_dobody_beta = &lbl_ω; }
-            else { for (int k = 0; k < n; k++) if (nodes[k] == dobody) { g_suspend_dobody_beta = ir_is_generator_kind(dobody->op) ? betas[k] : lbls[k]; break; } }
+            else { for (int k = 0; k < n; k++) if (nodes[k] == dobody) { g_suspend_dobody_beta = (ir_is_generator_kind(dobody->op) || dobody->op == IR_CALL || dobody->op == IR_CALL_PROC_STAGED) ? betas[k] : lbls[k]; break; } }
         }
         if (nodes[i]->op == IR_CREATE && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t *body_entry = nodes[i]->operands[0];
