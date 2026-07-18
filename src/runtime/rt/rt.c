@@ -931,7 +931,10 @@ typedef struct {
     int         lex;        /* 0 = dyn-scope protocol (SNOBOL4 DEFINE), 1 = lexical (frame-bound args) */
     int         nargs;      /* lexical only: args to bind at frame_prep time */
     void       *fb;         /* lexical only: the frame, for the [fb+0] result read */
+    int         vtmark;     /* RSP-F-2: value-trail top at call-open — the γ/ω landings tidy dead-stack entries pushed since (see rt_value_trail_tidy_dead_below in resolution.c) */
 } rt_pcall_t;
+extern int  rt_value_trail_mark(void);
+extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
 static rt_pcall_t *g_pcall;
 static int         g_pcall_top, g_pcall_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -963,7 +966,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     if (g_pcall_top < g_pcall_cap) {
         rt_pcall_t *c = &g_pcall[g_pcall_top];
         c->p = p; c->rname = rname; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = save_base; c->wn = wn;
-        c->lex = 0; c->nargs = 0; c->fb = (void *)0;
+        c->lex = 0; c->nargs = 0; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
     }
     g_pcall_top++;
     if (g_monitor_bin) mon_emit_call_bin(p->name);
@@ -998,7 +1001,9 @@ DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
-    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 0, frame0);
+    rt_pcall_t c = g_pcall[--g_pcall_top];
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2: the det callee subtree fully unwound before this landing (LIFO law), so every trail entry since call-open whose address sits below the landing rsp points into DEAD stack — drop them at death, before reuse can alias.  GENERATOR first deliveries land here too (ONE-POP law) with their activation RETAINED and its cells LIVE below the landing — the recorded regime gates them out. */
+    return rt_proc_epilogue_body(c, 0, frame0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ω ENTRY — FRETURN.  Manual Ch.8 verbatim: "Transferring to the special label FRETURN returns from a function
@@ -1008,7 +1013,9 @@ DESCR_t rt_proc_call_epilogue_ω(void)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
-    return rt_proc_epilogue_body(g_pcall[--g_pcall_top], 1, NULVCL);
+    rt_pcall_t c = g_pcall[--g_pcall_top];
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2: same death tidy as the γ landing — normally a zero-iteration walk (the failing callee's own final unwind already popped to its entry mark), kept for the entries a non-unwinding failure path may leave */
+    return rt_proc_epilogue_body(c, 1, NULVCL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* RET-REGIME EPILOGUE — the call/ret close.  Under jmp-entry the two wires made the IS_FAIL discriminator
@@ -1138,7 +1145,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
     if (g_pcall_top < g_pcall_cap) {
         rt_pcall_t *c = &g_pcall[g_pcall_top];
         c->p = p; c->rname = p->name; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = 0; c->wn = wn;
-        c->lex = 1; c->nargs = nargs; c->fb = (void *)0;
+        c->lex = 1; c->nargs = nargs; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
     }
     g_pcall_top++;
     rt_k_level++;
