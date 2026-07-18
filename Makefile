@@ -212,6 +212,10 @@ RT_PIC_SRCS := \
     $(SRC)/optimizer/ir_query.c \
     $(SRC)/optimizer/region_report.c \
     $(SRC)/optimizer/branch_chain.c \
+    $(SRC)/optimizer/const_fold.c \
+    $(SRC)/optimizer/copy_prop.c \
+    $(SRC)/optimizer/pat_fold.c \
+    $(SRC)/optimizer/dead_pure.c \
     $(SRC)/optimizer/optimizer.c \
     \
     $(SRC)/machine/sm_prog.c \
@@ -499,6 +503,10 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/ir_query.c -o $(OBJ)/ir_query.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/region_report.c -o $(OBJ)/region_report.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/branch_chain.c -o $(OBJ)/branch_chain.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -I$(SRC)/runtime/builtins -c $(SRC)/optimizer/const_fold.c -o $(OBJ)/const_fold.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/copy_prop.c -o $(OBJ)/copy_prop.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/pat_fold.c -o $(OBJ)/pat_fold.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/dead_pure.c -o $(OBJ)/dead_pure.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_slab.c  -o $(OBJ)/rt_slab.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_arena.c -o $(OBJ)/rt_arena.o
