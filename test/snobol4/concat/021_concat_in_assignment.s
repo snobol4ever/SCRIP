@@ -35,93 +35,69 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 264], rsp
+  mov qword ptr [rsp + 200], rsp
   mov r12, qword ptr [1879048192]
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
- mov qword ptr [rbp + 144], 1
+ mov qword ptr [rbp + 112], 1
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rbp + 152], rax
+ mov qword ptr [rbp + 120], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
- jmp xchain0_n4_α
+ jmp xchain0_n2_α
 .Lx1_0:
  .quad .Lx1_0_s
 .Lx1_0_s:
- .string "foo"
-# IR_LIT_STRING
- xchain0_n1_α:
- mov qword ptr [rbp + 176], 1
- mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rbp + 184], rax
- jmp xchain0_n2_α
- xchain0_n1_β:
- jmp xchain0_n4_α
-.Lx2_0:
- .quad .Lx2_0_s
-.Lx2_0_s:
- .string "bar"
- xchain0_n2_α:
-# IR_BINOP_CONCAT
- mov rdi, qword ptr [rbp + 144]
- mov rsi, qword ptr [rbp + 152]
- mov rdx, qword ptr [rbp + 176]
- mov rcx, qword ptr [rbp + 184]
- call str_concat_d@PLT
- mov qword ptr [rbp + 112], rax
- mov qword ptr [rbp + 120], rdx
- jmp xchain0_n3_α
- xchain0_n2_β:
- jmp xchain0_n4_α
+ .string "foobar"
 # IR_ASSIGN gva
- xchain0_n3_α:
+ xchain0_n1_α:
  mov rax, qword ptr [rbp + 112]
  mov rdx, qword ptr [rbp + 120]
  mov qword ptr [1879052288], rax
  mov qword ptr [1879052296], rdx
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
- jmp xchain0_n4_α
- xchain0_n3_β:
- jmp xchain0_n4_α
+ jmp xchain0_n2_α
+ xchain0_n1_β:
+ jmp xchain0_n2_α
 # IR_VAR
- xchain0_n4_α:
+ xchain0_n2_α:
  mov rax, qword ptr [1879052288]
  mov rdx, qword ptr [1879052296]
- mov qword ptr [rbp + 224], rax
- mov qword ptr [rbp + 232], rdx
- jmp xchain0_n5_α
- xchain0_n4_β:
+ mov qword ptr [rbp + 160], rax
+ mov qword ptr [rbp + 168], rdx
+ jmp xchain0_n3_α
+ xchain0_n2_β:
  jmp main_γ
 # IR_ASSIGN global
- xchain0_n5_α:
- mov rsi, qword ptr [rbp + 224]
- mov rdx, qword ptr [rbp + 232]
- mov rdi, qword ptr [rip + .Lx6_0]
+ xchain0_n3_α:
+ mov rsi, qword ptr [rbp + 160]
+ mov rdx, qword ptr [rbp + 168]
+ mov rdi, qword ptr [rip + .Lx4_0]
  call NV_SET_fn@PLT
- mov qword ptr [rbp + 208], rax
- mov qword ptr [rbp + 216], rdx
+ mov qword ptr [rbp + 144], rax
+ mov qword ptr [rbp + 152], rdx
  jmp main_γ
- xchain0_n5_β:
+ xchain0_n3_β:
  jmp main_γ
-.Lx6_0:
- .quad .Lx6_0_s
-.Lx6_0_s:
+.Lx4_0:
+ .quad .Lx4_0_s
+.Lx4_0_s:
  .string "OUTPUT"
 main_β:
 jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, qword ptr [rbp + 264]
+mov rsp, qword ptr [rbp + 200]
 mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 main_ω:
-mov rsp, qword ptr [rbp + 264]
+mov rsp, qword ptr [rbp + 200]
 mov dword ptr [rsp+0], 99
 mov dword ptr [rsp+4], 0
 mov qword ptr [rsp+8], 0
