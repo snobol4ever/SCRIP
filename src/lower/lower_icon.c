@@ -275,7 +275,7 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections"));
     IR_t * nd = build(cx, is_gen_kw ? IR_KEYWORD_ICON_GEN : IR_KEYWORD_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
     if (is_gen_kw) {
-        IR_t * seed = build(cx, IR_GOTO, ω, ω); lc_γ_to(seed, nd); cx->beta = nd; *res = nd; return seed;
+        cx->beta = nd; *res = nd; return nd;   /* IR_GOTO-survey site 6 ERADICATED: returned-entry channel (pilot protocol) — unshielded promoting wirings into returned entries are already force-α (lower_every mark→body); naked-return probed against the full harness this session */
     }
     *res = nd; return nd;
 }
@@ -1086,7 +1086,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);   /* α-FORCE (IR_GOTO-survey protocol): the bounded body ENTERS FRESH each lap (interp.r Op_Mark — bounded ≡ fresh evaluation, never resume); promoting γ_to would β-stamp a naked generator-kind entry (if/alternation as first body stmt) = enter exhausted = statement-continue (rung35 break/next disease). Contrast unmk→gen_beta above: that IS a resume, its promotion stays. */
         b_entry = mark;
     }
-    else { b_entry = build(cx, IR_GOTO, gen_beta, gen_beta); }
+    else { b_entry = gen_beta; }   /* IR_GOTO-survey site 8 ERADICATED: the tail γ_to(eval, b_entry) promotes to gen_beta's β directly (γ_to mirrors exactly the promotion the deleted build(IR_GOTO, gen_beta, gen_beta) applied); non-generator gen_beta stays α — same as before */
     cx->loop_exit = sle; cx->loop_next = sln;
     γ_to(eval, b_entry);
     cx->beta = ω; *res = NULL; return e_entry;
