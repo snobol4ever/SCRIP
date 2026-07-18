@@ -405,6 +405,7 @@ __attribute__((constructor)) static void rt_pin_init(void) {
 }
 DESCR_t *rt_gva_island(int n) {
     if ((size_t)n * sizeof(DESCR_t) > RT_GVA_ISLAND_BYTES) { fprintf(stderr, "rt_gva_island: %d slots exceed the island (raise RT_GVA_ISLAND_BYTES)\n", n); abort(); }
+    { extern void rt_sxt_gva_count(int); rt_sxt_gva_count(n); }
     if (n > 0) memset((void *)RT_GVA_VA, 0, (size_t)n * sizeof(DESCR_t));
     return (DESCR_t *)RT_GVA_VA;
 }

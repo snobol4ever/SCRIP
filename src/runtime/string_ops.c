@@ -15,6 +15,7 @@ static int so_is_list(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
+    { extern void rt_gc_point_arr(DESCR_t *, int, const char **); DESCR_t sh[2]; sh[0] = a; sh[1] = b; rt_gc_point_arr(sh, 2, (const char **)0); a = sh[0]; b = sh[1]; }
     if (a.v == DT_P || b.v == DT_P) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return pat_cat(a, b); }
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
@@ -34,15 +35,23 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
         return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"));
     }
     const char *asp, *bsp;
+    long alc = -1;
     if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); asp = (as.v == DT_S || as.v == DT_SNUL) ? VARVAL_fn(as) : NULL; }
+    if (a.v == DT_S && asp) alc = rt_sxt_match(asp);
     if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); bsp = (bs.v == DT_S || bs.v == DT_SNUL) ? VARVAL_fn(bs) : NULL; }
     if (!asp) asp = "";
     if (!bsp) bsp = "";
-    size_t al = strlen(asp), bl = strlen(bsp);
+    size_t bl = strlen(bsp);
+    if (alc >= 0) {
+        char *x = rt_sxt_extend((char *)asp, alc, (long)bl);
+        if (x) { memcpy(x + alc, bsp, bl); x[(size_t)alc + bl] = '\0'; rt_sxt_note(x, alc + (long)bl); return STRVAL(x); }
+    }
+    size_t al = (alc >= 0) ? (size_t)alc : strlen(asp);
     char *buf = rt_str_alloc((long)(al + bl));
     memcpy(buf, asp, al);
     memcpy(buf + al, bsp, bl);
     buf[al + bl] = '\0';
+    rt_sxt_note(buf, (long)(al + bl));
     return STRVAL(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
