@@ -849,6 +849,19 @@ static IR_t * icn_arm_result(IR_t * rv) {
     return rv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FRESH ENTRY = dj.α (zero the value slot, alt_i=0, enter arm 0) — the ONE dj α-entry trampoline (IR_GOTO
+ * survey rung 1, both former sites unified here).  dj cannot be returned naked: it is generator-kind, so a
+ * caller's auto-promoting γ_to/ω_to would β-stamp the fresh edge (the FZ-E disease).  Returning arm 0's
+ * entry directly is the s95 stale-alt_i by-bug: a binop's left redelivery re-enters at the first arm's α,
+ * skipping dj.α, so alt_i stays stale from the previous exhaust and the σ-glue copies nothing.  The
+ * plain-tagged GOTO absorbs the promotion — edges to a GOTO stay α and the emitter's GOTO-chase carries no β
+ * (the 587/609 succ_tramp idiom; JCON irgen.icn ir_a_Alt/ir_a_If ir.start = ir_Goto(...) is the same shape).
+ * ERADICATION (α-entry protocol, survey rungs 2-8) = a raw-α edge tag + emitter honor; convert HERE first. */
+static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) {
+    IR_t * ent = IR_node_alloc(g, IR_GOTO); lc_γ_to(ent, dj); lc_ω_to(ent, dj);
+    return ent;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     /* MOVE_LABEL-ERAD (Lon 2026-07-15/18, FINDING-2026-07-15-...-BB-SELF-STATE): nary self-state form, the
@@ -884,16 +897,7 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     for (int j = 0; j < n && j < 64; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
     IR_LIT(dj).ival = (long) (n < 64 ? n : 64);
     cx->beta = dj; *res = dj;
-    /* FRESH ENTRY = dj.α (zero the value slot, alt_i=0, enter entry_0).  Returning entry_0 directly is the
-     * s95 by-bug: a binop's left redelivery re-enters the right alternation at its FIRST ARM'S α, skipping
-     * dj.α — alt_i stays stale from the previous exhaust and the σ-glue copies nothing (leftover value slot
-     * → "by" instead of "bx" in rung13_alt_alt_nested).  dj itself can't be returned naked: it is
-     * generator-kind, so the callers' auto-promoting γ_to would β-stamp the fresh edge (the FZ-E disease).
-     * The plain-tagged GOTO trampoline absorbs the promotion — edges to a GOTO stay α and the emitter's
-     * GOTO-chase carries no β (the 587/609 succ_tramp idiom; unify with the 1031 STMT-BOUNDARY tramps when
-     * the α-entry protocol rung lands). */
-    IR_t * ent = IR_node_alloc(g, IR_GOTO); lc_γ_to(ent, dj); lc_ω_to(ent, dj);
-    return ent;
+    return icn_dj_α_entry(g, dj);   /* fresh entry through dj.α — see icn_dj_α_entry */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -948,11 +952,7 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));   /* shared filter, see icn_arm_result */
     IR_LIT(dj).ival = (long) n;
     cx->beta = dj; *res = dj;
-    /* fresh entry funnels through dj.α (zero value slot, alt_i=0, enter arm0=C) — the GOTO trampoline absorbs
-     * callers' auto-β-promotion exactly as lower_alt:885 (the s95 stale-alt_i by-bug; α-entry protocol rung
-     * owns unifying these tramps). */
-    IR_t * ent = IR_node_alloc(g, IR_GOTO); lc_γ_to(ent, dj); lc_ω_to(ent, dj);
-    return ent;
+    return icn_dj_α_entry(g, dj);   /* fresh entry through dj.α (arm0=C) — see icn_dj_α_entry */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
