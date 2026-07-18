@@ -6009,9 +6009,16 @@ xchain347_n2_af:
  jmp xchain347_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain347_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx353_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx353_10
+.Lx353_9:
+ xor eax, eax
+.Lx353_10:
  test rax, rax
  jz .Lx353_0
  lea rcx, [rip + .Lx353_4]
@@ -6255,9 +6262,16 @@ xchain356_n2_af:
  jmp xchain356_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain356_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx363_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx363_10
+.Lx363_9:
+ xor eax, eax
+.Lx363_10:
  test rax, rax
  jz .Lx363_0
  lea rcx, [rip + .Lx363_4]
@@ -6371,9 +6385,16 @@ xchain356_n6_af:
  jmp xchain356_n1_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain356_n7_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx370_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx370_10
+.Lx370_9:
+ xor eax, eax
+.Lx370_10:
  test rax, rax
  jz .Lx370_0
  lea rcx, [rip + .Lx370_4]
@@ -6431,9 +6452,16 @@ xchain356_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain356_n8_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx371_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx371_10
+.Lx371_9:
+ xor eax, eax
+.Lx371_10:
  test rax, rax
  jz .Lx371_0
  lea rcx, [rip + .Lx371_4]
@@ -6491,9 +6519,16 @@ xchain356_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain356_n9_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx372_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx372_10
+.Lx372_9:
+ xor eax, eax
+.Lx372_10:
  test rax, rax
  jz .Lx372_0
  lea rcx, [rip + .Lx372_4]
@@ -6611,9 +6646,16 @@ xchain356_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain356_n11_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx374_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx374_10
+.Lx374_9:
+ xor eax, eax
+.Lx374_10:
  test rax, rax
  jz .Lx374_0
  lea rcx, [rip + .Lx374_4]
@@ -6787,9 +6829,16 @@ xchain376_n0_af:
  jmp proc_PAT$3_ω
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain376_n1_α:
- lea rdi, [rip + .S7]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052544]
+ mov rdx, qword ptr [1879052552]
+ cmp eax, 3
+ jne .Lx379_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx379_10
+.Lx379_9:
+ xor eax, eax
+.Lx379_10:
  test rax, rax
  jz .Lx379_0
  lea rcx, [rip + .Lx379_4]
@@ -6892,9 +6941,16 @@ xchain376_n2_af:
  jmp xchain376_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain376_n4_α:
- lea rdi, [rip + .S9]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052608]
+ mov rdx, qword ptr [1879052616]
+ cmp eax, 3
+ jne .Lx384_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx384_10
+.Lx384_9:
+ xor eax, eax
+.Lx384_10:
  test rax, rax
  jz .Lx384_0
  lea rcx, [rip + .Lx384_4]
@@ -7140,9 +7196,16 @@ xchain390_n2_af:
  jmp xchain390_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain390_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx396_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx396_10
+.Lx396_9:
+ xor eax, eax
+.Lx396_10:
  test rax, rax
  jz .Lx396_0
  lea rcx, [rip + .Lx396_4]
@@ -7386,9 +7449,16 @@ xchain399_n2_af:
  jmp xchain399_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain399_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx406_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx406_10
+.Lx406_9:
+ xor eax, eax
+.Lx406_10:
  test rax, rax
  jz .Lx406_0
  lea rcx, [rip + .Lx406_4]
@@ -7502,9 +7572,16 @@ xchain399_n6_af:
  jmp xchain399_n1_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain399_n7_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx413_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx413_10
+.Lx413_9:
+ xor eax, eax
+.Lx413_10:
  test rax, rax
  jz .Lx413_0
  lea rcx, [rip + .Lx413_4]
@@ -7562,9 +7639,16 @@ xchain399_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain399_n8_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx414_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx414_10
+.Lx414_9:
+ xor eax, eax
+.Lx414_10:
  test rax, rax
  jz .Lx414_0
  lea rcx, [rip + .Lx414_4]
@@ -7622,9 +7706,16 @@ xchain399_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain399_n9_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx415_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx415_10
+.Lx415_9:
+ xor eax, eax
+.Lx415_10:
  test rax, rax
  jz .Lx415_0
  lea rcx, [rip + .Lx415_4]
@@ -7742,9 +7833,16 @@ xchain399_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain399_n11_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx417_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx417_10
+.Lx417_9:
+ xor eax, eax
+.Lx417_10:
  test rax, rax
  jz .Lx417_0
  lea rcx, [rip + .Lx417_4]
@@ -7918,9 +8016,16 @@ xchain419_n0_af:
  jmp proc_PAT$7_ω
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain419_n1_α:
- lea rdi, [rip + .S7]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052544]
+ mov rdx, qword ptr [1879052552]
+ cmp eax, 3
+ jne .Lx422_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx422_10
+.Lx422_9:
+ xor eax, eax
+.Lx422_10:
  test rax, rax
  jz .Lx422_0
  lea rcx, [rip + .Lx422_4]
@@ -8023,9 +8128,16 @@ xchain419_n2_af:
  jmp xchain419_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain419_n4_α:
- lea rdi, [rip + .S9]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052608]
+ mov rdx, qword ptr [1879052616]
+ cmp eax, 3
+ jne .Lx427_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx427_10
+.Lx427_9:
+ xor eax, eax
+.Lx427_10:
  test rax, rax
  jz .Lx427_0
  lea rcx, [rip + .Lx427_4]
@@ -8271,9 +8383,16 @@ xchain433_n2_af:
  jmp xchain433_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain433_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx439_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx439_10
+.Lx439_9:
+ xor eax, eax
+.Lx439_10:
  test rax, rax
  jz .Lx439_0
  lea rcx, [rip + .Lx439_4]
@@ -8517,9 +8636,16 @@ xchain442_n2_af:
  jmp xchain442_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain442_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx449_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx449_10
+.Lx449_9:
+ xor eax, eax
+.Lx449_10:
  test rax, rax
  jz .Lx449_0
  lea rcx, [rip + .Lx449_4]
@@ -8633,9 +8759,16 @@ xchain442_n6_af:
  jmp xchain442_n1_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain442_n7_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx456_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx456_10
+.Lx456_9:
+ xor eax, eax
+.Lx456_10:
  test rax, rax
  jz .Lx456_0
  lea rcx, [rip + .Lx456_4]
@@ -8693,9 +8826,16 @@ xchain442_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain442_n8_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx457_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx457_10
+.Lx457_9:
+ xor eax, eax
+.Lx457_10:
  test rax, rax
  jz .Lx457_0
  lea rcx, [rip + .Lx457_4]
@@ -8753,9 +8893,16 @@ xchain442_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain442_n9_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx458_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx458_10
+.Lx458_9:
+ xor eax, eax
+.Lx458_10:
  test rax, rax
  jz .Lx458_0
  lea rcx, [rip + .Lx458_4]
@@ -8873,9 +9020,16 @@ xchain442_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain442_n11_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx460_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx460_10
+.Lx460_9:
+ xor eax, eax
+.Lx460_10:
  test rax, rax
  jz .Lx460_0
  lea rcx, [rip + .Lx460_4]
@@ -9049,9 +9203,16 @@ xchain462_n0_af:
  jmp proc_PAT$11_ω
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain462_n1_α:
- lea rdi, [rip + .S7]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052544]
+ mov rdx, qword ptr [1879052552]
+ cmp eax, 3
+ jne .Lx465_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx465_10
+.Lx465_9:
+ xor eax, eax
+.Lx465_10:
  test rax, rax
  jz .Lx465_0
  lea rcx, [rip + .Lx465_4]
@@ -9154,9 +9315,16 @@ xchain462_n2_af:
  jmp xchain462_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain462_n4_α:
- lea rdi, [rip + .S9]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052608]
+ mov rdx, qword ptr [1879052616]
+ cmp eax, 3
+ jne .Lx470_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx470_10
+.Lx470_9:
+ xor eax, eax
+.Lx470_10:
  test rax, rax
  jz .Lx470_0
  lea rcx, [rip + .Lx470_4]
@@ -9402,9 +9570,16 @@ xchain476_n2_af:
  jmp xchain476_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain476_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx482_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx482_10
+.Lx482_9:
+ xor eax, eax
+.Lx482_10:
  test rax, rax
  jz .Lx482_0
  lea rcx, [rip + .Lx482_4]
@@ -9648,9 +9823,16 @@ xchain485_n2_af:
  jmp xchain485_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain485_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx492_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx492_10
+.Lx492_9:
+ xor eax, eax
+.Lx492_10:
  test rax, rax
  jz .Lx492_0
  lea rcx, [rip + .Lx492_4]
@@ -9764,9 +9946,16 @@ xchain485_n6_af:
  jmp xchain485_n1_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain485_n7_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx499_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx499_10
+.Lx499_9:
+ xor eax, eax
+.Lx499_10:
  test rax, rax
  jz .Lx499_0
  lea rcx, [rip + .Lx499_4]
@@ -9824,9 +10013,16 @@ xchain485_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain485_n8_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx500_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx500_10
+.Lx500_9:
+ xor eax, eax
+.Lx500_10:
  test rax, rax
  jz .Lx500_0
  lea rcx, [rip + .Lx500_4]
@@ -9884,9 +10080,16 @@ xchain485_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain485_n9_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx501_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx501_10
+.Lx501_9:
+ xor eax, eax
+.Lx501_10:
  test rax, rax
  jz .Lx501_0
  lea rcx, [rip + .Lx501_4]
@@ -10004,9 +10207,16 @@ xchain485_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain485_n11_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx503_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx503_10
+.Lx503_9:
+ xor eax, eax
+.Lx503_10:
  test rax, rax
  jz .Lx503_0
  lea rcx, [rip + .Lx503_4]
@@ -10180,9 +10390,16 @@ xchain505_n0_af:
  jmp proc_PAT$15_ω
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain505_n1_α:
- lea rdi, [rip + .S7]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052544]
+ mov rdx, qword ptr [1879052552]
+ cmp eax, 3
+ jne .Lx508_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx508_10
+.Lx508_9:
+ xor eax, eax
+.Lx508_10:
  test rax, rax
  jz .Lx508_0
  lea rcx, [rip + .Lx508_4]
@@ -10285,9 +10502,16 @@ xchain505_n2_af:
  jmp xchain505_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain505_n4_α:
- lea rdi, [rip + .S9]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052608]
+ mov rdx, qword ptr [1879052616]
+ cmp eax, 3
+ jne .Lx513_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx513_10
+.Lx513_9:
+ xor eax, eax
+.Lx513_10:
  test rax, rax
  jz .Lx513_0
  lea rcx, [rip + .Lx513_4]
@@ -10533,9 +10757,16 @@ xchain519_n2_af:
  jmp xchain519_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain519_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx525_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx525_10
+.Lx525_9:
+ xor eax, eax
+.Lx525_10:
  test rax, rax
  jz .Lx525_0
  lea rcx, [rip + .Lx525_4]
@@ -10779,9 +11010,16 @@ xchain528_n2_af:
  jmp xchain528_n0_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain528_n3_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx535_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx535_10
+.Lx535_9:
+ xor eax, eax
+.Lx535_10:
  test rax, rax
  jz .Lx535_0
  lea rcx, [rip + .Lx535_4]
@@ -10895,9 +11133,16 @@ xchain528_n6_af:
  jmp xchain528_n1_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain528_n7_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx542_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx542_10
+.Lx542_9:
+ xor eax, eax
+.Lx542_10:
  test rax, rax
  jz .Lx542_0
  lea rcx, [rip + .Lx542_4]
@@ -10955,9 +11200,16 @@ xchain528_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain528_n8_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx543_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx543_10
+.Lx543_9:
+ xor eax, eax
+.Lx543_10:
  test rax, rax
  jz .Lx543_0
  lea rcx, [rip + .Lx543_4]
@@ -11015,9 +11267,16 @@ xchain528_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain528_n9_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052464]
+ mov rdx, qword ptr [1879052472]
+ cmp eax, 3
+ jne .Lx544_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx544_10
+.Lx544_9:
+ xor eax, eax
+.Lx544_10:
  test rax, rax
  jz .Lx544_0
  lea rcx, [rip + .Lx544_4]
@@ -11135,9 +11394,16 @@ xchain528_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain528_n11_α:
- lea rdi, [rip + .S6]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052480]
+ mov rdx, qword ptr [1879052488]
+ cmp eax, 3
+ jne .Lx546_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx546_10
+.Lx546_9:
+ xor eax, eax
+.Lx546_10:
  test rax, rax
  jz .Lx546_0
  lea rcx, [rip + .Lx546_4]
@@ -11311,9 +11577,16 @@ xchain548_n0_af:
  jmp proc_PAT$19_ω
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain548_n1_α:
- lea rdi, [rip + .S7]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052544]
+ mov rdx, qword ptr [1879052552]
+ cmp eax, 3
+ jne .Lx551_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx551_10
+.Lx551_9:
+ xor eax, eax
+.Lx551_10:
  test rax, rax
  jz .Lx551_0
  lea rcx, [rip + .Lx551_4]
@@ -11416,9 +11689,16 @@ xchain548_n2_af:
  jmp xchain548_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain548_n4_α:
- lea rdi, [rip + .S9]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052608]
+ mov rdx, qword ptr [1879052616]
+ cmp eax, 3
+ jne .Lx556_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx556_10
+.Lx556_9:
+ xor eax, eax
+.Lx556_10:
  test rax, rax
  jz .Lx556_0
  lea rcx, [rip + .Lx556_4]
@@ -15337,9 +15617,16 @@ xchain559_n76_af:
  jmp xchain559_n76_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain559_n83_α:
- lea rdi, [rip + .S9]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052608]
+ mov rdx, qword ptr [1879052616]
+ cmp eax, 3
+ jne .Lx659_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx659_10
+.Lx659_9:
+ xor eax, eax
+.Lx659_10:
  test rax, rax
  jz .Lx659_0
  lea rcx, [rip + .Lx659_4]

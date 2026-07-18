@@ -393,9 +393,16 @@ main_α_body:
  .string "hello"
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain0_n21_α:
- lea rdi, [rip + .S0]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052288]
+ mov rdx, qword ptr [1879052296]
+ cmp eax, 3
+ jne .Lx24_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx24_10
+.Lx24_9:
+ xor eax, eax
+.Lx24_10:
  test rax, rax
  jz .Lx24_0
  lea rcx, [rip + .Lx24_4]
@@ -599,9 +606,16 @@ main_α_body:
  .string "ok: icase hello"
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain0_n29_α:
- lea rdi, [rip + .S1]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052304]
+ mov rdx, qword ptr [1879052312]
+ cmp eax, 3
+ jne .Lx34_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx34_10
+.Lx34_9:
+ xor eax, eax
+.Lx34_10:
  test rax, rax
  jz .Lx34_0
  lea rcx, [rip + .Lx34_4]
@@ -820,9 +834,16 @@ main_α_body:
  .string "ok: icase HELLO"
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain0_n38_α:
- lea rdi, [rip + .S2]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052320]
+ mov rdx, qword ptr [1879052328]
+ cmp eax, 3
+ jne .Lx45_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx45_10
+.Lx45_9:
+ xor eax, eax
+.Lx45_10:
  test rax, rax
  jz .Lx45_0
  lea rcx, [rip + .Lx45_4]
@@ -1011,9 +1032,16 @@ main_α_body:
  .string "ok: icase HeLLo"
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain0_n45_α:
- lea rdi, [rip + .S3]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052336]
+ mov rdx, qword ptr [1879052344]
+ cmp eax, 3
+ jne .Lx54_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx54_10
+.Lx54_9:
+ xor eax, eax
+.Lx54_10:
  test rax, rax
  jz .Lx54_0
  lea rcx, [rip + .Lx54_4]

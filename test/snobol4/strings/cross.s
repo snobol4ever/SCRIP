@@ -509,9 +509,16 @@ xchain0_n25_af:
  jmp xchain0_n25_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain0_n28_α:
- lea rdi, [rip + .S1]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052352]
+ mov rdx, qword ptr [1879052360]
+ cmp eax, 3
+ jne .Lx40_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx40_10
+.Lx40_9:
+ xor eax, eax
+.Lx40_10:
  test rax, rax
  jz .Lx40_0
  lea rcx, [rip + .Lx40_4]
