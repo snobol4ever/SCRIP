@@ -52,6 +52,8 @@ std::string bb_var_ref();
 std::string bb_assign_var();
 std::string bb_rev_assign_var();
 std::string bb_goto();
+std::string bb_bound();
+std::string bb_disjunction();
 std::string bb_cut();
 std::string bb_fail();
 std::string bb_every();

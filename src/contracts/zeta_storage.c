@@ -137,6 +137,8 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 1;
+    case IR_BOUND:
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.pad (unused)", nd); return 1;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.len/counter", nd); return 1;
     case IR_INITIAL:
@@ -172,6 +174,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_ASSIGN:
         return 0;
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION:
+        if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { zls_field(scope_id, off, 8, ZK_RAW, 0, "disj.alt_i live-alternative index (+16 from box base; nary self-state, MOVE_LABEL-ERAD: α=0, φ-glue ++, β dispatches; value DESCR = the box result slot at [base], option-B per-arm copy in σ-glue) (+24 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "disj.pad (unused)", nd); return 1; }
         zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 1;
     case IR_CALL_BUILTIN_GEN:
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
