@@ -721,7 +721,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
         IR_t * ab = redo ? redo : next_fail;
         if (suspend_deliver) { ir_operand_push(ml, mk); ir_operand_push(ml, ab); }
         else {
-            IR_LIT(ml).ival = (ab && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;
+            IR_LIT(ml).ival = (ab && ab->op != IR_DISJUNCTION && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;   /* MOVE_LABEL-ERAD pin (Icon session 2026-07-18): IR_DISJUNCTION joined ir_is_generator_kind for the Icon nary form; this exclusion FREEZES the ival this line computed before that change (dj was not generator-kind then). Prolog-session review: drop the exclusion iff ival=1 for a dj-β arm is wanted. */
             ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, NULL);
         }
         centry[k] = ce;
