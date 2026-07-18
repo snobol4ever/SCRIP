@@ -849,17 +849,18 @@ static IR_t * icn_arm_result(IR_t * rv) {
     return rv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* FRESH ENTRY = dj.α (zero the value slot, alt_i=0, enter arm 0) — the ONE dj α-entry trampoline (IR_GOTO
- * survey rung 1, both former sites unified here).  dj cannot be returned naked: it is generator-kind, so a
- * caller's auto-promoting γ_to/ω_to would β-stamp the fresh edge (the FZ-E disease).  Returning arm 0's
- * entry directly is the s95 stale-alt_i by-bug: a binop's left redelivery re-enters at the first arm's α,
- * skipping dj.α, so alt_i stays stale from the previous exhaust and the σ-glue copies nothing.  The
- * plain-tagged GOTO absorbs the promotion — edges to a GOTO stay α and the emitter's GOTO-chase carries no β
- * (the 587/609 succ_tramp idiom; JCON irgen.icn ir_a_Alt/ir_a_If ir.start = ir_Goto(...) is the same shape).
- * ERADICATION (α-entry protocol, survey rungs 2-8) = a raw-α edge tag + emitter honor; convert HERE first. */
+/* FRESH ENTRY = dj itself (IR_GOTO survey — TRAMPOLINE ERADICATED, α-force protocol pilot).  dj is
+ * generator-kind, so any wiring site that reaches this entry through a PROMOTING helper would β-stamp the
+ * fresh edge (enter exhausted → statement-continue: the rung35 break/next disease, the FZ-E family).  The
+ * protocol: sites that wire a FRESH entry use the lc_γ_to_α/lc_ω_to_α force writers (edge tag "α!", CE B1 21
+ * — classifies as α everywhere: emitter 1732-1738/1801 positive-match only β/σ/φ; bc_chase preserves the tag
+ * on unchased edges); sites that wire a RESUME surface (cx->beta) keep promotion.  Empirically (naked-return
+ * probe, this session) exactly ONE unshielded promoting site existed: lower_every's mark→body wiring — the
+ * bounded body enters fresh per interp.r Op_Mark, now force-α.  All other paths are shielded by their own
+ * A-family tramps (STMT-BOUNDARY :~1120, SENT, seed, scan-leave) — those convert per-site on later rungs. */
 static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) {
-    IR_t * ent = IR_node_alloc(g, IR_GOTO); lc_γ_to(ent, dj); lc_ω_to(ent, dj);
-    return ent;
+    (void) g;
+    return dj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -1082,7 +1083,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         ir_operand_push(unmk, mark);
         cx->loop_next = unmk;
         b_entry = lower(cx, B, unmk, unmk, &bval);
-        γ_to(mark, b_entry); ω_to(mark, b_entry);
+        lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);   /* α-FORCE (IR_GOTO-survey protocol): the bounded body ENTERS FRESH each lap (interp.r Op_Mark — bounded ≡ fresh evaluation, never resume); promoting γ_to would β-stamp a naked generator-kind entry (if/alternation as first body stmt) = enter exhausted = statement-continue (rung35 break/next disease). Contrast unmk→gen_beta above: that IS a resume, its promotion stays. */
         b_entry = mark;
     }
     else { b_entry = build(cx, IR_GOTO, gen_beta, gen_beta); }
