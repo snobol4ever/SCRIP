@@ -119,8 +119,27 @@ DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_e
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int m; unsigned bm; } plw_zhpair_t;
 static plw_zhpair_t *g_plw_zhp = 0; static int g_plw_zhp_n = 0, g_plw_zhp_cap = 0;
+/* PL-WS-2 step 2 (SCRIP_PL_WS_RECLAIM=1): cellws-island twin of the zh pair stack below — trail mark → island
+ * cursor; rewind the pl_cell_t builder stream on backtrack. Same push/pop discipline as plw_zh (pop >= on push,
+ * exact-match rewind on kill). Rides INSIDE plw_zh_mark_push/kill_to so every existing call site is wired. */
+typedef struct { int m; arena_mark_t am; } plw_cwpair_t;
+static plw_cwpair_t *g_plw_cwp = 0; static int g_plw_cwp_n = 0, g_plw_cwp_cap = 0;
+static void plw_cw_mark_push(int m) {
+    extern int rt_pl_cellws_on(void); extern arena_mark_t rt_pl_cellws_mark(void);
+    if (!rt_pl_cellws_on()) return;
+    while (g_plw_cwp_n > 0 && g_plw_cwp[g_plw_cwp_n - 1].m >= m) g_plw_cwp_n--;
+    if (g_plw_cwp_n >= g_plw_cwp_cap) { g_plw_cwp_cap = g_plw_cwp_cap ? g_plw_cwp_cap * 2 : 64; g_plw_cwp = (plw_cwpair_t *)realloc(g_plw_cwp, (size_t)g_plw_cwp_cap * sizeof(plw_cwpair_t)); if (!g_plw_cwp) abort(); }
+    g_plw_cwp[g_plw_cwp_n].m = m; g_plw_cwp[g_plw_cwp_n].am = rt_pl_cellws_mark(); g_plw_cwp_n++;
+}
+static void plw_cw_kill_to(int m) {
+    extern int rt_pl_cellws_on(void); extern void rt_pl_cellws_release(arena_mark_t);
+    if (!rt_pl_cellws_on()) return;
+    while (g_plw_cwp_n > 0 && g_plw_cwp[g_plw_cwp_n - 1].m > m) g_plw_cwp_n--;
+    if (g_plw_cwp_n > 0 && g_plw_cwp[g_plw_cwp_n - 1].m == m) rt_pl_cellws_release(g_plw_cwp[g_plw_cwp_n - 1].am);
+}
 static void plw_zh_mark_push(int m) {
     extern int rt_zeta_mode(void); extern unsigned rt_zh_birthmark(void);
+    plw_cw_mark_push(m);
     if (rt_zeta_mode() != 2) return;
     while (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m >= m) g_plw_zhp_n--;
     if (g_plw_zhp_n >= g_plw_zhp_cap) { g_plw_zhp_cap = g_plw_zhp_cap ? g_plw_zhp_cap * 2 : 64; g_plw_zhp = (plw_zhpair_t *)realloc(g_plw_zhp, (size_t)g_plw_zhp_cap * sizeof(plw_zhpair_t)); if (!g_plw_zhp) abort(); }
@@ -128,6 +147,7 @@ static void plw_zh_mark_push(int m) {
 }
 static void plw_zh_kill_to(int m) {
     extern int rt_zeta_mode(void); extern void rt_zh_kill_since(unsigned);
+    plw_cw_kill_to(m);
     if (rt_zeta_mode() != 2) return;
     while (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m > m) g_plw_zhp_n--;
     if (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m == m) rt_zh_kill_since(g_plw_zhp[g_plw_zhp_n - 1].bm);

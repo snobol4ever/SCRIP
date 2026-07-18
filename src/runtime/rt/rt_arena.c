@@ -136,3 +136,40 @@ void rt_pl_cterm_release(arena_mark_t m) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_cterm_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_pl_cterm_base; if (bytes) *bytes = (size_t)(g_pl_cterm_cur - g_pl_cterm_base); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-WS-2 step 2 — CELL-STREAM island (env-gated SCRIP_PL_WS_RECLAIM=1). Mirrors the cterm island above:
+ * one slab = one root, mark=save top, release=rewind top. Holds ONLY the trail-covered pl_cell_t compound
+ * blocks (the queensn leak class); survivor Terms (findall bags, dyn DB) stay on the cterm island and are
+ * never rewound. 64MB VA reserved, committed on use. */
+#define RT_PL_CELLWS_ISLAND_BYTES ((size_t)64u << 20)
+static uint8_t *g_pl_cellws_base = 0;
+static uint8_t *g_pl_cellws_cur  = 0;
+static uint8_t *g_pl_cellws_end  = 0;
+int rt_pl_cellws_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_PL_WS_RECLAIM"); on = e ? (atoi(e) != 0) : 0; } return on; }
+static void rt_pl_cellws_lazy_init(void) {
+    extern void *rt_slab_region(size_t);
+    if (g_pl_cellws_base) return;
+    g_pl_cellws_base = (uint8_t *)rt_slab_region(RT_PL_CELLWS_ISLAND_BYTES);
+    if (!g_pl_cellws_base) { fprintf(stderr, "rt_pl_cellws: island reserve failed\n"); abort(); }
+    g_pl_cellws_cur = g_pl_cellws_base;
+    g_pl_cellws_end = g_pl_cellws_base + RT_PL_CELLWS_ISLAND_BYTES;
+}
+void *rt_pl_cellws_alloc(size_t n) {
+    if (!g_pl_cellws_base) rt_pl_cellws_lazy_init();
+    size_t need = AL16(n);
+    if ((size_t)(g_pl_cellws_end - g_pl_cellws_cur) < need) { fprintf(stderr, "rt_pl_cellws: island exhausted (%zu used)\n", (size_t)(g_pl_cellws_cur - g_pl_cellws_base)); abort(); }
+    uint8_t *p = g_pl_cellws_cur;
+    g_pl_cellws_cur += need;
+    memset(p, 0, need);
+    return p;
+}
+arena_mark_t rt_pl_cellws_mark(void) {
+    if (!g_pl_cellws_base) rt_pl_cellws_lazy_init();
+    arena_mark_t m = { (rt_slab_t *)0, g_pl_cellws_cur };
+    return m;
+}
+void rt_pl_cellws_release(arena_mark_t m) {
+    if (!g_pl_cellws_base || !m.cur) return;
+    if (m.cur < g_pl_cellws_base || m.cur > g_pl_cellws_cur) return; /* stale/non-LIFO mark: skip, never abort (conservative — leak beats corruption) */
+    g_pl_cellws_cur = m.cur;
+}
