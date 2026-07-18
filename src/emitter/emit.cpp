@@ -1431,6 +1431,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_ITERATE: {
         IR_t * obj = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = obj ? bb_slot_get(obj) : -1;
+        if (sa < 0 && obj) sa = nd_slot(obj);
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa;
         g_emit.op_off = drive_value_slot(nd);
