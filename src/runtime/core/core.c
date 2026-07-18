@@ -2098,7 +2098,7 @@ static NV_t *_var_bucket_find(const char *name) {
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
-    if (!g_call_fastpath_off && name[0] != '&' && name[0] != 'I') { NV_t *e = _var_bucket_find(name); if (e) return e->is_gva ? *e->cell : e->val; }
+    if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0)) { NV_t *e = _var_bucket_find(name); if (e) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) return input_read();
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
@@ -2152,6 +2152,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
+    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_bucket_find(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; for (int _ri = 0; _ri < _var_reg_n; _ri++) if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; } comm_var(name, val); return val; } }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
