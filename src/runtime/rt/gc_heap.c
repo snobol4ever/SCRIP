@@ -359,7 +359,7 @@ void rt_gc_visit_descr(DESCR_t *d)
     case DT_DATA: {
         DATINST_t *u = d->u;
         if (!u || !gc_hins((void *)u) || !u->fields || !u->type) return;
-        if (u->type->nfields == 3 && u->type->fields && u->type->fields[0] && !strcmp(u->type->fields[0], "frame_elems")) {
+        if ((u->type->nfields == 3 || u->type->nfields == 4) && u->type->fields && u->type->fields[0] && !strcmp(u->type->fields[0], "frame_elems")) {
             long n = (long)u->fields[1].i; DESCR_t *el = (u->fields[0].v == DT_DATA) ? (DESCR_t *)u->fields[0].ptr : NULL;
             if (el && n > 0) for (long i = 0; i < n; i++) rt_gc_visit_descr(&el[i]);
             rt_gc_visit_descr(&u->fields[2]);

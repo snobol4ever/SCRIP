@@ -333,16 +333,16 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
             int rlen = jj - ii;
             if (rlen <= 0) {
                 static int list_empty_reg = 0;
-                if (!list_empty_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_empty_reg=1; }
+                if (!list_empty_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_empty_reg=1; }
                 DESCR_t empty_ptr; empty_ptr.v=DT_DATA; empty_ptr.slen=0; empty_ptr.ptr=NULL;
-                return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"));
+                return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"), INTVAL(0));
             }
             DESCR_t *rbuf = rt_ws_alloc(rlen * sizeof(DESCR_t));
             for (int k = 0; k < rlen; k++) rbuf[k] = (elems && ii+k-1 >= 0 && ii+k-1 < n) ? elems[ii+k-1] : NULVCL;
             DESCR_t rptr; rptr.v=DT_DATA; rptr.slen=0; rptr.ptr=(void*)rbuf;
             static int list_slice_reg = 0;
-            if (!list_slice_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_slice_reg=1; }
-            return DATCON_fn("list", rptr, INTVAL(rlen), STRVAL("list"));
+            if (!list_slice_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_slice_reg=1; }
+            return DATCON_fn("list", rptr, INTVAL(rlen), STRVAL("list"), INTVAL(rlen));
         }
     }
     if (arr.v == DT_S || arr.v == DT_SNUL) {

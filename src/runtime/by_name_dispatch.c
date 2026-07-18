@@ -3217,11 +3217,11 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
-    if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg3 = 1; }
+    if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
     DESCR_t *elems = rt_ws_alloc((nargs>0?nargs:1)*sizeof(DESCR_t));
     for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
     DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
-    return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"));
+    return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_args_list_from(char **v, int n) {
@@ -4364,7 +4364,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 DESCR_t *new_elems = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
                 DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)new_elems;
-                *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"));
+                *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
                 return 1;
             }
         }
@@ -4387,11 +4387,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             if (!IS_FAIL_fn(iv)) init = iv;
         }
         static int list_reg2 = 0;
-        if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type)"); list_reg2 = 1; }
+        if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg2 = 1; }
         DESCR_t *elems = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int i = 0; i < n; i++) elems[i] = init;
         DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
-        *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"));
+        *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
         return 1;
     }
     if (!strcmp(fn,"table") && nargs <= 2) {
@@ -4671,6 +4671,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             if(old&&n>0) memcpy(nb+1,old,n*sizeof(DESCR_t));
             FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
             FIELD_SET_fn(ld,"frame_size",INTVAL(n+1));
+            FIELD_SET_fn(ld,"frame_cap",INTVAL(n+1));
         }
         *out = ld; return 1;
     }
@@ -4685,11 +4686,16 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             int n=(int)FIELD_GET_fn(ld,"frame_size").i;
             DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
             DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
-            DESCR_t *nb=rt_ws_alloc((n+1)*sizeof(DESCR_t));
+            DESCR_t capd=FIELD_GET_fn(ld,"frame_cap");
+            long cap=(capd.v==DT_I)?capd.i:-1;
+            if(old&&cap>=0&&n<cap){ old[n]=vd; FIELD_SET_fn(ld,"frame_size",INTVAL(n+1)); continue; }
+            long ncap=(n>0)?(long)n*2:8; if(ncap<n+1)ncap=n+1;
+            DESCR_t *nb=rt_ws_alloc(ncap*sizeof(DESCR_t));
             if(old&&n>0) memcpy(nb,old,n*sizeof(DESCR_t));
             nb[n]=vd;
             FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
             FIELD_SET_fn(ld,"frame_size",INTVAL(n+1));
+            FIELD_SET_fn(ld,"frame_cap",INTVAL(ncap));
         }
         *out = ld; return 1;
     }
@@ -4705,6 +4711,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t ret=arr[0];
         FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=arr+1});
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
+        { DESCR_t capd=FIELD_GET_fn(ld,"frame_cap"); if(capd.v==DT_I&&capd.i>0) FIELD_SET_fn(ld,"frame_cap",INTVAL(capd.i-1)); }
         *out = ret; return 1;
     }
     if (!strcmp(fn,"pop") && nargs == 1) {
@@ -4719,6 +4726,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t ret=arr[0];
         FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=arr+1});
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
+        { DESCR_t capd=FIELD_GET_fn(ld,"frame_cap"); if(capd.v==DT_I&&capd.i>0) FIELD_SET_fn(ld,"frame_cap",INTVAL(capd.i-1)); }
         *out = ret; return 1;
     }
     if (!strcmp(fn,"pull") && nargs == 1) {
@@ -4804,6 +4812,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t res=ld;
         FIELD_SET_fn(res,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=sorted});
         FIELD_SET_fn(res,"frame_size",INTVAL(n));
+        FIELD_SET_fn(res,"frame_cap",INTVAL(n));
         *out=res; return 1;
     }
     if (!strcmp(fn,"FIELD_GET") && nargs == 2) {
