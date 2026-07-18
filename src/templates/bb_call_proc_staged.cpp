@@ -230,6 +230,7 @@ static std::string bcps_spine_gen_arm() {
          + x86_lea_id("rdx", 4)
          + x86_jmp_reg("rax")
          + x86("def", L(3))
+         + x86("mov", FRQ(act + 8), "rsp")
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
@@ -262,6 +263,7 @@ static std::string bcps_spine_gen_arm() {
          + x86_beta()
          + x86_scan_sync_out()
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
+         + x86("mov", "rsp", FRQ(act + 8))
          + x86_jmp_mem("rsp", 0)
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
 }

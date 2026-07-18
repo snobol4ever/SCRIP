@@ -417,6 +417,22 @@ int rt_proc_is_registered(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_jmp_entry(const char *name)
+{
+    if (!name) return 0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].jmp_entry;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_proc_fn(const char *name)
+{
+    if (!name) return (void *)0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++)
+        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return (void *)g_rt_gen_procs[i].fn;
+    return (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_nparams(const char *name, int nparams)
 {
     rt_proc_t *p = rt_proc_find(name);
@@ -598,6 +614,7 @@ typedef struct rt_genp_s {
     void             *fn;
     const char       *name;
     int               done;
+    int               first_done;                                                                       /* ONE-POP law on the instance thread: only the first γ/ω delivery runs an epilogue leaf (pops the pcall record); resumed deliveries pass through */
 } rt_genp_s;
 _Static_assert(offsetof(rt_genp_s, next) == 0 && offsetof(rt_genp_s, regs) == 8, "rt_genp_s layout drift vs rt_genp_thread_entry asm offsets");
 static rt_genp_s *g_genp_head = (rt_genp_s *)0;
@@ -615,15 +632,61 @@ __asm__(
 "  jmp rt_genp_entry_c\n"
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GENP C-window spine protocol (s94 repair): the s92 GENP-SPINE made generator bodies suspend via xa_flat's RETAINING γ epilogue — result preloaded rdi:rsi, a 16B resume record {res-landing, callee
+ * rbp} left AT the deep frontier, γ wire jumped, NO unwind.  rt_proc_enter's γ landing pops 5 saved regs — correct for det bodies (fully unwound before the jmp) but at the retained frontier it EATS
+ * the resume record plus 24B of live frame into rbx/r12..r15 and the next wire jmps frame junk (rip=r12 class).  This shim mirrors bcps_spine_gen_arm's call-site contract on the instance thread:
+ * enter the blob `jmp rax` with rcx/rdx = γ/ω wires; the landings POP NOTHING (callee-saved ride through scrip_coret's ABI preservation); first-vs-resumed is the instance once-flag (ONE-POP law —
+ * rt_proc_call_open pushed ONE pcall record, only the first delivery runs an epilogue leaf); every γ delivery parks in scrip_coret and, on re-activation, resumes the recorded suspend via
+ * `jmp qword [rsp]` (the record sits AT the frontier by LIFO balance on this instance's OWN stack); ω and the pushed SENTINEL record (post-`return` slot-poison resumption arrives fully unwound —
+ * [rsp] is then the sentinel's landing) park the instance failed.  Three sentinel qwords keep rt_proc_enter's 16-byte entry alignment convention (call 8 + 24 = 32). */
+static __thread rt_genp_s *g_genp_self = (rt_genp_s *)0;
+extern void rt_genp_spine_enter(void *fn);
+void rt_genp_deliver_γ(DESCR_t v)
+{
+    rt_genp_s *g = g_genp_self;
+    if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v); }
+    { uint64_t d[2]; memcpy(d, &v, 16); scrip_coret(d[0], d[1], (void *)0); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_genp_deliver_ω(void)
+{
+    rt_genp_s *g = g_genp_self;
+    if (!g->first_done) { g->first_done = 1; (void)rt_proc_call_epilogue_ω(); }
+    g->done = 2;
+    scrip_cofail();
+    for (;;) pause();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+__asm__(
+".text\n"
+".globl rt_genp_spine_enter\n"
+"rt_genp_spine_enter:\n"
+"  pushq $0\n"
+"  leaq 4f(%rip), %rax\n"
+"  pushq $0\n"
+"  pushq %rax\n"
+"  movq %rdi, %rax\n"
+"  leaq 2f(%rip), %rcx\n"
+"  leaq 3f(%rip), %rdx\n"
+"  jmp *%rax\n"
+"2:\n"
+"  call rt_genp_deliver_γ\n"
+"  jmp *(%rsp)\n"
+"3:\n"
+"  call rt_genp_deliver_ω\n"
+"4:\n"
+"  call rt_genp_deliver_ω\n"
+);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_entry_c(rt_genp_s *g)
 {
+    g_genp_self = g;
     for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
     long fb = rt_proc_call_open(g->name, g->nargs);
-    DESCR_t r = FAILDESCR;
-    if (fb) r = rt_proc_enter(g->fn);
-    if (IS_FAIL(r)) { g->done = 2; scrip_cofail(); }
-    else            { uint64_t d[2]; memcpy(d, &r, 16); g->done = 1; scrip_coret(d[0], d[1], (void *)0); }
-    for (;;) pause();                                                                                   /* unreachable: both arms switch away and park; destroy joins */
+    if (!fb) { g->done = 2; scrip_cofail(); }
+    rt_genp_spine_enter(g->fn);
+    g->done = 2; scrip_cofail();
+    for (;;) pause();                                                                                   /* unreachable: every delivery arm switches away and parks; destroy joins */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_yield(uint64_t d0, uint64_t d1) { scrip_coret(d0, d1, (void *)0); }

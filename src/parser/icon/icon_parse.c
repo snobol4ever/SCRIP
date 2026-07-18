@@ -493,7 +493,7 @@ static tree_t *parse_assign(IcnParser *p) {
     }
     if (check(p, TK_NOTIDENT)) {
         advance(p);
-        return e_unary(TT_NOT, e_binary(TT_IDENTICAL, n, parse_assign(p)));
+        return e_binary(TT_NIDENTICAL, n, parse_assign(p));
     }
     if (is_augop(p->cur.kind)) {
         IcnTkKind aug = p->cur.kind; advance(p);
