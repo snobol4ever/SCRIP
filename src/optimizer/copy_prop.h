@@ -1,0 +1,5 @@
+#ifndef COPY_PROP_H
+#define COPY_PROP_H
+#include "IR.h"
+int cp_run(IR_graph_t * g);
+#endif

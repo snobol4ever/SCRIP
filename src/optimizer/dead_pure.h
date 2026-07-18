@@ -1,0 +1,5 @@
+#ifndef DEAD_PURE_H
+#define DEAD_PURE_H
+#include "IR.h"
+int dp_run(IR_graph_t * g);
+#endif

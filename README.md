@@ -408,64 +408,78 @@ deprioritized issue, 2026-07-18); the string-keyed chain cache makes repeated-st
 
 ## Prolog Benchmark — SCRIP vs GNU Prolog vs SWI-Prolog
 
-The Prolog frontend is measured against the two mainstream native engines —
-**GNU Prolog 1.4.5** (gprolog, a mature WAM-to-native compiler) and **SWI-Prolog 9.0.4**
-(swipl) — on the community-standard **van Roy / Aquarius** performance suite
-(`corpus/benchmarks/prolog/bench/*.pl`, UCB/CSD 89/50). All 22 programs reach **four-way
-correctness consensus**: GNU, SWI, SCRIP mode-3 (`--run`, in-process x86 in an RX slab),
-and SCRIP mode-4 (`--compile --target=x86` → `as`+`gcc` binary) all produce output
-byte-identical to the gprolog-derived `.expected` signature.
+The Prolog frontend is measured against the two mainstream engines — **GNU Prolog 1.4.5**
+(gprolog, WAM-to-native) and **SWI-Prolog 9.0.4** (swipl) — on the **van Roy / Aquarius**
+suite (`corpus/benchmarks/prolog/bench/*.pl`). 21 of 22 programs hold **four-way
+correctness consensus** (GNU, SWI, SCRIP mode-3 `--run`, SCRIP mode-4 compiled binary,
+all byte-identical to `.expected`; `queensn` is the one divergent — the tracked
+working-set leak). Measured 2026-07-18 on Intel Xeon @ 2.80 GHz, 1 core.
 
-Timing follows the van Roy methodology: each program's compute core is looped *N* times
-in one process (so per-program compile amortizes to ~0 and we measure steady-state
-per-iteration compute), best-of-*N* wall time, SCRIP binaries run with a pre-sized GC
-heap to suppress collection-cycle noise. Figures are **per-iteration compute in
-milliseconds** (`m4` is the mode-4 native binary, gcc `-O0`). Lower is faster; the ratio
-is SCRIP-m4 against gprolog. Sorted fastest-relative first.
+**This table replaces the 2026-06-27 one (geomean 3.28×), which measured a PREVIOUS
+engine deleted in the 2026-07-05 one-emitter reset.** The restored engine (the
+suspend-unified four-port machine, landed 2026-07-17) is correct-first and not yet
+speed-tuned: every planned optimization — O(1) call dispatch, frame-init elision,
+DET/NONDET split, first-argument indexing, last-call optimization, trampoline
+retirement — is still ahead of it (the PL-SPEED ladder, `GOAL-PROLOG-BB.md`). These
+are the honest pre-campaign numbers.
 
-| Benchmark | GNU | SWI | SCRIP m4 | m4 vs GNU | m4 vs SWI |
-|-----------|----:|----:|---------:|----------:|----------:|
-| cal | 0.072 | 0.071 | 0.034 | **0.48× (faster)** | **0.48× (faster)** |
-| sendmore | 4.288 | 10.297 | 4.286 | **1.00×** | **0.42× (faster)** |
-| deriv | 0.036 | 0.036 | 0.073 | 2.02× | 2.03× |
-| ops8 | 0.038 | 0.038 | 0.078 | 2.02× | 2.05× |
-| times10 | 0.046 | 0.046 | 0.092 | 2.02× | 2.00× |
-| divide10 | 0.038 | 0.038 | 0.078 | 2.03× | 2.05× |
-| log10 | 0.037 | 0.037 | 0.076 | 2.03× | 2.05× |
-| crypt | 0.541 | 0.778 | 1.256 | 2.32× | 1.61× |
-| queens | 64.39 | 108.2 | 209.0 | 3.25× | 1.93× |
-| queens_8 | 0.342 | 0.610 | 1.146 | 3.35× | 1.88× |
-| tak | 12.03 | 21.16 | 41.73 | 3.47× | 1.97× |
-| fib | 3.596 | 4.408 | 12.79 | 3.56× | 2.90× |
-| query | 0.092 | 0.103 | 0.330 | 3.59× | 3.20× |
-| ham | 0.281 | 0.158 | 1.031 | 3.67× | 6.53× |
-| derive | 0.038 | 0.038 | 0.158 | 4.20× | 4.16× |
-| queensn | 158.3 | 183.5 | 792.0 | 5.00× | 4.32× |
-| nreverse | 0.079 | 0.078 | 0.406 | 5.14× | 5.21× |
-| zebra | 2.305 | 2.304 | 13.65 | 5.92× | 5.92× |
-| mu | 0.083 | 0.084 | 0.524 | 6.34× | 6.24× |
-| qsort | 0.076 | 0.153 | 0.515 | 6.74× | 3.37× |
-| nrev | 0.039 | 0.079 | 0.407 | 10.48× | 5.15× |
-| meta_qsort | 0.750 | 0.521 | 9.017 | 12.03× | 17.3× |
+**Per-iteration compute** (`scripts/bench_prolog_vanroy.sh`): each bench loops via a
+failure-driven wrapper (`between(1,N,_), bench, fail` — backtracking reclaims stacks
+on every engine each iteration; full solution enumeration per iteration, identical
+work everywhere). Per-iteration ms = (wall − engine startup floor) / N, N auto-ranged
+per engine (×4 until ≥300 ms compute). Sorted fastest-relative first; ratio is
+SCRIP-m4 vs the oracle. DNF = 240 s timeout.
 
-**Geomean m4 vs GNU = 3.28×** (median 3.56×). Two structural facts:
+| Benchmark | GNU | SWI | SCRIP m3 | SCRIP m4 | m4 vs GNU | m4 vs SWI |
+|-----------|----:|----:|---------:|---------:|----------:|----------:|
+| fib | 7.203 | 4.699 | 518.0 | 420.0 | 58× | 89× |
+| sendmore | 4.086 | 9.688 | 275.5 | 244.0 | 60× | 25× |
+| meta_qsort | 0.475 | 0.304 | 37.56 | 37.56 | 79× | 124× |
+| crypt | 1.171 | 2.020 | 101.0 | 93.25 | 80× | 46× |
+| zebra | 6.094 | 4.938 | 521.0 | 520.0 | 85× | 105× |
+| queens_8 | 4.426 | 6.953 | 498.0 | 518.0 | 117× | 75× |
+| tak | 13.13 | 19.88 | 1560 | 1541 | 117× | 78× |
+| mu | 0.055 | 0.049 | 8.078 | 7.969 | 144× | 162× |
+| qsort | 0.046 | 0.063 | 6.688 | 6.813 | 148× | 109× |
+| cal | 0.0010 | 0.0028 | 0.185 | 0.172 | 172× | 61× |
+| ops8 | 0.0020 | 0.0026 | 0.415 | 0.398 | 199× | 153× |
+| nreverse | 0.027 | 0.027 | 6.141 | 6.219 | 233× | 228× |
+| times10 | 0.0023 | 0.0030 | 0.732 | 0.627 | 273× | 209× |
+| query | 0.030 | 0.068 | 8.938 | 8.594 | 284× | 127× |
+| divide10 | 0.0023 | 0.0029 | 0.623 | 0.680 | 296× | 234× |
+| derive | 0.0052 | 0.0068 | 1.477 | 1.555 | 299× | 229× |
+| deriv | 0.0047 | 0.0113 | 1.449 | 1.465 | 312× | 130× |
+| log10 | 0.0012 | 0.0019 | 0.450 | 0.438 | 365× | 230× |
+| nrev | 0.0096 | 0.026 | 6.625 | 6.844 | 713× | 259× |
+| ham | 41.19 | 36.88 | 180232 | 160583 | 3899× | 4355× |
+| queens (16) | DNF | DNF | DNF | DNF | — | — |
 
-- **mode-3 ≡ mode-4 on every program** — the in-process and compiled-binary paths share
-  the GZ codegen and execute identically (the design invariant, confirmed empirically).
-- **The gap tracks heap traffic, exactly as the inline-cell campaign (PL-DESCR) predicts.**
-  Search- and atom-bound programs are at parity or faster (cal 0.48×, sendmore 1.00×);
-  arithmetic-bound ones cluster near 2× (the symbolic-derivative set, crypt); recursion-bound
-  near 3.5× (fib, tak, queens); the worst are list/structure-heavy (nrev 10.5×, qsort 6.7×,
-  zebra 5.9×) and the meta-interpreter (meta_qsort 12×). That is the boxed-`Term*`
-  compound-allocation tax — PL-DESCR-2 inlined *scalars* (ints/atoms/vars) into 16-byte cells,
-  but compounds still hit the heap, which is precisely where these programs live. Against SWI,
-  SCRIP is at parity or faster on a fair fraction (SWI is itself often slower than gprolog here).
+**Geomean m4 vs GNU = 199× · m4 vs SWI = 144×** (non-DNF rows; `queens` full-enumeration
+of the 16-board is out of 240 s range for *every* engine and drops out).
 
-These are honest current numbers, not the target. Being within ~3.3× geomean of a mature
-native WAM, with the four-port boxed model and no first-argument indexing yet, is the
-present standing; closing it is the PL-DESCR (inline compound cells, last-call optimization)
-and first-argument-indexing work. Reproduce with `scripts/test_bench_prolog_4way.sh`
-(correctness) over `corpus/benchmarks/prolog/bench/`.
+What the shape says:
+
+- **mode-3 ≡ mode-4 on every row** (within noise) — the in-process and compiled paths
+  share one codegen; the design invariant holds empirically.
+- **The gap is dominated by fixed per-call overhead, not by search.** The heavier the
+  bench, the *better* SCRIP fares relatively (fib 58×, sendmore 60×) while trivial-body
+  benches sit at 300×+ (deriv, log10) — the signature of per-call costs the PL-SPEED
+  ladder targets: a linear strcmp scan of the proc registry on every call, a whole-frame
+  memset per activation, a malloc per activation, a C trampoline frame per Prolog call,
+  no first-argument indexing (every multi-clause call builds a choice point), no LCO.
+- **ham (3899×) is the working-set leak, not compute:** allocation accrues across
+  backtracking (the tracked queensn defect class), and heavy enumeration turns it into
+  a collection storm. Same class: SCRIP is measured at small N (auto-ranging stops
+  early on a slow engine), i.e. *pre*-accrual — steady-state is worse until the leak
+  rungs land.
+- **Startup is a strength.** On end-to-end single-shot latency
+  (`scripts/bench_prolog_perf.sh`, median of 3, startup included), SCRIP m4 binaries
+  *beat both engines* on the small half of the suite (8–10 ms vs gprolog 17–22 ms and
+  swipl 22–28 ms); mode-4 compile+link is ~85–150 ms per program.
+
+Reproduce: `scripts/bench_prolog_4way.sh` (correctness), `scripts/bench_prolog_vanroy.sh`
+(per-iteration table above), `scripts/bench_prolog_perf.sh` (end-to-end latency), over
+`corpus/benchmarks/prolog/bench/` with loop drivers in `corpus/benchmarks/prolog/vanroy/`.
 
 ---
 

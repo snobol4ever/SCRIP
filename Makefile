@@ -214,6 +214,10 @@ RT_PIC_SRCS := \
     $(SRC)/optimizer/ir_query.c \
     $(SRC)/optimizer/region_report.c \
     $(SRC)/optimizer/branch_chain.c \
+    $(SRC)/optimizer/const_fold.c \
+    $(SRC)/optimizer/copy_prop.c \
+    $(SRC)/optimizer/pat_fold.c \
+    $(SRC)/optimizer/dead_pure.c \
     $(SRC)/optimizer/optimizer.c \
     \
     $(SRC)/machine/sm_prog.c \
@@ -273,7 +277,7 @@ out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
 	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
-	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku \
+	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer -I$(SRC)/runtime/builtins \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) \
 	    $(RT_PIC_SRCS) \
 	    -lm -lstdc++ -lpthread \
@@ -503,6 +507,10 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/ir_query.c -o $(OBJ)/ir_query.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/region_report.c -o $(OBJ)/region_report.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/branch_chain.c -o $(OBJ)/branch_chain.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -I$(SRC)/runtime/builtins -c $(SRC)/optimizer/const_fold.c -o $(OBJ)/const_fold.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/copy_prop.c -o $(OBJ)/copy_prop.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/pat_fold.c -o $(OBJ)/pat_fold.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/dead_pure.c -o $(OBJ)/dead_pure.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_slab.c  -o $(OBJ)/rt_slab.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_arena.c -o $(OBJ)/rt_arena.o

@@ -920,6 +920,67 @@ static void lower_pl_register_all_preds(void) {
         }
     }
 }
+typedef struct { const char * key; const tree_t * ch; int state; } pl_det_ent_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_det_name_in(const char * nm, const char * const * lst) { for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_det_lookup(const char * nm, int ar, const pl_det_ent_t * v, int n) { char kb[256]; snprintf(kb, sizeof kb, "%s/%d", nm, ar); for (int i = 0; i < n; i++) if (v[i].key && !strcmp(v[i].key, kb)) return i; return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_det_top_cut(const tree_t * t) { if (!t) return 0; if (t->t == TT_CUT) return 1; if (t->t == TT_PROGRAM || (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ","))) { for (int i = 0; i < t->n; i++) if (pl_det_top_cut(t->c[i])) return 1; } return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_det_goal_ok(const tree_t * t, const pl_det_ent_t * v, int n) {
+    if (!t) return 1;
+    if (t->t == TT_CUT || t->t == TT_UNIFY) return 1;
+    if (t->t == TT_PROGRAM) { for (int i = 0; i < t->n; i++) if (!pl_det_goal_ok(t->c[i], v, n)) return 0; return 1; }
+    if (t->t != TT_FNC || !t->v.sval) return 0;
+    { const char * nm = t->v.sval;
+      if (!strcmp(nm, ",")) { for (int i = 0; i < t->n; i++) if (!pl_det_goal_ok(t->c[i], v, n)) return 0; return 1; }
+      if (!strcmp(nm, ";") || !strcmp(nm, "->") || !strcmp(nm, "|")) return 0;
+      { const char * const black[] = { "retract", "throw", "catch", "$dyn_iter", "findall", "setof", "bagof", "forall", "call", "not", "\\+", "read", "read_term", 0 }; if (pl_det_name_in(nm, black)) return 0; }
+      { const char * const extra[] = { "true", "fail", "false", "is", "<", ">", "=<", ">=", "=:=", "=\\=", "\\=", "halt", 0 }; if (pl_det_name_in(nm, extra)) return 1; }
+      { extern const char * rt_pl_det_builtin_target(const char * nm2, int ar2); if (rt_pl_det_builtin_target(nm, t->n)) return 1; }
+      if (is_builtin_exec(nm)) return 1;
+      { int j = pl_det_lookup(nm, t->n, v, n); return (j >= 0 && v[j].state == 1) ? 1 : 0; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_det_clause_ok(const tree_t * cl, int need_cut, const pl_det_ent_t * v, int n) {
+    if (!cl || cl->t != TT_CLAUSE) return 0;
+    { int ar = (int) cl->v.dval; if (ar < 0) ar = 0; if (ar > cl->n) ar = cl->n;
+      for (int i = ar; i < cl->n; i++) if (!pl_det_goal_ok(cl->c[i], v, n)) return 0;
+      if (!need_cut) return 1;
+      for (int i = ar; i < cl->n; i++) if (pl_det_top_cut(cl->c[i])) return 1;
+      return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_det_pred_ok(const tree_t * ch, const pl_det_ent_t * v, int n) {
+    if (!ch) return 0;
+    if (ch->t == TT_CLAUSE) return pl_det_clause_ok(ch, 0, v, n);
+    if (ch->t == TT_CHOICE && ch->n >= 1) { for (int i = 0; i < ch->n; i++) if (!pl_det_clause_ok(ch->c[i], (i < ch->n - 1), v, n)) return 0; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_det_classify_all(void) {
+    enum { PL_DET_MAX = 4096 };
+    static pl_det_ent_t v[PL_DET_MAX]; int n = 0;
+    for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++)
+        for (Resolve_PredEntry * pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
+            if (!pe->key || !pe->choice || n >= PL_DET_MAX) continue;
+            { int dyn = 0;
+              { const char * sl = strrchr(pe->key, '/'); int ar = sl ? atoi(sl + 1) : 0; char nm[200]; int kl = sl ? (int)(sl - pe->key) : (int) strlen(pe->key); if (kl > 199) kl = 199; memcpy(nm, pe->key, kl); nm[kl] = 0; dyn = pl_dyn_is_marked(nm, ar); }
+              v[n].key = pe->key; v[n].ch = pe->choice; v[n].state = dyn ? 0 : 1; n++; } }
+    { int changed = 1; for (int pass = 0; changed && pass < n + 2; pass++) { changed = 0; for (int i = 0; i < n; i++) { if (v[i].state == 1 && !pl_det_pred_ok(v[i].ch, v, n)) { v[i].state = 0; changed = 1; } } } }
+    { int ndet = 0;
+      for (int i = 0; i < n; i++) {
+          if (v[i].state != 1) continue;
+          ndet++;
+          for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+              const char * pn = g_stage2.proc_table[pi].name;
+              int match = pn && (!strcmp(pn, v[i].key) || (!strcmp(v[i].key, "main/0") && !strcmp(pn, "main")));
+              if (!match) continue;
+              { int bx = g_stage2.proc_table[pi].bb_idx; if (bx >= 0 && bx < g_stage2.bbp.count && g_stage2.bbp.table[bx]) g_stage2.bbp.table[bx]->deterministic = 1; } } }
+      if (getenv("SCRIP_DET_REPORT")) { fprintf(stderr, "DET-CLASS preds=%d det=%d\n", n, ndet); for (int i = 0; i < n; i++) fprintf(stderr, "DET-CLASS %-6s %s\n", v[i].state == 1 ? "DET" : "NONDET", v[i].key); } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 static int pl_ll_ctr = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1070,5 +1131,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         }
     }
     lower_pl_register_all_preds();
+    pl_det_classify_all();
     return &g_stage2;
 }
