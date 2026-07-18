@@ -337,6 +337,31 @@ static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
 static int           g_rt_gen_proc_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int          *g_proc_hsl = (int *)0;
+static unsigned      g_proc_hcap = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned rt_proc_fnv(const char *s) { unsigned h = 2166136261u; while (*s) { h ^= (unsigned char)*s++; h *= 16777619u; } return h; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_proc_hash_seed(int idx) { unsigned m = g_proc_hcap - 1, h = rt_proc_fnv(g_rt_gen_procs[idx].name) & m; while (g_proc_hsl[h]) h = (h + 1) & m; g_proc_hsl[h] = idx + 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_proc_hash_insert(int idx) {
+    if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) {
+        unsigned nc = g_proc_hcap ? g_proc_hcap * 2 : 1024; int *np = (int *)rt_ws_realloc(g_proc_hsl, (size_t)nc * sizeof(int)); if (!np) return;
+        g_proc_hsl = np; g_proc_hcap = nc; memset(g_proc_hsl, 0, (size_t)nc * sizeof(int));
+        for (int i = 0; i < g_rt_gen_proc_count; i++) if (g_rt_gen_procs[i].name) rt_proc_hash_seed(i);
+        return;
+    }
+    rt_proc_hash_seed(idx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_proc_hash_lookup(const char *name) {
+    if (!name || !g_proc_hcap) return -1;
+    unsigned m = g_proc_hcap - 1, h = rt_proc_fnv(name) & m;
+    while (g_proc_hsl[h]) { int ix = g_proc_hsl[h] - 1; if (ix < g_rt_gen_proc_count && g_rt_gen_procs[ix].name && strcmp(g_rt_gen_procs[ix].name, name) == 0) return ix; h = (h + 1) & m; }
+    return -1;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gen_proc_grow(void) {
     if (g_rt_gen_proc_count < g_rt_gen_proc_cap) return;
     int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64; rt_proc_t *np = (rt_proc_t *)rt_ws_realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
@@ -346,41 +371,30 @@ static void rt_gen_proc_grow(void) {
 void rt_proc_register(const char *name, const char **pnames, int nparams)
 {
     if (!name) return;
-    for (int i = 0; i < g_rt_gen_proc_count; i++) {
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) {
-            if (pnames)  g_rt_gen_procs[i].pnames  = pnames;
-            if (nparams) g_rt_gen_procs[i].nparams = nparams;
-            g_rt_gen_procs[i].cells_done = 0;
-            g_rt_gen_procs[i].redefined = 1;
-            return;
-        }
-    }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { if (pnames) g_rt_gen_procs[i].pnames = pnames; if (nparams) g_rt_gen_procs[i].nparams = nparams; g_rt_gen_procs[i].cells_done = 0; g_rt_gen_procs[i].redefined = 1; return; } }
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_result_name(const char *name, const char *rname)
 {
     if (!name) return;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].result_name = rname; g_rt_gen_procs[i].cells_done = 0; return; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].result_name = rname; g_rt_gen_procs[i].cells_done = 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_dyn_scope(const char *name, int v)
 {
     if (!name) return;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].dyn_scope = v ? 1 : 0; return; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].dyn_scope = v ? 1 : 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_dyn_scope(const char *name)
 {
     if (!name) return 0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].dyn_scope;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].dyn_scope; }
     return 0;
 }
 static rt_proc_t *rt_proc_find(const char *name);
@@ -388,7 +402,7 @@ void rt_proc_cache_clear(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
 const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
-void rt_proc_reset(void) { g_rt_gen_proc_count = 0; rt_proc_cache_clear(); }
+void rt_proc_reset(void) { g_rt_gen_proc_count = 0; rt_proc_cache_clear(); if (g_proc_hsl) memset(g_proc_hsl, 0, (size_t)g_proc_hcap * sizeof(int)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
@@ -414,24 +428,21 @@ DESCR_t *rt_gva_island(int n) {
 int rt_proc_is_registered(const char *name)
 {
     if (!name) return 0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return 1;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_jmp_entry(const char *name)
 {
     if (!name) return 0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].jmp_entry;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].jmp_entry; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_fn(const char *name)
 {
     if (!name) return (void *)0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return (void *)g_rt_gen_procs[i].fn;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -444,24 +455,21 @@ void rt_proc_set_nparams(const char *name, int nparams)
 int rt_proc_nparams(const char *name)
 {
     if (!name) return -1;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].nparams;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].nparams; }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_has_native_fn(const char *name)
 {
     if (!name) return 0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].fn != (bb_box_fn)0;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].fn != (bb_box_fn)0; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_get_fn(const char *name)
 {
     if (!name) return (void *)0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return (void *)g_rt_gen_procs[i].fn;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -484,15 +492,13 @@ long rt_fn_frame_bytes(void *fn)
 void rt_proc_set_generator(const char *name, int is_gen)
 {
     if (!name) return;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_variadic(const char *name, int is_var)
 {
     if (!name) return;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1d REGIME RECORD — the driver proc loops (the same four that bracket emit_jmp_entry_for_proc) record here whether the proc's EMITTED body is a jmp-entry blob, in-process for mode 3 and via the
@@ -500,28 +506,25 @@ void rt_proc_set_variadic(const char *name, int is_var)
 void rt_proc_set_jmpentry(const char *name, int on)
 {
     if (!name) return;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].jmp_entry = on ? 1 : 0; return; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].jmp_entry = on ? 1 : 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_generator(const char *name)
 {
     if (!name) return 0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) return g_rt_gen_procs[i].is_generator;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_generator; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_fn(const char *name, bb_box_fn fn)
 {
     if (!name) return;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_rt_gen_procs[i].fn = fn; return; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].fn = fn; return; } }
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0;
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -569,9 +572,7 @@ DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
-    rt_proc_t *p = (rt_proc_t *)0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
+    rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
@@ -714,11 +715,9 @@ static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t out2[2], void **hou
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 {
-    rt_proc_t *p = (rt_proc_t *)0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { p = &g_rt_gen_procs[i]; break; }
+    rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
-    if (p->jmp_entry && rt_proc_is_generator(name)) {   /* GENP slice-2: per-instance-stack generator.  Capture the caller's callee-saved regs FIRST (O0 keeps them untouched this early — the emitted caller's rbx/r12 GVA/ζ bases and any live scan triad ride into the instance thread via rt_genp_thread_entry); copy the staged args (caller blocks on the activate handshake, so the replay on the instance thread is race-free); first activation and every resume go through the ONE scrip_coexpr_activate window. */
+    if (p->jmp_entry && p->is_generator) {   /* GENP slice-2: per-instance-stack generator.  Capture the caller's callee-saved regs FIRST (O0 keeps them untouched this early — the emitted caller's rbx/r12 GVA/ζ bases and any live scan triad ride into the instance thread via rt_genp_thread_entry); copy the staged args (caller blocks on the activate handshake, so the replay on the instance thread is race-free); first activation and every resume go through the ONE scrip_coexpr_activate window. */
         uint64_t cregs[5];
         __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
         rt_genp_s *g = (rt_genp_s *)calloc(1, sizeof *g);
@@ -1309,9 +1308,8 @@ int rt_proc_index_of(const char *name)
 {
     if (!name) return -1;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count) return ci; }
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return i; }
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name == name) return ci; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return i; } }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1327,9 +1325,8 @@ static rt_proc_t * rt_proc_find(const char *name)
 {
     if (!name) return (rt_proc_t *)0;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count) return &g_rt_gen_procs[ci]; }
-    for (int i = 0; i < g_rt_gen_proc_count; i++)
-        if (g_rt_gen_procs[i].name && strcmp(g_rt_gen_procs[i].name, name) == 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return &g_rt_gen_procs[i]; }
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name == name) return &g_rt_gen_procs[ci]; }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return &g_rt_gen_procs[i]; } }
     return (rt_proc_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
