@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "../parser/prolog/pl_cell.h"
-#define PL_CELL_ALLOC(n) rt_ws_alloc(n)
+#define PL_CELL_ALLOC(n) (rt_pl_cellws_on() ? rt_pl_cellws_alloc(n) : rt_ws_alloc(n))
 #include "../parser/prolog/pl_cell_conv.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unify_terms(void *l, void *r)
@@ -64,10 +64,10 @@ int rt_pl_unify_cell_float(void *cell, double dval)
 void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words)
 {
     pl_cell_t *src = (pl_cell_t *)arg_words;
-    pl_cell_t *blk = (pl_cell_t *)rt_ws_alloc((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
+    pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
     for (int i = 0; i < arity; i++) blk[i] = src[i];
     int fid = prolog_atom_intern(functor_name ? functor_name : "[]");
-    pl_cell_t *out = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t));
+    pl_cell_t *out = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t));
     *out = pl_make_compound(fid, arity, blk);
     return out;
 }
@@ -79,7 +79,7 @@ int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg
     pl_cell_t *D = pl_deref((pl_cell_t *)dst);
     int fid = prolog_atom_intern(functor_name ? functor_name : "[]");
     if (pl_cell_unbound(D)) {
-        pl_cell_t *blk = (pl_cell_t *)rt_ws_alloc((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
+        pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
         for (int i = 0; i < arity; i++) blk[i] = src[i];
         pl_bind(D, pl_make_compound(fid, arity, blk), &g_pl_trail); return 1;
     }

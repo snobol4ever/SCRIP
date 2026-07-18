@@ -58,5 +58,14 @@ void        *rt_agg_alloc(int kind, size_t n);             /* COLLECTABLE aggreg
 void        *rt_pl_cterm_alloc(size_t n);
 arena_mark_t rt_pl_cterm_mark(void);
 void         rt_pl_cterm_release(arena_mark_t m);
+/* PL-WS-2 step 2 (env-gated SCRIP_PL_WS_RECLAIM=1): SECOND island for the trail-covered
+ * pl_cell_t builder stream (rt_pl_compound_cell/rt_pl_unify_struct blk allocs) — the
+ * queensn 1.6M-call leak. Survivor Terms stay on the cterm island above (never rewound),
+ * so findall/dyn-DB copies are safe by construction. Rewind anchored at the trail
+ * choice-point edges via plw_zh_mark_push/kill_to (by_name_dispatch.c). */
+int          rt_pl_cellws_on(void);
+void        *rt_pl_cellws_alloc(size_t n);
+arena_mark_t rt_pl_cellws_mark(void);
+void         rt_pl_cellws_release(arena_mark_t m);
 void         rt_pl_cterm_roots(void **base, size_t *bytes);
 #endif

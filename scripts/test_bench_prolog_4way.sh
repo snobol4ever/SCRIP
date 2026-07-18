@@ -9,6 +9,10 @@
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-/home/claude/corpus/benchmarks/prolog/bench}"; T="${TIMEOUT:-30}"
+# Deep-recursion benches (fib/tak/meta_qsort) nest one C frame per Prolog call
+# (rt_proc_call_gen_h trampoline; real fix = PL-SPEED-3/7 DET no-C-frame spine).
+# Until that lands, raise the soft C-stack limit so they run to completion.
+ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
 [ -d "$B" ] || { echo "SKIP bench corpus missing: $B"; exit 0; }
