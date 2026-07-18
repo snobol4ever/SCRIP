@@ -303,50 +303,53 @@ the stack allocator.
 
 Corpus benchmarks (`corpus/benchmarks/snobol4/*.sno`) run head-to-head against
 the SPITBOL x64 fork oracle (`snobol4ever/x64`). Each figure is the program's
-own `TIME()` compute loop in milliseconds unless marked † (wall time; the
-harness's TIME() capture truncates past its timeout). SCRIP is the mode-4
-`--compile` native binary, gcc `-O0`. Measured 2026-07-10 (sandbox CPU —
-absolute ms are not comparable to the 2026-06-24 table; the vs-SPITBOL ratio
-is, since both engines ran on the same box each time). **All 16 benchmarks are
-now green** — `roman`, `eval_fixed`/`eval_dynamic`, and `indirect_dispatch`,
-excluded in June, all run ref-correct today. Lower is faster.
+own `TIME()` compute loop in milliseconds unless marked † (wall time;
+`indirect_dispatch` has no `TIME()` loop). SCRIP is the mode-4 `--compile`
+native binary, gcc `-O0`. Measured 2026-07-18 at HEAD `10bfc42f` (sandbox CPU).
+The SPITBOL column reproduces the 2026-07-10 oracle numbers within a few percent
+— same programs, same box — so the absolute-ms comparison across the two SCRIP
+snapshots is sound this time. **All 16 benchmarks are green.** Lower is faster.
 
-| Benchmark | SPITBOL | SCRIP native | vs SPITBOL | vs SPITBOL on 2026-06-24 |
+| Benchmark | SPITBOL | SCRIP native | vs SPITBOL | vs SPITBOL on 2026-07-10 |
 |-----------|--------:|-------------:|-----------:|-------------------------:|
-| indirect_dispatch | 5† | 10† | 2.1× slower | — (was excluded) |
-| var_access | 1,318 | 6,680 | 5.1× slower | 64× |
-| eval_fixed | 270 | 2,240 | 8.3× slower | — (was excluded) |
-| func_call | 918 | 8,398 | 9.1× slower | 76× |
-| func_call_overhead | 884 | 8,440 | 9.5× slower | 77× |
-| op_dispatch | 117 | 1,405 | 12.0× slower | 53× |
-| fibonacci | 171 | 2,259 | 13.2× slower | 66× |
-| string_concat | 145 | 1,925 | 13.3× slower | 12× |
-| table_access | 340 | 4,575 | 13.5× slower | 56× |
-| arith_loop | 47 | 645 | 13.7× slower | 68× |
-| string_manip | 651 | 11,386 | 17.5× slower | 54× |
-| roman | 172 | 3,432 | 20.0× slower | — (was excluded) |
-| mixed_workload | 170 | 15,539 | 91× slower | 41× |
-| eval_dynamic | 480 | 82,443† | ~172× slower | — (was excluded) |
-| string_pattern | 689 | 151,600† | ~220× slower | 21× |
-| pattern_bt | 230 | 137,700† | ~599× slower | **2.0×** |
+| var_access | 1,319 | 267 | **4.9× faster** | 5.1× slower |
+| op_dispatch | 116 | 31 | **3.7× faster** | 12.0× slower |
+| arith_loop | 48 | 17 | **2.8× faster** | 13.7× slower |
+| func_call_overhead | 885 | 923 | ~par | 9.5× slower |
+| func_call | 879 | 934 | ~par | 9.1× slower |
+| indirect_dispatch | 4† | 5† | ~par | 2.1× slower |
+| fibonacci | 173 | 268 | 1.5× slower | 13.2× slower |
+| pattern_bt | 222 | 892 | 4.0× slower | 599× slower |
+| mixed_workload | 175 | 866 | 4.9× slower | 91× slower |
+| table_access | 333 | 1,743 | 5.2× slower | 13.5× slower |
+| eval_fixed | 267 | 1,406 | 5.3× slower | 8.3× slower |
+| string_pattern | 688 | 4,643 | 6.7× slower | ~220× slower |
+| string_concat | 142 | 1,013 | 7.1× slower | 13.3× slower |
+| string_manip | 645 | 4,949 | 7.7× slower | 17.5× slower |
+| roman | 180 | 2,618 | 14.5× slower | 20.0× slower |
+| eval_dynamic | 422 | 61,260 | 145× slower | ~172× slower |
 
-These are honest current numbers, and the story since the 2026-06-24 table
-splits cleanly in two. **The scalar engine got dramatically better:** the
-call/dispatch/variable/table cluster closed its gap 3–13× (direct-call
-protocol DCR-1/2/3, the GVA register slab, RPF, table double-walk
-elimination) — June's 40–77× band is now a 5–18× band. **The pattern engine
-traded its crown jewel for correctness:** June's `pattern_bt` at 2.0× was
-produced by the original FZ-optimized pattern engine at its peak, the day
-before GZ#5 amputated it; SN4-PAT rebuilt patterns from scratch on the
-defer-callout architecture — oracle-verified and far more complete (EVAL/CODE,
-replacement splice, FENCE/ARBNO ladders all landed since) — but paying a
-per-match `rt_zls_alloc(65536)`/release pair that the old engine never did.
-The FZ-5 frozen-head inline was re-ported 2026-07-10 (eliminating the
-per-match pattern fetch, ~4% on pattern_bt), which proved the fetch was never
-the cost: **DEFER-ZLS** (killing the per-match arena churn) is the tracked
-rung for the pattern tail, alongside the `-O0` build and the CSTACK-default
-A/B. CSNOBOL4 column dropped pending re-measurement on current hardware.
-Re-grounding headline claims stays tracked under REC-COV / RC-5.
+Since the 2026-07-10 table, **every benchmark got faster and the whole board
+moved** — the register-allocation overhaul and the pattern-arena fix both landed.
+**The scalar/dispatch cluster now beats SPITBOL:** `var_access`, `op_dispatch`,
+and `arith_loop` flipped from 5–14× slower to 2.8–4.9× *faster*, and the call
+cluster closed to par — REG-1 through REG-7 promoted the pend/dcap backtracking
+top out of the pinned `[RT_CAS_TOP]` cell into registers (r12, then rbp/rsp
+frames), shedding the per-match and per-capture absolute-memory traffic.
+**The pattern engine recovered ~150×:** `pattern_bt` went 599× → 4.0× slower once
+ZB-ITER-3 retired the DEFER-island swap and moved suspension onto the single rsp
+stream, killing the per-match `rt_zls_alloc(65536)`/release churn the previous
+note named as the blocker. It is not yet back to the June FZ-engine peak of
+**2.0×** — SPITBOL's scanner still leads on raw backtracking — but the arena tax is
+gone. The GC-U workspace-class overhaul (WS-CLASS SPLIT/WIDENING, AGG-PRECISE)
+cut malloc/strdup churn underneath all of it.
+
+**The one benchmark that barely moved is `eval_dynamic`** (172× → 145× slower,
+~61s): the EVAL recompile path did not benefit from the REG/arena work and is now
+the single outstanding pathology — the tracked next rung. CSNOBOL4 column still
+dropped pending re-measurement on current hardware. Re-grounding headline claims
+stays tracked under REC-COV / RC-5. (Attribution here is from the commit log
+since 2026-07-10, not a controlled bisect.)
 
 ## Prolog Benchmark — SCRIP vs GNU Prolog vs SWI-Prolog
 
