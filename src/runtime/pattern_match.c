@@ -947,7 +947,11 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     if (base.v == DT_T) {
         TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
         char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
-        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup_c(ks); vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+        TBPAIR_t *e = table_find_pair(tb, ks);
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
+        if (e) { vc->cellp = &e->val; vc->tbl = tb; vc->key = 0; }
+        else   { vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup_c(ks); }
+        vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
     if (base.v == DT_DATA) {
@@ -1115,13 +1119,13 @@ DESCR_t rt_deref(DESCR_t d) {
     if (d.v == DT_N && d.slen == 1 && d.ptr) return *(DESCR_t *)d.ptr;
     if (!IS_NAMETRAP_fn(d)) return d;
     VCELL_t *vc = (VCELL_t *)d.p; if (!vc) return FAILDESCR;
+    if (vc->cellp) return *vc->cellp;
     if (vc->tbl) {
         int found; DESCR_t hit = table_get_found(vc->tbl, vc->key, &found);
         if (found) return hit;
         if (vc->tbl->dflt.v != DT_FAIL && vc->tbl->dflt.v != 0) return vc->tbl->dflt;
         return NULVCL;
     }
-    if (vc->cellp) return *vc->cellp;
     if (IS_NAMETRAP_fn(vc->sv)) {
         DESCR_t sd = rt_deref(vc->sv);
         if (sd.v != DT_S && sd.v != DT_SNUL) return FAILDESCR;
@@ -1142,8 +1146,8 @@ DESCR_t rt_assign_var(DESCR_t var, DESCR_t val) {
         abort();
     }
     VCELL_t *vc = (VCELL_t *)var.p; if (!vc) return FAILDESCR;
-    if (vc->tbl) { table_set_descr(vc->tbl, vc->key, vc->key_d, val); return val; }
     if (vc->cellp) { *vc->cellp = val; return val; }
+    if (vc->tbl) { table_set_descr_keyown(vc->tbl, vc->key, vc->key_d, val); return val; }
     if (IS_NAMETRAP_fn(vc->sv)) {
         char nb[64]; const char *src; long srclen;
         if (val.v == DT_S || val.v == DT_SNUL) { src = val.s ? val.s : ""; srclen = val.slen ? (long)val.slen : (long)strlen(src); }
@@ -1181,7 +1185,17 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     long adj1 = 0, adj2 = 0;
     if (IS_NAMETRAP_fn(xc->sv) && IS_NAMETRAP_fn(yc->sv)) {
         VCELL_t *ux = vcell_ultimate(xc->sv), *uy = vcell_ultimate(yc->sv);
-        if (ux && uy && ((ux->cellp && ux->cellp == uy->cellp) || (ux->tbl && ux->tbl == uy->tbl && ux->key && uy->key && !strcmp(ux->key, uy->key)))) {
+        int same_slot = 0;
+        if (ux && uy) {
+            if (ux->cellp && ux->cellp == uy->cellp) same_slot = 1;
+            else if (ux->tbl && ux->tbl == uy->tbl) {
+                char k1[64], k2[64];
+                const char *s1 = ux->key ? ux->key : tbl_key_str(ux->key_d, k1, sizeof k1);
+                const char *s2 = uy->key ? uy->key : tbl_key_str(uy->key_d, k2, sizeof k2);
+                if (s1 && s2 && !strcmp(s1, s2)) same_slot = 1;
+            }
+        }
+        if (same_slot) {
             if (xc->pos > yc->pos) adj1 = xc->len - yc->len;
             else if (yc->pos > xc->pos) adj2 = yc->len - xc->len;
         }

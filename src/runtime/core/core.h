@@ -98,10 +98,12 @@ typedef struct _TBBLK_t {
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
+TBPAIR_t  *table_find_pair(TBBLK_t *tbl, const char *key);
 DESCR_t    table_get(TBBLK_t *tbl, const char *key);
 DESCR_t    table_get_found(TBBLK_t *tbl, const char *key, int *found);
 void      table_set(TBBLK_t *tbl, const char *key, DESCR_t val);
 void      table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val);
+void      table_set_descr_keyown(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val);
 int       table_delete(TBBLK_t *tbl, const char *key);
 int       table_has(TBBLK_t *tbl, const char *key);
 typedef struct _DATINST_tType {

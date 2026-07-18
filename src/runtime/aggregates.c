@@ -95,10 +95,19 @@ const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
     switch (kd.v) {
         case DT_SNUL: return "\001n";
         case DT_S:    return kd.s ? kd.s : "";
-        case DT_I:    snprintf(buf, bufn, "\001i%lld", (long long)kd.i); return buf;
+        case DT_I:    { char *p = buf; *p++ = '\001'; *p++ = 'i'; long long v = (long long)kd.i; unsigned long long u; if (v < 0) { *p++ = '-'; u = (unsigned long long)(-(v + 1)) + 1ull; } else u = (unsigned long long)v;
+                        char t[24]; int n = 0; do { t[n++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; } while (u); while (n) *p++ = t[--n]; *p = 0; (void)bufn; return buf; }
         case DT_R:    snprintf(buf, bufn, "\001r%.17g", kd.r); return buf;
         default:      snprintf(buf, bufn, "\001p%p", kd.ptr); return buf;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+TBPAIR_t *table_find_pair(TBBLK_t *tbl, const char *key) {
+    if (!tbl || !key) return (TBPAIR_t *)0;
+    unsigned h = _tbl_hash(key);
+    for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next)
+        if (strcmp(e->key, key) == 0) return e;
+    return (TBPAIR_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t table_get(TBBLK_t *tbl, const char *key) {
@@ -126,6 +135,21 @@ void table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) 
     }
     TBPAIR_t *e = rt_agg_alloc(1, sizeof(TBPAIR_t));
     e->key       = rt_ws_strdup_c(key);
+    e->key_descr = key_d;
+    e->val  = val;
+    e->next = tbl->buckets[h];
+    tbl->buckets[h] = e;
+    tbl->size++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void table_set_descr_keyown(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) {
+    if (!tbl || !key) return;
+    unsigned h = _tbl_hash(key);
+    for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) {
+        if (strcmp(e->key, key) == 0) { e->val = val; e->key_descr = key_d; return; }
+    }
+    TBPAIR_t *e = rt_agg_alloc(1, sizeof(TBPAIR_t));
+    e->key       = (char *)key;
     e->key_descr = key_d;
     e->val  = val;
     e->next = tbl->buckets[h];
