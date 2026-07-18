@@ -218,6 +218,7 @@ RT_PIC_SRCS := \
     $(SRC)/optimizer/copy_prop.c \
     $(SRC)/optimizer/pat_fold.c \
     $(SRC)/optimizer/dead_pure.c \
+    $(SRC)/optimizer/dead_goto.c \
     $(SRC)/optimizer/optimizer.c \
     \
     $(SRC)/machine/sm_prog.c \
@@ -511,6 +512,7 @@ scrip:
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/copy_prop.c -o $(OBJ)/copy_prop.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/pat_fold.c -o $(OBJ)/pat_fold.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/dead_pure.c -o $(OBJ)/dead_pure.o
+	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/dead_goto.c -o $(OBJ)/dead_goto.o
 	$(CC) $(CRT)   -I$(SRC)/optimizer -c $(SRC)/optimizer/optimizer.c -o $(OBJ)/optimizer.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_slab.c  -o $(OBJ)/rt_slab.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_arena.c -o $(OBJ)/rt_arena.o

@@ -4,6 +4,7 @@
 #include "copy_prop.h"
 #include "pat_fold.h"
 #include "dead_pure.h"
+#include "dead_goto.h"
 #include <stdio.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -19,5 +20,7 @@ void optimizer_run(IR_graph_t *g) {
         t_cf += n_cf; t_cp += n_cp; t_pf += n_pf; t_dp += n_dp; t_bc += b;
         if (!(n_cf + n_cp + n_pf + n_dp)) break;
     }
-    if (getenv("SCRIP_OPT_STATS")) fprintf(stderr, "[optimizer] fold=%d copy=%d pat=%d dead=%d branch_chain=%d\n", t_cf, t_cp, t_pf, t_dp, t_bc);
+    int t_dg = 0;
+    for (int round = 0; round < 8; round++) { int n = dg_run(g); t_dg += n; if (!n) break; }
+    if (getenv("SCRIP_OPT_STATS")) fprintf(stderr, "[optimizer] fold=%d copy=%d pat=%d dead=%d branch_chain=%d dead_goto=%d\n", t_cf, t_cp, t_pf, t_dp, t_bc, t_dg);
 }
