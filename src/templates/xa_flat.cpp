@@ -7,6 +7,7 @@ extern "C" {
 }
 #define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 extern "C" void rt_jmp_frame_lexprep(void *, long);   /* NCB-1d: det-lexical jmp-entry prologue tail — NULVCL fill + rt_frame_bind_args on the self-allocated frame (rt.c) */
+extern "C" void rt_main_args_fetch(void);   /* ICNBENCH-ARGS-RSP: returns the staged main(args) DESCR in rax:rdx (true return type is DESCR_t; declared void here — the template only takes its ADDRESS, the emitted call site honors the real ABI) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (PLATFORM_X86) {
@@ -189,7 +190,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH self-alloc, byte twin of the TEXT arm — sub rsp,K / mov rdi,rsp / mov ecx,K / xor eax,eax / rep stosb */
-                    extern int g_gen_proc_active; extern int g_resumable_callable_active;
+                    extern int g_gen_proc_active; extern int g_resumable_callable_active; extern int g_flat_outer_nparams;
                     if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix: a generator/resumable proc's frame MUST survive beta-resume, so it lives on the heap (rt_proc_call_gen_h -> rt_zls_alloc) and arrives in rdi; the box ADOPTS it as its rbp frame base (args already bound at [rbp+16]+, region pre-zeroed) instead of carving a throwaway rsp frame that discards the fb.  Restores the pre-s65 non-RSP `mov zr,rdi` the RSP conversion dropped when it applied the outer-graph self-alloc prologue to gen procs.  rsp stays free; both alpha and beta re-enter through this prefix. */
                         std::string rg = bytes(1, "\x55") + bytes(3, "\x48\x89\xFD")
                                        + bytes(3, "\x83\xFE\x00") + bytes(2, "\x0F\x85") + u32le(0);
@@ -206,6 +207,12 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                   + bytes(4, "\x4C\x8B\x24\x25") + u32le((uint32_t)RT_CAS_TOP) /* REG-6 OUTER SEED, byte twin of TEXT's mov r12, qword ptr [RT_CAS_TOP] (byte-verified vs as s80): r12 = live pend/dcap top for the whole graph — jmp-entry blobs/EVAL fragments inherit it via the callee-saved contract; cell pre-warmed by rt_pin_init's chained rt_dcap_lazy_init.  UNGATED: the pend stack is live in every port mode.  No epilogue publish: the pump takes the top BY ARGUMENT (rsi) and LIFO balance means top==base at every graph exit, so the cell stays truthful without one. */
                                   + bytes(4, "\x48\x89\xAC\x24") + u32le(65536) /* CALLER-RBP SAVE (ABI fix, mode-3): store caller rbp at [rsp+K-8] header slot before the seed clobbers rbp; restored before every ret.  The mode-3 caller (scrip main) is a canary-protected C fn that relies on rbp being preserved; mode-4's caller (main: wrapper) does not, so this was latent until the exit-code sweep. */
                                   + bytes(3, "\x48\x89\xE5") /* REG-7 U1 OUTER SEED, byte twin of TEXT's mov rbp, rsp (48 89 E5, byte-verified vs as s82): rbp = the activation FLAT BASE (REG-MAP law 1) — rsp == flat base here by LIFO balance, the frame view every FR/FRQ consumer flips to at U3.  DEAD WEIGHT until U3; jmp-entry blobs get their own save/seed/restore at U2 (pat blobs already have it, s79).  Bare clobber safe by the same callee-saved dance contract the rbx/r12 seeds above ride. */
+                                  + (g_flat_outer_nparams >= 1 ? bytes(1, "\x56") + bytes(4, "\x48\x83\xEC\x08") /* ICNBENCH-ARGS-RSP (closes the R12-ERAD main(args) FENCE): push rsi (entry selector survives the call) + sub rsp,8 (base ≡ 0 mod 16 → call-parity 0 kept) */
+                                                              + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_main_args_fetch) /* movabs rax, rt_main_args_fetch — raw bytes per the lexprep precedent above (legacy raw-byte family, no L-record) */
+                                                              + bytes(2, "\xFF\xD0") /* call rax — staged args DESCR returns in rax:rdx */
+                                                              + bytes(4, "\x48\x83\xC4\x08") + bytes(1, "\x5E") /* add rsp,8 + pop rsi */
+                                                              + bytes(4, "\x48\x89\x45\x10") + bytes(4, "\x48\x89\x55\x18") /* mov [rbp+16],rax + mov [rbp+24],rdx — param-0 slot; runs on β re-entry too (rep stosb rezeroed the frame) */
+                                                              : std::string())
                                   + bytes(3, "\x83\xFE\x00")
                                   + bytes(2, "\x0F\x85") + u32le(0);
                     out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
@@ -275,6 +282,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     pro += std::string("  mov r12, ") + ABSQ(RT_CAS_TOP) + "\n"; /* REG-6 OUTER SEED (twin of the BINARY arm's 4C 8B 24 25, byte-verified vs as s80): r12 = live pend/dcap top, UNGATED, inherited by jmp-entry blobs; cell pre-warmed by rt_pin_init.  No epilogue publish — pump takes rsi, LIFO balance keeps the cell truthful at exit. */
                     pro += std::string("  mov [rsp + 65536], rbp\n"); /* CALLER-RBP SAVE (ABI fix, twin of BINARY 48 89 AC 24 00 00 01 00): store caller rbp at [rsp+K-8] header slot before the seed clobbers it; restored before every ret */
                     pro += std::string("  mov rbp, rsp\n"); /* REG-7 U1 OUTER SEED (twin of the BINARY arm's 48 89 E5): rbp = activation flat base per REG-MAP law 1 — dead until U3's consumer flip; blobs save/seed/restore their own (s79 pat, U2 non-pat).  Bare clobber safe: the dance restores callee-saved regs, same as rbx/r12 above. */
+                    { extern int g_flat_outer_nparams; if (g_flat_outer_nparams >= 1) pro += std::string("  push rsi\n  sub rsp, 8\n  call rt_main_args_fetch@PLT\n  add rsp, 8\n  pop rsi\n  mov [rbp + 16], rax\n  mov [rbp + 24], rdx\n"); } /* ICNBENCH-ARGS-RSP TEXT twin: bind staged main(args) into the param-0 slot; esi preserved, rsp call-parity 0 kept */
                     if (g_gen_proc_active || g_resumable_callable_active)
                         pro += std::string("  cmp esi, 0\n") + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                     return pro;

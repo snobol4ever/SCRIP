@@ -3170,6 +3170,11 @@ DESCR_t rt_args_list_from(char **v, int n) {
     for (int _i=0;_i<n;_i++) tmp[_i] = STRVAL(v[_i]);
     return rt_make_list(tmp, n);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t g_main_args_descr;
+static int g_main_args_staged = 0;
+void rt_main_args_stage(char **v, int n) { g_main_args_descr = rt_args_list_from(v, n); g_main_args_staged = 1; }
+DESCR_t rt_main_args_fetch(void) { if (!g_main_args_staged) rt_main_args_stage((char **)0, 0); return g_main_args_descr; }
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
