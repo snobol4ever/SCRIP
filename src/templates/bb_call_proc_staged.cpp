@@ -14,6 +14,9 @@ DESCR_t rt_faildescr(void);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame(void *act);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
+DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
+DESCR_t rt_gen_spine_pass_ω(void);
+void rt_gen_spine_resume_enter(void);
 int  rt_proc_is_generator(const char *name);
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
@@ -185,6 +188,84 @@ static std::string bcps_det_arm() {
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GENP-SPINE (Lon directive 2026-07-17 s92: "get generator procedures on the main spine; co-expressions are the only construct requiring a separate stack/pthread") — THE GENERATOR CALL SITE, SPINE-RESIDENT.
+ * Supersedes the s91 per-instance-stack arms below (bcps_bin/txt_gen_arm, now LEGACY-CONFIG ONLY: non-RSP frames): the callee is the SAME jmp-entry blob the det arm enters — flat_lex lexprep binds the
+ * staged args, the body runs on the ONE RSP/RBP ζ stack, and suspend routes through xa_flat's RETAINING γ epilogue (result preloaded rdi:rsi, 16B resume record {res-landing, callee rbp} left at the
+ * deep frontier, γ wire jumped, NO unwind).  The caller continues DEEP below the retained activation — legal since NCB-1d made consumers depth-immune — and the β resume edge is the ZS-2 outside law
+ * verbatim: jmp qword [rsp] (the record's landing word sits AT the frontier by LIFO balance; res-landing drops it, re-pins rbp, dispatches jmp [rbp+resume_slot] to the recorded suspend's β).
+ * Exhaustion and post-`return` resumption (the bb_return slot-poison) unwind ABSOLUTELY lea rsp,[rbp+kt] and land the ω wire.  ABANDONMENT IS FREE: any enclosing epilogue's rbp-absolute unwind reclaims
+ * every retained frame below it — no thread, no join, the s91 rc=124 exit-hang / abandoned-instance-leak class dies structurally.  ONE-POP LAW: rt_proc_call_open pushed ONE pcall record and
+ * epilogue_γ/ω POP one, so only the FIRST delivery may run an epilogue leaf; the callgen.act ZLS2 slot (the pthread model's activation handle, repurposed) is the once-flag — α zeroes it, the landings
+ * test-and-set, resumed deliveries pass rdi:rsi through to rax:rdx (γ) or synthesize FAILDESCR (ω) with no pop.  Wires are per-activation constants, so EVERY yield lands L(3) and EVERY failure L(4):
+ * first-vs-resumed is the flag's job alone.  β never re-stages/re-opens — args were bound into the retained frame at prologue. */
+static std::string bcps_spine_gen_arm() {
+    x86_begin();
+    int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
+    int act = off + 16 * (1 + (int)_.op_ival);
+    IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
+    uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t openfn_fp; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    return x86_alpha()
+         + x86_scan_sync_out()
+         + x86_anchor_enter()
+         + x86("mov", FRQ(act), 0L)
+         + FOR(0, (int)_.op_ival, [&](int i) {
+        int slot = bcps_arg_slot(_.node, argblks, i);
+        return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+    })
+         + x86_ro_load_q("rdi", 0)
+         + x86("mov32", "esi", (long)_.op_ival)
+         + x86("call", "rt_proc_call_open", open_fp)
+         + x86("test", "rax", "rax")
+         + x86("je", L(1))
+         + x86("call", "rt_proc_open_fn", openfn_fp)
+         + x86_lea_id("rcx", 3)
+         + x86_lea_id("rdx", 4)
+         + x86_jmp_reg("rax")
+         + x86("def", L(3))
+         + x86("mov", "rax", FRQ(act))
+         + x86("test", "rax", "rax")
+         + x86("jne", L(5))
+         + x86("mov", FRQ(act), 1L)
+         + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
+         + x86("jmp", L(2))
+         + x86("def", L(5))
+         + x86("call", "rt_gen_spine_pass_γ", pasg_fp)
+         + x86("jmp", L(2))
+         + x86("def", L(4))
+         + x86("mov", "rax", FRQ(act))
+         + x86("test", "rax", "rax")
+         + x86("jne", L(6))
+         + x86("mov", FRQ(act), 1L)
+         + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
+         + x86("jmp", L(2))
+         + x86("def", L(6))
+         + x86("call", "rt_gen_spine_pass_ω", pasw_fp)
+         + x86("jmp", L(2))
+         + x86("def", L(1))
+         + x86("call", "rt_faildescr", fail_fp)
+         + x86("def", L(2))
+         + x86_anchor_leave()
+         + x86_scan_sync_in_rr()
+         + x86("mov", FRQ(off), "rax")
+         + x86("mov", FRQ(off + 8), "rdx")
+         + x86("cmp", "eax", (long)99)
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta()
+         + x86_scan_sync_out()
+         + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
+         + x86_jmp_mem("rsp", 0)
+         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_bin_gen_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     int act = off + 16 * (1 + (int)_.op_ival);
@@ -261,6 +342,7 @@ std::string bb_call_proc_staged_str(IR_t * pBB) {
     int is_gen = _.op_sval && rt_proc_is_generator(_.op_sval);
     if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha() + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act ZLS2 handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
     if (is_gen) {
+        if (ZC_FRAME == ZC_FRAME_RSP) { if (MEDIUM_BINARY || MEDIUM_TEXT) return bcps_spine_gen_arm(); return std::string(); }   /* GENP-SPINE s92: spine-resident generators under the RSP default; the pthread arms below serve legacy non-RSP frames only */
         if (MEDIUM_BINARY) return bcps_bin_gen_arm();
         if (MEDIUM_TEXT)   return bcps_txt_gen_arm();
         return std::string();

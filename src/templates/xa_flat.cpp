@@ -319,8 +319,11 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                  * (out_site/out_lbl/out_def describe THAT patch); the RETURN VALUE is γ piece B; out_fail =
                  * the ω-half. */
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) {   /* REG-7 U5 (Lon FORTH ruling) BINARY twin: pat-blob SUSPEND exits on the rbp/header-above protocol.  γ retains the activation — 16B resume record {landing, rbp} pushed at the DEEP frontier, wires read through the PINNED rbp ([rbp+kt-24/-16], depth-immune), caller rbp restored self-referentially [rbp+kt-8] (U2b discipline).  ω unwinds ABSOLUTELY: lea rsp,[rbp+kt] rejoins pre-entry rsp at ANY arrival depth (seal cuts), reads-before-motion (rax and the lea both read rbp before its restore). */
-                    std::string succA = bytes(1, "\x55")                                     /* push rbp — record payload: flat base */
+                if (ZC_FRAME == ZC_FRAME_RSP && (g_emit.flat_pat || g_emit.flat_gen)) {   /* REG-7 U5 (Lon FORTH ruling) BINARY twin: pat-blob SUSPEND exits on the rbp/header-above protocol; GENP-SPINE (Lon "generator procedures on the main spine", 2026-07-17 s92) widens the arm to flat_gen — generator procs suspend on the ONE ζ stack, LIFO law, no per-instance coexpr stack.  γ retains the activation — 16B resume record {landing, rbp} pushed at the DEEP frontier, wires read through the PINNED rbp ([rbp+kt-24/-16], depth-immune), caller rbp restored self-referentially [rbp+kt-8] (U2b discipline); flat_gen ADDITIONALLY preloads the result DESCR into rdi:rsi pre-record (frame slot 0, bb_suspend/bb_return's write — the det delivery protocol the caller's γ landing expects).  ω unwinds ABSOLUTELY: lea rsp,[rbp+kt] rejoins pre-entry rsp at ANY arrival depth (seal cuts), reads-before-motion (rax and the lea both read rbp before its restore). */
+                    std::string succA = (g_emit.flat_gen ? bytes(4, "\x48\x8B\x7D\x00")      /* mov rdi, [rbp] — result word0 via pinned base (flat_gen only) */
+                                                         + bytes(4, "\x48\x8B\x75\x08")      /* mov rsi, [rbp + 8] — result word1 */
+                                                         : std::string())
+                                      + bytes(1, "\x55")                                     /* push rbp — record payload: flat base */
                                       + bytes(3, "\x48\x8D\x05");                            /* lea rax, [rip + res-landing] */
                     out_site = (int)succA.size(); out_lbl = g_emit.flat_res_p; out_def = false;
                     succA += u32le(0);
@@ -443,9 +446,9 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_emit.flat_jmp_entry) {
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) {   /* REG-7 U5 (Lon FORTH ruling) TEXT twin: pat-blob SUSPEND exits, rbp/header-above.  γ retains the activation (16B record {landing, rbp} at the deep frontier, wires via pinned rbp, self-referential caller restore); ω unwinds ABSOLUTELY lea rsp,[rbp+kt] (seal cuts arrive at any depth), reads-before-motion. */
-                    char sa[224], sb2[224], fb2[320];
-                    snprintf(sa, sizeof sa, "push rbp\nlea rax, [rip + %s]\n", (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
+                if (ZC_FRAME == ZC_FRAME_RSP && (g_emit.flat_pat || g_emit.flat_gen)) {   /* REG-7 U5 (Lon FORTH ruling) TEXT twin: pat-blob SUSPEND exits, rbp/header-above; GENP-SPINE (s92) widens to flat_gen — generator procs suspend on the main ζ spine, flat_gen preloading the result DESCR into rdi:rsi pre-record (det delivery protocol).  γ retains the activation (16B record {landing, rbp} at the deep frontier, wires via pinned rbp, self-referential caller restore); ω unwinds ABSOLUTELY lea rsp,[rbp+kt] (seal cuts arrive at any depth), reads-before-motion. */
+                    char sa[288], sb2[224], fb2[320];
+                    snprintf(sa, sizeof sa, "%spush rbp\nlea rax, [rip + %s]\n", g_emit.flat_gen ? "mov rdi, [rbp]\nmov rsi, [rbp + 8]\n" : "", (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
                     snprintf(sb2, sizeof sb2, "push rax\nmov rax, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 24, kt - 8);
                     snprintf(fb2, sizeof fb2, "%s%smov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n",
                         (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt, kt - 8);
