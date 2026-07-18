@@ -1,0 +1,5 @@
+#ifndef PAT_FOLD_H
+#define PAT_FOLD_H
+#include "IR.h"
+int pf_run(IR_graph_t * g);
+#endif

@@ -1,0 +1,5 @@
+#ifndef CONST_FOLD_H
+#define CONST_FOLD_H
+#include "IR.h"
+int cf_run(IR_graph_t * g);
+#endif
