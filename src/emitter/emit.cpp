@@ -819,7 +819,8 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
-    case IR_INDIRECT_GOTO: case IR_DISJUNCTION: bb_emit_x86(bb_indirect_goto()); return 0;
+    case IR_INDIRECT_GOTO: case IR_DISJUNCTION: { if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { bb_emit_x86(bb_disjunction()); return 0; }   /* MOVE_LABEL-ERAD: Icon nary self-state form (operands = (entry,resume)×N + result×N, ival=N); the 0-operand shape is the legacy Prolog gate */
+                                                  bb_emit_x86(bb_indirect_goto()); } return 0;
     case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_tab()); }    return 0;   /* ZB-ICN-FC-1: Icon's first FORTH cell — saved-cursor scratch at op_off+16 rides rsp; grant set HERE (post-DRIVE_FILL reset), result stays flat at op_off+0 */
     case IR_SCAN_MOVE:            { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_move()); }   return 0;   /* ZB-ICN-FC-2: move is tab's twin — saved-cursor scratch at op_off+16 rides rsp; grant set HERE (post-DRIVE_FILL reset) */
@@ -957,15 +958,15 @@ static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label
     for (int p = 0; p < n; p++) if (nodes[p] == pv) return betas[p];
     return dflt;
 }
-static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω) {
+static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω, bb_label_t *chain_ω) {
     /* SN4-NARY-ALT drive: operands = (entry_j, resume_j) pairs.  Pair slots handed to the template:
      * 0..N-1 = entry α labels (fail-glue's alt_i dispatch), N..2N-1 = resume β labels (A.β's alt_i dispatch
      * — the alternative's OWN inner resume, seed alt_β), 2N = na_s success-glue define, 2N+1 = na_f
      * fail-glue define.  σ/φ-tagged inside edges land the two glue defines (resolved in the chain loop). */
-    IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : nd->n_operands / 2;   /* ARBNO: (entry,resume) + [2]=geometry bracket + optional [3]=self seal marker */
+    IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : nd->n_operands / 2;   /* ARBNO: (entry,resume) + [2]=geometry bracket + optional [3]=self seal marker; DISJUNCTION (MOVE_LABEL-ERAD): operands = (entry,resume)×N + result×N, so N rides ival, results at [2N..3N-1] */
     g_emit.xa_bb_emit_pair_n = 0;
-    for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == e) { t = lbls[k];  break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
-    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_f[i];   /* FENCE-rooted body: resume a committed iteration ≡ abandon it (seal) */ int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == e) { t = lbls[k];  break; } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω;   /* MOVE_LABEL-ERAD: IR_FAIL is a chain SENTINEL (never emitted; edges into it = proc fail, the 1760 node_γ→lbl_ω convention) — a bare `fail` alternation arm must dispatch to the CHAIN ω, not the dj's statement-next ω (roman `integer(n)>0 | fail` bug: proc-fail was becoming statement-continue) */ int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_f[i];   /* FENCE-rooted body: resume a committed iteration ≡ abandon it (seal) */ if (nd->op == IR_DISJUNCTION && r == nd) t = na_f[i];   /* MOVE_LABEL-ERAD self marker: valueless arm's resume ≡ advance to the next alternative (φ-glue) */ int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_s[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_f[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     /* ZB-FC-3a: per-arm sigma pad stubs (S10d pad-to-max).  Active iff LOWER registered the linear-arm fp set
@@ -976,6 +977,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
         for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }   /* CV10: arm-value slots delivered to bb_scan_sequence (op_parts channel, IR_ALT precedent; 32-arm cap) */
+    if (nd->op == IR_DISJUNCTION) { for (int j = 0; j < N && j < 32; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0; while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }   /* conjunction value = operands[0] (its own drive's alias source); chase STRUCTURALLY — bb_slot_register aliasing happens at the conj's OWN drive, later in chain order than this dj, so slot lookups here are pre-alias-stale (rung37 empty-value bug) */ int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs; } g_emit.op_parts_n = N; }   /* MOVE_LABEL-ERAD option B: per-arm RESULT slots (trailing operands) for the σ-glue's alt_i-dispatched copy into the disjunction's own value slot; -1 = valueless arm, glue copies nothing (value stays as α zeroed it) */
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1421,6 +1423,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_INDIRECT_GOTO: case IR_DISJUNCTION: {
+        if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { drive_unowned(nd); break; }   /* MOVE_LABEL-ERAD: nary form is flat-driven from codegen_flat_chain_body like the other nary constructs */
         int off = drive_value_slot(nd);
         g_emit.op_off = off;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -1617,7 +1620,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
-        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
+        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
         int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
@@ -1643,7 +1646,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
+        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     if (qt >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= CH_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)CH_MAX, prefix); abort(); }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -1669,8 +1672,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_ry", id, i) : NULL;
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_rt", id, i) : NULL;
-        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_as", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
-        na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_af", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
+        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_as", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
+        na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_af", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
         fc_sig[i] = NULL;   /* ZB-FC-3a: per-arm sigma pad-stub labels for a LINEAR-ARM granted ALT (FORTH flavor) */
         if (fc_alt_active(nodes[i])) {
             int _N = (int)(nodes[i]->n_operands / 2);
@@ -1804,8 +1807,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             flat_drive_repalt(nodes, n, i, lbls, betas, ra_y, ra_t, node_γ, node_ω);
             continue;
         }
-        if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE) && nodes[i]->n_operands > 0) {
-            flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω);   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout */
+        if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) {
+            flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω, &lbl_ω);   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout */
             continue;
         }
         if (nodes[i]->op == IR_LIMIT) {
