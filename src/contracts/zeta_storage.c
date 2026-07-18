@@ -12,7 +12,7 @@ static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sva
 #define ZLS_MAX_ENTRIES 65536
 #define ZLS_MAX_FIELDS  131072
 #define ZLS_MAX_SCOPES  4096
-#define ZLS_MAX_GRAPHS  256
+#define ZLS_MAX_GRAPHS  4096
 #define ZLS_MAX_VSLOTS  4096
 #define ZLS_MAX_MARKS   8192
 typedef struct { const IR_t * nd; int scope_id; int off; } zls_entry_t;

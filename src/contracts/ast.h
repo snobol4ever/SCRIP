@@ -62,6 +62,7 @@ typedef enum tree_e {
     TT_HASH_DECL,
     TT_USE_DECL,
     TT_CONJ,
+    TT_DEREF,
     TT_KIND_COUNT
 } tree_e;
 typedef enum {
@@ -148,7 +149,7 @@ static const char * const tt_e_name[TT_KIND_COUNT] = {
     [TT_ADD]              = "TT_ADD",            [TT_SUB]              = "TT_SUB",             [TT_MUL]              = "TT_MUL",
     [TT_DIV]              = "TT_DIV",            [TT_MOD]              = "TT_MOD",             [TT_POW]              = "TT_POW",
     [TT_SEQ]              = "TT_SEQ",            [TT_CAT]              = "TT_CAT",             [TT_ALT]              = "TT_ALT",
-    [TT_CONJ]             = "TT_CONJ",
+    [TT_CONJ]             = "TT_CONJ",           [TT_DEREF]            = "TT_DEREF",
     [TT_VLIST]            = "TT_VLIST",          [TT_OPSYN]            = "TT_OPSYN",
     [TT_ARB]              = "TT_ARB",            [TT_ARBNO]            = "TT_ARBNO",
     [TT_POS]              = "TT_POS",            [TT_RPOS]             = "TT_RPOS",

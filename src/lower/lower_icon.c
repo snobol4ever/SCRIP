@@ -385,6 +385,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * idxβ = cx->beta;
         IR_t * drf = build(cx, IR_DEREF, γ, idxβ ? idxβ : ω); lc_γ_to(vr, drf); ir_operand_push(drf, vr);
         *res = drf; return e; }
+    case TT_DEREF: {
+        const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL; if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
+        IR_t * ar = NULL; IR_t * ae = lower(cx, b0, NULL, ω, &ar);
+        IR_t * drβ = cx->beta;
+        IR_t * drf = build(cx, IR_DEREF, γ, drβ ? drβ : ω); lc_γ_to(ar, drf); ir_operand_push(drf, ar);
+        *res = drf; return ae; }
     case TT_MAKELIST: case TT_VLIST: return lower_make_list(cx, t, γ, ω, res);
     case TT_ASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
