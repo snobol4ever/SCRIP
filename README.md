@@ -487,69 +487,63 @@ Reproduce: `scripts/bench_prolog_4way.sh` (correctness), `scripts/bench_prolog_v
 
 The Icon frontend is measured against canonical **Icon 9.5** (`icont`/`iconx`, built from
 source) and **JCON 2.2** (Proebsting/Townsend's Icon-on-JVM compiler, built from source on
-OpenJDK 21) on the **JCON benchmark suite** (`corpus/benchmarks/icon/` — the five classic
-Icon v9.3 benchmarks plus jcon's two supplemental applications; `micro`/`micsum` excluded as
-degenerate per the upstream notes). One corpus source per benchmark runs on every engine
-(the jcon originals with explicit semicolons — `icont` and `jcont` both accept them).
-Invocation is the jcon/bmark Makefile's canonical protocol, identical everywhere:
-`concord <concord.dat` · `deal -h 1000` · `ipxref <ipxref.dat` · `queens -n10` ·
-`rsg <rsg.dat` · `tgrlink tgrlink.dat` · `geddump geddump.dat`, with `OUTPUT=1` on all
-engines (Init__ otherwise suppresses output via `write := 1` function-value assignment),
-so times are I/O-inclusive but internally fair. **JCON matched the iconx oracle
-byte-for-byte on all 7** — certifying the oracle; every divergence below is SCRIP's own.
+OpenJDK 21) on the merged **icon-master/tests/bench + jcon-master/bmark suite**
+(`corpus/benchmarks/icon/`, 10 programs; `corpus/benchmarks/README-ICON-JCON.md` is
+authoritative for the merge). Runner: `scripts/test_icon_bench_corpus.sh` — the canonical
+jcon/bmark invocation protocol on every engine (`concord <concord.dat` · `deal -h 1000` ·
+`geddump <geddump.dat` · `ipxref <ipxref` sources · `micro 0.05` · `micsum <micro-output` ·
+`queens -n10` · `rsg <rsg.dat` · `tgrlink tgrlink.dat` · `version`), with the suite's stock
+`post.icn` output suppression active (`Init__` reassigns `write := 1`), so times measure
+compute, not I/O. This is a DIFFERENT protocol from the 2026-07-14 measurement formerly in
+this section (`OUTPUT=1`, I/O-inclusive, 7 programs) — the two are not comparable rows.
 
-Measured 2026-07-14 at SCRIP `HEAD` / corpus `2ced25f1`: wall-clock, single runs,
-gcc `-O0`, shared container. `m3` = `--run` (time includes the in-process compile);
-`m4` = `--compile --target=x86` → `as`+`gcc` binary (run only). Startup floors
-(hello-world): iconx 4 ms · JCON 122 ms (JVM) · m3 9 ms · m4 7 ms.
-Two bugs fixed this session (see structural facts below); m4 recovered from 0/7 to 4/7.
+**Status, measured 2026-07-18 at SCRIP `f405c6a7` (origin HEAD):** iconx **10/10** ·
+JCON **10/10** (the two anchors agree on all line counts) · **SCRIP m3 6/10 · m4 6/10**.
+Both anchors built and verified in-sandbox; every divergence below is SCRIP's own.
 
-**Correctness** (normalized program content vs iconx; normalization strips the
-Init__/Term__ environment banner, region/GC lines, and elapsed-time line):
-
-| Benchmark | oracle lines | JCON | SCRIP m3 | SCRIP m4 |
-|-----------|-------------:|------|----------|----------|
-| concord | 1,345 | identical | DIFF — output suppressed (concordance loop) | DIFF — output suppressed |
-| deal | 17,000 | identical | **identical** | **identical** |
-| ipxref | 1,208 | identical | **identical** | **identical** |
-| queens | 16,653 | identical | **identical** | **identical** |
-| rsg | 5,000 | identical | **identical** | **identical** |
-| tgrlink | 3,239 | identical | DIFF — output suppressed (scan+table) | DIFF — output suppressed |
-| geddump | 12,568 | identical | ABORT — Too many GC root sets | ABORT — Too many GC root sets |
-
-Mode-4: **4/7 byte-identical**. Mode-3: **4/7 byte-identical**. m3 ≡ m4 on all 7 (MODE34-IDENTICAL holds).
-
-**Timing** (ms) on the four benchmarks where both modes are byte-identical to oracle:
+**Timing** (ms, wall-clock, best of 3, gcc `-O0`, shared container) on the six programs
+SCRIP runs to completion. `m3` = `--run` (includes in-process parse+lower+emit); `m4` =
+`--compile --target=x86` → `as`+`gcc` binary (run only). Startup floors: iconx ~4 ms ·
+JCON ~125 ms (JVM) · m4 ~4 ms.
 
 | Benchmark | iconx | JCON | SCRIP m3 | SCRIP m4 | m4 vs iconx | m4 vs JCON |
 |-----------|------:|-----:|---------:|---------:|------------:|-----------:|
-| ipxref | 44 | 619 | 163 | 142 | 3.2× | **0.23× (faster)** |
-| rsg | 42 | 337 | 150 | 116 | 2.8× | **0.34× (faster)** |
-| deal | 44 | 404 | 168 | 154 | 3.5× | **0.38× (faster)** |
-| queens | 94 | 449 | 255 | 215 | 2.3× | **0.48× (faster)** |
+| concord | 34 | 283 | 14 | 5 | **6.8× faster** | 57× faster |
+| deal | 26 | 290 | 13 | 4 | **6.5× faster** | 72× faster |
+| micsum | 4 | 139 | 8 | 5 | ~parity (floor) | 28× faster |
+| queens | 55 | 325 | 14 | 4 | **13.8× faster** | 81× faster |
+| rsg | 17 | 269 | 27 | 9 | **1.9× faster** | 30× faster |
+| version | 4 | 128 | 6 | 4 | parity (floor) | 32× faster |
 
-**Geomean m4 vs iconx = 2.9×; m4 vs JCON = 0.35× (2.9× faster).** Structural facts:
+**Geomean m4 vs iconx = 3.1× faster** over all six (8.5× over the three non-trivial
+workloads concord/deal/queens; micsum/version sit on the ~4 ms process floor).
+**m4 vs JCON = ~46× faster**, but read that with care: JCON's ~125 ms JVM startup floor
+dominates every sub-second program here, so the ratio measures startup as much as code
+quality. m3 beats iconx on the real workloads (2–4×) despite paying full compilation
+inside the measured time.
 
-- **Two bugs fixed 2026-07-14 (this measurement):**
-  (1) *Duplicate procedure emission* (`src/lower/lower_icon.c`): `icn_resolve_links` now
-  inlines linked files' procs; passing them again as CLI args caused every linked proc to be
-  registered twice → assembler `symbol already defined` → 0/7 m4 programs linked. Fix: dedup
-  guard in `icon_register_program` (4 lines). (2) *`bb_suspend` NULL-label segfault*
-  (`src/emitter/emit.cpp`): `IR_SUSPEND` emit set `lbl_t1_p = lbl_β` but left `lbl_t1`
-  (the name string) NULL; `x86_lea_tgt(TGT1)` read the name → `strlen(NULL)` → SIGSEGV.
-  Fix: set `lbl_t1 = lbl_β->name` alongside the pointer (1 line). Together these recovered
-  m4 from **0/7 → 4/7** and eliminated 2 compiler segfaults. No regressions: ladder
-  239/15/35 unchanged, smoke 14/14 both modes, all four Icon gates green.
-- **Three remaining failures are pre-existing, not regressions:**
-  concord/tgrlink suppress their program output in both modes (generator-in-call-arg path,
-  pre-dates this session). geddump aborts with `Too many GC root sets` (Boehm GC limit,
-  shared runtime infrastructure). All three failed identically before this session's fixes.
-- **These runs are I/O-dominated** (`OUTPUT=1`, 5k–17k output lines); iconx's buffered C
-  write path sets a hard floor.
+**The four failures — three are known-cause, two are freshly-pinned regressions:**
 
-These are honest current numbers, not the target. Reproduce with the invocations above
-against `corpus/benchmarks/icon/`; oracle kit: `icon-master` → `make Configure name=linux
-&& make Icont`, `jcon-master` → `make` with `icont` and a JDK on PATH.
+- **micro** — TIMEOUT, pre-existing heap exhaustion (`[ZHP]` at ~battery 94+; the
+  put/get O(n)-copy-per-append in `by_name_dispatch.c`, WS/GC-ladder territory, not
+  bench-lane). Identical before and after every commit below.
+- **geddump + tgrlink** — rc=0 with ZERO output lines, both modes. **Regression, bisected
+  to exactly `7aade169`** (ICN-GOTO-SURVEY α-force pilot: dj α-entry trampoline
+  eradication + `lower_every` mark→body force-α). Both were passing at `d52fdaac`
+  (tgrlink byte-identical to iconx, 3239L; geddump full-output).
+- **ipxref** — `FATAL emit_drive: IR op=27 has no template`, both modes. **Regression,
+  bisected to exactly `00a027ca`** (ICN-MOVE-LABEL-ERAD slice 2: the IR_DISJUNCTION nary
+  self-state rewrite of `lower_alt`). Passing at `16064867`, the commit immediately before.
+- Why the regressions went unseen: the intervening sessions re-proved the RUNG suite
+  (246/14/32 zero-delta per commit) but never re-ran this bench track, and
+  geddump/ipxref/tgrlink have no (or only partial) diffable rung variants. The bench
+  runner is a report, not a gate — these three now need FZ-style rungs or the runner in
+  the per-commit gate list.
+
+Reproduce: `bash scripts/test_icon_bench_corpus.sh` (builds everything it needs; SKIP_BUILD=1
+after first run). Oracle kit: `icon-master` → `make Configure name=linux && make Icont`;
+`jcon-master` → `make build` with `icont` and a full JDK on PATH (invoke `jcont` via `bash`
+— it uses bashisms; run it from the source dir with bare filenames).
 
 ---
 
