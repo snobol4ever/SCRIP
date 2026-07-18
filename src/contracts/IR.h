@@ -229,6 +229,7 @@ struct IR_graph_t {
     int            n_vslots;
     int            resume_slot;
     int            resumable_callable;
+    int            deterministic;
     int            zeta_mark_slot;
     IR_t         * body_root;
     #define AG_RING 16
