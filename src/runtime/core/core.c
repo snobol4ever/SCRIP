@@ -426,7 +426,7 @@ void comm_var(const char *name, DESCR_t val) {
     if (cbfn && trace_recursion_depth == 0) {
         trace_recursion_depth++;
         DESCR_t cbargs[2];
-        cbargs[0] = STRVAL(rt_ws_strdup(name));
+        cbargs[0] = STRVAL(rt_ws_strdup_c(name));
         cbargs[1] = STRVAL("");
         (void)APPLY_fn(cbfn, cbargs, 2);
         trace_recursion_depth--;
@@ -723,10 +723,10 @@ static DESCR_t _NAME_(DESCR_t *a, int n) {
     DESCR_t val = a[0];
     if (IS_NAME(val)) {
         const char *nm = val.s ? val.s : "";
-        return STRVAL(rt_ws_strdup(nm));
+        return STRVAL(rt_ws_strdup_c(nm));
     }
     const char *s = VARVAL_fn(val);
-    return STRVAL(rt_ws_strdup(s ? s : ""));
+    return STRVAL(rt_ws_strdup_c(s ? s : ""));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LGT_(DESCR_t *a, int n) {
@@ -774,10 +774,10 @@ static DESCR_t _LNE_(DESCR_t *a, int n) {
 static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     int64_t selector = to_int(a[0]);
-    if (selector == 0) return STRVAL(rt_ws_strdup(""));
+    if (selector == 0) return STRVAL(rt_ws_strdup_c(""));
     if (selector == 1) {
         char buf[32]; snprintf(buf, sizeof(buf), "%d", (int)getpid());
-        return STRVAL(rt_ws_strdup(buf));
+        return STRVAL(rt_ws_strdup_c(buf));
     }
     if (selector == 3) return INTVAL(0);
     if (selector == 4 && n >= 2) {
@@ -785,7 +785,7 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         if (!envname || !*envname) return NULVCL;
         const char *val = getenv(envname);
         if (!val) return NULVCL;
-        return STRVAL(rt_ws_strdup(val));
+        return STRVAL(rt_ws_strdup_c(val));
     }
     return NULVCL;
 }
@@ -907,7 +907,7 @@ static DESCR_t _LCASE_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     const char *s = VARVAL_fn(a[0]);
     if (!s) return NULVCL;
-    char *r = rt_ws_strdup(s);
+    char *r = rt_ws_strdup_c(s);
     for (int i = 0; r[i]; i++) r[i] = (char)tolower((unsigned char)r[i]);
     return STRVAL(r);
 }
@@ -916,7 +916,7 @@ static DESCR_t _UCASE__fn(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     const char *s = VARVAL_fn(a[0]);
     if (!s) return NULVCL;
-    char *r = rt_ws_strdup(s);
+    char *r = rt_ws_strdup_c(s);
     for (int i = 0; r[i]; i++) r[i] = (char)toupper((unsigned char)r[i]);
     return STRVAL(r);
 }
@@ -937,7 +937,7 @@ static DESCR_t _DATE_(DESCR_t *a, int n) {
     (void)a; (void)n;
     time_t t = time(NULL);
     struct tm *tm = localtime(&t);
-    char *buf = rt_ws_alloc(20);
+    char *buf = rt_ws_alloc_c(20);
     strftime(buf, 20, "%m/%d/%Y %H:%M:%S", tm);
     return STRVAL(buf);
 }
@@ -1009,7 +1009,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (!type) return FAILDESCR;
     if (strcasecmp(type, "STRING")  == 0) {
         const char *s = VARVAL_fn(val);
-        return s ? STRVAL(rt_ws_strdup(s)) : NULVCL;
+        return s ? STRVAL(rt_ws_strdup_c(s)) : NULVCL;
     }
     if (strcasecmp(type, "INTEGER") == 0) {
         if (!IS_STR(val) && !IS_INT(val) && !IS_REAL(val)) return FAILDESCR;
@@ -1082,7 +1082,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (strcasecmp(type, "NAME") == 0) {
         const char *s = VARVAL_fn(val);
         if (!s || !*s) return FAILDESCR;
-        return NAMEVAL(rt_ws_strdup(s));
+        return NAMEVAL(rt_ws_strdup_c(s));
     }
     if (strcasecmp(type, "NUMERIC")    == 0) {
         if (IS_INT(val)) return val;
@@ -1192,7 +1192,7 @@ static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *name = VARVAL_fn(a[0]);
     if (!name || !*name) return FAILDESCR;
-    return FNCEX_fn(name) ? STRVAL(rt_ws_strdup(name)) : FAILDESCR;
+    return FNCEX_fn(name) ? STRVAL(rt_ws_strdup_c(name)) : FAILDESCR;
 }
 static int (*_label_exists_hook)(const char *) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1203,7 +1203,7 @@ static DESCR_t _LABEL_(DESCR_t *a, int n) {
     const char *name = VARVAL_fn(a[0]);
     if (!name || !*name) return FAILDESCR;
     if (_label_exists_hook && _label_exists_hook(name))
-        return STRVAL(rt_ws_strdup(name));
+        return STRVAL(rt_ws_strdup_c(name));
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1237,7 +1237,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
             trace_register(varname);
         }
     }
-    return STRVAL(rt_ws_strdup(varname));
+    return STRVAL(rt_ws_strdup_c(varname));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _STOPTR_(DESCR_t *a, int n) {
@@ -1245,7 +1245,7 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     const char *varname = VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
     trace_unregister(varname);
-    return STRVAL(rt_ws_strdup(varname));
+    return STRVAL(rt_ws_strdup_c(varname));
 }
 static DATBLK_t *_udef_lookup(const char *name);
 typedef struct { char *typename; int nfields; char **fields; } DataClosure;
@@ -1578,7 +1578,7 @@ static DESCR_t _PROTOTYPE_(DESCR_t *a, int n) {
             else
                 snprintf(buf, sizeof(buf), "%d:%d", arr->lo, arr->hi);
         }
-        return STRVAL(rt_ws_strdup(buf));
+        return STRVAL(rt_ws_strdup_c(buf));
     }
     if (IS_TBL(v)) {
         return STRVAL("");
@@ -1814,23 +1814,23 @@ void core_lib_init(void) {
 char *VARVAL_fn(DESCR_t v) {
     char buf[64];
     switch (v.v) {
-        case DT_SNUL:    return rt_ws_strdup("");
-        case DT_S:     return v.s ? v.s : rt_ws_strdup("");
+        case DT_SNUL:    return rt_ws_strdup_c("");
+        case DT_S:     return v.s ? v.s : rt_ws_strdup_c("");
         case DT_I:
             snprintf(buf, sizeof(buf), "%" PRId64, v.i);
-            return rt_ws_strdup(buf);
+            return rt_ws_strdup_c(buf);
         case DT_R: {
             snprintf(buf, sizeof(buf), "%.15g", v.r);
             if (!strchr(buf, '.') && !strchr(buf, 'e'))
                 strncat(buf, ".", sizeof(buf) - strlen(buf) - 1);
-            return rt_ws_strdup(buf);
+            return rt_ws_strdup_c(buf);
         }
         case DT_DATA:
-            return v.u ? rt_ws_strdup(v.u->type->name) : rt_ws_strdup("");
+            return v.u ? rt_ws_strdup_c(v.u->type->name) : rt_ws_strdup_c("");
         case DT_P:
-            return rt_ws_strdup("PATTERN");
+            return rt_ws_strdup_c("PATTERN");
         case DT_A: {
-            if (!v.arr) return rt_ws_strdup("ARRAY");
+            if (!v.arr) return rt_ws_strdup_c("ARRAY");
             ARBLK_t *arr = v.arr;
             char buf[128];
             if (arr->ndim > 1) {
@@ -1847,32 +1847,32 @@ char *VARVAL_fn(DESCR_t v) {
                 else
                     snprintf(buf, sizeof(buf), "ARRAY('%d:%d')", arr->lo, arr->hi);
             }
-            return rt_ws_strdup(buf);
+            return rt_ws_strdup_c(buf);
         }
         case DT_T: {
-            if (!v.tbl) return rt_ws_strdup("TABLE");
+            if (!v.tbl) return rt_ws_strdup_c("TABLE");
             char buf[64];
             snprintf(buf, sizeof(buf), "TABLE(%d,%d)", v.tbl->init, v.tbl->inc);
-            return rt_ws_strdup(buf);
+            return rt_ws_strdup_c(buf);
         }
         case DT_N:
             if (v.slen == 2 && v.ptr) { extern DESCR_t rt_deref(DESCR_t); return VARVAL_fn(rt_deref(v)); }
-            if (v.slen == 0 && v.s) return rt_ws_strdup(v.s);
+            if (v.slen == 0 && v.s) return rt_ws_strdup_c(v.s);
             if (v.ptr) {
                 const char *nm = NV_name_from_ptr((const DESCR_t *)v.ptr);
-                if (nm) return rt_ws_strdup(nm);
+                if (nm) return rt_ws_strdup_c(nm);
                 return VARVAL_fn(*(DESCR_t *)v.ptr);
             }
-            return rt_ws_strdup("");
+            return rt_ws_strdup_c("");
         case DT_K:
             if (v.s) return VARVAL_fn(NV_GET_fn(v.s));
-            return rt_ws_strdup("");
+            return rt_ws_strdup_c("");
         case DT_E:
-            return rt_ws_strdup("EXPRESSION");
+            return rt_ws_strdup_c("EXPRESSION");
         case DT_C:
-            return rt_ws_strdup("");
+            return rt_ws_strdup_c("");
         default:
-            return rt_ws_strdup("");
+            return rt_ws_strdup_c("");
     }
 }
 #include <setjmp.h>
@@ -2104,7 +2104,7 @@ DESCR_t NV_GET_fn(const char *name) {
                 _io_chan[ch].buf[--nread] = '\0';
             }
         }
-        return STRVAL(rt_ws_strdup(_io_chan[ch].buf));
+        return STRVAL(rt_ws_strdup_c(_io_chan[ch].buf));
     }
     if (strcmp(name, "STCOUNT")  == 0) return INTVAL(kw_stcount);
     if (strcmp(name, "STNO")     == 0) return INTVAL(kw_stno);
@@ -2174,7 +2174,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         const char *s = (val.v == DT_S) ? val.s : VARVAL_fn(val);
-        scan_subj = s ? rt_ws_strdup(s) : ""; return val;
+        scan_subj = s ? rt_ws_strdup_c(s) : ""; return val;
     }
     if (strcmp   (name, "&pos") == 0) {
         extern int scan_pos;
@@ -2602,7 +2602,7 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR;
-            return STRVAL(rt_ws_strdup(e->params[idx - 1]));
+            return STRVAL(rt_ws_strdup_c(e->params[idx - 1]));
         }
     }
     return FAILDESCR;
@@ -2618,7 +2618,7 @@ static DESCR_t _LOCAL_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nlocals) return FAILDESCR;
-            return STRVAL(rt_ws_strdup(e->locals[idx - 1]));
+            return STRVAL(rt_ws_strdup_c(e->locals[idx - 1]));
         }
     }
     return FAILDESCR;
@@ -2647,7 +2647,7 @@ static DESCR_t _FIELD_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR;
-            return STRVAL(rt_ws_strdup(e->params[idx - 1]));
+            return STRVAL(rt_ws_strdup_c(e->params[idx - 1]));
         }
     }
     return FAILDESCR;
@@ -2723,7 +2723,7 @@ DESCR_t input_read(void) {
             _input_buf[--nread] = '\0';
         }
     }
-    return STRVAL(rt_ws_strdup(_input_buf));
+    return STRVAL(rt_ws_strdup_c(_input_buf));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *_io_extract_fname(const char *opts_str, char *buf, size_t bufsz) {
