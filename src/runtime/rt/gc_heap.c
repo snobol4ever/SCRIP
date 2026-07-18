@@ -9,6 +9,7 @@
 #include "rt_arena.h"
 #include "gc_heap.h"
 #include "descr.h"
+#include "pin_va.h"
 /* GC-0 (ARCH-ZETA-LOCAL-STORAGE §6e) — scrip-owned bump heap, SIL title-word headers, libgc COEXISTENCE.
  * Coexistence contract (why this is sound with zero collector): scrip-heap blocks are not libgc objects, so
  * libgc never frees them; a libgc conservative scan that sees a pointer INTO this arena ignores it (non-heap);
@@ -27,6 +28,53 @@ static long  g_hp_blocks = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
+/* BP-5 STRING EXTEND-IN-PLACE (the SPITBOL trick, guarded for SCRIP's verbatim-DESCR-store world): str_concat_d's O(n^2) copy loop becomes O(n) when the LEFT operand is the single-reference NEWEST
+ * heap block — the title grows and g_hp_top bumps, no left-copy. SPITBOL's descriptors carry length so aliases never see appended bytes; SCRIP strings are NUL-read (%s/strcmp), so extending a SHARED
+ * buffer would corrupt aliases through the overwritten NUL. Guard = OWNERSHIP TOKEN {owner,len}: armed only on a fresh concat result whose DT_S block ends exactly at g_hp_top; broken by (a) any
+ * C-side
+ * store of that pointer (NV_SET_fn / rt_assign_var / table_set_descr* hooks — one predictable compare each), (b) any allocation (block no longer ends at top — self-invalidating), (c) every collect
+ * (cleared in rt_gc_collect; SLIDE may move the block). GVA-resident aliases (Z = S is an emitted 16-byte move, no C hook) are caught POSITIVELY at extend time: scan the registered GVA slots and
+ * decline unless at most ONE slot references the buffer (the accumulator itself). Residual, documented: a DESCR copy held only in a suspended ζ frame with ZERO allocations in between is invisible to
+ * both layers — same exposure class as the pre-existing in-flight-args stress hole (212 m4). Right-operand reads are safe: read window [bsp,bsp+bl) never overlaps the write window [buf+al,..) even
+ * when b aliases a (suffix/whole), because bl excludes the old NUL at buf+al. */
+static char *g_sxt_owner = (char *)0;
+static long  g_sxt_len = 0;
+static int   g_sxt_gva_n = 0;
+void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
+void rt_sxt_break(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }
+void rt_sxt_note(char *s, long len)
+{
+    g_sxt_owner = (char *)0;
+    if (!s || !g_hp_arena || len < 0) return;
+    if (s < g_hp_arena + sizeof(rt_hblk_t) || s >= g_hp_top) return;
+    rt_hblk_t *h = ((rt_hblk_t *)s) - 1;
+    if ((h->flags & HBF_TTL) && h->type == (uint16_t)DT_S && (char *)h + h->size == g_hp_top) { g_sxt_owner = s; g_sxt_len = len; }
+}
+long rt_sxt_match(const char *s)
+{
+    static int off = -1;
+    if (off < 0) { const char *e = getenv("SCRIP_SXT_OFF"); off = (e && *e && *e != '0') ? 1 : 0; }
+    if (off) return -1;
+    return (s && s == g_sxt_owner) ? g_sxt_len : -1;
+}
+char *rt_sxt_extend(char *s, long al, long bl)
+{
+    if (!s || s != g_sxt_owner || al != g_sxt_len || al < 0 || bl < 0) return (char *)0;
+    rt_hblk_t *h = ((rt_hblk_t *)s) - 1;
+    if (!(h->flags & HBF_TTL) || h->type != (uint16_t)DT_S || (char *)h + h->size != g_hp_top) { g_sxt_owner = (char *)0; return (char *)0; }
+    DESCR_t *gv = (DESCR_t *)RT_GVA_VA;
+    int refs = 0;
+    for (int k = 0; k < g_sxt_gva_n; k++) if (gv[k].v == DT_S && gv[k].s == s && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; }
+    uint64_t want = sizeof(rt_hblk_t) + (((uint64_t)(al + bl + 1) + 15u) & ~15ull);
+    if (want > h->size) {
+        uint64_t d = want - h->size;
+        if (g_hp_top + d > g_hp_end) { g_sxt_owner = (char *)0; return (char *)0; }
+        h->size = (uint32_t)want;
+        g_hp_top += d;
+    }
+    { uint64_t pay = want - sizeof(rt_hblk_t); uint64_t used = (uint64_t)(al + bl + 1); if (pay > used) memset(s + used, 0, (size_t)(pay - used)); }
+    return s;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_verify(void)
 {
@@ -420,6 +468,7 @@ static long gc_collect_ex(int cons_stack)
 {
     extern void core_gc_roots(void); extern void gen_gc_roots(void); extern void rt_gc_root_args(void);
     jmp_buf jb; char anchor; long nlive = 0, npin = 0, nfill = 0, before_b, after_b; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0;
+    g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
     g_hp_win = (char *)0; g_hp_wend = (char *)0;

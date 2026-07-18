@@ -2054,6 +2054,7 @@ DESCR_t FIELD_GET_fn(DESCR_t obj, const char *field) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val) {
+    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (!IS_DATA(obj) || !obj.u) return;
     DATBLK_t *t = obj.u->type;
     for (int i = 0; i < t->nfields; i++)
@@ -2147,6 +2148,7 @@ int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     _var_init();
+    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (g_protected_pat_vars_armed && name && is_protected_pat_name(name)) {
         core_runtime_error(42, NULL);
         return val;

@@ -1139,6 +1139,7 @@ DESCR_t rt_deref(DESCR_t d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_assign_var(DESCR_t var, DESCR_t val) {
     { DESCR_t sh[2]; sh[0] = var; sh[1] = val; rt_gc_point_arr(sh, 2, (const char **)0); var = sh[0]; val = sh[1]; }
+    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
     if (var.v == DT_N && var.slen == 1 && var.ptr) { *(DESCR_t *)var.ptr = val; return val; }
     if (!IS_NAMETRAP_fn(var)) {
@@ -1181,6 +1182,7 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     if (!IS_NAMETRAP_fn(va) || !IS_NAMETRAP_fn(vb)) return FAILDESCR;
     VCELL_t *xc = (VCELL_t *)va.p, *yc = (VCELL_t *)vb.p; if (!xc || !yc) return FAILDESCR;
     DESCR_t dx = rt_deref(va), dy = rt_deref(vb);
+    { extern void rt_sxt_break(const char *); if (dx.v == DT_S) rt_sxt_break(dx.s); if (dy.v == DT_S) rt_sxt_break(dy.s); }
     if (dx.v == DT_FAIL || dy.v == DT_FAIL) return FAILDESCR;
     long adj1 = 0, adj2 = 0;
     if (IS_NAMETRAP_fn(xc->sv) && IS_NAMETRAP_fn(yc->sv)) {

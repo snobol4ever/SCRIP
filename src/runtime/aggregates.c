@@ -129,6 +129,7 @@ DESCR_t table_get_found(TBBLK_t *tbl, const char *key, int *found) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) {
     if (!tbl || !key) return;
+    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     unsigned h = _tbl_hash(key);
     for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) {
         if (strcmp(e->key, key) == 0) { e->val = val; e->key_descr = key_d; return; }
@@ -144,6 +145,7 @@ void table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void table_set_descr_keyown(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) {
     if (!tbl || !key) return;
+    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     unsigned h = _tbl_hash(key);
     for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) {
         if (strcmp(e->key, key) == 0) { e->val = val; e->key_descr = key_d; return; }

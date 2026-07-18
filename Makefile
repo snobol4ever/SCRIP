@@ -274,7 +274,7 @@ RT_PIC_SRCS := \
 out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
-	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -I$(RT)/rt \
+	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
 	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) \
 	    $(RT_PIC_SRCS) \
