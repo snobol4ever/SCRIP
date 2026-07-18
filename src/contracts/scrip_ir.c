@@ -110,6 +110,8 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_GLIT] = "IR_GLIT",
     [IR_GCC] = "IR_GCC",
     [IR_GSUBRULE] = "IR_GSUBRULE",
+    [IR_BOUND] = "IR_BOUND",
+    [IR_UNMARK] = "IR_UNMARK",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {

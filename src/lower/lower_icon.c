@@ -992,7 +992,22 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = ω; cx->loop_next = gen_beta;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
-    if (B) { b_entry = lower(cx, B, gen_beta, gen_beta, &bval); }
+    if (B) {
+        /* BOUNDED-BODY UNMARK (Op_Mark/Op_Unmark, interp.r): the do-body is a bounded expression — retained
+         * suspension cells its constructs carve on the RSP spine (scan-function FC cells, deferred β records)
+         * are structurally dead once the body completes, but nothing cut rsp, so each lap leaked its carves
+         * until the 8MB guard (micro bench: "abcde" ? tab(3) per lap = 16B/lap, SEGV at ~515K laps).  MARK's
+         * α saves rsp to its ζ slot before body entry; every body exit (γ, ω, and `next`) routes through
+         * UNMARK, whose α restores rsp from the paired slot — canonical Op_Unmark `rsp = efp-1` — then
+         * re-pumps the control generator.  `break` exits to ω uncut (bounded by the enclosing bound). */
+        IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
+        IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
+        ir_operand_push(unmk, mark);
+        cx->loop_next = unmk;
+        b_entry = lower(cx, B, unmk, unmk, &bval);
+        γ_to(mark, b_entry); ω_to(mark, b_entry);
+        b_entry = mark;
+    }
     else { b_entry = build(cx, IR_GOTO, gen_beta, gen_beta); }
     cx->loop_exit = sle; cx->loop_next = sln;
     γ_to(eval, b_entry);
