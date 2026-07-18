@@ -25,7 +25,6 @@ int cp_run(IR_graph_t * g) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
         for (int k = 0; k < nd->n_operands; k++) { int j = cp_index_of(g, nd->operands[k]); if (j >= 0) ref[j] = 1; }
-        if (nd->op == IR_INDIRECT_GOTO && nd->γ.node) { int j = cp_index_of(g, nd->γ.node); if (j >= 0) ref[j] = 1; }
     }
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && cp_source(nd) != (IR_t *)0 && !ref[i]) { nd->op = IR_SUCCEED; nd->n_operands = 0; total++; } }
     free(ref);
