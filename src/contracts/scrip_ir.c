@@ -110,6 +110,8 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_GLIT] = "IR_GLIT",
     [IR_GCC] = "IR_GCC",
     [IR_GSUBRULE] = "IR_GSUBRULE",
+    [IR_BOUND] = "IR_BOUND",
+    [IR_UNMARK] = "IR_UNMARK",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
@@ -215,7 +217,7 @@ int ir_node_produces_value(IR_e op) {
         || op == IR_SWAP || op == IR_SWAP_VAR || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_PROC_VALUE
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
         || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL
-        || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE
+        || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION
         || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KEYWORD_ASSIGN;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

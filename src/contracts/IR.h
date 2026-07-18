@@ -185,6 +185,8 @@ typedef enum {
     IR_GLIT,             /* literal-match: match fixed string sval at [Σ+δ], bounds δ<Δ; γ advances δ by len, ω on mismatch/EOS */
     IR_GCC,              /* char-class-match: match one char at [Σ+δ] against sealed cset (sval), advance δ by 1; γ on member, ω else */
     IR_GSUBRULE,         /* subrule call: recurse into named rule's box graph (sval=rule name) with Σ/δ/Δ ambient in R13/R14/R15 */
+    IR_BOUND,            /* Op_Mark analogue (icon-master interp.r): α saves rsp into its ζ slot then jmp γ (bounded-expression entry); the paired IR_UNMARK restores it, discarding retained suspension cells the bound abandoned */
+    IR_UNMARK,           /* Op_Unmark analogue: α restores rsp from operand[0]'s (the paired IR_BOUND's) ζ slot then jmp γ — `rsp = efp-1` in interp.r Op_Unmark; the every-do bounded-exit cut that reclaims abandoned FC carves */
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -229,6 +231,7 @@ struct IR_graph_t {
     int            n_vslots;
     int            resume_slot;
     int            resumable_callable;
+    int            deterministic;
     int            zeta_mark_slot;
     IR_t         * body_root;
     #define AG_RING 16

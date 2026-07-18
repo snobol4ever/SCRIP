@@ -841,19 +841,49 @@ static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    IR_t * dj = build(cx, IR_DISJUNCTION, γ, ω);
-    IR_t ** entry = (IR_t **) calloc((size_t) n, sizeof(IR_t *));
-    for (int j = n - 1; j >= 0; j--) {
-        IR_t * ωj = (j + 1 < n) ? entry[j + 1] : ω;
-        if (j + 1 < n && ωj && ir_is_generator_kind(ωj->op)) { IR_t * ft = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(ft, ωj); lc_ω_to(ft, ωj); ωj = ft; }   /* FZ-E: the fail CASCADE means "try the next alternative FRESH (α)"; the generic ω_to helper (line 16) β-promotes generator-kind targets, which is the backtrack-consumer rule — correct for re-driving a producer, WRONG here (SCAN_MATCH "a" ω was landing on the SCAN_SEQUENCE arm's β, a mid-flight resume of an arm that never ran → &null/SIGSEGV, the rung36 scan family).  The plain-tagged GOTO trampoline (the 587 succ_tramp idiom) absorbs the promotion: edges to a GOTO stay α, and the emitter's GOTO-chase (emit.cpp 1713) carries no β through its lc_γ_to link. */
-        IR_t * ml = build(cx, IR_MOVE_LABEL, γ, ω);
-        cx->beta = ωj;
-        IR_t * ar = NULL; entry[j] = lower(cx, t->c[j], ml, ωj, &ar);
-        IR_t * ab = cx->beta ? cx->beta : ωj;
-        IR_LIT(ml).ival = (ab && ir_is_generator_kind(ab->op)) ? 1 : 0;
-        ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, ar);
+    /* MOVE_LABEL-ERAD (Lon 2026-07-15/18, FINDING-2026-07-15-...-BB-SELF-STATE): nary self-state form, the
+     * icn_scan_seq_nary / SN4-NARY-ALT construction verbatim.  One DISJUNCTION node; arms lowered with
+     * succ=fail=dj and their inside edges re-tagged σ (γ→dj, land success-glue) / φ (ω→dj and FAIL-goto γ→dj,
+     * land fail-glue).  operands = (entry_i, resume_i)×N then result_i×N (trailing, invisible to the pair
+     * walker whose N rides ival); ival = N.  The φ-glue dispatches entry_{alt_i} at α — the fresh-entry
+     * semantics the old per-arm GOTO trampolines (FZ-E) existed to force — and the σ-glue copies the
+     * succeeding arm's result into the disjunction's OWN value slot (option B), so consumers read ONE fixed
+     * slot: zero MOVE_LABELs, zero INDIRECT_GOTO, zero cascade GOTOs. */
+    IR_graph_t * g = cx->g;
+    IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
+    γ_to(dj, γ); ω_to(dj, ω);   /* β-promoting helpers (file lines 15-16), NOT raw lc_*: the outer fail/succ targets may be generator-kind (e.g. the LEFT alternation of a binop — its resume surface is its β; a raw α edge RESTARTS it: the rung13_alt_alt_nested ax-ay-ay-ay loop). The old build() promoted; the scan-nary idiom's raw lc_ω_to does not. */
+    IR_t * resv[64];
+    for (int j = 0; j < n && j < 64; j++) {
+        int before = g->n;
+        IR_t * ar = NULL; cx->beta = dj;
+        IR_t * ej = lower(cx, t->c[j], dj, dj, &ar);
+        IR_t * ab = cx->beta;
+        int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < g->n; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        IR_t * rj = ab_in_arm ? ab : dj;   /* arm installed its own resume surface (cx->beta moved to a node of THIS arm) → dispatch its β; otherwise the arm is valueless-on-resume and rj = dj is the ARBNO-precedent SELF MARKER the drive redirects to the φ-glue (resume ≡ advance) */
+        for (int k = before; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+            if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+        }
+        ir_operand_push(dj, ej);
+        ir_operand_push(dj, rj);
+        resv[j] = ar;
+
     }
-    cx->beta = dj; *res = dj; return entry[0];
+    for (int j = 0; j < n && j < 64; j++) ir_operand_push(dj, resv[j]);
+    IR_LIT(dj).ival = (long) (n < 64 ? n : 64);
+    cx->beta = dj; *res = dj;
+    /* FRESH ENTRY = dj.α (zero the value slot, alt_i=0, enter entry_0).  Returning entry_0 directly is the
+     * s95 by-bug: a binop's left redelivery re-enters the right alternation at its FIRST ARM'S α, skipping
+     * dj.α — alt_i stays stale from the previous exhaust and the σ-glue copies nothing (leftover value slot
+     * → "by" instead of "bx" in rung13_alt_alt_nested).  dj itself can't be returned naked: it is
+     * generator-kind, so the callers' auto-promoting γ_to would β-stamp the fresh edge (the FZ-E disease).
+     * The plain-tagged GOTO trampoline absorbs the promotion — edges to a GOTO stay α and the emitter's
+     * GOTO-chase carries no β (the 587/609 succ_tramp idiom; unify with the 1031 STMT-BOUNDARY tramps when
+     * the α-entry protocol rung lands). */
+    IR_t * ent = IR_node_alloc(g, IR_GOTO); lc_γ_to(ent, dj); lc_ω_to(ent, dj);
+    return ent;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -992,7 +1022,22 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = ω; cx->loop_next = gen_beta;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
-    if (B) { b_entry = lower(cx, B, gen_beta, gen_beta, &bval); }
+    if (B) {
+        /* BOUNDED-BODY UNMARK (Op_Mark/Op_Unmark, interp.r): the do-body is a bounded expression — retained
+         * suspension cells its constructs carve on the RSP spine (scan-function FC cells, deferred β records)
+         * are structurally dead once the body completes, but nothing cut rsp, so each lap leaked its carves
+         * until the 8MB guard (micro bench: "abcde" ? tab(3) per lap = 16B/lap, SEGV at ~515K laps).  MARK's
+         * α saves rsp to its ζ slot before body entry; every body exit (γ, ω, and `next`) routes through
+         * UNMARK, whose α restores rsp from the paired slot — canonical Op_Unmark `rsp = efp-1` — then
+         * re-pumps the control generator.  `break` exits to ω uncut (bounded by the enclosing bound). */
+        IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
+        IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
+        ir_operand_push(unmk, mark);
+        cx->loop_next = unmk;
+        b_entry = lower(cx, B, unmk, unmk, &bval);
+        γ_to(mark, b_entry); ω_to(mark, b_entry);
+        b_entry = mark;
+    }
     else { b_entry = build(cx, IR_GOTO, gen_beta, gen_beta); }
     cx->loop_exit = sle; cx->loop_next = sln;
     γ_to(eval, b_entry);

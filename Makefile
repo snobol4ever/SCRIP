@@ -103,6 +103,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_rev_assign_var.cpp \
     $(SRC)/templates/bb_var_ref.cpp \
     $(SRC)/templates/bb_goto.cpp \
+    $(SRC)/templates/bb_bound.cpp \
+    $(SRC)/templates/bb_disjunction.cpp \
     $(SRC)/templates/bb_goto_dyn.cpp \
     $(SRC)/templates/bb_fail.cpp \
     $(SRC)/templates/bb_cut.cpp \
@@ -275,7 +277,7 @@ out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
 	$(CC) -O0 -g $(WARN) -fPIC -shared \
 	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
-	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku \
+	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) \
 	    $(RT_PIC_SRCS) \
 	    -lm -lstdc++ -lpthread \
@@ -331,6 +333,8 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rev_assign_var.cpp       -o $(OBJ)/bb_rev_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_var_ref.cpp       -o $(OBJ)/bb_var_ref.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_goto.cpp       -o $(OBJ)/bb_goto.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_bound.cpp      -o $(OBJ)/bb_bound.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_disjunction.cpp -o $(OBJ)/bb_disjunction.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_cut.cpp       -o $(OBJ)/bb_cut.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_fail.cpp      -o $(OBJ)/bb_fail.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_lit_scalar.cpp        -o $(OBJ)/bb_lit_scalar.o
