@@ -50,7 +50,10 @@ void scc_taint_graph(IR_graph_t *g) {
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i]; if (!nd || !IR_LIT(nd).sval) continue;
         switch (nd->op) {
-        case IR_CALL: case IR_CALL_PROC_STAGED: { const char *s = IR_LIT(nd).sval; if (strcmp(s, "OPSYN") == 0 || strcmp(s, "UNLOAD") == 0) { g_scc_taint = 1; return; } } break;
+        case IR_CALL: case IR_CALL_PROC_STAGED: { const char *s = IR_LIT(nd).sval;
+            if (strcmp(s, "UNLOAD") == 0) { g_scc_taint = 1; return; }
+            if (strcmp(s, "OPSYN") == 0) { IR_t *a2 = (IR_LIT(nd).ival >= 3) ? ir_call_arg(nd, 2) : (IR_t *)0;
+                if (!(a2 && a2->op == IR_LIT_INTEGER && (IR_LIT(a2).ival == 1 || IR_LIT(a2).ival == 2))) { g_scc_taint = 1; return; } } } break;
         default: break;
         }
     }
