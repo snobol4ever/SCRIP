@@ -365,39 +365,46 @@ the win/loss score.
 
 Timing is each program's own `TIME()` self-report in ms (startup excluded; SPITBOL TIME()
 diffs are ns, ÷1e6). SCRIP is mode-4 (`--compile` → gcc `-no-pie` + `libscrip_rt.so`).
-Host: Intel Xeon @ 2.10GHz. Runners: `scripts/util_bench_snobol4_engines.sh` (oracles),
+All three engines run on the **same host** for valid comparison (ratios are meaningless
+cross-host). Runners: `scripts/util_bench_snobol4_engines.sh` (oracles),
 `scripts/test_bench_snobol4_modes.sh` (SCRIP). Sorted fastest-relative first; ratio is
 SCRIP against SPITBOL, **bold** = SCRIP faster.
 
 | Benchmark | SPITBOL | CSNOBOL4 | SCRIP m4 | m4 vs SPITBOL | m4 vs CSNOBOL4 |
 |-----------|--------:|---------:|---------:|--------------:|---------------:|
-| var_access | 745 | 3338 | 311 | **0.42× (faster)** | **0.09× (faster)** |
-| op_dispatch | 75 | 330 | 38 | **0.51× (faster)** | **0.12× (faster)** |
-| arith_loop | 29 | 116 | 21 | **0.72× (faster)** | **0.18× (faster)** |
-| pattern_bt | 232 | 625 | 286 | 1.23× | **0.46× (faster)** |
-| func_call_overhead | 447 | 2259 | 1032 | 2.3× | **0.46× (faster)** |
-| func_call | 447 | 2231 | 1037 | 2.3× | **0.46× (faster)** |
-| fibonacci | 95 | 509 | 285 | 3.0× | **0.56× (faster)** |
-| eval_fixed | 278 | 647 | 1001 | 3.6× | 1.5× |
-| mixed_workload | 104 | 474 | 722 | 6.9× | 1.5× |
-| table_access | 230 | 2439 | 1697 | 7.4× | **0.70× (faster)** |
-| roman | 135 | 1070 | 1192 | 8.8× | 1.11× |
-| string_concat | 154 | 320 | 1441 | 9.4× | 4.5× |
-| string_pattern | 382 | 2024 | 3750 | 9.8× | 1.9× |
-| string_manip | 441 | 1690 | 7748 | 17.6× | 4.6× |
-| eval_dynamic | 414 | 1125 | 84327 | 204× | 75× |
+| var_access | 1782 | 3338 | 307 | **0.17× (faster)** | **0.09× (faster)** |
+| op_dispatch | 154 | 330 | 36 | **0.23× (faster)** | **0.11× (faster)** |
+| arith_loop | 60 | 116 | 21 | **0.35× (faster)** | **0.18× (faster)** |
+| func_call_overhead | 1202 | 2259 | 1057 | **0.88× (faster)** | **0.47× (faster)** |
+| func_call | 1178 | 2231 | 1073 | **0.91× (faster)** | **0.48× (faster)** |
+| pattern_bt | 272 | 625 | 283 | 1.0× | **0.45× (faster)** |
+| fibonacci | 203 | 509 | 312 | 1.5× | **0.61× (faster)** |
+| mixed_workload | 211 | 474 | 656 | 3.1× | 1.4× |
+| table_access | 433 | 2439 | 1384 | 3.2× | **0.57× (faster)** |
+| eval_fixed | 307 | 647 | 1017 | 3.3× | 1.6× |
+| string_manip | 816 | 1690 | 2931 | 3.6× | 1.7× |
+| string_pattern | 815 | 2024 | 3675 | 4.5× | 1.8× |
+| roman | 195 | 1070 | 991 | 5.1× | **0.93× (faster)** |
+| string_concat | 156 | 320 | 1436 | 9.2× | 4.5× |
+| eval_dynamic | 414 | 1125 | (crash) | — | — |
 
-*(Numbers are post-s94 BP-2/BP-3 runtime fixes — per-op getenv caching in the ζ allocator + the NV fast-path 'I'-gate/SET-path fix — which shaved 9–23% off the pattern/eval/mixed/roman rows vs the f0914867 baseline; gates: smokes 7/7 both modes ×2, crosscheck at watermark m3 305/2 · m4 304/2/1 · DIVERGE=1 known.)*
+*(Numbers are post-s95 — BP-1 v2 (O(1) builtin dispatch, s95 SCRIP `a7224153`) + BP-4
+(table subscript fast-lane, s95 SCRIP `6e5db495`) + BP-2/BP-3 (getenv cache + NV I-gate,
+s94) + PERF-PAT-1 (GVA-slot pattern resolution, s93). CSNOBOL4 column is the s94 verified
+set (`bd51fcb5`); SPITBOL and SCRIP re-timed on the current host 2026-07-18, SCRIP HEAD
+`6e5db495`. Gates: smokes 7/7 both modes ×2, crosscheck m3 305/2 · m4 304/2/1 ·
+DIVERGE=1 (1017\_arg\_local). See `GOAL-SNOBOL4-BB.md` § BENCH-PERF LADDER for the full
+BP rung plan and remaining bottleneck analysis.)*
 
-**Scoreboard (15 scored): SCRIP beats CSNOBOL4 on 9/15, beats SPITBOL on 3/15.**
-SCRIP's compiled loops beat SPITBOL outright on register-shaped work (variable access via
-GVA slots, arithmetic, operator dispatch) — native code doing what native code does. The
-losses concentrate in the **runtime library**, not the emitted code: string
-building/manipulation (`string_concat`/`string_manip`/`roman`), the pattern scanner on
-string-heavy input (`string_pattern`), TABLE access, and per-call function overhead.
-`eval_dynamic` is correct but pays a full parse→lower→x86-emit pipeline (~76µs, ~57µs of
-it emit) per *distinct* EVAL string — a known, deprioritized cost (2026-07-18); the
-string-keyed chain cache already makes repeated strings (`eval_fixed`) 60× cheaper.
+**Scoreboard (15 scored): SCRIP beats CSNOBOL4 on 9/15, beats SPITBOL on 5/15.**
+SCRIP's compiled native loops beat SPITBOL outright on register-shaped work (variable
+access via GVA slots, arithmetic, operator dispatch) and now also on both call-convention
+benchmarks (`func_call`/`func_call_overhead`) where BP-1 removed the by-name dispatch tax.
+The remaining losses concentrate in the **runtime library**: string building/manipulation
+(`string_concat`/`string_manip`), the pattern scanner on string-heavy input
+(`string_pattern`), mixed workloads, and EVAL. `eval_dynamic` crashes (a known
+deprioritized issue, 2026-07-18); the string-keyed chain cache makes repeated-string EVAL
+(`eval_fixed`) 3.3× slower than SPITBOL but 1.6× faster than CSNOBOL4.
 
 ## Prolog Benchmark — SCRIP vs GNU Prolog vs SWI-Prolog
 
