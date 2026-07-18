@@ -1,25 +1,16 @@
 #include "rt_protected.h"
 #include "SM.h"
 #include <string.h>
-static const struct {
-    const char *name;
-    SM_op_t     op;
-} g_protected_pat_op[] = {
-    { "REM",     SM_PAT_REM     },
-    { "ARB",     SM_PAT_ARB     },
-    { "FENCE",   SM_PAT_FENCE0  },
-    { "FAIL",    SM_PAT_FAIL    },
-    { "SUCCEED", SM_PAT_SUCCEED },
-    { "ABORT",   SM_PAT_ABORT   },
-    { "BAL",     SM_PAT_BAL     },
-    { NULL,      (SM_op_t)0     }
-};
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int is_protected_pat_name(const char *name)
 {
     if (!name) return 0;
-    for (int i = 0; g_protected_pat_op[i].name; i++) {
-        if (strcmp(name, g_protected_pat_op[i].name) == 0) return 1;
+    switch (name[0]) {
+    case 'A': return strcmp(name, "ARB") == 0 || strcmp(name, "ABORT") == 0;
+    case 'B': return strcmp(name, "BAL") == 0;
+    case 'F': return strcmp(name, "FENCE") == 0 || strcmp(name, "FAIL") == 0;
+    case 'R': return strcmp(name, "REM") == 0;
+    case 'S': return strcmp(name, "SUCCEED") == 0;
+    default:  return 0;
     }
-    return 0;
 }

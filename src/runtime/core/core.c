@@ -34,6 +34,7 @@ static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
 #define TRACE_SET_CAP 256
 static const char *trace_set[TRACE_SET_CAP];
 static const char *trace_callback[TRACE_SET_CAP];
+static int trace_set_n = 0;
 static int trace_recursion_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_slot_lookup(const char *name) {
@@ -57,6 +58,7 @@ static void trace_register(const char *name) {
         if (!trace_set[slot]) {
             trace_set[slot] = rt_ws_strdup(name);
             trace_callback[slot] = NULL;
+            trace_set_n++;
             return;
         }
         if (strcmp(trace_set[slot], name) == 0) return;
@@ -72,6 +74,7 @@ static void trace_register_callback(const char *name, const char *cbfn) {
         if (!trace_set[slot]) {
             trace_set[slot] = rt_ws_strdup(name);
             trace_callback[slot] = (cbfn && *cbfn) ? rt_ws_strdup(cbfn) : NULL;
+            trace_set_n++;
             return;
         }
         if (strcmp(trace_set[slot], name) == 0) {
@@ -91,6 +94,7 @@ static void trace_unregister(const char *name) {
         if (strcmp(trace_set[slot], name) == 0) {
             trace_set[slot] = NULL;
             trace_callback[slot] = NULL;
+            if (trace_set_n > 0) trace_set_n--;
             return;
         }
     }
@@ -419,8 +423,11 @@ static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
 void comm_var(const char *name, DESCR_t val) {
     if (!name || name[0] == '_') return;
     if (monitor_quiet_depth > 0) return;
+    static int dbg = -1;
+    if (dbg < 0) dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+    if (!dbg && trace_set_n == 0 && monitor_fd < 0) return;
     const char *cbfn = trace_get_callback(name);
-    if (getenv("SCRIP_DEBUG_TRACE"))
+    if (dbg)
         fprintf(stderr, "[scrip-trace] comm_var name=%s cb=%s recur=%d\n",
                 name, cbfn ? cbfn : "(none)", trace_recursion_depth);
     if (cbfn && trace_recursion_depth == 0) {
