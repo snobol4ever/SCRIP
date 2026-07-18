@@ -22,73 +22,49 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 216], rsp
+  mov qword ptr [rsp + 152], rsp
   mov r12, qword ptr [1879048192]
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
- mov qword ptr [rbp + 144], 1
+ mov qword ptr [rbp + 112], 1
  mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rbp + 152], rax
+ mov qword ptr [rbp + 120], rax
  jmp xchain0_n1_α
  xchain0_n0_β:
  jmp main_γ
 .Lx1_0:
  .quad .Lx1_0_s
 .Lx1_0_s:
- .string "hello"
-# IR_LIT_STRING
+ .string "hello world"
+# IR_ASSIGN global
  xchain0_n1_α:
- mov qword ptr [rbp + 176], 1
- mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rbp + 184], rax
- jmp xchain0_n2_α
+ mov rsi, qword ptr [rbp + 112]
+ mov rdx, qword ptr [rbp + 120]
+ mov rdi, qword ptr [rip + .Lx2_0]
+ call NV_SET_fn@PLT
+ mov qword ptr [rbp + 96], rax
+ mov qword ptr [rbp + 104], rdx
+ jmp main_γ
  xchain0_n1_β:
  jmp main_γ
 .Lx2_0:
  .quad .Lx2_0_s
 .Lx2_0_s:
- .string " world"
- xchain0_n2_α:
-# IR_BINOP_CONCAT
- mov rdi, qword ptr [rbp + 144]
- mov rsi, qword ptr [rbp + 152]
- mov rdx, qword ptr [rbp + 176]
- mov rcx, qword ptr [rbp + 184]
- call str_concat_d@PLT
- mov qword ptr [rbp + 112], rax
- mov qword ptr [rbp + 120], rdx
- jmp xchain0_n3_α
- xchain0_n2_β:
- jmp main_γ
-# IR_ASSIGN global
- xchain0_n3_α:
- mov rsi, qword ptr [rbp + 112]
- mov rdx, qword ptr [rbp + 120]
- mov rdi, qword ptr [rip + .Lx4_0]
- call NV_SET_fn@PLT
- mov qword ptr [rbp + 96], rax
- mov qword ptr [rbp + 104], rdx
- jmp main_γ
- xchain0_n3_β:
- jmp main_γ
-.Lx4_0:
- .quad .Lx4_0_s
-.Lx4_0_s:
  .string "OUTPUT"
 main_β:
 jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, qword ptr [rbp + 216]
+mov rsp, qword ptr [rbp + 152]
 mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 main_ω:
-mov rsp, qword ptr [rbp + 216]
+mov rsp, qword ptr [rbp + 152]
 mov dword ptr [rsp+0], 99
 mov dword ptr [rsp+4], 0
 mov qword ptr [rsp+8], 0
