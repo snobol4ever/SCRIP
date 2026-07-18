@@ -112,10 +112,16 @@ static void rt_gcheap_init(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
 {
-    /* Carve a block from the LOW end of a bump region [at, region_end); caller guarantees fit and, for the fill window, rewrites the remainder's HB_FILL title so the linear title walk stays valid. */
+    /* Carve a block from the LOW end of a bump region [at, region_end); caller guarantees fit and, for the fill window, rewrites the remainder's HB_FILL title so the linear title walk stays valid.
+     * BP-6: char-payload classes (DT_S, HB_WSC — the scanner never pointer-reads them, s91/s92 typing) zero only the FINAL 32 payload bytes: that always covers the NUL slot n (round16(n+1)-16 <= n)
+     * on the main path AND under the fill-window's +16 sliver absorb; every caller fills its request or writes an explicit terminator (audited s97). SCRIP_ZSKIP_OFF=1 restores full zeroing (A/B). */
     rt_hblk_t *h = (rt_hblk_t *)at;
     h->fwd = 0; h->size = (uint32_t)total; h->type = type; h->flags = HBF_TTL;
-    memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
+    uint64_t pay = total - sizeof(rt_hblk_t);
+    static int zfull = -1;
+    if (zfull < 0) { const char *e = getenv("SCRIP_ZSKIP_OFF"); zfull = (e && *e && *e != '0') ? 1 : 0; }
+    if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
+    else memset((void *)(h + 1), 0, (size_t)pay);
     g_hp_blocks += 1;
     return (void *)(h + 1);
 }
@@ -151,8 +157,8 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 char *rt_str_alloc(long n)
 {
     /* THE DT_S entry point (GC-5 strings row, landed with GC-0 as the Lon-directed proof family):
-     * n characters + NUL. Zero-initialized on BOTH paths — manual pin 3's "all words within a block must be
-     * properly filled in", discharged mechanically the ZC_INIT_ZERO way. Fallback = libgc atomic, intact. */
+     * n characters + NUL. Manual pin 3's "all words within a block must be properly filled in" is the POINTER-POSITION rule (per-type relocatable-word maps) — for char payloads it is discharged
+     * by the s91/s92 class typing (scanner never pointer-reads DT_S/HB_WSC), so BP-6 zeroes only the final pad window (NUL slot covered — see rt_gcheap_carve). */
     long want = (n < 0 ? 0 : n) + 1;
     _Static_assert(DT_S == 1, "value-world heap types carry DTYPE_t verbatim");
     return (char *)rt_gcheap_alloc((uint16_t)DT_S, (uint64_t)want);
