@@ -1,0 +1,5 @@
+#ifndef DEAD_GOTO_H
+#define DEAD_GOTO_H
+#include "IR.h"
+int dg_run(IR_graph_t * g);
+#endif
