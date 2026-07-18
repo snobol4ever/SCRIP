@@ -155,6 +155,11 @@ void *rt_ws_alloc_c(size_t n)
     return rt_gcheap_alloc((uint16_t)HB_WSC, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_agg_alloc(int kind, size_t n)
+{
+    return rt_gcheap_alloc((uint16_t)(HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind))), (uint64_t)(n ? n : 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_ws_strdup_c(const char *s)
 {
     if (!s) return (char *)0;
@@ -246,7 +251,7 @@ static void gc_cons_scan_t(const char *lo, const char *hi, int ws_only)
     const char *p = (const char *)(((uintptr_t)lo + 7u) & ~(uintptr_t)7u);
     for (; p + 8 <= hi; p += 8) { const char *q = *(const char *const *)p;
         if (!ws_only) rt_gc_pin_ptr(q);
-        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC)) h->flags |= (HBF_MARK | HBF_PIN); } }
+        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC || (h->type >= HB_AGGV && h->type <= HB_AGGT))) h->flags |= (HBF_MARK | HBF_PIN); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_cons_scan(const char *lo, const char *hi)
@@ -262,6 +267,16 @@ void rt_gc_visit_raw(const char **loc)
     if (!gc_hins((void *)loc)) return;
     if (g_gc_nraw == g_gc_rcap) { g_gc_rcap = g_gc_rcap ? g_gc_rcap * 2 : 1024; g_gc_raws = (const char ***)realloc((void *)g_gc_raws, (size_t)g_gc_rcap * sizeof(*g_gc_raws)); if (!g_gc_raws) abort(); }
     g_gc_raws[g_gc_nraw++] = loc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) h->flags |= HBF_MARK; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_visit_tbblk(struct _TBBLK_t *t)
+{
+    gc_mark_agg(t);
+    rt_gc_visit_descr(&t->dflt);
+    for (int b = 0; b < TABLE_BUCKETS; b++) for (TBPAIR_t *e = t->buckets[b]; e; e = e->next) { gc_mark_agg(e); if (e->key) gc_mark_agg(e->key);
+        rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_descr(DESCR_t *d)
@@ -285,8 +300,7 @@ void rt_gc_visit_descr(DESCR_t *d)
     case DT_T: {
         TBBLK_t *t = d->tbl;
         if (!t || !gc_hins((void *)t)) return;
-        rt_gc_visit_descr(&t->dflt);
-        for (int b = 0; b < TABLE_BUCKETS; b++) for (TBPAIR_t *e = t->buckets[b]; e; e = e->next) { rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); }
+        gc_visit_tbblk(t);
         return; }
     case DT_DATA: {
         DATINST_t *u = d->u;
@@ -299,7 +313,9 @@ void rt_gc_visit_descr(DESCR_t *d)
         for (int i = 0; i < u->type->nfields; i++) rt_gc_visit_descr(&u->fields[i]);
         return; }
     case DT_N: {
-        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; if (!vc || !gc_hins((void *)vc)) return; rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); return; }
+        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; if (!vc || !gc_hins((void *)vc)) return; gc_mark_agg(vc); if (vc->key) gc_mark_agg(vc->key);
+            if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
+            rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); return; }
         if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; if (tc && gc_hins((void *)tc)) rt_gc_visit_descr(tc); return; }
         { rt_hblk_t *h = gc_blk_of(d->s); if (h) { h->flags |= HBF_MARK; if (gc_hins((void *)d)) { if (g_gc_ncell == g_gc_ccap) { g_gc_ccap = g_gc_ccap ? g_gc_ccap * 2 : 4096; g_gc_cells = (DESCR_t **)realloc((void *)g_gc_cells, (size_t)g_gc_ccap * sizeof(*g_gc_cells)); if (!g_gc_cells) abort(); } g_gc_cells[g_gc_ncell++] = d; } } }
         return; }
@@ -427,19 +443,27 @@ static long gc_collect_ex(int cons_stack)
     { char *scanned = (char *)calloc((size_t)(g_gc_nblk ? g_gc_nblk : 1), 1); int changed = 1; if (!scanned) abort();
       while (changed) { changed = 0;
         for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-            if (scanned[i] || h->type != HB_WS || !(h->flags & (HBF_MARK | HBF_PIN))) continue;
-            scanned[i] = 1; changed = 1; gc_cons_scan((const char *)(h + 1), (const char *)h + h->size); } }
+            if (scanned[i] || !(h->flags & (HBF_MARK | HBF_PIN))) continue;
+            if (h->type == HB_WS) { scanned[i] = 1; changed = 1; gc_cons_scan((const char *)(h + 1), (const char *)h + h->size); continue; }
+            if (h->type == HB_AGGV) { VCELL_t *vc = (VCELL_t *)(h + 1); scanned[i] = 1; changed = 1; if (vc->key) gc_mark_agg(vc->key);
+                if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
+                rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); continue; }
+            if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); scanned[i] = 1; changed = 1; if (e->key) gc_mark_agg(e->key);
+                rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
+            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); scanned[i] = 1; changed = 1; if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
       free(scanned); }
     dest = g_hp_arena;
-    { long pws = 0, pwsc = 0, pzb = 0, pval = 0, dwsc = 0;
+    { long pws = 0, pwsc = 0, pzb = 0, pval = 0, dwsc = 0, pagg = 0, dagg = 0;
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        if ((h->flags & HBF_MARK) && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC)) h->flags |= HBF_PIN;
+        if ((h->flags & HBF_MARK) && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC || (h->type >= HB_AGGV && h->type <= HB_AGGT))) h->flags |= HBF_PIN;
         if (h->type == HB_WSC && !(h->flags & HBF_PIN)) dwsc++;
-        if (h->flags & HBF_PIN) { if (h->type == HB_WS) pws++; else if (h->type == HB_WSC) pwsc++; else if (h->type == HB_ZBLK) pzb++; else pval++; h->fwd = (uint64_t)h; nlive++; npin++; }
+        if (h->type >= HB_AGGV && h->type <= HB_AGGT && !(h->flags & HBF_PIN)) dagg++;
+        if (h->flags & HBF_PIN) { if (h->type == HB_WS) pws++; else if (h->type == HB_WSC) pwsc++; else if (h->type >= HB_AGGV && h->type <= HB_AGGT) pagg++; else if (h->type == HB_ZBLK) pzb++;
+            else pval++; h->fwd = (uint64_t)h; nlive++; npin++; }
         else if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
         else h->fwd = 0;
         if (h->flags & HBF_PIN) dest = (char *)h + h->size; }
-    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC]   pin-classes ws=%ld wsc=%ld zblk=%ld val=%ld  wsc-dead=%ld\n", pws, pwsc, pzb, pval, dwsc); }
+    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC]   pin-classes ws=%ld wsc=%ld agg=%ld zblk=%ld val=%ld  wsc-dead=%ld agg-dead=%ld\n", pws, pwsc, pagg, pzb, pval, dwsc, dagg); }
     for (long i = 0; i < g_gc_ncell; i++) { DESCR_t *d = g_gc_cells[i]; rt_hblk_t *h = gc_blk_of(d->s); if (h && h->fwd && h->fwd != (uint64_t)h) d->s = (char *)((rt_hblk_t *)h->fwd + 1) + (d->s - (char *)(h + 1)); }
     for (long i = 0; i < g_gc_nraw; i++) { const char **loc = g_gc_raws[i]; rt_hblk_t *h = gc_blk_of(*loc); if (h && h->fwd && h->fwd != (uint64_t)h) *loc = (const char *)((rt_hblk_t *)h->fwd + 1) + (*loc - (const char *)(h + 1)); }
     liveo = (rt_hblk_t **)malloc((size_t)(nlive ? nlive : 1) * sizeof(*liveo)); livef = (uint64_t *)malloc((size_t)(nlive ? nlive : 1) * sizeof(*livef)); if (!liveo || !livef) abort();

@@ -75,7 +75,7 @@ static unsigned _tbl_hash(const char *key) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new(void) {
-    TBBLK_t *t = rt_ws_alloc(sizeof(TBBLK_t));
+    TBBLK_t *t = rt_agg_alloc(2, sizeof(TBBLK_t));
     memset(t->buckets, 0, sizeof(t->buckets));
     t->size = 0;
     t->init = 10;
@@ -124,8 +124,8 @@ void table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val) 
     for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) {
         if (strcmp(e->key, key) == 0) { e->val = val; e->key_descr = key_d; return; }
     }
-    TBPAIR_t *e = rt_ws_alloc(sizeof(TBPAIR_t));
-    e->key       = rt_ws_strdup(key);
+    TBPAIR_t *e = rt_agg_alloc(1, sizeof(TBPAIR_t));
+    e->key       = rt_ws_strdup_c(key);
     e->key_descr = key_d;
     e->val  = val;
     e->next = tbl->buckets[h];
