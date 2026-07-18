@@ -217,12 +217,12 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_ARROW
 %token OP_EQ OP_NE OP_LE OP_GE
 %token OP_SEQ OP_SNE
-%token OP_AND OP_OR
+%token OP_AND OP_OR OP_TERNARY1 OP_TERNARY2
 %token OP_BIND
 %token OP_DOTEQ
 %token OP_SMATCH
 %token OP_DIV
-%type <node> stmt expr atom range_expr cmp_expr jct_expr add_expr closure
+%type <node> stmt expr atom range_expr cmp_expr tern_expr jct_expr add_expr closure
 %type <node> mul_expr unary_expr postfix_expr call_expr block
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt
 %type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl role_decl
@@ -230,6 +230,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <sval> is_clauses
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
 %right '=' OP_BIND
+%right OP_TERNARY1 OP_TERNARY2
 %left  OP_OR
 %left  OP_AND
 %left  '!'
@@ -817,6 +818,11 @@ expr
           expr_add_child(g, $2);
           $$ = g;
       }
+    | tern_expr            { $$=$1; }
+    ;
+tern_expr
+    : cmp_expr OP_TERNARY1 tern_expr OP_TERNARY2 tern_expr
+        { tree_t *c = ast_node_new(TT_TERNARY); ast_push(c, $1); ast_push(c, $3); ast_push(c, $5); $$ = c; }
     | cmp_expr             { $$=$1; }
     ;
 cmp_expr

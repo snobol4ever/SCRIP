@@ -115,6 +115,8 @@ WS       [ \t\r]
 ">="            { return OP_GE; }
 "&&"            { return OP_AND; }
 "||"            { return OP_OR; }
+"??"            { return OP_TERNARY1; }
+"!!"            { return OP_TERNARY2; }
 "|"             { return '|'; }
 "&"             { return '&'; }
 ":="            { return OP_BIND; }

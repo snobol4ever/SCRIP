@@ -1735,6 +1735,23 @@ EOF
 raku "print_listop" "ab" << 'EOF'
 print "a", "b"; say "";
 EOF
+raku "ternary_true" "5" << 'EOF'
+my $x = 1 ?? 5 !! 9; say $x;
+EOF
+raku "ternary_false" "9" << 'EOF'
+my $x = 0 ?? 5 !! 9; say $x;
+EOF
+raku "ternary_shortcircuit" "5" << 'EOF'
+sub boom() { say "BOOM"; return 9; }
+sub safe() { return 5; }
+my $x = 1 ?? safe() !! boom(); say $x;
+EOF
+raku "ternary_relop_cond" "big" << 'EOF'
+my $n = 10; say $n > 3 ?? "big" !! "small";
+EOF
+raku "ternary_nested_right" "3" << 'EOF'
+my $g = "C"; say $g eq "A" ?? 1 !! $g eq "B" ?? 2 !! 3;
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

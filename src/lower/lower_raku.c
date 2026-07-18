@@ -382,6 +382,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         ir_operand_push(nd, nl);
         *res = nd; return eo; }
     case TT_SUSPEND: return rk_excise(cx, γ, ω, res);
+    case TT_TERNARY: if (t->n > 2) {
+        static int tern_n = 0; char tn[32]; snprintf(tn, sizeof tn, "$?tern%d", tern_n++); const char * tname = lp_strdup(tn);
+        IR_t * jv = build(cx, IR_VAR, γ, ω); IR_LIT(jv).sval = tname;
+        IR_t * at = build(cx, IR_ASSIGN, jv, ω); IR_LIT(at).sval = tname;
+        IR_t * af = build(cx, IR_ASSIGN, jv, ω); IR_LIT(af).sval = tname;
+        IR_t * rt_ = NULL, * rf_ = NULL;
+        IR_t * et = lower_rv(cx, t->c[1], at, ω, &rt_); if (rt_) ir_operand_push(at, rt_);
+        IR_t * ef = lower_rv(cx, t->c[2], af, ω, &rf_); if (rf_) ir_operand_push(af, rf_);
+        IR_t * e = lower_cond(cx, t->c[0], et, ef);
+        *res = jv; return e; }
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_RETURN: {
         if (t->n > 0 && t->c[0]) {
             IR_t * nd = build(cx, IR_RETURN, γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e;
