@@ -173,7 +173,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         return 4;
     case IR_ASSIGN:
         return 0;
-    case IR_INDIRECT_GOTO: case IR_DISJUNCTION:
+    case IR_DISJUNCTION:   /* IR_INDIRECT_GOTO retired slice 3 (zero producers) */
         if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { zls_field(scope_id, off, 8, ZK_RAW, 0, "disj.alt_i live-alternative index (+16 from box base; nary self-state, MOVE_LABEL-ERAD: α=0, φ-glue ++, β dispatches; value DESCR = the box result slot at [base], option-B per-arm copy in σ-glue) (+24 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "disj.pad (unused)", nd); return 1; }
         zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 1;
     case IR_CALL_BUILTIN_GEN:

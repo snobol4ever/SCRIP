@@ -12,7 +12,6 @@ int dp_run(IR_graph_t * g) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
         for (int k = 0; k < nd->n_operands; k++) { int j = dp_index_of(g, nd->operands[k]); if (j >= 0) ref[j] = 1; }
-        if (nd->op == IR_INDIRECT_GOTO && nd->γ.node) { int j = dp_index_of(g, nd->γ.node); if (j >= 0) ref[j] = 1; }
     }
     int total = 0;
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && dp_pure_lit(nd->op) && !ref[i]) { nd->op = IR_SUCCEED; nd->n_operands = 0; total++; } }

@@ -839,6 +839,16 @@ static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     cx->beta = ω; *res = nullv; return ce;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* wiring-kind arm results (return/suspend/fail/goto...) carry no value slot and never σ-land — pushing the
+ * node itself as a nary trailing result operand makes the emit chain BFS queue it EARLY, so e.g. an
+ * IR_RETURN drives before its value producer arrives on the γ-spine: bb_slot_get misses (IR_RETURN's drive
+ * has no nd_slot fallback) and bb_return emits the &null descriptor (rung02_proc_fact via lower_if; absv
+ * `n > 0 | return -n` via lower_alt — same disease, slice-3 session). Push NULL for these. */
+static IR_t * icn_arm_result(IR_t * rv) {
+    if (rv) switch (rv->op) { case IR_GOTO: case IR_SUCCEED: case IR_FAIL: case IR_RETURN: case IR_SUSPEND: case IR_CORET: case IR_COFAIL: return NULL; default: break; }
+    return rv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     /* MOVE_LABEL-ERAD (Lon 2026-07-15/18, FINDING-2026-07-15-...-BB-SELF-STATE): nary self-state form, the
@@ -871,7 +881,7 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
         resv[j] = ar;
 
     }
-    for (int j = 0; j < n && j < 64; j++) ir_operand_push(dj, resv[j]);
+    for (int j = 0; j < n && j < 64; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
     IR_LIT(dj).ival = (long) (n < 64 ? n : 64);
     cx->beta = dj; *res = dj;
     /* FRESH ENTRY = dj.α (zero the value slot, alt_i=0, enter entry_0).  Returning entry_0 directly is the
@@ -887,25 +897,62 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    /* MOVE_LABEL-ERAD slice 3 (GOAL-ICON-BB cursor, FINDING §6): if C then T else E as a COMMITTED
+     * IR_DISJUNCTION self-state box — the SAME kind, template (bb_disjunction), zls grant, and pair layout
+     * the slice-2 alternation landed; zero IR_MOVE_LABEL, zero IR_INDIRECT_GOTO.  The committed deltas live
+     * entirely in the wiring, not the machinery:
+     *   arm0 entry = C's entry (C: succ=T_entry, fail=dj → its ω-edges retag "φ").  C-fail lands the φ-glue,
+     *     whose alt_i++/dispatch IS the selection: alt_i 0→1 enters E (or, N=1 no-else, exhausts → ω).
+     *     C is BOUNDED by construction (interp.r's Op_Mark/Op_Unmark bracket): its resume surface is never
+     *     entered in the pair table — a later T-failure exits ω, never re-drives C; C's abandoned
+     *     suspensions are the pre-existing ICN-BOUND-UNMARK ladder, not this rung.
+     *   T and E lower with succ=dj (γ-edges retag "σ": the σ-glue copies the TAKEN arm's result into the
+     *     box's own slot, option B verbatim) and fail=ω-OUT — a PLAIN edge escaping the box.  That plain
+     *     escape is the commit: then-exhaust never falls into else, else-exhaust never advances (the φ-glue
+     *     only ever fires from C-fail, so alt_i is exactly the taken-branch index β dispatches on).
+     *   resume_j = the arm's own resume surface when it is a generator (ab-in-arm scan, lower_alt verbatim);
+     *     otherwise the shared IR_FAIL SENTINEL — chain-filtered (emit.cpp BFS drops FAIL/SUCCEED), so the
+     *     pair row falls to its node_ω default: resuming an exhausted valueless branch ≡ fail outward.  NOT
+     *     the dj self-marker: self ≡ advance (alternation's resume-≡-φ), which for a committed if would
+     *     leak a then-resume into else. */
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
-    IR_t * ig = build(cx, IR_INDIRECT_GOTO, γ, ω);
-    IR_t * ml_th = build(cx, IR_MOVE_LABEL, γ, ω);
-    cx->beta = ω;
-    IR_t * then_val = NULL; IR_t * then_entry = lower(cx, TH, ml_th, ω, &then_val);
-    IR_t * ab_th = cx->beta ? cx->beta : ω;
-    IR_LIT(ml_th).ival = (ab_th && ir_is_generator_kind(ab_th->op)) ? 1 : 0;
-    ir_operand_push(ml_th, ab_th); ir_operand_push(ml_th, ig); ir_operand_push(ml_th, then_val);
-    IR_t * else_entry;
-    if (EL) {
-        IR_t * ml_el = build(cx, IR_MOVE_LABEL, γ, ω);
-        cx->beta = ω;
-        IR_t * else_val = NULL; else_entry = lower(cx, EL, ml_el, ω, &else_val);
-        IR_t * ab_el = cx->beta ? cx->beta : ω;
-        IR_LIT(ml_el).ival = (ab_el && ir_is_generator_kind(ab_el->op)) ? 1 : 0;
-        ir_operand_push(ml_el, ab_el); ir_operand_push(ml_el, ig); ir_operand_push(ml_el, else_val);
-    } else { else_entry = ω; }
-    IR_t * cond_val = NULL; IR_t * cond_entry = lower(cx, C, then_entry, else_entry, &cond_val); (void) cond_val;
-    cx->beta = ig; *res = ig; return cond_entry;
+    IR_graph_t * g = cx->g;
+    int n = EL ? 2 : 1;
+    IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
+    γ_to(dj, γ); ω_to(dj, ω);   /* promoting helpers, NOT raw lc_* — the outer targets may be generator-kind (lower_alt:854's rung13 lesson holds verbatim here) */
+    IR_t * fs = IR_node_alloc(g, IR_FAIL);   /* shared valueless-resume sentinel (never emitted; resolves to the dj's node_ω) */
+    IR_t * entv[2]; IR_t * resumev[2]; IR_t * resv[2];
+    for (int j = 0; j < n; j++) {
+        const tree_t * ARM = j ? EL : TH;
+        int before = g->n;
+        IR_t * ar = NULL; cx->beta = dj;
+        IR_t * aent = lower(cx, ARM, dj, ω, &ar);   /* succ=dj → σ; fail=ω-OUT → the commit */
+        IR_t * ab = cx->beta; int arm_end = g->n;
+        int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        if (j == 0) {   /* the condition belongs to arm 0's retag range: its fail=dj edges land the φ-glue = the selector */
+            IR_t * cval = NULL; aent = lower(cx, C, aent, dj, &cval); (void) cval;
+        }
+        for (int k = before; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+            if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+        }
+        entv[j] = aent; resumev[j] = ab_in_arm ? ab : fs; resv[j] = ar;
+    }
+    for (int j = 0; j < n; j++) { ir_operand_push(dj, entv[j]); ir_operand_push(dj, resumev[j]); }
+    /* wiring-kind arm results (return/suspend/fail/goto...) carry no value slot and never σ-land (they exit
+     * the proc or the box) — push NULL, not the node: the dj operand walk (emit.cpp chain BFS) queues ALL
+     * operands, and an early-queued IR_RETURN drives BEFORE its value producer arrives on the γ-spine —
+     * bb_slot_get misses and bb_return emits the &null descriptor (rung02_proc_fact 120→0, this slice). */
+    for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));   /* shared filter, see icn_arm_result */
+    IR_LIT(dj).ival = (long) n;
+    cx->beta = dj; *res = dj;
+    /* fresh entry funnels through dj.α (zero value slot, alt_i=0, enter arm0=C) — the GOTO trampoline absorbs
+     * callers' auto-β-promotion exactly as lower_alt:885 (the s95 stale-alt_i by-bug; α-entry protocol rung
+     * owns unifying these tramps). */
+    IR_t * ent = IR_node_alloc(g, IR_GOTO); lc_γ_to(ent, dj); lc_ω_to(ent, dj);
+    return ent;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {

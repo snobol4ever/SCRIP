@@ -15,7 +15,6 @@ static char * bc_build_protect(IR_graph_t *g) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
         for (int k = 0; k < nd->n_operands; k++) { int j = bc_index_of(g, nd->operands[k]); if (j >= 0) prot[j] = 1; }
-        if (nd->op == IR_INDIRECT_GOTO && nd->γ.node) { int j = bc_index_of(g, nd->γ.node); if (j >= 0) prot[j] = 1; }
     }
     return prot;
 }

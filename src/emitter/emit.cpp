@@ -819,7 +819,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
-    case IR_INDIRECT_GOTO: case IR_DISJUNCTION: { if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { bb_emit_x86(bb_disjunction()); return 0; }   /* MOVE_LABEL-ERAD: Icon nary self-state form (operands = (entry,resume)×N + result×N, ival=N); the 0-operand shape is the legacy Prolog gate */
+    case IR_DISJUNCTION: { if (nd->n_operands > 0) { bb_emit_x86(bb_disjunction()); return 0; }   /* MOVE_LABEL-ERAD: Icon nary self-state form (operands = (entry,resume)×N + result×N, ival=N); the 0-operand shape is the legacy Prolog gate. IR_INDIRECT_GOTO case retired slice 3: zero producers anywhere (lower_if was the only one, now a committed DISJUNCTION); kind stays declared, drive_unowned aborts LOUD if one ever reappears */
                                                   bb_emit_x86(bb_indirect_goto()); } return 0;
     case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; } bb_emit_x86(bb_scan_tab()); }    return 0;   /* ZB-ICN-FC-1: Icon's first FORTH cell — saved-cursor scratch at op_off+16 rides rsp; grant set HERE (post-DRIVE_FILL reset), result stays flat at op_off+0 */
@@ -1422,8 +1422,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.lbl_t0_p = g_move_label_tgt;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_INDIRECT_GOTO: case IR_DISJUNCTION: {
-        if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { drive_unowned(nd); break; }   /* MOVE_LABEL-ERAD: nary form is flat-driven from codegen_flat_chain_body like the other nary constructs */
+    case IR_DISJUNCTION: {   /* IR_INDIRECT_GOTO retired slice 3 (zero producers; Icon's if is a committed nary DISJUNCTION now) */
+        if (nd->n_operands > 0) { drive_unowned(nd); break; }   /* MOVE_LABEL-ERAD: nary form is flat-driven from codegen_flat_chain_body like the other nary constructs */
         int off = drive_value_slot(nd);
         g_emit.op_off = off;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
