@@ -3369,6 +3369,165 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define _OPCOERCE(d) do { \
+        if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
+            const char *_s = VARVAL_fn(d); \
+            if (_s && *_s) { char *_e=NULL; long long _iv=strtoll(_s,&_e,10); \
+                if (_e && !*_e){(d)=INTVAL(_iv);} \
+                else {double _rv=strtod(_s,&_e); \
+                      if(_e && !*_e){(d)=REALVAL(_rv);}else{*out=FAILDESCR;return 1;}} \
+            } else { *out=FAILDESCR; return 1; } } } while(0)
+#define _NUMREL(op) do { DESCR_t _l=args[0],_r=args[1]; _OPCOERCE(_l); _OPCOERCE(_r); \
+        double _lv2=IS_REAL_fn(_l)?_l.r:(double)_l.i, _rv2=IS_REAL_fn(_r)?_r.r:(double)_r.i; \
+        *out=(_lv2 op _rv2)?_r:FAILDESCR; return 1; } while(0)
+#define _STRREL(op) do { DESCR_t _l=args[0],_r=args[1]; \
+        const char *_ls=VARVAL_fn(_l); if(!_ls)_ls=""; \
+        const char *_rs=VARVAL_fn(_r); if(!_rs)_rs=""; \
+        int _cmp=strcmp(_ls,_rs); *out=(_cmp op 0)?rt_str_coerce(_r):FAILDESCR; return 1; } while(0)
+#define _SNOCOERCE(d) do { \
+        if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
+            const char *_s9 = VARVAL_fn(d); \
+            if (!_s9 || !*_s9) { (d) = INTVAL(0); } else { _OPCOERCE(d); } } } while(0)
+static __attribute__((noinline)) int bn_numrel(DESCR_t *args, int nargs, DESCR_t *out, int op) {
+    if (nargs != 2) return -1;
+    if (IS_FAIL_fn(args[0]) || IS_FAIL_fn(args[1])) { *out = FAILDESCR; return 1; }
+    DESCR_t _l = args[0], _r = args[1]; _SNOCOERCE(_l); _SNOCOERCE(_r);
+    double a = IS_REAL_fn(_l) ? _l.r : (double)_l.i, b = IS_REAL_fn(_r) ? _r.r : (double)_r.i;
+    int ok = op==0?(a==b):op==1?(a!=b):op==2?(a<b):op==3?(a<=b):op==4?(a>b):(a>=b);
+    *out = ok ? NULVCL : FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_lexrel(DESCR_t *args, int nargs, DESCR_t *out, int op) {
+    if (nargs != 2) return -1;
+    if (IS_FAIL_fn(args[0]) || IS_FAIL_fn(args[1])) { *out = FAILDESCR; return 1; }
+    const char *_ls = VARVAL_fn(args[0]); if (!_ls) _ls = "";
+    const char *_rs = VARVAL_fn(args[1]); if (!_rs) _rs = "";
+    int c = strcmp(_ls, _rs);
+    int ok = op==0?(c>0):op==1?(c<0):op==2?(c>=0):op==3?(c<=0):op==4?(c==0):(c!=0);
+    *out = ok ? NULVCL : FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_identdiffer(DESCR_t *args, int nargs, DESCR_t *out, int ident) {
+    extern int descr_identical(DESCR_t, DESCR_t);
+    DESCR_t a = nargs > 0 ? args[0] : NULVCL, b = nargs > 1 ? args[1] : NULVCL;
+    int same = descr_identical(a, b);
+    *out = (ident ? same : !same) ? NULVCL : FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 1) return -1;
+    DESCR_t v = args[0];
+    if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
+    if (v.v == DT_T)   { *out = INTVAL(v.tbl ? v.tbl->size : 0); return 1; }
+    if (v.v == DT_A)   { *out = INTVAL(v.arr ? (v.arr->hi - v.arr->lo + 1) : 0); return 1; }
+    if (v.v == DT_DATA) {
+        DESCR_t tag = FIELD_GET_fn(v,"gen_type");
+        if (tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0) {
+            *out = INTVAL((int)FIELD_GET_fn(v,"frame_size").i); return 1;
+        }
+    }
+    if (IS_INT_fn(v)) { const char *is = VARVAL_fn(v); *out = INTVAL(is ? (long)strlen(is) : 0); return 1; }
+    if (IS_REAL_fn(v)) { *out = INTVAL(0); return 1; }
+    if (IS_CSET_fn(v)) {
+        int klen = kw_cset_len(v.s);
+        *out = INTVAL(klen >= 0 ? klen : (v.s ? (long)strlen(v.s) : 0));
+        return 1;
+    }
+    const char *s = VARVAL_fn(v); if (!s) { *out = INTVAL(0); return 1; }
+    if (strchr(s,'\x01')) {
+        long n=1; for(const char *p=s;*p;p++) if(*p=='\x01') n++;
+        *out = INTVAL(n); return 1;
+    }
+    long len = IS_CSET_fn(v) ? (long)strlen(s) : (v.slen > 0 ? v.slen : (long)strlen(s));
+    *out = INTVAL(len); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_time(DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)args; if (nargs > 1) return -1;
+    *out = INTVAL((long long)(clock() * 1000 / CLOCKS_PER_SEC)); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_date(DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)args; if (nargs > 1) return -1;
+    time_t now = time(NULL); struct tm *tm = localtime(&now);
+    char *buf = (char *)rt_ws_alloc_c(64); strftime(buf, 64, "%m/%d/%Y %H:%M:%S", tm);
+    *out = STRVAL(buf); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_trim(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 1) return -1;
+    const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
+    size_t n = strlen(sv); while (n > 0 && sv[n-1] == ' ') n--;
+    char *buf = (char *)rt_ws_alloc_c(n + 1); memcpy(buf, sv, n); buf[n] = 0;
+    *out = STRVAL(buf); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 2) return -1;
+    const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
+    DESCR_t nn = args[1]; _SNOCOERCE(nn);
+    long long k = IS_REAL_fn(nn) ? (long long)nn.r : nn.i;
+    if (k < 0) { *out = FAILDESCR; return 1; }
+    size_t sl = strlen(sv); char *buf = (char *)rt_ws_alloc_c(sl * (size_t)k + 1);
+    for (long long i = 0; i < k; i++) memcpy(buf + (size_t)i * sl, sv, sl);
+    buf[sl * (size_t)k] = 0; *out = STRVAL(buf); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 3) return -1;
+    const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
+    const char *fv = VARVAL_fn(args[1]); if (!fv) fv = "";
+    const char *tv = VARVAL_fn(args[2]); if (!tv) tv = "";
+    if (strlen(fv) != strlen(tv) || !*fv) { *out = FAILDESCR; return 1; }
+    char map[256]; for (int i = 0; i < 256; i++) map[i] = (char)i;
+    for (const char *f2 = fv, *t2 = tv; *f2; f2++, t2++) map[(unsigned char)*f2] = *t2;
+    size_t n = strlen(sv); char *buf = (char *)rt_ws_alloc_c(n + 1);
+    for (size_t i = 0; i < n; i++) buf[i] = map[(unsigned char)sv[i]];
+    buf[n] = 0; *out = STRVAL(buf); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_substr(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 2 && nargs != 3) return -1;
+    *out = SUBSTR_fn(args[0], args[1], (nargs == 3) ? args[2] : INTVAL(1000000000)); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_reverse(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 1) return -1;
+    *out = REVERS_fn(args[0]); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_lpad(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 2 && nargs != 3) return -1;
+    *out = lpad_fn(args[0], args[1], (nargs == 3) ? args[2] : STRVAL(" ")); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_rpad(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 2 && nargs != 3) return -1;
+    *out = rpad_fn(args[0], args[1], (nargs == 3) ? args[2] : STRVAL(" ")); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_integer(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 1) return -1;
+    DESCR_t av = args[0];
+    if (IS_INT_fn(av))  { *out = NULVCL; return 1; }
+    if (IS_REAL_fn(av)) { *out = FAILDESCR; return 1; }
+    const char *sv = VARVAL_fn(av); if (!sv) sv = "";
+    const char *p = sv; while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\0') { *out = NULVCL; return 1; }
+    if (*p == '+' || *p == '-') p++;
+    const char *d = p; while (*p >= '0' && *p <= '9') p++;
+    const char *e = p; while (*e == ' ' || *e == '\t') e++;
+    *out = (p != d && *e == '\0') ? NULVCL : FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs != 2) return -1;
+    DESCR_t a = args[0], b = args[1]; _SNOCOERCE(a); _SNOCOERCE(b);
+    long long ai = IS_REAL_fn(a) ? (long long)a.r : a.i, bi = IS_REAL_fn(b) ? (long long)b.r : b.i;
+    if (bi == 0) { *out = FAILDESCR; return 1; }
+    *out = INTVAL(ai % bi); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
@@ -3379,8 +3538,30 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
     }
     if (!fn || !out) return 0;
-    if (!strcmp(fn, "FAIL"))    { *out = FAILDESCR; return 1; }
-    if (!strcmp(fn, "SUCCEED")) { *out = NULVCL;    return 1; }
+    { size_t _fl = strlen(fn);
+      if (_fl >= 2 && _fl <= 7) { int _r = -1;
+        switch (((unsigned)_fl << 8) | (unsigned char)fn[0]) {
+        case (2u<<8)|'E': if (fn[1]=='Q') _r = bn_numrel(args, nargs, out, 0); break;
+        case (2u<<8)|'N': if (fn[1]=='E') _r = bn_numrel(args, nargs, out, 1); break;
+        case (2u<<8)|'L': if (fn[1]=='T') _r = bn_numrel(args, nargs, out, 2); else if (fn[1]=='E') _r = bn_numrel(args, nargs, out, 3); break;
+        case (2u<<8)|'G': if (fn[1]=='T') _r = bn_numrel(args, nargs, out, 4); else if (fn[1]=='E') _r = bn_numrel(args, nargs, out, 5); break;
+        case (3u<<8)|'L': { int _o = fn[1]=='G'&&fn[2]=='T' ? 0 : fn[1]=='L'&&fn[2]=='T' ? 1 : fn[1]=='G'&&fn[2]=='E' ? 2 : fn[1]=='L'&&fn[2]=='E' ? 3 : fn[1]=='E'&&fn[2]=='Q' ? 4 : fn[1]=='N'&&fn[2]=='E' ? 5 : -1;
+                            if (_o >= 0) _r = bn_lexrel(args, nargs, out, _o); } break;
+        case (4u<<8)|'S': if (!strcmp(fn, "SIZE")) _r = bn_size(args, nargs, out); break;
+        case (4u<<8)|'T': if (!strcmp(fn, "TIME")) _r = bn_time(args, nargs, out); else if (!strcmp(fn, "TRIM")) _r = bn_trim(args, nargs, out); break;
+        case (4u<<8)|'D': if (!strcmp(fn, "DATE")) _r = bn_date(args, nargs, out); else if (!strcmp(fn, "DUPL")) _r = bn_dupl(args, nargs, out); break;
+        case (4u<<8)|'F': if (!strcmp(fn, "FAIL")) { *out = FAILDESCR; return 1; } break;
+        case (4u<<8)|'L': if (!strcmp(fn, "LPAD")) _r = bn_lpad(args, nargs, out); break;
+        case (4u<<8)|'R': if (!strcmp(fn, "RPAD")) _r = bn_rpad(args, nargs, out); break;
+        case (5u<<8)|'I': if (!strcmp(fn, "IDENT")) _r = bn_identdiffer(args, nargs, out, 1); break;
+        case (5u<<8)|'R': if (!strcmp(fn, "REMDR")) _r = bn_remdr(args, nargs, out); break;
+        case (6u<<8)|'S': if (!strcmp(fn, "SUBSTR")) _r = bn_substr(args, nargs, out); break;
+        case (6u<<8)|'D': if (!strcmp(fn, "DIFFER")) _r = bn_identdiffer(args, nargs, out, 0); break;
+        case (7u<<8)|'R': if (!strcmp(fn, "REPLACE")) _r = bn_replace(args, nargs, out); else if (!strcmp(fn, "REVERSE")) _r = bn_reverse(args, nargs, out); break;
+        case (7u<<8)|'I': if (!strcmp(fn, "INTEGER")) _r = bn_integer(args, nargs, out); break;
+        case (7u<<8)|'S': if (!strcmp(fn, "SUCCEED")) { *out = NULVCL; return 1; } break;
+        default: break; }
+        if (_r >= 0) return _r; } }
     if (!strcmp(fn, "__rk_bool") && nargs == 1) {
         DESCR_t v = args[0];
         int t = 0;
@@ -4353,40 +4534,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = FAILDESCR; return 1;
     }
-    if (!strcmp(fn,"TIME") && nargs <= 1) {
-        *out = INTVAL((long long)(clock() * 1000 / CLOCKS_PER_SEC)); return 1;
-    }
-    if (!strcmp(fn,"DATE") && nargs <= 1) {
-        time_t now = time(NULL); struct tm *tm = localtime(&now);
-        char *buf = (char *)rt_ws_alloc_c(64); strftime(buf, 64, "%m/%d/%Y %H:%M:%S", tm);
-        *out = STRVAL(buf); return 1;
-    }
-    if (!strcmp(fn,"SIZE") && nargs == 1) {
-        DESCR_t v = args[0];
-        if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
-        if (v.v == DT_T)   { *out = INTVAL(v.tbl ? v.tbl->size : 0); return 1; }
-        if (v.v == DT_A)   { *out = INTVAL(v.arr ? (v.arr->hi - v.arr->lo + 1) : 0); return 1; }
-        if (v.v == DT_DATA) {
-            DESCR_t tag = FIELD_GET_fn(v,"gen_type");
-            if (tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0) {
-                *out = INTVAL((int)FIELD_GET_fn(v,"frame_size").i); return 1;
-            }
-        }
-        if (IS_INT_fn(v)) { const char *is = VARVAL_fn(v); *out = INTVAL(is ? (long)strlen(is) : 0); return 1; }
-        if (IS_REAL_fn(v)) { *out = INTVAL(0); return 1; }
-        if (IS_CSET_fn(v)) {
-            int klen = kw_cset_len(v.s);
-            *out = INTVAL(klen >= 0 ? klen : (v.s ? (long)strlen(v.s) : 0));
-            return 1;
-        }
-        const char *s = VARVAL_fn(v); if (!s) { *out = INTVAL(0); return 1; }
-        if (strchr(s,'\x01')) {
-            long n=1; for(const char *p=s;*p;p++) if(*p=='\x01') n++;
-            *out = INTVAL(n); return 1;
-        }
-        long len = IS_CSET_fn(v) ? (long)strlen(s) : (v.slen > 0 ? v.slen : (long)strlen(s));
-        *out = INTVAL(len); return 1;
-    }
     if (!strcmp(fn,"NONNULL") && nargs == 1) {
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v))  { *out = FAILDESCR; return 1; }
@@ -4744,85 +4891,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t v = NV_GET_fn(vname);
         *out = IS_FAIL_fn(v) ? FAILDESCR : v; return 1;
     }
-#define _OPCOERCE(d) do { \
-        if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
-            const char *_s = VARVAL_fn(d); \
-            if (_s && *_s) { char *_e=NULL; long long _iv=strtoll(_s,&_e,10); \
-                if (_e && !*_e){(d)=INTVAL(_iv);} \
-                else {double _rv=strtod(_s,&_e); \
-                      if(_e && !*_e){(d)=REALVAL(_rv);}else{*out=FAILDESCR;return 1;}} \
-            } else { *out=FAILDESCR; return 1; } } } while(0)
-#define _NUMREL(op) do { DESCR_t _l=args[0],_r=args[1]; _OPCOERCE(_l); _OPCOERCE(_r); \
-        double _lv2=IS_REAL_fn(_l)?_l.r:(double)_l.i, _rv2=IS_REAL_fn(_r)?_r.r:(double)_r.i; \
-        *out=(_lv2 op _rv2)?_r:FAILDESCR; return 1; } while(0)
-#define _STRREL(op) do { DESCR_t _l=args[0],_r=args[1]; \
-        const char *_ls=VARVAL_fn(_l); if(!_ls)_ls=""; \
-        const char *_rs=VARVAL_fn(_r); if(!_rs)_rs=""; \
-        int _cmp=strcmp(_ls,_rs); *out=(_cmp op 0)?rt_str_coerce(_r):FAILDESCR; return 1; } while(0)
-#define _SNOCOERCE(d) do { \
-        if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
-            const char *_s9 = VARVAL_fn(d); \
-            if (!_s9 || !*_s9) { (d) = INTVAL(0); } else { _OPCOERCE(d); } } } while(0)
-    if (!strcmp(fn,"IDENT") || !strcmp(fn,"DIFFER")) {
-        extern int descr_identical(DESCR_t, DESCR_t);
-        DESCR_t a = nargs > 0 ? args[0] : NULVCL, b = nargs > 1 ? args[1] : NULVCL;
-        int same = descr_identical(a, b);
-        *out = (!strcmp(fn,"IDENT") ? same : !same) ? NULVCL : FAILDESCR; return 1;
-    }
-    if (!strcmp(fn,"TRIM") && nargs == 1) {
-        const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
-        size_t n = strlen(sv); while (n > 0 && sv[n-1] == ' ') n--;
-        char *buf = (char *)rt_ws_alloc_c(n + 1); memcpy(buf, sv, n); buf[n] = 0;
-        *out = STRVAL(buf); return 1;
-    }
-    if (!strcmp(fn,"DUPL") && nargs == 2) {
-        const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
-        DESCR_t nn = args[1]; _SNOCOERCE(nn);
-        long long k = IS_REAL_fn(nn) ? (long long)nn.r : nn.i;
-        if (k < 0) { *out = FAILDESCR; return 1; }
-        size_t sl = strlen(sv); char *buf = (char *)rt_ws_alloc_c(sl * (size_t)k + 1);
-        for (long long i = 0; i < k; i++) memcpy(buf + (size_t)i * sl, sv, sl);
-        buf[sl * (size_t)k] = 0; *out = STRVAL(buf); return 1;
-    }
-    if (!strcmp(fn,"REPLACE") && nargs == 3) {
-        const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
-        const char *fv = VARVAL_fn(args[1]); if (!fv) fv = "";
-        const char *tv = VARVAL_fn(args[2]); if (!tv) tv = "";
-        if (strlen(fv) != strlen(tv) || !*fv) { *out = FAILDESCR; return 1; }
-        char map[256]; for (int i = 0; i < 256; i++) map[i] = (char)i;
-        for (const char *f2 = fv, *t2 = tv; *f2; f2++, t2++) map[(unsigned char)*f2] = *t2;
-        size_t n = strlen(sv); char *buf = (char *)rt_ws_alloc_c(n + 1);
-        for (size_t i = 0; i < n; i++) buf[i] = map[(unsigned char)sv[i]];
-        buf[n] = 0; *out = STRVAL(buf); return 1;
-    }
-    if (!strcmp(fn,"SUBSTR") && (nargs == 2 || nargs == 3)) {
-        *out = SUBSTR_fn(args[0], args[1], (nargs == 3) ? args[2] : INTVAL(1000000000)); return 1;
-    }
-    if (!strcmp(fn,"REVERSE") && nargs == 1) { *out = REVERS_fn(args[0]); return 1; }
-    if (!strcmp(fn,"LPAD") && (nargs == 2 || nargs == 3)) {
-        *out = lpad_fn(args[0], args[1], (nargs == 3) ? args[2] : STRVAL(" ")); return 1;
-    }
-    if (!strcmp(fn,"RPAD") && (nargs == 2 || nargs == 3)) {
-        *out = rpad_fn(args[0], args[1], (nargs == 3) ? args[2] : STRVAL(" ")); return 1;
-    }
-    if (!strcmp(fn,"INTEGER") && nargs == 1) {
-        DESCR_t av = args[0];
-        if (IS_INT_fn(av))  { *out = NULVCL; return 1; }
-        if (IS_REAL_fn(av)) { *out = FAILDESCR; return 1; }
-        const char *sv = VARVAL_fn(av); if (!sv) sv = "";
-        const char *p = sv; while (*p == ' ' || *p == '\t') p++;
-        if (*p == '\0') { *out = NULVCL; return 1; }
-        if (*p == '+' || *p == '-') p++;
-        const char *d = p; while (*p >= '0' && *p <= '9') p++;
-        const char *e = p; while (*e == ' ' || *e == '\t') e++;
-        *out = (p != d && *e == '\0') ? NULVCL : FAILDESCR; return 1;
-    }
-    if (!strcmp(fn,"REMDR") && nargs == 2) {
-        DESCR_t a = args[0], b = args[1]; _SNOCOERCE(a); _SNOCOERCE(b);
-        long long ai = IS_REAL_fn(a) ? (long long)a.r : a.i, bi = IS_REAL_fn(b) ? (long long)b.r : b.i;
-        if (bi == 0) { *out = FAILDESCR; return 1; }
-        *out = INTVAL(ai % bi); return 1;
-    }
     if (!strcmp(fn,"SNO$NAME") && nargs == 1) {
         const char *sv = VARVAL_fn(args[0]);
         if (!sv || !*sv) { *out = FAILDESCR; return 1; }
@@ -5040,21 +5108,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!strcmp(fn,">>=")) _STRREL(>=);
         if (!strcmp(fn,"=="))  _STRREL(==);
         if (!strcmp(fn,"~==")) _STRREL(!=);
-        if (!strcmp(fn,"EQ")||!strcmp(fn,"NE")||!strcmp(fn,"LT")||!strcmp(fn,"LE")||!strcmp(fn,"GT")||!strcmp(fn,"GE")) {
-            DESCR_t _l=args[0],_r=args[1]; _SNOCOERCE(_l); _SNOCOERCE(_r);
-            double a=IS_REAL_fn(_l)?_l.r:(double)_l.i, b=IS_REAL_fn(_r)?_r.r:(double)_r.i;
-            int ok = !strcmp(fn,"EQ")?(a==b):!strcmp(fn,"NE")?(a!=b):!strcmp(fn,"LT")?(a<b)
-                   : !strcmp(fn,"LE")?(a<=b):!strcmp(fn,"GT")?(a>b):(a>=b);
-            *out = ok ? NULVCL : FAILDESCR; return 1;
-        }
-        if (!strcmp(fn,"LGT")||!strcmp(fn,"LLT")||!strcmp(fn,"LGE")||!strcmp(fn,"LLE")||!strcmp(fn,"LEQ")||!strcmp(fn,"LNE")) {
-            const char *_ls=VARVAL_fn(args[0]); if(!_ls)_ls="";
-            const char *_rs=VARVAL_fn(args[1]); if(!_rs)_rs="";
-            int c=strcmp(_ls,_rs);
-            int ok = !strcmp(fn,"LGT")?(c>0):!strcmp(fn,"LLT")?(c<0):!strcmp(fn,"LGE")?(c>=0)
-                   : !strcmp(fn,"LLE")?(c<=0):!strcmp(fn,"LEQ")?(c==0):(c!=0);
-            *out = ok ? NULVCL : FAILDESCR; return 1;
-        }
         if (!strcmp(fn,"===")) {
             extern int descr_identical(DESCR_t, DESCR_t);
             *out=descr_identical(l,r)?r:FAILDESCR; return 1;
