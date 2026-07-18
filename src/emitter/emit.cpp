@@ -432,6 +432,7 @@ int g_gva_active = 0;
 int g_gvar_callarg_live = 0;
 int g_emit_frame_caller_dl = -1;
 int g_frame_active = 0;
+int g_flat_outer_nparams = 0;
 int g_gen_proc_active = 0;
 int g_resumable_callable_active = 0;
 int g_scan_regs_live = 0;

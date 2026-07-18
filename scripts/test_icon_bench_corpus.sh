@@ -69,6 +69,15 @@ if [ "$SKIP_BUILD" != "1" ]; then
 fi
 ICONT="$ICONM/bin/icont"
 ICONX="$ICONM/bin/iconx"
+# JCON (Proebsting/Townsend, Icon->JVM) — optional 4th column when built. TRAPS (see GOAL-ICON-BB.md
+# §ICON BENCHMARK MAP): jcont is #!/bin/sh but uses bashisms (dash dies "Bad substitution") — ALWAYS
+# invoke via `bash`; and it writes ../$name.zip relative paths — ALWAYS run from the source dir with
+# bare filenames. jcont needs Arizona icont on PATH for its own operation.
+JCONM="${JCONM:-/home/claude/jcon-src/jcon-master}"
+JCONT="$JCONM/bin/jcont"
+HAVE_JCON=0
+[ -f "$JCONT" ] && command -v java >/dev/null 2>&1 && HAVE_JCON=1
+export PATH="$ICONM/bin:$PATH"
 for exe in "$SCRIP" "$ICONT" "$ICONX"; do
   [ -x "$exe" ] || { echo "FATAL: $exe missing/not executable (build failed or SKIP_BUILD=1 without a prior build)"; exit 2; }
 done
@@ -123,10 +132,15 @@ SCRIP_LINK_DEPS[tgrlink]="options.icn"
 # Icon program's args list); mode-4 binaries build args from their OWN C argc/argv at runtime, so
 # passing "${a[@]}" to the produced binary is now live, not harmless-inert.
 
-pass_o=0; pass3=0; pass4=0; total=0
+pass_o=0; pass3=0; pass4=0; pass_j=0; total=0
 
-printf "%-9s | %-28s | %-28s | %-28s\n" "PROGRAM" "ICONX (oracle)" "SCRIP m3 (--run)" "SCRIP m4 (--compile)"
-printf "%-9s-+-%-28s-+-%-28s-+-%-28s\n" "---------" "----------------------------" "----------------------------" "----------------------------"
+if [ "$HAVE_JCON" = "1" ]; then
+  printf "%-9s | %-28s | %-24s | %-28s | %-28s\n" "PROGRAM" "ICONX (oracle)" "JCON (JVM)" "SCRIP m3 (--run)" "SCRIP m4 (--compile)"
+  printf "%-9s-+-%-28s-+-%-24s-+-%-28s-+-%-28s\n" "---------" "----------------------------" "------------------------" "----------------------------" "----------------------------"
+else
+  printf "%-9s | %-28s | %-28s | %-28s\n" "PROGRAM" "ICONX (oracle)" "SCRIP m3 (--run)" "SCRIP m4 (--compile)"
+  printf "%-9s-+-%-28s-+-%-28s-+-%-28s\n" "---------" "----------------------------" "----------------------------" "----------------------------"
+fi
 
 for name in $progs; do
   total=$((total+1))
@@ -144,6 +158,20 @@ for name in $progs; do
     if [ $rc -eq 0 ]; then o_status="OK ${ms}ms $(wc -l <"$WORK/$name.iconx.out")L"; pass_o=$((pass_o+1))
     else o_status="RUNERR rc=$rc"; fi
   else o_status="COMPILEFAIL: $(head -c60 "$WORK/$name.icont.err"|tr '\n' ' ')"; fi
+
+  # ---- JCON: compile (untimed; link deps ride as extra .icn sources like SCRIP's workaround —
+  #      jcont links them into the one program) then run the standalone .jxe (timed) ----
+  j_status="-"
+  if [ "$HAVE_JCON" = "1" ]; then
+    ( cd "$CORPUS" && timeout 180 bash "$JCONT" -s -o "$WORK/$name.jxe" "$name.icn" ${linkdeps[@]+"${linkdeps[@]}"} ) >"$WORK/$name.jcont.err" 2>&1
+    if [ -x "$WORK/$name.jxe" ]; then
+      t0=$(date +%s%N); timeout 60 "$WORK/$name.jxe" "${a[@]}" >"$WORK/$name.jcon.out" 2>"$WORK/$name.jcon.err" <"$sin"
+      rc=$?; t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 ))
+      if [ $rc -eq 0 ]; then j_status="OK ${ms}ms $(wc -l <"$WORK/$name.jcon.out")L"; pass_j=$((pass_j+1))
+      elif [ $rc -eq 124 ]; then j_status="TIMEOUT"
+      else j_status="RUNERR rc=$rc"; fi
+    else j_status="COMPILEFAIL: $(grep -m1 -iE 'error' "$WORK/$name.jcont.err"|head -c40)"; fi
+  fi
 
   # ---- SCRIP mode-3 (--run): in-process, primary native mode ----
   m3_status="?"
@@ -177,8 +205,16 @@ for name in $progs; do
     else m4_status="COMPILEFAIL: $(tail -c70 "$WORK/$name.m4.compile.err"|tr '\n' ' ')"; fi
   fi
 
-  printf "%-9s | %-28s | %-28s | %-28s\n" "$name" "$o_status" "$m3_status" "$m4_status"
+  if [ "$HAVE_JCON" = "1" ]; then
+    printf "%-9s | %-28s | %-24s | %-28s | %-28s\n" "$name" "$o_status" "$j_status" "$m3_status" "$m4_status"
+  else
+    printf "%-9s | %-28s | %-28s | %-28s\n" "$name" "$o_status" "$m3_status" "$m4_status"
+  fi
 done
 
 echo "---"
-echo "oracle(iconx)=$pass_o/$total  scrip-m3(--run)=$pass3/$total  scrip-m4(--compile)=$pass4/$total"
+if [ "$HAVE_JCON" = "1" ]; then
+  echo "oracle(iconx)=$pass_o/$total  jcon=$pass_j/$total  scrip-m3(--run)=$pass3/$total  scrip-m4(--compile)=$pass4/$total"
+else
+  echo "oracle(iconx)=$pass_o/$total  scrip-m3(--run)=$pass3/$total  scrip-m4(--compile)=$pass4/$total"
+fi
