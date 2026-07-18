@@ -171,7 +171,7 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
     IR_t * cur = br; IR_t * hook = br; IR_t * prevβ = (b0->t == TT_VAR || b0->t == TT_IDX) ? NULL : cx->beta;
     for (int k = 1; k < t->n; k++) {
         IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, prevβ ? prevβ : ω, &ir); prevβ = cx->beta;
-        γ_to(hook, ie);
+        lc_γ_to(hook, ie);   /* FORWARD FIRST-ENTRY: base resolved -> START the index expr at α.  γ_to's generator-β promotion is for BACKTRACK edges only; promoting here enters a generator (e.g. IR_CALL_VALUE aseq()) at β with no staged activation -> jmp through the zeroed resume cell (rip=0, tgrlink class).  Resume-for-more-values rides sub's ω (β-tagged by build) below. */
         IR_t * sub = build(cx, IR_SUBSCRIPT, NULL, prevβ ? prevβ : ω);
         γ_to(ir, sub);
         ir_operand_push(sub, cur); ir_operand_push(sub, ir);
