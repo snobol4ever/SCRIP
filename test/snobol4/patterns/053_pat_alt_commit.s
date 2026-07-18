@@ -338,9 +338,16 @@ main_α_body:
  .string "OUTPUT"
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain9_n10_α:
- lea rdi, [rip + .S3]
- xor esi, esi
- call rt_defer_get_pat_fn@PLT
+ mov rax, qword ptr [1879052288]
+ mov rdx, qword ptr [1879052296]
+ cmp eax, 3
+ jne .Lx23_9
+ mov rdi, rdx
+ call dtp_fn_of@PLT
+ jmp .Lx23_10
+.Lx23_9:
+ xor eax, eax
+.Lx23_10:
  test rax, rax
  jz .Lx23_0
  lea rcx, [rip + .Lx23_4]
