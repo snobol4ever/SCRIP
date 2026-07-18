@@ -830,7 +830,13 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     case IR_GCC:                  { g_emit.op_name1 = IR_LIT(nd).sval; bb_emit_x86(bb_rk_gcc());  } return 0;   /* RK-GRAM-3b grammar char-class leaf */
     case IR_RETURN: {
         IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
-        g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval; bb_emit_x86(bb_return()); return 0; }
+        g_emit.op_sa = rv ? bb_slot_get(rv) : -1; g_emit.op_dval = IR_LIT(nd).dval;
+        /* GENP-SPINE (s92): `return e` from a generator delivers the value through the RETAINING γ epilogue (frame + resume record stay live on the spine), so a subsequent β resume MUST route to failure —
+         * Icon semantics: resumption of a returned procedure fails.  Arm the poison: bb_return stores lbl_ω's address into the resume slot pre-γ, so res-landing dispatch jmp [rbp+slot] takes the ABSOLUTE
+         * unwind + ω wire.  Explicit resets on the non-gen arm — op_sb/lbl_t1 persist in g_emit across boxes (IR_SUSPEND's drive writes them) and a stale pair would poison a det return's slot-less frame. */
+        if (g_emit.flat_gen && g_suspend_resume_slot >= 0) { g_emit.op_sb = g_suspend_resume_slot; g_emit.lbl_t1_p = g_emit.flat_fail_p; g_emit.lbl_t1 = g_emit.flat_fail_p ? g_emit.flat_fail_p->name : (const char *)0; }
+        else { g_emit.op_sb = -1; g_emit.lbl_t1_p = (bb_label_t *)0; g_emit.lbl_t1 = (const char *)0; }
+        bb_emit_x86(bb_return()); return 0; }
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
     case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG:
     case IR_PROC_GEN:
@@ -1945,13 +1951,15 @@ extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.f
 /* PROC-CONV (R12-FREE ladder rung 2) + NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): ordinary procs arm the SAME jmp-entry regime.  DYN procs (SNOBOL4 DEFINE): args ride the name
  * dictionary, a self-allocated zeroed frame is correct.  DET LEXICAL procs (dyn_scope=0 — Icon/Raku): NCB-1d retires their call-regime trampoline — the blob self-allocates and its prologue calls
  * rt_jmp_frame_lexprep (NULVCL fill + rt_frame_bind_args from the staged g_call_args), so the caller-made-frame protocol is gone and flat_lex marks the graph for that prologue tail.  GENERATOR procs
- * stay declined this rung (their activations ride rt_proc_call_gen_h / ZH — the per-instance-stack directive is the next slice).  LBL__ main-program pseudo-procs are dyn_scope=0 but take no args and
+ * are ADMITTED with flat_gen (GENP-SPINE s92): same lexprep prologue, but the γ epilogue RETAINS the activation on the spine (suspend record) — see emit.h flat_gen.  LBL__ main-program pseudo-procs are dyn_scope=0 but take no args and
  * are entered only through rt_chain_enter (rt_goto_transfer arm 4), which IS the jmp transfer — they arm with flat_lex=0 (no pcall record exists for lexprep to read). */
+static int emit_graph_has_suspend(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_generator, IR_graph_t *g) {
     if (pname && strncmp(pname, "gram__", 6) == 0) return 0;   /* NCB-1d EXCLUSION: Raku grammar boxes speak the SCAN-ENTRY protocol (rk_gram_enter_box trampoline — subject triad r13/r14/r15, esi entry selector, call/ret, spec_t in rax:rdx), not the proc-call protocol; they keep the outermost call-regime body.  Name-keyed like the LBL__ gate below. */
     int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
     g_emit.flat_lex = (!dyn_scope && !is_lbl) ? 1 : 0;
-    g_emit.flat_gen = is_generator ? 1 : 0;   /* GENP slice-2 (per-instance-stack directive): generators now ADMITTED — the body self-allocates on its own coexpr-instance stack (rt_genp_* window), lexprep binds args from the open record the instance's C entry pushes, and bb_suspend's flat_gen arm yields via rt_genp_yield instead of jmp-γ. */
+    g_emit.flat_gen = (is_generator && emit_graph_has_suspend(g)) ? 1 : 0;   /* GENP-SPINE (s92): generators ADMITTED onto the main ζ spine — same self-allocating lexprep prologue as det procs, but xa_flat's γ epilogue RETAINS the activation (suspend record at the deep frontier) and the chain's resume-slot dispatch serves multi-site suspend re-entry; see emit.h flat_gen.  SUSPEND-PRESENCE GUARD: the retaining epilogue is meaningful only when a resume slot gets armed, and Icon's is_generator ⇔ body_has_suspend makes the guard a no-op there — it exists for the OTHER marker (lower_prolog sets is_generator=1 on suspend-free graphs): those keep the s91-parity det epilogue rather than retaining frames toward callers that never speak the record protocol. */
     return emit_jmp_entry_arm_region(g);
 }
 /* s60 EVAL/CODE-RSP (Lon ruling s59: EVAL/CODE = the DEFER shape): runtime-compiled EVAL statement chains and

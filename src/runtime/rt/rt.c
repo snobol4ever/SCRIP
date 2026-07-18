@@ -951,6 +951,17 @@ DESCR_t rt_proc_call_epilogue_ω(void)
  * redundant and it was deleted (s61 finding); a call-regime return has ONE edge, so the discriminator is
  * STRUCTURAL there, not redundant.  LEXICAL procs (dyn_scope=0: args bound into a caller-made frame — the
  * Icon/Prolog/Raku frontends) stay call-regime wholesale this rung; NCB-1d converts the static-link family. */
+/* GENP-SPINE (s92) &level DANCE — a spine-resident generator's pcall record pops at its FIRST delivery (the ONE-POP LAW in bcps_spine_gen_arm: open pushed one record, only the first landing may run an
+ * epilogue leaf, so abandonment stays free — no dangling record for an enclosing unwind to mis-pop).  But &level is the LIVE-CHAIN depth: a resumed generator runs one deeper than its resumer, so the
+ * counter must be re-raised for the span of each resumed run.  The caller's β edge calls _resume_enter before jmp [rsp]; the resumed-delivery landings call the pass leaves (γ marshals the rdi:rsi
+ * result through to rax:rdx, ω synthesizes FAILDESCR) which take the counter back down.  Nested resumed generators compose: each hop is ±1 around its own resume span.  Strict leaves in the s22 sense —
+ * no frame, no transfer, one counter and a marshal. */
+DESCR_t rt_gen_spine_pass_γ(DESCR_t v) { rt_k_level--; return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_gen_spine_pass_ω(void) { rt_k_level--; return FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gen_spine_resume_enter(void) { rt_k_level++; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
 {
     if (IS_FAIL_fn(fret)) return rt_proc_call_epilogue_ω();

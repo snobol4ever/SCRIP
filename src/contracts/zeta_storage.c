@@ -179,16 +179,20 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
         return 1 + nd->n_operands;
     case IR_PROC_GEN: case IR_CALL_VALUE:
-        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
-        zls_field(scope_id, off * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
-        return -1 + nd->n_operands;
+        /* GENP-SPINE s92 GRANT REPAIR (pre-existing, exposed by t_poison's 0-operand `return`-generator): this arm returned -1 + n_operands — a 0-operand IR_PROC_GEN moved the cursor BACKWARD one unit, so
+         * the graph-scope resume/zeta_mark slots landed ON the call's own result DESCR and every value delivery smashed the anchor ([rbp+zeta_mark+8]) that the ret-epilogue's anchor_leave restores into
+         * rsp (rc=139 at graph exit, s91-reproducible).  The unit count is now 2 + n (result + argv + act), matching the staged-gen sibling below; the field offsets drop the off*j multiplication typo for
+         * off + 16*(1+j) / off + 16*(1+n) — the act address now equals the emitting arms' formula (off + 16*(1+nargs)) exactly, one truth. */
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
+        zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout", nd);
+        zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+        return 2 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
             for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
             if (nd->op == IR_CALL_PROC_STAGED && zls_callee_is_gen(nd)) {
-                zls_field(scope_id, off * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act ZLS2 activation handle (box-owned: alpha writes via rt_proc_call_gen_h's hout, beta resumes rt_proc_resume_frame(handle) — replaces the deleted global g_gen_act stack)", nd);
-                zls_field(scope_id, off * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+                zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout.  Offset repaired off*(1+n) → off + 16*(1+n), the emitting arms' exact formula", nd);
+                zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
                 return 2 + nd->n_operands;
             }
             return 1 + nd->n_operands;
