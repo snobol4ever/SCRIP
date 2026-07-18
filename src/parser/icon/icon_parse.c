@@ -55,6 +55,24 @@ static tree_t *parse_stmt(IcnParser *p);
 static tree_t *parse_do_clause(IcnParser *p);
 static tree_t *parse_block_or_expr(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_begins_nexpr(IcnTkKind k) {
+    switch (k) {
+    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT:
+    case TK_PLUS: case TK_MINUS: case TK_STAR: case TK_SLASH: case TK_CARET:
+    case TK_BANG: case TK_QMARK: case TK_AT: case TK_TILDE: case TK_DOT:
+    case TK_BACKSLASH: case TK_AND: case TK_BAR: case TK_CONCAT: case TK_LCONCAT:
+    case TK_PLUSPLUS: case TK_MINUSMINUS: case TK_STARSTAR:
+    case TK_EQ: case TK_NEQ: case TK_SEQ: case TK_SNE: case TK_IDENTICAL: case TK_NOTIDENT:
+    case TK_LPAREN: case TK_LBRACE: case TK_LBRACK:
+    case TK_IF: case TK_CASE: case TK_WHILE: case TK_UNTIL: case TK_REPEAT:
+    case TK_EVERY: case TK_SUSPEND: case TK_RETURN: case TK_FAIL: case TK_BREAK:
+    case TK_NEXT: case TK_NOT: case TK_CREATE:
+        return 1;
+    default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void push_child(tree_t *parent, tree_t *child) {
     expr_add_child(parent, child);
 }
@@ -155,7 +173,7 @@ static tree_t *parse_primary(IcnParser *p) {
     if (t.kind == TK_BREAK) {
         advance(p);
         tree_t *e = ast_node_new(TT_LOOP_BREAK);
-        if (!check(p, TK_SEMICOL) && !check(p, TK_RPAREN) && !check(p, TK_EOF))
+        if (icn_begins_nexpr(p->cur.kind))
             push_child(e, parse_expr(p));
         return e;
     }
@@ -272,6 +290,7 @@ static tree_t *parse_unary(IcnParser *p) {
     if (check(p, TK_QMARK))     { advance(p); return e_unary(TT_RANDOM,     parse_unary(p)); }
     if (check(p, TK_AT))        { advance(p); return e_unary(TT_ACTIVATE,   parse_unary(p)); }
     if (check(p, TK_TILDE))     { advance(p); return e_unary(TT_CSET_COMPL, parse_unary(p)); }
+    if (check(p, TK_DOT))       { advance(p); return e_unary(TT_DEREF,      parse_unary(p)); }
     if (check(p, TK_EQ)) { advance(p); tree_t *arg = parse_unary(p);
         tree_t *mfn = ast_node_new(TT_FNC); push_child(mfn, e_leaf_sval(TT_VAR, "match", -1)); push_child(mfn, arg);
         tree_t *tfn = ast_node_new(TT_FNC); push_child(tfn, e_leaf_sval(TT_VAR, "tab", -1)); push_child(tfn, mfn);
@@ -544,9 +563,7 @@ static tree_t *parse_expr(IcnParser *p) {
     if (check(p, TK_BREAK)) {
         advance(p);
         tree_t *e = ast_node_new(TT_LOOP_BREAK);
-        if (!check(p, TK_SEMICOL) && !check(p, TK_RPAREN) && !check(p, TK_RBRACE) &&
-            !check(p, TK_EOF)  && !check(p, TK_THEN) && !check(p, TK_ELSE) &&
-            !check(p, TK_DO)   && !check(p, TK_END)  && !check(p, TK_OF))
+        if (icn_begins_nexpr(p->cur.kind))
             push_child(e, parse_expr(p));
         return e;
     }
@@ -604,13 +621,15 @@ static tree_t *parse_expr(IcnParser *p) {
         push_child(e, parse_expr(p));
         expect(p, TK_OF, "case expression");
         expect(p, TK_LBRACE, "case body");
+        tree_t *dflt = NULL;
         while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
             if (check(p, TK_DEFAULT)) {
                 advance(p);
                 expect(p, TK_COLON, "case default");
-                push_child(e, parse_expr(p));
+                if (dflt) parser_error(p, "case default: duplicate default clause");
+                dflt = parse_expr(p);
                 match(p, TK_SEMICOL);
-                break;
+                continue;
             }
             push_child(e, parse_expr(p));
             expect(p, TK_COLON, "case clause");
@@ -618,6 +637,7 @@ static tree_t *parse_expr(IcnParser *p) {
             match(p, TK_SEMICOL);
         }
         expect(p, TK_RBRACE, "case body end");
+        if (dflt) push_child(e, dflt);
         return e;
     }
     return parse_and(p);
