@@ -2089,9 +2089,16 @@ static unsigned _var_hash(const char *name) {
     return h % VAR_BUCKETS;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static NV_t *_var_bucket_find(const char *name) {
+    for (NV_t *e = _var_buckets[_var_hash(name)]; e; e = e->next)
+        if (strcmp(e->name, name) == 0) return e;
+    return (NV_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
+    if (!g_call_fastpath_off && name[0] != '&' && name[0] != 'I') { NV_t *e = _var_bucket_find(name); if (e) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) return input_read();
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
