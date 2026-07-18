@@ -19,6 +19,9 @@
 #define HB_WS    203
 #define HB_ZBLK  204
 #define HB_WSC   205
+#define HB_AGGV  206
+#define HB_AGGP  207
+#define HB_AGGT  208
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002
 #define HBF_PIN  0x0004

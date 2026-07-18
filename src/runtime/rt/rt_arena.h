@@ -53,6 +53,7 @@ void        *rt_ws_realloc(void *p, size_t n);   /* grow-only; old size read fro
 char        *rt_ws_strdup(const char *s);
 void        *rt_ws_alloc_c(size_t n);            /* COLLECTABLE workspace class (HB_WSC): zero-pointer char payloads referenced only via DESCRs/scanned locations */
 char        *rt_ws_strdup_c(const char *s);
+void        *rt_agg_alloc(int kind, size_t n);             /* COLLECTABLE aggregate cells (HB_AGG): pointer-bearing VCELL/TBPAIR, precisely visited+marked, pinned when live, reclaimed when dead */
 /* PL-WS RECLAIMABLE COMPOUND ARENA (GC-W-2): A_TRANS default home for Prolog term_new_*; reclaims on backtrack. */
 void        *rt_pl_cterm_alloc(size_t n);
 arena_mark_t rt_pl_cterm_mark(void);

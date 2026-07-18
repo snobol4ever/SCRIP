@@ -941,13 +941,13 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
         ARBLK_t *a = base.arr; if (!a) return FAILDESCR;
         int i = (int)to_int(idx); int off = i - a->lo;
         if (off < 0 || off >= (a->hi - a->lo + 1)) return FAILDESCR;
-        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
     if (base.v == DT_T) {
         TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
         char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
-        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup(ks); vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup_c(ks); vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
     if (base.v == DT_DATA) {
@@ -959,7 +959,7 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
-            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         return subscript_get(base, idx);
@@ -969,7 +969,7 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
         long i = (long)to_int(idx);
         if (i <= 0) i = slen + 1 + i;
         if (i < 1 || i > slen) return FAILDESCR;
-        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = bvar; vc->pos = i; vc->len = 1;
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = bvar; vc->pos = i; vc->len = 1;
         return NAMETRAP(vc);
     }
     return subscript_get(base, idx);
@@ -981,7 +981,7 @@ DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     if (obj.v != DT_DATA || !obj.u) return FAILDESCR;
     DESCR_t *cell = data_field_ptr(fname ? fname : "", obj);
     if (!cell) return FAILDESCR;
-    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = cell; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = cell; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -995,13 +995,13 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
             DESCR_t ea = FIELD_GET_fn(obj, "frame_elems");
             DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
             if (!elems || idx < 0 || idx >= n) return FAILDESCR;
-            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &elems[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         if (obj.u && obj.u->type && obj.u->type->nfields > 0) {
             int nf = obj.u->type->nfields;
             if (idx < 0 || idx >= nf) return FAILDESCR;
-            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &obj.u->fields[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &obj.u->fields[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         return FAILDESCR;
@@ -1011,7 +1011,7 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
         for (int b = 0; b < TABLE_BUCKETS; b++)
             for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
                 if (seen == idx) {
-                    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &ep->val; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &ep->val; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
                     return NAMETRAP(vc);
                 }
                 seen++;
@@ -1021,7 +1021,7 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
     if ((obj.v == DT_S || obj.v == DT_SNUL) && IS_NAMETRAP_fn(bvar)) {
         const char *sp = obj.s ? obj.s : ""; long slen = obj.slen ? (long)obj.slen : (long)strlen(sp);
         if (idx < 0 || idx >= slen) return FAILDESCR;
-        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = idx + 1; vc->len = 1;
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = idx + 1; vc->len = 1;
         return NAMETRAP(vc);
     }
     return FAILDESCR;
@@ -1040,7 +1040,7 @@ DESCR_t rt_random_var(DESCR_t base) {
     if ((base.v == DT_S || base.v == DT_SNUL) && IS_NAMETRAP_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         if (slen <= 0) return FAILDESCR;
-        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = (long)(rval * (double)slen) + 1; vc->len = 1;
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = (long)(rval * (double)slen) + 1; vc->len = 1;
         return NAMETRAP(vc);
     }
     if (base.v == DT_S || base.v == DT_SNUL) {
@@ -1057,13 +1057,13 @@ DESCR_t rt_random_var(DESCR_t base) {
             DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
             if (!elems || n <= 0) return FAILDESCR;
             long i = (long)(rval * (double)n);
-            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &elems[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         if (base.u && base.u->type && base.u->type->nfields > 0) {
             int nf = base.u->type->nfields;
             long i = (long)(rval * (double)nf);
-            VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = &base.u->fields[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &base.u->fields[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         return FAILDESCR;
@@ -1074,7 +1074,8 @@ DESCR_t rt_random_var(DESCR_t base) {
         for (int b = 0; b < TABLE_BUCKETS; b++)
             for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next)
                 if (++seen == n) {
-                    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = rt_ws_strdup(ep->key); vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = rt_ws_strdup_c(ep->key); vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0;
+                        vc->len = 0;
                     return NAMETRAP(vc);
                 }
         return FAILDESCR;
@@ -1098,14 +1099,14 @@ DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
         if (ii <= 0) ii = slen + ii + 1;
         if (jj <= 0) jj = slen + jj + 1;
         if (ii > jj) { long t = ii; ii = jj; jj = t; }
-        VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
         return NAMETRAP(vc);
     }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
-    VCELL_t *vc = rt_ws_alloc(sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
