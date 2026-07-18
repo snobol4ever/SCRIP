@@ -11,6 +11,8 @@ extern "C" void *rt_proc_open_fn   (void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
+extern "C" void *dtp_fn_of(void *headv);
+extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
 static inline int dswap() { return ZC_FRAME == ZC_FRAME_RSP; }   /* REG-7 U5: unconditional under RSP — the interior legacy dance is non-RSP-only now (Lon FORTH ruling) */
@@ -40,11 +42,25 @@ std::string bb_match_defer() {
      * The dswap() !arms below are non-RSP-only as of U5 s87 (the flat_pat island is retired): under RSP the pure one-stream protocol is unconditional. */
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
-         + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-         + x86("xor",  "esi", "esi")
-         + x86_align_enter()
-         + x86("call", "rt_defer_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_fn)
-         + x86_align_leave()
+         + IF(g_gva_active && _.op_gva_k >= 0,
+               x86("mov",  "rax", ABSQ(RT_GVA_VA + _.op_gva_k * 16))
+             + x86("mov",  "rdx", ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
+             + x86("cmp",  "eax", (long)DT_P)
+             + x86("jne",  L(9))
+             + x86("mov",  "rdi", "rdx")
+             + x86_align_enter()
+             + x86("call", "dtp_fn_of", (uint64_t)(uintptr_t)(void *)(void *(*)(void *))dtp_fn_of)
+             + x86_align_leave()
+             + x86("jmp",  L(10))
+             + x86("def",  L(9))
+             + x86("xor",  "eax", "eax")
+             + x86("def",  L(10)))
+         + IF(!(g_gva_active && _.op_gva_k >= 0),
+               x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("xor",  "esi", "esi")
+             + x86_align_enter()
+             + x86("call", "rt_defer_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_fn)
+             + x86_align_leave())
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
