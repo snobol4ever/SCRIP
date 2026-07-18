@@ -454,7 +454,7 @@ SCRIP-m4 vs the oracle. DNF = 240 s timeout.
 | ham | 41.19 | 36.88 | 180232 | 160583 | 3899× | 4355× |
 | queens (16) | DNF | DNF | DNF | DNF | — | — |
 
-**Geomean m4 vs GNU = 199× · m4 vs SWI = 144×** (non-DNF rows; `queens` full-enumeration
+**Geomean m4 vs GNU = 52× · m4 vs SWI = 38×** (2026-07-18 s98, post-PL-SPEED-1 $-gate; non-DNF rows; `queens` full-enumeration
 of the 16-board is out of 240 s range for *every* engine and drops out).
 
 What the shape says:
