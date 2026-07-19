@@ -22,6 +22,7 @@
 #define HB_AGGV  206
 #define HB_AGGP  207
 #define HB_AGGT  208
+#define HB_PLJ   209
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002
 #define HBF_PIN  0x0004

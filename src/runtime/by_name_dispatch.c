@@ -85,12 +85,13 @@ static DESCR_t *plw_cell_deref(DESCR_t *c) {
     }
     return c;
 }
+extern void *rt_plj_alloc(size_t);
 static void plw_bind(DESCR_t *cell, DESCR_t word) { pl_trail_push(&g_pl_trail, cell); *cell = word; }
 static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
     DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
     if (A == B) return 1;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
-    if (av && bv) { DESCR_t *j = (DESCR_t *)rt_ws_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r); plw_bind(B, r); return 1; }
+    if (av && bv) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r); plw_bind(B, r); return 1; }
     if (av) { plw_bind(A, *B); return 1; }
     if (bv) { plw_bind(B, *A); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -891,7 +892,7 @@ static DESCR_t pl_mk_atom(const char *s) { DESCR_t d; d.v = DT_S; d.slen = (uint
 static DESCR_t pl_nil(void) { return pl_mk_atom("[]"); }
 static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     extern int prolog_atom_intern(const char *);
-    DESCR_t *kids = (DESCR_t *)rt_ws_alloc(2 * sizeof(DESCR_t)); kids[0] = head; kids[1] = tail;
+    DESCR_t *kids = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); kids[0] = head; kids[1] = tail;
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(".")) << 16) | (2u & 0xFFFFu); c.p = (void *)kids;
     return c;
 }
@@ -918,10 +919,10 @@ static DESCR_t pl_term_to_cell(Term *t) {
         case TERM_INT: { DESCR_t d; d.v = (DTYPE_t)DT_I; d.slen = 0; d.i = t->ival; return d; }
         case TERM_FLOAT: { DESCR_t d; d.v = (DTYPE_t)DT_R; d.slen = 0; d.r = t->fval; return d; }
         case TERM_ATOM: { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name(t->atom_id); return pl_mk_atom(nm ? nm : ""); }
-        case TERM_VAR: { DESCR_t *c = (DESCR_t *)rt_ws_alloc(sizeof(DESCR_t)); c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; return *c; }
+        case TERM_VAR: { DESCR_t *c = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; return *c; }
         case TERM_COMPOUND: {
             int ar = t->compound.arity;
-            DESCR_t *kids = (DESCR_t *)rt_ws_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+            DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
             for (int i = 0; i < ar; i++) kids[i] = pl_term_to_cell(t->compound.args[i]);
             DESCR_t d; d.v = (DTYPE_t)DT_PLREF; d.slen = (((uint32_t)t->compound.functor) << 16) | ((uint32_t)ar & 0xFFFFu); d.p = (void *)kids;
             return d;
@@ -955,7 +956,7 @@ static DESCR_t plc_iso_comp(const char *fn, int ar, DESCR_t *kids) {
     for (int i = 0; i < ar; i++) h[i] = kids[i];
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fn)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)h; return c;
 }
-static DESCR_t plc_iso_fresh(void) { DESCR_t *j = (DESCR_t *)rt_ws_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
+static DESCR_t plc_iso_fresh(void) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
 static void plc_iso_ball(DESCR_t formal) {
     extern void rt_pl_throw_set(void *); extern int rt_pl_throw_pending(void);
     if (rt_pl_throw_pending()) return;
@@ -1458,12 +1459,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *fname = VARVAL_fn(args[0]); if (!fname) fname = "?";
         int ar = nargs - 1;
         extern int prolog_atom_intern(const char *);
-        DESCR_t *kids = (DESCR_t *)rt_ws_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+        DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
         for (int i = 0; i < ar; i++) {
             DESCR_t t = args[1 + i];
             DESCR_t *F = plw_cell_deref(plw_entry(&t));
             if (plw_unbound_tag(F)) {
-                DESCR_t *j = (DESCR_t *)rt_ws_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
+                DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
                 DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j;
                 plw_bind(F, r);
                 kids[i] = r;
