@@ -60,6 +60,45 @@ static void skip_ws(Lexer *lx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int hexval(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int decode_escape(Lexer *lx, int *code) {
+    char e = advance(lx);
+    switch (e) {
+        case 'a': *code = 7;  return 1;
+        case 'b': *code = 8;  return 1;
+        case 'f': *code = 12; return 1;
+        case 'n': *code = 10; return 1;
+        case 'r': *code = 13; return 1;
+        case 't': *code = 9;  return 1;
+        case 'v': *code = 11; return 1;
+        case 'e': *code = 27; return 1;
+        case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': {
+            int v = e - '0';
+            while (cur(lx) >= '0' && cur(lx) <= '7') v = v * 8 + (advance(lx) - '0');
+            if (cur(lx) == '\\') advance(lx);
+            *code = v; return 1;
+        }
+        case 'x': {
+            int v = 0, h;
+            while ((h = hexval(cur(lx))) >= 0) { v = v * 16 + h; advance(lx); }
+            if (cur(lx) == '\\') advance(lx);
+            *code = v; return 1;
+        }
+        case '\\': *code = '\\'; return 1;
+        case '\'': *code = '\''; return 1;
+        case '"':  *code = '"';  return 1;
+        case '`':  *code = '`';  return 1;
+        case '\n': return 0;
+        default:   *code = (unsigned char)e; return -1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token scan_quoted_atom(Lexer *lx) {
     int line = lx->line;
     advance(lx);
@@ -74,15 +113,9 @@ static Token scan_quoted_atom(Lexer *lx) {
             } else break;
         } else if (c == '\\') {
             advance(lx);
-            char e = advance(lx);
-            switch (e) {
-                case 'n': buf_push(&buf, &len, &cap, '\n'); break;
-                case 't': buf_push(&buf, &len, &cap, '\t'); break;
-                case '\\': buf_push(&buf, &len, &cap, '\\'); break;
-                case '\'': buf_push(&buf, &len, &cap, '\''); break;
-                default:   buf_push(&buf, &len, &cap, '\\');
-                           buf_push(&buf, &len, &cap, e); break;
-            }
+            int code; int st = decode_escape(lx, &code);
+            if (st == 1) buf_push(&buf, &len, &cap, (char)(code & 0xFF));
+            else if (st < 0) { buf_push(&buf, &len, &cap, '\\'); buf_push(&buf, &len, &cap, (char)code); }
         } else {
             buf_push(&buf, &len, &cap, c); advance(lx);
         }
@@ -102,15 +135,9 @@ static Token scan_string(Lexer *lx) {
         if (c == '"') { advance(lx); break; }
         if (c == '\\') {
             advance(lx);
-            char e = advance(lx);
-            switch (e) {
-                case 'n': buf_push(&buf, &len, &cap, '\n'); break;
-                case 't': buf_push(&buf, &len, &cap, '\t'); break;
-                case '\\': buf_push(&buf, &len, &cap, '\\'); break;
-                case '"': buf_push(&buf, &len, &cap, '"'); break;
-                default:  buf_push(&buf, &len, &cap, '\\');
-                          buf_push(&buf, &len, &cap, e); break;
-            }
+            int code; int st = decode_escape(lx, &code);
+            if (st == 1) buf_push(&buf, &len, &cap, (char)(code & 0xFF));
+            else if (st < 0) { buf_push(&buf, &len, &cap, '\\'); buf_push(&buf, &len, &cap, (char)code); }
         } else {
             buf_push(&buf, &len, &cap, c); advance(lx);
         }
@@ -126,9 +153,10 @@ static Token scan_number(Lexer *lx) {
     int is_float = 0;
     if (cur(lx) == '0' && peek1(lx) == '\'') {
         advance(lx); advance(lx);
-        char c = advance(lx);
-        Token t = make_tok(TK_INT, NULL, line);
-        t.ival = (long)c; t.text = strdup("0'c");
+        Token t = make_tok(TK_INT, NULL, line); t.text = strdup("0'c");
+        if (cur(lx) == '\\') { advance(lx); int code; int st = decode_escape(lx, &code); t.ival = (st == 1) ? (long)code : (long)'\\'; return t; }
+        if (cur(lx) == '\'' && peek1(lx) == '\'') { advance(lx); advance(lx); t.ival = (long)'\''; return t; }
+        t.ival = (long)(unsigned char)advance(lx);
         return t;
     }
     if (cur(lx) == '0' && (peek1(lx) == 'b' || peek1(lx) == 'x' || peek1(lx) == 'o')) {

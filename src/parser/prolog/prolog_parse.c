@@ -435,7 +435,8 @@ static Term *parse_primary(Parser *p) {
                 lexer_next(&p->lx);
                 return term_new_atom(prolog_atom_intern("{}"));
             }
-            Term *inner = parse_term(p, 1200);
+            Term *inner;
+            { int saved_in_args = p->in_args; p->in_args = 0; inner = parse_term(p, 1200); p->in_args = saved_in_args; }
             Token rb = lexer_next(&p->lx);
             if (rb.kind != TK_RBRACE)
                 perror_at(p, rb.line, "expected } after term");
@@ -764,7 +765,8 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 n->v.sval = strdup("{}");
                 return n;
             }
-            tree_t *inner = pt_term(p, ts, 1200);
+            tree_t *inner;
+            { int saved = p->in_args; p->in_args = 0; inner = pt_term(p, ts, 1200); p->in_args = saved; }
             Token rb = lexer_next(&p->lx);
             (void)rb;
             tree_t *fnc = ast_node_new(TT_FNC);
