@@ -165,5 +165,59 @@ def main():
     print(f"dead forwarders (never branched-to): {tot['dead_fwd']}")
     print(f"  by kind: β={dk['β-resume']} α={dk['α-start']} γ={dk['γ-succeed']} ω={dk['ω-fail']} comb={dk['combinator']} other={dk['other']}")
 
+# --------------------------------------------------------------------------------------------------
+# BP-9 (ii) TRIVIAL-β WHITELIST GATE (--gate): backs flat_trivial_beta (src/emitter/emit.cpp) — the
+# driver inlines whitelisted ops' β trampolines at ω-jmp sites, which is sound ONLY while those ops'
+# emitted β bodies are exactly [add rsp,K]* jmp <target>.  This mode verifies that invariant across a
+# .s corpus, converting template-knowledge-in-driver from a drift hazard into a checked invariant: a
+# template edit that grows a real β body for a listed op fails HERE, loudly, not silently at runtime.
+# Attribution: the `# IR_*` comment each template emits immediately before its α label names the op;
+# IR_MATCH_CAPTURE_SAVE is enforced ONLY on its "fc cell" comment variant (the granted arm) — the
+# "push" variant has a real β body (rt_cap_pop) and is not driver-listed.  Elided (absent) β labels
+# are skipped — nothing references them.  Exit 1 on any violation.
+GATE_ALWAYS = ('IR_MATCH_POS', 'IR_MATCH_RPOS', 'IR_MATCH_ABORT')
+GATE_FC     = ('IR_MATCH_CAPTURE_SAVE fc cell',)
+def gate(paths):
+    body_re = re.compile(r'^(?:add\s+rsp\s*,\s*\d+)$')
+    jmp_re  = re.compile(r'^jmp\s+[\w.$]+$')
+    lbl_re  = re.compile(r'^xchain(\d+)_n(\d+)_α\s*:\s*$')
+    bad = 0; checked = 0
+    for path in paths:
+        labels, order = parse(path)
+        attributed = {}
+        pending = None
+        for raw in open(path, encoding='utf-8', errors='replace'):
+            s = raw.strip()
+            if not s:
+                continue
+            if s.startswith('#'):
+                pending = s[1:].strip()
+                continue
+            m = lbl_re.match(s)
+            if m and pending is not None:
+                attributed[(int(m.group(1)), int(m.group(2)))] = pending
+            pending = None
+        for (c, i), cmt in attributed.items():
+            listed = (cmt in GATE_ALWAYS) or (cmt in GATE_FC)
+            if not listed:
+                continue
+            blbl = f'xchain{c}_n{i}_β'
+            if blbl not in labels:
+                continue
+            checked += 1
+            real = [ins for ins in labels[blbl] if not ins.startswith('#')]
+            ok = len(real) >= 1 and jmp_re.match(real[-1]) and all(body_re.match(x) for x in real[:-1])
+            if not ok:
+                bad += 1
+                print(f"GATE VIOLATION {os.path.basename(path)} {blbl} ({cmt}): body={real}")
+    print(f"zpop-whitelist gate: {checked} whitelisted β bodies checked, {bad} violations")
+    return 1 if bad else 0
+
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] == '--gate':
+        pats = sys.argv[2:] or ['/home/claude/corpus/benchmarks/snobol4/*.s']
+        files = []
+        for p in pats:
+            files += sorted(glob.glob(p))
+        sys.exit(gate(files))
     main()

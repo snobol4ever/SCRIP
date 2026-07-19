@@ -452,6 +452,7 @@ typedef struct {
     int                          x86_fc_synth;
     int                          op_selfload;
     int                          op_beta_dead;     /* BP-9 DEAD-β ELISION: 1 = the flat-chain driver proved this det leaf's β label has ZERO inbound edges (wire scan mirrors the loop's β-tag routing); converted templates elide the β define + trampoline jmp via x86_beta_trampoline(); 0 = emit as always */
+    int                          op_wpop;          /* BP-9 (ii) ΣK ζ-POP FOLD: summed fc-cell bytes of the trivial-β trampolines the driver's ω-wire chase inlined past for THIS node (node_ω retargeted to the chain's final label); the X86H_JMP/OMEGA hook arm spends it as ONE add rsp,ΣK.  0 = no fold.  Per-node, reset every drive. */
     int                          op_phase;
     int                          op_binop_kind;
     int                          op_gva_k;

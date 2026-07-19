@@ -246,7 +246,7 @@ inline std::string x86_jcc(const char * mnem, int port) {
      * carry no pop (add rsp,K clobbers flags and a jcc is a single branch).  The synth inverts the condition
      * over a 2-instruction skip: jcc' L(synth); [hook pops via the one X86H_JMP/OMEGA arm] jmp omega;
      * L(synth):  -- S10b's G3 as a visible per-path pop, zero template edits, ONE pop arm serving every exit. */
-    if (port == X86P_OMEGA && x86_fc_on()) return x86_fc_jcc_omega(mnem);
+    if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop > 0)) return x86_fc_jcc_omega(mnem);   /* BP-9 (ii): a pending ΣK chain-pop needs the same invert+pop+jmp synth a box's own fc cell does */
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : (std::string(" ") + mnem + " " + x86_portname(port) + "\n"));
@@ -1597,6 +1597,13 @@ inline std::string x86_port_hook(int site, int port) {
         if (site == X86H_DEF && port == X86P_ALPHA) s += x86_sub("rsp", _.op_fc_bytes);
         if (site == X86H_JMP && port == X86P_OMEGA) s += x86_add("rsp", _.op_fc_bytes);
     }
+    /* BP-9 (ii) ΣK ζ-POP FOLD (the rung's accumulate mechanism): op_wpop = the summed fc-cell pops of every
+     * whitelisted trivial-β trampoline the driver's ω-wire chase inlined past (flat_trivial_beta, emit.cpp)
+     * -- node_ω already retargeted to the chain's final label, so this ONE add IS the collapsed trampoline
+     * bodies.  Fires ONLY at jmp-ω (conditional ω arrives through the x86_jcc invert synth, whose inner
+     * x86_jmp lands here -- the FLAGS CONTRACT is honored by construction).  Ordered AFTER the box's own fc
+     * pop: own cell first, then the chased cells, exactly the walking order the trampolines performed. */
+    if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop > 0) s += x86_add("rsp", (long)_.op_wpop);
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);
     /* REG-4b (s78) -- HEAP-ZETA alpha, rbx PROMOTED (C2's second flavor; the pend park->promote pattern,

@@ -1568,6 +1568,22 @@ static void emit_zeta_selfload(void) { int m = x86_port_mode(); if (m == ZC_PORT
  * loop does at its gamma_is_beta/omega_is_beta resolution), combinator arm resume (pair-loop operands of ALT/SEQ/ARBNO/SCAN/DISJUNCTION/REPALT), IR_MOVE_LABEL wantb targets, and the special-op class
  * whose betas feed resume globals (generators, SUSPEND, CALL/CALL_PROC_STAGED/CALL_BUILTIN_GEN/PROC_GEN, REPALT, LIMIT, GOTO, body_root).  ANY fc-converted SEQ/ALT in the chain ⇒ blanket all-used
  * (fc_seq_phi_tgt hands out PREV-ELEMENT betas positionally — slice-1 conservatism, revisit with the fc census).  Unproven ⇒ used; elision only ever deletes a label nothing can reach. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* BP-9 (ii) TRIVIAL-β WHITELIST (LIVE CURSOR residual (a); the drift-hazard the gate script backs): an op is
+ * listed IFF its template's ENTIRE β arm, under the conditions the drive case selects, is x86_beta_trampoline()
+ * -- so its emitted β body is exactly [hook add rsp,K]* jmp <resolved-ω>, safe to inline at any ω-jmp site.
+ * MIRRORED IN scripts/analyze_jump_redundancy.py --gate (verifies every listed op's emitted β bodies across the
+ * bench corpus); a template edit that grows a real β body for a listed op FAILS that gate, not silently here.
+ * IR_MATCH_ATP excluded (empty-sval arm returns an empty template).  IR_MATCH_ASSIGN_SAVE is trivial ONLY on
+ * the fc-granted arm (ungranted = the rt_cap_push/pop path with a real β body), hence the fc_geom key. */
+static int flat_trivial_beta(const IR_t *nd) {
+    switch (nd->op) {
+    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ABORT: return 1;
+    case IR_MATCH_ASSIGN_SAVE: { long _k = 0; return fc_geom(nd, &_k) && _k > 0; }
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
     for (int k = 0; k < n; k++) {
@@ -1756,6 +1772,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          * asymmetry; it does not audit or touch any other TEXT/BINARY-branching site in this file. */
         emit_zeta_selfload();
         { static int _beo = -1; if (_beo < 0) { const char *_e = getenv("SCRIP_BETA_ELIDE_OFF"); _beo = (_e && _e[0] == '1') ? 1 : 0; } g_emit.op_beta_dead = (_beo || bused[i]) ? 0 : 1; }   /* BP-9 DEAD-β: hatch = same-build A/B, BP-5/BP-6 precedent */
+        g_emit.op_wpop = 0;   /* BP-9 (ii): zeroed at TOP of every iteration -- the REPALT/ALT-family dispatches continue before the chase block below, and a stale ΣK from a prior node would poison their emitted jmp-ω hooks (the recorded op_sb/lbl_t1 g_emit-persistence hazard class) */
         { extern int zls_off(const IR_t *); extern int zls_node_bytes(const IR_t *); int _zo = zls_off(nodes[i]);
           g_emit.op_own_mark = own_mark; g_emit.op_own_ci = (_zo >= 0) ? _zo + zls_node_bytes(nodes[i]) : 0; }
         bb_label_t *node_γ = &lbl_γ;
@@ -1853,9 +1870,39 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             g_scan_body_beta = NULL;
             if (bv && ir_is_generator_kind(bv->op)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
         }
+        /* BP-9 (ii) ΣK ζ-POP FOLD (the accumulate mechanism proper; LIVE CURSOR residual (a)): when this node's
+         * ω wire resolved to a WHITELISTED trivial-β trampoline (flat_trivial_beta -- template β is exactly
+         * x86_beta_trampoline, so its emitted body is [hook add rsp,K]* jmp <its-own-resolved-ω>), inline that
+         * body at the site: accumulate the fc-cell K, re-resolve the target's OWN ω by the loop's exact rules
+         * (β/φ tag sniff through IR_GOTO, na_f glue, fc_seq_phi_tgt, REPALT override), iterate while the next
+         * hop is again a whitelisted β.  node_ω lands the chain's FINAL label; op_wpop carries ΣK; the
+         * X86H_JMP/OMEGA hook arm spends it (conditional ω rides the x86_jcc invert synth).  FORTH+RSP only --
+         * the pops are rsp-discipline, and under any other port flavor the trampoline bodies differ.  Hatch:
+         * SCRIP_ZPOP_FOLD_OFF=1 = same-build byte-identical baseline (SCRIP_BETA_ELIDE_OFF precedent). */
+        { static int _zpf = -1; if (_zpf < 0) { const char *_e = getenv("SCRIP_ZPOP_FOLD_OFF"); _zpf = (_e && _e[0] == '1') ? 1 : 0; }
+          if (!_zpf && ZC_FRAME == ZC_FRAME_RSP && x86_port_mode() == ZC_PORT_FORTH) {
+              long _sum = 0; int _fk = -1, _hops = 0;
+              for (int _k = 0; _k < n; _k++) if (node_ω == betas[_k]) { _fk = _k; break; }
+              while (_fk >= 0 && _hops++ < 64 && flat_trivial_beta(nodes[_fk])) {
+                  { long _fck = 0; if (fc_geom(nodes[_fk], &_fck)) _sum += _fck; }
+                  IR_t *_c = nodes[_fk]; IR_t *_o = _c->ω.node;
+                  int _ib = (_c->ω.sz[0] == (char)0xce && (unsigned char)_c->ω.sz[1] == 0xb2);
+                  int _ip = (_c->ω.sz[0] == (char)0xcf && (unsigned char)_c->ω.sz[1] == 0x86);
+                  { int _gg = 0; IR_t *_g = _o; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!_ib) _ib = (_g->γ.sz[0] == (char)0xce && (unsigned char)_g->γ.sz[1] == 0xb2); if (!_ip) _ip = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); _o = _g->γ.node; _g = _o; } }
+                  bb_label_t *_next = NULL; int _k2 = -1;
+                  for (int _k = 0; _k < n; _k++) if (nodes[_k] == _o) { _k2 = _k; break; }
+                  if (_k2 >= 0) { _next = (_ip && na_f[_k2]) ? na_f[_k2] : _ib ? betas[_k2] : lbls[_k2]; if (_ip && fc_seq_on(nodes[_k2])) _next = fc_seq_phi_tgt(nodes, n, _k2, _fk, betas, _next); }
+                  else _next = (_o && _o->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
+                  for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0 && nodes[_r]->operands[0] == _c) { _next = ra_t[_r]; break; }
+                  node_ω = _next;
+                  _fk = -1; for (int _k = 0; _k < n; _k++) if (_next == betas[_k]) { _fk = _k; break; }   /* continue on ANY β landing -- fc_seq_phi_tgt redirects a φ edge to the PREV ELEMENT's β, a different node than k2 (measured: roman n9→n6 lands betas[5] via seq node 2) */
+              }
+              g_emit.op_wpop = (int)_sum;
+          } }
         emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }
     g_emit.op_beta_dead = 0;
+    g_emit.op_wpop = 0;
     if (g_emit.flat_jmp_entry) {
         /* PROC-CONV: EMPTY body (n==0) — α_body would otherwise fall into the res landing below and run its
          * `add rsp,8; pop zr` on the initial α pass (no frontier record present ⇒ rsp/zr corruption ⇒ the ω-half
