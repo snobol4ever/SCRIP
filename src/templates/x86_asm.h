@@ -175,13 +175,13 @@ inline std::string x86_lea_subj_cursor(const char * dst) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" lea ") + dst + ", [r13 + rcx]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_movzx_subj_byte(const char * dst) {
+inline std::string x86_movzx_subj_byte(const char * dst, int disp) {
     int g = x86_rnum(dst);
     uint8_t rex = 0x40 | 0x01; if (g >= 8) rex |= 0x04;
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
     uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
-    std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)0x00;
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [r13+rcx]\n");
+    std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_store_cursor_mirror() {
@@ -1076,7 +1076,8 @@ inline void x86_parse(const xop & x, opnd & o) {
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP; o.off = (int)d; return; } } }
     { char ns[32]; int k = 0; for (const char * q = s; *q && k < 31; q++) if (*q != ' ') ns[k++] = *q; ns[k] = 0;
-      if (!strcmp(ns, "[r13+rcx]")) { o.kind = XK_R13RCX; return; }
+      if (!strncmp(ns, "[r13+rcx+", 9)) { o.kind = XK_R13RCX; o.off = atoi(ns + 9); return; }
+      if (!strcmp(ns, "[r13+rcx]")) { o.kind = XK_R13RCX; o.off = 0; return; }
       if (!strcmp(ns, "[r10]"))     { o.kind = XK_R10MIR; return; } }
     if (!strcmp(s, "[rip + __]"))              { o.kind = XK_RIPSEAL; return; }
     if (!strncmp(s, "f64:", 4))                {
@@ -1274,7 +1275,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
                 a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
         abort();
     }
-    if (!strcmp(mnem, "movzx"))  { (void)b; return x86_movzx_subj_byte(a.txt); }
+    if (!strcmp(mnem, "movzx"))  { return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0); }
     if (!strcmp(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
     if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
     if (!strcmp(mnem, "movsd"))  {
