@@ -64,6 +64,7 @@ WS       [ \t\r]
 "when"          { return KW_WHEN; }
 "default"       { return KW_DEFAULT; }
 "sub"           { return KW_SUB; }
+"constant"      { return KW_CONSTANT; }
 "gather"        { return KW_GATHER; }
 "take"          { return KW_TAKE; }
 "return"        { return KW_RETURN; }
