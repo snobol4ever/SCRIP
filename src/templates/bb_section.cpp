@@ -29,8 +29,7 @@ std::string bb_section() {
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega()
+             + x86_beta_trampoline()
              : (_.op_sval && (_.op_sval[0] == '+' || _.op_sval[0] == '-'))
              ? x86("comment", "IR_SUBSCRIPT section extended (x[i+:n]/x[i-:n]; end pre-computed by IR_BINOP; wraparound→ω)")
              + x86_alpha()
@@ -46,8 +45,7 @@ std::string bb_section() {
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega()
+             + x86_beta_trampoline()
              : x86("comment", "IR_SUBSCRIPT section")
              + x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_a_slot))
@@ -62,7 +60,6 @@ std::string bb_section() {
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     return std::string();
 }

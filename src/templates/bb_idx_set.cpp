@@ -56,6 +56,5 @@ std::string bb_idx_set() {
          + x86("cmp",  "eax", (long)0)
          + x86_omega("je")
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

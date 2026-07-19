@@ -411,8 +411,7 @@ static std::string bb_call_bool_cond_str(IR_t * pBB) {
          + x86("cmp", "rax", "rcx")
          + x86_omega(relop_fail_mnem(relnd))
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {

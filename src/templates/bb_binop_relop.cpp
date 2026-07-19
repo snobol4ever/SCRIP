@@ -67,8 +67,7 @@ std::string bb_binop_relop() {
                  + x86("mov", "rax", FRQ(_.op_sb + 8))
                  + x86("mov", FRQ(_.op_off + 8), "rax")
                  + x86_gamma()
-                 + x86_beta()
-                 + x86_omega()
+                 + x86_beta_trampoline()
              : (_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0
                 && ((_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE) || (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE) || _.op_ival == BINOP_EQV || _.op_ival == BINOP_NEQV))
                  ? x86_alpha()
@@ -92,8 +91,7 @@ std::string bb_binop_relop() {
                      + x86("mov", "rax", FRQ(_.op_sb + 8))
                      + x86("mov", FRQ(_.op_off + 8), "rax"))
                  + x86_gamma()
-                 + x86_beta()
-                 + x86_omega()
+                 + x86_beta_trampoline()
              : x86_bomb("bb_binop_relop: shape mismatch");
     }
     return std::string();

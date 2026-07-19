@@ -43,8 +43,7 @@ std::string bb_binop_gvar_arith() {
                           + x86("pop", "rdx")
                           + x86("call", "rt_gvar_assign_descr", (uint64_t)(uintptr_t)(void *) rt_gvar_assign_descr)
                           + x86_gamma()
-                          + x86_beta()
-                          + x86_omega())
+                          + x86_beta_trampoline())
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && _.op_name1 && _.op_name2,
@@ -67,8 +66,7 @@ std::string bb_binop_gvar_arith() {
                             + x86("call", "rt_gvar_arith", (uint64_t)(uintptr_t)(void *) rt_gvar_arith))
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86_gamma()
-                          + x86_beta()
-                          + x86_omega())
+                          + x86_beta_trampoline())
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && (_.op_name1 || _.op_name2) && !(_.op_name1 && _.op_name2),
@@ -92,8 +90,7 @@ std::string bb_binop_gvar_arith() {
                           + IF(_.op_ival == BINOP_MOD, x86("mov", "rax", "rdx"))
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86_gamma()
-                          + x86_beta()
-                          + x86_omega())
+                          + x86_beta_trampoline())
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && !_.op_name1 && !_.op_name2,
@@ -111,8 +108,7 @@ std::string bb_binop_gvar_arith() {
                           + IF(_.op_ival == BINOP_MOD, x86("mov", "rax", "rdx"))
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86_gamma()
-                          + x86_beta()
-                          + x86_omega())
+                          + x86_beta_trampoline())
                           + IF(!(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
                                 && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD))
                               && !(_.op_off >= 0 && _.op_kind && !strcmp(_.op_kind, "POW") && !_.op_name1 && !_.op_name2 && _.op_sval),

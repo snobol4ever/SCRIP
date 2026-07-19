@@ -10,7 +10,6 @@ std::string bb_cell_cut() {
     if (PLATFORM_X86) return x86_alpha()
                            + x86("comment", "IR_CELL_CUT")
                            + x86_gamma()
-                           + x86_beta()
-                           + x86_omega();
+                           + x86_beta_trampoline();
     return std::string();
 }

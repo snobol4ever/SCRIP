@@ -18,6 +18,5 @@ std::string bb_enter_init() {
          + x86_omega("jne")
          + x86("mov",  FRQ(_.op_off + 8), (long)1)
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

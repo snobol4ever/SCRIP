@@ -16,8 +16,7 @@ std::string bb_assign_local() {
                            + x86("mov", FRQ(_.op_off), "0")
                            + x86("mov", FRQ(_.op_off + 8), "0")
                            + x86_gamma()
-                           + x86_beta()
-                           + x86_omega())
+                           + x86_beta_trampoline())
                            + IF(_.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0,
                              x86_alpha()
                            + x86("comment", "IR_ASSIGN local")
@@ -28,7 +27,6 @@ std::string bb_assign_local() {
                            + x86("mov", FRQ(_.op_off), "rax")
                            + x86("mov", FRQ(_.op_off + 8), "rdx")
                            + x86_gamma()
-                           + x86_beta()
-                           + x86_omega());
+                           + x86_beta_trampoline());
     return std::string();
 }

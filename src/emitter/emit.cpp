@@ -1563,6 +1563,35 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_zeta_selfload(void) { int m = x86_port_mode(); if (m == ZC_PORT_INSTRUMENTED) { if (g_is_text) { char s[64]; snprintf(s, sizeof s, " test %s, %s\n jnz 1f\n ud2\n1:\n", x86_zr(), x86_zr()); emit_text_n(s, strlen(s)); } else { int z = x86_zr_num(), lo = z & 7; ef_b3((uint8_t)(0x48 | (z >= 8 ? 0x05 : 0x00)), 0x85, (uint8_t)(0xC0 | (lo << 3) | lo)); ef_b2(0x75, 0x02); ef_b2(0x0F, 0x0B); } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* BP-9 DEAD-β ELISION (s100): mark every chain node whose β label the emission loop below COULD reference; !used ⇒ the det leaf's β trampoline (define + jmp ω) is provably dead bytes and its template
+ * elides it via x86_beta_trampoline().  This scan MIRRORS the loop's actual β consumers — γ/ω wires carrying the 2-byte β port tag (0xce 0xb2, GOTO chains chased through their γ wire exactly as the
+ * loop does at its gamma_is_beta/omega_is_beta resolution), combinator arm resume (pair-loop operands of ALT/SEQ/ARBNO/SCAN/DISJUNCTION/REPALT), IR_MOVE_LABEL wantb targets, and the special-op class
+ * whose betas feed resume globals (generators, SUSPEND, CALL/CALL_PROC_STAGED/CALL_BUILTIN_GEN/PROC_GEN, REPALT, LIMIT, GOTO, body_root).  ANY fc-converted SEQ/ALT in the chain ⇒ blanket all-used
+ * (fc_seq_phi_tgt hands out PREV-ELEMENT betas positionally — slice-1 conservatism, revisit with the fc census).  Unproven ⇒ used; elision only ever deletes a label nothing can reach. */
+static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
+    for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
+    for (int k = 0; k < n; k++) {
+        int op = (int)nodes[k]->op;
+        used[k] = (ir_is_generator_kind(nodes[k]->op) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT
+                   || op == IR_LIMIT || op == IR_GOTO || (g_emit_cfg && nodes[k] == g_emit_cfg->body_root)) ? 1 : 0;
+    }
+    for (int j = 0; j < n; j++) {
+        int op = (int)nodes[j]->op;
+        if (op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARBNO || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION || op == IR_REPALT)
+            for (int a = 0; a < nodes[j]->n_operands; a++) for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[a]) used[k] = 1;
+        if (op == IR_MOVE_LABEL && nodes[j]->n_operands > 0 && nodes[j]->operands[0] && (int)IR_LIT(nodes[j]).ival)
+            for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[0]) used[k] = 1;
+        int gib = (nodes[j]->γ.sz[0] == (char)0xce && (unsigned char)nodes[j]->γ.sz[1] == 0xb2);
+        int oib = (nodes[j]->ω.sz[0] == (char)0xce && (unsigned char)nodes[j]->ω.sz[1] == 0xb2);
+        IR_t *gtgt = nodes[j]->γ.node;
+        IR_t *otgt = nodes[j]->ω.node;
+        { int _gg = 0; IR_t * _g = gtgt; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gib) gib = (_g->γ.sz[0] == (char)0xce && (unsigned char)_g->γ.sz[1] == 0xb2); gtgt = _g->γ.node; _g = gtgt; } }
+        { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!oib) oib = (_o->γ.sz[0] == (char)0xce && (unsigned char)_o->γ.sz[1] == 0xb2); otgt = _o->γ.node; _o = otgt; } }
+        if (gib) for (int k = 0; k < n; k++) if (nodes[k] == gtgt) used[k] = 1;
+        if (oib) for (int k = 0; k < n; k++) if (nodes[k] == otgt) used[k] = 1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     emit_label_initf(&lbl_α,      "%s_α",      prefix);
@@ -1682,6 +1711,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             for (int _j = 0; _j < _N; _j++) fc_sig[i][_j] = emit_label_alloc("xchain%d_n%d_s%d", id, i, _j);
         }
     }
+    unsigned char *bused = (unsigned char *)alloca(n > 0 ? n : 1);
+    flat_beta_used_scan(nodes, n, bused);
     bb_label_t *resume_init_lbl = NULL;
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { resume_init_lbl = betas[_si]; break; }
@@ -1724,6 +1755,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          * the SAME single call site β already uses.  Scope: this fixes ONLY the per-node α/β def-mechanism
          * asymmetry; it does not audit or touch any other TEXT/BINARY-branching site in this file. */
         emit_zeta_selfload();
+        { static int _beo = -1; if (_beo < 0) { const char *_e = getenv("SCRIP_BETA_ELIDE_OFF"); _beo = (_e && _e[0] == '1') ? 1 : 0; } g_emit.op_beta_dead = (_beo || bused[i]) ? 0 : 1; }   /* BP-9 DEAD-β: hatch = same-build A/B, BP-5/BP-6 precedent */
         { extern int zls_off(const IR_t *); extern int zls_node_bytes(const IR_t *); int _zo = zls_off(nodes[i]);
           g_emit.op_own_mark = own_mark; g_emit.op_own_ci = (_zo >= 0) ? _zo + zls_node_bytes(nodes[i]) : 0; }
         bb_label_t *node_γ = &lbl_γ;
@@ -1823,6 +1855,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     }
+    g_emit.op_beta_dead = 0;
     if (g_emit.flat_jmp_entry) {
         /* PROC-CONV: EMPTY body (n==0) — α_body would otherwise fall into the res landing below and run its
          * `add rsp,8; pop zr` on the initial α pass (no frontier record present ⇒ rsp/zr corruption ⇒ the ω-half

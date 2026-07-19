@@ -26,7 +26,6 @@ std::string bb_var_frame() {
              + x86("mov",     "rcx", RDQ("rax", 16 + (int)_.op_ival * 16 + 8))
              + x86("mov",     FRQ(_.op_off + 8), "rcx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     return std::string();
 }

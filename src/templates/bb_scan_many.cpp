@@ -37,8 +37,7 @@ std::string bb_scan_many() {
              + x86("add",     "rcx", (long)1)
              + x86("mov",     FRQ(_.op_off + 8), "rcx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega() :
+             + x86_beta_trampoline() :
            (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) ? x86_alpha() + x86_bomb("bb_scan_many: unhandled (needs literal cset arg + descr flat-chain slot)") :
            x86("comment", "IR_SCAN_MANY")
          + x86_alpha()
@@ -66,8 +65,7 @@ std::string bb_scan_many() {
          + x86("add",     "rcx", (long)1)
          + x86("mov",     FRQ(_.op_off + 8), "rcx")
          + x86_gamma()
-         + x86_beta()
-         + x86_omega()
+         + x86_beta_trampoline()
          + x86("def",     L(2))
          + x86(".quad",   LS(2), _.op_name1)
          + x86("label",   LS(2))

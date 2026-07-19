@@ -45,23 +45,52 @@ def forwarder_target(body):
             return m.group(1)
     return None
 
+def rsp_forwarder(body):
+    # BP-9 BC-CENSUS: ζ-pop trampoline — body is one-or-more `add rsp, K` then one `jmp T`.
+    # Returns (T, ΣK, n_adds) or None. These fold to ONE `add rsp, ΣK; jmp final` (op_sb static).
+    real = [i for i in body if not i.startswith('#')]
+    if len(real) < 2:
+        return None
+    sk = 0
+    for ins in real[:-1]:
+        m = re.match(r'^add\s+rsp\s*,\s*(\d+)\s*$', ins)
+        if not m:
+            return None
+        sk += int(m.group(1))
+    m = re.match(r'^jmp\s+([\w.$]+)\s*$', real[-1])
+    if not m:
+        return None
+    return (m.group(1), sk, len(real) - 1)
+
 def kind(lbl):
     if lbl.endswith('_β'): return 'β-resume'
     if lbl.endswith('_α'): return 'α-start'
-    if lbl.startswith('xcat') or lbl.startswith('xalt') or lbl.startswith('xgvarg'): return 'combinator'
+    if lbl.endswith('_γ'): return 'γ-succeed'
+    if lbl.endswith('_ω'): return 'ω-fail'
+    if lbl.startswith('xcat') or lbl.startswith('xalt') or lbl.startswith('xgvarg') or lbl.startswith('xchain'): return 'combinator'
     return 'other'
 
 def classify(path):
     labels, order = parse(path)
-    fwd = {}
+    fwd = {}      # bare: lbl -> target
+    rfwd = {}     # ζ-pop: lbl -> (target, ΣK, n_adds)
     for lbl, body in labels.items():
         t = forwarder_target(body)
         if t is not None:
             fwd[lbl] = t
+            continue
+        r = rsp_forwarder(body)
+        if r is not None:
+            rfwd[lbl] = r
     total_branches = 0
     to_fwd = 0
+    to_rfwd = 0
     chain_lens = []
+    chain_sums = []
     targets = set()
+    rkinds = {'β-resume':0,'α-start':0,'γ-succeed':0,'ω-fail':0,'combinator':0,'other':0}
+    for lbl in rfwd:
+        rkinds[kind(lbl)] += 1
     for lbl, body in labels.items():
         for ins in body:
             mm = re.match(r'^(\w+)\s+([\w.$]+)\s*$', ins)
@@ -72,15 +101,22 @@ def classify(path):
                 continue
             total_branches += 1
             targets.add(tgt)
-            if tgt in fwd:
-                to_fwd += 1
-                seen = set(); cur = tgt; n = 0
-                while cur in fwd and cur not in seen and n < 4096:
-                    seen.add(cur); cur = fwd[cur]; n += 1
+            if tgt in fwd or tgt in rfwd:
+                if tgt in rfwd: to_rfwd += 1
+                else:           to_fwd += 1
+                seen = set(); cur = tgt; n = 0; sk = 0
+                while (cur in fwd or cur in rfwd) and cur not in seen and n < 4096:
+                    seen.add(cur)
+                    if cur in rfwd:
+                        cur, k, _ = rfwd[cur]; sk += k
+                    else:
+                        cur = fwd[cur]
+                    n += 1
                 chain_lens.append(n)
-    dead_fwd = {'β-resume':0,'α-start':0,'combinator':0,'other':0}
+                chain_sums.append(sk)
+    dead_fwd = {'β-resume':0,'α-start':0,'γ-succeed':0,'ω-fail':0,'combinator':0,'other':0}
     dead_total = 0
-    for lbl in fwd:
+    for lbl in list(fwd) + list(rfwd):
         if lbl not in targets:
             dead_total += 1
             dead_fwd[kind(lbl)] += 1
@@ -88,11 +124,15 @@ def classify(path):
         'file': os.path.basename(path),
         'code_labels': len(labels),
         'fwd_labels': len(fwd),
+        'rfwd_labels': len(rfwd),
         'branches': total_branches,
         'branch_to_fwd': to_fwd,
+        'branch_to_rfwd': to_rfwd,
         'max_chain': max(chain_lens) if chain_lens else 0,
+        'max_sum_k': max(chain_sums) if chain_sums else 0,
         'dead_fwd': dead_total,
         'dead_kinds': dead_fwd,
+        'rfwd_kinds': rkinds,
     }
 
 def main():
@@ -102,24 +142,28 @@ def main():
         files += sorted(glob.glob(p))
     if not files:
         print('no .s files'); return
-    tot = {'code_labels':0,'fwd_labels':0,'branches':0,'branch_to_fwd':0,'max_chain':0,'dead_fwd':0}
-    dk = {'β-resume':0,'α-start':0,'combinator':0,'other':0}
-    print(f"{'file':28} {'labels':>7} {'fwd':>5} {'br':>5} {'br→fwd':>7} {'maxch':>6} {'dead':>5}")
-    print('-'*72)
+    tot = {'code_labels':0,'fwd_labels':0,'rfwd_labels':0,'branches':0,'branch_to_fwd':0,'branch_to_rfwd':0,'max_chain':0,'max_sum_k':0,'dead_fwd':0}
+    dk = {'β-resume':0,'α-start':0,'γ-succeed':0,'ω-fail':0,'combinator':0,'other':0}
+    rk = {'β-resume':0,'α-start':0,'γ-succeed':0,'ω-fail':0,'combinator':0,'other':0}
+    print(f"{'file':28} {'labels':>7} {'fwd':>5} {'ζfwd':>5} {'br':>5} {'br→f':>5} {'br→ζ':>5} {'maxch':>6} {'maxΣK':>6} {'dead':>5}")
+    print('-'*88)
     for f in files:
         r = classify(f)
         for k in tot:
-            if k == 'max_chain': tot[k] = max(tot[k], r[k])
+            if k in ('max_chain','max_sum_k'): tot[k] = max(tot[k], r[k])
             else: tot[k] += r[k]
         for kk in dk: dk[kk] += r['dead_kinds'][kk]
-        print(f"{r['file']:28} {r['code_labels']:7} {r['fwd_labels']:5} {r['branches']:5} {r['branch_to_fwd']:7} {r['max_chain']:6} {r['dead_fwd']:5}")
-    print('-'*72)
-    pct = (100.0*tot['branch_to_fwd']/tot['branches']) if tot['branches'] else 0.0
-    print(f"{'TOTAL':28} {tot['code_labels']:7} {tot['fwd_labels']:5} {tot['branches']:5} {tot['branch_to_fwd']:7} {tot['max_chain']:6} {tot['dead_fwd']:5}")
-    print(f"\ncollapsible branches (target a forwarder): {tot['branch_to_fwd']}/{tot['branches']} = {pct:.1f}%")
-    print(f"forwarder labels: {tot['fwd_labels']}/{tot['code_labels']} code labels ({100.0*tot['fwd_labels']/tot['code_labels']:.0f}%)")
-    print(f"dead forwarders (never branched-to): {tot['dead_fwd']}/{tot['fwd_labels']} forwarders")
-    print(f"  by kind: β-resume={dk['β-resume']}  α-start={dk['α-start']}  combinator={dk['combinator']}  other={dk['other']}")
+        for kk in rk: rk[kk] += r['rfwd_kinds'][kk]
+        print(f"{r['file']:28} {r['code_labels']:7} {r['fwd_labels']:5} {r['rfwd_labels']:5} {r['branches']:5} {r['branch_to_fwd']:5} {r['branch_to_rfwd']:5} {r['max_chain']:6} {r['max_sum_k']:6} {r['dead_fwd']:5}")
+    print('-'*88)
+    coll = tot['branch_to_fwd'] + tot['branch_to_rfwd']
+    pct = (100.0*coll/tot['branches']) if tot['branches'] else 0.0
+    print(f"{'TOTAL':28} {tot['code_labels']:7} {tot['fwd_labels']:5} {tot['rfwd_labels']:5} {tot['branches']:5} {tot['branch_to_fwd']:5} {tot['branch_to_rfwd']:5} {tot['max_chain']:6} {tot['max_sum_k']:6} {tot['dead_fwd']:5}")
+    print(f"\ncollapsible branches (bare + ζ-pop forwarder targets): {coll}/{tot['branches']} = {pct:.1f}%  (bare {tot['branch_to_fwd']}, ζ-pop {tot['branch_to_rfwd']})")
+    print(f"forwarder labels: bare {tot['fwd_labels']} + ζ-pop {tot['rfwd_labels']} of {tot['code_labels']} code labels")
+    print(f"ζ-pop forwarders by wire: β={rk['β-resume']} α={rk['α-start']} γ={rk['γ-succeed']} ω={rk['ω-fail']} comb={rk['combinator']} other={rk['other']}")
+    print(f"dead forwarders (never branched-to): {tot['dead_fwd']}")
+    print(f"  by kind: β={dk['β-resume']} α={dk['α-start']} γ={dk['γ-succeed']} ω={dk['ω-fail']} comb={dk['combinator']} other={dk['other']}")
 
 if __name__ == '__main__':
     main()

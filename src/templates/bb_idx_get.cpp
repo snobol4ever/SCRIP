@@ -30,8 +30,7 @@ std::string bb_idx_get() {
             + x86("mov",  FRQ(_.op_off),     "rax")
             + x86("mov",  FRQ(_.op_off + 8), "rdx")
             + x86_gamma()
-            + x86_beta()
-            + x86_omega())
+            + x86_beta_trampoline())
          + IF(_.bb_lk != (int)IR_LIT_STRING,
               x86_alpha()
             + x86("comment", "IR_IDX: AXS inline DT_A+int fast path, else subscript_get")
@@ -83,6 +82,5 @@ std::string bb_idx_get() {
             + x86("mov", FRQ(_.op_off),     "rax")
             + x86("mov", FRQ(_.op_off + 8), "rdx")
             + x86_gamma()
-            + x86_beta()
-            + x86_omega());
+            + x86_beta_trampoline());
 }

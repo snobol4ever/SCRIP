@@ -28,8 +28,7 @@ std::string bb_binop_arith() {
          + x86("mov", FRQ(_.op_off), "rax")
          + x86("mov", FRQ(_.op_off + 8), "rdx")
          + x86_gamma()
-         + x86_beta()
-         + x86_omega())
+         + x86_beta_trampoline())
          + IF(_.op_off >= 0 && !_.op_num_real
               && ((long long)_.op_ival == BINOP_ADD || (long long)_.op_ival == BINOP_SUB || (long long)_.op_ival == BINOP_MUL
                   || (long long)_.op_ival == BINOP_DIV || (long long)_.op_ival == BINOP_MOD),
@@ -76,7 +75,7 @@ std::string bb_binop_arith() {
          + x86("lea", "r9", FRQ(_.op_off))
          + x86("call", "rt_binop_overload", (uint64_t)(uintptr_t)(void*)rt_binop_overload)
          + x86("test", "eax", "eax")
-         + x86("jne", L(3))
+         + x86_gamma("jne")
          + x86("def", L(2))
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
@@ -88,7 +87,6 @@ std::string bb_binop_arith() {
          + x86_omega("je")
          + x86("mov", FRQ(_.op_off),     "rax")
          + x86("mov", FRQ(_.op_off + 8), "rdx")
-         + x86("def", L(3))
          + x86_gamma()
          + x86_beta()
          + x86_omega())
