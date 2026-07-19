@@ -12,7 +12,18 @@ extern "C" {
  * dominant class in tag grammars — inline to movzx+cmp (the bb_match_any subject-byte idiom); len==0 emits no test at all (null match: no bounds, no cursor move, β falls to ω).  len>=2 keeps memcmp
  * (an 8B masked-load fast path is slice B, gated on verifying the carve tail-pad over-read invariant — see RUNG SPD).  Interleaved lib-swap A/B x7 is the acceptance evidence. */
 static inline long litn()  { return (long) strlen(_.op_sval ? _.op_sval : ""); }
-static inline int  litc0() { return (int)(unsigned char)(_.op_sval ? _.op_sval[0] : 0); }
+static inline int  litck(int k) { return (int)(unsigned char)_.op_sval[k]; }
+static std::string lit_unroll(long n) {
+    std::string r;
+    char m[24];
+    for (long k = 0; k < n; k++) {
+        snprintf(m, sizeof m, "[r13+rcx+%ld]", k);
+        r += x86("movzx", "eax", k ? m : "[r13+rcx]")
+           + x86("cmp",   "eax", litck((int)k))
+           + x86_omega("jne");
+    }
+    return r;
+}
 std::string bb_match_lit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
@@ -25,11 +36,8 @@ std::string bb_match_lit() {
             + x86("cmp",    "eax", "r15d")
             + x86_omega("jg")
             + x86("movsxd", "rcx", "r14d"))
-         + IF(litn() == 1,
-              x86("movzx",  "eax", "[r13+rcx]")
-            + x86("cmp",    "eax", litc0())
-            + x86_omega("jne"))
-         + IF(litn() >= 2,
+         + IF(litn() >= 1 && litn() <= 10, lit_unroll(litn()))
+         + IF(litn() > 10,
               x86("lea",    "rdi", "[r13+rcx]")
             + x86("lea",    "rsi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
             + x86("mov",    "edx", litn())
