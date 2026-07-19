@@ -33,8 +33,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [rbp + 152], rax
  jmp xchain0_n1_α
- xchain0_n0_β:
- jmp main_γ
 .Lx1_0:
  .quad 42
 # IR_LIT_STRING
@@ -43,8 +41,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx2_0]
  mov qword ptr [rbp + 184], rax
  jmp xchain0_n2_α
- xchain0_n1_β:
- jmp main_γ
 .Lx2_0:
  .quad .Lx2_0_s
 .Lx2_0_s:
@@ -59,8 +55,6 @@ main_α_body:
  mov qword ptr [rbp + 112], rax
  mov qword ptr [rbp + 120], rdx
  jmp xchain0_n3_α
- xchain0_n2_β:
- jmp main_γ
 # IR_ASSIGN global
  xchain0_n3_α:
  mov rsi, qword ptr [rbp + 112]
@@ -69,8 +63,6 @@ main_α_body:
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
- jmp main_γ
- xchain0_n3_β:
  jmp main_γ
 .Lx4_0:
  .quad .Lx4_0_s

@@ -267,7 +267,8 @@ xchain0_n5_af:
  cmp eax, r15d
  jl .Lx23_240
  add rsp, 16
- jmp xchain0_n8_β
+ add rsp, 16
+ jmp xchain0_n5_af
 .Lx23_240:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
@@ -287,7 +288,8 @@ xchain0_n5_af:
  sub eax, dword ptr [rsp + 0]
  mov r14d, eax
  add rsp, 16
- jmp xchain0_n8_β
+ add rsp, 16
+ jmp xchain0_n5_af
 # IR_MATCH_REM
  xchain0_n15_α:
  sub rsp, 16
@@ -297,7 +299,8 @@ xchain0_n5_af:
  xchain0_n15_β:
  mov r14d, dword ptr [rsp + 0]
  add rsp, 16
- jmp xchain0_n11_β
+ add rsp, 16
+ jmp xchain0_n10_β
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 608], 1

@@ -113,7 +113,8 @@ xchain0_n4_af:
 .Lx12_0:
  mov r14d, dword ptr [rsp + 4]
  add rsp, 16
- jmp xchain0_n2_β
+ add rsp, 16
+ jmp xchain0_n1_β
 # IR_MATCH_LIT
  xchain0_n6_α:
  mov eax, r14d
@@ -236,8 +237,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [rbp + 168], rax
  jmp xchain17_n1_α
- xchain17_n0_β:
- jmp xchain17_n3_α
 .Lx18_0:
  .quad .Lx18_0_s
 .Lx18_0_s:
@@ -273,8 +272,6 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain17_n3_α
- xchain17_n2_β:
- jmp xchain17_n3_α
 # IR_VAR
  xchain17_n3_α:
  mov rdi, qword ptr [rip + .Lx22_0]
@@ -284,8 +281,6 @@ main_α_body:
  mov qword ptr [rbp + 208], rax
  mov qword ptr [rbp + 216], rdx
  jmp xchain17_n4_α
- xchain17_n3_β:
- jmp main_γ
 .Lx22_0:
  .quad .Lx22_0_s
 .Lx22_0_s:
@@ -299,8 +294,6 @@ main_α_body:
  mov qword ptr [rbp + 192], rax
  mov qword ptr [rbp + 200], rdx
  jmp xchain17_n5_α
- xchain17_n4_β:
- jmp main_γ
 # IR_VAR
  xchain17_n5_α:
  mov rax, qword ptr [1879052304]
@@ -308,8 +301,6 @@ main_α_body:
  mov qword ptr [rbp + 368], rax
  mov qword ptr [rbp + 376], rdx
  jmp xchain17_n6_α
- xchain17_n5_β:
- jmp xchain17_n3_α
 # IR_MATCH_HEAD
  xchain17_n6_α:
  mov qword ptr [rbp + 296], rbp

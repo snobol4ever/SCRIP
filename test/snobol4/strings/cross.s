@@ -341,18 +341,25 @@ xchain0_n13_af:
  xchain0_n19_α:
  mov eax, r14d
  cmp eax, r15d
- jge xchain0_n16_β
+ jl .Lx27_239
+ add rsp, 16
+ jmp xchain0_n15_β
+.Lx27_239:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
  mov rdi, qword ptr [rbp + 600]
  call strchr@PLT
  test rax, rax
- je xchain0_n16_β
+ jne .Lx27_240
+ add rsp, 16
+ jmp xchain0_n15_β
+.Lx27_240:
  add r14d, 1
  jmp xchain0_n17_α
  xchain0_n19_β:
  sub r14d, 1
- jmp xchain0_n16_β
+ add rsp, 16
+ jmp xchain0_n15_β
 # IR_MATCH_REPLACE
  xchain0_n20_α:
  mov rdi, qword ptr [rip + .Lx29_0]
@@ -782,12 +789,16 @@ xchain0_n42_af:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n41_β
+ jle .Lx61_240
+ add rsp, 16
+ jmp xchain0_n39_β
+.Lx61_240:
  add r14d, 1
  jmp xchain0_n47_α
  xchain0_n43_β:
  sub r14d, 1
- jmp xchain0_n41_β
+ add rsp, 16
+ jmp xchain0_n39_β
 # IR_MATCH_RELEASE
  xchain0_n44_α:
  mov rax, qword ptr [rsp + 8]
@@ -845,12 +856,12 @@ xchain0_n42_af:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n45_β
+ jg xchain0_n42_af
  add r14d, 1
  jmp xchain0_n42_as
  xchain0_n46_β:
  sub r14d, 1
- jmp xchain0_n45_β
+ jmp xchain0_n42_af
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n47_α:
  mov eax, dword ptr [rsp + 0]

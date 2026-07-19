@@ -163,7 +163,7 @@ xchain0_n3_af:
  jmp xchain0_n13_α
  xchain0_n8_β:
  add rsp, 16
- jmp xchain0_n7_β
+ jmp xchain0_n3_af
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n9_α:
  mov eax, dword ptr [rsp + 80]
@@ -395,13 +395,62 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx25_0]
  mov qword ptr [rbp + 600], rax
  jmp xchain24_n1_α
- xchain24_n0_β:
- jmp main_γ
 .Lx25_0:
  .quad .Lx25_0_s
 .Lx25_0_s:
  .string "aaa"
  xchain24_n1_α:
+ sub rsp, 32
+ mov rax, qword ptr [1879052304]
+ mov qword ptr [rsp + 0], rax
+ mov rax, qword ptr [1879052312]
+ mov qword ptr [rsp + 8], rax
+ mov rax, qword ptr [1879052288]
+ mov qword ptr [rsp + 16], rax
+ mov rax, qword ptr [1879052296]
+ mov qword ptr [rsp + 24], rax
+ mov rdi, qword ptr [rip + .Lx27_0]
+ mov esi, 1
+ mov edx, 1
+ call rt_proc_call_open_slim@PLT
+ test rax, rax
+ je .Lx27_5
+ mov rax, qword ptr [rbp + 592]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rbp + 600]
+ mov qword ptr [1879052312], rax
+ call rt_proc_open_fn@PLT
+ lea rcx, [rip + .Lx27_6]
+ lea rdx, [rip + .Lx27_7]
+ jmp rax
+.Lx27_6:
+ mov rdi, qword ptr [1879052288]
+ mov rsi, qword ptr [1879052296]
+ mov rax, qword ptr [rsp + 16]
+ mov qword ptr [1879052288], rax
+ mov rax, qword ptr [rsp + 24]
+ mov qword ptr [1879052296], rax
+ mov rax, qword ptr [rsp + 0]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rsp + 8]
+ mov qword ptr [1879052312], rax
+ add rsp, 32
+ call rt_proc_call_epilogue_slim_γ@PLT
+ jmp .Lx27_2
+.Lx27_7:
+ mov rax, qword ptr [rsp + 16]
+ mov qword ptr [1879052288], rax
+ mov rax, qword ptr [rsp + 24]
+ mov qword ptr [1879052296], rax
+ mov rax, qword ptr [rsp + 0]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rsp + 8]
+ mov qword ptr [1879052312], rax
+ add rsp, 32
+ call rt_proc_call_epilogue_slim_ω@PLT
+ jmp .Lx27_2
+.Lx27_5:
+ add rsp, 32
  mov edi, 0
  mov rsi, qword ptr [rbp + 592]
  mov rdx, qword ptr [rbp + 600]
@@ -443,8 +492,6 @@ main_α_body:
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 528], rax
  mov qword ptr [rbp + 536], rdx
- jmp main_γ
- xchain24_n2_β:
  jmp main_γ
 .Lx28_0:
  .quad .Lx28_0_s

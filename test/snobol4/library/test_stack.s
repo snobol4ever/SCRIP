@@ -1015,7 +1015,8 @@ xchain0_n51_af:
  cmp eax, r15d
  jl .Lx71_240
  add rsp, 16
- jmp xchain0_n54_β
+ add rsp, 16
+ jmp xchain0_n51_af
 .Lx71_240:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
@@ -1035,7 +1036,8 @@ xchain0_n51_af:
  sub eax, dword ptr [rsp + 0]
  mov r14d, eax
  add rsp, 16
- jmp xchain0_n54_β
+ add rsp, 16
+ jmp xchain0_n51_af
 # IR_MATCH_REM
  xchain0_n61_α:
  sub rsp, 16
@@ -1045,7 +1047,8 @@ xchain0_n51_af:
  xchain0_n61_β:
  mov r14d, dword ptr [rsp + 0]
  add rsp, 16
- jmp xchain0_n57_β
+ add rsp, 16
+ jmp xchain0_n56_β
 # IR_MATCH_REPLACE
  xchain0_n62_α:
  mov rdi, qword ptr [rip + .Lx74_0]
