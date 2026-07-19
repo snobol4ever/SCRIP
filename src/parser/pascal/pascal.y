@@ -88,7 +88,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (a && a->t == TT_IDX) a->v.ival = 0;
         return a;
     }
-    if (name && !strcmp(name, "chr") && args && args->count >= 1) return args->items[0];
+    if (name && !strcmp(name, "chr") && args && args->count >= 1) return mk_fnc1("__pas_chrlit", args->items[0]);
     if (name && !strcmp(name, "pred") && args && args->count >= 1) return bin(TT_SUB, args->items[0], ilit(1));
     if (name && !strcmp(name, "succ") && args && args->count >= 1) return bin(TT_ADD, args->items[0], ilit(1));
     if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
