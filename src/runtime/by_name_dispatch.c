@@ -1917,7 +1917,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int cnt = 1; for (const char *p = cur; *p; p++) if (*p == SOH) cnt++;
         *out = INTVAL(cnt); return 1;
     }
-    if (!strcmp(fn, "__rk_arr") && nargs >= 1) {
+    if (!strcmp(fn, "__rk_arr") && nargs >= 0) {
+        if (nargs == 0) { char *e = rt_ws_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
         const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
         size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
         int nel = 0, cap = nargs * 64;

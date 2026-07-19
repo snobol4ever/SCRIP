@@ -1980,6 +1980,72 @@ my $p = Point.new(x => 3, y => 4);
 say $p.sum;
 EOF
 
+raku "list_value_to_scalar" "1 2 3" << 'EOF'
+my $x = (1,2,3);
+say $x;
+EOF
+
+raku "list_value_empty" "$(printf 'A\nB')" << 'EOF'
+my $x = ();
+say('A');
+say('B');
+EOF
+
+raku "list_value_single_trailing" "42" << 'EOF'
+my $x = (42,);
+say $x;
+EOF
+
+raku "for_parenlist_pointy" "$(printf '1\n2\n3')" << 'EOF'
+for (1,2,3) -> $x { say($x); }
+EOF
+
+raku "for_parenlist_topic" "$(printf '1\n2\n3')" << 'EOF'
+for (1,2,3) { say($_); }
+EOF
+
+raku "for_parenlist_strings" "$(printf 'a\nb\nc')" << 'EOF'
+for ("a","b","c") -> $s { say($s); }
+EOF
+
+raku "for_array_pointy" "$(printf '10\n20\n30')" << 'EOF'
+my @a = 10,20,30;
+for @a -> $v { say($v); }
+EOF
+
+raku "for_array_topic" "$(printf '7\n8\n9')" << 'EOF'
+my @a = 7,8,9;
+for @a { say($_); }
+EOF
+
+raku "for_array_sum" "6" << 'EOF'
+my @a = 1,2,3;
+my $s = 0;
+for @a -> $v { $s = $s + $v; }
+say($s);
+EOF
+
+raku "for_emptylist_noiter" "done" << 'EOF'
+for () -> $x { say($x); }
+say('done');
+EOF
+
+raku "for_commalist_pointy" "$(printf '1\n2\n3')" << 'EOF'
+for 1,2,3 -> $x { say($x); }
+EOF
+
+raku "for_commalist_topic" "$(printf '1\n2\n3')" << 'EOF'
+for 1,2,3 { say($_); }
+EOF
+
+raku "for_commalist_strings" "$(printf 'x\ny\nz')" << 'EOF'
+for "x","y","z" -> $s { say($s); }
+EOF
+
+raku "for_wordlist_pointy" "$(printf 'a\nb\nc')" << 'EOF'
+for <a b c> -> $x { say($x); }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

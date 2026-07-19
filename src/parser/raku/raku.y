@@ -467,6 +467,17 @@ for_stmt
           tree_t *gen = expr_unary(TT_ITERATE, $2);
           gen->v.sval = (char *)vn;
           $$ = expr_binary(TT_EVERY, gen, $5); }
+    | KW_FOR expr ',' arg_list OP_ARROW VAR_SCALAR block
+        { const char *vn = intern(strip_sigil($6)); free($6);
+          tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(lst,a->items[i]); exprlist_free(a); }
+          tree_t *gen = expr_unary(TT_ITERATE, lst); gen->v.sval = (char *)vn;
+          $$ = expr_binary(TT_EVERY, gen, $7); }
+    | KW_FOR expr ',' arg_list block
+        { tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(lst,a->items[i]); exprlist_free(a); }
+          tree_t *gen = expr_unary(TT_ITERATE, lst);
+          $$ = expr_binary(TT_EVERY, gen, $5); }
     | KW_FOR expr block
         { tree_t *gen = expr_unary(TT_ITERATE, $2);
           $$ = expr_binary(TT_EVERY, gen, $3); }
@@ -1141,7 +1152,13 @@ atom
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
           fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
           $$ = fe; }
+    | '(' ')'         { $$=make_call("__rk_arr"); }
     | '(' expr ')'    { $$=$2; }
+    | '(' expr ',' ')'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+    | '(' expr ',' arg_list ')'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
     | block           { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$1); $$=b; }
     | KW_SUB block    { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$2); $$=b; }
     ;

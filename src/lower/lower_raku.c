@@ -55,6 +55,7 @@ static int rk_type_provides_real_method(const tree_t * decl, const char * mname)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
+static tree_t * leaf_sval2(tree_e kind, const char * s) { tree_t * n = ast_node_new(kind); n->v.sval = (char *)s; return n; }
 static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     IR_t * nd = lc_build(cx->g, op, γ, ω);
     if (γ && ir_is_generator_kind(γ->op)) lc_γ_to_β(nd, γ);
@@ -301,8 +302,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = (t->n > 0) ? lower_rblock(cx, t->c[0], LOOP, ω) : LOOP;
         γ_to(LOOP, bentry); ω_to(LOOP, bentry);
         *res = LOOP; return bentry; }
-    case TT_EVERY: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0 && t->c[0]->v.sval) {
-        const char * vname = t->c[0]->v.sval; const tree_t * src = t->c[0]->c[0]; const tree_t * body = t->c[1];
+    case TT_EVERY: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0) {
+        const char * vname = t->c[0]->v.sval ? t->c[0]->v.sval : "_"; const tree_t * src = t->c[0]->c[0]; const tree_t * body = t->c[1];
         const tree_t * xf = NULL; int xfk = 0;
         if (src && (src->t == TT_MAP || src->t == TT_GREP) && src->n > 1) { xfk = (src->t == TT_MAP) ? 1 : 2; xf = src->c[0]; src = src->c[1]; }
         if (src && src->t == TT_TO && src->n > 1) {
@@ -323,6 +324,30 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     IR_t * inner = rk_xf_body(cx, xf, xfk, vname, r, body, succ, ω);
                     γ_to(r, inner); succ = ek; }
                 *res = succ; return succ; } }
+        if (src && xfk == 0) {
+            static int g_forlist_ctr = 0; int fid = ++g_forlist_ctr;
+            char iname[48]; snprintf(iname, sizeof iname, "__foridx_%d", fid); const char * in = intern(iname);
+            const char * ln; int need_matr = 0;
+            if (src->t == TT_VAR && src->v.sval) { ln = src->v.sval; }
+            else { char lname[48]; snprintf(lname, sizeof lname, "__forlist_%d", fid); ln = intern(lname); need_matr = 1; }
+            tree_t * elc = ast_node_new(TT_FNC); elc->v.sval = (char *)"elems";
+            ast_push(elc, leaf_sval2(TT_VAR, "elems")); ast_push(elc, leaf_sval2(TT_VAR, ln));
+            tree_t * one = ast_node_new(TT_ILIT); one->v.ival = 1;
+            tree_t * hi = ast_node_new(TT_SUB); ast_push(hi, elc); ast_push(hi, one);
+            tree_t * lo = ast_node_new(TT_ILIT); lo->v.ival = 0;
+            tree_t * bind = ast_node_new(TT_DECL); ast_push(bind, leaf_sval2(TT_VAR, "__decl"));
+            ast_push(bind, leaf_sval2(TT_VAR, vname));
+            tree_t * ag = ast_node_new(TT_ARR_GET); ast_push(ag, leaf_sval2(TT_VAR, ln)); ast_push(ag, leaf_sval2(TT_VAR, in));
+            ast_push(bind, ag);
+            tree_t * nb = ast_node_new(TT_SEQ_EXPR); ast_push(nb, bind);
+            if (body) { if (body->t == TT_SEQ || body->t == TT_SEQ_EXPR || body->t == TT_PROGRAM) { for (int k = 0; k < body->n; k++) ast_push(nb, body->c[k]); } else ast_push(nb, (tree_t *)body); }
+            tree_t * fr = ast_node_new(TT_FOR_RANGE);
+            ast_push(fr, leaf_sval2(TT_VAR, in)); ast_push(fr, lo); ast_push(fr, hi); ast_push(fr, nb);
+            tree_t * ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(fr, ex);
+            if (need_matr) { IR_t * as = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(as).sval = ln;
+                IR_t * rr = NULL; IR_t * einit = lower_rv(cx, src, as, ω, &rr); if (rr) ir_operand_push(as, rr);
+                IR_t * fre = lower_rv(cx, fr, γ, ω, res); lc_γ_to(as, fre); return einit; }
+            return lower_rv(cx, fr, γ, ω, res); }
         return rk_excise(cx, γ, ω, res); }
         return rk_excise(cx, γ, ω, res);
     case TT_CASE: return rk_excise(cx, γ, ω, res);
