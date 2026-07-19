@@ -475,6 +475,7 @@ inline std::string x86_deflabel(int port) {
  * templates still carrying the old strings trip that lock the moment they are ever re-enabled, loudly. */
 inline std::string x86_alpha()                    { return x86_deflabel(X86P_ALPHA); }
 inline std::string x86_beta()                     { return x86_deflabel(X86P_BETA); }
+inline std::string x86_beta_trampoline()          { return _.op_beta_dead ? std::string() : (x86_deflabel(X86P_BETA) + x86_jmp(X86P_OMEGA)); }   /* BP-9: det-leaf β define + jmp ω, elided when the driver proved zero inbound β edges — one body, both media (R2) */
 inline std::string x86_gamma()                    { return x86_jmp(X86P_GAMMA); }
 inline std::string x86_gamma(const char * mnem)   { return x86_jcc(mnem, X86P_GAMMA); }
 inline std::string x86_omega()                    { return x86_jmp(X86P_OMEGA); }
