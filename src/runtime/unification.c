@@ -618,6 +618,46 @@ int rt_pl_can_compare_cell(void *a_cell, void *b_cell)
     return !unified || !moved;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_pl_tv_walk(pl_cell_t *c, pl_cell_t **pool, int *pool_n, int cap) {
+    if (!c) return;
+    pl_cell_t *d = pl_deref(c);
+    if (pl_cell_unbound(d)) { for (int i = 0; i < *pool_n; i++) if (pool[i] == d) return; if (*pool_n < cap) pool[(*pool_n)++] = d; return; }
+    if ((int)d->v == (int)DT_PLREF) { int ar = (int)(d->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) rt_pl_tv_walk(&aa[i], pool, pool_n, cap); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell)
+{
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *pool[8192]; int pn = 0;
+    rt_pl_tv_walk((pl_cell_t *)term_cell, pool, &pn, 8192);
+    int dot_id = prolog_atom_intern(".");
+    pl_cell_t nil; { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); nil.v = DT_S; nil.slen = (uint32_t)(nm ? strlen(nm) : 0); nil.s = nm ? nm : "[]"; }
+    pl_cell_t result = tail_cell ? *(pl_cell_t *)tail_cell : nil;
+    for (int i = pn - 1; i >= 0; i--) {
+        pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+        blk[0] = pl_make_ref(pool[i], (int)pool[i]->slen); blk[1] = result;
+        result = pl_make_compound(dot_id, 2, blk);
+    }
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify((pl_cell_t *)vars_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_subsumes_cell(void *gen_cell, void *spec_cell)
+{
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *g = (pl_cell_t *)gen_cell, *s = (pl_cell_t *)spec_cell;
+    if (!g || !s) return 0;
+    pl_cell_t *svars[8192]; int sn = 0;
+    rt_pl_tv_walk(s, svars, &sn, 8192);
+    int mark = pl_trail_mark(&g_pl_trail);
+    int unified = pl_unify(g, s, &g_pl_trail);
+    int bound_spec = 0;
+    if (unified) for (int i = 0; i < sn; i++) if (!pl_cell_unbound(pl_deref(svars[i]))) { bound_spec = 1; break; }
+    pl_trail_unwind(&g_pl_trail, mark);
+    return unified && !bound_spec;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
