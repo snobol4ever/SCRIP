@@ -214,7 +214,7 @@ xchain0_n5_af:
  jmp xchain0_n15_α
  xchain0_n10_β:
  add rsp, 16
- jmp xchain0_n9_β
+ jmp xchain0_n5_af
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n11_α:
  mov eax, dword ptr [rsp + 80]

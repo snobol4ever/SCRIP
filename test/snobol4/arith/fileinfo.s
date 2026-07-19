@@ -48,8 +48,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [rbp + 168], rax
  jmp xchain0_n1_α
- xchain0_n0_β:
- jmp xchain0_n3_α
 .Lx1_0:
  .quad .Lx1_0_s
 .Lx1_0_s:
@@ -60,8 +58,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx2_0]
  mov qword ptr [rbp + 200], rax
  jmp xchain0_n2_α
- xchain0_n1_β:
- jmp xchain0_n3_α
 .Lx2_0:
  .quad 1
  xchain0_n2_α:
@@ -98,8 +94,6 @@ main_α_body:
  mov qword ptr [rbp + 272], rax
  mov qword ptr [rbp + 280], rdx
  jmp xchain0_n4_α
- xchain0_n3_β:
- jmp xchain0_n5_α
 # IR_VAR
  xchain0_n4_α:
  mov rdi, qword ptr [rip + .Lx6_0]
@@ -109,8 +103,6 @@ main_α_body:
  mov qword ptr [rbp + 352], rax
  mov qword ptr [rbp + 360], rdx
  jmp xchain0_n6_α
- xchain0_n4_β:
- jmp xchain0_n5_α
 .Lx6_0:
  .quad .Lx6_0_s
 .Lx6_0_s:
@@ -122,8 +114,6 @@ main_α_body:
  mov qword ptr [rbp + 608], rax
  mov qword ptr [rbp + 616], rdx
  jmp xchain0_n7_α
- xchain0_n5_β:
- jmp main_γ
  xchain0_n6_α:
 # BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+352] -> [zr+320]
@@ -152,8 +142,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx10_0]
  mov qword ptr [rbp + 648], rax
  jmp xchain0_n9_α
- xchain0_n7_β:
- jmp main_γ
 .Lx10_0:
  .quad .Lx10_0_s
 .Lx10_0_s:
@@ -188,7 +176,7 @@ main_α_body:
  lea r9, [rbp + 240]
  call rt_binop_overload@PLT
  test eax, eax
- jne .Lx11_3
+ jne xchain0_n10_α
 .Lx11_2:
  mov rdi, qword ptr [rbp + 272]
  mov rsi, qword ptr [rbp + 280]
@@ -200,7 +188,6 @@ main_α_body:
  je xchain0_n5_α
  mov qword ptr [rbp + 240], rax
  mov qword ptr [rbp + 248], rdx
-.Lx11_3:
  jmp xchain0_n10_α
  xchain0_n8_β:
  jmp xchain0_n5_α
@@ -214,8 +201,6 @@ main_α_body:
  mov qword ptr [rbp + 576], rax
  mov qword ptr [rbp + 584], rdx
  jmp xchain0_n11_α
- xchain0_n9_β:
- jmp main_γ
 # IR_ASSIGN gva
  xchain0_n10_α:
  mov rax, qword ptr [rbp + 240]
@@ -225,8 +210,6 @@ main_α_body:
  mov qword ptr [rbp + 224], rax
  mov qword ptr [rbp + 232], rdx
  jmp xchain0_n12_α
- xchain0_n10_β:
- jmp xchain0_n5_α
 # IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [1879052304]
@@ -234,8 +217,6 @@ main_α_body:
  mov qword ptr [rbp + 672], rax
  mov qword ptr [rbp + 680], rdx
  jmp xchain0_n13_α
- xchain0_n11_β:
- jmp main_γ
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052304]
@@ -243,8 +224,6 @@ main_α_body:
  mov qword ptr [rbp + 432], rax
  mov qword ptr [rbp + 440], rdx
  jmp xchain0_n14_α
- xchain0_n12_β:
- jmp xchain0_n3_α
  xchain0_n13_α:
 # IR_BINOP_CONCAT
  mov rdi, qword ptr [rbp + 576]
@@ -255,16 +234,12 @@ main_α_body:
  mov qword ptr [rbp + 544], rax
  mov qword ptr [rbp + 552], rdx
  jmp xchain0_n15_α
- xchain0_n13_β:
- jmp main_γ
 # IR_LIT_INTEGER
  xchain0_n14_α:
  mov qword ptr [rbp + 464], 6
  mov rax, qword ptr [rip + .Lx17_0]
  mov qword ptr [rbp + 472], rax
  jmp xchain0_n16_α
- xchain0_n14_β:
- jmp xchain0_n3_α
 .Lx17_0:
  .quad 1
 # IR_LIT_STRING
@@ -273,8 +248,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx18_0]
  mov qword ptr [rbp + 712], rax
  jmp xchain0_n17_α
- xchain0_n15_β:
- jmp main_γ
 .Lx18_0:
  .quad .Lx18_0_s
 .Lx18_0_s:
@@ -303,7 +276,7 @@ main_α_body:
  lea r9, [rbp + 400]
  call rt_binop_overload@PLT
  test eax, eax
- jne .Lx19_3
+ jne xchain0_n18_α
 .Lx19_2:
  mov rdi, qword ptr [rbp + 432]
  mov rsi, qword ptr [rbp + 440]
@@ -315,7 +288,6 @@ main_α_body:
  je xchain0_n3_α
  mov qword ptr [rbp + 400], rax
  mov qword ptr [rbp + 408], rdx
-.Lx19_3:
  jmp xchain0_n18_α
  xchain0_n16_β:
  jmp xchain0_n3_α
@@ -329,8 +301,6 @@ main_α_body:
  mov qword ptr [rbp + 512], rax
  mov qword ptr [rbp + 520], rdx
  jmp xchain0_n19_α
- xchain0_n17_β:
- jmp main_γ
 # IR_ASSIGN gva
  xchain0_n18_α:
  mov rax, qword ptr [rbp + 400]
@@ -340,8 +310,6 @@ main_α_body:
  mov qword ptr [rbp + 384], rax
  mov qword ptr [rbp + 392], rdx
  jmp xchain0_n3_α
- xchain0_n18_β:
- jmp xchain0_n3_α
 # IR_ASSIGN global
  xchain0_n19_α:
  mov rsi, qword ptr [rbp + 512]
@@ -350,8 +318,6 @@ main_α_body:
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 496], rax
  mov qword ptr [rbp + 504], rdx
- jmp main_γ
- xchain0_n19_β:
  jmp main_γ
 .Lx22_0:
  .quad .Lx22_0_s

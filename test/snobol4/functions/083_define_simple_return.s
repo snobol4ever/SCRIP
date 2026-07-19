@@ -24,8 +24,6 @@ proc_double_α_body:
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [rbp + 152], rax
  jmp xchain0_n1_α
- xchain0_n0_β:
- jmp proc_double_γ
 .Lx1_0:
  .quad 2
 # IR_VAR
@@ -35,8 +33,6 @@ proc_double_α_body:
  mov qword ptr [rbp + 176], rax
  mov qword ptr [rbp + 184], rdx
  jmp xchain0_n2_α
- xchain0_n1_β:
- jmp proc_double_γ
  xchain0_n2_α:
 # IR_BINOP_ARITH
  mov eax, dword ptr [rbp + 176]
@@ -61,7 +57,7 @@ proc_double_α_body:
  lea r9, [rbp + 112]
  call rt_binop_overload@PLT
  test eax, eax
- jne .Lx3_3
+ jne xchain0_n3_α
 .Lx3_2:
  mov rdi, qword ptr [rbp + 144]
  mov rsi, qword ptr [rbp + 152]
@@ -73,7 +69,6 @@ proc_double_α_body:
  je proc_double_γ
  mov qword ptr [rbp + 112], rax
  mov qword ptr [rbp + 120], rdx
-.Lx3_3:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp proc_double_γ
@@ -85,8 +80,6 @@ proc_double_α_body:
  mov qword ptr [1879052296], rdx
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
- jmp proc_double_γ
- xchain0_n3_β:
  jmp proc_double_γ
 proc_double_res:
 add rsp, 8
@@ -186,11 +179,60 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx6_0]
  mov qword ptr [rbp + 280], rax
  jmp xchain5_n1_α
- xchain5_n0_β:
- jmp xchain5_n3_α
 .Lx6_0:
  .quad 5
  xchain5_n1_α:
+ sub rsp, 32
+ mov rax, qword ptr [1879052304]
+ mov qword ptr [rsp + 0], rax
+ mov rax, qword ptr [1879052312]
+ mov qword ptr [rsp + 8], rax
+ mov rax, qword ptr [1879052288]
+ mov qword ptr [rsp + 16], rax
+ mov rax, qword ptr [1879052296]
+ mov qword ptr [rsp + 24], rax
+ mov rdi, qword ptr [rip + .Lx8_0]
+ mov esi, 1
+ mov edx, 1
+ call rt_proc_call_open_slim@PLT
+ test rax, rax
+ je .Lx8_5
+ mov rax, qword ptr [rbp + 272]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rbp + 280]
+ mov qword ptr [1879052312], rax
+ call rt_proc_open_fn@PLT
+ lea rcx, [rip + .Lx8_6]
+ lea rdx, [rip + .Lx8_7]
+ jmp rax
+.Lx8_6:
+ mov rdi, qword ptr [1879052288]
+ mov rsi, qword ptr [1879052296]
+ mov rax, qword ptr [rsp + 16]
+ mov qword ptr [1879052288], rax
+ mov rax, qword ptr [rsp + 24]
+ mov qword ptr [1879052296], rax
+ mov rax, qword ptr [rsp + 0]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rsp + 8]
+ mov qword ptr [1879052312], rax
+ add rsp, 32
+ call rt_proc_call_epilogue_slim_γ@PLT
+ jmp .Lx8_2
+.Lx8_7:
+ mov rax, qword ptr [rsp + 16]
+ mov qword ptr [1879052288], rax
+ mov rax, qword ptr [rsp + 24]
+ mov qword ptr [1879052296], rax
+ mov rax, qword ptr [rsp + 0]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rsp + 8]
+ mov qword ptr [1879052312], rax
+ add rsp, 32
+ call rt_proc_call_epilogue_slim_ω@PLT
+ jmp .Lx8_2
+.Lx8_5:
+ add rsp, 32
  mov edi, 0
  mov rsi, qword ptr [rbp + 272]
  mov rdx, qword ptr [rbp + 280]
@@ -233,8 +275,6 @@ main_α_body:
  mov qword ptr [rbp + 208], rax
  mov qword ptr [rbp + 216], rdx
  jmp xchain5_n3_α
- xchain5_n2_β:
- jmp xchain5_n3_α
 .Lx9_0:
  .quad .Lx9_0_s
 .Lx9_0_s:
@@ -245,11 +285,60 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx10_0]
  mov qword ptr [rbp + 376], rax
  jmp xchain5_n4_α
- xchain5_n3_β:
- jmp main_γ
 .Lx10_0:
  .quad 21
  xchain5_n4_α:
+ sub rsp, 32
+ mov rax, qword ptr [1879052304]
+ mov qword ptr [rsp + 0], rax
+ mov rax, qword ptr [1879052312]
+ mov qword ptr [rsp + 8], rax
+ mov rax, qword ptr [1879052288]
+ mov qword ptr [rsp + 16], rax
+ mov rax, qword ptr [1879052296]
+ mov qword ptr [rsp + 24], rax
+ mov rdi, qword ptr [rip + .Lx12_0]
+ mov esi, 1
+ mov edx, 1
+ call rt_proc_call_open_slim@PLT
+ test rax, rax
+ je .Lx12_5
+ mov rax, qword ptr [rbp + 368]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rbp + 376]
+ mov qword ptr [1879052312], rax
+ call rt_proc_open_fn@PLT
+ lea rcx, [rip + .Lx12_6]
+ lea rdx, [rip + .Lx12_7]
+ jmp rax
+.Lx12_6:
+ mov rdi, qword ptr [1879052288]
+ mov rsi, qword ptr [1879052296]
+ mov rax, qword ptr [rsp + 16]
+ mov qword ptr [1879052288], rax
+ mov rax, qword ptr [rsp + 24]
+ mov qword ptr [1879052296], rax
+ mov rax, qword ptr [rsp + 0]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rsp + 8]
+ mov qword ptr [1879052312], rax
+ add rsp, 32
+ call rt_proc_call_epilogue_slim_γ@PLT
+ jmp .Lx12_2
+.Lx12_7:
+ mov rax, qword ptr [rsp + 16]
+ mov qword ptr [1879052288], rax
+ mov rax, qword ptr [rsp + 24]
+ mov qword ptr [1879052296], rax
+ mov rax, qword ptr [rsp + 0]
+ mov qword ptr [1879052304], rax
+ mov rax, qword ptr [rsp + 8]
+ mov qword ptr [1879052312], rax
+ add rsp, 32
+ call rt_proc_call_epilogue_slim_ω@PLT
+ jmp .Lx12_2
+.Lx12_5:
+ add rsp, 32
  mov edi, 0
  mov rsi, qword ptr [rbp + 368]
  mov rdx, qword ptr [rbp + 376]
@@ -291,8 +380,6 @@ main_α_body:
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 304], rax
  mov qword ptr [rbp + 312], rdx
- jmp main_γ
- xchain5_n5_β:
  jmp main_γ
 .Lx13_0:
  .quad .Lx13_0_s

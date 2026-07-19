@@ -46,8 +46,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [rbp + 200], rax
  jmp xchain0_n1_α
- xchain0_n0_β:
- jmp xchain0_n3_α
 .Lx1_0:
  .quad 5
 # IR_UNOP
@@ -58,16 +56,12 @@ main_α_body:
  mov qword ptr [rbp + 160], rax
  mov qword ptr [rbp + 168], rdx
  jmp xchain0_n2_α
- xchain0_n1_β:
- jmp xchain0_n3_α
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [rbp + 224], 6
  mov rax, qword ptr [rip + .Lx3_0]
  mov qword ptr [rbp + 232], rax
  jmp xchain0_n4_α
- xchain0_n2_β:
- jmp xchain0_n3_α
 .Lx3_0:
  .quad 18446744073709551611
 # IR_LIT_STRING
@@ -76,8 +70,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx4_0]
  mov qword ptr [rbp + 408], rax
  jmp xchain0_n5_α
- xchain0_n3_β:
- jmp xchain0_n8_α
 .Lx4_0:
  .quad .Lx4_0_s
 .Lx4_0_s:
@@ -117,16 +109,12 @@ main_α_body:
  mov qword ptr [rbp + 368], rax
  mov qword ptr [rbp + 376], rdx
  jmp xchain0_n7_α
- xchain0_n5_β:
- jmp xchain0_n8_α
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 272], 1
  mov rax, qword ptr [rip + .Lx7_0]
  mov qword ptr [rbp + 280], rax
  jmp xchain0_n9_α
- xchain0_n6_β:
- jmp main_γ
 .Lx7_0:
  .quad .Lx7_0_s
 .Lx7_0_s:
@@ -137,8 +125,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx8_0]
  mov qword ptr [rbp + 440], rax
  jmp xchain0_n10_α
- xchain0_n7_β:
- jmp xchain0_n8_α
 .Lx8_0:
  .quad 4
 # IR_LIT_STRING
@@ -147,8 +133,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx9_0]
  mov qword ptr [rbp + 536], rax
  jmp xchain0_n11_α
- xchain0_n8_β:
- jmp main_γ
 .Lx9_0:
  .quad .Lx9_0_s
 .Lx9_0_s:
@@ -161,8 +145,6 @@ main_α_body:
  mov qword ptr [1879052296], rdx
  mov qword ptr [rbp + 256], rax
  mov qword ptr [rbp + 264], rdx
- jmp main_γ
- xchain0_n9_β:
  jmp main_γ
  xchain0_n10_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -200,16 +182,12 @@ main_α_body:
  mov qword ptr [rbp + 512], rax
  mov qword ptr [rbp + 520], rdx
  jmp main_γ
- xchain0_n11_β:
- jmp main_γ
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 480], 1
  mov rax, qword ptr [rip + .Lx13_0]
  mov qword ptr [rbp + 488], rax
  jmp xchain0_n13_α
- xchain0_n12_β:
- jmp main_γ
 .Lx13_0:
  .quad .Lx13_0_s
 .Lx13_0_s:
@@ -222,8 +200,6 @@ main_α_body:
  mov qword ptr [1879052296], rdx
  mov qword ptr [rbp + 464], rax
  mov qword ptr [rbp + 472], rdx
- jmp main_γ
- xchain0_n13_β:
  jmp main_γ
 main_β:
 jmp main_ω

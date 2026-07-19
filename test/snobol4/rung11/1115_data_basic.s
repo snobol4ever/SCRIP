@@ -50,8 +50,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [rbp + 152], rax
  jmp xchain0_n1_α
- xchain0_n0_β:
- jmp xchain0_n2_α
 .Lx1_0:
  .quad .Lx1_0_s
 .Lx1_0_s:
@@ -84,8 +82,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx3_0]
  mov qword ptr [rbp + 280], rax
  jmp xchain0_n3_α
- xchain0_n2_β:
- jmp xchain0_n7_α
 .Lx3_0:
  .quad .Lx3_0_s
 .Lx3_0_s:
@@ -96,8 +92,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx4_0]
  mov qword ptr [rbp + 312], rax
  jmp xchain0_n4_α
- xchain0_n3_β:
- jmp xchain0_n7_α
 .Lx4_0:
  .quad .Lx4_0_s
 .Lx4_0_s:
@@ -108,8 +102,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [rbp + 344], rax
  jmp xchain0_n5_α
- xchain0_n4_β:
- jmp xchain0_n7_α
 .Lx5_0:
  .quad .Lx5_0_s
 .Lx5_0_s:
@@ -155,8 +147,6 @@ main_α_body:
  mov qword ptr [rbp + 176], rax
  mov qword ptr [rbp + 184], rdx
  jmp xchain0_n7_α
- xchain0_n6_β:
- jmp xchain0_n7_α
 # IR_VAR
  xchain0_n7_α:
  mov rax, qword ptr [1879052288]
@@ -164,8 +154,6 @@ main_α_body:
  mov qword ptr [rbp + 560], rax
  mov qword ptr [rbp + 568], rdx
  jmp xchain0_n8_α
- xchain0_n7_β:
- jmp xchain0_n9_α
  xchain0_n8_α:
 # BOX CALL datatype(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+560] -> [zr+528]
@@ -195,8 +183,6 @@ main_α_body:
  mov qword ptr [rbp + 816], rax
  mov qword ptr [rbp + 824], rdx
  jmp xchain0_n11_α
- xchain0_n9_β:
- jmp xchain0_n12_α
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n10_α:
  mov rdi, qword ptr [rip + .Lx11_0]
@@ -204,8 +190,6 @@ main_α_body:
  mov qword ptr [rbp + 592], rax
  mov qword ptr [rbp + 600], rdx
  jmp xchain0_n13_α
- xchain0_n10_β:
- jmp xchain0_n9_α
 .Lx11_0:
  .quad .Lx11_0_s
 .Lx11_0_s:
@@ -256,8 +240,6 @@ main_α_body:
  mov qword ptr [rbp + 608], rax
  mov qword ptr [rbp + 616], rdx
  jmp xchain0_n17_α
- xchain0_n13_β:
- jmp xchain0_n9_α
 .Lx14_0:
  .quad .Lx14_0_s
 .Lx14_0_s:
@@ -268,8 +250,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx15_0]
  mov qword ptr [rbp + 856], rax
  jmp xchain0_n18_α
- xchain0_n14_β:
- jmp xchain0_n12_α
 .Lx15_0:
  .quad .Lx15_0_s
 .Lx15_0_s:
@@ -283,8 +263,6 @@ main_α_body:
  mov qword ptr [rbp + 928], rax
  mov qword ptr [rbp + 936], rdx
  jmp xchain0_n16_α
- xchain0_n15_β:
- jmp xchain0_n16_α
 # IR_VAR
  xchain0_n16_α:
  mov rax, qword ptr [1879052320]
@@ -292,8 +270,6 @@ main_α_body:
  mov qword ptr [rbp + 1072], rax
  mov qword ptr [rbp + 1080], rdx
  jmp xchain0_n19_α
- xchain0_n16_β:
- jmp xchain0_n20_α
  xchain0_n17_α:
 # BOX CALL replace(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+512] -> [zr+448]
@@ -381,8 +357,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx21_0]
  mov qword ptr [rbp + 1160], rax
  jmp xchain0_n24_α
- xchain0_n20_β:
- jmp xchain0_n29_α
 .Lx21_0:
  .quad .Lx21_0_s
 .Lx21_0_s:
@@ -393,8 +367,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx22_0]
  mov qword ptr [rbp + 632], rax
  jmp xchain0_n25_α
- xchain0_n21_β:
- jmp xchain0_n9_α
 .Lx22_0:
  .quad .Lx22_0_s
 .Lx22_0_s:
@@ -405,8 +377,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx23_0]
  mov qword ptr [rbp + 904], rax
  jmp xchain0_n26_α
- xchain0_n22_β:
- jmp main_γ
 .Lx23_0:
  .quad .Lx23_0_s
 .Lx23_0_s:
@@ -491,16 +461,12 @@ main_α_body:
  mov qword ptr [rbp + 880], rax
  mov qword ptr [rbp + 888], rdx
  jmp main_γ
- xchain0_n26_β:
- jmp main_γ
 # IR_LIT_STRING
  xchain0_n27_α:
  mov qword ptr [rbp + 1120], 1
  mov rax, qword ptr [rip + .Lx29_0]
  mov qword ptr [rbp + 1128], rax
  jmp xchain0_n31_α
- xchain0_n27_β:
- jmp main_γ
 .Lx29_0:
  .quad .Lx29_0_s
 .Lx29_0_s:
@@ -512,8 +478,6 @@ main_α_body:
  mov qword ptr [rbp + 1280], rax
  mov qword ptr [rbp + 1288], rdx
  jmp xchain0_n32_α
- xchain0_n28_β:
- jmp xchain0_n29_α
 # IR_VAR
  xchain0_n29_α:
  mov rax, qword ptr [1879052320]
@@ -521,16 +485,12 @@ main_α_body:
  mov qword ptr [rbp + 1520], rax
  mov qword ptr [rbp + 1528], rdx
  jmp xchain0_n33_α
- xchain0_n29_β:
- jmp xchain0_n34_α
 # IR_LIT_STRING
  xchain0_n30_α:
  mov qword ptr [rbp + 672], 1
  mov rax, qword ptr [rip + .Lx32_0]
  mov qword ptr [rbp + 680], rax
  jmp xchain0_n35_α
- xchain0_n30_β:
- jmp main_γ
 .Lx32_0:
  .quad .Lx32_0_s
 .Lx32_0_s:
@@ -543,8 +503,6 @@ main_α_body:
  mov qword ptr [1879052312], rdx
  mov qword ptr [rbp + 1104], rax
  mov qword ptr [rbp + 1112], rdx
- jmp main_γ
- xchain0_n31_β:
  jmp main_γ
  xchain0_n32_α:
 # BOX CALL lson(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -596,8 +554,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx36_0]
  mov qword ptr [rbp + 1752], rax
  jmp xchain0_n38_α
- xchain0_n34_β:
- jmp xchain0_n42_α
 .Lx36_0:
  .quad .Lx36_0_s
 .Lx36_0_s:
@@ -611,8 +567,6 @@ main_α_body:
  mov qword ptr [rbp + 656], rax
  mov qword ptr [rbp + 664], rdx
  jmp main_γ
- xchain0_n35_β:
- jmp main_γ
 # IR_VAR
  xchain0_n36_α:
  mov rax, qword ptr [1879052288]
@@ -620,8 +574,6 @@ main_α_body:
  mov qword ptr [rbp + 1312], rax
  mov qword ptr [rbp + 1320], rdx
  jmp xchain0_n39_α
- xchain0_n36_β:
- jmp xchain0_n29_α
  xchain0_n37_α:
 # BOX CALL rson(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1472] -> [zr+1440]
@@ -678,16 +630,12 @@ main_α_body:
  mov qword ptr [rbp + 1344], rax
  mov qword ptr [rbp + 1352], rdx
  jmp xchain0_n29_α
- xchain0_n39_β:
- jmp xchain0_n29_α
 # IR_LIT_STRING
  xchain0_n40_α:
  mov qword ptr [rbp + 1552], 1
  mov rax, qword ptr [rip + .Lx42_0]
  mov qword ptr [rbp + 1560], rax
  jmp xchain0_n43_α
- xchain0_n40_β:
- jmp xchain0_n34_α
 .Lx42_0:
  .quad .Lx42_0_s
 .Lx42_0_s:
@@ -699,16 +647,12 @@ main_α_body:
  mov qword ptr [rbp + 1776], rax
  mov qword ptr [rbp + 1784], rdx
  jmp xchain0_n44_α
- xchain0_n41_β:
- jmp xchain0_n42_α
 # IR_LIT_STRING
  xchain0_n42_α:
  mov qword ptr [rbp + 1856], 1
  mov rax, qword ptr [rip + .Lx44_0]
  mov qword ptr [rbp + 1864], rax
  jmp xchain0_n45_α
- xchain0_n42_β:
- jmp xchain0_n49_α
 .Lx44_0:
  .quad .Lx44_0_s
 .Lx44_0_s:
@@ -795,8 +739,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx49_0]
  mov qword ptr [rbp + 1608], rax
  jmp xchain0_n50_α
- xchain0_n46_β:
- jmp main_γ
 .Lx49_0:
  .quad .Lx49_0_s
 .Lx49_0_s:
@@ -807,8 +749,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx50_0]
  mov qword ptr [rbp + 1832], rax
  jmp xchain0_n51_α
- xchain0_n47_β:
- jmp main_γ
 .Lx50_0:
  .quad .Lx50_0_s
 .Lx50_0_s:
@@ -820,8 +760,6 @@ main_α_body:
  mov qword ptr [rbp + 1984], rax
  mov qword ptr [rbp + 1992], rdx
  jmp xchain0_n52_α
- xchain0_n48_β:
- jmp xchain0_n49_α
 # IR_VAR
  xchain0_n49_α:
  mov rax, qword ptr [1879052288]
@@ -829,8 +767,6 @@ main_α_body:
  mov qword ptr [rbp + 2176], rax
  mov qword ptr [rbp + 2184], rdx
  jmp xchain0_n53_α
- xchain0_n49_β:
- jmp xchain0_n54_α
 # IR_ASSIGN gva
  xchain0_n50_α:
  mov rax, qword ptr [rbp + 1600]
@@ -840,8 +776,6 @@ main_α_body:
  mov qword ptr [rbp + 1584], rax
  mov qword ptr [rbp + 1592], rdx
  jmp main_γ
- xchain0_n50_β:
- jmp main_γ
 # IR_ASSIGN gva
  xchain0_n51_α:
  mov rax, qword ptr [rbp + 1824]
@@ -850,8 +784,6 @@ main_α_body:
  mov qword ptr [1879052312], rdx
  mov qword ptr [rbp + 1808], rax
  mov qword ptr [rbp + 1816], rdx
- jmp main_γ
- xchain0_n51_β:
  jmp main_γ
  xchain0_n52_α:
 # BOX CALL val(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -903,8 +835,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx57_0]
  mov qword ptr [rbp + 2312], rax
  jmp xchain0_n57_α
- xchain0_n54_β:
- jmp main_γ
 .Lx57_0:
  .quad .Lx57_0_s
 .Lx57_0_s:
@@ -915,8 +845,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx58_0]
  mov qword ptr [rbp + 2024], rax
  jmp xchain0_n58_α
- xchain0_n55_β:
- jmp xchain0_n49_α
 .Lx58_0:
  .quad .Lx58_0_s
 .Lx58_0_s:
@@ -927,8 +855,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx59_0]
  mov qword ptr [rbp + 2216], rax
  jmp xchain0_n59_α
- xchain0_n56_β:
- jmp xchain0_n54_α
 .Lx59_0:
  .quad .Lx59_0_s
 .Lx59_0_s:
@@ -942,8 +868,6 @@ main_α_body:
  mov qword ptr [rbp + 2288], rax
  mov qword ptr [rbp + 2296], rdx
  jmp main_γ
- xchain0_n57_β:
- jmp main_γ
 # IR_ASSIGN_VAR
  xchain0_n58_α:
  mov rdi, qword ptr [rbp + 1936]
@@ -955,8 +879,6 @@ main_α_body:
  je xchain0_n49_α
  mov qword ptr [rbp + 2048], rax
  mov qword ptr [rbp + 2056], rdx
- jmp xchain0_n49_α
- xchain0_n58_β:
  jmp xchain0_n49_α
  xchain0_n59_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
@@ -991,8 +913,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx63_0]
  mov qword ptr [rbp + 2264], rax
  jmp xchain0_n61_α
- xchain0_n60_β:
- jmp main_γ
 .Lx63_0:
  .quad .Lx63_0_s
 .Lx63_0_s:
@@ -1005,8 +925,6 @@ main_α_body:
  mov qword ptr [1879052312], rdx
  mov qword ptr [rbp + 2240], rax
  mov qword ptr [rbp + 2248], rdx
- jmp main_γ
- xchain0_n61_β:
  jmp main_γ
 main_β:
 jmp main_ω

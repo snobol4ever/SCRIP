@@ -272,7 +272,8 @@ xchain0_n5_af:
  xchain0_n13_β:
  mov r14d, dword ptr [rsp + 0]
  add rsp, 16
- jmp xchain0_n10_β
+ add rsp, 16
+ jmp xchain0_n9_β
 # IR_ASSIGN global
  xchain0_n14_α:
  mov rsi, qword ptr [rbp + 464]

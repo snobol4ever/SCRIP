@@ -57,8 +57,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx1_0]
  mov qword ptr [rbp + 152], rax
  jmp xchain0_n1_α
- xchain0_n0_β:
- jmp xchain0_n2_α
 .Lx1_0:
  .quad .Lx1_0_s
 .Lx1_0_s:
@@ -91,8 +89,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx4_0]
  mov qword ptr [rbp + 264], rax
  jmp xchain0_n3_α
- xchain0_n2_β:
- jmp xchain0_n6_α
 .Lx4_0:
  .quad .Lx4_0_s
 .Lx4_0_s:
@@ -103,8 +99,6 @@ main_α_body:
  mov rax, qword ptr [rip + .Lx5_0]
  mov qword ptr [rbp + 296], rax
  jmp xchain0_n4_α
- xchain0_n3_β:
- jmp xchain0_n6_α
 .Lx5_0:
  .quad .Lx5_0_s
 .Lx5_0_s:
@@ -145,8 +139,6 @@ main_α_body:
  mov qword ptr [rbp + 176], rax
  mov qword ptr [rbp + 184], rdx
  jmp xchain0_n6_α
- xchain0_n5_β:
- jmp xchain0_n6_α
 # IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [1879052288]
@@ -154,8 +146,6 @@ main_α_body:
  mov qword ptr [rbp + 464], rax
  mov qword ptr [rbp + 472], rdx
  jmp xchain0_n7_α
- xchain0_n6_β:
- jmp xchain0_n8_α
  xchain0_n7_α:
 # BOX IR_CALL DATATYPE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+464] -> [zr+432]
@@ -185,8 +175,6 @@ main_α_body:
  mov qword ptr [rbp + 592], rax
  mov qword ptr [rbp + 600], rdx
  jmp xchain0_n10_α
- xchain0_n8_β:
- jmp main_γ
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n9_α:
  mov rdi, qword ptr [rip + .Lx13_0]
@@ -194,8 +182,6 @@ main_α_body:
  mov qword ptr [rbp + 496], rax
  mov qword ptr [rbp + 504], rdx
  jmp xchain0_n11_α
- xchain0_n9_β:
- jmp xchain0_n8_α
 .Lx13_0:
  .quad .Lx13_0_s
 .Lx13_0_s:
@@ -229,8 +215,6 @@ main_α_body:
  mov qword ptr [rbp + 512], rax
  mov qword ptr [rbp + 520], rdx
  jmp xchain0_n13_α
- xchain0_n11_β:
- jmp xchain0_n8_α
 .Lx16_0:
  .quad .Lx16_0_s
 .Lx16_0_s:
@@ -243,8 +227,6 @@ main_α_body:
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 528], rax
  mov qword ptr [rbp + 536], rdx
- jmp main_γ
- xchain0_n12_β:
  jmp main_γ
 .Lx17_0:
  .quad .Lx17_0_s
@@ -290,8 +272,6 @@ main_α_body:
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 320], rax
  mov qword ptr [rbp + 328], rdx
- jmp xchain0_n8_α
- xchain0_n14_β:
  jmp xchain0_n8_α
 .Lx20_0:
  .quad .Lx20_0_s

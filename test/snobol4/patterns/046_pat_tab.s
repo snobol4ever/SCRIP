@@ -257,12 +257,16 @@ xchain0_n5_af:
  mov eax, r14d
  add eax, 2
  cmp eax, r15d
- jg xchain0_n10_β
+ jle .Lx19_240
+ add rsp, 16
+ jmp xchain0_n9_β
+.Lx19_240:
  add r14d, 2
  jmp xchain0_n11_α
  xchain0_n13_β:
  sub r14d, 2
- jmp xchain0_n10_β
+ add rsp, 16
+ jmp xchain0_n9_β
 # IR_ASSIGN global
  xchain0_n14_α:
  mov rsi, qword ptr [rbp + 464]

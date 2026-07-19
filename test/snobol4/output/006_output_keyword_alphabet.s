@@ -34,8 +34,6 @@ main_α_body:
  mov qword ptr [rbp + 160], rax
  mov qword ptr [rbp + 168], rdx
  jmp xchain0_n1_α
- xchain0_n0_β:
- jmp main_γ
 .Lx1_0:
  .quad .Lx1_0_s
 .Lx1_0_s:
@@ -70,8 +68,6 @@ main_α_body:
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
- jmp main_γ
- xchain0_n2_β:
  jmp main_γ
 .Lx4_0:
  .quad .Lx4_0_s

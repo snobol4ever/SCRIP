@@ -218,7 +218,7 @@ xchain0_n8_af:
  jmp xchain0_n14_α
  xchain0_n11_β:
  add rsp, 16
- jmp xchain0_n10_β
+ jmp xchain0_n8_af
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n12_α:
  mov eax, dword ptr [rsp + 0]
@@ -248,19 +248,26 @@ xchain0_n8_af:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n11_β
+ jle .Lx22_239
+ add rsp, 16
+ jmp xchain0_n8_af
+.Lx22_239:
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
  lea rsi, [rip + .S1]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
- jne xchain0_n11_β
+ je .Lx22_240
+ add rsp, 16
+ jmp xchain0_n8_af
+.Lx22_240:
  add r14d, 1
  jmp xchain0_n12_α
  xchain0_n14_β:
  sub r14d, 1
- jmp xchain0_n11_β
+ add rsp, 16
+ jmp xchain0_n8_af
 # IR_ASSIGN global
  xchain0_n15_α:
  mov rsi, qword ptr [rbp + 480]
@@ -319,7 +326,7 @@ xchain0_n8_af:
  lea r9, [rbp + 528]
  call rt_binop_overload@PLT
  test eax, eax
- jne .Lx26_3
+ jne xchain0_n19_α
 .Lx26_2:
  mov rdi, qword ptr [rbp + 560]
  mov rsi, qword ptr [rbp + 568]
@@ -331,7 +338,6 @@ xchain0_n8_af:
  je xchain0_n4_α
  mov qword ptr [rbp + 528], rax
  mov qword ptr [rbp + 536], rdx
-.Lx26_3:
  jmp xchain0_n19_α
  xchain0_n18_β:
  jmp xchain0_n4_α
