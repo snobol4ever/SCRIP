@@ -28,8 +28,13 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
     if (d.v == DT_P && d.p) {
         DTP_t *h = (DTP_t *)d.p;
         if (h->rcp) return h->rcp;
-        fprintf(stderr, "[B-RE] runtime pattern composition over an opaque compiled pattern (recipe-less DT_P) would mint the nested-blob-defer class (124/143/147) — refused, park until that class lands\n");
-        abort();
+        /* S-C (s104): a recipe-less compiled DT_P (SNO$MKPAT patproc product) composes via a minted-global
+         * DEFER — the ARB$ self-reference trick one function down, generalized.  The defer resolves through
+         * rt_defer_get_pat_fn -> dtp_fn_of -> h->fn at match time and rides the S-A suspend-gamma protocol;
+         * the nested-blob-defer class this arm previously refused (124/143/147) landed with that fix. */
+        static int opq_uid = 0; char nb[24]; snprintf(nb, sizeof nb, "OPQ$%d", opq_uid++);
+        NV_SET_fn(nb, d);
+        { const char *pn = rt_ws_strdup_c(nb); return rcp_node(TT_DEFER, pn, (uint32_t)strlen(pn), 0, 0, 0); }
     }
     if (d.v == DT_X) { const char *nm = d.s ? d.s : ""; uint32_t nl = d.slen ? d.slen : (uint32_t)strlen(nm); char *pb = rt_str_alloc((int)nl + 1); pb[0] = '*'; memcpy(pb + 1, nm, nl); pb[nl + 1] = 0; return rcp_node(TT_DEFER, pb, nl + 1, 0, 0, 0); }
     if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
