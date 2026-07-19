@@ -131,8 +131,10 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     }
     if ((icn_proc_is_generator(name) || gb) && last_ar) lc_γ_to(last_ar, call);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
-    if (la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la))) ω_to(call, aω);   /* GOAL-DIRECTED ARG RESUME: call failure backtracks into suspended arg generators right-to-left (aω chain) for ALL calls, not just generator-name builtins -- a no-return user proc under every wf("a"|"b"|"c") FAILS each iteration and must resume the alternation, not exit via the outer ω (fncs1 q5, this rung) */
-    cx->beta = (icn_proc_is_generator(name) || gb) ? call : ((la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la))) ? aω : (g_postfix_resume ? aω : ω));   /* SUCCESS-RESUME SYMMETRY: a non-generator call with a resumable last arg resumes THROUGH the arg chain -- every write(upto(c)) inside a scan body must re-drive upto, not exit via scan-close (scan1 tables, FZ-E) */
+    int la_res = la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la));
+    int chain_live = (aω != ω);   /* ARG RESUME CHAIN LIVE: the unconditional aω threading (L126) routes each arg's failure to the previous arg's β; if any arg carried a resume, aω has moved off the outer ω and now points INTO the generator chain (the rightmost generator's resume, reached right-to-left through any trailing constants whose own β is a pass-through of the ω handed to them). Keying on this — not on is_resumable(la) — makes a generator in a NON-LAST arg followed by a constant (every f(!L,k); interfacegen `every gen_procedure(!f,def,"fieldref")`) route call-failure back to re-pump it, while staying byte-identical wherever la itself is the (only/last) generator. Also immune to is_resumable's TT_LIMIT/TT_REPALT gaps, which reach here via the L126 chain, not via la. */
+    if (la_res || chain_live) ω_to(call, aω);   /* GOAL-DIRECTED ARG RESUME: call failure backtracks into suspended arg generators right-to-left (aω chain) for ALL calls, not just generator-name builtins -- a no-return user proc under every wf("a"|"b"|"c") FAILS each iteration and must resume the alternation, not exit via the outer ω (fncs1 q5) */
+    cx->beta = (icn_proc_is_generator(name) || gb) ? call : ((la_res || chain_live) ? aω : (g_postfix_resume ? aω : ω));   /* SUCCESS-RESUME SYMMETRY: a non-generator call with any resumable arg resumes THROUGH the arg chain -- every write(upto(c)) inside a scan body must re-drive upto, not exit via scan-close (scan1 tables, FZ-E) */
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -327,7 +329,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * ea = lower(cx, t->c[0], co, ω, &orr);
             ir_operand_push(co, orr); ir_operand_push(op, co); *res = op; return ea;
         }
-        IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op; return ea; }
+        IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op;
+        IR_t * uβ = cx->beta;   /* operand's resume edge (β): for a generator operand (\!L, \(a|b)) the null-test's FAILURE must re-pump the generator, not exit — else \!keys stops at the first null (interfacegen bc_keywords: every i := \!keys). Mirrors the binop path's opfail/cx->beta handling (L307-313). */
+        if (uop_kind == IR_UNOP_TEST && uβ && uβ != ω && uβ != op) { ω_to(op, uβ); cx->beta = uβ; }
+        return ea; }
     switch (t->t) {
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
@@ -367,6 +372,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t, t->v.sval, γ, ω, res);
+    case TT_NUL: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }   /* empty list slot / trailing-comma element ([a,b,c,] and [a,,c]) is the &null VALUE — Icon list literals count the trailing null (oracle *[a,b,c,]=4). Parser mints TT_NUL (icon_parse.c L157/161/162); without this arm it fell to the default SUCCEED and pushed a value-less operand into IR_MAKE_LIST, silently corrupting construction (interfacegen keywords list dies before its first write). */
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }

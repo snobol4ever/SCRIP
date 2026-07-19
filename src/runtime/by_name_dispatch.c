@@ -4321,12 +4321,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             *out = STRVAL(outs); return 1;
         }
         if (IS_STR_fn(av) && av.s) {
-            extern DESCR_t proc_as_value(const char *);
-            DESCR_t pv = proc_as_value(av.s);
-            if (pv.v == DT_S) {
-                snprintf(buf, 128, "function %s", av.s);
-                *out = STRVAL(buf); return 1;
-            }
+            /* A string value ALWAYS images as a quoted string — its content coinciding with a builtin
+             * name (pos/copy/type/...) does NOT make it a function (canonical Icon: image is by TYPE, and
+             * DT_S is unambiguously a string; genuine procedure/function values are DT_E, handled above).
+             * The prior proc_as_value upgrade corrupted image("pos") -> function pos (interfacegen bc_keywords,
+             * jtran self-host). Bare builtin-name references that the frontend represents as DT_S strings
+             * image as strings here too — that is a frontend representation gap, not image's to paper over. */
         }
         const char *s=VARVAL_fn(av); if (!s) s = "";
         int sl = (int)strlen(s);
@@ -4355,11 +4355,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (!strcmp(fn,"image") && nargs >= 2) {
         DESCR_t av = args[0];
-        if (IS_STR_fn(av) && av.s) {
-            char *buf = rt_ws_alloc(64);
-            snprintf(buf, 64, "function %s", av.s);
-            *out = STRVAL(buf); return 1;
-        }
+        if (0 && IS_STR_fn(av) && av.s) { }   /* string->function upgrade removed (see 1-arg image above): image("pos") is "pos", not function pos */
         DESCR_t one_out = FAILDESCR;
         if (try_call_builtin_by_name("image", args, 1, &one_out))
             { *out = one_out; return 1; }
