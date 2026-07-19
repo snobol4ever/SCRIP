@@ -2648,6 +2648,17 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
             return STRVAL(rt_ws_strdup_c(e->params[idx - 1]));
         }
     }
+    /* Fallback: the compiled (mode-4) backend registers DEFINE'd functions in the
+     * rt_proc registry (rt_proc_register carries the param-name table), NOT in
+     * _func_buckets, which only the in-process (mode-3) runtime DEFINE fills. Consult
+     * rt_proc so ARG introspection has the same result in both backends — same class
+     * of two-registry parity gap as the proc/1 fix. Fixes 1017 mode-4 (SZ-7). */
+    { extern int rt_proc_nparams(const char *); extern const char *rt_proc_pname(const char *, int);
+      int np = rt_proc_nparams(fname);
+      if (np > 0 && idx >= 1 && idx <= (int64_t)np) {
+          const char *pn = rt_proc_pname(fname, (int)(idx - 1));
+          if (pn) return STRVAL(rt_ws_strdup_c(pn));
+      } }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
