@@ -1829,7 +1829,7 @@ char *VARVAL_fn(DESCR_t v) {
         case DT_R: {
             snprintf(buf, sizeof(buf), "%.15g", v.r);
             if (!strchr(buf, '.') && !strchr(buf, 'e'))
-                strncat(buf, ".", sizeof(buf) - strlen(buf) - 1);
+                strncat(buf, ".0", sizeof(buf) - strlen(buf) - 1);
             return rt_ws_strdup_c(buf);
         }
         case DT_DATA:
@@ -1937,7 +1937,33 @@ void core_runtime_error(int code, const char *msg) {
             code, g_core_err_stmt, msg ? msg : "");
     if (core_err_is_terminal(code)) exit(1);
     if (core_err_is_fatal(code))    exit(1);
-    if (g_core_err_active) longjmp(g_core_err_jmp, code);
+    { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+      extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
+      extern long g_error;
+      if (g_error != 0) {
+          if (g_error > 0) g_error--;
+          g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
+          if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+      } }
+    exit(1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
+long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
+static const char *icn_errmsg(int n) {
+    switch (n) { case 101: return "integer expected or out of range"; case 102: return "numeric expected"; case 103: return "string expected"; case 104: return "cset expected";
+                 case 106: return "procedure or integer expected"; case 107: return "record expected"; case 108: return "list expected"; case 110: return "file expected"; case 115: return "structure expected"; case 210: return "invalid tab stop"; }
+    return "run-time error";
+}
+int core_icn_error(int code, DESCR_t val) {
+    extern long g_error;
+    if (g_error != 0) {
+        if (g_error > 0) g_error--;
+        g_icn_errnumber = code; g_icn_errtext = icn_errmsg(code); g_icn_errvalue = val; g_icn_err_valid = 1;
+        if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+        return 1;
+    }
+    fprintf(stderr, "\nRun-time error %d\n%s\n", code, icn_errmsg(code));
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

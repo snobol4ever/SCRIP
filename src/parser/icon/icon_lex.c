@@ -141,7 +141,19 @@ static IcnToken scan_string(IcnLexer *lx) {
                 case '\\': buf_push(&buf, &len, &cap, '\\'); break;
                 case '"':  buf_push(&buf, &len, &cap, '"');  break;
                 case '\'': buf_push(&buf, &len, &cap, '\''); break;
-                case '0':  buf_push(&buf, &len, &cap, '\0'); break;
+                case 'b':  buf_push(&buf, &len, &cap, '\b'); break;
+                case 'd':  buf_push(&buf, &len, &cap, (char)0x7f); break;
+                case 'e':  buf_push(&buf, &len, &cap, (char)0x1b); break;
+                case 'f':  buf_push(&buf, &len, &cap, '\f'); break;
+                case 'l':  buf_push(&buf, &len, &cap, '\n'); break;
+                case 'v':  buf_push(&buf, &len, &cap, '\v'); break;
+                case 'x': case 'X': { int v = 0, nd = 0;
+                    while (nd < 2 && isxdigit((unsigned char)lex_cur(lx))) { char h = lex_advance(lx); v = v * 16 + (isdigit((unsigned char)h) ? h - '0' : (tolower((unsigned char)h) - 'a' + 10)); nd++; }
+                    buf_push(&buf, &len, &cap, (char)v); break; }
+                case '^': { char cc = lex_cur(lx) ? lex_advance(lx) : 0; buf_push(&buf, &len, &cap, (char)(cc & 0x1f)); break; }
+                case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': { int v = esc - '0', nd = 1;
+                    while (nd < 3 && lex_cur(lx) >= '0' && lex_cur(lx) <= '7') { v = v * 8 + (lex_advance(lx) - '0'); nd++; }
+                    buf_push(&buf, &len, &cap, (char)v); break; }
                 default:   buf_push(&buf, &len, &cap, '\\');
                            buf_push(&buf, &len, &cap, esc);  break;
             }
@@ -172,6 +184,20 @@ static IcnToken scan_cset(IcnLexer *lx) {
                 case 'n':  c = '\n'; break;
                 case 't':  c = '\t'; break;
                 case 'r':  c = '\r'; break;
+                case 'b':  c = '\b'; break;
+                case 'd':  c = (char)0x7f; break;
+                case 'e':  c = (char)0x1b; break;
+                case 'f':  c = '\f'; break;
+                case 'l':  c = '\n'; break;
+                case 'v':  c = '\v'; break;
+                case '"':  c = '"'; break;
+                case 'x': case 'X': { int v = 0, nd = 0;
+                    while (nd < 2 && isxdigit((unsigned char)lex_cur(lx))) { char h = lex_advance(lx); v = v * 16 + (isdigit((unsigned char)h) ? h - '0' : (tolower((unsigned char)h) - 'a' + 10)); nd++; }
+                    c = (char)v; break; }
+                case '^': { c = (char)((lex_cur(lx) ? lex_advance(lx) : 0) & 0x1f); break; }
+                case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': { int v = esc - '0', nd = 1;
+                    while (nd < 3 && lex_cur(lx) >= '0' && lex_cur(lx) <= '7') { v = v * 8 + (lex_advance(lx) - '0'); nd++; }
+                    c = (char)v; break; }
                 default:   buf_push(&buf, &len, &cap, c); c = esc; break;
             }
         }
@@ -525,9 +551,27 @@ static char *pp_subst_span(const char *s, size_t len, const PpDef *defs, int nde
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *icn_preprocess(const char *src) {
-    PpDef defs[128]; int ndefs = 0;
-    char *out = NULL; int olen = 0, ocap = 0;
+static char icn_pp_dir[1024] = ".";
+void icn_pp_set_source_path(const char *path) {
+    if (!path) { icn_pp_dir[0] = '.'; icn_pp_dir[1] = 0; return; }
+    const char *slash = strrchr(path, '/');
+    if (!slash) { icn_pp_dir[0] = '.'; icn_pp_dir[1] = 0; return; }
+    size_t dl = (size_t)(slash - path); if (dl >= sizeof icn_pp_dir) dl = sizeof icn_pp_dir - 1;
+    memcpy(icn_pp_dir, path, dl); icn_pp_dir[dl] = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pp_expand(const char *body, const PpDef *defs, int ndefs) {
+    char *cur = strdup(body ? body : "");
+    for (int r = 0; r < 8; r++) {
+        char *nx = pp_subst_span(cur, strlen(cur), defs, ndefs);
+        int same = !strcmp(nx, cur);
+        free(cur); cur = nx;
+        if (same) break;
+    }
+    return cur;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef *defs, int *ndefs, int depth) {
     size_t i = 0, n = strlen(src); int at_bol = 1;
     while (i < n) {
         char c = src[i];
@@ -548,26 +592,54 @@ static char *icn_preprocess(const char *src) {
                         j++; ve = j;
                     }
                     while (ve > vs && (src[ve - 1] == ' ' || src[ve - 1] == '\t' || src[ve - 1] == '\r')) ve--;
-                    if (ndefs < 128) { defs[ndefs].name = strndup(src + ns, ne - ns); defs[ndefs].val = pp_subst_span(src + vs, ve - vs, defs, ndefs); ndefs++; }
+                    if (ve > vs && src[ve - 1] == ';') { ve--; while (ve > vs && (src[ve - 1] == ' ' || src[ve - 1] == '\t')) ve--; }
+                    if (*ndefs < 128) { defs[*ndefs].name = strndup(src + ns, ne - ns); defs[*ndefs].val = pp_subst_span(src + vs, ve - vs, defs, *ndefs); (*ndefs)++; }
+                }
+            } else if (j + 7 <= n && !strncmp(src + j, "include", 7) && (j + 7 == n || !pp_word_char(src[j + 7]))) {
+                j += 7; while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
+                if (j < n && src[j] == '"' && depth < 8) {
+                    j++; size_t fs = j; while (j < n && src[j] != '"' && src[j] != '\n') j++;
+                    if (j < n && src[j] == '"') {
+                        char nm[512]; size_t fl = j - fs; if (fl >= sizeof nm) fl = sizeof nm - 1;
+                        memcpy(nm, src + fs, fl); nm[fl] = 0;
+                        char path[1600];
+                        if (nm[0] == '/') snprintf(path, sizeof path, "%s", nm);
+                        else snprintf(path, sizeof path, "%s/%s", icn_pp_dir, nm);
+                        FILE *f = fopen(path, "rb");
+                        if (f) {
+                            fseek(f, 0, SEEK_END); long fz = ftell(f); fseek(f, 0, SEEK_SET);
+                            char *fsrc = (char *)malloc((size_t)fz + 1);
+                            if (fsrc) { size_t rd = fread(fsrc, 1, (size_t)fz, f); fsrc[rd] = 0; icn_pp_run(fsrc, out, olen, ocap, defs, ndefs, depth + 1); free(fsrc); }
+                            fclose(f);
+                        }
+                    }
                 }
             }
-            while (i < n && src[i] != '\n') { buf_push(&out, &olen, &ocap, ' '); i++; }
+            while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
             continue;
         }
-        if (c == '#') { while (i < n && src[i] != '\n') { buf_push(&out, &olen, &ocap, src[i++]); } continue; }
-        if (c == '"' || c == '\'') { char q = c; buf_push(&out, &olen, &ocap, src[i++]);
-            while (i < n) { char d = src[i]; buf_push(&out, &olen, &ocap, d); i++; if (d == '\\' && i < n) { buf_push(&out, &olen, &ocap, src[i++]); } else if (d == q || d == '\n') break; }
+        if (c == '#') { while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, src[i++]); } continue; }
+        if (c == '"' || c == '\'') { char q = c; buf_push(out, olen, ocap, src[i++]);
+            while (i < n) { char d = src[i]; buf_push(out, olen, ocap, d); i++; if (d == '\\' && i < n) { buf_push(out, olen, ocap, src[i++]); } else if (d == q || d == '\n') break; }
             at_bol = 0; continue; }
-        if (pp_word_char(c) && !isdigit((unsigned char)c) && ndefs > 0) {
+        if (pp_word_char(c) && !isdigit((unsigned char)c) && *ndefs > 0) {
             size_t ws = i; while (i < n && pp_word_char(src[i])) i++;
             size_t wl = i - ws; const char *rep = NULL;
-            for (int k = ndefs - 1; k >= 0; k--) if (strlen(defs[k].name) == wl && !strncmp(defs[k].name, src + ws, wl)) { rep = defs[k].val; break; }
-            if (rep) { for (const char *p = rep; *p; p++) buf_push(&out, &olen, &ocap, *p); }
-            else     { for (size_t k = ws; k < i; k++) buf_push(&out, &olen, &ocap, src[k]); }
+            for (int k = *ndefs - 1; k >= 0; k--) if (strlen(defs[k].name) == wl && !strncmp(defs[k].name, src + ws, wl)) { rep = defs[k].val; break; }
+            if (rep) { char *ex = pp_expand(rep, defs, *ndefs); for (const char *p = ex; *p; p++) buf_push(out, olen, ocap, *p); free(ex); }
+            else     { for (size_t k = ws; k < i; k++) buf_push(out, olen, ocap, src[k]); }
             at_bol = 0; continue; }
-        buf_push(&out, &olen, &ocap, c);
-        at_bol = (c == '\n'); i++;
+        buf_push(out, olen, ocap, c);
+        at_bol = (c == '\n') || (at_bol && (c == ' ' || c == '\t')); i++;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *icn_preprocess(const char *src) {
+    PpDef defs[128]; int ndefs = 0;
+    static const char *pre[] = { "_UNIX", "_JAVA", "_ASCII", "_CO_EXPRESSIONS", "_LARGE_INTEGERS", "_PIPES", "_SYSTEM_FUNCTION" };
+    for (int k = 0; k < 7 && ndefs < 128; k++) { defs[ndefs].name = strdup(pre[k]); defs[ndefs].val = strdup("1"); ndefs++; }
+    char *out = NULL; int olen = 0, ocap = 0;
+    icn_pp_run(src, &out, &olen, &ocap, defs, &ndefs, 0);
     if (!out) out = strdup("");
     for (int k = 0; k < ndefs; k++) { free(defs[k].name); free(defs[k].val); }
     return out;

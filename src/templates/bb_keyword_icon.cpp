@@ -59,7 +59,7 @@ std::string bb_keyword_icon() {
              + x86_omega()
              + x86_beta()
              + x86_omega();
-    if (!strcmp(kw, "features") || !strcmp(kw, "regions") || !strcmp(kw, "storage") || !strcmp(kw, "collections"))
+    if (!strcmp(kw, "features") || !strcmp(kw, "regions") || !strcmp(kw, "storage") || !strcmp(kw, "collections") || !strcmp(kw, "allocated"))
         return x86("comment", "KEYWORD_gen")
              + x86_alpha()
              + x86("mov",     FRQ(_.op_off + 16), (long)0)
@@ -85,6 +85,8 @@ std::string bb_keyword_icon() {
          + x86_alpha()
          + x86("mov",     "rdi", ROQ(0))
          + x86("call",    "rt_keyword_read", (uint64_t)(uintptr_t)(void *)rt_keyword_read)
+         + x86("cmp",     "eax", (long)DT_FAIL)
+         + x86_omega("je")
          + x86("mov",     FRQ(_.op_off),     "rax")
          + x86("mov",     FRQ(_.op_off + 8), "rdx")
          + tail

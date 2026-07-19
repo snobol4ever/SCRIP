@@ -475,6 +475,19 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
             return 1;
         }
     }
+    if (obj.v == DT_FH) {
+        extern FILE *fh_get(int);
+        FILE *fp = fh_get((int)obj.i);
+        if (!fp) return 0;
+        char buf[4096];
+        if (!fgets(buf, sizeof buf, fp)) return 0;
+        size_t len = strlen(buf);
+        if (len > 0 && buf[len-1] == '\n') buf[--len] = '\0';
+        if (len > 0 && buf[len-1] == '\r') buf[--len] = '\0';
+        char *cp = rt_ws_alloc(len + 1); memcpy(cp, buf, len + 1);
+        *out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = cp };
+        return 1;
+    }
     if (obj.v == DT_T && obj.tbl) {
         TBBLK_t *tbl   = obj.tbl;
         int64_t  seen  = 0;

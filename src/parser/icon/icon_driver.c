@@ -43,7 +43,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             char path[1200]; snprintf(path, sizeof path, "%s/%s.icn", dir, nm);
             char * src = icn_read_file(path);
             if (!src) { fprintf(stderr, "icon: link: cannot open %s (linked from %s)\n", path, filename); exit(1); }
-            IcnLexer lx2; icn_lex_init(&lx2, src);
+            IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src);
             IcnParser p2; icn_parse_init(&p2, &lx2);
             tree_t * sub_ast = NULL;
             CODE_t * sp = icn_parse_file(&p2, &sub_ast);
@@ -58,6 +58,7 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     if (!filename) filename = "<stdin>";
     if (out_ast) *out_ast = NULL;
     IcnLexer lx;
+    icn_pp_set_source_path(filename);
     icn_lex_init(&lx, source);
     IcnParser parser;
     icn_parse_init(&parser, &lx);

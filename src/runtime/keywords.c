@@ -129,6 +129,11 @@ DESCR_t kw_read(const char *kw) {
         }
         return CSETVAL(cs);
     }
+    { extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
+      if (!strcmp(kw,"errornumber")) { if (!g_icn_err_valid) return FAILDESCR; return INTVAL(g_icn_errnumber); }
+      if (!strcmp(kw,"errortext"))   { if (!g_icn_err_valid) return FAILDESCR; DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_S; d.s = rt_ws_strdup_c(g_icn_errtext ? g_icn_errtext : ""); return d; }
+      if (!strcmp(kw,"errorvalue"))  { if (!g_icn_err_valid) return FAILDESCR; return g_icn_errvalue; }
+      if (!strcmp(kw,"control"))     return FAILDESCR; }
     { extern long g_error, g_trace, g_dump, g_random;
       if (!strcmp(kw,"error"))  return INTVAL(g_error);
       if (!strcmp(kw,"trace"))  return INTVAL(g_trace);
@@ -179,7 +184,7 @@ DESCR_t kw_read(const char *kw) {
       }
       if (!strcmp(kw,"dateline")) {
           char *buf = rt_ws_alloc(64);
-          strftime(buf,64,"%A, %B %e, %Y  %H:%M:%S",tm);
+          strftime(buf,64,"%A, %B %e, %Y  %l:%M %P",tm);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"clock")) {
@@ -204,6 +209,7 @@ DESCR_t rt_keyword_read(const char *sval) {
     lk[li] = '\0';
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
+    if (!strcmp(lk,"control") || !strcmp(lk,"errornumber") || !strcmp(lk,"errortext") || !strcmp(lk,"errorvalue") || !strcmp(lk,"fail")) return FAILDESCR;
     return NV_GET_fn(sval);
 }
 /*--- snobol4 keyword reader: own entry over the shared kw table; uppercase-fold handles &ALPHABET etc. ---*/
@@ -229,10 +235,14 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
     if (!strcmp(kw,"features")) {
-        static const char *feats[] = { "UNIX", "ASCII", "co-expressions", "large integers", "string invocation", "native execution" };
+        static const char *feats[] = { "UNIX", "Java", "ASCII", "co-expressions", "dynamic loading", "environment variables", "large integers", "pipes", "system function", "graphics" };
         int n = (int)(sizeof(feats) / sizeof(feats[0]));
         if (idx < 0 || idx >= n) return FAILDESCR;
         return STRVAL(feats[idx]);
+    }
+    if (!strcmp(kw,"allocated")) {
+        if (idx >= 0 && idx <= 3) return INTVAL(0);
+        return FAILDESCR;
     }
     if (!strcmp(kw,"regions")) {
         if (idx == 0) return INTVAL(0);

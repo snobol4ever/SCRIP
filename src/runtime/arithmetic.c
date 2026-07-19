@@ -1,4 +1,5 @@
 #include "core.h"
+#include <setjmp.h>
 #include "sil_macros.h"
 #include "rt/rt.h"
 #include "rt/gc_heap.h"
@@ -202,9 +203,21 @@ static int operand_is_real_str(DESCR_t v) {
     if (endd <= endi) return 0; while (*endd == ' ') endd++; return *endd == '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op);
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
-    if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);
-    if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || !b.s[0])) b = INTVAL(0);
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    if (g_core_errjmp_n >= 64) return rt_num_arith_impl(a, b, op);
+    int my = g_core_errjmp_n;
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    g_core_errjmp_n = my + 1;
+    DESCR_t r = rt_num_arith_impl(a, b, op);
+    g_core_errjmp_n = my;
+    return r;
+}
+static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
+    int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
+    if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);
+    if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || !b.s[0])) b = INTVAL(0);
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
     double ld = to_real(a), rd = to_real(b);

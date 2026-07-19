@@ -112,7 +112,8 @@ static int icn_arg_is_scan_fn(const tree_t * a) {
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (name && !strcmp(name, "seq")) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
-    int gb = name && nargs == 2 && (!strcmp(name, "find") || !strcmp(name, "upto"));
+    int gb = name && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
+                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal"))));   /* 1-arg implicit-subject forms retag to IR_SCAN_* (icn_retag_scan_body) whose templates suspend/resume -- they are generators and need the same beta/resume wiring as the 2-arg explicit-subject forms (scan1 tables: every writes(hdr | upto(skips) | nl) generated one value) */
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
@@ -129,8 +130,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     }
     if ((icn_proc_is_generator(name) || gb) && last_ar) lc_γ_to(last_ar, call);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
-    if ((icn_proc_is_generator(name) || gb) && la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la))) ω_to(call, aω);
-    cx->beta = (icn_proc_is_generator(name) || gb) ? call : (g_postfix_resume ? aω : ω);
+    if (la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la))) ω_to(call, aω);   /* GOAL-DIRECTED ARG RESUME: call failure backtracks into suspended arg generators right-to-left (aω chain) for ALL calls, not just generator-name builtins -- a no-return user proc under every wf("a"|"b"|"c") FAILS each iteration and must resume the alternation, not exit via the outer ω (fncs1 q5, this rung) */
+    cx->beta = (icn_proc_is_generator(name) || gb) ? call : ((la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la))) ? aω : (g_postfix_resume ? aω : ω));   /* SUCCESS-RESUME SYMMETRY: a non-generator call with a resumable last arg resumes THROUGH the arg chain -- every write(upto(c)) inside a scan body must re-drive upto, not exit via scan-close (scan1 tables, FZ-E) */
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -259,7 +260,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_BUILTIN_ICON) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
+        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_BUILTIN_ICON || nd->op == IR_CALL_BUILTIN_GEN) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -272,7 +273,7 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
         if (!cs && !strcmp(id, "letters")) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         if (cs) { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(cs); *res = nd; return nd; }
     }
-    int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections"));
+    int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections") || !strcmp(id, "allocated"));
     IR_t * nd = build(cx, is_gen_kw ? IR_KEYWORD_ICON_GEN : IR_KEYWORD_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
     if (is_gen_kw) {
         cx->beta = nd; *res = nd; return nd;   /* IR_GOTO-survey site 6 ERADICATED: returned-entry channel (pilot protocol) — unshielded promoting wirings into returned entries are already force-α (lower_every mark→body); naked-return probed against the full harness this session */
@@ -935,7 +936,11 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * ab = cx->beta; int arm_end = g->n;
         int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
         if (j == 0) {   /* the condition belongs to arm 0's retag range: its fail=dj edges land the φ-glue = the selector */
+            IR_t * aent0 = aent; int cbefore = g->n;
             IR_t * cval = NULL; aent = lower(cx, C, aent, dj, &cval); (void) cval;
+            for (int k = cbefore; k < g->n; k++) { IR_t * x = g->all[k]; if (!x) continue;   /* C-succ into the arm entry is a FRESH FIRST ENTRY (interp.r Op_Mark bracket: C is bounded, nothing in C resumes T) -- γ_to's generator-β promotion fires when aent is a NAKED dj (post tramp-erad), landing the committed box's resume≡ω glue and silently failing the whole if (pc3/prepro precheck class); force-α exactly the survey's lower_every mark→b_entry precedent */
+                if (x->γ.node == aent0 && (unsigned char) x->γ.sz[0] == 0xce && (unsigned char) x->γ.sz[1] == 0xb2) memcpy(x->γ.sz, "α!", 4);
+                if (x->ω.node == aent0 && (unsigned char) x->ω.sz[0] == 0xce && (unsigned char) x->ω.sz[1] == 0xb2) memcpy(x->ω.sz, "α!", 4); }
         }
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];

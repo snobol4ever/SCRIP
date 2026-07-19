@@ -1588,9 +1588,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     xa_dispatch(XA_FLAT_PROLOGUE);
     if (g_is_text) g_emit_pos += 7;
     emit_label_define_bb(&lbl_α_body);
-    enum { CH_MAX = 8192 };
+    enum { CH_MAX = 8192, Q_MAX = CH_MAX * 16 };
     IR_t *nodes[CH_MAX]; int n = 0;
-    IR_t *queue[CH_MAX]; int qh = 0, qt = 0;
+    static IR_t *queue[Q_MAX]; int qh = 0, qt = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
     /* PROC-CONV: an EMPTY body (bare `:(RETURN)` / `:(FRETURN)` — the terminal is a childless SUCCEED/FAIL, so
      * the BFS below collects ZERO nodes) must not let lbl_α_body FALL THROUGH into the jmp-entry lbl_res landing
@@ -1608,24 +1608,24 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->γ.node && qt < Q_MAX) queue[qt++] = c->γ.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
-             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < CH_MAX)
+             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < Q_MAX)
             queue[qt++] = c->ω.node;
-        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
-        if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
-        if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
-        if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
-        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
+        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
+        if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
+        if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
+        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
+        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < Q_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
         int present = 0; for (int j = 0; j < n; j++) if (nodes[j] == nodes[i]->ω.node) { present = 1; break; }
-        if (!present && qt < CH_MAX) queue[qt++] = nodes[i]->ω.node; }
+        if (!present && qt < Q_MAX) queue[qt++] = nodes[i]->ω.node; }
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
@@ -1633,21 +1633,21 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (dup) continue;
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
-        if (c->γ.node && qt < CH_MAX) queue[qt++] = c->γ.node;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
+        if (c->γ.node && qt < Q_MAX) queue[qt++] = c->γ.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
-             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < CH_MAX)
+             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < Q_MAX)
             queue[qt++] = c->ω.node;
-        if (ir_is_generator_kind(c->op) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;
-        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < CH_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
-        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
-        if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
-        if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < CH_MAX) queue[qt++] = c->operands[0];
-        if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < CH_MAX) queue[qt++] = c->operands[1];
-        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < CH_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
+        if (ir_is_generator_kind(c->op) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
+        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
+        if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
+        if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
+        if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
+        if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
+        if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < Q_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     if (qt >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= CH_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)CH_MAX, prefix); abort(); }
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
