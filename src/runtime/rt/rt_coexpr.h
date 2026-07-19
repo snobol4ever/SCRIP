@@ -21,6 +21,7 @@ typedef struct scrip_coctx_t {
     void *stk_win; unsigned long stk_guard;
     struct scrip_coctx_t *gc_next; uint64_t gc_spill[6];
     void *frame_copy; uint64_t frame_copy_sz;
+    void *scan_state;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);

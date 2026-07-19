@@ -24,6 +24,29 @@ int         scan_depth = 0;
 ScanEntry scan_saved[SCAN_STACK_MAX];
 int         scan_saved_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_scan_state_capture(void *prev) {
+    ScanState *s = (ScanState *)prev;
+    if (!s) { s = (ScanState *)calloc(1, sizeof(ScanState)); if (!s) return NULL; }
+    s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->saved_depth = scan_saved_depth;
+    for (int i = 0; i < scan_depth && i < SCAN_STACK_MAX; i++) s->stack[i] = scan_stack[i];
+    for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) s->saved[i] = scan_saved[i];
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_scan_state_apply(void *saved) {
+    ScanState *s = (ScanState *)saved;
+    if (!s) return;
+    scan_subj = s->subj ? s->subj : ""; scan_pos = s->pos; scan_depth = s->depth; scan_saved_depth = s->saved_depth;
+    for (int i = 0; i < scan_depth && i < SCAN_STACK_MAX; i++) scan_stack[i] = s->stack[i];
+    for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) scan_saved[i] = s->saved[i];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_scan_state_reset(void) {
+    scan_subj = ""; scan_pos = 1; scan_depth = 0; scan_saved_depth = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);

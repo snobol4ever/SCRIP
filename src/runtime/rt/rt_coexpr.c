@@ -57,8 +57,10 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         old->stk_win = 0;
         inited = 1;
     }
+    { extern void *rt_scan_state_capture(void *); old->scan_state = rt_scan_state_capture(old->scan_state); }
     if (first != 0) {
     } else {
+        { extern void rt_scan_state_reset(void); rt_scan_state_reset(); }
         scrip_co_makesem(new_ctx);
         new_ctx->alive = 1;
 #if ZC_COEXPR_STACK_GCHEAP
@@ -77,6 +79,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
     if (!old->alive) pthread_exit(NULL);
+    { extern void rt_scan_state_apply(void *); rt_scan_state_apply(old->scan_state); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
@@ -175,6 +178,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     ctx->stk_win     = 0;
     ctx->stk_guard   = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
+    ctx->scan_state = NULL;
     ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
     return ctx;
 }
@@ -214,6 +218,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->stk_guard   = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
+    ctx->scan_state = NULL;
     ctx->gc_next = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
