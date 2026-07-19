@@ -13,6 +13,5 @@ std::string bb_bound() {
          + IF(_.op_sb == 1, x86("mov", FRQ(_.op_off), "rsp"))
          + IF(_.op_sb != 1, x86("mov", "rsp", FRQ(_.op_off)))
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

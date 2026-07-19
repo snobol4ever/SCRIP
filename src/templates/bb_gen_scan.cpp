@@ -28,8 +28,7 @@ std::string bb_gen_scan() {
              + x86("mov", "r15", "rdx")
              + x86("mov", "r14", (long)0)
              + x86_gamma()
-             + x86_beta()
-             + x86_omega())
+             + x86_beta_trampoline())
          + IF(_.op_sb != 1 && _.op_off >= 0,
                IF(_.op_sa >= 0 && _.op_ival >= 0,
                    x86("mov", "rax", FRQ(_.op_sa))

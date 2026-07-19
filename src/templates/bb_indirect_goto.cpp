@@ -13,6 +13,5 @@ std::string bb_indirect_goto() {
     return x86("comment", "IR_INDIRECT_GOTO alt-resume: jmp *t")
          + x86_alpha()
          + x86("jmp", FRQ(_.op_off + 16))
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

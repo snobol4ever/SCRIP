@@ -10,6 +10,5 @@ std::string bb_match_abort() {
     return x86("comment", "IR_MATCH_ABORT")
          + x86_alpha()
          + x86_omega()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

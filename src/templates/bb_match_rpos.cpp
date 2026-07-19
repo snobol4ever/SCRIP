@@ -16,6 +16,5 @@ std::string bb_match_rpos() {
          + x86("cmp", "r14d", "ecx")
          + x86_omega("jne")
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

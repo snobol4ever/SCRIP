@@ -70,8 +70,7 @@ std::string bb_binop_gvar_arith_slot() {
                           + IF(_.op_ival == BINOP_MOD, x86("mov", "rax", "rdx"))
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86_gamma()
-                          + x86_beta()
-                          + x86_omega())
+                          + x86_beta_trampoline())
                           + IF(!(_.op_off >= 0
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)
