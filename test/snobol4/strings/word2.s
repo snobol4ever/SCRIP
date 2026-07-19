@@ -281,10 +281,10 @@ proc_startup:
   ret
   .section .rodata
   .Lgvan0: .string "PAT"
-  .Lgvan1: .string "LINE"
+  .Lgvan1: .string "WHEN"
   .Lgvan2: .string "WHO"
   .Lgvan3: .string "WHAT"
-  .Lgvan4: .string "WHEN"
+  .Lgvan4: .string "LINE"
   .align 8
 __gva_names:
   .quad .Lgvan0
@@ -386,15 +386,15 @@ main_α_body:
  xchain27_n4_α:
  mov rax, qword ptr [rbp + 208]
  mov rdx, qword ptr [rbp + 216]
- mov qword ptr [1879052304], rax
- mov qword ptr [1879052312], rdx
+ mov qword ptr [1879052352], rax
+ mov qword ptr [1879052360], rdx
  mov qword ptr [rbp + 192], rax
  mov qword ptr [rbp + 200], rdx
  jmp xchain27_n5_α
 # IR_VAR
  xchain27_n5_α:
- mov rax, qword ptr [1879052304]
- mov rdx, qword ptr [1879052312]
+ mov rax, qword ptr [1879052352]
+ mov rdx, qword ptr [1879052360]
  mov qword ptr [rbp + 368], rax
  mov qword ptr [rbp + 376], rdx
  jmp xchain27_n6_α
@@ -608,8 +608,8 @@ main_α_body:
  jmp xchain27_n16_α
 # IR_VAR
  xchain27_n16_α:
- mov rax, qword ptr [1879052352]
- mov rdx, qword ptr [1879052360]
+ mov rax, qword ptr [1879052304]
+ mov rdx, qword ptr [1879052312]
  mov qword ptr [rbp + 672], rax
  mov qword ptr [rbp + 680], rdx
  jmp xchain27_n17_α
