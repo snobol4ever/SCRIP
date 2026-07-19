@@ -555,7 +555,7 @@ typedef struct {
     const char *                 xa_cap_varname_lbl;
     int                          xa_cap_immediate;
     int                          xa_pat_blob_invariant_n;
-#define XA_BB_EMIT_PAIR_MAX 32
+#define XA_BB_EMIT_PAIR_MAX 1024
     struct bb_label_t *          xa_bb_emit_pair_define[XA_BB_EMIT_PAIR_MAX];
     struct bb_label_t *          xa_bb_emit_pair_jmp[XA_BB_EMIT_PAIR_MAX];
     int                          xa_bb_emit_pair_n;
@@ -639,6 +639,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdio.h>
 void emit_text_n(const char * s, size_t n);
+long emit_text_count(void);
 void emit_textf (const char * fmt, ...)
                  __attribute__((format(printf, 1, 2)));
 void emit_1asm  (const char * a);

@@ -741,7 +741,11 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         const char * _an = IR_LIT(nd).sval;
         int _an_reassignable_builtin = _an && (!strcmp(_an, "write") || !strcmp(_an, "writes"));
         if (_an && ((is_global(_an) && !graph_has_local(g_emit_cfg, _an)) || _an_reassignable_builtin)) { bb_emit_x86(bb_assign_global()); return 0; }
-        if (_an) { bb_emit_x86(bb_assign_local()); return 0; }
+        if (_an) { { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
+                     if (_dd && !(g_emit.op_sb >= 0 && g_emit.op_off >= 0 && (g_emit.op_a_slot >= 0 || g_emit.op_a_node_kind == (int)IR_OP_COUNT))) {
+                         IR_t *_ra = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
+                         fprintf(stderr, "[ASSIGN-DIAG] var=%s sb=%d off=%d a_slot=%d a_kind=%d rhs_op=%s rhs_nops=%d\n", _an, g_emit.op_sb, g_emit.op_off, g_emit.op_a_slot, g_emit.op_a_node_kind, _ra ? bb_op_name(_ra->op) : "NULL", _ra ? _ra->n_operands : -1); } }
+                   bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_BINOP_TEST:          bb_emit_x86(bb_binop_relop());       return 0;
@@ -964,6 +968,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
      * — the alternative's OWN inner resume, seed alt_β), 2N = na_s success-glue define, 2N+1 = na_f
      * fail-glue define.  σ/φ-tagged inside edges land the two glue defines (resolved in the chain loop). */
     IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : nd->n_operands / 2;   /* ARBNO: (entry,resume) + [2]=geometry bracket + optional [3]=self seal marker; DISJUNCTION (MOVE_LABEL-ERAD): operands = (entry,resume)×N + result×N, so N rides ival, results at [2N..3N-1] */
+    if (3 * N + 2 > XA_BB_EMIT_PAIR_MAX) { fprintf(stderr, "FATAL emit flat_drive_match_alt: node n%d op=%d N=%d needs %d pair slots > XA_BB_EMIT_PAIR_MAX(%d) — raise the constant in emit.h\n", i, (int)nd->op, N, 3 * N + 2, XA_BB_EMIT_PAIR_MAX); abort(); }
     g_emit.xa_bb_emit_pair_n = 0;
     for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == e) { t = lbls[k];  break; } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω;   /* MOVE_LABEL-ERAD: IR_FAIL is a chain SENTINEL (never emitted; edges into it = proc fail, the 1760 node_γ→lbl_ω convention) — a bare `fail` alternation arm must dispatch to the CHAIN ω, not the dj's statement-next ω (roman `integer(n)>0 | fail` bug: proc-fail was becoming statement-continue) */ int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
     for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_f[i];   /* FENCE-rooted body: resume a committed iteration ≡ abandon it (seal) */ if (nd->op == IR_DISJUNCTION && r == nd) t = na_f[i];   /* MOVE_LABEL-ERAD self marker: valueless arm's resume ≡ advance to the next alternative (φ-glue) */ int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
@@ -1854,11 +1859,17 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             else for (int k = 0; k < n; k++) if (nodes[k] == sg) { node_γ = sg_is_beta ? betas[k] : lbls[k]; break; }
         }
         if (nodes[i]->op == IR_REPALT) {
-            flat_drive_repalt(nodes, n, i, lbls, betas, ra_y, ra_t, node_γ, node_ω);
+            { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
+              long _p0 = _dd ? emit_text_count() : 0;
+              flat_drive_repalt(nodes, n, i, lbls, betas, ra_y, ra_t, node_γ, node_ω);
+              if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d (repalt path)\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
             continue;
         }
         if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) {
-            flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω, &lbl_ω);   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout */
+            { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
+              long _p0 = _dd ? emit_text_count() : 0;
+              flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω, &lbl_ω);   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout */
+              if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d (match_alt path)\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
             continue;
         }
         if (nodes[i]->op == IR_LIMIT) {
@@ -1899,7 +1910,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               }
               g_emit.op_wpop = (int)_sum;
           } }
-        emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
+        { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
+          long _p0 = _dd ? emit_text_count() : 0;
+          emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
+          if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
     }
     g_emit.op_beta_dead = 0;
     g_emit.op_wpop = 0;
@@ -2018,6 +2032,7 @@ static void emit_chain_operand_refs(IR_t *entry) {
     IR_t *stk[512]; int sp = 0;
     for (int i = 0; i < nc; i++) {
         IR_t *n = chain[i];
+        switch (n->op) { case IR_RETURN: case IR_SUSPEND: case IR_CORET: case IR_COFAIL: sp = 0; continue; default: break; }   /* control transfer is never a value: reset the sim stack, never ride it (mirrors ar<0) */
         int ar = emit_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
         else if (ar >= 1 && sp >= ar) { if (n->n_operands < ar) { n->n_operands = 0; for (int k = ar; k >= 1; k--) ir_operand_push(n, stk[sp - k]); } sp -= ar; }

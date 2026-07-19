@@ -6,6 +6,7 @@ extern int icn_builtin_is_known(const char *);
 extern int icn_builtin_is_generator(const char *);
 int g_postfix_resume = 0;
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
+static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
@@ -494,8 +495,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (has_dflt) {
             IR_t * dv = NULL; IR_t * de = lower(cx, t->c[t->n - 1], NULL, ω, &dv);
             IR_t * dasn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(dasn).sval = (char *) CVAR;
-            if (dv) ir_operand_push(dasn, dv);
-            γ_to(dv ? dv : de, dasn);
+            { IR_t * dvf = icn_arm_result(dv); if (dvf) ir_operand_push(dasn, dvf); }   /* shared wiring-kind filter — return/suspend/goto arms are valueless (slice-3 precedent) */
+            { IR_t * dvf = icn_arm_result(dv); if (dvf) γ_to(dvf, dasn); else if (!dv) γ_to(de, dasn); }   /* wiring-kind arm keeps its own exit edge (return leaves the proc, not the case) */
             chain_next = de;
         }
         for (int i = npairs - 1; i >= 0; i--) {
@@ -503,8 +504,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ω, &kn);
             IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], NULL, ω, &bv);
             IR_t * asn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(asn).sval = (char *) CVAR;
-            if (bv) ir_operand_push(asn, bv);
-            γ_to(bv ? bv : be, asn);
+            { IR_t * bvf = icn_arm_result(bv); if (bvf) ir_operand_push(asn, bvf); }   /* shared wiring-kind filter — return/suspend/goto arms are valueless (slice-3 precedent) */
+            { IR_t * bvf = icn_arm_result(bv); if (bvf) γ_to(bvf, asn); else if (!bv) γ_to(be, asn); }   /* wiring-kind arm keeps its own exit edge (return leaves the proc, not the case) */
             IR_t * idc = build(cx, IR_CALL_BUILTIN, be, chain_next);
             IR_LIT(idc).sval = (char *) "IDENTICAL";
             ir_operand_push(idc, sr);
