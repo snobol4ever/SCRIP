@@ -502,7 +502,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         for (int i = npairs - 1; i >= 0; i--) {
             int ki = 1 + i * 2; int bi = ki + 1;
             cx->beta = ω;   /* ICN-CASE-ALT: fresh β so kβ below reflects THIS selector only */
-            IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ω, &kn);   /* ICN-CASE-ALT residual: canonical ir_a_Case routes clause-expr failure/exhaustion to the NEXT clause; wiring fail->chain_next here regressed multi-arm chains (rung14/rung33 locks — emit-walk/fold interaction), so exhaustion still exits via case-ω. Bites only when an alternated arm is followed by more arms AND matches none of its alternatives. */
+            IR_t * ksel_ω = is_resumable(t->c[ki]) ? chain_next : ω;   /* ICN-CASE-ALT residual CLOSED (jtran parse_expr11 blocker): canonical ir_a_Case L[i].expr.ir.failure -> L[i+1].expr.ir.start — a RESUMABLE selector's exhaustion (alternation spent, generator dry) falls to the NEXT clause / default / case-ω-if-last. Non-resumable selectors keep ω=case-ω byte-identical (their ω edge is statically dead — literals cannot fail — and passing chain_next there was the rung14/rung33 emit-walk/fold regression, so the gate is the resumability predicate, not the wiring shape). */
+            IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ksel_ω, &kn);
             IR_t * kβ = cx->beta;   /* selector's resume point (alternation/generator inside, or ω) */
             IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], NULL, ω, &bv);
             IR_t * asn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(asn).sval = (char *) CVAR;
