@@ -45,6 +45,7 @@ typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
 static inline int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
+static inline int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }

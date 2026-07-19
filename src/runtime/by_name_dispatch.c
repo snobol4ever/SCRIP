@@ -4102,6 +4102,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 }
             }
         }
+        { extern int rt_proc_is_registered(const char *name); extern int rt_proc_nparams(const char *name);
+          if (rt_proc_is_registered(pname)) { int np = rt_proc_nparams(pname);
+              if (arity < 0 || np == arity || np <= 0) { extern DESCR_t rt_proc_value(const char *); *out = rt_proc_value(rt_ws_strdup(pname)); return 1; } } }
         /* name not in proc_table -- check if it is a known builtin */
         if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1;
