@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <limits.h>
@@ -87,6 +88,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
         mprotect((void *)ctx->stk_guard, (size_t)pg, PROT_READ | PROT_WRITE); ((rt_hblk_t *)ctx->stk_win - 1)->type = (uint16_t)HB_FILL; ctx->stk_win = 0; }
 #endif
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
+    if (ctx->frame_copy) { extern void rt_gc_root_range_del(const char *); rt_gc_root_range_del((const char *)ctx->frame_copy); free(ctx->frame_copy); ctx->frame_copy = NULL; }
     sem_destroy(ctx->semp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -142,7 +144,7 @@ void scrip_coexpr_trampoline_entry(void *arg) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]) {
+scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6], uint64_t frame_bytes) {
     extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)malloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
@@ -151,6 +153,16 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     pkg->body_entry_addr = body_entry_addr;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
     pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->rbp = regs[5];
+    ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
+    if (frame_bytes > 0 && regs[5] != 0) {
+        extern void rt_gc_root_range_add(const char *, const char *);
+        void *cp = malloc((size_t)frame_bytes);
+        if (!cp) scrip_co_uerror("scrip_coexpr: malloc frame snapshot failed");
+        memcpy(cp, (const void *)(uintptr_t)regs[5], (size_t)frame_bytes);
+        pkg->rbp = (uint64_t)(uintptr_t)cp;
+        ctx->frame_copy = cp; ctx->frame_copy_sz = frame_bytes;
+        rt_gc_root_range_add((const char *)cp, (const char *)cp + frame_bytes);
+    }
     ctx->entry_fn  = scrip_coexpr_trampoline_entry;
     ctx->entry_arg = pkg;
     ctx->alive = 0;
@@ -201,6 +213,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->stk_win     = 0;
     ctx->stk_guard   = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
+    ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     ctx->gc_next = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

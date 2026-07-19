@@ -20,13 +20,14 @@ typedef struct scrip_coctx_t {
     uint64_t  xmit[2];
     void *stk_win; unsigned long stk_guard;
     struct scrip_coctx_t *gc_next; uint64_t gc_spill[6];
+    void *frame_copy; uint64_t frame_copy_sz;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
 extern scrip_coctx_t *scrip_co_current;
 void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr);
 void scrip_cofail(void);
-scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]);
+scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6], uint64_t frame_bytes);
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2);
 scrip_coctx_t *scrip_co_gc_head(void);
 scrip_coctx_t *scrip_co_gc_root(void);

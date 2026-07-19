@@ -25,6 +25,7 @@ std::string bb_create() {
     }
     s += xa_coexpr_body_lea("rdi");
     s += x86_frame_lea("rsi", op_off2)
+       + x86("mov", "edx", std::to_string(_.frame_region > 0 ? _.frame_region : 0))
        + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
        + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", "rax")
        + x86_gamma()
