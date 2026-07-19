@@ -36,6 +36,5 @@ std::string bb_coerce_numeric() {
          + x86("call", "rt_coerce_num2_d", (uint64_t)(uintptr_t)(void *)rt_coerce_num2_d)
          + x86("def", L(2))
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }
