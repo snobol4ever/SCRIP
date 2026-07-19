@@ -102,6 +102,7 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
         return 1;
     }
     if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
+    if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 static DESCR_t *plw_entry(DESCR_t *tmp) {
@@ -1180,6 +1181,22 @@ static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* NOTHROW DOP RAIL (PL-REGAIN-4, 2026-07-19) — the interposer profile put rt_pl_dop_unify at ~4.6M calls / 255 avg cycles on fib×64 (≈30-40% of wall), with trail_mark and unwind_nothrow behind it;
+ * dop_call's per-goal setjmp + errjmp push/pop is pure ceremony for the four bodies that cannot reach a longjmp (unify: plj_alloc/trail_push/descr_equal all abort-not-throw; trail_mark/trail_unwind:
+ * trail + zh/cw stacks, realloc-abort; unwind_nothrow: checks rt_pl_throw_pending as a FLAG).  This rail keeps the s102 gateway-floor discipline verbatim (save fl, set to this frame, restore on exit)
+ * and the GC safepoint, drops only the jmp machinery.  is/cmp/arith/write and every other dop stay on dop_call — plc_iso_evaluable throws are real there.  If an impossible throw ever did escape a
+ * nothrow body, the next outer dop_call/rt_call_arr catcher restores its own saved floor, so the floor chain self-heals — no dangling-frame window is added. */
+static DESCR_t dop_call_nothrow(dop_body_fn body, DESCR_t *args, int nargs) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    DESCR_t out = FAILDESCR;
+    char *fl = g_plw_unwind_floor;
+    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    rt_gc_point_arr(args, nargs, (const char **)0);
+    body(args, nargs, &out);
+    g_plw_unwind_floor = fl;
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_ax_add(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("add", a, n, o); }
 static int dop_ax_sub(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("sub", a, n, o); }
 static int dop_ax_mul(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("mul", a, n, o); }
@@ -1193,24 +1210,78 @@ static int dop_cmp_ge(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ge", a, n
 static int dop_cmp_eq(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("eq", a, n, o); }
 static int dop_cmp_ne(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ne", a, n, o); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_unify(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_unify, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_unify(DESCR_t *args, int nargs) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    if (nargs != 2) return FAILDESCR;
+    { char *fl = g_plw_unwind_floor; DESCR_t out;
+      g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+      rt_gc_point_arr(args, 2, (const char **)0);
+      out = plw_unify_vals(args[0], args[1]) ? rt_pl_deref_val(args[0]) : FAILDESCR;
+      g_plw_unwind_floor = fl;
+      return out; }
+}
 DESCR_t rt_pl_dop_mkc(DESCR_t *args, int nargs) { return nargs >= 1 ? dop_call(dop_mkc, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_trail_mark(DESCR_t *args, int nargs) { return nargs == 0 ? dop_call(dop_trail_mark, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_trail_unwind(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call(dop_trail_unwind, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call(dop_unwind_nothrow, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_is_v(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_is_v, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_add(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_add, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_sub(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_sub, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_mul(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_mul, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_trail_mark(DESCR_t *args, int nargs) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    if (nargs != 0) return FAILDESCR;
+    { char *fl = g_plw_unwind_floor; DESCR_t m;
+      g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+      rt_gc_point_arr(args, 0, (const char **)0);
+      m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); plw_zh_mark_push((int)m.i);
+      g_plw_unwind_floor = fl;
+      return m; }
+}
+DESCR_t rt_pl_dop_trail_unwind(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call_nothrow(dop_trail_unwind, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call_nothrow(dop_unwind_nothrow, args, nargs) : FAILDESCR; }
+/* GUARDED ARITH FAST PATHS (PL-REGAIN-4, 2026-07-19) — fib runs 7 dop_call ceremonies per call for {is×3, sub×2, add, gt}: setjmp + errjmp + a strcmp op ladder, per goal.  When the guard proves the
+ * throw unreachable (operands deref to numbers; overflow checked with __builtin_*_overflow and REROUTED to the classic rail so int-overflow keeps rt_num_arith's exact behavior), the wrapper computes
+ * inline: no setjmp, no strcmp (the op is static per wrapper), no dop frames.  cmp mirrors pl_num_cmp's DOUBLE compare verbatim (ints past 2^53 stay lossy — board-identical, not "fixed").  is/2 keeps
+ * floor + gc_point because it binds cells; pure computes skip both (no cell writes, no allocation; unify/trail_mark still safepoint every clause).  Any non-number falls through to dop_call verbatim. */
+DESCR_t rt_pl_dop_is_v(DESCR_t *args, int nargs) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    if (nargs != 2) return FAILDESCR;
+    { DESCR_t v = rt_pl_deref_val(args[1]);
+      if (v.v == DT_I || v.v == DT_R) {
+          char *fl = g_plw_unwind_floor; DESCR_t out;
+          g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+          rt_gc_point_arr(args, 2, (const char **)0);
+          out = plw_unify_vals(args[0], v) ? v : FAILDESCR;
+          g_plw_unwind_floor = fl;
+          return out; }
+      return dop_call(dop_is_v, args, nargs); }
+}
+DESCR_t rt_pl_dop_ax_add(DESCR_t *args, int nargs) {
+    if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
+      if (a.v == DT_I && b.v == DT_I && !__builtin_add_overflow(a.i, b.i, &r)) return INTVAL(r); }
+    return nargs == 2 ? dop_call(dop_ax_add, args, nargs) : FAILDESCR;
+}
+DESCR_t rt_pl_dop_ax_sub(DESCR_t *args, int nargs) {
+    if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
+      if (a.v == DT_I && b.v == DT_I && !__builtin_sub_overflow(a.i, b.i, &r)) return INTVAL(r); }
+    return nargs == 2 ? dop_call(dop_ax_sub, args, nargs) : FAILDESCR;
+}
+DESCR_t rt_pl_dop_ax_mul(DESCR_t *args, int nargs) {
+    if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
+      if (a.v == DT_I && b.v == DT_I && !__builtin_mul_overflow(a.i, b.i, &r)) return INTVAL(r); }
+    return nargs == 2 ? dop_call(dop_ax_mul, args, nargs) : FAILDESCR;
+}
 DESCR_t rt_pl_dop_ax_div(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_div, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_ax_idiv(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_idiv, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_ax_mod(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_mod, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_lt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_lt, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_gt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_gt, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_le(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_le, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_ge(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_ge, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_eq(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_eq, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_ne(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_ne, args, nargs) : FAILDESCR; }
+static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow) {
+    DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
+    if ((a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R)) {
+        double av = IS_REAL_fn(a) ? a.r : (double)a.i, bv = IS_REAL_fn(b) ? b.r : (double)b.i;
+        int t = rel == 0 ? av < bv : rel == 1 ? av > bv : rel == 2 ? av <= bv : rel == 3 ? av >= bv : rel == 4 ? av == bv : av != bv;
+        return t ? a : FAILDESCR; }
+    return dop_call(slow, args, 2);
+}
+DESCR_t rt_pl_dop_cmp_lt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 0, dop_cmp_lt) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_gt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 1, dop_cmp_gt) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_le(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 2, dop_cmp_le) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_ge(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 3, dop_cmp_ge) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_eq(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 4, dop_cmp_eq) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_ne(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 5, dop_cmp_ne) : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;

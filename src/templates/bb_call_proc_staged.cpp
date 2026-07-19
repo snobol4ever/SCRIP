@@ -6,6 +6,11 @@ extern "C" {
 #include "bb_templates.h"
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_proc_call_open_det(long idx, int nargs);
+void   *rt_proc_call_open_det0(long idx);
+void   *rt_proc_call_open_det1(long idx, DESCR_t *a0);
+void   *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1);
+void   *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2);
+void   *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DESCR_t *a3);
 int     rt_proc_index_of(const char *name);
 void   *rt_proc_open_fn(void);
 void   *rt_frame_prep(void *fb, long fbytes);
@@ -118,6 +123,17 @@ static std::string bcps_det_arm() {
     int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     uint64_t det_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp = (uint64_t)(uintptr_t)(void*)fp; }
     long det_idx = (!is_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
+    /* PL-REGAIN-4 (2026-07-19): FUSED OPEN — for a det-eligible site with ≤4 args the stage×nargs+open_det pair collapses to ONE crossing: the site leas each arg's CALLER-FRAME CELL ADDRESS into the SysV
+     * slots (rsi rdx rcx r8; rdi = idx) and rt_proc_call_open_detN copies through the pointers into g_call_args itself.  Arg PLACEMENT is unchanged (slice-B residency decision stays with Lon); only the
+     * crossing count moves: det caller side is now open_detN + epilogue = 2.  nargs > 4 (none on the hot corpus) falls through to the classic stage chain + open_det verbatim. */
+    uint64_t detN_fp[5]; static const char *detN_nm[5] = { "rt_proc_call_open_det0", "rt_proc_call_open_det1", "rt_proc_call_open_det2", "rt_proc_call_open_det3", "rt_proc_call_open_det4" };
+    { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp[0] = (uint64_t)(uintptr_t)(void*)f0; }
+    { void *(*f1)(long, DESCR_t*) = rt_proc_call_open_det1; detN_fp[1] = (uint64_t)(uintptr_t)(void*)f1; }
+    { void *(*f2)(long, DESCR_t*, DESCR_t*) = rt_proc_call_open_det2; detN_fp[2] = (uint64_t)(uintptr_t)(void*)f2; }
+    { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp[3] = (uint64_t)(uintptr_t)(void*)f3; }
+    { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
+    static const char *detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+    int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && ZC_FRAME == ZC_FRAME_RSP && det_nA >= 0 && det_nA <= 4);
     /* BP-7 SCC — STATIC SAVE-SET CALL CONVENTION (GOAL-SNOBOL4-BB BP-7).  Emit-time eligibility: literal target, registered dyn-scope table proc, every save-set name (formals+locals per the DEFINE
      * prototype, plus the result name unless shadowed by a formal) GVA-resident, nargs within the prototype, program free of OPSYN/UNLOAD (scc_program_ok), hatch SCRIP_SCC_OFF unset.  The arm saves
      * the old cell values inline (GVA absolute -> an rsp block below the anchor), calls the open_slim leaf (guards re-checked with ZERO side effects before commit -- a decline falls through L(5) into
@@ -181,11 +197,15 @@ static std::string bcps_det_arm() {
             + x86("def", L(5))
             + x86("add", "rsp", scc_sb)
             : std::string(""))
-         + FOR(0, (int)_.op_ival, [&](int i) {
+         + (det_fuse ? std::string("") : FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
-    })
-         + (det_idx >= 0 && ZC_FRAME == ZC_FRAME_RSP
+    }))
+         + (det_fuse
+            ? x86("mov32", "edi", det_idx)
+            + FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
+            + x86("call", detN_nm[det_nA], detN_fp[det_nA])
+            : det_idx >= 0 && ZC_FRAME == ZC_FRAME_RSP
             /* PL-REGAIN-1 slice A (2026-07-19 s100): emit-time-resolved det callee — the index into the dense registry replaces the name (no hash, no strcmp) and the fused leaf returns the fn pointer,
              * eliding the rt_proc_open_fn crossing; rax carries the fn straight to the jmp below.  Eligibility is emit-time-static (!is_dyn, literal target, registered = index >= 0); a runtime guard
              * mismatch returns 0 into the SAME je L(1) FAIL arm as a bodyless proc, side-effect-free.  Inline arg install (kills rt_arg_stage) and the direct cross-box jmp are slices B/C — B blocked
