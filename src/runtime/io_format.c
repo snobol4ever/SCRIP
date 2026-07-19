@@ -45,14 +45,12 @@ void rt_write_strz_nl(const char *s)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_format_float(char *buf, size_t bufsz, double d)
 {
-    for (int prec = 15; prec <= 17; prec++) {
-        snprintf(buf, bufsz, "%.*g", prec, d);
-        if (strtod(buf, NULL) == d) break;
-    }
-    if (!strpbrk(buf, ".eEnN")) {
-        size_t n = strlen(buf);
-        if (n + 2 < bufsz) { buf[n] = '.'; buf[n+1] = '0'; buf[n+2] = '\0'; }
-    }
+    /* One real->string authority for the whole runtime: SPITBOL standard
+     * representation (string_ops.c). Formerly this duplicated the old %g+".0"
+     * logic and drifted from coerce.c's real_str (1.0 printed as "1.0" here,
+     * "1." via coercion) — the OUTPUT sink now shares the same formatter. */
+    extern const char *real_str(double r, char *buf, int bufsz);
+    real_str(d, buf, (int)bufsz);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_write_atom(const char *s)

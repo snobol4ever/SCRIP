@@ -1827,9 +1827,9 @@ char *VARVAL_fn(DESCR_t v) {
             snprintf(buf, sizeof(buf), "%" PRId64, v.i);
             return rt_ws_strdup_c(buf);
         case DT_R: {
-            snprintf(buf, sizeof(buf), "%.15g", v.r);
-            if (!strchr(buf, '.') && !strchr(buf, 'e'))
-                strncat(buf, ".0", sizeof(buf) - strlen(buf) - 1);
+            /* SPITBOL standard representation via the one authority (string_ops.c). */
+            extern const char *real_str(double r, char *b, int bufsz);
+            real_str(v.r, buf, sizeof(buf));
             return rt_ws_strdup_c(buf);
         }
         case DT_DATA:
