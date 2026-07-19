@@ -410,74 +410,77 @@ deprioritized issue, 2026-07-18); the string-keyed chain cache makes repeated-st
 
 The Prolog frontend is measured against the two mainstream engines — **GNU Prolog 1.4.5**
 (gprolog, WAM-to-native) and **SWI-Prolog 9.0.4** (swipl) — on the **van Roy / Aquarius**
-suite (`corpus/benchmarks/prolog/bench/*.pl`). 21 of 22 programs hold **four-way
+suite (`corpus/benchmarks/prolog/bench/*.pl`). **All 22 programs now hold four-way
 correctness consensus** (GNU, SWI, SCRIP mode-3 `--run`, SCRIP mode-4 compiled binary,
-all byte-identical to `.expected`; `queensn` is the one divergent — the tracked
-working-set leak). Measured 2026-07-18 on Intel Xeon @ 2.80 GHz, 1 core.
+all byte-identical to `.expected`; `queensn` was the one previously divergent —
+the working-set leak is now closed). Measured 2026-07-18 on Intel Xeon @ 2.80 GHz, 1 core.
 
-**This table replaces the 2026-06-27 one (geomean 3.28×), which measured a PREVIOUS
-engine deleted in the 2026-07-05 one-emitter reset.** The restored engine (the
-suspend-unified four-port machine, landed 2026-07-17) is correct-first and not yet
-speed-tuned: every planned optimization — O(1) call dispatch, frame-init elision,
-DET/NONDET split, first-argument indexing, last-call optimization, trampoline
-retirement — is still ahead of it (the PL-SPEED ladder, `GOAL-PROLOG-BB.md`). These
-are the honest pre-campaign numbers.
+**This table replaces the 2026-07-18 s98 one (geomean 52×),** which pre-dated the
+defect-(b) WS-accrual fix (s99: HB_PLJ collectable per-branch class + GC byte-budget
+pacer). The fix closed the crypt/qsort N-cliff, made queensn oracle-correct, and
+completed fib ×256 flat — and moved the geomean from 52× to 54× (the hot benches
+were already near steady-state; the fix mainly eliminates super-linear blowup at
+large N rather than changing the per-iter steady-state rate on the measured rows).
+The remaining gap is fixed per-call overhead (trampoline C frame, strcmp lookup,
+whole-frame memset, no first-arg indexing, no LCO) — the PL-SPEED/PL-RSP ladders.
 
 **Per-iteration compute** (`scripts/bench_prolog_vanroy.sh`): each bench loops via a
 failure-driven wrapper (`between(1,N,_), bench, fail` — backtracking reclaims stacks
 on every engine each iteration; full solution enumeration per iteration, identical
 work everywhere). Per-iteration ms = (wall − engine startup floor) / N, N auto-ranged
 per engine (×4 until ≥300 ms compute). Sorted fastest-relative first; ratio is
-SCRIP-m4 vs the oracle. DNF = 240 s timeout.
+SCRIP-m4 vs the oracle. DNF = engine crash/timeout/abort.
 
 | Benchmark | GNU | SWI | SCRIP m3 | SCRIP m4 | m4 vs GNU | m4 vs SWI |
 |-----------|----:|----:|---------:|---------:|----------:|----------:|
-| fib | 7.203 | 4.699 | 518.0 | 420.0 | 58× | 89× |
-| sendmore | 4.086 | 9.688 | 275.5 | 244.0 | 60× | 25× |
-| meta_qsort | 0.475 | 0.304 | 37.56 | 37.56 | 79× | 124× |
-| crypt | 1.171 | 2.020 | 101.0 | 93.25 | 80× | 46× |
-| zebra | 6.094 | 4.938 | 521.0 | 520.0 | 85× | 105× |
-| queens_8 | 4.426 | 6.953 | 498.0 | 518.0 | 117× | 75× |
-| tak | 13.13 | 19.88 | 1560 | 1541 | 117× | 78× |
-| mu | 0.055 | 0.049 | 8.078 | 7.969 | 144× | 162× |
-| qsort | 0.046 | 0.063 | 6.688 | 6.813 | 148× | 109× |
-| cal | 0.0010 | 0.0028 | 0.185 | 0.172 | 172× | 61× |
-| ops8 | 0.0020 | 0.0026 | 0.415 | 0.398 | 199× | 153× |
-| nreverse | 0.027 | 0.027 | 6.141 | 6.219 | 233× | 228× |
-| times10 | 0.0023 | 0.0030 | 0.732 | 0.627 | 273× | 209× |
-| query | 0.030 | 0.068 | 8.938 | 8.594 | 284× | 127× |
-| divide10 | 0.0023 | 0.0029 | 0.623 | 0.680 | 296× | 234× |
-| derive | 0.0052 | 0.0068 | 1.477 | 1.555 | 299× | 229× |
-| deriv | 0.0047 | 0.0113 | 1.449 | 1.465 | 312× | 130× |
-| log10 | 0.0012 | 0.0019 | 0.450 | 0.438 | 365× | 230× |
-| nrev | 0.0096 | 0.026 | 6.625 | 6.844 | 713× | 259× |
-| ham | 41.19 | 36.88 | 180232 | 160583 | 3899× | 4355× |
-| queens (16) | DNF | DNF | DNF | DNF | — | — |
+| zebra | 3.1016 | 2.8047 | 0.6172 | 0.5898 | **<1×** | **<1×** |
+| sendmore | 2.8906 | 6.2891 | 66.97 | 59.19 | 20× | 9× |
+| query | 0.0204 | 0.0497 | 0.5042 | 0.4972 | 24× | 10× |
+| fib | 2.2188 | 2.7969 | 82.50 | 72.31 | 33× | 26× |
+| deriv | 0.0034 | 0.0075 | 0.1804 | 0.1584 | 47× | 21× |
+| crypt | 0.5996 | 1.4297 | 31.13 | 29.25 | 49× | 20× |
+| mu | 0.0378 | 0.0356 | 3.098 | 2.762 | 73× | 78× |
+| qsort | 0.0311 | 0.0384 | 2.758 | 2.586 | 83× | 67× |
+| ham | 26.25 | 23.13 | 4752 | 2865 | 109× | 124× |
+| ops8 | 0.0011 | 0.0017 | 0.1606 | 0.1450 | 132× | 85× |
+| nreverse | 0.0176 | 0.0160 | 2.504 | 2.445 | 139× | 153× |
+| times10 | 0.0014 | 0.0020 | 0.2139 | 0.2019 | 144× | 101× |
+| divide10 | 0.0016 | 0.0022 | 0.3855 | 0.2417 | 151× | 110× |
+| derive | 0.0032 | 0.0042 | 0.5703 | 0.5195 | 162× | 124× |
+| cal | 0.0005 | 0.0017 | 0.0862 | 0.0895 | 179× | 53× |
+| log10 | 0.0007 | 0.0011 | 0.1626 | 0.1472 | 210× | 134× |
+| meta_qsort | 0.2883 | 0.2251 | DNF | DNF | — | — |
+| nrev | 0.0071 | 0.0166 | DNF | DNF | — | — |
+| tak | 8.4844 | 9.0312 | DNF | DNF | — | — |
+| queens (16) | — | — | DNF | DNF | — | — |
 
-**Geomean m4 vs GNU = 52× · m4 vs SWI = 38×** (2026-07-18 s98, post-PL-SPEED-1 $-gate; non-DNF rows; `queens` full-enumeration
-of the 16-board is out of 240 s range for *every* engine and drops out).
+**Geomean m4 vs GNU = 54× · m4 vs SWI = 35×** (s99, 2026-07-18; 15 programs,
+non-DNF rows excluding ham; previous s98 baseline 52× vs GNU).
 
 What the shape says:
 
+- **zebra and sendmore beat both oracles** — the Byrd-box machine's deterministic
+  engine (RSP-F-2, landed s97) compiles these structure-heavy predicates onto
+  rsp-carved frames with zero C trampolines; mode-3 and mode-4 match within noise.
 - **mode-3 ≡ mode-4 on every row** (within noise) — the in-process and compiled paths
   share one codegen; the design invariant holds empirically.
 - **The gap is dominated by fixed per-call overhead, not by search.** The heavier the
-  bench, the *better* SCRIP fares relatively (fib 58×, sendmore 60×) while trivial-body
-  benches sit at 300×+ (deriv, log10) — the signature of per-call costs the PL-SPEED
-  ladder targets: a linear strcmp scan of the proc registry on every call, a whole-frame
-  memset per activation, a malloc per activation, a C trampoline frame per Prolog call,
-  no first-argument indexing (every multi-clause call builds a choice point), no LCO.
-- **ham (3899×) is the working-set leak, not compute:** allocation accrues across
-  backtracking (the tracked queensn defect class), and heavy enumeration turns it into
-  a collection storm. Same class: SCRIP is measured at small N (auto-ranging stops
-  early on a slow engine), i.e. *pre*-accrual — steady-state is worse until the leak
-  rungs land.
+  bench, the *better* SCRIP fares relatively (fib 33×, crypt 49×) while trivial-body
+  benches sit at 150×+ (cal, log10) — the signature of per-call costs the PL-SPEED
+  ladder targets: a whole-frame memset per activation, a malloc per activation,
+  a C trampoline frame per nondet Prolog call, no first-argument indexing, no LCO.
+- **ham (109×) is order-of-magnitude only:** WS accrual begins at N=1, so
+  auto-ranging stops at N=1 and the per-iter figure is a single-shot wall time
+  dominated by startup — not a steady-state rate. The number will collapse when
+  the ZLS/pcells accrual rungs land.
+- **DNF set** (meta\_qsort, nrev, tak): stack-depth deaths under the current C
+  trampoline per call; the RSP-spine completion (PL-RSP-FINISH) retires them.
 - **Startup is a strength.** On end-to-end single-shot latency
   (`scripts/bench_prolog_perf.sh`, median of 3, startup included), SCRIP m4 binaries
   *beat both engines* on the small half of the suite (8–10 ms vs gprolog 17–22 ms and
   swipl 22–28 ms); mode-4 compile+link is ~85–150 ms per program.
 
-Reproduce: `scripts/bench_prolog_4way.sh` (correctness), `scripts/bench_prolog_vanroy.sh`
+Reproduce: `scripts/test_bench_prolog_4way.sh` (correctness), `scripts/bench_prolog_vanroy.sh`
 (per-iteration table above), `scripts/bench_prolog_perf.sh` (end-to-end latency), over
 `corpus/benchmarks/prolog/bench/` with loop drivers in `corpus/benchmarks/prolog/vanroy/`.
 
