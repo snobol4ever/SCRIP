@@ -14,6 +14,9 @@ int  bb_slot_get(IR_t * nd);
 int  bb_varslot_peek(const char * name);
 int  is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
+DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t rt_pl_dop_trail_mark(DESCR_t *, int); DESCR_t rt_pl_dop_trail_unwind(DESCR_t *, int); DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_add(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sub(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mul(DESCR_t *, int); DESCR_t rt_pl_dop_ax_div(DESCR_t *, int); DESCR_t rt_pl_dop_ax_idiv(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mod(DESCR_t *, int);
+DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_le(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ge(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_eq(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ne(DESCR_t *, int);
 int64_t rt_gvar_get_int(const char * name);
 extern int g_gva_active;
 int gva_index_of(const char * name);
@@ -258,6 +261,23 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
+    static const struct { const char * nm; int ar; const char * sy; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
+        { "$unify", 2, "rt_pl_dop_unify", rt_pl_dop_unify }, { "$mkc", -1, "rt_pl_dop_mkc", rt_pl_dop_mkc }, { "$trail_mark", 0, "rt_pl_dop_trail_mark", rt_pl_dop_trail_mark },
+        { "$trail_unwind", 1, "rt_pl_dop_trail_unwind", rt_pl_dop_trail_unwind }, { "$unwind_nothrow", 1, "rt_pl_dop_unwind_nothrow", rt_pl_dop_unwind_nothrow }, { "$is_v", 2, "rt_pl_dop_is_v", rt_pl_dop_is_v },
+        { "$ax_add", 2, "rt_pl_dop_ax_add", rt_pl_dop_ax_add }, { "$ax_sub", 2, "rt_pl_dop_ax_sub", rt_pl_dop_ax_sub }, { "$ax_mul", 2, "rt_pl_dop_ax_mul", rt_pl_dop_ax_mul },
+        { "$ax_div", 2, "rt_pl_dop_ax_div", rt_pl_dop_ax_div }, { "$ax_idiv", 2, "rt_pl_dop_ax_idiv", rt_pl_dop_ax_idiv }, { "$ax_mod", 2, "rt_pl_dop_ax_mod", rt_pl_dop_ax_mod },
+        { "$cmp_lt", 2, "rt_pl_dop_cmp_lt", rt_pl_dop_cmp_lt }, { "$cmp_gt", 2, "rt_pl_dop_cmp_gt", rt_pl_dop_cmp_gt }, { "$cmp_le", 2, "rt_pl_dop_cmp_le", rt_pl_dop_cmp_le },
+        { "$cmp_ge", 2, "rt_pl_dop_cmp_ge", rt_pl_dop_cmp_ge }, { "$cmp_eq", 2, "rt_pl_dop_cmp_eq", rt_pl_dop_cmp_eq }, { "$cmp_ne", 2, "rt_pl_dop_cmp_ne", rt_pl_dop_cmp_ne },
+        { 0, 0, 0, 0 } };
+    for (int i = 0; t[i].nm; i++) if (!strcmp(fn, t[i].nm) && (t[i].ar < 0 ? narg >= 1 : narg == t[i].ar)) {
+        const char * nd = getenv("SCRIP_NO_DOP"); if (nd && nd[0] == '1') return (void *)0;
+        const char * sk = getenv("SCRIP_DOP_SKIP"); if (sk && sk[0] && strstr(sk, t[i].nm + 1)) return (void *)0;
+        *sym = t[i].sy; return (void *)(uintptr_t)t[i].fp;
+    }
+    return (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
@@ -273,14 +293,22 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
     for (int i = 0; i < (int)narg; i++)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
-    s += x86("directive", ".section .rodata")
-       + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
-       + x86("directive", ".section .text")
-       + x86("directive", ".intel_syntax noprefix");
-    s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
-    s += x86("lea", "rsi", FRQ(argbase));
-    s += x86("mov32", "edx", (long)narg);
-    s += x86("call", "rt_call_arr", fptr);
+    const char * dsym = 0; void * dfp = dop_direct_fp(fn, narg, &dsym);
+    if (dfp) {
+        s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf: ") + dsym + " (no by-name dispatch)").c_str());
+        s += x86("lea", "rdi", FRQ(argbase));
+        s += x86("mov32", "esi", (long)narg);
+        s += x86("call", dsym, (uint64_t)(uintptr_t)dfp);
+    } else {
+        s += x86("directive", ".section .rodata")
+           + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
+           + x86("directive", ".section .text")
+           + x86("directive", ".intel_syntax noprefix");
+        s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
+        s += x86("lea", "rsi", FRQ(argbase));
+        s += x86("mov32", "edx", (long)narg);
+        s += x86("call", "rt_call_arr", fptr);
+    }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
     s += x86("cmp", "eax", (long)99);
