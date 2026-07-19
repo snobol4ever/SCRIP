@@ -563,6 +563,22 @@ sub_decl
           tree_t *body=$7;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
+    | KW_MULTI IDENT '(' param_list ')' sub_body
+        { ExprList *params=$4; int np=params?params->count:0;
+          const char *mname=rk_multi_mangle($2,params);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=$6;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free($2); $$=e; }
+    | KW_MULTI IDENT '(' ')' sub_body
+        { const char *mname=rk_multi_mangle($2,NULL);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          tree_t *body=$5;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free($2); $$=e; }
     ;
 sub_body
     : '{' stmt_list '}'          { $$=make_seq($2); }
