@@ -3951,17 +3951,15 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = FAILDESCR; return 1;
     }
-    if (!strcmp(fn,"proc") && nargs == 2) {
+    if (!strcmp(fn,"proc") && (nargs == 2 || nargs == 1)) {
         const char *pname = VARVAL_fn(args[0]);
-        int arity = (int)to_int(args[1]);
+        int arity = (nargs >= 2) ? (int)to_int(args[1]) : -1;
         if (!pname) { *out = FAILDESCR; return 1; }
         for (int i = 0; i < g_stage2.proc_count; i++) {
             if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, pname) == 0) {
                 if (arity < 0 || g_stage2.proc_table[i].nparams == arity || g_stage2.proc_table[i].nparams <= 0) {
-                    DESCR_t pv; pv.v = DT_E;
-                    pv.slen = (uint32_t)(arity >= 0 ? arity : 0);
-                    pv.i    = g_stage2.proc_table[i].entry_pc;
-                    *out = pv; return 1;
+                    extern DESCR_t rt_proc_value(const char *);
+                    *out = rt_proc_value(g_stage2.proc_table[i].name); return 1;
                 }
             }
         }
@@ -3971,7 +3969,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         { static const char *op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===", 0 };
           static const char *op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
-          const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1) ? op1 : 0;
+          const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
           if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1; } }
         *out = FAILDESCR; return 1;
     }
