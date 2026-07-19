@@ -887,6 +887,64 @@ static void pl_ensure_call_bridge(int nparams) { if (nparams >= 1 && nparams <= 
 static void pl_det_compute(void);
 static int pl_det_key_is_det(const char * key);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_pl_disj_ctr = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dj_collect_vars(const tree_t * t, int * idx, int * n, int max) {
+    if (!t) return;
+    if (t->t == TT_VAR) { int v = (int) t->v.ival; for (int i = 0; i < *n; i++) if (idx[i] == v) return; if (*n < max) idx[(*n)++] = v; return; }
+    for (int i = 0; i < t->n; i++) dj_collect_vars(t->c[i], idx, n, max);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dj_has_cut(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_CUT) return 1;
+    for (int i = 0; i < t->n; i++) if (dj_has_cut(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dj_is_plain(const tree_t * t) {
+    return t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ";") && t->n == 2 && !(t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * dj_mkvar(int idx) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = idx; return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dj_expand_node(tree_t * t) {
+    if (!t || t->t != TT_FNC || !t->v.sval) return 0;
+    const char * f = t->v.sval;
+    if (dj_is_plain(t) && !dj_has_cut(t)) {
+        const tree_t * branches[64]; int nb = 0; { const tree_t * d = t; while (dj_is_plain(d) && nb < 63) { branches[nb++] = d->c[0]; d = d->c[1]; } branches[nb++] = d; }
+        int idx[128]; int ni = 0; dj_collect_vars(t, idx, &ni, 128);
+        char nm[32]; snprintf(nm, sizeof nm, "$disj%d", g_pl_disj_ctr++);
+        tree_t * choice = ast_node_new(TT_CHOICE);
+        for (int b = 0; b < nb; b++) { tree_t * cl = ast_node_new(TT_CLAUSE); cl->v.dval = (double) ni; for (int i = 0; i < ni; i++) ast_push(cl, dj_mkvar(idx[i])); ast_push(cl, (tree_t *) branches[b]); ast_push(choice, cl); }
+        char key[48]; snprintf(key, sizeof key, "%s/%d", nm, ni); resolve_pred_table_insert(&g_stage2.resolve_pred_table, strdup(key), choice);
+        tree_t * call = ast_node_new(TT_FNC); for (int i = 0; i < ni; i++) ast_push(call, dj_mkvar(idx[i]));
+        t->v.sval = strdup(nm); t->c = call->c; t->n = call->n;
+        return 1;
+    }
+    if ((!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->")) && t->n == 2) { int a = dj_expand_node(t->c[0]); int b = dj_expand_node(t->c[1]); return a || b; }
+    if ((!strcmp(f, "\\+") || !strcmp(f, "not") || !strcmp(f, "once") || !strcmp(f, "ignore") || !strcmp(f, "call")) && t->n >= 1) return dj_expand_node(t->c[0]);
+    if ((!strcmp(f, "findall") || !strcmp(f, "aggregate_all")) && t->n == 3) return dj_expand_node(t->c[1]);
+    if (!strcmp(f, "forall") && t->n == 2) { int a = dj_expand_node(t->c[0]); int b = dj_expand_node(t->c[1]); return a || b; }
+    if (!strcmp(f, "catch") && t->n == 3) { int a = dj_expand_node(t->c[0]); int b = dj_expand_node(t->c[2]); return a || b; }
+    if (!strcmp(f, "setup_call_cleanup") && t->n == 3) { int a = dj_expand_node(t->c[0]); int b = dj_expand_node(t->c[1]); int c = dj_expand_node(t->c[2]); return a || b || c; }
+    if (!strcmp(f, "^") && t->n == 2) return dj_expand_node(t->c[1]);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_expand_disjunctions(void) {
+    int changed = 1; int guard = 0;
+    while (changed && guard++ < 4096) {
+        changed = 0;
+        for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++)
+            for (Resolve_PredEntry * pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
+                tree_t * ch = (tree_t *) pe->choice; if (!ch) continue;
+                if (ch->t == TT_CLAUSE) { for (int i = (int) ch->v.dval; i < ch->n; i++) if (dj_expand_node(ch->c[i])) changed = 1; }
+                else if (ch->t == TT_CHOICE) { for (int k = 0; k < ch->n; k++) { tree_t * cl = ch->c[k]; if (cl && cl->t == TT_CLAUSE) for (int i = (int) cl->v.dval; i < cl->n; i++) if (dj_expand_node(cl->c[i])) changed = 1; } }
+            }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void lower_pl_register_all_preds(void) {
     pl_det_compute();
     for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++) {
@@ -1182,6 +1240,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             g_stage2.proc_table[pi].nparams  = 0;
         }
     }
+    pl_expand_disjunctions();
     lower_pl_register_all_preds();
     pl_det_classify_all();
     return &g_stage2;
