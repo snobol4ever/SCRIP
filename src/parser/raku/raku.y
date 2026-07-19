@@ -227,7 +227,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> stmt expr atom range_expr cmp_expr tern_expr jct_expr add_expr closure
 %type <node> mul_expr unary_expr postfix_expr call_expr block
 %type <node> repl_expr addsub_expr
-%type <node> if_stmt while_stmt for_stmt sub_decl given_stmt
+%type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body
 %type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl role_decl
 %type <node> pair_list
 %type <sval> is_clauses
@@ -402,6 +402,7 @@ stmt
         { tree_t *c=ast_node_new(TT_HASH_DELETE);
           ast_push(c,var_node($2)); ast_push(c,$4); $$=c; }
     | expr ';' { $$=$1; }
+    | ';' { $$=make_seq(exprlist_new()); }
     | if_stmt           { $$=$1; }
     | while_stmt        { $$=$1; }
     | for_stmt          { $$=$1; }
@@ -497,7 +498,7 @@ when_list
           $$=$1; }
     ;
 sub_decl
-    : KW_SUB IDENT '(' param_list ')' block
+    : KW_SUB IDENT '(' param_list ')' sub_body
         { ExprList *params=$4; int np=params?params->count:0;
           tree_t *e=leaf_sval(TT_SUB_DECL,$2); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($2); expr_add_child(e,nn);
@@ -505,13 +506,19 @@ sub_decl
           tree_t *body=$6;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
-    | KW_SUB IDENT '(' ')' block
+    | KW_SUB IDENT '(' ')' sub_body
         { tree_t *e=leaf_sval(TT_SUB_DECL,$2); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($2); expr_add_child(e,nn);
           tree_t *body=$5;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
-    | KW_MY KW_SUB IDENT '(' param_list ')' block
+    | KW_SUB IDENT sub_body
+        { tree_t *e=leaf_sval(TT_SUB_DECL,$2); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($2); expr_add_child(e,nn);
+          tree_t *body=$3;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          $$=e; }
+    | KW_MY KW_SUB IDENT '(' param_list ')' sub_body
         { ExprList *params=$5; int np=params?params->count:0;
           tree_t *e=leaf_sval(TT_SUB_DECL,$3); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($3); expr_add_child(e,nn);
@@ -519,13 +526,19 @@ sub_decl
           tree_t *body=$7;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
-    | KW_MY KW_SUB IDENT '(' ')' block
+    | KW_MY KW_SUB IDENT '(' ')' sub_body
         { tree_t *e=leaf_sval(TT_SUB_DECL,$3); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($3); expr_add_child(e,nn);
           tree_t *body=$6;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
-    | KW_MULTI KW_SUB IDENT '(' param_list ')' block
+    | KW_MY KW_SUB IDENT sub_body
+        { tree_t *e=leaf_sval(TT_SUB_DECL,$3); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($3); expr_add_child(e,nn);
+          tree_t *body=$4;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          $$=e; }
+    | KW_MULTI KW_SUB IDENT '(' param_list ')' sub_body
         { ExprList *params=$5; int np=params?params->count:0;
           const char *mname=rk_multi_mangle($3,params);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
@@ -534,14 +547,14 @@ sub_decl
           tree_t *body=$7;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
-    | KW_MULTI KW_SUB IDENT '(' ')' block
+    | KW_MULTI KW_SUB IDENT '(' ')' sub_body
         { const char *mname=rk_multi_mangle($3,NULL);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           tree_t *body=$6;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
-    | KW_MULTI KW_SUB OP_NAME '(' param_list ')' block
+    | KW_MULTI KW_SUB OP_NAME '(' param_list ')' sub_body
         { ExprList *params=$5; int np=params?params->count:0;
           const char *mname=rk_multi_mangle($3,params);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
@@ -550,6 +563,12 @@ sub_decl
           tree_t *body=$7;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
+    ;
+sub_body
+    : '{' stmt_list '}'          { $$=make_seq($2); }
+    | '{' stmt_list expr '}'
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
+          ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
     ;
 class_decl
     : KW_CLASS IDENT is_clauses '{' class_body_list '}'

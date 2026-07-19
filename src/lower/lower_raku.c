@@ -84,6 +84,7 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         const tree_t * s = t->c[i];
         if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
         if (s && s->t == TT_CATCH) continue;
+        if (s && (s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
         IR_t * gs = succ, * gw = ω;
         if (cx->try_catch) {
             IR_t * pγ = build(cx, IR_CALL, cx->try_catch, succ); IR_LIT(pγ).sval = "exc_check";
@@ -857,6 +858,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
             if (!s) continue;
             if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
             if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL || s->t == TT_ROLE_DECL || s->t == TT_GRAMMAR_DECL) continue;
+            if ((s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, fail, &r);
             if (e) { entry = e; sentry = e; }
         }
