@@ -1,6 +1,6 @@
 # RAKU-COVERAGE.md — computed by scripts/raku_roast_scoreboard.sh
 
-**Generated:** 2026-07-18T00:14:07Z · scrip `99fe3c97` · roast `b2cbe8a`
+**Generated:** 2026-07-19T14:57:43Z · scrip `f1d1cead` · roast `b2cbe8a`
 
 This table is the ONLY sanctioned source of a Raku coverage claim (RAKU-100 ladder,
 COMPLETION DEFINITION). Prose estimates are superseded by whatever this prints.
@@ -9,11 +9,11 @@ COMPLETION DEFINITION). Prose estimates are superseded by whatever this prints.
 
 | Verdict | Files | % of in-tier |
 |---------|-------|--------------|
-| **PASS** | 2 | **0.2%** |
-| FAIL (runs, some `not ok`) | 0 | 0.0% |
-| PARSE-FAIL | 936 | 94.9% |
+| **PASS** | 3 | **0.3%** |
+| FAIL (runs, some `not ok`) | 5 | 0.5% |
+| PARSE-FAIL | 935 | 94.8% |
 | NO-TAP (ran, emitted no TAP) | 2 | 0.2% |
-| CRASH / TIMEOUT | 5 | 0.5% |
+| CRASH / TIMEOUT | 0 | 0.0% |
 | missing from roast tree | 41 | — |
 | **IN-TIER DENOMINATOR** | **986** | 100% |
 
@@ -87,7 +87,7 @@ COMPLETION DEFINITION). Prose estimates are superseded by whatever this prints.
 | S12-subset | 0 | 2 | 0.0% |
 | S13-overloading | 0 | 3 | 0.0% |
 | S13-type-casting | 0 | 1 | 0.0% |
-| S14-roles | 0 | 17 | 0.0% |
+| S14-roles | 1 | 17 | 5.9% |
 | S14-traits | 0 | 2 | 0.0% |
 | S16-filehandles | 0 | 10 | 0.0% |
 | S16-io | 0 | 16 | 0.0% |

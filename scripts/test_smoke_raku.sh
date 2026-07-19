@@ -1871,6 +1871,46 @@ EOF
 raku "printparen_three" "123" << 'EOF'
 print(1,2,3);
 EOF
+raku "sub_noparen_body" "42" << 'EOF'
+sub t { return 42; }
+say t();
+EOF
+raku "sub_noparen_params" "7" << 'EOF'
+sub add($a,$b) { return $a + $b; }
+say add(3,4);
+EOF
+raku "sub_implicit_return" "42" << 'EOF'
+sub t() { 42 }
+say t();
+EOF
+raku "sub_implicit_return_noparen" "7" << 'EOF'
+sub add($a,$b) { $a + $b }
+say add(3,4);
+EOF
+raku "sub_implicit_return_multistmt" "10" << 'EOF'
+sub gen { my $x = 5; $x * 2 }
+say gen();
+EOF
+raku "sub_implicit_return_expr" "20" << 'EOF'
+sub sq($n) { $n * $n }
+say sq(4) + 4;
+EOF
+raku "my_sub_noparen" "10" << 'EOF'
+my sub inc($n) { $n + 1 }
+say inc(9);
+EOF
+raku "sub_trailing_semi" "5" << 'EOF'
+sub five() { return 5; };
+say five();
+EOF
+raku "empty_statement" "$(printf '1\n2')" << 'EOF'
+say 1;;
+say 2;
+EOF
+raku "sub_implicit_string_return" "hi" << 'EOF'
+sub greet() { "hi" }
+say greet();
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
