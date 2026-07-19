@@ -7,6 +7,7 @@ extern "C" {
 }
 #define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 extern "C" void rt_jmp_frame_lexprep(void *, long);   /* NCB-1d: det-lexical jmp-entry prologue tail — NULVCL fill + rt_frame_bind_args on the self-allocated frame (rt.c) */
+extern "C" void rt_jmp_frame_lexprep2(void *, long, long);   /* PL-REGAIN-4: lazy-seed tail — NULVCL slot0 + [suffix,region) only, box grants first-write-wins, SCRIP_ZLS_POISON=1 poison lane inside (rt.c) */
 extern "C" void rt_main_args_fetch(void);   /* ICNBENCH-ARGS-RSP: returns the staged main(args) DESCR in rax:rdx (true return type is DESCR_t; declared void here — the template only takes its ADDRESS, the emitted call site honors the real ABI) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
@@ -156,11 +157,23 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 int kt = g_emit.flat_frame_bytes;
                 if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat: jmp-entry K_total=%d (must be 16-mult >= 48: 32B wire header + region)\n", kt); abort(); }
                 if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 BINARY twin: header above the frame.  REG-7 U5 (Lon FORTH ruling): pat blobs now take THIS arm too — rbp pinned at base, cells ride the one rsp stream; the legacy zr arm below serves non-RSP builds only */
-                    std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                     /* sub rsp, K_total */
-                                  + bytes(4, "\x48\x89\x8C\x24") + u32le((uint32_t)(kt - 24))          /* mov [rsp + kt-24], rcx — outside-γ wire */
-                                  + bytes(4, "\x48\x89\x94\x24") + u32le((uint32_t)(kt - 16))          /* mov [rsp + kt-16], rdx — outside-ω wire */
-                                  + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(kt - 8))           /* mov [rsp + kt-8], rbp — REG-7 U2: caller rbp saved in the TOP header pad (kt-8 picked over kt-32 to keep the pad adjacent to the region free; both were unused, FINDING s81 measurement 5) */
-                                  + bytes(3, "\x48\x89\xE5")                                            /* mov rbp, rsp — REG-7 U2 seed: rbp = this activation's flat base (mirror of the s79 pat-blob save/seed at [rsp+24]/zr; restored on BOTH exit edges in the epilogue arm) */
+                    std::string hdr = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                   /* sub rsp, K_total */
+                                    + bytes(4, "\x48\x89\x8C\x24") + u32le((uint32_t)(kt - 24))        /* mov [rsp + kt-24], rcx — outside-γ wire */
+                                    + bytes(4, "\x48\x89\x94\x24") + u32le((uint32_t)(kt - 16))        /* mov [rsp + kt-16], rdx — outside-ω wire */
+                                    + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(kt - 8))         /* mov [rsp + kt-8], rbp — REG-7 U2: caller rbp saved in the TOP header pad (kt-8 picked over kt-32 to keep the pad adjacent to the region free; both were unused, FINDING s81 measurement 5) */
+                                    + bytes(3, "\x48\x89\xE5");                                          /* mov rbp, rsp — REG-7 U2 seed: rbp = this activation's flat base (mirror of the s79 pat-blob save/seed at [rsp+24]/zr; restored on BOTH exit edges in the epilogue arm) */
+                    if (g_emit.flat_lex && g_emit.flat_seed_off >= 16) {   /* PL-REGAIN-4 lazy arm: NO rep stosb — rt_jmp_frame_lexprep2 seeds slot0 + [suffix,region) only; box grants first-write-wins (SCRIP_ZLS_POISON=1 lane lives inside the leaf) */
+                        std::string r = hdr
+                                      + xaf_anchor_enter_bin()
+                                      + bytes(3, "\x48\x89\xE7")                                          /* mov rdi, rsp — fb = the just-allocated region base (== rbp seed) */
+                                      + bytes(1, "\xBE") + u32le((uint32_t)g_emit.flat_seed_off)          /* mov esi, suffix_off — NULVCL seed starts here (resume slot / zeta-mark / locals) */
+                                      + bytes(1, "\xBA") + u32le((uint32_t)(kt - 32))                     /* mov edx, K_region — seed/bind stops below the header */
+                                      + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_jmp_frame_lexprep2)   /* movabs rax, rt_jmp_frame_lexprep2 — raw bytes, NOT x86_movabs_r64: this arm is the legacy raw-byte family, an L-record would corrupt the stream */
+                                      + bytes(2, "\xFF\xD0");                                             /* call rax — rsp = base ≡ 0 mod 16 here (caller jmps at ≡0, kt is a 16-mult), the SysV pre-call parity; clobbers only caller-saved regs, the wires+rbp are already in the header */
+                        out_site = 0; out_lbl = nullptr; out_def = false;
+                        return r;
+                    }
+                    std::string r = hdr
                                   + bytes(3, "\x48\x89\xE7")                                            /* mov rdi, rsp */
                                   + bytes(1, "\xB9") + u32le((uint32_t)(kt - 32))                         /* mov ecx, K_region — stosb stops below the header */
                                   + bytes(2, "\x31\xC0")
@@ -257,6 +270,15 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 (+ REG-7 U5: pat blobs unified onto this arm — Lon FORTH ruling): HEADER ABOVE THE FRAME — [E-32, E) holds the wires, frame = [base, E-32), rsp = base.  The old header-below layout put the wires
                      * directly under rsp, where the FIRST push (a HEAD cell, a callee's sub) clobbered them — recursive procs and any pattern inside a proc died exactly there.  Wires at
                      * [rsp + kt-24/-16]; the rep stosb count kt-32 stops below the header; the LIFO exits unwind the full kt.  Pat blobs fall through to the zr arms (zr = r12 for them). */
+                    if (g_emit.flat_lex && g_emit.flat_seed_off >= 16) {   /* PL-REGAIN-4 lazy arm (TEXT twin): NO rep stosb — rt_jmp_frame_lexprep2 seeds slot0 + [suffix,region) only; box grants first-write-wins (SCRIP_ZLS_POISON=1 lane lives inside the leaf) */
+                        char b2[640];
+                        snprintf(b2, sizeof b2,
+                            "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n",
+                            kt, kt - 24, kt - 16, kt - 8);
+                        char lx2[192];
+                        snprintf(lx2, sizeof lx2, "  mov rdi, rsp\n  mov esi, %d\n  mov edx, %d\n  call rt_jmp_frame_lexprep2@PLT\n", g_emit.flat_seed_off, kt - 32);   /* seed suffix + region; rsp = base ≡ 0 mod 16, the SysV pre-call parity */
+                        return banner + b2 + xaf_anchor_enter_text() + lx2;
+                    }
                     char b[640];
                     snprintf(b, sizeof b,
                         "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",

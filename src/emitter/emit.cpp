@@ -2098,9 +2098,14 @@ static void emit_chain_operand_refs(IR_t *entry) {
  * PAT$ patprocs, EVAL/CODE chains, ordinary procs — so the three gates below differ ONLY in which they admit. */
 static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     extern int zls_g_region(const IR_graph_t *);
+    extern int zls_g_resume(const IR_graph_t *);
+    extern int zls_g_zeta_mark(const IR_graph_t *);
     int rg = g ? zls_g_region(g) : -1;
-    if (rg <= 0) rg = 4096;
+    int so = g ? zls_g_resume(g) : -1;
+    if (so < 0 && g) so = zls_g_zeta_mark(g);
+    if (rg <= 0) { rg = 4096; so = -1; }
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
+    g_emit.flat_seed_off = (so >= 16 && so + 16 <= rg) ? so : 0;   /* PL-REGAIN-4: seed suffix start for the lazy lexprep2 prologue; 0 = fall back to full fill */
     return 1;
 }
 /* ZS-2 (Lon s58/s59): lower-synthetic PAT$N pattern procs are consumed ONLY through SNO$MKPAT → DT_P → the
@@ -2113,7 +2118,7 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
     g_emit.flat_pat = 1;   /* R12-ERAD s65: suspending blob — r12-island flavor */
     return emit_jmp_entry_arm_region(g);
 }
-extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; }
+extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; }
 /* PROC-CONV (R12-FREE ladder rung 2) + NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): ordinary procs arm the SAME jmp-entry regime.  DYN procs (SNOBOL4 DEFINE): args ride the name
  * dictionary, a self-allocated zeroed frame is correct.  DET LEXICAL procs (dyn_scope=0 — Icon/Raku): NCB-1d retires their call-regime trampoline — the blob self-allocates and its prologue calls
  * rt_jmp_frame_lexprep (NULVCL fill + rt_frame_bind_args from the staged g_call_args), so the caller-made-frame protocol is gone and flat_lex marks the graph for that prologue tail.  GENERATOR procs

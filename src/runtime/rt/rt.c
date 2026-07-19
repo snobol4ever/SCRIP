@@ -1256,6 +1256,64 @@ void *rt_proc_call_open_det(long idx, int nargs)
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FUSED DET OPEN FAMILY (PL-REGAIN-4, 2026-07-19) — staging folded INTO the det open: the site passes CALLER-FRAME CELL POINTERS (lea [rbp+slot]) and the leaf copies them into g_call_args, then runs
+ * the same guarded lex prologue as rt_proc_call_open_det.  ONE crossing replaces {rt_arg_stage × nargs + open_det}; g_call_args stays the arg MEDIUM (the REGAIN-1 slice-B residency decision — slab
+ * rehome vs register ABI — is untouched: only the number of crossings that feed it changes).  Guards precede every copy so a decline (bad idx / no body / dyn) is side-effect-free per the SCC arm's
+ * discipline; nargs > 4 keeps the classic stage chain at the site (no hot-path pred exceeds 4 today — tak/4 is the ceiling). */
+void *rt_proc_call_open_det0(long idx)
+{
+    if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
+    { rt_proc_t *p = &g_rt_gen_procs[idx];
+      if (!p->fn || p->dyn_scope) return (void *)0;
+      { int wn = rt_g_want_name; rt_g_want_name = 0;
+        (void)rt_proc_call_prologue_lex(p, 0, wn);
+        return (void *)p->fn; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_proc_call_open_det1(long idx, DESCR_t *a0)
+{
+    if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
+    { rt_proc_t *p = &g_rt_gen_procs[idx];
+      if (!p->fn || p->dyn_scope) return (void *)0;
+      g_call_args[0] = *a0;
+      { int wn = rt_g_want_name; rt_g_want_name = 0;
+        (void)rt_proc_call_prologue_lex(p, 1, wn);
+        return (void *)p->fn; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1)
+{
+    if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
+    { rt_proc_t *p = &g_rt_gen_procs[idx];
+      if (!p->fn || p->dyn_scope) return (void *)0;
+      g_call_args[0] = *a0; g_call_args[1] = *a1;
+      { int wn = rt_g_want_name; rt_g_want_name = 0;
+        (void)rt_proc_call_prologue_lex(p, 2, wn);
+        return (void *)p->fn; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2)
+{
+    if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
+    { rt_proc_t *p = &g_rt_gen_procs[idx];
+      if (!p->fn || p->dyn_scope) return (void *)0;
+      g_call_args[0] = *a0; g_call_args[1] = *a1; g_call_args[2] = *a2;
+      { int wn = rt_g_want_name; rt_g_want_name = 0;
+        (void)rt_proc_call_prologue_lex(p, 3, wn);
+        return (void *)p->fn; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DESCR_t *a3)
+{
+    if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
+    { rt_proc_t *p = &g_rt_gen_procs[idx];
+      if (!p->fn || p->dyn_scope) return (void *)0;
+      g_call_args[0] = *a0; g_call_args[1] = *a1; g_call_args[2] = *a2; g_call_args[3] = *a3;
+      { int wn = rt_g_want_name; rt_g_want_name = 0;
+        (void)rt_proc_call_prologue_lex(p, 4, wn);
+        return (void *)p->fn; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LEXPREP LEAF (NCB-1d) — the DET-LEXICAL jmp-entry prologue's tail call: the blob has just self-allocated and
  * zero-filled its region; for a lexical proc that region IS the frame, so overwrite with the lexical init
  * (NULVCL slots) and bind the staged args at [fb + 16*(i+1)] — exactly rt_frame_prep's lex arm minus the fn
@@ -1268,6 +1326,22 @@ void rt_jmp_frame_lexprep(void *fb, long region_bytes)
     if (!c->lex) return;
     c->fb = fb;
     { DESCR_t *zf = (DESCR_t *)fb; for (long zi = 0; zi < region_bytes / 16; zi++) zf[zi] = NULVCL; }
+    rt_frame_bind_args((char *)fb, c->p, c->nargs);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* LAZY LEXPREP LEAF (PL-REGAIN-4, 2026-07-19) — the one-call frame-init tail replacing {rep stosb zero-fill + rt_jmp_frame_lexprep's full NULVCL sweep} for DET-LEXICAL/GEN jmp-entry graphs.  zls_build's
+ * layout is [0,16) slot0 | [16,16+np*16) params | box grants | [suffix_off, region) = resume slot (if any) + zeta-mark + named locals.  Only slot0 and the suffix need the NULVCL seed before the body:
+ * params are covered by rt_frame_bind_args (staged args, NULVCL tail), and every box-grant slot is written by its producer before any consumer reads it (the four-port wiring).  Under SCRIP_ZLS_POISON=1
+ * the box-grant span is filled 0xA5 instead of being left as stack garbage, so a planted use-before-init diverges loudly; params inside the poisoned span are overwritten by the bind that follows. */
+void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
+{
+    if (g_pcall_top <= 0) return;
+    rt_pcall_t *c = &g_pcall[g_pcall_top - 1];
+    if (!c->lex) return;
+    c->fb = fb;
+    { static int zp = -1; if (zp < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); zp = e ? (atoi(e) != 0) : 0; } if (zp && suffix_off > 16) memset((char *)fb + 16, 0xA5, (size_t)(suffix_off - 16)); }
+    ((DESCR_t *)fb)[0] = NULVCL;
+    { DESCR_t *zf = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) zf[zi] = NULVCL; }
     rt_frame_bind_args((char *)fb, c->p, c->nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
