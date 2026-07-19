@@ -32,6 +32,7 @@ xchain0_n0_af:
 # IR_MATCH_BREAK
  xchain0_n1_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx4_0:
  mov eax, r14d
@@ -43,9 +44,7 @@ xchain0_n0_af:
 .Lx4_240:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S0]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  jnz .Lx4_1
  add dword ptr [rsp + 0], 1
  jmp .Lx4_0
@@ -63,6 +62,7 @@ xchain0_n0_af:
 # IR_MATCH_SPAN
  xchain0_n2_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx6_0:
  mov eax, r14d
@@ -71,9 +71,7 @@ xchain0_n0_af:
  jge .Lx6_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S0]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx6_1
  add dword ptr [rsp + 0], 1
  jmp .Lx6_0
@@ -478,7 +476,7 @@ main_α_body:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S1]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx34_2:
@@ -694,6 +692,24 @@ mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 .section .rodata
-.S0: .string "'-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-.S1: .string "WPAT"
+.S0: .string "WPAT"
+.text
+.section .rodata
+.C0:
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0
+ .byte 1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0
+ .byte 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+ .byte 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0
+ .byte 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+ .byte 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 .text

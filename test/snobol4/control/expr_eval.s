@@ -7506,6 +7506,7 @@ mov qword ptr [rbp + 48], rax
 # IR_MATCH_SPAN
  xchain344_n0_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx346_0:
  mov eax, r14d
@@ -7514,9 +7515,7 @@ mov qword ptr [rbp + 48], rax
  jge .Lx346_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S0]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx346_1
  add dword ptr [rsp + 0], 1
  jmp .Lx346_0
@@ -7608,9 +7607,8 @@ xchain347_n0_af:
  jge xchain347_n0_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S1]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C1]
+ cmp byte ptr [rdi+rsi], 0
  je xchain347_n0_af
  add r14d, 1
  jmp xchain347_n0_as
@@ -7662,7 +7660,7 @@ xchain347_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx353_2:
@@ -7710,9 +7708,8 @@ xchain347_n2_af:
  jge xchain347_n2_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C2]
+ cmp byte ptr [rdi+rsi], 0
  je xchain347_n2_af
  add r14d, 1
  jmp xchain347_n2_as
@@ -7721,7 +7718,7 @@ xchain347_n2_af:
  jmp xchain347_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain347_n5_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -7738,7 +7735,7 @@ xchain347_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx355_2:
@@ -7915,7 +7912,7 @@ xchain356_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx363_2:
@@ -7964,7 +7961,7 @@ xchain356_n2_af:
  jg xchain356_n1_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
+ lea rsi, [rip + .S2]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -8038,7 +8035,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx370_2:
@@ -8105,7 +8102,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx371_2:
@@ -8172,7 +8169,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx372_2:
@@ -8215,7 +8212,7 @@ xchain356_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain356_n10_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -8232,7 +8229,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx373_2:
@@ -8299,7 +8296,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx374_2:
@@ -8342,7 +8339,7 @@ xchain356_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain356_n12_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -8359,7 +8356,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx375_2:
@@ -8482,7 +8479,7 @@ xchain376_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S7]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx379_2:
@@ -8558,7 +8555,7 @@ xchain376_n2_af:
  jg xchain376_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S8]
+ lea rsi, [rip + .S5]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -8594,7 +8591,7 @@ xchain376_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S9]
+ lea rdi, [rip + .S6]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx384_2:
@@ -8643,7 +8640,7 @@ xchain376_n2_af:
  jg xchain376_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S10]
+ lea rsi, [rip + .S7]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -8693,6 +8690,7 @@ mov qword ptr [rbp + 48], rax
 # IR_MATCH_SPAN
  xchain387_n0_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx389_0:
  mov eax, r14d
@@ -8701,9 +8699,7 @@ mov qword ptr [rbp + 48], rax
  jge .Lx389_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S0]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx389_1
  add dword ptr [rsp + 0], 1
  jmp .Lx389_0
@@ -8795,9 +8791,8 @@ xchain390_n0_af:
  jge xchain390_n0_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S1]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C1]
+ cmp byte ptr [rdi+rsi], 0
  je xchain390_n0_af
  add r14d, 1
  jmp xchain390_n0_as
@@ -8849,7 +8844,7 @@ xchain390_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx396_2:
@@ -8897,9 +8892,8 @@ xchain390_n2_af:
  jge xchain390_n2_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C2]
+ cmp byte ptr [rdi+rsi], 0
  je xchain390_n2_af
  add r14d, 1
  jmp xchain390_n2_as
@@ -8908,7 +8902,7 @@ xchain390_n2_af:
  jmp xchain390_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain390_n5_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -8925,7 +8919,7 @@ xchain390_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx398_2:
@@ -9102,7 +9096,7 @@ xchain399_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx406_2:
@@ -9151,7 +9145,7 @@ xchain399_n2_af:
  jg xchain399_n1_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
+ lea rsi, [rip + .S2]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -9225,7 +9219,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx413_2:
@@ -9292,7 +9286,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx414_2:
@@ -9359,7 +9353,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx415_2:
@@ -9402,7 +9396,7 @@ xchain399_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain399_n10_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -9419,7 +9413,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx416_2:
@@ -9486,7 +9480,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx417_2:
@@ -9529,7 +9523,7 @@ xchain399_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain399_n12_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -9546,7 +9540,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx418_2:
@@ -9669,7 +9663,7 @@ xchain419_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S7]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx422_2:
@@ -9745,7 +9739,7 @@ xchain419_n2_af:
  jg xchain419_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S8]
+ lea rsi, [rip + .S5]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -9781,7 +9775,7 @@ xchain419_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S9]
+ lea rdi, [rip + .S6]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx427_2:
@@ -9830,7 +9824,7 @@ xchain419_n2_af:
  jg xchain419_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S10]
+ lea rsi, [rip + .S7]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -9880,6 +9874,7 @@ mov qword ptr [rbp + 48], rax
 # IR_MATCH_SPAN
  xchain430_n0_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx432_0:
  mov eax, r14d
@@ -9888,9 +9883,7 @@ mov qword ptr [rbp + 48], rax
  jge .Lx432_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S0]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx432_1
  add dword ptr [rsp + 0], 1
  jmp .Lx432_0
@@ -9982,9 +9975,8 @@ xchain433_n0_af:
  jge xchain433_n0_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S1]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C1]
+ cmp byte ptr [rdi+rsi], 0
  je xchain433_n0_af
  add r14d, 1
  jmp xchain433_n0_as
@@ -10036,7 +10028,7 @@ xchain433_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx439_2:
@@ -10084,9 +10076,8 @@ xchain433_n2_af:
  jge xchain433_n2_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C2]
+ cmp byte ptr [rdi+rsi], 0
  je xchain433_n2_af
  add r14d, 1
  jmp xchain433_n2_as
@@ -10095,7 +10086,7 @@ xchain433_n2_af:
  jmp xchain433_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain433_n5_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -10112,7 +10103,7 @@ xchain433_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx441_2:
@@ -10289,7 +10280,7 @@ xchain442_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx449_2:
@@ -10338,7 +10329,7 @@ xchain442_n2_af:
  jg xchain442_n1_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
+ lea rsi, [rip + .S2]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -10412,7 +10403,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx456_2:
@@ -10479,7 +10470,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx457_2:
@@ -10546,7 +10537,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx458_2:
@@ -10589,7 +10580,7 @@ xchain442_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain442_n10_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -10606,7 +10597,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx459_2:
@@ -10673,7 +10664,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx460_2:
@@ -10716,7 +10707,7 @@ xchain442_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain442_n12_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -10733,7 +10724,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx461_2:
@@ -10856,7 +10847,7 @@ xchain462_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S7]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx465_2:
@@ -10932,7 +10923,7 @@ xchain462_n2_af:
  jg xchain462_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S8]
+ lea rsi, [rip + .S5]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -10968,7 +10959,7 @@ xchain462_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S9]
+ lea rdi, [rip + .S6]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx470_2:
@@ -11017,7 +11008,7 @@ xchain462_n2_af:
  jg xchain462_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S10]
+ lea rsi, [rip + .S7]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -11067,6 +11058,7 @@ mov qword ptr [rbp + 48], rax
 # IR_MATCH_SPAN
  xchain473_n0_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx475_0:
  mov eax, r14d
@@ -11075,9 +11067,7 @@ mov qword ptr [rbp + 48], rax
  jge .Lx475_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S0]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx475_1
  add dword ptr [rsp + 0], 1
  jmp .Lx475_0
@@ -11169,9 +11159,8 @@ xchain476_n0_af:
  jge xchain476_n0_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S1]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C1]
+ cmp byte ptr [rdi+rsi], 0
  je xchain476_n0_af
  add r14d, 1
  jmp xchain476_n0_as
@@ -11223,7 +11212,7 @@ xchain476_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx482_2:
@@ -11271,9 +11260,8 @@ xchain476_n2_af:
  jge xchain476_n2_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C2]
+ cmp byte ptr [rdi+rsi], 0
  je xchain476_n2_af
  add r14d, 1
  jmp xchain476_n2_as
@@ -11282,7 +11270,7 @@ xchain476_n2_af:
  jmp xchain476_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain476_n5_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -11299,7 +11287,7 @@ xchain476_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx484_2:
@@ -11476,7 +11464,7 @@ xchain485_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx492_2:
@@ -11525,7 +11513,7 @@ xchain485_n2_af:
  jg xchain485_n1_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
+ lea rsi, [rip + .S2]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -11599,7 +11587,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx499_2:
@@ -11666,7 +11654,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx500_2:
@@ -11733,7 +11721,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx501_2:
@@ -11776,7 +11764,7 @@ xchain485_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain485_n10_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -11793,7 +11781,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx502_2:
@@ -11860,7 +11848,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx503_2:
@@ -11903,7 +11891,7 @@ xchain485_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain485_n12_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -11920,7 +11908,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx504_2:
@@ -12043,7 +12031,7 @@ xchain505_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S7]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx508_2:
@@ -12119,7 +12107,7 @@ xchain505_n2_af:
  jg xchain505_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S8]
+ lea rsi, [rip + .S5]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -12155,7 +12143,7 @@ xchain505_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S9]
+ lea rdi, [rip + .S6]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx513_2:
@@ -12204,7 +12192,7 @@ xchain505_n2_af:
  jg xchain505_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S10]
+ lea rsi, [rip + .S7]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -12254,6 +12242,7 @@ mov qword ptr [rbp + 48], rax
 # IR_MATCH_SPAN
  xchain516_n0_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx518_0:
  mov eax, r14d
@@ -12262,9 +12251,7 @@ mov qword ptr [rbp + 48], rax
  jge .Lx518_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S0]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx518_1
  add dword ptr [rsp + 0], 1
  jmp .Lx518_0
@@ -12356,9 +12343,8 @@ xchain519_n0_af:
  jge xchain519_n0_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S1]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C1]
+ cmp byte ptr [rdi+rsi], 0
  je xchain519_n0_af
  add r14d, 1
  jmp xchain519_n0_as
@@ -12410,7 +12396,7 @@ xchain519_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx525_2:
@@ -12458,9 +12444,8 @@ xchain519_n2_af:
  jge xchain519_n2_af
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ lea rdi, [rip + .C2]
+ cmp byte ptr [rdi+rsi], 0
  je xchain519_n2_af
  add r14d, 1
  jmp xchain519_n2_as
@@ -12469,7 +12454,7 @@ xchain519_n2_af:
  jmp xchain519_n2_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain519_n5_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -12486,7 +12471,7 @@ xchain519_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx527_2:
@@ -12663,7 +12648,7 @@ xchain528_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx535_2:
@@ -12712,7 +12697,7 @@ xchain528_n2_af:
  jg xchain528_n1_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
+ lea rsi, [rip + .S2]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -12786,7 +12771,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx542_2:
@@ -12853,7 +12838,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx543_2:
@@ -12920,7 +12905,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S2]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx544_2:
@@ -12963,7 +12948,7 @@ xchain528_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain528_n10_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -12980,7 +12965,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx545_2:
@@ -13047,7 +13032,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx546_2:
@@ -13090,7 +13075,7 @@ xchain528_n6_af:
  jmp qword ptr [rsp]
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain528_n12_α:
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_get_pat_fn@PLT
  test rax, rax
@@ -13107,7 +13092,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx547_2:
@@ -13230,7 +13215,7 @@ xchain548_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S7]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx551_2:
@@ -13306,7 +13291,7 @@ xchain548_n2_af:
  jg xchain548_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S8]
+ lea rsi, [rip + .S5]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -13342,7 +13327,7 @@ xchain548_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S9]
+ lea rdi, [rip + .S6]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx556_2:
@@ -13391,7 +13376,7 @@ xchain548_n2_af:
  jg xchain548_n2_af
  movsxd rcx, r14d
  lea rdi, [r13 + rcx]
- lea rsi, [rip + .S10]
+ lea rsi, [rip + .S7]
  mov edx, 1
  call memcmp@PLT
  test eax, eax
@@ -17162,7 +17147,7 @@ xchain559_n76_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S9]
+ lea rdi, [rip + .S6]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx659_2:
@@ -17388,15 +17373,65 @@ mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 .section .rodata
-.S0: .string "0123456789"
-.S1: .string "eEdD"
-.S2: .string "integer"
-.S3: .string "+-"
-.S4: .string "epsilon"
-.S5: .string "."
-.S6: .string "exponent"
-.S7: .string "constant"
-.S8: .string "("
-.S9: .string "expr"
-.S10: .string ")"
+.S0: .string "integer"
+.S1: .string "epsilon"
+.S2: .string "."
+.S3: .string "exponent"
+.S4: .string "constant"
+.S5: .string "("
+.S6: .string "expr"
+.S7: .string ")"
+.text
+.section .rodata
+.C0:
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+.C1:
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+.C2:
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 .text
