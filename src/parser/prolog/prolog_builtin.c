@@ -95,6 +95,10 @@ void pl_write(Term *t) {
                 printf("]");
                 break;
             }
+            if (t->compound.arity == 1 && fn && strcmp(fn, "{}") == 0) {
+                printf("{"); pl_write(t->compound.args[0]); printf("}");
+                break;
+            }
             struct { const char *name; int arity; int prec; int right_assoc; } ops[] = {
                 {":-",2,1200,1}, {";",2,1100,1}, {"->",2,1050,1},
                 {",",2,1000,1},
@@ -240,6 +244,9 @@ static void pl_writeq_term(Term *t) {
                 }
                 if (!(tail && tail->tag==TERM_ATOM && tail->atom_id==ATOM_NIL)) { printf("|"); pl_writeq_term(tail); }
                 printf("]"); break;
+            }
+            if (t->compound.arity == 1 && strcmp(fn, "{}") == 0) {
+                printf("{"); pl_writeq_term(t->compound.args[0]); printf("}"); break;
             }
             struct { const char *name; int arity; int prec; int right_assoc; } ops[] = {
                 {":-",2,1200,1},{";",2,1100,1},{"->",2,1050,1},{",",2,1000,1},
