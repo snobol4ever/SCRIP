@@ -781,7 +781,10 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         if (_vn && _vn[0] == '&') bb_emit_x86(bb_keyword_icon());
         else if (_vn && ((is_global(_vn) && !graph_has_local(g_emit_cfg, _vn)) || _vn_reassignable_builtin)) bb_emit_x86(bb_var_global());
         else bb_emit_x86(bb_var()); } return 0;
-    case IR_VAR_REF:              bb_emit_x86(bb_var_ref());        return 0;
+    case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval;
+        if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
+        else if (_rn) { int _vo = bb_varslot_peek(_rn); g_emit.op_sa = _vo; g_emit.op_gva_k = -1; }
+        bb_emit_x86(bb_var_ref()); } return 0;
     case IR_COERCE_STRING:        { bb_prepare(nd); bb_emit_x86(bb_coerce_string()); }  return 0;
     case IR_COERCE_INTEGER:       { bb_prepare(nd); bb_emit_x86(bb_coerce_integer()); } return 0;
     case IR_COERCE_NUMERIC:       { bb_prepare(nd); bb_emit_x86(bb_coerce_numeric()); } return 0;
