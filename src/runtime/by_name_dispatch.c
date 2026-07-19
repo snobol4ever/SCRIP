@@ -1220,6 +1220,35 @@ DESCR_t rt_pl_dop_unify(DESCR_t *args, int nargs) {
       g_plw_unwind_floor = fl;
       return out; }
 }
+/* CONST HEAD-UNIFY LEAVES (PL-REGAIN-5, 2026-07-19) — the emit-time-const side of a $unify rides in a REGISTER (imm64 / RO string ptr) instead of a marshaled DESCR pair: the site copies ONE operand and
+ * the leaf runs the hot arms inline — unbound→bind (cell content mirrors marshal_call_arg's operand exactly: {DT_I,0,imm} / {DT_S,0,s}), same-shape int compare, PLREF→fail (plw_unify_cells' either-PLREF
+ * arm: a compound never unifies with a const) — with plw_unify_vals as the VERBATIM fallback for every other shape (DT_R vs int, slen≠0 ints, bound-atom equality via rt_descr_equal), so outcomes are
+ * bit-identical by construction.  Nothrow rail discipline as rt_pl_dop_unify above (floor + gc safepoint, no setjmp — same throw-free audit). */
+DESCR_t rt_pl_dop_unify_ci(DESCR_t *args, long long imm) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    char *fl = g_plw_unwind_floor; DESCR_t out;
+    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    rt_gc_point_arr(args, 1, (const char **)0);
+    { DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
+      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; plw_bind(c, w); out = w; }
+      else if (c->v == DT_I && !c->slen) out = (c->i == imm) ? *c : FAILDESCR;
+      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
+      else { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; out = plw_unify_vals(args[0], w) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
+    g_plw_unwind_floor = fl;
+    return out;
+}
+DESCR_t rt_pl_dop_unify_cs(DESCR_t *args, const char *cs) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    char *fl = g_plw_unwind_floor; DESCR_t out;
+    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    rt_gc_point_arr(args, 1, (const char **)0);
+    { DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
+      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_S; w.slen = 0; w.s = cs; plw_bind(c, w); out = w; }
+      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
+      else { DESCR_t w; w.v = DT_S; w.slen = 0; w.s = cs; out = plw_unify_vals(args[0], w) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
+    g_plw_unwind_floor = fl;
+    return out;
+}
 DESCR_t rt_pl_dop_mkc(DESCR_t *args, int nargs) { return nargs >= 1 ? dop_call(dop_mkc, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_trail_mark(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
