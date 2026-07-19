@@ -1162,16 +1162,21 @@ static int dop_trail_unwind(DESCR_t *args, int nargs, DESCR_t *out) { (void)narg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *g_plw_unwind_floor = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
-    if (g_core_errjmp_n >= 64) { rt_gc_point_arr(args, nargs, (const char **)0); body(args, nargs, &out); return out; }
+    char *fl = g_plw_unwind_floor;
+    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    if (g_core_errjmp_n >= 64) { rt_gc_point_arr(args, nargs, (const char **)0); body(args, nargs, &out); g_plw_unwind_floor = fl; return out; }
     int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     rt_gc_point_arr(args, nargs, (const char **)0);
     body(args, nargs, &out);
     g_core_errjmp_n = my;
+    g_plw_unwind_floor = fl;
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3276,12 +3281,16 @@ DESCR_t rt_pl_call_gen(DESCR_t *args, int nargs, int64_t *resume) {
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs);
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
-    if (g_core_errjmp_n >= 64) return rt_call_arr_impl(fn, args, nargs);
+    extern char *g_plw_unwind_floor;
+    char *fl = g_plw_unwind_floor;
+    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs); g_plw_unwind_floor = fl; return r0; }
     int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     DESCR_t r = rt_call_arr_impl(fn, args, nargs);
     g_core_errjmp_n = my;
+    g_plw_unwind_floor = fl;
     return r;
 }
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {

@@ -73,6 +73,12 @@ PL_FILES=$(ls \
 # g_pl_copy_slot_ctr     copy_term/2 fresh-var PRINT-ID counter + its mode gate (unification.c). Same print-id class as
 # g_pl_copy_slot_mode    g_pl_functor_slot_ctr; the mode flag scopes id-assignment so sort/@< copy-walks leave ids untouched.
 #                        Two scalars, not a §10 stack. Added by PL-ISO-5 (cce2b25e); allowlisted 2026-07-13.
+# g_core_errjmp_stk      SHARED exception-longjmp infrastructure — 64-deep jmp_buf stack covering the whole runtime
+# g_core_errjmp_n        (arithmetic.c, by_name_dispatch.c). Defined in the core binary (scrip.c / core.c), NOT a
+#                        §10 Prolog-specific control stack; it is the language-neutral catch-frame used by every
+#                        frontend's error path (Icon, SNOBOL4, Prolog alike). Referenced via extern in arithmetic.c
+#                        (always was) and now also in the dop_call/rt_call_arr gateways (REGAIN-2 s102). Pre-existing
+#                        in the gate-scanned set via arithmetic.c; first made visible by the s102 floor-fix extern refs.
 SANCTIONED="
 g_resolve_trail
 g_pl_trail
@@ -98,6 +104,8 @@ g_pb_fresh_ctr
 g_pl_functor_slot_ctr
 g_pl_copy_slot_ctr
 g_pl_copy_slot_mode
+g_core_errjmp_stk
+g_core_errjmp_n
 "
 
 # ---- TIER 2: LEGACY-DOOMED — grandfathered, ratchet to zero (each IS a §10 NOT-NEEDED structure) -
