@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "lower.h"
 #include "emit.h"
-typedef struct { IR_graph_t * g; IR_t * tω; IR_t * beta; IR_t * cut_ω; } lcx_t;
+typedef struct { IR_graph_t * g; IR_t * tω; IR_t * beta; IR_t * cut_ω; IR_t * ite_funnel; } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
@@ -155,13 +155,15 @@ static IR_t * thread_goals(lcx_t * cx, const tree_t * blk, int from, int to, IR_
     IR_t ** gn = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** en = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** rz = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
+    IR_t ** fz = (IR_t **) calloc((ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t * next = γtail;
     for (int i = ng - 1; i >= 0; i--) {
         IR_t * e = NULL;
         cx->beta = NULL;
+        cx->ite_funnel = NULL;
         IR_t * ωeff = (cut_idx >= 0 && i > cut_idx) ? cx->cut_ω : ωbase;
         IR_t * nd = goal(cx, gl[i], next, ωeff, &e);
-        gn[i] = nd; en[i] = e ? e : nd; rz[i] = cx->beta;
+        gn[i] = nd; en[i] = e ? e : nd; rz[i] = cx->beta; fz[i] = cx->ite_funnel;
         next = en[i];
     }
     IR_t * last_res = ωbase; int last_res_beta = 0;
@@ -170,10 +172,11 @@ static IR_t * thread_goals(lcx_t * cx, const tree_t * blk, int from, int to, IR_
         if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else γ_to(gn[i], last_res); }
         else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else ω_to(gn[i], last_res);
+        if (fz[i]) { if (last_res_beta) lc_γ_to_β(fz[i], last_res); else γ_to(fz[i], last_res); }
         if (rz[i]) { last_res = rz[i]; last_res_beta = (rz[i]->op == IR_CALL || rz[i]->op == IR_CALL_PROC_STAGED); }
     }
     cx->beta = last_res_beta ? last_res : NULL;
-    free(rz);
+    free(rz); free(fz);
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
     IR_t * first = (ng > 0) ? gn[0] : NULL;
     if (conj_owner) {
@@ -254,12 +257,14 @@ static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * te = NULL; IR_t * ee = NULL; IR_t * ce = NULL;
-    IR_t * tn = thread1(cx, T, γnext, ωfail, &te);
-    IR_t * en = E ? thread1(cx, E, γnext, ωfail, &ee) : NULL;
-    IR_t * cω = E ? (ee ? ee : en) : ωfail;
+    IR_t * F = build(cx, IR_GOTO, ωfail, ωfail);
+    IR_t * tn = thread1(cx, T, γnext, F, &te);
+    IR_t * en = E ? thread1(cx, E, γnext, F, &ee) : NULL;
+    IR_t * cω = E ? (ee ? ee : en) : F;
     IR_t * cn = thread1(cx, C, (te ? te : tn), cω, &ce);
     if (entry_out) *entry_out = ce ? ce : cn;
     cx->beta = NULL;
+    cx->ite_funnel = F;
     return E ? (en ? en : cn) : cn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -372,6 +377,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("fail"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "forall") && t->n == 2) {
+            tree_t * inner = pl_synth_fnc2(",", t->c[0], pl_synth_fnc1("\\+", t->c[1]));
+            return goal(cx, pl_synth_fnc1("\\+", inner), γnext, ωfail, entry_out);
+        }
         if (!strcmp(nm, "setup_call_cleanup") && t->n == 3) {
             tree_t * ite = pl_synth_fnc2(";", pl_synth_fnc2("->", t->c[1], pl_synth_fnc1("once", t->c[2])), pl_synth_fnc2(",", pl_synth_fnc1("once", t->c[2]), pl_synth_qlit("fail")));
             tree_t * whole = pl_synth_fnc2(",", pl_synth_fnc1("once", t->c[0]), ite);
@@ -425,6 +434,22 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             lc_γ_to(a, call); lc_ω_to(a, ωfail);
             ir_operand_push(call, a);
             if (entry_out) *entry_out = ae ? ae : a;
+            return call;
+        }
+        if (!strcmp(nm, "put_char") && t->n == 1) {
+            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$put_char";
+            IR_t * ae = NULL; IR_t * a = term_e(cx, t->c[0], &ae);
+            lc_γ_to(a, call); lc_ω_to(a, ωfail);
+            ir_operand_push(call, a);
+            if (entry_out) *entry_out = ae ? ae : a;
+            return call;
+        }
+        if (!strcmp(nm, "tab") && t->n == 1) {
+            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$tab";
+            IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[0], ωfail, &ve);
+            lc_γ_to(v, call); lc_ω_to(v, ωfail);
+            ir_operand_push(call, v);
+            if (entry_out) *entry_out = ve ? ve : v;
             return call;
         }
         if (!strcmp(nm, "is") && t->n == 2) {
@@ -656,7 +681,7 @@ static void pl_bounded_dump(const IR_graph_t * g) {
 IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     IR_graph_t * g = IR_alloc(256);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     int arity = (int) clause->v.dval;
@@ -700,7 +725,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
     else return -1;
     if (arity < 0) arity = 0;
     IR_graph_t * g = IR_alloc(1024);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
@@ -829,7 +854,7 @@ static void pl_dyn_mark_prepass(void) {
 static int lower_pl_dyniter_graph(const char *name, int arity) {
     IR_graph_t *g = IR_alloc(64);
     if (!g) return -1;
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
@@ -853,7 +878,7 @@ static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm
     { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (resolve_bb_lookup(key, nparams)) return; }
     IR_graph_t * g = IR_alloc(64);
     if (!g) return;
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = nparams;
     g->pnames = (const char **) calloc((size_t) nparams, sizeof(const char *)); for (int i = 0; i < nparams; i++) g->pnames[i] = pl_param_name(i);
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);

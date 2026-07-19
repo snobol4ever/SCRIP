@@ -168,6 +168,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
     if (!strcmp(name, "$write")) return 1;
+    if (!strcmp(name, "$put_char") || !strcmp(name, "$tab")) return 1;
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
     if (!strcmp(name, "$format1") || !strcmp(name, "$format2") || !strcmp(name, "$copy_term")) return 1;
@@ -1453,6 +1454,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "$write") && nargs == 1) {
         DESCR_t v = rt_pl_deref_val(args[0]);
         out_write_descr(stdout, v, 0);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$put_char") && nargs == 1) {
+        DESCR_t v = rt_pl_deref_val(args[0]); const char *s = pl_atom_str(v);
+        if (!s || !s[0] || s[1]) { rt_pl_iso_throw_type("character", v); *out = FAILDESCR; return 1; }
+        fputc((unsigned char)s[0], stdout);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$tab") && nargs == 1) {
+        DESCR_t v = rt_pl_deref_val(args[0]); long n = IS_INT_fn(v) ? (long)v.i : (IS_REAL_fn(v) ? (long)v.r : 0);
+        for (long i = 0; i < n; i++) fputc(' ', stdout);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$findall_new") && nargs == 0) { *out = rt_findall_new(); return 1; }
@@ -3062,6 +3074,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "read", 1, "$read" }, { "read_term", 2, "$read" },
         { "succ", 2, "$succ" }, { "plus", 3, "$plus" }, { "atom_length", 2, "$atom_length" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" },
         { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "write", 1, "$write" },
+        { "put_char", 1, "$put_char" }, { "tab", 1, "$tab" },
         { "op", 3, "$op" },
         { 0, 0, 0 } };
     if (!nm) return (const char *)0;
