@@ -1753,6 +1753,50 @@ raku "ternary_nested_right" "3" << 'EOF'
 my $g = "C"; say $g eq "A" ?? 1 !! $g eq "B" ?? 2 !! 3;
 EOF
 
+raku "xrep_basic" "ababab" << 'EOF'
+say "ab" x 3;
+EOF
+raku "xrep_fill" "-----" << 'EOF'
+say "-" x 5;
+EOF
+raku "xrep_vars" "yoyoyoyo" << 'EOF'
+my $s = "yo"; my $n = 4; say $s x $n;
+EOF
+raku "xrep_zero_empty" "[]" << 'EOF'
+say "[" ~ ("z" x 0) ~ "]";
+EOF
+raku "xrep_neg_empty" "[]" << 'EOF'
+say "[" ~ ("q" x -2) ~ "]";
+EOF
+raku "xrep_tighter_than_concat" "abb" << 'EOF'
+say "a" ~ "b" x 2;
+EOF
+raku "xrep_concat_both_sides" "1xxx2" << 'EOF'
+say 1 ~ "x" x 3 ~ 2;
+EOF
+raku "xrep_looser_than_add" "55" << 'EOF'
+say 2 + 3 x 2;
+EOF
+raku "xrep_numeric_left" "77" << 'EOF'
+say 7 x 2;
+EOF
+
+raku "xxrep_array_str" "x x x" << 'EOF'
+my @a = "x" xx 3; say @a;
+EOF
+raku "xxrep_array_elems" "3" << 'EOF'
+my @a = "ab" xx 3; say @a.elems;
+EOF
+raku "xxrep_zeros" "0 0 0 0 0" << 'EOF'
+my @b = 0 xx 5; say @b;
+EOF
+raku "xxrep_var_count" "4" << 'EOF'
+my $n = 4; my @c = "yo" xx $n; say @c.elems;
+EOF
+raku "xxrep_zero_empty" "0" << 'EOF'
+my @d = "z" xx 0; say @d.elems;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

@@ -55,6 +55,24 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
     return STRVAL(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {
+    { extern void rt_gc_point_arr(DESCR_t *, int, const char **); DESCR_t sh[2]; sh[0] = s; sh[1] = n; rt_gc_point_arr(sh, 2, (const char **)0); s = sh[0]; n = sh[1]; }
+    if (IS_FAIL_fn(s) || IS_FAIL_fn(n)) return FAILDESCR;
+    extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
+    const char *sp;
+    if (s.v == DT_DATA) sp = rk_obj_stringify(s, 0); else { DESCR_t sd = descr_to_str(s); sp = (sd.v == DT_S || sd.v == DT_SNUL) ? VARVAL_fn(sd) : NULL; }
+    if (!sp) sp = "";
+    long cnt = IS_INT_fn(n) ? (long)n.i : (IS_REAL_fn(n) ? (long)n.r : 0);
+    size_t sl = strlen(sp);
+    if (cnt < 1 || sl == 0) { char *e = rt_str_alloc(0); e[0] = '\0'; rt_sxt_note(e, 0); return STRVAL(e); }
+    size_t total = sl * (size_t)cnt;
+    char *buf = rt_str_alloc((long)total);
+    for (long k = 0; k < cnt; k++) memcpy(buf + (size_t)k * sl, sp, sl);
+    buf[total] = '\0';
+    rt_sxt_note(buf, (long)total);
+    return STRVAL(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *real_str(double r, char *buf, int bufsz) {
     for (int p = 15; p <= 17; p++) {
         snprintf(buf, bufsz, "%.*g", p, r);

@@ -13,6 +13,7 @@ typedef enum {
     BINOP_POW,
     BINOP_CUNION, BINOP_CDIFF, BINOP_CINTER,
     BINOP_EQV, BINOP_NEQV,
+    BINOP_XREP,
 } BinopKind;
 #ifndef EXPR_T_DEFINED
 #define EXPR_T_DEFINED

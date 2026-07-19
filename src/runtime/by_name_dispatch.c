@@ -215,6 +215,7 @@ int rt_builtin_is_known(const char *name)
         "__apply__",
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
+        "__rk_arr_xx",
         "__rk_hash",
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
@@ -1732,6 +1733,28 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
         char *buf = rt_ws_alloc(total + 1); size_t p = 0;
         for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
+        buf[p] = '\0';
+        *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_xx") && nargs == 2) {
+        char scratch[64];
+        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        long cnt = IS_INT_fn(args[1]) ? args[1].i : (IS_REAL_fn(args[1]) ? (long)args[1].r : 0);
+        if (cnt < 1) { char *e = rt_ws_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
+        const char **els = rt_ws_alloc((size_t)64 * sizeof(const char *));
+        size_t *lens = rt_ws_alloc((size_t)64 * sizeof(size_t));
+        int nel = 0, cap = 64;
+        const char *seg = cs;
+        for (;;) {
+            const char *nx = strchr(seg, SOH);
+            size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+            if (!nx) break;
+            seg = nx + 1;
+        }
+        size_t one = 0; for (int i = 0; i < nel; i++) one += lens[i] + 1;
+        size_t total = one * (size_t)cnt; char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        for (long r = 0; r < cnt; r++) for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
     }

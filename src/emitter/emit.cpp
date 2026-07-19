@@ -573,6 +573,7 @@ int binop_slot_kind(IR_t *nd) {
     int64_t op = nd ? IR_LIT(nd).ival : -1;
     if ((op >= BINOP_LT && op <= BINOP_NE) || (op >= BINOP_SLT && op <= BINOP_SNE) || op == BINOP_EQV || op == BINOP_NEQV) return BINOP_CAT_RELOP;
     if (op == BINOP_CONCAT)               return BINOP_CAT_CONCAT;
+    if (op == BINOP_XREP)                 return BINOP_CAT_XREP;
     if (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || op == BINOP_POW) return BINOP_CAT_ARITH;
     if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return BINOP_CAT_ARITH;
     return BINOP_CAT_ARITH;
@@ -753,6 +754,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
         switch (g_emit.op_binop_kind) {
         case BINOP_CAT_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
         case BINOP_CAT_CONCAT: bb_emit_x86(bb_binop_concat_slot()); return 0;
+        case BINOP_CAT_XREP:   bb_emit_x86(bb_binop_xrep_slot());   return 0;
         case BINOP_CAT_ARITH:
         default:              bb_emit_x86(bb_binop_arith());       return 0;
         }

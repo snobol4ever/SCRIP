@@ -63,7 +63,7 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_binop(tree_e tt) {
-    switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_CAT: return 1; default: return 0; }
+    switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_CAT: case TT_XREP: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_relop(tree_e tt) {
