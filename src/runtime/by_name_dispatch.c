@@ -3609,6 +3609,13 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
     }
     if (!fn || !out) return 0;
+    { extern DatType *dat_find_type(const char *); extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
+      DatType *_udt = dat_find_type(fn);                           /* F3-a (treebank/claws5 s103): a user-registered DATA type's constructor OVERRIDES any same-named default builtin (Icon list() was claiming SNOBOL4 DATA('list(head,tail)') and failing on non-numeric args); precedence to the explicit registration is language-neutral */
+      if (_udt && nargs <= _udt->nfields) {
+          DESCR_t _fv[64]; int _nf = _udt->nfields > 64 ? 64 : _udt->nfields;
+          for (int _i = 0; _i < _nf; _i++) _fv[_i] = (_i < nargs) ? args[_i] : NULVCL;
+          *out = dat_construct(_udt, _fv, _nf); return 1;
+      } }
     { size_t _fl = strlen(fn);
       if (_fl >= 2 && _fl <= 7) { int _r = -1;
         switch (((unsigned)_fl << 8) | (unsigned char)fn[0]) {
