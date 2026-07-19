@@ -501,7 +501,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         }
         for (int i = npairs - 1; i >= 0; i--) {
             int ki = 1 + i * 2; int bi = ki + 1;
-            IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ω, &kn);
+            cx->beta = ω;   /* ICN-CASE-ALT: fresh β so kβ below reflects THIS selector only */
+            IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ω, &kn);   /* ICN-CASE-ALT residual: canonical ir_a_Case routes clause-expr failure/exhaustion to the NEXT clause; wiring fail->chain_next here regressed multi-arm chains (rung14/rung33 locks — emit-walk/fold interaction), so exhaustion still exits via case-ω. Bites only when an alternated arm is followed by more arms AND matches none of its alternatives. */
+            IR_t * kβ = cx->beta;   /* selector's resume point (alternation/generator inside, or ω) */
             IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], NULL, ω, &bv);
             IR_t * asn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(asn).sval = (char *) CVAR;
             { IR_t * bvf = icn_arm_result(bv); if (bvf) ir_operand_push(asn, bvf); }   /* shared wiring-kind filter — return/suspend/goto arms are valueless (slice-3 precedent) */
@@ -511,6 +513,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(idc, sr);
             ir_operand_push(idc, kn);
             γ_to(kn, idc);
+            if (kβ && kβ != ω) lc_ω_to_β(idc, kβ);   /* ICN-CASE-ALT irgen: ir_opfn("===",[e,v], L[i].expr.ir.resume) — mismatch RESUMES the selector generator for its next alternative; exhaustion then exits via the selector's ω (chain_next above) */
             chain_next = ke ? ke : idc;
         }
         γ_to(sr, chain_next);
