@@ -1938,6 +1938,47 @@ raku "method_noparen_scalar" "5" << 'EOF'
 my $s = "hello";
 say $s.chars;
 EOF
+# --- Method implicit final-expression return (Rakudo: a block's value is its last statement's value; method
+#     body is <blockoid>, same primitive as sub). `method sq($n) { $n * $n }` returns $n*$n with no `return`.
+raku "method_implicit_return" "36" << 'EOF'
+class C { method sq($n) { $n * $n } }
+my $o = C.new;
+say $o.sq(6);
+EOF
+raku "method_implicit_return_multistmt" "10" << 'EOF'
+class C { method calc($n) { my $t = $n + 1; $t * 2 } }
+my $o = C.new;
+say $o.calc(4);
+EOF
+# --- No-paren method signature `method greet { ... }` (canonical Grammar.nqp: the signature `( <signature> )`
+#     is optional). Explicit and implicit return both covered. ---
+raku "method_noparen_sig_explicit" "hi" << 'EOF'
+class C { method greet { return "hi"; } }
+my $o = C.new;
+say $o.greet();
+EOF
+raku "method_noparen_sig_implicit" "42" << 'EOF'
+class C { method answer { 42 } }
+my $o = C.new;
+say $o.answer();
+EOF
+# --- No-paren method CALL `$obj.meth` in expression position (Rakudo: postfix `.name` is a method call;
+#     resolves a user method, else falls back to a public-attribute accessor). ---
+raku "methcall_noparen_user" "42" << 'EOF'
+class C { method answer() { return 42; } }
+my $o = C.new;
+say $o.answer;
+EOF
+raku "methcall_noparen_attr_read" "9" << 'EOF'
+class P { has $.x; }
+my $p = P.new(x => 9);
+say $p.x;
+EOF
+raku "method_noparen_reads_attr" "7" << 'EOF'
+class Point { has $.x; has $.y; method sum { $!x + $!y } }
+my $p = Point.new(x => 3, y => 4);
+say $p.sum;
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
