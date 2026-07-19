@@ -80,12 +80,16 @@ extern "C" void *bb_compile_pat_tree(const void *tv) {
     ir_drive_slot_assign(g);
     IR_graph_t *saved_cfg = g_emit_cfg;
     int saved_fa = g_frame_active;
+    extern int g_gva_active;
+    int saved_gva = g_gva_active;
     g_emit_cfg = g;
     g_frame_active = 1;
+    g_gva_active = 0;
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = bb_jmp_entry_ktotal(g);
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
+    g_gva_active = saved_gva;
     return (void *)fn;
 }

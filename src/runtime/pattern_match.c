@@ -31,23 +31,36 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
         fprintf(stderr, "[B-RE] runtime pattern composition over an opaque compiled pattern (recipe-less DT_P) would mint the nested-blob-defer class (124/143/147) — refused, park until that class lands\n");
         abort();
     }
+    if (d.v == DT_X) { const char *nm = d.s ? d.s : ""; uint32_t nl = d.slen ? d.slen : (uint32_t)strlen(nm); char *pb = rt_str_alloc((int)nl + 1); pb[0] = '*'; memcpy(pb + 1, nm, nl); pb[nl + 1] = 0; return rcp_node(TT_DEFER, pb, nl + 1, 0, 0, 0); }
     if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
     if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
     if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); gcvt(d.r, 14, b); return rcp_lit(b, (uint32_t)strlen(b)); }
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
 }
 extern tree_t *ast_stmt_new(tree_e kind);
-static tree_t *dtp_rcp_tree(dtp_rcp_t *r) {
+static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
     tree_t *t = ast_stmt_new((tree_e)r->tt);
     switch (r->tt) {
     case TT_QLIT: t->v.sval = (char *)(r->s ? r->s : ""); break;
-    case TT_SEQ: case TT_ALT: ast_push(t, dtp_rcp_tree(r->l)); ast_push(t, dtp_rcp_tree(r->r)); break;
+    case TT_SEQ: case TT_ALT: ast_push(t, dtp_rcp_tree(r->l, self)); ast_push(t, dtp_rcp_tree(r->r, self)); break;
     case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: { tree_t *c = ast_stmt_new(TT_QLIT); c->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, c); break; }
     case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: { tree_t *c = ast_stmt_new(TT_ILIT); c->v.ival = r->ival; ast_push(t, c); break; }
-    case TT_ARBNO: ast_push(t, dtp_rcp_tree(r->l)); break;
-    case TT_FENCE: if (r->ival) ast_push(t, dtp_rcp_tree(r->l)); break;
-    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: { ast_push(t, dtp_rcp_tree(r->l)); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
+    case TT_ARBNO: {
+        static int arb_uid = 0; char nb[24]; snprintf(nb, sizeof nb, "ARB$%d", arb_uid++);
+        DESCR_t sub;
+        if (self.p && ((DTP_t *)self.p)->rcp == r) sub = self;
+        else { sub.v = DT_P; sub.slen = 0; sub.p = (void *)dtp_new((void *)0, r); }
+        NV_SET_fn(nb, sub);
+        if (sub.p != self.p) { extern void *dtp_fn_of(void *); dtp_fn_of(sub.p); }
+        t->t = TT_ALT;
+        { tree_t *nul = ast_stmt_new(TT_QLIT); nul->v.sval = (char *)""; ast_push(t, nul); }
+        { tree_t *sq = ast_stmt_new(TT_SEQ); ast_push(sq, dtp_rcp_tree(r->l, self));
+          tree_t *df = ast_stmt_new(TT_DEFER); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = rt_ws_strdup_c(nb); ast_push(df, v); ast_push(sq, df); ast_push(t, sq); }
+        break; }
+    case TT_DEFER: { tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
+    case TT_FENCE: if (r->ival) ast_push(t, dtp_rcp_tree(r->l, self)); break;
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: { ast_push(t, dtp_rcp_tree(r->l, self)); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
     default: break;
     }
     return t;
@@ -55,7 +68,7 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r) {
 void *dtp_fn_of(void *headv) {
     DTP_t *h = (DTP_t *)headv;
     if (!h) return (void *)0;
-    if (!h->fn && h->rcp) { extern void *bb_compile_pat_tree(const void *tv); h->fn = bb_compile_pat_tree((const void *)dtp_rcp_tree(h->rcp)); }
+    if (!h->fn && h->rcp) { extern void *bb_compile_pat_tree(const void *tv); DESCR_t sd; sd.v = DT_P; sd.slen = 0; sd.p = (void *)h; h->fn = bb_compile_pat_tree((const void *)dtp_rcp_tree(h->rcp, sd)); }
     return h->fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -168,6 +181,7 @@ DESCR_t pat_mk_cset(int tt, const char *cs) { DESCR_t v; v.v = DT_P; v.slen = 0;
 DESCR_t pat_mk_num(int tt, int64_t n) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, n, 0, 0)); return v; }
 DESCR_t pat_mk_nil(int tt) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, 0, 0, 0)); return v; }
 DESCR_t pat_mk_capt(int tt, const char *name, DESCR_t sub) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, rcp_of(sub), 0)); return v; }
+DESCR_t pat_defer(const char *name) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
     DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
@@ -853,12 +867,16 @@ static rt_dfx_t *rt_dfx_push(void) {
     rt_dfx_t *s = &g_dfx[g_dfx_top++]; s->val = NULVCL; s->failed = 0; s->dtx_used = 0; return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static struct { const char *nm; DESCR_t val; int valid; } g_star_peek;
 long rt_defer_open(const char *varname, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
     if (varname && !strcmp(varname, "FAIL")) { s->failed = 1; return 0; }
-    if (varname && varname[0] == '*') { long fb = rt_proc_call_open(varname + 1, 0); if (!fb) s->failed = 1; return fb; }
+    if (varname && varname[0] == '*') {
+        if (g_star_peek.valid && g_star_peek.nm && !strcmp(g_star_peek.nm, varname)) { g_star_peek.valid = 0; DESCR_t r = g_star_peek.val; if (IS_FAIL_fn(r)) { s->failed = 1; return 0; } if (r.v == DT_X && !s->dtx_used) { s->dtx_used = 1; long fb2 = rt_proc_call_open(r.s ? r.s : "", 0); if (!fb2) s->failed = 1; return fb2; } s->val = r; return 0; }
+        long fb = rt_proc_call_open(varname + 1, 0); if (!fb) s->failed = 1; return fb;
+    }
     DESCR_t val = NV_GET_fn(varname ? varname : "");
     if (ival_flag) {
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
@@ -924,7 +942,13 @@ int cset_has(const char *cv, int clen, unsigned char ch) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
 {
-    if (varname && varname[0] == '*') return NULL;
+    if (varname && varname[0] == '*') {
+        extern DESCR_t rt_call_proc_descr(const char *, int);
+        DESCR_t r = rt_call_proc_descr(varname + 1, 0);
+        if (r.v == DT_P && r.p) { g_star_peek.valid = 0; extern void *dtp_fn_of(void *); return dtp_fn_of(r.p); }
+        g_star_peek.nm = varname; g_star_peek.val = r; g_star_peek.valid = 1;
+        return NULL;
+    }
     DESCR_t val = NV_GET_fn(varname ? varname : "");
     if (ival_flag) {
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);

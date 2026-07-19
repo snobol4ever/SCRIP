@@ -273,6 +273,22 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         ir_operand_push(mk, kt); ir_operand_push(mk, nl); ir_operand_push(mk, vs);
         if (res) *res = mk; return kt;
     }
+    case TT_ARBNO: {
+        if (t->n < 1) sno_fatal("ARBNO with missing operand", NULL);
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PARB";
+        IR_t * vi = NULL; IR_t * ei = sx_lower(cx, t->c[0], NULL, ω, &vi);
+        lc_γ_to(vi, mk);
+        ir_operand_push(mk, vi);
+        if (res) *res = mk; return ei;
+    }
+    case TT_FENCE: {
+        if (t->n == 0) { IR_t * mk0 = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk0).sval = (char *) "SNO$PB0"; IR_t * kt0 = lc_build(cx->g, IR_LIT_INTEGER, mk0, ω); IR_LIT(kt0).ival = (int64_t) TT_FENCE; ir_operand_push(mk0, kt0); if (res) *res = mk0; return kt0; }
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PFEN";
+        IR_t * vi = NULL; IR_t * ei = sx_lower(cx, t->c[0], NULL, ω, &vi);
+        lc_γ_to(vi, mk);
+        ir_operand_push(mk, vi);
+        if (res) *res = mk; return ei;
+    }
     case TT_ALT: {
         if (t->n < 2) sno_fatal("alternation with missing operand", NULL);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBALT";
