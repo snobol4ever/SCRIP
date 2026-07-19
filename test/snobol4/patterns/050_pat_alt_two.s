@@ -193,11 +193,14 @@ xchain0_n7_af:
  cmp eax, r15d
  jg xchain0_n7_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S1]
- mov edx, 3
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 99
+ jne xchain0_n7_af
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 97
+ jne xchain0_n7_af
+ movzx eax, byte ptr [r13+rcx+2]
+ cmp eax, 116
  jne xchain0_n7_af
  add r14d, 3
  jmp xchain0_n7_s0
@@ -211,11 +214,14 @@ xchain0_n7_af:
  cmp eax, r15d
  jg xchain0_n7_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 3
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 100
+ jne xchain0_n7_af
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 111
+ jne xchain0_n7_af
+ movzx eax, byte ptr [r13+rcx+2]
+ cmp eax, 103
  jne xchain0_n7_af
  add r14d, 3
  jmp xchain0_n7_s1
@@ -309,6 +315,4 @@ add rsp, 65544
 ret
 .section .rodata
 .S0: .string "V"
-.S1: .string "cat"
-.S2: .string "dog"
 .text

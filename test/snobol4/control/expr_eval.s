@@ -7960,11 +7960,8 @@ xchain356_n2_af:
  cmp eax, r15d
  jg xchain356_n1_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 46
  jne xchain356_n1_af
  add r14d, 1
  jmp xchain356_n1_as
@@ -8102,7 +8099,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx371_2:
@@ -8296,7 +8293,7 @@ xchain356_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx374_2:
@@ -8479,7 +8476,7 @@ xchain376_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx379_2:
@@ -8554,11 +8551,8 @@ xchain376_n2_af:
  cmp eax, r15d
  jg xchain376_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 40
  jne xchain376_n2_af
  add r14d, 1
  jmp xchain376_n2_as
@@ -8591,7 +8585,7 @@ xchain376_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx384_2:
@@ -8639,11 +8633,8 @@ xchain376_n2_af:
  cmp eax, r15d
  jg xchain376_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S7]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 41
  jne xchain376_n2_af
  add r14d, 1
  jmp xchain376_n2_as
@@ -9144,11 +9135,8 @@ xchain399_n2_af:
  cmp eax, r15d
  jg xchain399_n1_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 46
  jne xchain399_n1_af
  add r14d, 1
  jmp xchain399_n1_as
@@ -9286,7 +9274,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx414_2:
@@ -9480,7 +9468,7 @@ xchain399_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx417_2:
@@ -9663,7 +9651,7 @@ xchain419_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx422_2:
@@ -9738,11 +9726,8 @@ xchain419_n2_af:
  cmp eax, r15d
  jg xchain419_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 40
  jne xchain419_n2_af
  add r14d, 1
  jmp xchain419_n2_as
@@ -9775,7 +9760,7 @@ xchain419_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx427_2:
@@ -9823,11 +9808,8 @@ xchain419_n2_af:
  cmp eax, r15d
  jg xchain419_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S7]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 41
  jne xchain419_n2_af
  add r14d, 1
  jmp xchain419_n2_as
@@ -10328,11 +10310,8 @@ xchain442_n2_af:
  cmp eax, r15d
  jg xchain442_n1_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 46
  jne xchain442_n1_af
  add r14d, 1
  jmp xchain442_n1_as
@@ -10470,7 +10449,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx457_2:
@@ -10664,7 +10643,7 @@ xchain442_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx460_2:
@@ -10847,7 +10826,7 @@ xchain462_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx465_2:
@@ -10922,11 +10901,8 @@ xchain462_n2_af:
  cmp eax, r15d
  jg xchain462_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 40
  jne xchain462_n2_af
  add r14d, 1
  jmp xchain462_n2_as
@@ -10959,7 +10935,7 @@ xchain462_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx470_2:
@@ -11007,11 +10983,8 @@ xchain462_n2_af:
  cmp eax, r15d
  jg xchain462_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S7]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 41
  jne xchain462_n2_af
  add r14d, 1
  jmp xchain462_n2_as
@@ -11512,11 +11485,8 @@ xchain485_n2_af:
  cmp eax, r15d
  jg xchain485_n1_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 46
  jne xchain485_n1_af
  add r14d, 1
  jmp xchain485_n1_as
@@ -11654,7 +11624,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx500_2:
@@ -11848,7 +11818,7 @@ xchain485_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx503_2:
@@ -12031,7 +12001,7 @@ xchain505_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx508_2:
@@ -12106,11 +12076,8 @@ xchain505_n2_af:
  cmp eax, r15d
  jg xchain505_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 40
  jne xchain505_n2_af
  add r14d, 1
  jmp xchain505_n2_as
@@ -12143,7 +12110,7 @@ xchain505_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx513_2:
@@ -12191,11 +12158,8 @@ xchain505_n2_af:
  cmp eax, r15d
  jg xchain505_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S7]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 41
  jne xchain505_n2_af
  add r14d, 1
  jmp xchain505_n2_as
@@ -12696,11 +12660,8 @@ xchain528_n2_af:
  cmp eax, r15d
  jg xchain528_n1_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 46
  jne xchain528_n1_af
  add r14d, 1
  jmp xchain528_n1_as
@@ -12838,7 +12799,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx543_2:
@@ -13032,7 +12993,7 @@ xchain528_n6_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx546_2:
@@ -13215,7 +13176,7 @@ xchain548_n0_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx551_2:
@@ -13290,11 +13251,8 @@ xchain548_n2_af:
  cmp eax, r15d
  jg xchain548_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S5]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 40
  jne xchain548_n2_af
  add r14d, 1
  jmp xchain548_n2_as
@@ -13327,7 +13285,7 @@ xchain548_n2_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx556_2:
@@ -13375,11 +13333,8 @@ xchain548_n2_af:
  cmp eax, r15d
  jg xchain548_n2_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S7]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 41
  jne xchain548_n2_af
  add r14d, 1
  jmp xchain548_n2_as
@@ -17147,7 +17102,7 @@ xchain559_n76_af:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S6]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx659_2:
@@ -17375,12 +17330,9 @@ ret
 .section .rodata
 .S0: .string "integer"
 .S1: .string "epsilon"
-.S2: .string "."
-.S3: .string "exponent"
-.S4: .string "constant"
-.S5: .string "("
-.S6: .string "expr"
-.S7: .string ")"
+.S2: .string "exponent"
+.S3: .string "constant"
+.S4: .string "expr"
 .text
 .section .rodata
 .C0:

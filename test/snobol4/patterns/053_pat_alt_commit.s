@@ -58,11 +58,8 @@ xchain0_n0_af:
  cmp eax, r15d
  jg xchain0_n0_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S0]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 97
  jne xchain0_n0_af
  add r14d, 1
  jmp xchain0_n0_s0
@@ -76,11 +73,8 @@ xchain0_n0_af:
  cmp eax, r15d
  jg xchain0_n0_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S1]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 98
  jne xchain0_n0_af
  add r14d, 1
  jmp xchain0_n0_s1
@@ -94,11 +88,8 @@ xchain0_n0_af:
  cmp eax, r15d
  jg xchain0_n0_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 99
  jne xchain0_n0_af
  add r14d, 1
  jmp xchain0_n0_s2
@@ -348,7 +339,7 @@ main_α_body:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S0]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx23_2:
@@ -393,7 +384,7 @@ main_α_body:
  xchain9_n11_α:
  lea rdi, [rbp + 336]
  call rt_cap_top@PLT
- lea rcx, [rip + .S4]
+ lea rcx, [rip + .S1]
  mov qword ptr [r12 + 0], rcx
  mov esi, eax
  mov qword ptr [r12 + 8], rsi
@@ -487,9 +478,6 @@ mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 .section .rodata
-.S0: .string "a"
-.S1: .string "b"
-.S2: .string "c"
-.S3: .string "P"
-.S4: .string "V"
+.S0: .string "P"
+.S1: .string "V"
 .text

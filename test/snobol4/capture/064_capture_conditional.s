@@ -110,11 +110,20 @@ main_α_body:
  cmp eax, r15d
  jg xchain0_n3_β
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S0]
- mov edx, 5
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 104
+ jne xchain0_n3_β
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 101
+ jne xchain0_n3_β
+ movzx eax, byte ptr [r13+rcx+2]
+ cmp eax, 108
+ jne xchain0_n3_β
+ movzx eax, byte ptr [r13+rcx+3]
+ cmp eax, 108
+ jne xchain0_n3_β
+ movzx eax, byte ptr [r13+rcx+4]
+ cmp eax, 111
  jne xchain0_n3_β
  add r14d, 5
  jmp xchain0_n5_α
@@ -205,6 +214,3 @@ xor edx, edx
 mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
-.section .rodata
-.S0: .string "hello"
-.text

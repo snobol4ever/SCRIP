@@ -131,11 +131,11 @@ xchain0_n0_af:
  cmp eax, r15d
  jg xchain0_n8_β
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 2
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 32
+ jne xchain0_n8_β
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 58
  jne xchain0_n8_β
  add r14d, 2
  jmp xchain0_n10_α
@@ -184,7 +184,7 @@ xchain0_n0_af:
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n13_α:
  mov eax, dword ptr [rsp + 16]
- lea rcx, [rip + .S3]
+ lea rcx, [rip + .S2]
  mov qword ptr [r12 + 0], rcx
  mov esi, eax
  mov qword ptr [r12 + 8], rsi
@@ -459,7 +459,7 @@ main_α_body:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx37_2:
@@ -658,7 +658,6 @@ ret
 .section .rodata
 .S0: .string "WHEN"
 .S1: .string "WHO"
-.S2: .string " :"
-.S3: .string "WHAT"
-.S4: .string "PAT"
+.S2: .string "WHAT"
+.S3: .string "PAT"
 .text

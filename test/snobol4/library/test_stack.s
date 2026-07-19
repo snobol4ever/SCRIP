@@ -959,11 +959,8 @@ xchain0_n51_af:
  cmp eax, r15d
  jg xchain0_n55_β
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S1]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 32
  jne xchain0_n55_β
  add r14d, 1
  jmp xchain0_n57_α
@@ -981,7 +978,7 @@ xchain0_n51_af:
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n58_α:
  mov eax, dword ptr [rsp + 16]
- lea rcx, [rip + .S2]
+ lea rcx, [rip + .S1]
  mov qword ptr [r12 + 0], rcx
  mov esi, eax
  mov qword ptr [r12 + 8], rsi
@@ -1212,8 +1209,7 @@ add rsp, 65544
 ret
 .section .rodata
 .S0: .string "w1"
-.S1: .string " "
-.S2: .string "w2"
+.S1: .string "w2"
 .text
 .section .rodata
 .C0:

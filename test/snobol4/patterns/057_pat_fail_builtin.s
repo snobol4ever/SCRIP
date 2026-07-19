@@ -194,11 +194,14 @@ xchain0_n5_af:
  cmp eax, r15d
  jg xchain0_n5_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S0]
- mov edx, 3
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 97
+ jne xchain0_n5_af
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 98
+ jne xchain0_n5_af
+ movzx eax, byte ptr [r13+rcx+2]
+ cmp eax, 99
  jne xchain0_n5_af
  add r14d, 3
  jmp xchain0_n9_α
@@ -255,6 +258,3 @@ xor edx, edx
 mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
-.section .rodata
-.S0: .string "abc"
-.text
