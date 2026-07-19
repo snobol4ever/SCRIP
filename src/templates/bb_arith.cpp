@@ -13,8 +13,7 @@ std::string bb_arith() {
          + x86("comment", "IR_ARITH")
          + IF(_.bb_lk < 0,
               x86_gamma()
-            + x86_beta()
-            + x86_omega())
+            + x86_beta_trampoline())
          + IF(!(_.bb_lk < 0),
               x86("mov", "edi", (long)_.bb_lk)
             + x86("mov", "esi", (long)_.bb_li)
@@ -29,6 +28,5 @@ std::string bb_arith() {
             + x86("call", "rt_arith", (uint64_t)(uintptr_t)(void*)rt_arith)
             + x86("add", "rsp", (long)8)
             + x86_gamma()
-            + x86_beta()
-            + x86_omega()));
+            + x86_beta_trampoline()));
 }

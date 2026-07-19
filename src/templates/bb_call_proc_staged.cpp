@@ -21,6 +21,15 @@ int  rt_proc_is_generator(const char *name);
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 int  rt_proc_is_registered(const char *name);
+long rt_proc_call_open_slim(const char *name, int np, int nargs);
+DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result);
+DESCR_t rt_proc_call_epilogue_slim_ω(void);
+int  rt_proc_nparams(const char *name);
+const char *rt_proc_pname(const char *name, int k);
+const char *rt_proc_result_name_get(const char *name);
+int  scc_program_ok(void);
+int  gva_index_of(const char *name);
+extern int g_gva_active;
 int  bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 }
@@ -105,9 +114,69 @@ static std::string bcps_det_arm() {
      * The rt table is populated before any emission in both media, so this is emit-time-static.  Congruence with the callee side: emit_jmp_entry_for_proc admits exactly the !is_generator procs, and this
      * det arm is dispatched exactly on !rt_proc_is_generator — one truth source (scrip.c rt_proc_set_generator from proc_table). */
     int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
+    /* BP-7 SCC — STATIC SAVE-SET CALL CONVENTION (GOAL-SNOBOL4-BB BP-7).  Emit-time eligibility: literal target, registered dyn-scope table proc, every save-set name (formals+locals per the DEFINE
+     * prototype, plus the result name unless shadowed by a formal) GVA-resident, nargs within the prototype, program free of OPSYN/UNLOAD (scc_program_ok), hatch SCRIP_SCC_OFF unset.  The arm saves
+     * the old cell values inline (GVA absolute -> an rsp block below the anchor), calls the open_slim leaf (guards re-checked with ZERO side effects before commit -- a decline falls through L(5) into
+     * the classic sequence verbatim), installs the staged-slot args inline (rsp-load compensated by the block size while the bump is live), and jmps the wire; the L(6)/L(7) landings read the result
+     * from the result cell BEFORE restoring, restore the save-set in reverse, and close through the slim epilogue leaves.  Runtime residue (Sigma, pcall, wn/NRETURN, monitor, k_level, vtmark) stays
+     * in the slim leaves; rt_name_save_push/restore and rt_arg_stage vanish from this path.  ZC_FRAME_RSP only: the callee's LIFO exits land at the jmp's rsp, so the save block is live at both wires. */
+    long scc_fp_o; { long (*fp)(const char *, int, int) = rt_proc_call_open_slim; scc_fp_o = (long)(uint64_t)(uintptr_t)(void*)fp; }
+    long scc_fp_g; { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_slim_γ; scc_fp_g = (long)(uint64_t)(uintptr_t)(void*)fp; }
+    long scc_fp_w; { DESCR_t (*fp)(void) = rt_proc_call_epilogue_slim_ω; scc_fp_w = (long)(uint64_t)(uintptr_t)(void*)fp; }
+    int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
+    if (ZC_FRAME == ZC_FRAME_RSP && is_dyn && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok() && _.op_sval && rt_proc_is_registered(_.op_sval)) {
+        scc_np = rt_proc_nparams(_.op_sval); int nargs = (int)_.op_ival;
+        if (scc_np >= 0 && scc_np <= 60 && nargs <= scc_np) {
+            const char *rn = rt_proc_result_name_get(_.op_sval); int ok = rn ? 1 : 0, sh = 0;
+            for (int k = 0; ok && k < scc_np; k++) { const char *nm = rt_proc_pname(_.op_sval, k); int gk = nm ? gva_index_of(nm) : -1; if (gk < 0) ok = 0; else { scc_gk[scc_nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; } }
+            if (ok) { scc_res_gk = gva_index_of(rn); if (scc_res_gk < 0) ok = 0; else if (!sh) scc_gk[scc_nsave++] = scc_res_gk; }
+            if (ok) scc = 1;
+        }
+    }
+    long scc_sb = 16L * (long)scc_nsave;
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()
+         + (scc
+            ? x86("sub", "rsp", scc_sb)
+            + FOR(0, scc_nsave, [&](int k) {
+                  return x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                       + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+            + x86_ro_load_q("rdi", 0)
+            + x86("mov32", "esi", (long)scc_np)
+            + x86("mov32", "edx", (long)_.op_ival)
+            + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_o)
+            + x86("test", "rax", "rax")
+            + x86("je", L(5))
+            + FOR(0, (int)_.op_ival, [&](int i) {
+                  int slot = bcps_arg_slot(_.node, argblks, i);
+                  return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQ(slot)))
+                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16), "rax")
+                       + (x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQ(slot + 8)))
+                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })
+            + x86("call", "rt_proc_open_fn", openfn_fp)
+            + x86_lea_id("rcx", 6)
+            + x86_lea_id("rdx", 7)
+            + x86_jmp_reg("rax")
+            + x86("def", L(6))
+            + x86("mov", "rdi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
+            + x86("mov", "rsi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
+            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                  return x86_rsp_load64("rax", 16 * k) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                       + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+            + x86("add", "rsp", scc_sb)
+            + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
+            + x86("jmp", L(2))
+            + x86("def", L(7))
+            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                  return x86_rsp_load64("rax", 16 * k) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                       + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+            + x86("add", "rsp", scc_sb)
+            + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_w)
+            + x86("jmp", L(2))
+            + x86("def", L(5))
+            + x86("add", "rsp", scc_sb)
+            : std::string(""))
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);

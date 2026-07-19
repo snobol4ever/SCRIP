@@ -28,6 +28,5 @@ std::string bb_activate() {
              + x86("test", "rax", "rax")
              + x86_omega("je")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega());
+             + x86_beta_trampoline());
 }

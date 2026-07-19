@@ -451,6 +451,7 @@ typedef struct {
     int                          op_arbno_chain;   /* ZB-FC-4 (Lon s50 S14): 1 = this IR_MATCH_ARBNO uses the s32 LINKED FRAME CHAIN on rsp (per-iteration nodes pushed by beta, chained by prev-link, unwound at omega via the saved pre-alpha rsp) instead of the rt_zcol_push heap COLLECTION; set under ZC_PORT_FORTH only, so default is byte-identical */
     int                          x86_fc_synth;
     int                          op_selfload;
+    int                          op_beta_dead;     /* BP-9 DEAD-β ELISION: 1 = the flat-chain driver proved this det leaf's β label has ZERO inbound edges (wire scan mirrors the loop's β-tag routing); converted templates elide the β define + trampoline jmp via x86_beta_trampoline(); 0 = emit as always */
     int                          op_phase;
     int                          op_binop_kind;
     int                          op_gva_k;

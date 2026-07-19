@@ -21,6 +21,5 @@ std::string bb_initial() {
          + x86("test",  "rax", "rax")
          + x86_gamma("je")
          + x86_pair_jmp(0)
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

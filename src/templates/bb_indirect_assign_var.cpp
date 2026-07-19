@@ -15,7 +15,6 @@ std::string bb_indirect_assign_var() {
              + x86("lea",  "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_a_sval ? _.op_a_sval : ""), _.bb_rs)
              + x86("call", "rt_indirect_assign_var", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, const char *))rt_indirect_assign_var)
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     return std::string();
 }

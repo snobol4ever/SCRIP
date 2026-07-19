@@ -12,8 +12,7 @@ std::string bb_pattern_break() {
         return x86("comment", "IR_PATTERN_BREAK passthrough (chain entry; builder emitted via DTP_ASSIGN)")
              + x86_alpha()
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     static char bn[24];
     static char bc[24];
     strtab_label(bn, sizeof bn, _.bb_ls ? _.bb_ls : "");
@@ -26,8 +25,7 @@ std::string bb_pattern_break() {
          + x86("call", "bb_build_break_blob", (uint64_t)(uintptr_t)(void *)(void(*)(const char*,const char*))bb_build_break_blob)
          + x86_align_leave()
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_emit_pattern_break_call(void) { bb_emit_x86(bb_pattern_break()); }

@@ -22,8 +22,7 @@ std::string bb_cmp_test() {
                  + x86("mov",  FRQ(_.op_off),     (long)0)
                  + x86("mov",  FRQ(_.op_off + 8), (long)0)
                  + x86_gamma()
-                 + x86_beta()
-                 + x86_omega()
+                 + x86_beta_trampoline()
              : x86_bomb("bb_cmp_test: needs two coerced operand slots (op_sa/op_sb) + own value slot (op_off)");
     }
     return std::string();

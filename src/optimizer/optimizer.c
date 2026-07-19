@@ -11,6 +11,7 @@
 void optimizer_run(IR_graph_t *g) {
     { extern void region_report(IR_graph_t *); if (getenv("SCRIP_REGION_REPORT")) region_report(g); }
     if (!g) return;
+    { extern void scc_taint_graph(IR_graph_t *); scc_taint_graph(g); }
     const char *e = getenv("SCRIP_OPT");
     if (e && *e == '0') return;
     int t_cf = 0, t_cp = 0, t_pf = 0, t_dp = 0, t_bc = 0;

@@ -17,8 +17,7 @@ std::string bb_var() {
              + x86("mov",     "rax", FRQ(_.op_sa + 8))
              + x86("mov",     FRQ(_.op_off + 8), "rax")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega() :
+             + x86_beta_trampoline() :
                x86_bomb("bb_var: unhandled arm (no flat-chain mode or missing slot)");
     return std::string();
 }

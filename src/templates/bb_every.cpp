@@ -8,7 +8,6 @@ extern "C" {
 std::string bb_every() {
     if (PLATFORM_X86) return x86("comment", "IR_EVERY")
                            + x86_omega()
-                           + x86_beta()
-                           + x86_omega();
+                           + x86_beta_trampoline();
     return std::string();
 }

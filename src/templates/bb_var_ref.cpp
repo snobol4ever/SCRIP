@@ -22,7 +22,6 @@ std::string bb_var_ref() {
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     return std::string();
 }

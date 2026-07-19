@@ -28,8 +28,7 @@ std::string bb_subject() {
                + x86_align_leave()
                + x86("pop",     "r10")
                + x86_gamma()
-               + x86_beta()
-               + x86_omega() ) :
+               + x86_beta_trampoline() ) :
                !_.op_a_sval ? x86_alpha() + x86_bomb("IR_SUBJECT: non-literal subject (PB-RB ladder)") :
                ( strtab_label(lb, sizeof lb, _.op_a_sval ? _.op_a_sval : ""),
                  x86("comment", "IR_SUBJECT")
@@ -42,8 +41,7 @@ std::string bb_subject() {
                + x86_align_leave()
                + x86("pop",     "r10")
                + x86_gamma()
-               + x86_beta()
-               + x86_omega() );
+               + x86_beta_trampoline() );
     }
     return std::string();
 }

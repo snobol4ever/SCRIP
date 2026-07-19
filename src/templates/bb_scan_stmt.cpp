@@ -27,8 +27,7 @@ std::string bb_scan_stmt() {
              + x86("test",    "eax", "eax")
              + x86_omega("je")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     if (MEDIUM_TEXT && !(_.op_sval && _.op_sval[0]) && !_.op_scan_subj_lit)
         return x86_bomb("bb_scan: TEXT(mode-4) non-literal subject needs native PB-RB graph (pending)");
     if (MEDIUM_TEXT && (_.op_sval && _.op_sval[0] || _.op_scan_subj_lit) && _.op_ival && !_.op_scan_replace_lit)

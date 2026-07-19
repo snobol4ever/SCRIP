@@ -22,6 +22,5 @@ std::string bb_move_label() {
          + x86_lea_tgt("rax", X86T_TGT0)
          + x86("mov", FRQ(_.op_off + 16), "rax")
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

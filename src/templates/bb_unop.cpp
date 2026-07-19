@@ -35,8 +35,7 @@ std::string bb_unop() {
              + x86("mov", "rax", FRQ(_.op_sa + 8))
              + x86("mov", FRQ(_.op_off + 8), "rax")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega()) :
+             + x86_beta_trampoline()) :
                _.op_node_kind != IR_UNOP && _.op_node_kind != IR_UNOP_TEST ? std::string() :
                (int)_.op_ival != TT_MNS && (int)_.op_ival != TT_PLS && (int)_.op_ival != TT_SIZE
                    && (int)_.op_ival != TT_NONNULL && (int)_.op_ival != TT_NULL && (int)_.op_ival != TT_CSET_COMPL ? std::string() :
@@ -54,8 +53,7 @@ std::string bb_unop() {
              + x86("mov", "rax", FRQ(_.op_sa + 8))
              + x86("mov", FRQ(_.op_off + 8), "rax")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega() :
+             + x86_beta_trampoline() :
                (int)_.op_ival == TT_NULL ?
                x86("comment", "IR_UNOP")
              + x86_alpha()
@@ -67,8 +65,7 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off),     (long)0)
              + x86("mov", FRQ(_.op_off + 8), (long)0)
              + x86_gamma()
-             + x86_beta()
-             + x86_omega() :
+             + x86_beta_trampoline() :
                (int)_.op_ival == TT_CSET_COMPL ?
                x86("comment", "IR_UNOP")
              + x86_alpha()
@@ -78,8 +75,7 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega() :
+             + x86_beta_trampoline() :
                (int)_.op_ival == TT_SIZE ?
                x86("comment", "IR_UNOP")
              + x86_alpha()
@@ -89,8 +85,7 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega() :
+             + x86_beta_trampoline() :
                x86("comment", "IR_UNOP")
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
@@ -100,7 +95,6 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     return std::string();
 }

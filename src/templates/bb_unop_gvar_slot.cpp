@@ -24,8 +24,7 @@ std::string bb_unop_gvar_slot() {
                           + IF(_.op_ival == TT_MNS, x86("neg", "rax"))
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86_gamma()
-                          + x86_beta()
-                          + x86_omega())
+                          + x86_beta_trampoline())
                           + IF(!(_.op_off >= 0
                               && (_.op_ival == TT_MNS || _.op_ival == TT_PLS)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)),

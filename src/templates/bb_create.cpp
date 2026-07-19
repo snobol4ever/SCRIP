@@ -28,7 +28,6 @@ std::string bb_create() {
        + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
        + x86("mov",  "qword ptr [" + std::string(x86_zr()) + " + " + std::to_string(_.op_off) + "]", "rax")
        + x86_gamma()
-       + x86_beta()
-       + x86_omega();
+       + x86_beta_trampoline();
     return s;
 }
