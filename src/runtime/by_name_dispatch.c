@@ -4607,7 +4607,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
         *out = r; return 1;
     }
-    if (!strcmp(fn,"stop")) { exit(0); }
+    if (!strcmp(fn,"stop")) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(0); }   /* fmisc.r stop(): write args to &errout then exit (status kept 0 this session — rc-flip audited separately) */
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;

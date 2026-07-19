@@ -7,12 +7,12 @@ DESCR_t _builtin_print(DESCR_t *args, int nargs) {
     return NULVCL;
 }
 #define SC_DAT_MAX_FIELDS 64
-#define SC_DAT_MAX_TYPES  128
+#define SC_DAT_MAX_TYPES  1024   /* REC-REG-CAP: was 128 — silently dropped record types past the cap (jtran 17-module merge declares 415; u_pnull unresolved -> Error 5); 1024 + loud guard per the pair-array precedent */
 static DatType dat_types[SC_DAT_MAX_TYPES];
 static int       dat_ntypes = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_register(const char *spec) {
-    if (dat_ntypes >= SC_DAT_MAX_TYPES) return NULL;
+    if (dat_ntypes >= SC_DAT_MAX_TYPES) { fprintf(stderr, "[REC-REG-CAP] FATAL: record/type registry saturated (%d >= %d) registering '%s' -- constructors past the cap resolve as Error 5; raise SC_DAT_MAX_TYPES\n", dat_ntypes, SC_DAT_MAX_TYPES, spec ? spec : "?"); return NULL; }
     DatType *t = &dat_types[dat_ntypes];
     memset(t, 0, sizeof *t);
     const char *p = spec;

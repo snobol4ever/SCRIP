@@ -2141,6 +2141,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     emit_chain_operand_refs(entry);
     g_bb_slotmap_n = 0;
     g_flat_chain_set_n = 0;
+    { extern int g_scan_regs_live; g_scan_regs_live = 0; }   /* ICN-SCAN-SUSPEND-SYNC: scan regions are intragraph; without an emitted IR_SCAN leave box the flag leaked into later graphs, emitting sync brackets at non-scan call sites (r15.s main α garbage publish) */
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); return rc == 0 ? (bb_box_fn)1 : NULL; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
