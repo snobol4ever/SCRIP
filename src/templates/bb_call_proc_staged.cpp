@@ -5,6 +5,8 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 long    rt_proc_call_open(const char *name, int nargs);
+void   *rt_proc_call_open_det(long idx, int nargs);
+int     rt_proc_index_of(const char *name);
 void   *rt_proc_open_fn(void);
 void   *rt_frame_prep(void *fb, long fbytes);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
@@ -114,6 +116,8 @@ static std::string bcps_det_arm() {
      * The rt table is populated before any emission in both media, so this is emit-time-static.  Congruence with the callee side: emit_jmp_entry_for_proc admits exactly the !is_generator procs, and this
      * det arm is dispatched exactly on !rt_proc_is_generator — one truth source (scrip.c rt_proc_set_generator from proc_table). */
     int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
+    uint64_t det_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    long det_idx = (!is_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     /* BP-7 SCC — STATIC SAVE-SET CALL CONVENTION (GOAL-SNOBOL4-BB BP-7).  Emit-time eligibility: literal target, registered dyn-scope table proc, every save-set name (formals+locals per the DEFINE
      * prototype, plus the result name unless shadowed by a formal) GVA-resident, nargs within the prototype, program free of OPSYN/UNLOAD (scc_program_ok), hatch SCRIP_SCC_OFF unset.  The arm saves
      * the old cell values inline (GVA absolute -> an rsp block below the anchor), calls the open_slim leaf (guards re-checked with ZERO side effects before commit -- a decline falls through L(5) into
@@ -181,9 +185,17 @@ static std::string bcps_det_arm() {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
     })
-         + x86_ro_load_q("rdi", 0)
-         + x86("mov32", "esi", (long)_.op_ival)
-         + x86("call", "rt_proc_call_open", open_fp)
+         + (det_idx >= 0 && ZC_FRAME == ZC_FRAME_RSP
+            /* PL-REGAIN-1 slice A (2026-07-19 s100): emit-time-resolved det callee — the index into the dense registry replaces the name (no hash, no strcmp) and the fused leaf returns the fn pointer,
+             * eliding the rt_proc_open_fn crossing; rax carries the fn straight to the jmp below.  Eligibility is emit-time-static (!is_dyn, literal target, registered = index >= 0); a runtime guard
+             * mismatch returns 0 into the SAME je L(1) FAIL arm as a bodyless proc, side-effect-free.  Inline arg install (kills rt_arg_stage) and the direct cross-box jmp are slices B/C — B blocked
+             * on g_call_args residency (.so data, movabs-forbidden; needs slab home or register-arg ABI, Lon design call), C needs the driver-minted proc-entry label record. */
+            ? x86("mov32", "edi", (long)det_idx)
+            + x86("mov32", "esi", (long)_.op_ival)
+            + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp)
+            : x86_ro_load_q("rdi", 0)
+            + x86("mov32", "esi", (long)_.op_ival)
+            + x86("call", "rt_proc_call_open", open_fp))
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (ZC_FRAME == ZC_FRAME_RSP
@@ -191,7 +203,7 @@ static std::string bcps_det_arm() {
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call).  Unexercised intersection (census
              * 0/308): soundness is by the exit-class argument above, non-regression by the gates. */
-            ? x86("call", "rt_proc_open_fn", openfn_fp)
+            ? (det_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
             + x86_lea_id("rcx", 3)
             + x86_lea_id("rdx", 4)
             + x86_jmp_reg("rax")

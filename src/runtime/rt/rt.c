@@ -1242,6 +1242,20 @@ long rt_proc_call_open(const char *name, int nargs)
     return (long)rt_proc_call_prologue_lex(p, nargs, wn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* DET OPEN LEAF (PL-REGAIN-1 slice A, 2026-07-19 s100) — the emit-time-resolved det call site's fused open: the caller lowered a LITERAL !dyn callee, resolved its dense registry index at emission
+ * (rt_proc_index_of; registration order is identical in-process and in the mode-4 startup bake, so the index is stable in both media), and calls here with the index — no name, no hash, and no separate
+ * rt_proc_open_fn crossing.  Runs the same lex prologue as rt_proc_call_open's lexical arm and returns the callee fn pointer (0 = no body / guard mismatch, landing in the site's existing FAIL arm);
+ * guards precede every side effect, so a decline is side-effect-free exactly like the SCC arm's discipline. */
+void *rt_proc_call_open_det(long idx, int nargs)
+{
+    if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
+    { rt_proc_t *p = &g_rt_gen_procs[idx];
+      if (!p->fn || p->dyn_scope) return (void *)0;
+      { int wn = rt_g_want_name; rt_g_want_name = 0;
+        (void)rt_proc_call_prologue_lex(p, nargs, wn);
+        return (void *)p->fn; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LEXPREP LEAF (NCB-1d) — the DET-LEXICAL jmp-entry prologue's tail call: the blob has just self-allocated and
  * zero-filled its region; for a lexical proc that region IS the frame, so overwrite with the lexical init
  * (NULVCL slots) and bind the staged args at [fb + 16*(i+1)] — exactly rt_frame_prep's lex arm minus the fn
