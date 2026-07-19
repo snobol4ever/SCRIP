@@ -62,14 +62,16 @@ static inline void pl_trail_push(pl_trail_t *t, pl_cell_t *addr) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int plc_dead_cstack(const void *p) {
-    static char *stk_lo, *stk_hi; static int stk_have; char probe;
+    extern char *g_plw_unwind_floor;
+    static char *stk_lo, *stk_hi; static int stk_have;
     if (!stk_have || ((char *)p < stk_lo && (char *)p >= stk_lo - (64L << 20))) {
         FILE *mf = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;
         if (mf) { while (fgets(ln, sizeof ln, mf)) if (strstr(ln, "[stack]")) { if (sscanf(ln, "%lx-%lx", &a, &b) == 2) { stk_lo = (char *)a; stk_hi = (char *)b; stk_have = 1; } break; } fclose(mf); }
         if (!stk_have) return 0;
     }
     if ((char *)p < stk_lo || (char *)p >= stk_hi) return 0;
-    return (char *)p < &probe;
+    if (!g_plw_unwind_floor) return 0;
+    return (char *)p < g_plw_unwind_floor + 16;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
