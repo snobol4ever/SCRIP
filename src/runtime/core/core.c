@@ -526,7 +526,7 @@ void comm_return(const char *fname, DESCR_t retval) {
 int64_t kw_fullscan = 0;
 int64_t kw_maxlngth = 524288;
 int64_t kw_anchor   = 0;
-int64_t kw_trim     = 1;
+int64_t kw_trim     = 0;
 int64_t kw_stlimit  = -1;
 int64_t kw_ftrace   = 0;
 int64_t kw_trace    = 0;

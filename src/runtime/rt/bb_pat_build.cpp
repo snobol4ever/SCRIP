@@ -86,8 +86,10 @@ extern "C" void *bb_compile_pat_tree(const void *tv) {
     g_frame_active = 1;
     g_gva_active = 0;
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = bb_jmp_entry_ktotal(g);
+    g_emit.flat_pat = 1;
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
+    g_emit.flat_pat = 0;
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
     g_gva_active = saved_gva;

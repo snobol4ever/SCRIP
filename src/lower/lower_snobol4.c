@@ -1602,7 +1602,29 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * nl = lc_build(g, IR_LIT_STRING, mk, fJ); IR_LIT(nl).sval = (char *) bn;
             ir_operand_push(mk, nl);
             ir_operand_push(asn, mk);
-            lc_γ_to(anchor[i], nl);
+            /* PAT-ARG-BIND (s104): args of runtime-arg primitives inside a STORED pattern evaluate HERE, at the
+             * MKPAT assignment (manual: pattern-function args evaluate at pattern CONSTRUCTION, not match), into
+             * hidden PAT$n$A<i> globals the patproc pre-chain reads.  The scratch sno_pat_node walk harvests the
+             * arg trees in the IDENTICAL pre[] order the patproc build will see (same traversal), so index <i>
+             * pairs by construction. */
+            IR_t * pae = nl;
+            {
+                IR_graph_t * tg = IR_alloc(256);
+                scx_t tx; tx.g = tg; tx.loop_exit = NULL; tx.loop_next = NULL; tx.result_name = NULL; tx.pat_fail = NULL; tx.pat_seal = NULL; tx.npre = 0;
+                IR_t * tok = lc_build(tg, IR_SUCCEED, NULL, NULL);
+                IR_t * tno = lc_build(tg, IR_FAIL, NULL, NULL);
+                tx.pat_fail = tno; tx.pat_seal = tno;
+                sno_pat_node(&tx, repl, tok, tno);
+                for (int api = 0; api < tx.npre; api++) {
+                    char abuf[48]; snprintf(abuf, sizeof abuf, "%s$A%d", bn, api);
+                    IR_t * asnA = lc_build(g, IR_ASSIGN, pae, fJ); IR_LIT(asnA).sval = lp_strdup(abuf);
+                    IR_t * av = NULL;
+                    IR_t * ae = sx_lower(&cx, tx.pre[api].arg, asnA, fJ, &av);
+                    ir_operand_push(asnA, av);
+                    pae = ae;
+                }
+            }
+            lc_γ_to(anchor[i], pae);
             continue;
         }
         if (subj->t == TT_VAR) {
@@ -1931,7 +1953,27 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
          * args at ASSIGNMENT time into hidden PAT$n$Ai globals -- SPITBOL manual: pattern-function args
          * evaluate when the pattern is BUILT, not when matched -- and read them here via the pre-chain), this
          * is a LOUD compile-time refusal instead of a silent wrong answer. */
-        if (px.npre > 0) sno_fatal("stored pattern with runtime-computed primitive argument (e.g. BREAK(var) where var is not a literal-assigned constant) is outside the landed subset -- PAT-ARG-BIND rung, see GOAL-SNOBOL4-BB.md; workaround: assign the argument variable from a string literal", NULL);
+        /* PAT-ARG-BIND (s104): the pre-chain lands.  Each runtime-arg primitive reads its arg from the hidden
+         * PAT$n$A<i> global the ASSIGNMENT site stashed (identical sno_pat_node walk order pairs the index).
+         * Shape mirrors the statement-level consumer verbatim: arg-read -> IR_COERCE_* (SPITBOL error codes) ->
+         * operand edge into the primitive; chain runs once per patproc entry, before the pattern head. */
+        {
+            extern tree_t *ast_stmt_new(tree_e kind);
+            IR_t * paft = pe;
+            for (int api = 0; api < px.npre; api++) {
+                IR_t * co = lc_build(gp, px.pre[api].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, paft, no);
+                IR_LIT(co).ival = px.pre[api].codes;
+                char abuf[48]; snprintf(abuf, sizeof abuf, "%s$A%d", g_sno_pats[pi2].name, api);
+                tree_t * tv = ast_stmt_new(TT_VAR); tv->v.sval = lp_strdup(abuf);
+                IR_t * av = NULL;
+                IR_t * ae = sx_lower(&px, tv, co, no, &av);
+                ir_operand_push(co, av);
+                ir_operand_push(px.pre[api].prim, co);
+                paft = ae;
+            }
+            px.npre = 0;
+            pe = paft;
+        }
         gp->entry = pe;
         gp->resumable_callable = 1;
         gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(g_sno_pats[pi2].pat)) ? gp->all[before_pat] : NULL;
