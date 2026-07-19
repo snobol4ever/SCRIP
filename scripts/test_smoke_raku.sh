@@ -1797,6 +1797,81 @@ raku "xxrep_zero_empty" "0" << 'EOF'
 my @d = "z" xx 0; say @d.elems;
 EOF
 
+# --- RAKU-100: `my sub` lexical routine declarator (Rakudo scoped -> multi-declarator -> routine-declarator;
+#     `my` is a scope prefix, the routine body is identical to a package-scoped sub). SCRIP's flat proc
+#     registry makes a `my sub` execute exactly as a top-level sub for the shapes the suite exercises.
+raku "mysub_noparam" "42" << 'EOF'
+my sub answer() { return 42; }
+say answer();
+EOF
+raku "mysub_param" "25" << 'EOF'
+my sub sq($x) { return $x * $x; }
+say sq(5);
+EOF
+raku "mysub_body_stmt" "hi world" << 'EOF'
+my sub greet($name) { say "hi " ~ $name; }
+greet("world");
+EOF
+raku "mysub_two" "7
+10" << 'EOF'
+my sub inc($x) { return $x + 1; }
+my sub dbl($x) { return $x * 2; }
+say inc(6);
+say dbl(5);
+EOF
+# --- RAKU-100: `constant` / `my constant` (Rakudo type-declarator:sym<constant>). Binds a name once to an
+#     evaluated value; the name reads back as that value. Sigilless `NAME` and `$NAME` share one slot
+#     (sigil-stripped), matching Raku's `constant FOO`/`constant $FOO` synonymy for read purposes.
+raku "const_ident" "3" << 'EOF'
+constant PI = 3;
+say PI;
+EOF
+raku "const_sigil" "2" << 'EOF'
+constant $E = 2;
+say $E;
+EOF
+raku "const_my" "hello" << 'EOF'
+my constant GREETING = "hello";
+say GREETING;
+EOF
+raku "const_in_expr" "15" << 'EOF'
+constant N = 10;
+say N + 5;
+EOF
+raku "const_my_expr" "9" << 'EOF'
+my constant K = 3;
+say K * K;
+EOF
+raku "const_string_concat" "ab" << 'EOF'
+constant A = "a";
+constant B = "b";
+say A ~ B;
+EOF
+
+# --- RAKU-100: parenthesized listop argument `say(1,2,3)` / `say (1,2,3)` / `print(...)`. Rakudo `say(|)`
+#     joins gists with "" then one newline (src/core.c/io_operators.rakumod), identical to the bare
+#     comma-listop `say 1,2,3` path. Generalizes the old exactly-2-arg paren form to N args; `(1,2,3)`
+#     was a parse error in listop-argument position before this rung.
+raku "sayparen_three" "123" << 'EOF'
+say(1,2,3);
+EOF
+raku "sayparen_space" "123" << 'EOF'
+say (1,2,3);
+EOF
+raku "sayparen_two" "12" << 'EOF'
+say(1,2);
+EOF
+raku "sayparen_strings" "abc" << 'EOF'
+say("a","b","c");
+EOF
+raku "sayparen_exprs" "127" << 'EOF'
+my $x = 2;
+say(1, $x, 3+4);
+EOF
+raku "printparen_three" "123" << 'EOF'
+print(1,2,3);
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
