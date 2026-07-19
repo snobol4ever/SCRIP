@@ -988,6 +988,15 @@ call_expr
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
           $$ = c; }
+    | IDENT '.' KW_NEW
+        { tree_t *c = ast_node_new(TT_NEW);
+          ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
+          $$ = c; }
+    | IDENT '.' IDENT
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node($1)); free($1);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          $$ = c; }
     | IDENT '.' IDENT '(' arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node($1)); free($1);

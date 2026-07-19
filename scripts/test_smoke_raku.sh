@@ -1924,6 +1924,20 @@ multi describe(Int $x) { return "a"; }
 multi describe(Str $x) { return "b"; }
 print describe(1), describe("y");
 EOF
+raku "type_new_noparen" "3" << 'EOF'
+class C { has $.x; method greet() { return 3; } }
+my $o = C.new;
+say $o.greet();
+EOF
+raku "type_new_noparen_only_method" "woof" << 'EOF'
+class Dog { method speak() { return "woof"; } }
+my $d = Dog.new;
+say $d.speak();
+EOF
+raku "method_noparen_scalar" "5" << 'EOF'
+my $s = "hello";
+say $s.chars;
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
