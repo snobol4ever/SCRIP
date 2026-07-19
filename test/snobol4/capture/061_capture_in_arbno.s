@@ -253,11 +253,8 @@ xchain0_n8_af:
  jmp xchain0_n8_af
 .Lx22_239:
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S1]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 97
  je .Lx22_240
  add rsp, 16
  jmp xchain0_n8_af
@@ -373,5 +370,4 @@ add rsp, 65544
 ret
 .section .rodata
 .S0: .string "V"
-.S1: .string "a"
 .text

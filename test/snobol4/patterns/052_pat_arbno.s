@@ -339,11 +339,8 @@ xchain0_n15_af:
  cmp eax, r15d
  jg xchain0_n15_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S1]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 97
  jne xchain0_n15_af
  add r14d, 1
  jmp xchain0_n15_as
@@ -371,5 +368,4 @@ add rsp, 65544
 ret
 .section .rodata
 .S0: .string "V"
-.S1: .string "a"
 .text

@@ -36,11 +36,20 @@ xchain0_n0_af:
  cmp eax, r15d
  jg xchain0_n0_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S0]
- mov edx, 5
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 32
+ jne xchain0_n0_af
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 116
+ jne xchain0_n0_af
+ movzx eax, byte ptr [r13+rcx+2]
+ cmp eax, 104
+ jne xchain0_n0_af
+ movzx eax, byte ptr [r13+rcx+3]
+ cmp eax, 101
+ jne xchain0_n0_af
+ movzx eax, byte ptr [r13+rcx+4]
+ cmp eax, 32
  jne xchain0_n0_af
  add r14d, 5
  jmp xchain0_n2_α
@@ -58,7 +67,7 @@ xchain0_n0_af:
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n3_α:
  mov eax, dword ptr [rsp + 16]
- lea rcx, [rip + .S1]
+ lea rcx, [rip + .S0]
  mov qword ptr [r12 + 0], rcx
  mov esi, eax
  mov qword ptr [r12 + 8], rsi
@@ -122,11 +131,17 @@ xchain0_n4_af:
  cmp eax, r15d
  jg xchain0_n4_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S2]
- mov edx, 4
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 32
+ jne xchain0_n4_af
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 111
+ jne xchain0_n4_af
+ movzx eax, byte ptr [r13+rcx+2]
+ cmp eax, 102
+ jne xchain0_n4_af
+ movzx eax, byte ptr [r13+rcx+3]
+ cmp eax, 32
  jne xchain0_n4_af
  add r14d, 4
  jmp xchain0_n4_s0
@@ -140,11 +155,14 @@ xchain0_n4_af:
  cmp eax, r15d
  jg xchain0_n4_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S3]
- mov edx, 3
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 32
+ jne xchain0_n4_af
+ movzx eax, byte ptr [r13+rcx+1]
+ cmp eax, 97
+ jne xchain0_n4_af
+ movzx eax, byte ptr [r13+rcx+2]
+ cmp eax, 32
  jne xchain0_n4_af
  add r14d, 3
  jmp xchain0_n4_s1
@@ -362,7 +380,7 @@ main_α_body:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S1]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx27_2:
@@ -465,9 +483,6 @@ mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 .section .rodata
-.S0: .string " the "
-.S1: .string "OUTPUT"
-.S2: .string " of "
-.S3: .string " a "
-.S4: .string "PAT"
+.S0: .string "OUTPUT"
+.S1: .string "PAT"
 .text

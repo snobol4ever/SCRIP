@@ -173,11 +173,8 @@ xchain0_n8_af:
  cmp eax, r15d
  jg xchain0_n5_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S3]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 32
  jne xchain0_n5_af
  add r14d, 1
  jmp xchain0_n13_α
@@ -276,11 +273,8 @@ xchain0_n8_af:
  cmp eax, r15d
  jg xchain0_n8_af
  movsxd rcx, r14d
- lea rdi, [r13 + rcx]
- lea rsi, [rip + .S3]
- mov edx, 1
- call memcmp@PLT
- test eax, eax
+ movzx eax, byte ptr [r13+rcx]
+ cmp eax, 32
  jne xchain0_n8_af
  add r14d, 1
  jmp xchain0_n16_α
@@ -548,7 +542,7 @@ main_α_body:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S4]
+ lea rdi, [rip + .S3]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx44_2:
@@ -748,8 +742,7 @@ ret
 .S0: .string "WHEN"
 .S1: .string "WHO"
 .S2: .string "WHAT"
-.S3: .string " "
-.S4: .string "PAT"
+.S3: .string "PAT"
 .text
 .section .rodata
 .C0:
