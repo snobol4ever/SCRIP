@@ -10,6 +10,11 @@ DESCR_t _builtin_print(DESCR_t *args, int nargs) {
 #define SC_DAT_MAX_TYPES  1024   /* REC-REG-CAP: was 128 — silently dropped record types past the cap (jtran 17-module merge declares 415; u_pnull unresolved -> Error 5); 1024 + loud guard per the pair-array precedent */
 static DatType dat_types[SC_DAT_MAX_TYPES];
 static int       dat_ntypes = 0;
+unsigned rt_dtax_gen = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int dat_nfields_byref(void *t) { return t ? ((DatType *)t)->nfields : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dat_construct_byref(void *t, DESCR_t *args, int nargs) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); return dat_construct((DatType *)t, args, nargs); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_register(const char *spec) {
     if (dat_ntypes >= SC_DAT_MAX_TYPES) { fprintf(stderr, "[REC-REG-CAP] FATAL: record/type registry saturated (%d >= %d) registering '%s' -- constructors past the cap resolve as Error 5; raise SC_DAT_MAX_TYPES\n", dat_ntypes, SC_DAT_MAX_TYPES, spec ? spec : "?"); return NULL; }
@@ -30,7 +35,7 @@ DatType *dat_register(const char *spec) {
         if (t->nfields < SC_DAT_MAX_FIELDS - 1) t->nfields++;
         if (*p == ',') p++;
     }
-    dat_ntypes++;
+    dat_ntypes++; rt_dtax_gen++;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

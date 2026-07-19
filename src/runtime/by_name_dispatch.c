@@ -3777,13 +3777,21 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_t *out) {
+    static struct { unsigned char v, n; char f[63], t[63], map[256]; } g_rm[4];
+    static int g_rm_off = -1;
     if (nargs != 3) return -1;
     const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
     const char *fv = VARVAL_fn(args[1]); if (!fv) fv = "";
     const char *tv = VARVAL_fn(args[2]); if (!tv) tv = "";
-    if (strlen(fv) != strlen(tv) || !*fv) { *out = FAILDESCR; return 1; }
-    char map[256]; for (int i = 0; i < 256; i++) map[i] = (char)i;
-    for (const char *f2 = fv, *t2 = tv; *f2; f2++, t2++) map[(unsigned char)*f2] = *t2;
+    size_t fl = strlen(fv);
+    if (fl != strlen(tv) || !fl) { *out = FAILDESCR; return 1; }
+    if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : 0; }
+    char mloc[256]; char *map = mloc;
+    if (!g_rm_off && fl < 63) { unsigned s = ((unsigned char)fv[0] * 31u + (unsigned)fl) & 3u;
+        if (g_rm[s].v && g_rm[s].n == (unsigned char)fl && !memcmp(g_rm[s].f, fv, fl) && !memcmp(g_rm[s].t, tv, fl)) map = g_rm[s].map;
+        else { map = g_rm[s].map; for (int i = 0; i < 256; i++) map[i] = (char)i; for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k];
+               memcpy(g_rm[s].f, fv, fl); memcpy(g_rm[s].t, tv, fl); g_rm[s].n = (unsigned char)fl; g_rm[s].v = 1; } }
+    else { for (int i = 0; i < 256; i++) map[i] = (char)i; for (const char *f2 = fv, *t2 = tv; *f2; f2++, t2++) map[(unsigned char)*f2] = *t2; }
     size_t n = strlen(sv); char *buf = (char *)rt_ws_alloc_c(n + 1);
     for (size_t i = 0; i < n; i++) buf[i] = map[(unsigned char)sv[i]];
     buf[n] = 0; *out = STRVAL(buf); return 1;
@@ -3831,6 +3839,11 @@ static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t 
     *out = INTVAL(ai % bi); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern unsigned rt_dtax_gen;
+typedef struct { unsigned gen; unsigned char len; signed char kind; short nf; char nm[14]; void *ctor; const char *syn; } dtax_ent_t;
+static dtax_ent_t g_dtax[64];
+static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
@@ -3841,13 +3854,27 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
     }
     if (!fn || !out) return 0;
-    { extern DatType *dat_find_type(const char *); extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
+    dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0;
+    if (!dtax_off()) { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; }
+      if (!*_q && _dxl) { _dx = &g_dtax[_dxh & 63u];
+        if (_dx->gen == rt_dtax_gen && _dx->len == _dxl && !memcmp(_dx->nm, fn, _dxl)) {
+          if (_dx->kind == 2 && _dx->syn) return try_call_builtin_by_name(_dx->syn, args, nargs, out);
+          if (_dx->kind == 1 && _dx->ctor) { extern DESCR_t dat_construct_byref(void *, DESCR_t *, int);
+            if (nargs <= (int)_dx->nf) { DESCR_t _fv[64]; int _nf = _dx->nf > 64 ? 64 : (int)_dx->nf;
+              for (int _i = 0; _i < _nf; _i++) _fv[_i] = (_i < nargs) ? args[_i] : NULVCL;
+              *out = dat_construct_byref(_dx->ctor, _fv, _nf); return 1; }
+            _dx_hit = 1; _dx_skip_ctor = 1; }
+          else if (_dx->kind == 0) { _dx_hit = 1; _dx_skip_ctor = 1; _dx_skip_syn = 1; }
+          else if (_dx->kind == 3) { _dx_hit = 1; _dx_skip_ctor = 1; } } } }
+    if (!_dx_skip_ctor) { extern DatType *dat_find_type(const char *); extern DESCR_t dat_construct(DatType *, DESCR_t *, int); extern int dat_nfields_byref(void *);
       DatType *_udt = dat_find_type(fn);                           /* F3-a (treebank/claws5 s103): a user-registered DATA type's constructor OVERRIDES any same-named default builtin (Icon list() was claiming SNOBOL4 DATA('list(head,tail)') and failing on non-numeric args); precedence to the explicit registration is language-neutral */
+      if (_udt && _dx) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 1; _dx->nf = (short)dat_nfields_byref((void *)_udt); memcpy(_dx->nm, fn, _dxl); _dx->ctor = (void *)_udt; _dx->syn = 0; }
       if (_udt && nargs <= _udt->nfields) {
           DESCR_t _fv[64]; int _nf = _udt->nfields > 64 ? 64 : _udt->nfields;
           for (int _i = 0; _i < _nf; _i++) _fv[_i] = (_i < nargs) ? args[_i] : NULVCL;
           *out = dat_construct(_udt, _fv, _nf); return 1;
-      } }
+      }
+      if (!_udt && _dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 3; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; } }
     { size_t _fl = strlen(fn);
       if (_fl >= 2 && _fl <= 7) { int _r = -1;
         switch (((unsigned)_fl << 8) | (unsigned char)fn[0]) {
@@ -5530,9 +5557,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
           extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
           *out = dat_field_get(fn, args[0]); return 1;
       } }
-    { extern const char *rt_builtin_synonym(const char *);
+    if (!_dx_skip_syn) { extern const char *rt_builtin_synonym(const char *);
       const char *syn = rt_builtin_synonym(fn);
-      if (syn) return try_call_builtin_by_name(syn, args, nargs, out); }
+      if (syn) { if (_dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 2; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = syn; }
+        return try_call_builtin_by_name(syn, args, nargs, out); }
+      if (_dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 0; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; } }
     /* OPSYN operator dispatch (s10): operator-symbol names (non-identifier lead char) fall through to the
      * core fn table, where OPSYN's register_fn_alias installs them; identifier names keep their existing
      * routing untouched. */
@@ -5555,6 +5584,7 @@ static const char *g_rt_syn_new[RT_SYN_MAX]; static const char *g_rt_syn_old[RT_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_builtin_synonym_add(const char *newname, const char *oldname) {
     if (!newname || !oldname || g_rt_syn_n >= RT_SYN_MAX) return;
+    rt_dtax_gen++;
     for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(g_rt_syn_new[i], newname)) { g_rt_syn_old[i] = oldname; return; }
     g_rt_syn_new[g_rt_syn_n] = newname; g_rt_syn_old[g_rt_syn_n] = oldname; g_rt_syn_n++;
 }
