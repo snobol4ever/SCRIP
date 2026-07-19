@@ -27,14 +27,13 @@ std::string bb_coerce_numeric() {
          + x86("mov", FRQ(_.op_off), "rax")
          + x86("mov", "rax", FRQ(_.op_sa + 8))
          + x86("mov", FRQ(_.op_off + 8), "rax")
-         + x86("jmp", L(2))
+         + x86_gamma()
          + x86("def", L(0))
          + x86("lea",  "rdi", FRQ(_.op_sa))
          + x86("lea",  "rsi", FRQ(_.op_sb))
          + x86("lea",  "rdx", FRQ(_.op_off))
          + x86("mov",  "rcx", (long)_.op_ival)
          + x86("call", "rt_coerce_num2_d", (uint64_t)(uintptr_t)(void *)rt_coerce_num2_d)
-         + x86("def", L(2))
          + x86_gamma()
          + x86_beta_trampoline();
 }
