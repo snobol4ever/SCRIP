@@ -11,18 +11,8 @@ DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 }
 #include "x86_asm.h"
 #define MAPGREP_MAX 4096
-static int64_t  s_mg_vals[MAPGREP_MAX];
-static int      s_mg_n;
-static uint64_t s_mg_vals_ptr;
-static char     s_mg_lbl[64];
-static int      s_mg_cursoff;
-static int      s_mg_resoff;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int          mgN()      { return s_mg_n; }
-static inline uint64_t     mgValsP()  { return s_mg_vals_ptr; }
-static inline const char * mgLbl()    { return s_mg_lbl; }
-static inline int          mgCurs()   { return s_mg_cursoff; }
-static inline int          mgRes()    { return s_mg_resoff; }
+static int64_t s_mg_vals[MAPGREP_MAX];
+static struct { int n; uint64_t vals_ptr; char lbl[64]; int cursoff; int resoff; } s_mg;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_mapgrep() {
     x86_begin();
@@ -30,21 +20,21 @@ std::string bb_mapgrep() {
          + x86("comment",   "IR_MAP/IR_GREP (materialized)")
          + IF(MEDIUM_TEXT,
                x86("directive", ".section .rodata")
-             + x86("directive", std::string(mgLbl()) + ": .quad "
-                 + (mgN() > 0
-                     ? [&]{ std::string q; for (int i = 0; i < mgN(); i++) q += (i ? std::string(", ") : std::string("")) + std::to_string((long long)s_mg_vals[i]); return q; }()
+             + x86("directive", std::string(s_mg.lbl) + ": .quad "
+                 + (s_mg.n > 0
+                     ? [&]{ std::string q; for (int i = 0; i < s_mg.n; i++) q += (i ? std::string(", ") : std::string("")) + std::to_string((long long)s_mg_vals[i]); return q; }()
                      : std::string("0")))
              + x86("directive", ".section .text")
              + x86("directive", ".intel_syntax noprefix"))
          + x86("def",       L(0))
-         + x86("mov",       "rcx", FRQ(mgCurs()))
-         + x86("cmp64",     "rcx", (long)mgN())
+         + x86("mov",       "rcx", FRQ(s_mg.cursoff))
+         + x86("cmp64",     "rcx", (long)s_mg.n)
          + x86_omega("jge")
-         + x86("lea",       "rdx", "[rip + __]", mgValsP(), mgLbl())
+         + x86("lea",       "rdx", "[rip + __]", s_mg.vals_ptr, s_mg.lbl)
          + x86("mov",       "rsi", "[rdx + rcx*8]")
-         + x86("mov",       FRQ(mgRes()), (long)6)
-         + x86("mov",       FRQ(mgRes() + 8), "rsi")
-         + x86("inc",       FRQ(mgCurs()))
+         + x86("mov",       FRQ(s_mg.resoff), (long)6)
+         + x86("mov",       FRQ(s_mg.resoff + 8), "rsi")
+         + x86("inc",       FRQ(s_mg.cursoff))
          + x86_gamma()
          + x86_beta()
          + x86("jmp",       L(0));
