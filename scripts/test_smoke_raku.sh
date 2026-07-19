@@ -1911,6 +1911,19 @@ raku "sub_implicit_string_return" "hi" << 'EOF'
 sub greet() { "hi" }
 say greet();
 EOF
+raku "bare_multi_typed" "30" << 'EOF'
+multi foo(Int $x) { return $x * 10; }
+say foo(3);
+EOF
+raku "bare_multi_untyped" "8" << 'EOF'
+multi bar($x) { $x + 1 }
+say bar(7);
+EOF
+raku "bare_multi_two_cands" "ab" << 'EOF'
+multi describe(Int $x) { return "a"; }
+multi describe(Str $x) { return "b"; }
+print describe(1), describe("y");
+EOF
 
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
