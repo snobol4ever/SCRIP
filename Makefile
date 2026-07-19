@@ -208,6 +208,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/xa_js_label_register.cpp \
     $(SRC)/templates/xa_expression_registry.cpp \
     $(SRC)/templates/xa_strtab_rodata.cpp \
+    $(SRC)/templates/xa_csettab_rodata.cpp \
     $(SRC)/templates/xa_cap_fixup.cpp \
     $(SRC)/templates/xa_pattern_blobs.cpp \
     $(SRC)/optimizer/gva_collect.c \
@@ -460,6 +461,7 @@ scrip:
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_js_label_register.cpp -o $(OBJ)/xa_js_label_register.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_expression_registry.cpp -o $(OBJ)/xa_expression_registry.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_strtab_rodata.cpp     -o $(OBJ)/xa_strtab_rodata.o
+	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_csettab_rodata.cpp    -o $(OBJ)/xa_csettab_rodata.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_cap_fixup.cpp         -o $(OBJ)/xa_cap_fixup.o
 	$(CXX) $(CRT)   -I$(SRC)/templates -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/emitter           -c $(SRC)/templates/xa_pattern_blobs.cpp     -o $(OBJ)/xa_pattern_blobs.o
 	$(CC) $(CBASE) -I$(SRC)/parser/snobol4 -DIR_DEFINE_NAMES \

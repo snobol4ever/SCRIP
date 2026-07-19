@@ -161,6 +161,9 @@ void strtab_label(char *buf, size_t bufsz, const char *s);
 void xa_emit_strtab_rodata(void);
 void strtab_reset(void);
 int  strtab_intern(const char *s);
+const void *csettab_label(char *buf, size_t bufsz, const char *cset);
+void xa_emit_csettab_rodata(void);
+void csettab_reset(void);
 void xa_dispatch(XA_op_t op);
 #ifdef __cplusplus
 }
@@ -549,6 +552,9 @@ typedef struct {
     int                          xa_strtab_n;
     const char **                xa_strtab_labels;
     const char **                xa_strtab_escaped;
+    int                          xa_csettab_n;
+    const char **                xa_csettab_labels;
+    const char **                xa_csettab_rows;
     const char *                 xa_cap_dlbl;
     const char *                 xa_cap_child_lbl;
     int                          xa_cap_is_arbno;

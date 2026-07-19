@@ -1055,6 +1055,7 @@ int main(int argc, char **argv)
             g_frame_active = 0;
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
+            { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
             fflush(stdout);
             ir_delete_all(s2);
             return rc;
@@ -1232,6 +1233,7 @@ int main(int argc, char **argv)
             g_proc_direct_active = 0;
             g_frame_active = 0;
             xa_emit_strtab_rodata();
+            { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
             fflush(stdout);
             ir_delete_all(s2);
             return rc;

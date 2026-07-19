@@ -20,5 +20,6 @@ void xa_wasm_main_close       (void);
 void xa_js_label_register     (void);
 void xa_expression_registry   (void);
 void xa_strtab_rodata         (void);
+void xa_csettab_rodata        (void);
 void xa_cap_fixup             (void);
 void xa_pattern_blobs         (void);

@@ -11,8 +11,8 @@ void *rt_cs_new(const char *chars);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_notany() {
     if (!PLATFORM_X86) return std::string();
-    static char b[24];
-    strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
+    static char c[24];
+    const void * ct = (_.op_sa < 0 && strlen(_.op_sval ? _.op_sval : "") >= 2) ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     return x86("comment", "IR_MATCH_NOTANY")
          + x86_alpha()
          + x86("mov",    "eax", "r14d")
@@ -29,9 +29,8 @@ std::string bb_match_notany() {
            ((strlen(_.op_sval ? _.op_sval : "") == 1)
               ? ( x86("cmp",  "esi", (long)(unsigned char)(_.op_sval ? _.op_sval : "")[0])
                 + x86_omega("je") )
-              : ( x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-                + x86("call", "strchr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *, int))strchr)
-                + x86("test", "rax", "rax")
+              : ( x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c)
+                + x86("cmpb0", "[rdi+rsi]", "0")
                 + x86_omega("jne") ) ))
          + x86("add",    "r14d", (long)1)
          + x86_gamma()
