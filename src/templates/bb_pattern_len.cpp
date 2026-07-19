@@ -12,8 +12,7 @@ std::string bb_pattern_len() {
         return x86("comment", "IR_PATTERN_LEN passthrough (chain entry; builder emitted via DTP_ASSIGN)")
              + x86_alpha()
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     static char b[24];
     strtab_label(b, sizeof b, _.bb_ls ? _.bb_ls : "");
     return x86("comment", "IR_PATTERN_LEN builder")
@@ -24,8 +23,7 @@ std::string bb_pattern_len() {
          + x86("call", "bb_build_len_blob", (uint64_t)(uintptr_t)(void *)(void(*)(const char*,int))bb_build_len_blob)
          + x86_align_leave()
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_emit_pattern_len_call(void) { bb_emit_x86(bb_pattern_len()); }

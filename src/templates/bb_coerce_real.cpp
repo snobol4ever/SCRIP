@@ -19,6 +19,5 @@ std::string bb_coerce_real() {
          + x86("mov",  "rdx", (long)_.op_ival)
          + x86("call", "rt_coerce_real_d", (uint64_t)(uintptr_t)(void *)rt_coerce_real_d)
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

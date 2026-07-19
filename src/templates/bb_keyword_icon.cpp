@@ -57,8 +57,7 @@ std::string bb_keyword_icon() {
         return x86("comment", "KEYWORD_fail")
              + x86_alpha()
              + x86_omega()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     if (!strcmp(kw, "features") || !strcmp(kw, "regions") || !strcmp(kw, "storage") || !strcmp(kw, "collections"))
         return x86("comment", "KEYWORD_gen")
              + x86_alpha()

@@ -37,8 +37,7 @@ std::string bb_keyword_assign() {
                  + x86("mov",  FRQ(_.op_off),     (long)DT_I)
                  + x86("mov",  FRQ(_.op_off + 8), "rax")
                  + x86_gamma()
-                 + x86_beta()
-                 + x86_omega();
+                 + x86_beta_trampoline();
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN pos call [non-scan: rt_keyword_pos_set cvpos vs strlen(scan_subj), set scan_pos, fail->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
@@ -49,8 +48,7 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     }
     if (!strcmp(kw, "subject")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN subject [oasgn.r kywdsubj: cnv:str fail->omega; scan_subj=s, &pos=1; in-scan also r13=ptr r15=len r14=0; result {DT_S,ptr}]")
@@ -67,8 +65,7 @@ std::string bb_keyword_assign() {
                  + x86("mov", "r15", "rdx")
                  + x86("mov", "r14", (long)0))
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     }
     if (!strcmp(kw, "random")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN random [data.r kywdint: coerce int, store g_random seed, result {DT_I,n}; non-numeric->omega]")
@@ -81,8 +78,7 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     }
     if (!strcmp(kw, "error")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN error [coerce int, store g_error; non-numeric->omega]")
@@ -95,8 +91,7 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     }
     if (!strcmp(kw, "trace")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN trace [coerce int, store g_trace; non-numeric->omega]")
@@ -109,8 +104,7 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     }
     if (!strcmp(kw, "dump")) {
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN dump [coerce int, store g_dump; non-numeric->omega]")
@@ -123,8 +117,7 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta()
-             + x86_omega();
+             + x86_beta_trampoline();
     }
         return x86_alpha() + x86_bomb("bb_keyword_assign: only &pos/&random assignment implemented (KEYWORD-LVALUE rung; &subject/:=:/<-> are follow-ons)");
 }

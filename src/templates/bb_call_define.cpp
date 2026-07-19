@@ -16,6 +16,5 @@ std::string bb_call_define() {
          + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_sval, _.op_parts_lbl[0])
          + x86("call", "rt_proc_define", (uint64_t)(uintptr_t)(void *) rt_proc_define)
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

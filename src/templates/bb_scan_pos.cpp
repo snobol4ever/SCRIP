@@ -31,6 +31,5 @@ std::string bb_scan_pos() {
          + x86("mov",     FRQ(_.op_off),     (long)DT_I)
          + x86("mov",     FRQ(_.op_off + 8), "rax")
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }

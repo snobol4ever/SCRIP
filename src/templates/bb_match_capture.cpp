@@ -43,8 +43,7 @@ std::string bb_match_capture() {
            + x86_alpha()
            + x86("mov",  rspd(0), "r14d")
            + x86_gamma()
-           + x86_beta()
-           + x86_omega() )
+           + x86_beta_trampoline() )
          : (int)_.op_phase == 0
          ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE push")
            + x86_alpha()
@@ -134,6 +133,5 @@ std::string bb_match_capture() {
            + x86("def",  L(1))
            + x86_anchor_leave()
            + x86_gamma()
-           + x86_beta()
-           + x86_omega() );
+           + x86_beta_trampoline() );
 }

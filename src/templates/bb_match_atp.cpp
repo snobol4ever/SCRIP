@@ -18,6 +18,5 @@ std::string bb_match_atp() {
             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
             + x86("call", "rt_at_cursor", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int))rt_at_cursor)
             + x86_gamma()
-            + x86_beta()
-            + x86_omega());
+            + x86_beta_trampoline());
 }

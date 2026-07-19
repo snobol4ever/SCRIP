@@ -14,6 +14,5 @@ std::string bb_match_pos() {
          + x86("cmp", "r14d", "eax")
          + x86_omega("jne")
          + x86_gamma()
-         + x86_beta()
-         + x86_omega();
+         + x86_beta_trampoline();
 }
