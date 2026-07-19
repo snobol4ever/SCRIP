@@ -320,6 +320,7 @@ void xa_dispatch(XA_op_t op)
     case XA_BUILDER:                                        return;
     case XA_REGISTRY_TABLE:                                 return;
     case XA_STRTAB_RODATA:         xa_strtab_rodata();         return;
+    case XA_CSETTAB_RODATA:        xa_csettab_rodata();        return;
     case XA_CAP_FIXUP:             xa_cap_fixup();             return;
     case XA_PATTERN_BLOBS:         xa_pattern_blobs();         return;
     default: return;
@@ -370,6 +371,54 @@ void xa_emit_strtab_rodata(void)
     g_emit.xa_strtab_labels  = NULL;
     g_emit.xa_strtab_escaped = NULL;
     strtab_reset();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define SMX_CSETTAB_CAP 256
+static struct { const char *s; int idx; unsigned char tbl[256]; } g_csettab[SMX_CSETTAB_CAP];
+static int g_csettab_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void csettab_reset(void) { g_csettab_n = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const void *csettab_label(char *buf, size_t bufsz, const char *cset)
+{
+    if (!cset) cset = "";
+    for (int i = 0; i < g_csettab_n; i++)
+        if (g_csettab[i].s == cset || strcmp(g_csettab[i].s, cset) == 0) { snprintf(buf, bufsz, ".C%d", g_csettab[i].idx); return g_csettab[i].tbl; }
+    if (g_csettab_n >= SMX_CSETTAB_CAP) { fprintf(stderr, "csettab overflow\n"); abort(); }
+    int idx = g_csettab_n;
+    g_csettab[idx].s = cset; g_csettab[idx].idx = idx;
+    memset(g_csettab[idx].tbl, 0, 256);
+    for (const unsigned char *p = (const unsigned char *)cset; *p; ++p) g_csettab[idx].tbl[*p] = 1;
+    g_csettab_n++;
+    snprintf(buf, bufsz, ".C%d", idx);
+    return g_csettab[idx].tbl;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void xa_emit_csettab_rodata(void)
+{
+    if (g_csettab_n <= 0) { csettab_reset(); return; }
+    static std::string rowbuf[SMX_CSETTAB_CAP];
+    static const char *rows[SMX_CSETTAB_CAP];
+    static const char *labels[SMX_CSETTAB_CAP];
+    static char        lblbuf[SMX_CSETTAB_CAP][24];
+    for (int i = 0; i < g_csettab_n; i++) {
+        snprintf(lblbuf[i], sizeof lblbuf[i], ".C%d:", g_csettab[i].idx);
+        labels[i] = lblbuf[i];
+        std::string r;
+        for (int j = 0; j < 256; j += 16) {
+            r += " .byte ";
+            for (int k = 0; k < 16; k++) { r += std::to_string((int)g_csettab[i].tbl[j + k]); r += (k < 15) ? "," : "\n"; }
+        }
+        rowbuf[i] = r; rows[i] = rowbuf[i].c_str();
+    }
+    g_emit.xa_csettab_n      = g_csettab_n;
+    g_emit.xa_csettab_labels = labels;
+    g_emit.xa_csettab_rows   = rows;
+    xa_dispatch(XA_CSETTAB_RODATA);
+    g_emit.xa_csettab_n      = 0;
+    g_emit.xa_csettab_labels = NULL;
+    g_emit.xa_csettab_rows   = NULL;
+    csettab_reset();
 }
 int bb_slot_get(IR_t *nd);
 #include "templates/bb_templates.h"

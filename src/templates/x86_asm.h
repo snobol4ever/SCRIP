@@ -188,6 +188,10 @@ inline std::string x86_store_cursor_mirror() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x45, 0x89, 0x32)) : std::string(" mov [r10], r14d\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_cset_probe() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b4(0x80, 0x3C, 0x37, 0x00)) : std::string(" cmp byte ptr [rdi+rsi], 0\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_push(const char * r) {
     int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" push ") + r + "\n");
 }
@@ -1271,6 +1275,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         abort();
     }
     if (!strcmp(mnem, "movzx"))  { (void)b; return x86_movzx_subj_byte(a.txt); }
+    if (!strcmp(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
     if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
     if (!strcmp(mnem, "movsd"))  {
         if (b.txt && !strncmp(b.txt, "f64:", 4)) { uint64_t bits = strtoull(b.txt + 4, 0, 10); double d; memcpy(&d, &bits, 8); return x86_set_xmm0_double(d); }

@@ -28,6 +28,7 @@ typedef enum {
     XA_BUILDER,
     XA_REGISTRY_TABLE,
     XA_STRTAB_RODATA,
+    XA_CSETTAB_RODATA,
     XA_CAP_FIXUP,
     XA_OP_COUNT
 } XA_op_t;
