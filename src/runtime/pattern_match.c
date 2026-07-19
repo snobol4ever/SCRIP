@@ -663,7 +663,7 @@ static long rt_dcap_pump(void)
  * construction (the old g_rt_dcap_n re-read compensated for a SHARED counter; ranges need no compensation). */
 long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
-    if (getenv("SCRIP_DCAP_TRACE")) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e)));
+    { static int _dct = -1; if (_dct < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); _dct = (_e && _e[0]) ? 1 : 0; } if (_dct) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }   /* BP-2c: cached getenv — this ran per match-with-captures (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
     if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
     if (g_dcf_top >= g_dcf_cap) { fprintf(stderr, "rt_cas: dcf overflow (%d) — raise RT_CAS_DCF_MAX\n", g_dcf_cap); abort(); }
     rt_dcf_t *c = &g_dcf[g_dcf_top++];

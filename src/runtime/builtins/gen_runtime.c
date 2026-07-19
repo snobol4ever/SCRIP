@@ -125,7 +125,7 @@ void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
     int64_t rlen = (int64_t)strlen(rs);
     if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
-    if (getenv("SCRIP_REPL_TRACE")) fprintf(stderr, "[REPL] name=%s slen=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)start, (long long)end, rs, (long long)rlen);
+    { static int _rpt = -1; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)start, (long long)end, rs, (long long)rlen); }   /* BP-2c: cached getenv — ran on EVERY replacement (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
     int64_t nlen = start + rlen + (slen - end);
     char *buf = rt_str_alloc((long)nlen);
     if (buf) { memcpy(buf, s, (size_t)start); memcpy(buf + start, rs, (size_t)rlen); memcpy(buf + start + rlen, s + end, (size_t)(slen - end)); buf[nlen] = '\0'; }
