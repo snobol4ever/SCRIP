@@ -100,6 +100,7 @@ static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
     return entry;
 }
 static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res);
+static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * op = lc_build(cx->g, IR_BINOP, γ, ω); IR_LIT(op).ival = code;
@@ -419,16 +420,90 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = NULL;
         return j;
     }
+    case TT_SCAN: {
+        if (t->n < 2) sno_fatal("TT_SCAN with missing subject or pattern", NULL);
+        IR_t * e = sno_lower_match(cx, t, NULL, 0, γ, ω);
+        if (res) *res = NULL;
+        return e;
+    }
     case TT_ASSIGN: {
         const tree_t * L = (t->n > 0) ? t->c[0] : NULL; const tree_t * R = (t->n > 1) ? t->c[1] : NULL;
-        if (!L || L->t != TT_VAR || !L->v.sval) sno_fatal("TT_ASSIGN lhs form outside the SCO-CF-2 subset (TT_VAR only)", NULL);
+        if (!L) sno_fatal("TT_ASSIGN with no lhs", NULL);
         if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
-        sno_reg_var(L->v.sval);
-        IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = L->v.sval;
-        IR_t * vr = NULL; IR_t * e = sx_lower(cx, R, asn, ω, &vr);
-        ir_operand_push(asn, vr);
-        if (res) *res = asn;
-        return e;
+        if (L->t == TT_SCAN && L->n >= 2) {
+            IR_t * e = sno_lower_match(cx, L, R, 1, γ, ω);
+            if (res) *res = NULL;
+            return e;
+        }
+        if (L->t == TT_VAR && L->v.sval) {
+            sno_reg_var(L->v.sval);
+            IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = L->v.sval;
+            IR_t * vr = NULL; IR_t * e = sx_lower(cx, R, asn, ω, &vr);
+            ir_operand_push(asn, vr);
+            if (res) *res = asn;
+            return e;
+        }
+        if (L->t == TT_INDIRECT && L->n > 0) {
+            IR_t * nv = NULL; IR_t * e1 = sx_nameval(cx, L->c[0], NULL, ω, &nv);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+            lc_γ_to(nv, e2);
+            IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, nv); ir_operand_push(asn, vv);
+            if (res) *res = asn;
+            return e1;
+        }
+        if (L->t == TT_IDX && L->n >= 2) {
+            IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(cx, L->c[0], (const tree_t * const *) &L->c[1], L->n - 1, ω, &vr);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+            lc_γ_to(vr, e2);
+            IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+            if (res) *res = asn;
+            return e1;
+        }
+        if (L->t == TT_FNC) {
+            const char * fname = L->v.sval; int argbase = 0;
+            if (!fname && L->n > 0 && L->c[0] && L->c[0]->t == TT_VAR) { fname = L->c[0]->v.sval; argbase = 1; }
+            int fnargs = L->n - argbase;
+            if (fname && !strcmp(fname, "ITEM") && fnargs >= 2) {
+                IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(cx, L->c[argbase], (const tree_t * const *) &L->c[argbase + 1], fnargs - 1, ω, &vr);
+                IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+                lc_γ_to(vr, e2);
+                IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+                if (res) *res = asn;
+                return e1;
+            }
+            { extern int rt_dat_field_of_any(const char *);
+              if (fname && fnargs == 1 && rt_dat_field_of_any(fname)) {
+                  IR_t * br = NULL; IR_t * e1 = sx_lower(cx, L->c[argbase], NULL, ω, &br);
+                  IR_t * fv = lc_build(cx->g, IR_FIELD_VAR, NULL, ω); IR_LIT(fv).sval = (char *) lp_strdup(fname);
+                  lc_γ_to(br, fv);
+                  ir_operand_push(fv, br);
+                  IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+                  lc_γ_to(fv, e2);
+                  IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+                  lc_γ_to(vv, asn);
+                  ir_operand_push(asn, fv); ir_operand_push(asn, vv);
+                  if (res) *res = asn;
+                  return e1;
+              } }
+        }
+        if (L->t == TT_KEYWORD && L->v.sval) {
+            IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$KWSET";
+            IR_t * nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(nl).sval = L->v.sval;
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+            lc_γ_to(nl, e2);
+            lc_γ_to(vv, mk);
+            ir_operand_push(mk, nl); ir_operand_push(mk, vv);
+            if (res) *res = mk;
+            return nl;
+        }
+        sno_fatal("TT_ASSIGN lhs form outside the landed subset (VAR/INDIRECT/IDX/ITEM/DATA-field/KEYWORD)", NULL);
+        return NULL;
     }
     case TT_IF: {
         const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
