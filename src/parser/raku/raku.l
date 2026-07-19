@@ -103,6 +103,8 @@ WS       [ \t\r]
 "False"         { raku_yylval.ival = 0; return LIT_INT; }
 "eq"            { return OP_SEQ; }
 "ne"            { return OP_SNE; }
+[ \t]+"xx"/[^A-Za-z0-9_-]  { return OP_REP_XX; }
+[ \t]+"x"/[^A-Za-z0-9_-]   { return OP_REP_X; }
 "div"           { return OP_DIV; }
 "..^"           { return OP_RANGE_EX; }
 "..."           { return YADA; }

@@ -197,7 +197,7 @@ static inline int ir_is_call_kind(IR_e t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
-typedef enum { BINOP_CAT_ARITH = 0, BINOP_CAT_RELOP = 1, BINOP_CAT_CONCAT = 2 } binop_cat_t;
+typedef enum { BINOP_CAT_ARITH = 0, BINOP_CAT_RELOP = 1, BINOP_CAT_CONCAT = 2, BINOP_CAT_XREP = 3 } binop_cat_t;
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
 typedef struct { IR_t * node; char sz[4]; } IR_ref_t;

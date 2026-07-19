@@ -156,7 +156,9 @@ typedef struct ExprList {
     OP_DOTEQ = 336,                /* OP_DOTEQ  */
     OP_SMATCH = 337,               /* OP_SMATCH  */
     OP_DIV = 338,                  /* OP_DIV  */
-    UMINUS = 339                   /* UMINUS  */
+    OP_REP_X = 339,                /* OP_REP_X  */
+    OP_REP_XX = 340,               /* OP_REP_XX  */
+    UMINUS = 341                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -173,7 +175,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 177 "raku.tab.h"
+#line 179 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;

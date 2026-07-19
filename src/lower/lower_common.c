@@ -141,6 +141,19 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
             { DESCR_t r2; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
         }
+        case BINOP_XREP: {
+            DESCR_t ls_d; ls_d = descr_to_str(lv);
+            if (IS_FAIL_fn(ls_d)) return FAILDESCR;
+            const char *ls = ls_d.s ? ls_d.s : "";
+            size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
+            long cnt = IS_INT_fn(rv) ? rv.i : (IS_REAL_fn(rv) ? (long)rv.r : 0);
+            if (cnt < 1 || ll == 0) { DESCR_t re; re.v = DT_S; re.slen = 0; re.s = rt_ws_alloc(1); re.s[0] = '\0'; return re; }
+            size_t total = ll * (size_t)cnt;
+            char *buf = rt_ws_alloc(total + 1);
+            for (long k = 0; k < cnt; k++) memcpy(buf + (size_t)k * ll, ls, ll);
+            buf[total] = '\0';
+            { DESCR_t r2; r2.v = DT_S; r2.slen = (int)total; r2.s = buf; return r2; }
+        }
         case BINOP_SLT: case BINOP_SLE: case BINOP_SGT:
         case BINOP_SGE: case BINOP_SEQ: case BINOP_SNE: {
             DESCR_t ls_d = descr_to_str(lv);
@@ -204,7 +217,7 @@ int lc_binop_code(tree_e tt) {
     case TT_LLT: return 12; case TT_LLE: return 13; case TT_LGT: return 14; case TT_LGE: return 15;
     case TT_LEQ: return 16; case TT_LNE: return 17; case TT_POW: return 18;
     case TT_CSET_UNION: return 19; case TT_CSET_DIFF: return 20; case TT_CSET_INTER: return 21;
-    case TT_IDENTICAL: return 22; case TT_NIDENTICAL: return 23; default: return 0; }
+    case TT_IDENTICAL: return 22; case TT_NIDENTICAL: return 23; case TT_XREP: return 24; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lc_is_binop(tree_e tt) {
@@ -213,6 +226,7 @@ int lc_is_binop(tree_e tt) {
     case TT_EQ: case TT_NE: case TT_CAT: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE: return 1;
     case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER: return 1;
     case TT_IDENTICAL: case TT_NIDENTICAL: return 1;
+    case TT_XREP: return 1;
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

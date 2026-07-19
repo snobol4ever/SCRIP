@@ -164,6 +164,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_binop_relop.cpp \
     $(SRC)/templates/bb_binop_arith.cpp \
     $(SRC)/templates/bb_binop_concat_slot.cpp \
+    $(SRC)/templates/bb_binop_xrep_slot.cpp \
     $(SRC)/templates/bb_assign_local.cpp \
     $(SRC)/templates/bb_assign_global.cpp \
     $(SRC)/templates/bb_field_get.cpp \
@@ -409,6 +410,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_gvar_arith_slot.cpp -o $(OBJ)/bb_binop_gvar_arith_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_unop_gvar_slot.cpp -o $(OBJ)/bb_unop_gvar_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_concat_slot.cpp -o $(OBJ)/bb_binop_concat_slot.o
+	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_binop_xrep_slot.cpp -o $(OBJ)/bb_binop_xrep_slot.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_lit_s.cpp -o $(OBJ)/bb_indirect_assign_lit_s.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_indirect_assign_var.cpp    -o $(OBJ)/bb_indirect_assign_var.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_det_nl.cpp           -o $(OBJ)/bb_det_nl.o

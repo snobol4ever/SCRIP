@@ -222,8 +222,10 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_DOTEQ
 %token OP_SMATCH
 %token OP_DIV
+%token OP_REP_X OP_REP_XX
 %type <node> stmt expr atom range_expr cmp_expr tern_expr jct_expr add_expr closure
 %type <node> mul_expr unary_expr postfix_expr call_expr block
+%type <node> repl_expr addsub_expr
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt
 %type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl role_decl
 %type <node> pair_list
@@ -238,6 +240,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %left  '|' '&'
 %left  OP_RANGE OP_RANGE_EX
 %left  '~'
+%left  OP_REP_X OP_REP_XX
 %left  '+' '-'
 %left  '*' '/' '%' OP_DIV
 %right UMINUS
@@ -272,6 +275,9 @@ stmt
     | KW_MY VAR_ARRAY '=' expr ',' arg_list ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$4);
           ExprList *args=$6; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          $$ = expr_binary(TT_ASSIGN, var_node($2), call); }
+    | KW_MY VAR_ARRAY '=' expr OP_REP_XX expr ';'
+        { tree_t *call=make_call("__rk_arr_xx"); expr_add_child(call,$4); expr_add_child(call,$6);
           $$ = expr_binary(TT_ASSIGN, var_node($2), call); }
     | KW_MY VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$5);
@@ -867,10 +873,17 @@ range_expr
     | add_expr                      { $$=$1; }
     ;
 add_expr
-    : add_expr '+' mul_expr  { $$=expr_binary(TT_ADD,$1,$3); }
-    | add_expr '-' mul_expr  { $$=expr_binary(TT_SUB,$1,$3); }
-    | add_expr '~' mul_expr  { $$=expr_binary(TT_CAT,$1,$3); }
-    | mul_expr               { $$=$1; }
+    : add_expr '~' repl_expr  { $$=expr_binary(TT_CAT,$1,$3); }
+    | repl_expr               { $$=$1; }
+    ;
+repl_expr
+    : repl_expr OP_REP_X addsub_expr  { $$=expr_binary(TT_XREP,$1,$3); }
+    | addsub_expr                     { $$=$1; }
+    ;
+addsub_expr
+    : addsub_expr '+' mul_expr  { $$=expr_binary(TT_ADD,$1,$3); }
+    | addsub_expr '-' mul_expr  { $$=expr_binary(TT_SUB,$1,$3); }
+    | mul_expr                  { $$=$1; }
     ;
 mul_expr
     : mul_expr '*'    unary_expr  { $$=expr_binary(TT_MUL,$1,$3); }
