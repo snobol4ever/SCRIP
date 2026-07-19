@@ -62,10 +62,15 @@ static tree_t *mk_chr_wrap(tree_t *e);
 static int pas_is_charexpr(tree_t *e);
 static int pas_is_charvar(const char *name);
 static int pas_is_chararr(const char *name);
+static long long pas_chararr_lo(const char *name);
 static int pas_is_strarr(const char *name);
 static long long pas_strarr_lo(const char *name);
 static tree_t *pas_alpha_wrap(tree_t *x);
 static int pas_ca_is_read(const tree_t *e);
+static tree_t *pas_str_to_alpha(const char *s, long long lo, long long high);
+static unsigned long long pas_caparm_mask(const char *name);
+static long long pas_caparm_lo(const char *name, int pos);
+static void pas_caparm_add(const char *name, unsigned long long m, const long long *lo);
 static int pas_is_rel(tree_t *e);
 static tree_t *pas_bool(tree_t *e);
 static tree_t *pas_tree_clone(tree_t *e);
@@ -158,7 +163,12 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 ast_push(e, val); ast_push(e, wid);
             }
         } else {
-            for (int i = 0; i < args->count; i += 2) ast_push(e, args->items[i]);
+            unsigned long long _cam = pas_caparm_mask(name);
+            for (int i = 0; i < args->count; i += 2) {
+                tree_t *val = args->items[i]; int _pidx = i / 2;
+                if (val && val->t == TT_QLIT && val->v.sval && _pidx < 64 && ((_cam >> _pidx) & 1ULL)) { long long _lo = pas_caparm_lo(name, _pidx); val = pas_str_to_alpha(val->v.sval, _lo, _lo + (long long)strlen(val->v.sval) - 1); }
+                ast_push(e, val);
+            }
         }
     }
     return e;
@@ -195,11 +205,14 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
     ast_push(proc, leaf_s(TT_VAR, name));
     tree_t *vlist = ast_node_new(TT_VLIST);
     long long byref = 0;
+    unsigned long long camask = 0; long long calo[64]; for (int _z = 0; _z < 64; _z++) calo[_z] = 0;
     if (params) for (int i = 0; i < params->count; i++) {
         tree_t *pv = params->items[i];
         if (pv && pv->n > 0) { if (i < 64) byref |= (1LL << i); pv->n = 0; }
+        if (pv && pv->v.sval && i < 64 && pas_is_chararr(pv->v.sval)) { camask |= (1ULL << i); calo[i] = pas_chararr_lo(pv->v.sval); }
         ast_push(vlist, pv);
     }
+    if (camask) pas_caparm_add(name, camask, calo);
     vlist->v.ival = byref;
     ast_push(proc, vlist);
     ast_push(proc, body_prog);
@@ -213,6 +226,10 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
 static struct { const char *name; } g_pas_funcs[256]; static int g_pas_nfunc;
 static void pas_func_add(const char *name) { if (g_pas_nfunc < 256 && name) { g_pas_funcs[g_pas_nfunc].name = strdup(name); g_pas_nfunc++; } }
 static int pas_is_func(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nfunc; i++) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return 1; return 0; }
+static struct { char *name; unsigned long long camask; long long lo[64]; } g_pas_caparm[256]; static int g_pas_ncaparm;
+static void pas_caparm_add(const char *name, unsigned long long m, const long long *lo) { if (g_pas_ncaparm < 256 && name && m) { g_pas_caparm[g_pas_ncaparm].name = strdup(name); g_pas_caparm[g_pas_ncaparm].camask = m; for (int i = 0; i < 64; i++) g_pas_caparm[g_pas_ncaparm].lo[i] = lo ? lo[i] : 0; g_pas_ncaparm++; } }
+static unsigned long long pas_caparm_mask(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_ncaparm; i++) if (g_pas_caparm[i].name && !strcmp(g_pas_caparm[i].name, name)) return g_pas_caparm[i].camask; return 0; }
+static long long pas_caparm_lo(const char *name, int pos) { if (!name || pos < 0 || pos >= 64) return 0; for (int i = 0; i < g_pas_ncaparm; i++) if (g_pas_caparm[i].name && !strcmp(g_pas_caparm[i].name, name)) return g_pas_caparm[i].lo[pos]; return 0; }
 static struct { char *name; long long val; } g_pas_consts[256]; static int g_pas_nconst;
 static void pas_const_add(const char *name, long long v) { if (g_pas_nconst < 256 && name) { g_pas_consts[g_pas_nconst].name = strdup(name); g_pas_consts[g_pas_nconst].val = v; g_pas_nconst++; } }
 static int pas_const_get(const char *name, long long *out) { if (!name) return 0; for (int i = 0; i < g_pas_nconst; i++) if (g_pas_consts[i].name && !strcmp(g_pas_consts[i].name, name)) { *out = g_pas_consts[i].val; return 1; } return 0; }
@@ -828,7 +845,7 @@ extern void  pascal_yy_delete_buffer(void *);
 tree_t *pascal_parse_string(const char *src) {
     pascal_prog_result = NULL;
     memset(&g_pascal_procs, 0, sizeof g_pascal_procs);
-    g_pas_nconst = 0; g_pas_narray = 0; g_pas_nfunc = 0; g_pas_pend_arr_ncols = -1;
+    g_pas_nconst = 0; g_pas_narray = 0; g_pas_nfunc = 0; g_pas_ncaparm = 0; g_pas_pend_arr_ncols = -1;
     g_pas_nrectype = 0; g_pas_nrecvar = 0; g_pas_pend_nf = 0; g_pas_nsetvar = 0; g_pas_nsettype = 0; g_pas_ncharvar = 0;
     g_pas_nptrtype = 0; g_pas_nptrvar = 0; g_pas_pend_ptrtarget = NULL; g_pas_pend_typename = NULL; g_pas_narrtype = 0;
     g_pas_nenum = 0; g_pas_pend_enum_max = -1; g_pas_nsubtype = 0; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1;
