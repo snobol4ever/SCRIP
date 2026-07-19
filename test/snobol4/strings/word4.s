@@ -137,6 +137,7 @@ xchain0_n8_af:
 # IR_MATCH_BREAK
  xchain0_n11_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx22_0:
  mov eax, r14d
@@ -149,9 +150,7 @@ xchain0_n8_af:
 .Lx22_240:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  jnz .Lx22_1
  add dword ptr [rsp + 0], 1
  jmp .Lx22_0
@@ -188,6 +187,7 @@ xchain0_n8_af:
 # IR_MATCH_SPAN
  xchain0_n13_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx26_0:
  mov eax, r14d
@@ -196,9 +196,7 @@ xchain0_n8_af:
  jge .Lx26_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx26_1
  add dword ptr [rsp + 0], 1
  jmp .Lx26_0
@@ -222,6 +220,7 @@ xchain0_n8_af:
 # IR_MATCH_BREAKX
  xchain0_n14_α:
  sub rsp, 16
+ lea rdi, [rip + .C0]
  mov dword ptr [rsp + 0], 0
 .Lx28_0:
  mov eax, r14d
@@ -234,9 +233,7 @@ xchain0_n8_af:
 .Lx28_240:
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  jnz .Lx28_1
  add dword ptr [rsp + 0], 1
  jmp .Lx28_0
@@ -246,6 +243,7 @@ xchain0_n8_af:
  mov r14d, eax
  jmp xchain0_n7_α
  xchain0_n14_β:
+ lea rdi, [rip + .C0]
  mov eax, r14d
  sub eax, dword ptr [rsp + 0]
  mov dword ptr [rsp + 4], eax
@@ -257,9 +255,7 @@ xchain0_n8_af:
  jge .Lx28_4
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S3]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  jnz .Lx28_3
  add dword ptr [rsp + 0], 1
  jmp .Lx28_2
@@ -294,6 +290,7 @@ xchain0_n8_af:
 # IR_MATCH_SPAN
  xchain0_n16_α:
  sub rsp, 16
+ lea rdi, [rip + .C1]
  mov dword ptr [rsp + 0], 0
 .Lx32_0:
  mov eax, r14d
@@ -302,9 +299,7 @@ xchain0_n8_af:
  jge .Lx32_1
  movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .S4]
- call strchr@PLT
- test rax, rax
+ cmp byte ptr [rdi+rsi], 0
  je .Lx32_1
  add dword ptr [rsp + 0], 1
  jmp .Lx32_0
@@ -553,7 +548,7 @@ main_α_body:
  push r15
  push r13
  sub rsp, 8
- lea rdi, [rip + .S5]
+ lea rdi, [rip + .S4]
  xor esi, esi
  call rt_defer_open@PLT
 .Lx44_2:
@@ -754,6 +749,41 @@ ret
 .S1: .string "WHO"
 .S2: .string "WHAT"
 .S3: .string " "
-.S4: .string " :"
-.S5: .string "PAT"
+.S4: .string "PAT"
+.text
+.section .rodata
+.C0:
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+.C1:
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 .text

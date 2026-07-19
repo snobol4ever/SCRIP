@@ -509,7 +509,7 @@ xchain0_n25_af:
 # IR_MATCH_ATP
  xchain0_n27_α:
  mov esi, r14d
- lea rdi, [rip + .S3]
+ lea rdi, [rip + .S2]
  call rt_at_cursor@PLT
  jmp xchain0_n25_as
  xchain0_n27_β:
@@ -865,7 +865,7 @@ xchain0_n42_af:
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n47_α:
  mov eax, dword ptr [rsp + 0]
- lea rcx, [rip + .S4]
+ lea rcx, [rip + .S3]
  mov qword ptr [r12 + 0], rcx
  mov esi, eax
  mov qword ptr [r12 + 8], rsi
@@ -1169,7 +1169,6 @@ ret
 .section .rodata
 .S0: .string "NH"
 .S1: .string "CROSS"
-.S2: .string ""
-.S3: .string "NV"
-.S4: .string "C"
+.S2: .string "NV"
+.S3: .string "C"
 .text
