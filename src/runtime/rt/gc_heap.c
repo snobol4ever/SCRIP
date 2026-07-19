@@ -64,7 +64,13 @@ char *rt_sxt_extend(char *s, long al, long bl)
     if (!(h->flags & HBF_TTL) || h->type != (uint16_t)DT_S || (char *)h + h->size != g_hp_top) { g_sxt_owner = (char *)0; return (char *)0; }
     DESCR_t *gv = (DESCR_t *)RT_GVA_VA;
     int refs = 0;
-    for (int k = 0; k < g_sxt_gva_n; k++) if (gv[k].v == DT_S && gv[k].s == s && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; }
+    { int k = 0, gn = g_sxt_gva_n;
+      for (; k + 4 <= gn; k += 4) {
+        if (__builtin_expect(gv[k].s == s, 0)     && gv[k].v == DT_S     && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; }
+        if (__builtin_expect(gv[k + 1].s == s, 0) && gv[k + 1].v == DT_S && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; }
+        if (__builtin_expect(gv[k + 2].s == s, 0) && gv[k + 2].v == DT_S && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; }
+        if (__builtin_expect(gv[k + 3].s == s, 0) && gv[k + 3].v == DT_S && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; } }
+      for (; k < gn; k++) if (gv[k].s == s && gv[k].v == DT_S && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; } }
     uint64_t want = sizeof(rt_hblk_t) + (((uint64_t)(al + bl + 1) + 15u) & ~15ull);
     if (want > h->size) {
         uint64_t d = want - h->size;
