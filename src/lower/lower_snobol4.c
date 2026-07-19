@@ -1902,12 +1902,20 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_in_patproc = 1;
     for (int pi2 = 0; pi2 < g_sno_npat; pi2++) {
         IR_graph_t * gp = IR_alloc(512);
-        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL;
+        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;   /* PAT-ARG-BIND s102: npre was UNINITIALIZED here (UB) */
         IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
         IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
         px.pat_fail = no; px.pat_seal = no;
         int before_pat = gp->n;
         IR_t * pe = sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no);
+        /* PAT-ARG-BIND (s102, found via Lon's treebank benchmark): a STORED pattern whose primitive args are
+         * runtime-computed (e.g. NL = CHAR(10); word = BREAK(NL)) reached here with a non-empty pre-chain and
+         * NO consumer -- the args were silently DROPPED and the primitive baked an EMPTY cset (repro: BREAK(NL)
+         * never matches; cconst-foldable args like D = ',' masked the hole).  Until the rung lands (evaluate
+         * args at ASSIGNMENT time into hidden PAT$n$Ai globals -- SPITBOL manual: pattern-function args
+         * evaluate when the pattern is BUILT, not when matched -- and read them here via the pre-chain), this
+         * is a LOUD compile-time refusal instead of a silent wrong answer. */
+        if (px.npre > 0) sno_fatal("stored pattern with runtime-computed primitive argument (e.g. BREAK(var) where var is not a literal-assigned constant) is outside the landed subset -- PAT-ARG-BIND rung, see GOAL-SNOBOL4-BB.md; workaround: assign the argument variable from a string literal", NULL);
         gp->entry = pe;
         gp->resumable_callable = 1;
         gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(g_sno_pats[pi2].pat)) ? gp->all[before_pat] : NULL;
