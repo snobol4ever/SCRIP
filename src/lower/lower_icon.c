@@ -587,8 +587,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_ITERATE: {
         IR_t * nd = build(cx, IR_ITERATE, γ, ω);
         IR_t * orr = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr);
+        IR_t * opβ = cx->beta;
         ir_operand_push(nd, orr);
         lc_γ_to(orr, nd);
+        if (opβ && opβ != ω) lc_ω_to_β(nd, opβ);
         cx->beta = nd; *res = nd; return ee; }
     case TT_IF: return lower_if(cx, t, γ, ω, res);
     case TT_WHILE: return lower_while(cx, t, γ, ω, res);

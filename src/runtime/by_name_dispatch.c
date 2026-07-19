@@ -4716,6 +4716,14 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         memcpy(buf, scan_subj + lo - 1, len); buf[len] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    if (!strcmp(fn,"pos") && nargs == 1 && scan_pos > 0) {
+        if (!scan_subj) { *out = FAILDESCR; return 1; }
+        int slen = (int)strlen(scan_subj);
+        int target = (int)to_int(args[0]);
+        if (target <= 0) target = slen + 1 + target;
+        if (target < 1 || target > slen + 1 || target != scan_pos) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(target); return 1;
+    }
     if (!strcmp(fn,"match") && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *pat = VARVAL_fn(args[0]); if (!pat) { *out = FAILDESCR; return 1; }
         if (nargs >= 2) {
