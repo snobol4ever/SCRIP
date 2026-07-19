@@ -36,6 +36,9 @@ PL_FILES=$(ls \
   2>/dev/null)
 
 # ---- TIER 1: SANCTIONED — frozen, legal forever (the 4 survivors + compile-time-only state) ------
+# g_pl_det_done/_n/_v   RSP-F-1 DET-classifier lower-time memo (s96) — compile-time only, written
+#                        and read exclusively inside lower_prolog.c before emit; never runtime state.
+#                        Sanctioned s99 after notarizing the gate FAILed at pristine 733e9c36.
 # g_resolve_trail        THE TRAIL — the one Prolog-specific runtime spine (DESIGN §10 survivor).
 # g_pl_pred_table/_n     clause DATABASE store — a heap, not a stack ("we need *a* clause store").
 # g_rt_pl_nb/_n          nb_setval/nb_getval store — a global mutable var IS the feature, by defn.
@@ -74,6 +77,9 @@ SANCTIONED="
 g_resolve_trail
 g_pl_trail
 g_pl_env_area
+g_pl_det_done
+g_pl_det_n
+g_pl_det_v
 g_pl_pred_table
 g_pl_pred_n
 g_rt_pl_nb
