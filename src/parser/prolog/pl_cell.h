@@ -1,3 +1,4 @@
+#include <stdio.h>
 #ifndef PL_CELL_H
 #define PL_CELL_H
 #include "rt/rt_arena.h"
@@ -60,11 +61,22 @@ static inline void pl_trail_push(pl_trail_t *t, pl_cell_t *addr) {
     t->top++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int plc_dead_cstack(const void *p) {
+    static char *stk_lo, *stk_hi; static int stk_have; char probe;
+    if (!stk_have || ((char *)p < stk_lo && (char *)p >= stk_lo - (64L << 20))) {
+        FILE *mf = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;
+        if (mf) { while (fgets(ln, sizeof ln, mf)) if (strstr(ln, "[stack]")) { if (sscanf(ln, "%lx-%lx", &a, &b) == 2) { stk_lo = (char *)a; stk_hi = (char *)b; stk_have = 1; } break; } fclose(mf); }
+        if (!stk_have) return 0;
+    }
+    if ((char *)p < stk_lo || (char *)p >= stk_hi) return 0;
+    return (char *)p < &probe;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
     pl_trail_ent_t *ents = (pl_trail_ent_t *)t->area.base;
     while (t->top > mark) {
         t->top--;
-        *ents[t->top].addr = ents[t->top].old;
+        if (!plc_dead_cstack(ents[t->top].addr)) *ents[t->top].addr = ents[t->top].old;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

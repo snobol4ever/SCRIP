@@ -1058,6 +1058,155 @@ static void rk_tap_diag(const char *msg) {
     fprintf(stderr, "# %s\n", msg ? msg : ""); fflush(stderr);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
+    extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+    if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } *out = FAILDESCR; return 1; }
+    DESCR_t a = rt_pl_deref_val(args[0]);
+    int ai = (a.v == DT_I), arl = (a.v == DT_R);
+    if (!ai && !arl) { plc_iso_evaluable(a); *out = FAILDESCR; return 1; }
+    double ad = arl ? a.r : (double)a.i;
+    if (nargs == 1) {
+        if (!strcmp(op, "neg"))   { *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
+        if (!strcmp(op, "pos"))   { *out = a; return 1; }
+        if (!strcmp(op, "abs"))   { *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
+        if (!strcmp(op, "sign"))  { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
+        if (!strcmp(op, "trunc")) { *out = INTVAL((long long)ad); return 1; }
+        if (!strcmp(op, "intg"))  { *out = ai ? a : INTVAL((long long)llround(ad)); return 1; }
+        if (!strcmp(op, "flt"))   { *out = REALVAL(ad); return 1; }
+        if (!strcmp(op, "floor")) { *out = INTVAL((long long)floor(ad)); return 1; }
+        if (!strcmp(op, "ceil"))  { *out = INTVAL((long long)ceil(ad)); return 1; }
+        if (!strcmp(op, "round")) { *out = INTVAL((long long)llround(ad)); return 1; }
+        if (!strcmp(op, "sqrt"))  { *out = REALVAL(sqrt(ad)); return 1; }
+        if (!strcmp(op, "sin"))   { *out = REALVAL(sin(ad)); return 1; }
+        if (!strcmp(op, "cos"))   { *out = REALVAL(cos(ad)); return 1; }
+        if (!strcmp(op, "atan"))  { *out = REALVAL(atan(ad)); return 1; }
+        if (!strcmp(op, "log"))   { *out = REALVAL(log(ad)); return 1; }
+        if (!strcmp(op, "exp"))   { *out = REALVAL(exp(ad)); return 1; }
+        if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
+        if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
+        if (!strcmp(op, "msb"))   { if (!ai || a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
+        if (!strcmp(op, "bnot"))  { if (!ai) { plc_iso_evaluable(a); *out = FAILDESCR; return 1; } *out = INTVAL(~a.i); return 1; }
+        *out = FAILDESCR; return 1;
+    }
+    DESCR_t b = rt_pl_deref_val(args[1]);
+    int bi = (b.v == DT_I), brl = (b.v == DT_R);
+    if (!bi && !brl) { plc_iso_evaluable(b); *out = FAILDESCR; return 1; }
+    double bd = brl ? b.r : (double)b.i;
+    if (!strcmp(op, "fpow")) { *out = REALVAL(pow(ad, bd)); return 1; }
+    if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
+    if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
+    if (!strcmp(op, "gcd")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
+    if (!strcmp(op, "rem")) { if (!ai || !bi || b.i == 0) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i % b.i); return 1; }
+    if (!strcmp(op, "xor")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i ^ b.i); return 1; }
+    if (!strcmp(op, "shl")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i << b.i); return 1; }
+    if (!strcmp(op, "shr")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
+    if (!strcmp(op, "band")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
+    if (!strcmp(op, "bor"))  { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
+    { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_mkc(DESCR_t *args, int nargs, DESCR_t *out) {
+    const char *fname = VARVAL_fn(args[0]); if (!fname) fname = "?";
+    int ar = nargs - 1;
+    extern int prolog_atom_intern(const char *);
+    DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+    for (int i = 0; i < ar; i++) {
+        DESCR_t t = args[1 + i];
+        DESCR_t *F = plw_cell_deref(plw_entry(&t));
+        if (plw_unbound_tag(F)) {
+            DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
+            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j;
+            plw_bind(F, r);
+            kids[i] = r;
+        } else kids[i] = *F;
+    }
+    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
+    *out = c; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_unwind_nothrow(DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)nargs;
+    extern int rt_pl_throw_pending(void);
+    pl_trail_unwind(&g_pl_trail, (int)args[0].i);
+    plw_zh_kill_to((int)args[0].i);
+    if (rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
+    DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_is_v(DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)nargs;
+    extern DESCR_t rt_pl_deref_val(DESCR_t);
+    DESCR_t v = rt_pl_deref_val(args[1]);
+    if (v.v != DT_I && v.v != DT_R) { plc_iso_evaluable(v); *out = FAILDESCR; return 1; }
+    if (plw_unify_vals(args[0], v)) { *out = v; return 1; }
+    *out = FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_cmp(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)nargs;
+    extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t a = rt_pl_deref_val(args[0]); DESCR_t b = rt_pl_deref_val(args[1]);
+    if (pl_num_cmp(op, a, b)) { *out = a; return 1; }
+    *out = FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_unify(DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)nargs;
+    if (plw_unify_vals(args[0], args[1])) { *out = rt_pl_deref_val(args[0]); return 1; }
+    *out = FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_trail_mark(DESCR_t *args, int nargs, DESCR_t *out) { (void)args; (void)nargs; DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); plw_zh_mark_push((int)m.i); *out = m; return 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_trail_unwind(DESCR_t *args, int nargs, DESCR_t *out) { (void)nargs; pl_trail_unwind(&g_pl_trail, (int)args[0].i); plw_zh_kill_to((int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    DESCR_t out = FAILDESCR;
+    if (g_core_errjmp_n >= 64) { rt_gc_point_arr(args, nargs, (const char **)0); body(args, nargs, &out); return out; }
+    int my = g_core_errjmp_n;
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    g_core_errjmp_n = my + 1;
+    rt_gc_point_arr(args, nargs, (const char **)0);
+    body(args, nargs, &out);
+    g_core_errjmp_n = my;
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_ax_add(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("add", a, n, o); }
+static int dop_ax_sub(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("sub", a, n, o); }
+static int dop_ax_mul(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("mul", a, n, o); }
+static int dop_ax_div(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("div", a, n, o); }
+static int dop_ax_idiv(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("idiv", a, n, o); }
+static int dop_ax_mod(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("mod", a, n, o); }
+static int dop_cmp_lt(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("lt", a, n, o); }
+static int dop_cmp_gt(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("gt", a, n, o); }
+static int dop_cmp_le(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("le", a, n, o); }
+static int dop_cmp_ge(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ge", a, n, o); }
+static int dop_cmp_eq(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("eq", a, n, o); }
+static int dop_cmp_ne(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ne", a, n, o); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_unify(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_unify, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_mkc(DESCR_t *args, int nargs) { return nargs >= 1 ? dop_call(dop_mkc, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_trail_mark(DESCR_t *args, int nargs) { return nargs == 0 ? dop_call(dop_trail_mark, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_trail_unwind(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call(dop_trail_unwind, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call(dop_unwind_nothrow, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_is_v(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_is_v, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_add(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_add, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_sub(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_sub, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_mul(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_mul, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_div(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_div, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_idiv(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_idiv, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_mod(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_mod, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_lt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_lt, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_gt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_gt, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_le(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_le, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_ge(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_ge, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_eq(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_eq, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_ne(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_cmp_ne, args, nargs) : FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
@@ -1077,60 +1226,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(op, "done")) { g_tap_done_run = 1; if (g_tap_no_plan) { g_tap_planned = g_tap_run; printf("1..%ld\n", g_tap_planned); fflush(stdout); } if ((g_tap_planned || g_tap_run) && g_tap_planned != g_tap_run) { snprintf(msg, sizeof msg, "You planned %ld test%s, but ran %ld", g_tap_planned, g_tap_planned == 1 ? "" : "s", g_tap_run); rk_tap_diag(msg); } if (g_tap_failed) { snprintf(msg, sizeof msg, "You failed %ld test%s of %ld", g_tap_failed, g_tap_failed == 1 ? "" : "s", g_tap_run); rk_tap_diag(msg); } *out = NULVCL; return 1; }
         *out = NULVCL; return 1;
     }
-    if (!strncmp(fn, "$ax_", 4)) {
-        extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
-        const char *op = fn + 4;
-        if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } *out = FAILDESCR; return 1; }
-        DESCR_t a = rt_pl_deref_val(args[0]);
-        int ai = (a.v == DT_I), arl = (a.v == DT_R);
-        if (!ai && !arl) { plc_iso_evaluable(a); *out = FAILDESCR; return 1; }
-        double ad = arl ? a.r : (double)a.i;
-        if (nargs == 1) {
-            if (!strcmp(op, "neg"))   { *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
-            if (!strcmp(op, "pos"))   { *out = a; return 1; }
-            if (!strcmp(op, "abs"))   { *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
-            if (!strcmp(op, "sign"))  { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
-            if (!strcmp(op, "trunc")) { *out = INTVAL((long long)ad); return 1; }
-            if (!strcmp(op, "intg"))  { *out = ai ? a : INTVAL((long long)llround(ad)); return 1; }
-            if (!strcmp(op, "flt"))   { *out = REALVAL(ad); return 1; }
-            if (!strcmp(op, "floor")) { *out = INTVAL((long long)floor(ad)); return 1; }
-            if (!strcmp(op, "ceil"))  { *out = INTVAL((long long)ceil(ad)); return 1; }
-            if (!strcmp(op, "round")) { *out = INTVAL((long long)llround(ad)); return 1; }
-            if (!strcmp(op, "sqrt"))  { *out = REALVAL(sqrt(ad)); return 1; }
-            if (!strcmp(op, "sin"))   { *out = REALVAL(sin(ad)); return 1; }
-            if (!strcmp(op, "cos"))   { *out = REALVAL(cos(ad)); return 1; }
-            if (!strcmp(op, "atan"))  { *out = REALVAL(atan(ad)); return 1; }
-            if (!strcmp(op, "log"))   { *out = REALVAL(log(ad)); return 1; }
-            if (!strcmp(op, "exp"))   { *out = REALVAL(exp(ad)); return 1; }
-            if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
-            if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
-            if (!strcmp(op, "msb"))   { if (!ai || a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
-            if (!strcmp(op, "bnot"))  { if (!ai) { plc_iso_evaluable(a); *out = FAILDESCR; return 1; } *out = INTVAL(~a.i); return 1; }
-            *out = FAILDESCR; return 1;
-        }
-        DESCR_t b = rt_pl_deref_val(args[1]);
-        int bi = (b.v == DT_I), brl = (b.v == DT_R);
-        if (!bi && !brl) { plc_iso_evaluable(b); *out = FAILDESCR; return 1; }
-        double bd = brl ? b.r : (double)b.i;
-        if (!strcmp(op, "fpow")) { *out = REALVAL(pow(ad, bd)); return 1; }
-        if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
-        if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
-        if (!strcmp(op, "gcd")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
-        if (!strcmp(op, "rem")) { if (!ai || !bi || b.i == 0) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i % b.i); return 1; }
-        if (!strcmp(op, "xor")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i ^ b.i); return 1; }
-        if (!strcmp(op, "shl")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i << b.i); return 1; }
-        if (!strcmp(op, "shr")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
-        if (!strcmp(op, "band")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
-        if (!strcmp(op, "bor"))  { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
-        { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
-    }
-    if (!strcmp(fn, "$is_v") && nargs == 2) {
-        extern DESCR_t rt_pl_deref_val(DESCR_t);
-        DESCR_t v = rt_pl_deref_val(args[1]);
-        if (v.v != DT_I && v.v != DT_R) { plc_iso_evaluable(v); *out = FAILDESCR; return 1; }
-        if (plw_unify_vals(args[0], v)) { *out = v; return 1; }
-        *out = FAILDESCR; return 1;
-    }
+    if (!strncmp(fn, "$ax_", 4)) return dop_ax(fn + 4, args, nargs, out);
+    if (!strcmp(fn, "$is_v") && nargs == 2) return dop_is_v(args, nargs, out);
     if (!strncmp(fn, "$is_", 4) && nargs == 3) {
         extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
         DESCR_t a = rt_pl_deref_val(args[1]); DESCR_t b = rt_pl_deref_val(args[2]); DESCR_t r = pl_arith2(fn + 4, a, b);
@@ -1138,11 +1235,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (plw_unify_vals(args[0], r)) { *out = r; return 1; }
         *out = FAILDESCR; return 1;
     }
-    if (!strncmp(fn, "$cmp_", 5) && nargs == 2) {
-        extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t a = rt_pl_deref_val(args[0]); DESCR_t b = rt_pl_deref_val(args[1]);
-        if (pl_num_cmp(fn + 5, a, b)) { *out = a; return 1; }
-        *out = FAILDESCR; return 1;
-    }
+    if (!strncmp(fn, "$cmp_", 5) && nargs == 2) return dop_cmp(fn + 5, args, nargs, out);
     if (!strcmp(fn, "$succ") && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
         DESCR_t a = rt_pl_deref_val(args[0]); DESCR_t b = rt_pl_deref_val(args[1]); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0;
@@ -1466,38 +1559,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int ok = (fn[4] == 's') ? rt_pl_nb_setval_cell(c0, c1) : rt_pl_nb_getval_cell(c0, c1);
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
-    if (!strcmp(fn, "$unify") && nargs == 2) {
-        if (plw_unify_vals(args[0], args[1])) { *out = rt_pl_deref_val(args[0]); return 1; }
-        *out = FAILDESCR; return 1;
-    }
-    if (!strcmp(fn, "$mkc") && nargs >= 1) {
-        const char *fname = VARVAL_fn(args[0]); if (!fname) fname = "?";
-        int ar = nargs - 1;
-        extern int prolog_atom_intern(const char *);
-        DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
-        for (int i = 0; i < ar; i++) {
-            DESCR_t t = args[1 + i];
-            DESCR_t *F = plw_cell_deref(plw_entry(&t));
-            if (plw_unbound_tag(F)) {
-                DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
-                DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j;
-                plw_bind(F, r);
-                kids[i] = r;
-            } else kids[i] = *F;
-        }
-        DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
-        *out = c; return 1;
-    }
-    if (!strcmp(fn, "$trail_mark") && nargs == 0) { DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); plw_zh_mark_push((int)m.i); *out = m; return 1; }
-    if (!strcmp(fn, "$trail_unwind") && nargs == 1) { pl_trail_unwind(&g_pl_trail, (int)args[0].i); plw_zh_kill_to((int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
+    if (!strcmp(fn, "$unify") && nargs == 2) return dop_unify(args, nargs, out);
+    if (!strcmp(fn, "$mkc") && nargs >= 1) return dop_mkc(args, nargs, out);
+    if (!strcmp(fn, "$trail_mark") && nargs == 0) return dop_trail_mark(args, nargs, out);
+    if (!strcmp(fn, "$trail_unwind") && nargs == 1) return dop_trail_unwind(args, nargs, out);
     if (!strcmp(fn, "$throw") && nargs == 1) { extern void rt_pl_throw_set(void *); DESCR_t t0 = args[0]; rt_pl_throw_set((void *)plw_det_cell(&t0)); *out = FAILDESCR; return 1; }
-    if (!strcmp(fn, "$unwind_nothrow") && nargs == 1) {
-        extern int rt_pl_throw_pending(void);
-        pl_trail_unwind(&g_pl_trail, (int)args[0].i);
-        plw_zh_kill_to((int)args[0].i);
-        if (rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
-        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
-    }
+    if (!strcmp(fn, "$unwind_nothrow") && nargs == 1) return dop_unwind_nothrow(args, nargs, out);
     if (!strcmp(fn, "$catch_check") && nargs == 2) {
         extern int rt_pl_throw_pending(void); extern int rt_pl_throw_match(void *);
         if (!rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
