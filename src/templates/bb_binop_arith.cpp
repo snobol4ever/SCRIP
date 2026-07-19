@@ -91,5 +91,22 @@ std::string bb_binop_arith() {
          + x86("def", L(3))
          + x86_gamma()
          + x86_beta()
+         + x86_omega())
+         + IF(_.op_off >= 0 && !_.op_num_real
+              && ((long long)_.op_ival == BINOP_POW || (long long)_.op_ival == BINOP_CUNION || (long long)_.op_ival == BINOP_CDIFF || (long long)_.op_ival == BINOP_CINTER),
+           x86_alpha()
+         + x86("comment", "IR_BINOP_ARITH_DYN")
+         + x86("mov", "rdi", FRQ(_.op_sa))
+         + x86("mov", "rsi", FRQ(_.op_sa + 8))
+         + x86("mov", "rdx", FRQ(_.op_sb))
+         + x86("mov", "rcx", FRQ(_.op_sb + 8))
+         + x86("mov", "r8d", (long)_.op_ival)
+         + x86("call", "rt_num_arith", (uint64_t)(uintptr_t)(void*)rt_num_arith)
+         + x86("cmp", "eax", (long)DT_FAIL)
+         + x86_omega("je")
+         + x86("mov", FRQ(_.op_off),     "rax")
+         + x86("mov", FRQ(_.op_off + 8), "rdx")
+         + x86_gamma()
+         + x86_beta()
          + x86_omega());
 }

@@ -87,11 +87,13 @@ run_one() {
         return 0
     fi
     local stdin_file="${base}.stdin"
+    local tdir tfn
+    tdir=$(dirname "$icn"); tfn=$(basename "$icn")
     local got want
     if [ -f "$stdin_file" ]; then
-        got=$(timeout "$tmo" "$SCRIP" --run "$icn" < "$stdin_file" 2>/dev/null) || true
+        got=$( (cd "$tdir" && timeout "$tmo" "$SCRIP" --run "$tfn") < "$stdin_file" 2>/dev/null) || true
     else
-        got=$(timeout "$tmo" "$SCRIP" --run "$icn" < /dev/null     2>/dev/null) || true
+        got=$( (cd "$tdir" && timeout "$tmo" "$SCRIP" --run "$tfn") < /dev/null     2>/dev/null) || true
     fi
     want=$(cat "$exp")
     if [ "$got" = "$want" ]; then

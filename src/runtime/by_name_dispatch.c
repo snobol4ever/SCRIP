@@ -1,4 +1,7 @@
 #include "by_name_dispatch.h"
+#include <unistd.h>
+#include <setjmp.h>
+int core_icn_error(int code, DESCR_t val);
 #include "rt/rt_arena.h"
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
@@ -3147,7 +3150,18 @@ DESCR_t rt_pl_call_gen(DESCR_t *args, int nargs, int64_t *resume) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs);
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    if (g_core_errjmp_n >= 64) return rt_call_arr_impl(fn, args, nargs);
+    int my = g_core_errjmp_n;
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    g_core_errjmp_n = my + 1;
+    DESCR_t r = rt_call_arr_impl(fn, args, nargs);
+    g_core_errjmp_n = my;
+    return r;
+}
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     rt_gc_point_arr(args, nargs, (const char **)0);
@@ -3207,9 +3221,13 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
     if (fn && resume && !strcmp(fn, "$between") && nargs >= 3) return rt_pl_between_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$for") && nargs >= 3) { DESCR_t a3[3]; a3[0] = args[1]; a3[1] = args[2]; a3[2] = args[0]; return rt_pl_between_gen(a3, 3, resume); }
     if (fn && resume && !strcmp(fn, "$bag_group") && nargs >= 3) { extern DESCR_t rt_pl_bag_group_gen(DESCR_t *, int, int64_t *); return rt_pl_bag_group_gen(args, nargs, resume); }
-    if (fn && resume && nargs == 2 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
-        DESCR_t a3[3]; a3[0] = args[0]; a3[1] = args[1]; a3[2] = INTVAL((*resume > 0) ? *resume : 1);
-        if (try_call_builtin_by_name(fn, a3, 3, &out) && !IS_FAIL_fn(out)) { *resume = out.i + 1; return out; }
+    if (fn && resume && nargs >= 2 && nargs <= 4 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
+        DESCR_t a4[4]; a4[0] = args[0]; a4[1] = args[1];
+        long i1 = (nargs >= 3 && (IS_INT_fn(args[2]) || IS_REAL_fn(args[2]))) ? (long)to_int(args[2]) : 1;
+        if (*resume > 0 && (long)*resume > i1) i1 = (long)*resume;
+        a4[2] = INTVAL(i1);
+        if (nargs >= 4) a4[3] = args[3];
+        if (try_call_builtin_by_name(fn, a4, (nargs >= 4) ? 4 : 3, &out) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
         return FAILDESCR;
     }
     return rt_call_arr(fn, args, nargs);
@@ -3257,7 +3275,18 @@ DESCR_t rt_str_coerce(DESCR_t d) {
     return STRVAL(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    if (g_core_errjmp_n >= 64) return rt_jct_relop_impl(lhs, rhs, op);
+    int my = g_core_errjmp_n;
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return 0; }
+    g_core_errjmp_n = my + 1;
+    int r = rt_jct_relop_impl(lhs, rhs, op);
+    g_core_errjmp_n = my;
+    return r;
+}
+static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
     if (op == BINOP_EQV || op == BINOP_NEQV) {
         int eq = 0;
         int lcs = (lhs.v == DT_S && lhs.slen == 0xFFFFFFFFu), rcs = (rhs.v == DT_S && rhs.slen == 0xFFFFFFFFu);
@@ -3300,7 +3329,7 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
                       case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; }
         return 0;
     }
-    if (IS_INT_fn(lhs) && IS_INT_fn(rhs)) {
+    if (num_rel && IS_INT_fn(lhs) && IS_INT_fn(rhs)) {
         int64_t a = lhs.i, b = rhs.i;
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
                       case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; }
@@ -3855,6 +3884,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             else { DATINST_t *di = (DATINST_t *)av.u; t = (di && di->type && di->type->name) ? di->type->name : "record"; }
         }
         else if (IS_CSET_fn(av)) t="cset";
+        else if (IS_FH_fn(av))   t="file";
         else if (av.v==DT_E) {
             t = "function";
             if (av.slen == 0xFFFFFFFEu && av.s) {
@@ -3968,13 +3998,13 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         if (IS_FH_fn(av)) {
             int idx = (int)av.i;
+            if (idx == 0) { snprintf(buf,256,"&input");  *out = STRVAL(buf); return 1; }
+            if (idx == 1) { snprintf(buf,256,"&output"); *out = STRVAL(buf); return 1; }
+            if (idx == 2) { snprintf(buf,256,"&errout"); *out = STRVAL(buf); return 1; }
             if (idx >= 0 && idx < FH_MAX && fh_name[idx]) {
                 snprintf(buf,256,"file(%s)",fh_name[idx]);
                 *out = STRVAL(buf); return 1;
             }
-            if (idx == 0) { snprintf(buf,256,"file(&input)");  *out = STRVAL(buf); return 1; }
-            if (idx == 1) { snprintf(buf,256,"file(&output)"); *out = STRVAL(buf); return 1; }
-            if (idx == 2) { snprintf(buf,256,"file(&errout)"); *out = STRVAL(buf); return 1; }
             snprintf(buf,256,"file(?)"); *out = STRVAL(buf); return 1;
         }
         if (IS_INT_fn(av)) {
@@ -4212,17 +4242,23 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         buf[n]='\0';
         *out = STRVAL(buf); return 1;
     }
+    if ((!strcmp(fn,"detab") || !strcmp(fn,"entab")) && nargs == 0) { core_icn_error(103, NULVCL); *out = FAILDESCR; return 1; }
     if (!strcmp(fn,"detab") && nargs >= 1) {
         if (args[0].v == DT_I || args[0].v == DT_R) { *out = FAILDESCR; return 1; }
+        if (args[0].v == DT_A || args[0].v == DT_T || args[0].v == DT_DATA) { core_icn_error(103, args[0]); *out = FAILDESCR; return 1; }
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
         int stops[32], nstops = 0;
         for (int j = 1; j < nargs && nstops < 32; j++) {
             if (IS_FAIL_fn(args[j]) || args[j].v == DT_SNUL) continue;
-            if (!IS_INT_fn(args[j]) && !IS_REAL_fn(args[j])) { *out = FAILDESCR; return 1; }
-            stops[nstops++] = (int)to_int(args[j]);
+            if (!IS_INT_fn(args[j]) && !IS_REAL_fn(args[j])) {
+                int _cok = 0;
+                if (args[j].v == DT_S && args[j].s) { const char *_p = args[j].s; while (*_p == ' ') _p++; if (*_p == '+' || *_p == '-') _p++; int _d = 0; while (*_p >= '0' && *_p <= '9') { _p++; _d = 1; } while (*_p == ' ') _p++; _cok = _d && !*_p; }
+                if (!_cok) { core_icn_error(101, args[j]); *out = FAILDESCR; return 1; }
+            }
+            { int _ns = (int)to_int(args[j]); if (nstops > 0 && _ns <= stops[nstops-1]) { core_icn_error(210, args[j]); *out = FAILDESCR; return 1; } stops[nstops++] = _ns; }
         }
         if (nstops == 0) { stops[0] = 9; nstops = 1; }
-        int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0];
+        int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0] - 1;
         if (gap < 1) gap = 1;
         int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 0;
         for (int i = 0; s[i]; i++) {
@@ -4242,15 +4278,20 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (!strcmp(fn,"entab") && nargs >= 1) {
         if (args[0].v == DT_I || args[0].v == DT_R) { *out = FAILDESCR; return 1; }
+        if (args[0].v == DT_A || args[0].v == DT_T || args[0].v == DT_DATA) { core_icn_error(103, args[0]); *out = FAILDESCR; return 1; }
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
         int stops[32], nstops = 0;
         for (int j = 1; j < nargs && nstops < 32; j++) {
             if (IS_FAIL_fn(args[j]) || args[j].v == DT_SNUL) continue;
-            if (!IS_INT_fn(args[j]) && !IS_REAL_fn(args[j])) { *out = FAILDESCR; return 1; }
-            stops[nstops++] = (int)to_int(args[j]);
+            if (!IS_INT_fn(args[j]) && !IS_REAL_fn(args[j])) {
+                int _cok = 0;
+                if (args[j].v == DT_S && args[j].s) { const char *_p = args[j].s; while (*_p == ' ') _p++; if (*_p == '+' || *_p == '-') _p++; int _d = 0; while (*_p >= '0' && *_p <= '9') { _p++; _d = 1; } while (*_p == ' ') _p++; _cok = _d && !*_p; }
+                if (!_cok) { core_icn_error(101, args[j]); *out = FAILDESCR; return 1; }
+            }
+            { int _ns = (int)to_int(args[j]); if (nstops > 0 && _ns <= stops[nstops-1]) { core_icn_error(210, args[j]); *out = FAILDESCR; return 1; } stops[nstops++] = _ns; }
         }
         if (nstops == 0) { stops[0] = 9; nstops = 1; }
-        int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0];
+        int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0] - 1;
         if (gap < 1) gap = 1;
         int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 0;
         int slen = (int)strlen(s);
@@ -4413,7 +4454,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         char *r = rt_ws_alloc(len + 1); memcpy(r, buf, len + 1);
         *out = STRVAL(r); return 1;
     }
-    if (!strcmp(fn,"reads") && nargs == 1) {
+    if (!strcmp(fn,"reads") && nargs == 1 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0]))) {
         DESCR_t nd = args[0];
         int n = (int)to_int(nd);
         if (n <= 0) { *out = FAILDESCR; return 1; }
@@ -4533,26 +4574,54 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         memcpy(buf, scan_subj + lo - 1, len); buf[len] = '\0';
         *out = STRVAL(buf); return 1;
     }
-    if (!strcmp(fn,"match") && nargs >= 1 && scan_pos > 0) {
+    if (!strcmp(fn,"match") && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *pat = VARVAL_fn(args[0]); if (!pat) { *out = FAILDESCR; return 1; }
+        if (nargs >= 2) {
+            const char *s = VARVAL_fn(args[1]); if (!s) s = "";
+            int slen = (int)strlen(s); int plen2 = (int)strlen(pat);
+            int i1 = (nargs >= 3 && !IS_FAIL_fn(args[2]) && args[2].v != DT_SNUL) ? (int)args[2].i : 1;
+            int i2 = (nargs >= 4 && !IS_FAIL_fn(args[3]) && args[3].v != DT_SNUL) ? (int)args[3].i : slen + 1;
+            if (i1 <= 0 || i1 > slen + 1) { *out = FAILDESCR; return 1; }
+            if (i2 <= 0 || i2 > slen + 1) i2 = slen + 1;
+            if (i1 > i2) { int _t = i1; i1 = i2; i2 = _t; }
+            int p0 = i1 - 1;
+            if (p0 + plen2 > slen || i1 + plen2 > i2) { *out = FAILDESCR; return 1; }
+            if (strncmp(s + p0, pat, (size_t)plen2) != 0) { *out = FAILDESCR; return 1; }
+            *out = INTVAL(i1 + plen2); return 1;
+        }
         if (!scan_subj) { *out = FAILDESCR; return 1; }
         int plen = (int)strlen(pat), p0 = scan_pos - 1;
         int slen = (int)strlen(scan_subj);
         if (p0 + plen > slen || strncmp(scan_subj + p0, pat, plen) != 0) { *out = FAILDESCR; return 1; }
         *out = INTVAL(scan_pos + plen); return 1;
     }
-    if (!strcmp(fn,"bal") && nargs >= 1 && scan_pos > 0) {
-        const char *c1; int c1len;
-        if (!cset_resolve(args[0], &c1, &c1len)) { *out = FAILDESCR; return 1; }
+    if (!strcmp(fn,"bal") && (scan_pos > 0 || nargs >= 4)) {
+        const char *c1 = 0; int c1len = 0; int c1any = 0;
+        if (nargs < 1 || IS_FAIL_fn(args[0]) || args[0].v == DT_SNUL) c1any = 1;
+        else if (!cset_resolve(args[0], &c1, &c1len)) { *out = FAILDESCR; return 1; }
         const char *c2 = "("; int c2len = 1;
         const char *c3 = ")"; int c3len = 1;
         if (nargs >= 2) { const char *v; int vlen; if (cset_resolve(args[1], &v, &vlen) && vlen > 0) { c2 = v; c2len = vlen; } }
         if (nargs >= 3) { const char *v; int vlen; if (cset_resolve(args[2], &v, &vlen) && vlen > 0) { c3 = v; c3len = vlen; } }
-        const char *s = scan_subj ? scan_subj : ""; int slen = (int)strlen(s);
-        int p = scan_pos - 1; long long cnt = 0;
+        const char *s; int slen; int p;
+        if (nargs >= 4 && !IS_FAIL_fn(args[3]) && args[3].v != DT_SNUL) {
+            s = VARVAL_fn(args[3]); if (!s) s = "";
+            slen = (int)strlen(s);
+            int i1 = (nargs >= 5 && (IS_INT_fn(args[4]) || IS_REAL_fn(args[4]))) ? (int)to_int(args[4]) : 1;
+            int i2 = (nargs >= 6 && (IS_INT_fn(args[5]) || IS_REAL_fn(args[5]))) ? (int)to_int(args[5]) : slen + 1;
+            if (i1 <= 0) i1 = slen + 1 + i1;
+            if (i2 <= 0) i2 = slen + 1 + i2;
+            if (i1 < 1 || i1 > slen + 1) { *out = FAILDESCR; return 1; }
+            if (i2 - 1 < slen) slen = i2 - 1;
+            p = i1 - 1;
+        } else {
+            s = scan_subj ? scan_subj : ""; slen = (int)strlen(s);
+            p = scan_pos - 1;
+        }
+        long long cnt = 0;
         while (p < slen) {
             unsigned char ch = (unsigned char)s[p];
-            if (cnt == 0 && cset_has(c1, c1len, ch)) { *out = INTVAL(p + 1); return 1; }
+            if (cnt == 0 && (c1any || cset_has(c1, c1len, ch))) { *out = INTVAL(p + 1); return 1; }
             if (cset_has(c2, c2len, ch)) cnt++;
             else if (cset_has(c3, c3len, ch)) { cnt--; if (cnt < 0) { *out = FAILDESCR; return 1; } }
             p++;
@@ -4869,6 +4938,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_ws_strdup(path);
         *out = FHVAL(idx); return 1;
     }
+    if (!strcmp(fn,"remove") && nargs == 1) {
+        const char *_rp = VARVAL_fn(args[0]); if (!_rp) _rp = "";
+        if (unlink(_rp) == 0) { *out = NULVCL; return 1; }
+        *out = FAILDESCR; return 1;
+    }
     if (!strcmp(fn,"close") && nargs == 1) {
         if (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) {
             int idx = (int)args[0].i;
@@ -4887,10 +4961,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (len > 0 && buf[len-1] == '\r') buf[--len] = '\0';
         *out = STRVAL(rt_ws_strdup_c(buf)); return 1;
     }
-    if (!strcmp(fn,"reads") && nargs == 2) {
+    if (!strcmp(fn,"reads") && nargs >= 1) {
         FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
-        int n = (int)to_int(args[1]);
+        int n = (nargs >= 2 && args[1].v != DT_SNUL && !IS_FAIL_fn(args[1])) ? (int)to_int(args[1]) : 1;
         if (n <= 0) { *out = FAILDESCR; return 1; }
         char *buf = rt_ws_alloc(n + 1);
         int got = (int)fread(buf, 1, (size_t)n, fp);
