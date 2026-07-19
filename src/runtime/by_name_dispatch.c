@@ -216,6 +216,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "__rk_arr_xx",
+        "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
@@ -1570,6 +1571,23 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 2); size_t oi = 0; const char *pp = sa; long k = 0;
         while (*pp) { char *ep = NULL; long v = strtol(pp, &ep, 10); if (ep == pp) break; if (k >= lo) o[oi++] = (char)v; k++; pp = ep; if (*pp == SOH) pp++; else break; }
         o[oi] = '\0'; *out = STRVAL(o); return 1;
+    }
+    /* Pascal record-field char-array collision fix: a whole char-array is stored SOH-ordinal
+       ("0\x01<ord>\x01<ord>..."); a record stores its fields SOH-separated. Storing a char-array
+       into a record field collides. __pas_ca_pack re-encodes the char-array's internal SOH to a
+       collision-free byte (0x1e RS) so it occupies ONE record field; __pas_ca_unpack reverses it
+       on read to recover the interoperable SOH-ordinal form. Mirrors the \x05 nested-record dodge. */
+    if (!strcmp(fn, "__pas_ca_pack") && nargs >= 1) {
+        const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
+        size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 1);
+        for (size_t i = 0; i < sl; i++) o[i] = (sa[i] == SOH) ? '\x1e' : sa[i];
+        o[sl] = '\0'; *out = STRVAL(o); return 1;
+    }
+    if (!strcmp(fn, "__pas_ca_unpack") && nargs >= 1) {
+        const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
+        size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 1);
+        for (size_t i = 0; i < sl; i++) o[i] = (sa[i] == '\x1e') ? SOH : sa[i];
+        o[sl] = '\0'; *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[2]; return 1; }
@@ -3391,6 +3409,7 @@ DESCR_t proc_as_value(const char *name) {
     }
     static const char *builtins[] = {
         "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin",
+        "__pas_ca_pack","__pas_ca_unpack",
         "__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove",
         "flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
