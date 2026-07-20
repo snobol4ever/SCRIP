@@ -85,7 +85,7 @@ extern "C" void *bb_compile_pat_tree(const void *tv) {
     g_emit_cfg = g;
     g_frame_active = 1;
     g_gva_active = 0;
-    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = bb_jmp_entry_ktotal(g);
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = bb_jmp_entry_ktotal(g) + 16;   /* SPD-2: two top slots above the wire header -- [kt-32]=scan flag (r8 at entry), [kt-40]=attempt start (r14d at entry) */
     g_emit.flat_pat = 1;
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;

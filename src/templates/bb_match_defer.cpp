@@ -12,6 +12,7 @@ extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *dtp_fn_of(void *headv);
+extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
@@ -48,10 +49,15 @@ std::string bb_match_defer() {
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
+         + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))   /* SPD-2: sole flat_pat entry gate -- r8=1 arms the blob's internal positional retry (statement scan), 0 = anchored-at-cursor (nested defer, dcap) */
          + x86_lea_id("rcx", 4)
          + x86_lea_id("rdx", 5)
          + x86_jmp_reg("rax")
          + x86("def",  L(4))
+         + IF(_.op_scan && _.op_scan_head_off >= 0,
+               x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
+             + x86("mov",  "rax", "[rcx]")
+             + x86("mov",  FR(_.op_scan_head_off), "eax"))   /* SPD-2: winning attempt-start -> head counter (bb_match_replace span source) */
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
