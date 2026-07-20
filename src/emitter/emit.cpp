@@ -1796,7 +1796,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     flat_beta_used_scan(nodes, n, bused);
     unsigned char *seqclean = (unsigned char *)alloca(n > 0 ? n : 1);
     /* SPD SEQ-STATIC prepass: a celled IR_MATCH_SEQUENCE converts to the zero-counter statically-wired arm iff (a) every element entry AND resume root is present in this chain (sigma_i -> alpha_{i+1} / phi_i -> beta_{i-1} all resolvable) and (b) every sigma/phi-marked edge into it originates FROM one of those roots (GOTO-chased marks from foreign protocol glue -- DEFER return, ARBNO seal -- must keep the counter dispatch: degrade never die).  FC-converted SEQs bypass this (eligibility already fences their source set). */
-    static int _sqoff = -1; if (_sqoff < 0) { const char *_e = getenv("SCRIP_SEQSTATIC"); _sqoff = (_e && *_e == '1') ? 0 : 1; }   /* SPD SEQ-STATIC: OPT-IN (default OFF) until the non-sigma/phi glue consumer in DEFER/patproc chains is bracketed -- see GOAL-SNOBOL4-BB s109 finding */
+    static int _sqoff = -1; if (_sqoff < 0) { const char *_e = getenv("SCRIP_SEQSTATIC"); _sqoff = (_e && *_e == '0') ? 1 : 0; }   /* SPD SEQ-STATIC: DEFAULT ON since s110 -- the s109 "non-sigma/phi glue consumer" was the ZPOP-FOLD chase below (phi hop into a converted SEQ kept the raw af glue, jmp-omega under conversion; bracketed via SCRIP_ZPOP_FOLD_OFF=1 discrimination, fixed by mirroring the main loop's fc_seq_phi_tgt redirect at the fold's hop resolution).  SCRIP_SEQSTATIC=0 is the same-build A/B hatch (BP-5/BP-6 precedent). */
     for (int k = 0; k < n; k++) {
         seqclean[k] = 0;
         if (_sqoff || nodes[k]->op != IR_MATCH_SEQUENCE || nodes[k]->n_operands < 2) continue;
@@ -1994,7 +1994,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   { int _gg = 0; IR_t *_g = _o; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!_ib) _ib = (_g->γ.sz[0] == (char)0xce && (unsigned char)_g->γ.sz[1] == 0xb2); if (!_ip) _ip = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); _o = _g->γ.node; _g = _o; } }
                   bb_label_t *_next = NULL; int _k2 = -1;
                   for (int _k = 0; _k < n; _k++) if (nodes[_k] == _o) { _k2 = _k; break; }
-                  if (_k2 >= 0) { _next = (_ip && na_f[_k2]) ? na_f[_k2] : _ib ? betas[_k2] : lbls[_k2]; if (_ip && fc_seq_on(nodes[_k2])) _next = fc_seq_phi_tgt(nodes, n, _k2, _fk, betas, _next); }
+                  if (_k2 >= 0) { _next = (_ip && na_f[_k2]) ? na_f[_k2] : _ib ? betas[_k2] : lbls[_k2]; if (_ip && (fc_seq_on(nodes[_k2]) || (seq_static_on(nodes[_k2]) && seqclean[_k2]))) { bb_label_t *_b4 = _next; _next = fc_seq_phi_tgt(nodes, n, _k2, _fk, betas, _next); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQFOLD chain=%d fk=%d k2=%d el=%d raw=%s tgt=%s\n", id, _fk, _k2, fc_seq_elem_of(nodes, n, _k2, _fk), _b4 ? _b4->name : "?", _next ? _next->name : "?"); } } }   /* SPD SEQ-STATIC s110: the fold mirrors the main loop's rules -- a phi hop into a CONVERTED seq must take the same static re-point; the raw af glue is jmp-omega under conversion (the s109 treebank stmt-1 wire, bracketed via SCRIP_ZPOP_FOLD_OFF=1) */
                   else _next = (_o && _o->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
                   for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0 && nodes[_r]->operands[0] == _c) { _next = ra_t[_r]; break; }
                   node_ω = _next;
