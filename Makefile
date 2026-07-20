@@ -30,6 +30,7 @@ OBJ     := /tmp/si_objs
 CC      := gcc
 CXX     := g++
 WARN    := -w
+RT_OPT  ?= -O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # runtime .so opt level; make RT_OPT="-O0 -g" restores the pre-s112 debug build (emergency/gdb-heavy hunts)
 CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
 CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED $(ZCFLAGS)
@@ -278,7 +279,7 @@ RT_PIC_SRCS := \
 
 out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
 	@mkdir -p out
-	$(CC) -O0 -g $(WARN) -fPIC -shared \
+	$(CC) $(RT_OPT) $(WARN) -fPIC -shared \
 	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
 	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer \
 	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) \
