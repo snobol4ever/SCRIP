@@ -2046,6 +2046,105 @@ raku "for_wordlist_pointy" "$(printf 'a\nb\nc')" << 'EOF'
 for <a b c> -> $x { say($x); }
 EOF
 
+# --- optional trailing ';' before '}' (Rakudo eat-terminator: ';' optional at end of block) ---
+raku "block_nosemi_for_say" "$(printf '1\n2\n3')" << 'EOF'
+for 1..3 -> $v { say $v }
+EOF
+
+raku "block_nosemi_for_saynoparen" "$(printf '1\n2\n3')" << 'EOF'
+for 1..3 -> $v { say($v) }
+EOF
+
+raku "block_nosemi_for_expr" "6" << 'EOF'
+my $x = 0;
+for 1..3 -> $v { $x = $x + $v }
+say $x;
+EOF
+
+raku "block_nosemi_for_print" "$(printf 'abc')" << 'EOF'
+for <a b c> -> $c { print $c }
+EOF
+
+raku "block_nosemi_nested_for" "$(printf '1\n2\n2\n4')" << 'EOF'
+for 1..2 -> $i { for 1..2 -> $j { say $i * $j } }
+EOF
+
+raku "block_nosemi_if" "big" << 'EOF'
+my $x = 5;
+if ($x > 3) { say "big" }
+EOF
+
+raku "block_nosemi_while" "$(printf '0\n1\n2')" << 'EOF'
+my $i = 0;
+while ($i < 3) { say $i; $i = $i + 1 }
+EOF
+
+raku "block_nosemi_if_else" "$(printf 'one\ntwo')" << 'EOF'
+for 1..2 -> $i { if ($i == 1) { say "one" } else { say "two" } }
+EOF
+
+raku "block_nosemi_mid_stmt_then_bare" "$(printf '5\n5')" << 'EOF'
+for 1..2 { my $x = 5; say $x }
+EOF
+
+raku "sub_nosemi_say" "got 42" << 'EOF'
+sub announce($x) { say "got $x" }
+announce(42);
+EOF
+
+raku "method_nosemi_say" "7" << 'EOF'
+class C { has $.v; method show() { say $.v } }
+my $o = C.new(v => 7);
+$o.show();
+EOF
+
+raku "sub_return_still_works" "25" << 'EOF'
+sub sq($n) { $n * $n }
+say sq(5);
+EOF
+
+# --- paren-less if/while/unless/until conditions (Rakudo: parens optional on statement-control) ---
+raku "noparen_if" "big" << 'EOF'
+my $x = 5;
+if $x > 3 { say "big" }
+EOF
+
+raku "noparen_if_else" "small" << 'EOF'
+my $x = 2;
+if $x > 3 { say "big" } else { say "small" }
+EOF
+
+raku "noparen_dangling_else" "a-only" << 'EOF'
+my $a = 1;
+my $b = 0;
+if $a == 1 { if $b == 1 { say "both" } else { say "a-only" } }
+EOF
+
+raku "noparen_elsif_chain" "two" << 'EOF'
+my $x = 2;
+if $x == 1 { say "one" } else { if $x == 2 { say "two" } else { say "other" } }
+EOF
+
+raku "noparen_while" "$(printf '0\n1\n2')" << 'EOF'
+my $i = 0;
+while $i < 3 { say $i; $i = $i + 1 }
+EOF
+
+raku "noparen_unless" "not big" << 'EOF'
+my $x = 2;
+unless $x > 5 { say "not big" }
+EOF
+
+raku "noparen_until" "$(printf '0\n1\n2')" << 'EOF'
+my $i = 0;
+until $i >= 3 { say $i; $i = $i + 1 }
+EOF
+
+raku "paren_if_still_works" "big" << 'EOF'
+my $x = 5;
+if ($x > 3) { say "big"; }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
