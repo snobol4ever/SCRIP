@@ -122,6 +122,24 @@ static int pl_same_functor(const tree_t * a, const tree_t * b) {
     return a && b && a->t == TT_FNC && b->t == TT_FNC && a->n == b->n && a->v.sval && b->v.sval && !strcmp(a->v.sval, b->v.sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-REGAIN-5 slice B (2026-07-19): a [E|T] pattern (ONE element + bar) in a unify — the qsort/nrev/append clause-head shape — lowers to ONE $unify_lst(Subject,E,T) goal instead of $mkc('.',E,T) feeding
+ * $unify: the read-mode try skips the pattern BUILD entirely (3 PLJ allocs + 2 trail pushes per clause-try today), the write-mode leaf rebuilds it bit-identically.  Kids lower exactly as they did as mkc
+ * operands (any shape: var refs, literals, nested builds).  Deeper patterns ([A,B|T], nested compounds) keep the classic pair untouched.  SCRIP_NO_UL=1 compile-time hatch = the same-lib twin instrument
+ * (SCC-off pattern, rides beside SCRIP_NO_CU). */
+static int pl_no_ul(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_UL"); p = (e && e[0] == '1') ? 1 : 0; } return p; }
+static int pl_is_lstpat1(const tree_t * t) { return t && t->t == TT_MAKELIST && t->v.ival == 1 && t->n == 2; }
+static IR_t * unify_lst_build(lcx_t * cx, IR_t * subj, IR_t * subj_entry, const tree_t * eh, const tree_t * et, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify_lst";
+    IR_t * e1 = NULL; IR_t * a1 = term_lval_e(cx, eh, &e1);
+    IR_t * e2 = NULL; IR_t * a2 = term_lval_e(cx, et, &e2);
+    lc_γ_to(subj, e1 ? e1 : a1); lc_ω_to(subj, ω);
+    lc_γ_to(a1, e2 ? e2 : a2); lc_ω_to(a1, ω);
+    lc_γ_to(a2, nd); lc_ω_to(a2, ω);
+    ir_operand_push(nd, subj); ir_operand_push(nd, a1); ir_operand_push(nd, a2);
+    if (entry_out) *entry_out = subj_entry ? subj_entry : subj;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
     if (pl_same_functor(lt, rt)) {
         IR_t * next = γ; IR_t * first_entry = γ; IR_t * head = NULL;
@@ -129,6 +147,8 @@ static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t 
         if (entry_out) *entry_out = first_entry;
         return head;
     }
+    if (!pl_no_ul() && pl_is_lstpat1(rt) && !pl_is_lstpat1(lt)) { IR_t * e0 = NULL; IR_t * a0 = term_lval_e(cx, lt, &e0); return unify_lst_build(cx, a0, e0, rt->c[0], rt->c[1], γ, ω, entry_out); }
+    if (!pl_no_ul() && pl_is_lstpat1(lt) && !pl_is_lstpat1(rt)) { IR_t * e0 = NULL; IR_t * a0 = term_lval_e(cx, rt, &e0); return unify_lst_build(cx, a0, e0, lt->c[0], lt->c[1], γ, ω, entry_out); }
     IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify";
     IR_t * e0 = NULL; IR_t * e1 = NULL;
     IR_t * a0 = term_lval_e(cx, lt, &e0); IR_t * a1 = term_lval_e(cx, rt, &e1);
@@ -651,6 +671,11 @@ static void lower_pl_clause_into(lcx_t * cx, const tree_t * clause, int arity, I
     IR_t * next = bentry ? bentry : γsucc;
     for (int i = arity - 1; i >= 0; i--) {
         const tree_t * h = clause->c[i];
+        if (!pl_no_ul() && pl_is_lstpat1(h)) {
+            IR_t * lhs = build(cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
+            unify_lst_build(cx, lhs, NULL, h->c[0], h->c[1], next, ωfail, NULL);
+            next = lhs; continue;
+        }
         IR_t * u = build(cx, IR_CALL_BUILTIN_PROLOG, next, ωfail); IR_LIT(u).sval = "$unify";
         IR_t * lhs = build(cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
         IR_t * he = NULL; IR_t * rhs = term_lval_e(cx, h, &he);

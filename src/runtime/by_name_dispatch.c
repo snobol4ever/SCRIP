@@ -87,11 +87,26 @@ static DESCR_t *plw_cell_deref(DESCR_t *c) {
 }
 extern void *rt_plj_alloc(size_t);
 static void plw_bind(DESCR_t *cell, DESCR_t word) { pl_trail_push(&g_pl_trail, cell); *cell = word; }
+/* PL-REGAIN-5 slice B (2026-07-19) — VAR-VAR DIRECT BIND, stack-stack only.  Canonical rule (gprolog unify.c:68 `if (u_adr > v_adr) Bind_UV(u_adr, REF(v_adr))`; SWI pl-prims.c "always point downwards"):
+ * the SHORTER-LIVED cell forwards to the LONGER-LIVED one, no fresh join cell.  gprolog's stacks grow UP (younger=higher), ours grows DOWN, so the law inverts to LOWER(younger frame)→HIGHER(older frame).
+ * Scope is BOTH-ON-C-STACK only (test = above this leaf's own frame, the rt_value_trail_tidy_dead_below floor idiom — the (floor,∞) span is stack VMA, no heap cell aliases it): stack-stack is LIFO, so
+ * every pointer dies no-later than its target, and death-tidy drops exactly the pointing cell's trail entry at its frame death (restore into dead stack is the smash bug tidy exists for) while the
+ * pointed-at older cell's entry survives for real backtrack restore.  Any non-stack participant (PLJ kid cells, ZLS generator frames, GVA) keeps the JOIN — SWI's globalize arm verbatim: the fresh PLJ
+ * cell is the proven-stable target, and PLJ/ZLS lifetimes are not address-ordered so no cheap age exists.  SCRIP_NO_VVB=1 restores the join unconditionally (same-lib A/B instrument, SCC-off pattern). */
+static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
 static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
     DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
     if (A == B) return 1;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
-    if (av && bv) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r); plw_bind(B, r); return 1; }
+    if (av && bv) {
+        char probe; char *floor_ = &probe;
+        if (plw_vvb_on() && (char *)A > floor_ && (char *)B > floor_) {
+            DESCR_t *lo = A < B ? A : B; DESCR_t *hi = A < B ? B : A;
+            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)hi;
+            if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u); }
+            plw_bind(lo, r); return 1;
+        }
+        { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r); plw_bind(B, r); return 1; } }
     if (av) { plw_bind(A, *B); return 1; }
     if (bv) { plw_bind(B, *A); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -161,7 +176,7 @@ static void plw_zh_kill_to(int m) {
 int pl_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
-    if (!strcmp(name, "$unify") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
+    if (!strcmp(name, "$unify") || !strcmp(name, "$unify_lst") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
     if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
@@ -235,7 +250,7 @@ int rt_builtin_is_known(const char *name)
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM",
         "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
-        "$unify",
+        "$unify", "$unify_lst",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -1108,21 +1123,29 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Slice-B companion (2026-07-19): the kid slot IS the join — an unbound kid seeds kids[i] as a SELF-PLVAR in place and the source var forwards to &kids[i], deleting the separate per-kid join alloc the
+ * old shape paid (1+unbound_ar plj allocs → 1).  Equivalent by construction: same trail entry (F), F's word points at a PLJ heap cell either way, deref reaches unbound in one hop; &kids[i] is an
+ * INTERIOR pointer, which HB_PLJ ratifies (pin-on-mark, never slid, conservative-scanned — plc keeps interior pointers).  This is gprolog write-mode Pl_Unify_Variable's exact shape: *S itself is the
+ * fresh REF, no second cell. */
+static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar) {
+    DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+    for (int i = 0; i < ar; i++) {
+        DESCR_t t = srcs[i];
+        DESCR_t *F = plw_cell_deref(plw_entry(&t));
+        if (plw_unbound_tag(F)) {
+            kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i];
+            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)&kids[i];
+            plw_bind(F, r);
+        } else kids[i] = *F;
+    }
+    return kids;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_mkc(DESCR_t *args, int nargs, DESCR_t *out) {
     const char *fname = VARVAL_fn(args[0]); if (!fname) fname = "?";
     int ar = nargs - 1;
     extern int prolog_atom_intern(const char *);
-    DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
-    for (int i = 0; i < ar; i++) {
-        DESCR_t t = args[1 + i];
-        DESCR_t *F = plw_cell_deref(plw_entry(&t));
-        if (plw_unbound_tag(F)) {
-            DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
-            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j;
-            plw_bind(F, r);
-            kids[i] = r;
-        } else kids[i] = *F;
-    }
+    DESCR_t *kids = plw_mkc_kids(args + 1, ar);
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
     *out = c; return 1;
 }
@@ -1155,6 +1178,35 @@ static int dop_cmp(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
 static int dop_unify(DESCR_t *args, int nargs, DESCR_t *out) {
     (void)nargs;
     if (plw_unify_vals(args[0], args[1])) { *out = rt_pl_deref_val(args[0]); return 1; }
+    *out = FAILDESCR; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-REGAIN-5 slice B (2026-07-19) — LIST HEAD-UNIFY LEAF, $unify_lst(Subject, Head, Tail).  Mirrors gprolog Pl_Get_List (wam_inst.c:334) exactly: bound-LST subject = READ mode (S=car; unify H,T against
+ * the kids IN PLACE — zero allocation, the [X|Rest] clause-try hot path); REF subject = WRITE mode (build the '.'/2 cell and Bind_UV) — realized here as plw_mkc_kids + the ci-leaf bind shape, so the
+ * result is BIT-IDENTICAL to the $mkc('.',H,T)+$unify(S,·) pair this replaces (same kid joins, same trail entries, same PLREF word); any other bound subject FAILS, which is what plw_unify_cells'
+ * either-PLREF / slen-mismatch arms compute for those shapes today.  The case analysis is TOTAL, so no generic fallback is needed.  slen compare uses prolog_atom_intern(".") directly per the m4 ATOM_*
+ * warning (GZ preamble never runs prolog_atom_init); every list builder in this file mints the same intern-based slen or lists could not unify with [H|T] patterns at all. */
+static int dop_unify_lst(DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)nargs;
+    extern int prolog_atom_intern(const char *);
+    static uint32_t dot_sl = 0; if (!dot_sl) dot_sl = (((uint32_t)prolog_atom_intern(".")) << 16) | 2u;
+    DESCR_t t0 = args[0];
+    DESCR_t *c = plw_cell_deref(plw_entry(&t0));
+    if (plw_unbound_tag(c)) {
+        DESCR_t *kids = plw_mkc_kids(args + 1, 2);
+        DESCR_t w; w.v = (DTYPE_t)DT_PLREF; w.slen = dot_sl; w.p = (void *)kids;
+        plw_bind(c, w); *out = w; return 1;
+    }
+    if (c->v == (DTYPE_t)DT_PLREF && c->slen == dot_sl) {
+        DESCR_t *kids = (DESCR_t *)c->p;
+        DESCR_t t1 = args[1]; DESCR_t *hc = plw_cell_deref(plw_entry(&t1));
+        if (plw_unbound_tag(hc)) plw_bind(hc, kids[0]);
+        else if (!plw_unify_cells(hc, &kids[0])) { *out = FAILDESCR; return 1; }
+        DESCR_t t2 = args[2]; DESCR_t *tc = plw_cell_deref(plw_entry(&t2));
+        if (plw_unbound_tag(tc)) plw_bind(tc, kids[1]);
+        else if (!plw_unify_cells(tc, &kids[1])) { *out = FAILDESCR; return 1; }
+        *out = *c; return 1;
+    }
     *out = FAILDESCR; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1249,6 +1301,17 @@ DESCR_t rt_pl_dop_unify_cs(DESCR_t *args, const char *cs) {
       else { DESCR_t w; w.v = DT_S; w.slen = 0; w.s = cs; out = plw_unify_vals(args[0], w) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
     g_plw_unwind_floor = fl;
     return out;
+}
+/* Slice-B list leaf rides the same nothrow rail: plj_alloc/trail/bind/intern are abort-not-throw (the dop_mkc + unify audit), plw_unify_cells' deepest reach is rt_descr_equal — audited nothrow with ci/cs. */
+DESCR_t rt_pl_dop_unify_lst(DESCR_t *args, int nargs) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    if (nargs != 3) return FAILDESCR;
+    { char *fl = g_plw_unwind_floor; DESCR_t out = FAILDESCR;
+      g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+      rt_gc_point_arr(args, 3, (const char **)0);
+      dop_unify_lst(args, 3, &out);
+      g_plw_unwind_floor = fl;
+      return out; }
 }
 DESCR_t rt_pl_dop_mkc(DESCR_t *args, int nargs) { return nargs >= 1 ? dop_call(dop_mkc, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_trail_mark(DESCR_t *args, int nargs) {
@@ -1677,6 +1740,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$unify") && nargs == 2) return dop_unify(args, nargs, out);
+    if (!strcmp(fn, "$unify_lst") && nargs == 3) return dop_unify_lst(args, nargs, out);
     if (!strcmp(fn, "$mkc") && nargs >= 1) return dop_mkc(args, nargs, out);
     if (!strcmp(fn, "$trail_mark") && nargs == 0) return dop_trail_mark(args, nargs, out);
     if (!strcmp(fn, "$trail_unwind") && nargs == 1) return dop_trail_unwind(args, nargs, out);
