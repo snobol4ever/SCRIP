@@ -277,15 +277,25 @@ RT_PIC_SRCS := \
     $(SRC)/parser/pascal/pascal.lex.c \
     $(SRC)/parser/pascal/pascal_driver.c
 
-out/libscrip_rt.so: $(RT_PIC_SRCS) $(RT)/rt/rt.h
+RT_OPT ?= -O2
+RT_INCS := -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
+    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer
+RT_OBJDIR := out/rt_pic
+RT_PIC_OBJS := $(addprefix $(RT_OBJDIR)/,$(addsuffix .o,$(basename $(notdir $(RT_PIC_SRCS)))))
+vpath %.c $(sort $(dir $(RT_PIC_SRCS)))
+vpath %.cpp $(sort $(dir $(RT_PIC_SRCS)))
+vpath %.S $(sort $(dir $(RT_PIC_SRCS)))
+$(RT_OBJDIR):
+	@mkdir -p $(RT_OBJDIR)
+$(RT_OBJDIR)/%.o: %.c $(RT)/rt/rt.h | $(RT_OBJDIR)
+	$(CC) $(RT_OPT) -g $(WARN) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+$(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
+	$(CC) $(RT_OPT) -g $(WARN) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+$(RT_OBJDIR)/%.o: %.S | $(RT_OBJDIR)
+	$(CC) $(RT_OPT) -g $(WARN) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+out/libscrip_rt.so: $(RT_PIC_OBJS)
 	@mkdir -p out
-	$(CC) $(RT_OPT) $(WARN) -fPIC -shared \
-	    -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
-	    -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer \
-	    -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) \
-	    $(RT_PIC_SRCS) \
-	    -lm -lstdc++ -lpthread \
-	    -o out/libscrip_rt.so
+	$(CC) -shared $(RT_PIC_OBJS) -lm -lstdc++ -lpthread -o out/libscrip_rt.so
 	@echo "Built: out/libscrip_rt.so"
 
 # ── EM-2 synthetic-program harness — RETIRED (SMX-4, 2026-05-30): sm_codegen_x64_emit
