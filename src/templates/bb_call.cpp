@@ -14,7 +14,7 @@ int  bb_slot_get(IR_t * nd);
 int  bb_varslot_peek(const char * name);
 int  is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
-DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_unify_lst(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t rt_pl_dop_trail_mark(DESCR_t *, int); DESCR_t rt_pl_dop_trail_unwind(DESCR_t *, int); DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
+DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_unify_lst(DESCR_t *, int); DESCR_t rt_pl_dop_ix_g(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t rt_pl_dop_trail_mark(DESCR_t *, int); DESCR_t rt_pl_dop_trail_unwind(DESCR_t *, int); DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_add(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sub(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mul(DESCR_t *, int); DESCR_t rt_pl_dop_ax_div(DESCR_t *, int); DESCR_t rt_pl_dop_ax_idiv(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mod(DESCR_t *, int);
 DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_le(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ge(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_eq(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ne(DESCR_t *, int);
 int64_t rt_gvar_get_int(const char * name);
@@ -263,7 +263,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
     static const struct { const char * nm; int ar; const char * sy; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
-        { "$unify", 2, "rt_pl_dop_unify", rt_pl_dop_unify }, { "$unify_lst", 3, "rt_pl_dop_unify_lst", rt_pl_dop_unify_lst }, { "$mkc", -1, "rt_pl_dop_mkc", rt_pl_dop_mkc }, { "$trail_mark", 0, "rt_pl_dop_trail_mark", rt_pl_dop_trail_mark },
+        { "$unify", 2, "rt_pl_dop_unify", rt_pl_dop_unify }, { "$unify_lst", 3, "rt_pl_dop_unify_lst", rt_pl_dop_unify_lst }, { "$ix_g", 3, "rt_pl_dop_ix_g", rt_pl_dop_ix_g }, { "$mkc", -1, "rt_pl_dop_mkc", rt_pl_dop_mkc }, { "$trail_mark", 0, "rt_pl_dop_trail_mark", rt_pl_dop_trail_mark },
         { "$trail_unwind", 1, "rt_pl_dop_trail_unwind", rt_pl_dop_trail_unwind }, { "$unwind_nothrow", 1, "rt_pl_dop_unwind_nothrow", rt_pl_dop_unwind_nothrow }, { "$is_v", 2, "rt_pl_dop_is_v", rt_pl_dop_is_v },
         { "$ax_add", 2, "rt_pl_dop_ax_add", rt_pl_dop_ax_add }, { "$ax_sub", 2, "rt_pl_dop_ax_sub", rt_pl_dop_ax_sub }, { "$ax_mul", 2, "rt_pl_dop_ax_mul", rt_pl_dop_ax_mul },
         { "$ax_div", 2, "rt_pl_dop_ax_div", rt_pl_dop_ax_div }, { "$ax_idiv", 2, "rt_pl_dop_ax_idiv", rt_pl_dop_ax_idiv }, { "$ax_mod", 2, "rt_pl_dop_ax_mod", rt_pl_dop_ax_mod },

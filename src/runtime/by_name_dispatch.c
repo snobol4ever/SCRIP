@@ -182,7 +182,7 @@ static void plw_zh_kill_to(int m) {
 int pl_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
-    if (!strcmp(name, "$unify") || !strcmp(name, "$unify_lst") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
+    if (!strcmp(name, "$unify") || !strcmp(name, "$unify_lst") || !strcmp(name, "$ix_g") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
     if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
@@ -256,7 +256,7 @@ int rt_builtin_is_known(const char *name)
         "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE",
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM",
         "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
-        "$unify", "$unify_lst",
+        "$unify", "$unify_lst", "$ix_g",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -1216,6 +1216,29 @@ static int dop_unify_lst(DESCR_t *args, int nargs, DESCR_t *out) {
     *out = FAILDESCR; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-SPEED-5 slice A (2026-07-20) — FIRST-ARG PRE-TRY GUARD LEAF, $ix_g(Subject, Kind|Arity<<8, Key).  PURE TEST: no binds, no allocation, no trail — the cmp-fast-path class ("pure computes skip both"),
+ * so no floor push and no gc safepoint.  Returns ok(1) = PROCEED to the clause's head-unify, FAILDESCR = SKIP (γ routes to the next clause's entry; the lowerer guarantees nothing is bound since the
+ * activation mark on every path that reaches a guard).  SKIP fires ONLY where the unify leaves provably fail (see the lower_prolog.c rung comment for the arm-by-arm derivation); every unknown shape —
+ * unbound, DT_R, slen≠0 consts, cross-type const pairs (rt_descr_equal's VARVAL coercion), NULL strings — PROCEEDS, mirroring Pl_Switch_On_Term's else→var routing.  Kind: 1=int 2=atom 3=lst 4=stc. */
+static int dop_ix_g(DESCR_t *args, int nargs, DESCR_t *out) {
+    (void)nargs;
+    extern int prolog_atom_intern(const char *);
+    static uint32_t dot_sl = 0; if (!dot_sl) dot_sl = (((uint32_t)prolog_atom_intern(".")) << 16) | 2u;
+    long long ka = args[1].i; int kk = (int)(ka & 0xFF); int kar = (int)(ka >> 8);
+    DESCR_t t0 = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t0));
+    DESCR_t ok; ok.v = DT_I; ok.slen = 0; ok.i = 1;
+    if (plw_unbound_tag(c)) { *out = ok; return 1; }
+    if (c->v == (DTYPE_t)DT_PLREF) {
+        if (kk == 3) { *out = (c->slen == dot_sl) ? ok : FAILDESCR; return 1; }
+        if (kk == 4) { uint32_t want = (((uint32_t)prolog_atom_intern(args[2].s ? args[2].s : "?")) << 16) | ((uint32_t)kar & 0xFFFFu); *out = (c->slen == want) ? ok : FAILDESCR; return 1; }
+        *out = FAILDESCR; return 1;
+    }
+    if (c->v == DT_I && !c->slen) { if (kk == 1) { *out = (c->i == args[2].i) ? ok : FAILDESCR; return 1; } if (kk == 3 || kk == 4) { *out = FAILDESCR; return 1; } *out = ok; return 1; }
+    if (c->v == DT_S && !c->slen && c->s) { if (kk == 2 && args[2].s) { *out = strcmp(c->s, args[2].s) ? FAILDESCR : ok; return 1; } if (kk == 3 || kk == 4) { *out = FAILDESCR; return 1; } *out = ok; return 1; }
+    *out = ok; return 1;
+}
+DESCR_t rt_pl_dop_ix_g(DESCR_t *args, int nargs) { DESCR_t out = FAILDESCR; if (nargs == 3) dop_ix_g(args, 3, &out); return out; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_trail_mark(DESCR_t *args, int nargs, DESCR_t *out) { (void)args; (void)nargs; DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); plw_zh_mark_push((int)m.i); *out = m; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_trail_unwind(DESCR_t *args, int nargs, DESCR_t *out) { (void)nargs; pl_trail_unwind(&g_pl_trail, (int)args[0].i); plw_zh_kill_to((int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
@@ -1747,6 +1770,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "$unify") && nargs == 2) return dop_unify(args, nargs, out);
     if (!strcmp(fn, "$unify_lst") && nargs == 3) return dop_unify_lst(args, nargs, out);
+    if (!strcmp(fn, "$ix_g") && nargs == 3) return dop_ix_g(args, nargs, out);
     if (!strcmp(fn, "$mkc") && nargs >= 1) return dop_mkc(args, nargs, out);
     if (!strcmp(fn, "$trail_mark") && nargs == 0) return dop_trail_mark(args, nargs, out);
     if (!strcmp(fn, "$trail_unwind") && nargs == 1) return dop_trail_unwind(args, nargs, out);

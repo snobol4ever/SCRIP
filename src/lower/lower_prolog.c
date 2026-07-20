@@ -128,6 +128,22 @@ static int pl_same_functor(const tree_t * a, const tree_t * b) {
  * (SCC-off pattern, rides beside SCRIP_NO_CU). */
 static int pl_no_ul(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_UL"); p = (e && e[0] == '1') ? 1 : 0; } return p; }
 static int pl_is_lstpat1(const tree_t * t) { return t && t->t == TT_MAKELIST && t->v.ival == 1 && t->n == 2; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-SPEED-5 slice A (2026-07-20) — FIRST-ARG PRE-TRY GUARD.  Per gprolog Pl2Wam/indexing.pl split2 the clause-head arg0 KEY taxonomy is {var, atm(A), int(N), lst, stc(F/N)}; a clause whose key is
+ * non-var gets a $ix_g(Subject, Kind|Arity<<8, Key) goal BEFORE its head-unify chain: bound subject with a provably-non-unifiable principal functor SKIPS the clause (γ of the PREVIOUS chain link jumps
+ * straight to the NEXT clause's entry — nothing was bound since the activation's $trail_mark on this path, so no unwind crossing is spent), var/unknown subject PROCEEDS.  Skip legality is exactly the
+ * arms the unify leaves already compute: PLREF-vs-const = ci/cs PLREF→fail; PLREF slen≠slen = plw_unify_cells:119; bound-const-vs-compound-key = either-PLREF/lst-total-case; same-type const mismatch =
+ * ci int-compare / rt_descr_equal S-S strcmp.  CROSS-TYPE const pairs (int-vs-atom either direction) PROCEED — rt_descr_equal's VARVAL arm coerces there and the guard must not change outcomes.  Kinds:
+ * 1=int(Key=imm) 2=atom(Key=str; nil folds here as "[]") 3=lst(Key unused) 4=stc(Key=name, arity in bits 8+).  gprolog runtime precedent: Pl_Switch_On_Term routes every tag outside {INT,ATM,LST,STC}
+ * (floats, FDV) to the try-all path — mirrored by the leaf's terminal PROCEED.  SCRIP_NO_IX=1 = compile-time hatch (same-lib twin instrument, SCC/CU/UL pattern). */
+static int pl_no_ix(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_IX"); p = (e && e[0] == '1') ? 1 : 0; } return p; }
+static int pl_ix_key(const tree_t * h, long long * ki, const char ** ks) {
+    if (!h) return 0;
+    if (h->t == TT_ILIT) { *ki = (long long) h->v.ival; return 1; }
+    if (h->t == TT_MAKELIST) { if (h->n == 0) { *ks = "[]"; return 2; } return 3; }
+    if (h->t == TT_FNC && h->v.sval) { if (h->n == 0) { *ks = h->v.sval; return 2; } *ks = h->v.sval; *ki = (long long) h->n; return 4; }
+    return 0;
+}
 static IR_t * unify_lst_build(lcx_t * cx, IR_t * subj, IR_t * subj_entry, const tree_t * eh, const tree_t * et, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify_lst";
     IR_t * e1 = NULL; IR_t * a1 = term_lval_e(cx, eh, &e1);
@@ -774,6 +790,15 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
             IR_LIT(ml).ival = (ab && ab->op != IR_DISJUNCTION && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;   /* MOVE_LABEL-ERAD pin (Icon session 2026-07-18): IR_DISJUNCTION joined ir_is_generator_kind for the Icon nary form; this exclusion FREEZES the ival this line computed before that change (dj was not generator-kind then). Prolog-session review: drop the exclusion iff ival=1 for a dj-β arm is wanted. */
             ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, NULL);
         }
+        if (arity > 0 && nc > 1 && !pl_no_ix() && (int) clauses[k]->v.dval >= 1) { long long ki = 0; const char * ks = 0; int kk = pl_ix_key(clauses[k]->c[0], &ki, &ks);
+            if (kk) { IR_t * skp = (k < nc - 1) ? centry[k + 1] : uwf;
+                IR_t * gnode = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, skp); IR_LIT(gnode).sval = "$ix_g";
+                IR_t * glhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(glhs).sval = pl_param_name(0);
+                IR_t * gk1 = build(&cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(gk1).ival = (int64_t)((long long) kk | (((kk == 4) ? ki : 0) << 8));
+                IR_t * gk2; if (kk == 2 || kk == 4) { gk2 = build(&cx, IR_LIT_STRING, NULL, NULL); IR_LIT(gk2).sval = ks; } else { gk2 = build(&cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(gk2).ival = (kk == 1) ? (int64_t) ki : 0; }
+                lc_γ_to(glhs, gk1); lc_ω_to(glhs, skp); lc_γ_to(gk1, gk2); lc_ω_to(gk1, skp); lc_γ_to(gk2, gnode); lc_ω_to(gk2, skp);
+                ir_operand_push(gnode, glhs); ir_operand_push(gnode, gk1); ir_operand_push(gnode, gk2);
+                ce = glhs; } }
         centry[k] = ce;
         if (k > 0) { IR_t * u = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, fail); IR_LIT(u).sval = "$unwind_nothrow"; ir_operand_push(u, mk); uw[k] = u; }
         maxlocal = max_var_slot(clauses[k], maxlocal);
