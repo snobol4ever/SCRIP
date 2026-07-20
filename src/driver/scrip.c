@@ -706,6 +706,7 @@ int main(int argc, char **argv)
             int *proc_nparams_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_pidx_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
+            int *proc_ispat_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -722,7 +723,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
-                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; }   /* PL-DC s108: arm the direct-call stub for this graph iff the SAME table predicate the site arm reads passes (pat blobs excluded structurally) */
+                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }   /* PL-DC s108: arm the direct-call stub for this graph iff the SAME table predicate the site arm reads passes (pat blobs excluded structurally); s112: RECORD the structural exclusion so the startup bake mirrors it — the bake predicate must equal the arming predicate or it references stubs that were never emitted (treebank m4 link regression) */
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); fprintf(stdout, "  .globl %s_\xce\xb1\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -999,7 +1000,7 @@ int main(int argc, char **argv)
                         printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                         printf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
                         printf("  call rt_proc_set_jmpentry@PLT\n");
-                        { extern int rt_pl_dc_ok(const char *, int); if (rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {   /* PL-DC s108: the m4 twin of the m3 seal registration — same predicate, so the label exists iff this bakes */
+                        { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {   /* PL-DC s108: the m4 twin of the m3 seal registration — s112: predicate now TRULY equals the arming predicate (!ispat && dc_ok), so the label exists iff this bakes; without the ispat conjunct the bake referenced proc_PAT$N_dcα stubs the pat-excluded arming never emitted (treebank m4 link regression) */
                             printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                             printf("  lea rsi, [rip + proc_%s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
                             printf("  call rt_proc_set_dcfn@PLT\n"); } }

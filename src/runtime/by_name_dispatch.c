@@ -3925,8 +3925,48 @@ static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern unsigned rt_dtax_gen;
 typedef struct { unsigned gen; unsigned char len; signed char kind; short nf; char nm[14]; void *ctor; const char *syn; } dtax_ent_t;
-static dtax_ent_t g_dtax[64];
+static dtax_ent_t g_dtax[256];
 static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
+{
+    DESCR_t av = args[0];
+    const char *t;
+    (void)nargs;
+    if (IS_INT_fn(av))       t="integer";
+    else if (IS_REAL_fn(av)) t="real";
+    else if (av.v==DT_T)     t=(av.tbl && av.tbl->is_set) ? "set" : "table";
+    else if (av.v==DT_A)     t=(!strcmp(fn,"DATATYPE")) ? "array" : "list";
+    else if (av.v==DT_DATA)  {
+        DESCR_t tag = FIELD_GET_fn(av,"gen_type");
+        if (tag.v==DT_S && tag.s) t = tag.s;
+        else { DATINST_t *di = (DATINST_t *)av.u; t = (di && di->type && di->type->name) ? di->type->name : "record"; }
+    }
+    else if (IS_CSET_fn(av)) t="cset";
+    else if (IS_FH_fn(av))   t="file";
+    else if (av.v==DT_E) {
+        t = "function";
+        if (av.slen == 0xFFFFFFFEu && av.s) {
+            for (int _ti=0;_ti<g_stage2.proc_count;_ti++) if (g_stage2.proc_table[_ti].name && !strcmp(g_stage2.proc_table[_ti].name,av.s)){t="procedure";break;}
+            if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
+        } else t="procedure";
+    }
+    else if (av.v==DT_X)     t="EXPRESSION";
+    else if (av.v==DT_P)     t="PATTERN";
+    else if (av.v==DT_SNUL)  t="null";
+    else t="string";
+    if (!strcmp(fn,"DATATYPE")) { static char ub[32]; int ui=0;
+        for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_ws_strdup_c(ub)); return 1; }
+    *out = STRVAL(t); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
+{
+    const char *sv = VARVAL_fn(args[0]);
+    (void)nargs;
+    if (!sv || !*sv) { *out = FAILDESCR; return 1; }
+    { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_ws_strdup(sv); *out = d; return 1; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
@@ -3940,7 +3980,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (!fn || !out) return 0;
     dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0;
     if (!dtax_off()) { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; }
-      if (!*_q && _dxl) { _dx = &g_dtax[_dxh & 63u];
+      if (!*_q && _dxl) { _dx = &g_dtax[_dxh & 255u];
         if (_dx->gen == rt_dtax_gen && _dx->len == _dxl && !memcmp(_dx->nm, fn, _dxl)) {
           if (_dx->kind == 2 && _dx->syn) return try_call_builtin_by_name(_dx->syn, args, nargs, out);
           if (_dx->kind == 1 && _dx->ctor) { extern DESCR_t dat_construct_byref(void *, DESCR_t *, int);
@@ -3960,7 +4000,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
       }
       if (!_udt && _dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 3; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; } }
     { size_t _fl = strlen(fn);
-      if (_fl >= 2 && _fl <= 7) { int _r = -1;
+      if (_fl >= 2 && _fl <= 8) { int _r = -1;
         switch (((unsigned)_fl << 8) | (unsigned char)fn[0]) {
         case (2u<<8)|'E': if (fn[1]=='Q') _r = bn_numrel(args, nargs, out, 0); break;
         case (2u<<8)|'N': if (fn[1]=='E') _r = bn_numrel(args, nargs, out, 1); break;
@@ -3981,6 +4021,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         case (7u<<8)|'R': if (!strcmp(fn, "REPLACE")) _r = bn_replace(args, nargs, out); else if (!strcmp(fn, "REVERSE")) _r = bn_reverse(args, nargs, out); break;
         case (7u<<8)|'I': if (!strcmp(fn, "INTEGER")) _r = bn_integer(args, nargs, out); break;
         case (7u<<8)|'S': if (!strcmp(fn, "SUCCEED")) { *out = NULVCL; return 1; } break;
+        case (8u<<8)|'D': if (!strcmp(fn, "DATATYPE") && nargs == 1) _r = bn_type_datatype(fn, args, nargs, out); break;
+        case (8u<<8)|'S': if (!strcmp(fn, "SNO$NAME") && nargs == 1) _r = bn_sno_name(args, nargs, out); else if (!strcmp(fn, "SNO$NRET")) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 1; *out = NULVCL; _r = 1; } break;
         default: break; }
         if (_r >= 0) return _r; } }
     if (!strcmp(fn, "__rk_bool") && nargs == 1) {
@@ -4223,35 +4265,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         const char *s = VARVAL_fn(av); if (!s||!*s) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
     }
-    if ((!strcmp(fn,"type") || !strcmp(fn,"DATATYPE")) && nargs == 1) {
-        DESCR_t av = args[0];
-        const char *t;
-        if (IS_INT_fn(av))       t="integer";
-        else if (IS_REAL_fn(av)) t="real";
-        else if (av.v==DT_T)     t=(av.tbl && av.tbl->is_set) ? "set" : "table";
-        else if (av.v==DT_A)     t=(!strcmp(fn,"DATATYPE")) ? "array" : "list";
-        else if (av.v==DT_DATA)  {
-            DESCR_t tag = FIELD_GET_fn(av,"gen_type");
-            if (tag.v==DT_S && tag.s) t = tag.s;
-            else { DATINST_t *di = (DATINST_t *)av.u; t = (di && di->type && di->type->name) ? di->type->name : "record"; }
-        }
-        else if (IS_CSET_fn(av)) t="cset";
-        else if (IS_FH_fn(av))   t="file";
-        else if (av.v==DT_E) {
-            t = "function";
-            if (av.slen == 0xFFFFFFFEu && av.s) {
-                for (int _ti=0;_ti<g_stage2.proc_count;_ti++) if (g_stage2.proc_table[_ti].name && !strcmp(g_stage2.proc_table[_ti].name,av.s)){t="procedure";break;}
-                if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
-            } else t="procedure";
-        }
-        else if (av.v==DT_X)     t="EXPRESSION";
-        else if (av.v==DT_P)     t="PATTERN";
-        else if (av.v==DT_SNUL)  t="null";
-        else t="string";
-        if (!strcmp(fn,"DATATYPE")) { static char ub[32]; int ui=0;
-            for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_ws_strdup_c(ub)); return 1; }
-        *out = STRVAL(t); return 1;
-    }
+    if ((!strcmp(fn,"type") || !strcmp(fn,"DATATYPE")) && nargs == 1) return bn_type_datatype(fn, args, nargs, out); 
     if (!strcmp(fn,"image") && nargs == 0) {
         *out = STRVAL("&null"); return 1;
     }
@@ -5372,12 +5386,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t v = NV_GET_fn(vname);
         *out = IS_FAIL_fn(v) ? FAILDESCR : v; return 1;
     }
-    if (!strcmp(fn,"SNO$NAME") && nargs == 1) {
-        const char *sv = VARVAL_fn(args[0]);
-        if (!sv || !*sv) { *out = FAILDESCR; return 1; }
-        DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_ws_strdup(sv);
-        *out = d; return 1;
-    }
+    if (!strcmp(fn,"SNO$NAME") && nargs == 1) return bn_sno_name(args, nargs, out); 
     if (!strcmp(fn,"ARRAY") && nargs >= 1) {
         extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
         DESCR_t init = (nargs >= 2) ? args[1] : NULVCL;
