@@ -377,10 +377,14 @@ main_α_body:
 .Lx24_10:
  test rax, rax
  jz .Lx24_0
+ mov r8d, 1
  lea rcx, [rip + .Lx24_4]
  lea rdx, [rip + .Lx24_5]
  jmp rax
 .Lx24_4:
+ lea rcx, [rip + g_scan_hit_start]
+ mov rax, qword ptr [rcx]
+ mov dword ptr [rbp + 624], eax
  jmp xchain0_n24_α
 .Lx24_5:
  jmp xchain0_n18_β
@@ -582,6 +586,7 @@ main_α_body:
 .Lx34_10:
  test rax, rax
  jz .Lx34_0
+ mov r8d, 0
  lea rcx, [rip + .Lx34_4]
  lea rdx, [rip + .Lx34_5]
  jmp rax
@@ -800,6 +805,7 @@ main_α_body:
 .Lx45_10:
  test rax, rax
  jz .Lx45_0
+ mov r8d, 0
  lea rcx, [rip + .Lx45_4]
  lea rdx, [rip + .Lx45_5]
  jmp rax
@@ -990,6 +996,7 @@ main_α_body:
 .Lx54_10:
  test rax, rax
  jz .Lx54_0
+ mov r8d, 0
  lea rcx, [rip + .Lx54_4]
  lea rdx, [rip + .Lx54_5]
  jmp rax

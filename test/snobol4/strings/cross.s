@@ -515,6 +515,7 @@ xchain0_n25_af:
 .Lx40_10:
  test rax, rax
  jz .Lx40_0
+ mov r8d, 0
  lea rcx, [rip + .Lx40_4]
  lea rdx, [rip + .Lx40_5]
  jmp rax
