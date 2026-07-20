@@ -184,6 +184,15 @@ inline std::string x86_movzx_subj_byte(const char * dst, int disp) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_mov_subj_q(const char * dst, int disp) {
+    int g = x86_rnum(dst);
+    uint8_t rex = 0x48 | 0x01; if (g >= 8) rex |= 0x04;
+    uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
+    uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
+    std::string code; code += (char)rex; code += (char)0x8B; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", qword ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_store_cursor_mirror() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x45, 0x89, 0x32)) : std::string(" mov [r10], r14d\n");
 }
@@ -1195,8 +1204,12 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_FR64) return x86_frame_inc64(a.off);
         return std::string();
     }
+    if (!strcmp(mnem, "movabs")) {
+        if (a.kind == XK_REG && b.kind == XK_IMM)      return x86_movabs_r64(a.txt, (uint64_t)b.imm);
+    }
     if (!strcmp(mnem, "mov")) {
         if (a.kind == XK_R10MIR)                       return x86_store_cursor_mirror();
+        if (a.kind == XK_REG && b.kind == XK_R13RCX && a.txt && a.txt[0] == 'r' && a.txt[strlen(a.txt) - 1] != 'd') return x86_mov_subj_q(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_REG)     return x86_frame_store(a.off, b.txt);
         if (a.kind == XK_FR32 && b.kind == XK_IMM)     return x86_frame_mov_imm(a.off, b.imm);
         if (a.kind == XK_FR64 && b.kind == XK_REG)     return x86_frame_store64(a.off, b.txt);
