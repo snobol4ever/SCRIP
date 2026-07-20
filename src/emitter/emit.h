@@ -546,6 +546,7 @@ typedef struct {
     struct bb_label_t *          flat_succ_p;
     struct bb_label_t *          flat_fail_p;
     struct bb_label_t *          flat_β_p;
+    struct bb_label_t *          flat_dc_body_p;      /* PL-DC (REGAIN-1C s108): the graph's α_body label, handed to xa_flat_dc_stub so the per-proc direct-call stub can 'X'-jmp the shared body (same emission session — the pointer is the chain-body local, live through the stub emission).  NULL outside dc-eligible graphs. */
     const char **                xa_label_names;
     int *                        xa_label_pcs;
     int                          xa_label_count;

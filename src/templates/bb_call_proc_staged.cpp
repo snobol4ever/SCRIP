@@ -29,6 +29,8 @@ int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 int  rt_proc_is_registered(const char *name);
 long rt_proc_call_open_slim(const char *name, int np, int nargs);
+int  rt_pl_dc_ok(const char *name, int nargs);
+void **rt_pl_dc_slot(long idx);
 DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result);
 DESCR_t rt_proc_call_epilogue_slim_ω(void);
 int  rt_proc_nparams(const char *name);
@@ -134,6 +136,14 @@ static std::string bcps_det_arm() {
     { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
     static const char *detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
     int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && ZC_FRAME == ZC_FRAME_RSP && det_nA >= 0 && det_nA <= 4);
+    /* PL-DC (REGAIN-1 SLICE C, 2026-07-20 s108) — the DIRECT det call: `call proc_X_dcα` (m4 named / m3 through the fixed dc slot), args as CELL POINTERS in the SAME rsi/rdx/rcx/r8 the fused open
+     * took, result lands rax:rdx by the callee's ret-shims — no open crossing, no wire leas, no landing pair, no epilogue calls; the callee's stub+prep+leave carry the whole per-call residue.
+     * Eligibility = the callee-side table predicate verbatim (rt_pl_dc_ok: registered !dyn !gen nparams==nargs<=4 jmp_entry, hatch SCRIP_NO_DC) so site and stub agree by construction; any decline
+     * falls through to the fused arm unchanged. */
+    int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
+    uint64_t dc_slot = 0; char dc_name[280]; dc_name[0] = 0;
+    if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
+        { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 255; nm++) mang[mi++] = (*nm == '/') ? '$' : *nm; mang[mi] = 0; snprintf(dc_name, sizeof dc_name, "proc_%s_dc\xce\xb1", mang); } } }
     /* BP-7 SCC — STATIC SAVE-SET CALL CONVENTION (GOAL-SNOBOL4-BB BP-7).  Emit-time eligibility: literal target, registered dyn-scope table proc, every save-set name (formals+locals per the DEFINE
      * prototype, plus the result name unless shadowed by a formal) GVA-resident, nargs within the prototype, program free of OPSYN/UNLOAD (scc_program_ok), hatch SCRIP_SCC_OFF unset.  The arm saves
      * the old cell values inline (GVA absolute -> an rsp block below the anchor), calls the open_slim leaf (guards re-checked with ZERO side effects before commit -- a decline falls through L(5) into
@@ -197,11 +207,17 @@ static std::string bcps_det_arm() {
             + x86("def", L(5))
             + x86("add", "rsp", scc_sb)
             : std::string(""))
-         + (det_fuse ? std::string("") : FOR(0, (int)_.op_ival, [&](int i) {
+         + (dc
+            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
+            + x86_call_dc(dc_name, dc_slot)
+            + x86("jmp", L(2))
+            : std::string(""))
+         + (det_fuse || dc ? std::string("") : FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
     }))
-         + (det_fuse
+         + (dc ? std::string("")
+            : det_fuse
             ? x86("mov32", "edi", det_idx)
             + FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
             + x86("call", detN_nm[det_nA], detN_fp[det_nA])
@@ -216,9 +232,10 @@ static std::string bcps_det_arm() {
             : x86_ro_load_q("rdi", 0)
             + x86("mov32", "esi", (long)_.op_ival)
             + x86("call", "rt_proc_call_open", open_fp))
-         + x86("test", "rax", "rax")
-         + x86("je", L(1))
-         + (ZC_FRAME == ZC_FRAME_RSP
+         + IF(!dc, x86("test", "rax", "rax")
+         + x86("je", L(1)))
+         + (dc ? std::string("")
+            : ZC_FRAME == ZC_FRAME_RSP
             /* R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi.
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call).  Unexercised intersection (census
@@ -274,8 +291,8 @@ static std::string bcps_det_arm() {
             + x86_frame_unsink()
             + x86("call", "rt_proc_call_epilogue_ret", epir_fp)
             + x86("jmp", L(2)))
-         + x86("def", L(1))
-         + x86("call", "rt_faildescr", fail_fp)
+         + IF(!dc, x86("def", L(1))
+         + x86("call", "rt_faildescr", fail_fp))
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
