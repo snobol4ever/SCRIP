@@ -30,6 +30,17 @@ std::string bb_match_sequence() {
              + x86_omega()
              : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_SEQUENCE: cursor slot not granted (zls)")
+             : _.op_seq_static
+             ? x86("comment", "IR_MATCH_SEQ_NARY (SPD SEQ-STATIC: zero-counter, sigma/phi statically wired)")
+             + x86_alpha()
+             + x86("mov", FR(_.op_off), "r14d")
+             + x86("jmp", PAIR(0))
+             + x86("def", PAIR((int)(2 * _.op_ival)))
+             + x86_gamma()
+             + x86_beta()
+             + x86("jmp", PAIR((int)(2 * _.op_ival - 1)))
+             + x86("def", PAIR((int)(2 * _.op_ival + 1)))
+             + x86_omega()
              : x86("comment", "IR_MATCH_SEQ_NARY")
              + x86_alpha()
              + x86("mov", FR(_.op_off), "r14d")
