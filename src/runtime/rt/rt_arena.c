@@ -100,6 +100,7 @@ static uint8_t *g_pl_cterm_base = 0;
 static uint8_t *g_pl_cterm_cur  = 0;
 static uint8_t *g_pl_cterm_end  = 0;
 static int rt_pl_cterm_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_PL_CTERM_POISON"); p = e ? (atoi(e) != 0) : 0; } return p; }
+int rt_pl_ctr_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_CTR"); p = e ? (atoi(e) == 0) : 1; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_pl_cterm_lazy_init(void) {
     extern void *rt_slab_region(size_t);
