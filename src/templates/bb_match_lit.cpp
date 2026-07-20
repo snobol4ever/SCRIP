@@ -24,6 +24,28 @@ static std::string lit_unroll(long n) {
     }
     return r;
 }
+/* s113 SPD-1 (Lon: unroll up to 64): 8-byte immediate compares + byte tail — crossover microbench (xover.c, this container) shows the call flat ~3.5ns pure overhead at EVERY n<=64 while qword-step inline
+ * stays 0.74-0.95ns through n=64 (byte-chains degrade past ~56).  The byte tail keeps every load inside the n guarded bytes — no dependence on the carve pad over-read invariant. */
+static std::string lit_unroll_q(long n) {
+    std::string r;
+    char m[24];
+    long k = 0;
+    for (; k + 8 <= n; k += 8) {
+        uint64_t w; memcpy(&w, _.op_sval + k, 8);
+        snprintf(m, sizeof m, "[r13+rcx+%ld]", k);
+        r += x86("mov",    "rdx", m)
+           + x86("movabs", "rax", (long)w)
+           + x86("cmp",    "rdx", "rax")
+           + x86_omega("jne");
+    }
+    for (; k < n; k++) {
+        snprintf(m, sizeof m, "[r13+rcx+%ld]", k);
+        r += x86("movzx", "eax", m)
+           + x86("cmp",   "eax", litck((int)k))
+           + x86_omega("jne");
+    }
+    return r;
+}
 std::string bb_match_lit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
@@ -37,7 +59,8 @@ std::string bb_match_lit() {
             + x86_omega("jg")
             + x86("movsxd", "rcx", "r14d"))
          + IF(litn() >= 1 && litn() <= 10, lit_unroll(litn()))
-         + IF(litn() > 10,
+         + IF(litn() > 10 && litn() <= 64, lit_unroll_q(litn()))
+         + IF(litn() > 64,
               x86("lea",    "rdi", "[r13+rcx]")
             + x86("lea",    "rsi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
             + x86("mov",    "edx", litn())
