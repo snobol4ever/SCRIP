@@ -2120,6 +2120,20 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     emit_label_define_bb(&lbl_γ);
     xa_dispatch(XA_FLAT_EPILOGUE);
+    /* PL-DC (REGAIN-1 SLICE C, s108): the per-proc DIRECT-CALL stub, appended after the shared exits when the driver armed the graph (g_flat_dc_np >= 0: registered det-lexical jmp-entry proc,
+     * nparams<=4, hatch SCRIP_NO_DC unset — the SAME table facts the site predicate reads, so site and callee agree by construction).  Refinement guards here are LOUD: a driver-armed graph that
+     * turns out not to be the lex jmp-entry shape is a predicate drift, not a codegen mode.  m3: the stub label's slab offset rides out in g_last_dc_off for the driver's rt_proc_set_dcfn(pfn+off)
+     * registration at seal; m4: the named label is baked by the startup twin. */
+    { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
+      if (g_flat_dc_np >= 0) {
+          if (!g_emit.flat_jmp_entry || !g_emit.flat_lex || g_emit.flat_gen || g_emit.flat_pat) { fprintf(stderr, "FATAL PL-DC: driver-armed graph is not det-lexical jmp-entry (jmp=%d lex=%d gen=%d pat=%d)\n", g_emit.flat_jmp_entry, g_emit.flat_lex, g_emit.flat_gen, g_emit.flat_pat); abort(); }
+          bb_label_t lbl_dc; emit_label_initf(&lbl_dc, "%s_dcα", prefix);
+          emit_label_define_bb(&lbl_dc);
+          g_emit.flat_dc_body_p = &lbl_α_body;
+          { extern void xa_flat_dc_stub(void); xa_flat_dc_stub(); }
+          g_emit.flat_dc_body_p = (bb_label_t *)0;
+          if (!g_is_text) g_last_dc_off = (long)lbl_dc.offset;
+      } }
     if (text_externalise && g_is_text) {
         data_buf_flush_pending_label();
         xa_dispatch(XA_FLAT_DATA_SECTION);
@@ -2225,7 +2239,9 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
     g_emit.flat_pat = 1;   /* R12-ERAD s65: suspending blob — r12-island flavor */
     return emit_jmp_entry_arm_region(g);
 }
-extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; }
+int  g_flat_dc_np = -1;   /* PL-DC (s108): driver-armed direct-call eligibility for the NEXT graph — nparams (0..4) when the callee passes the table predicate (registered, !dyn, !gen, np<=4, hatch off), -1 otherwise.  Set beside emit_jmp_entry_for_proc, cleared with the rest of the jmp-entry arm. */
+long g_last_dc_off = -1;  /* PL-DC (s108): slab byte offset of the just-emitted graph's dc stub label (m3), -1 = none; the driver registers pfn+off via rt_proc_set_dcfn at seal. */
+extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_flat_dc_np = -1; }
 /* PROC-CONV (R12-FREE ladder rung 2) + NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): ordinary procs arm the SAME jmp-entry regime.  DYN procs (SNOBOL4 DEFINE): args ride the name
  * dictionary, a self-allocated zeroed frame is correct.  DET LEXICAL procs (dyn_scope=0 — Icon/Raku): NCB-1d retires their call-regime trampoline — the blob self-allocates and its prologue calls
  * rt_jmp_frame_lexprep (NULVCL fill + rt_frame_bind_args from the staged g_call_args), so the caller-made-frame protocol is gone and flat_lex marks the graph for that prologue tail.  GENERATOR procs

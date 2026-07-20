@@ -30,6 +30,24 @@ pl_trail_t    g_pl_trail          = { { (char *)0, (char *)0, (char *)0, 0 }, 0 
  * a program that never pushes the value trail gets mark==top and a zero-iteration walk. */
 int rt_value_trail_mark(void) { return g_pl_trail.top; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-DC s108 WINDOW FORM — the (lower,upper) span is the EXACT dead activation [frame base, landing rsp), carried by the caller (pcall c.fb on the wire path, the dc micro-stack pair on the direct
+ * path), replacing the floor-heuristic band below whose width was accidentally the tidying C leaves' own frame extent: entries in the suffix zone deeper than that band survived forever (the measured
+ * dc 28K saw; latent on the wire path too for any graph whose locals span exceeds the epilogue's frame).  lower==0 (no recorded frame: dyn/slim callers) degrades to the empty window — heap and
+ * caller cells were never this walk's business. */
+void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper) {
+    pl_trail_ent_t *ents = (pl_trail_ent_t *)g_pl_trail.area.base;
+    char *lo = (char *)lower;
+    char *up = (char *)upper;
+    if (!ents || mark < 0 || mark > g_pl_trail.top || !lo || lo >= up) return;
+    int w = mark;
+    for (int r = mark; r < g_pl_trail.top; r++) {
+        char *a = (char *)ents[r].addr;
+        if (a >= lo && a < up) continue;
+        ents[w++] = ents[r];
+    }
+    g_pl_trail.top = w;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_value_trail_tidy_dead_below(int mark, void *upper) {
     pl_trail_ent_t *ents = (pl_trail_ent_t *)g_pl_trail.area.base;
     char *floor_ = (char *)&ents;

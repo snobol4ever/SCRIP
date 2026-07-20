@@ -620,3 +620,63 @@ extern "C" void xa_flat_epilogue(void) {
     xa_emit_one(fail, 0, lb, df);
 }
 extern "C" void xa_flat_data_section(void) { auto s = xa_flat_data_section_str(); if (!s.empty()) emit_text_n(s.data(), s.size()); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-DC STUB (REGAIN-1 SLICE C, 2026-07-20 s108) — the per-proc DIRECT-CALL entry for det-lexical jmp-entry graphs.  The site `call`s here with the arg CELL POINTERS in rsi/rdx/rcx/r8 (the exact
+ * registers the fused open_detN family took); the stub parks the retaddr in the FREE kt-32 header pad (restoring the wire-identical rsp parity for the shared body), builds the SAME frame the wire
+ * prologue builds (rbp save at kt-8, rbp seed, zeta-mark anchor), points the γ/ω wires at the two stub-local ret-shims below, stashes the arg pointers in the param slots (rt_pl_dc_prep reads them
+ * back before overwriting — self-clobber-safe by read-all-then-write order in the leaf), and makes the ONE slim prep crossing (bind + NULVCL pad + slot0/suffix seed + vtmark push) before jmping the
+ * shared α_body.  The shared γ/ω exits then `lea rsp,[rbp+kt]; jmp [wire]` exactly as for a wire activation; the shims read the retaddr from the red zone (rsp-32 — kernel-honored, no call between),
+ * re-push it, and tail-jmp the leave leaves, whose `ret` lands the site with the DESCR in rax:rdx (v==99 = FAIL, the site's existing join).  Alignment: site call at rsp≡0 → entry ≡8 → pop → ≡0 =
+ * IDENTICAL to the wire jmp's parity, so every body call keeps today's alignment; the shim's push makes the leaf entry ≡8, the SysV post-call shape. */
+extern "C" void rt_pl_dc_prep(void *, long, long, long, long, long);
+extern "C" DESCR_t rt_pl_dc_leave_γ(DESCR_t, long, void *);
+extern "C" DESCR_t rt_pl_dc_leave_ω(long, void *);
+static std::string xa_flat_dc_stub_str(void) {
+    if (!PLATFORM_X86) return std::string();
+    x86_begin();
+    int kt = g_emit.flat_frame_bytes;
+    int anchor = xaf_anchor_off();
+    int suffix = (g_emit.flat_seed_off >= 16) ? g_emit.flat_seed_off : 16;
+    extern int g_flat_dc_np;
+    int np = g_flat_dc_np;
+    uint64_t prep_fp;  { void (*fp)(void *, long, long, long, long, long) = rt_pl_dc_prep; prep_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    static const char *argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+    return x86("comment", "PL-DC direct-call entry: retaddr -> kt-32 pad, wires -> local ret-shims, one prep crossing, shared body")
+         + x86("pop", "r11")
+         + x86("sub", "rsp", (long)(kt + 16))
+         + x86_rsp_store64(kt + 8, "rbp")
+         + x86("mov", "rbp", "rsp")
+         + x86("add", "rbp", 16L)
+         + x86("mov", FRQ(kt - 32), "r11")
+         + x86_lea_id("rax", 2)
+         + x86("mov", FRQ(kt - 24), "rax")
+         + x86_lea_id("rax", 3)
+         + x86("mov", FRQ(kt - 16), "rax")
+         + x86("mov", FRQ(anchor), "rbp")
+         + FOR(0, np, [&](int i) { return x86("mov", FRQ(16 + 8 * i), argreg[i]); })
+         + x86("mov", "rdi", "rbp")
+         + x86("mov32", "esi", (long)suffix)
+         + x86("mov32", "edx", (long)(kt - 32))
+         + x86("mov32", "ecx", (long)np)
+         + x86("mov32", "r8d", (long)np)
+         + x86("mov32", "r9d", 0L)
+         + x86("call", "rt_pl_dc_prep", prep_fp)
+         + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?")
+         + x86_deflabel_id(2)
+         + x86_rsp_load64("rdx", -(kt + 16))
+         + x86("mov", "rcx", "rsp")
+         + x86("add", "rcx", (long)(-kt))
+         + x86_rsp_load64("r11", -32)
+         + x86("push", "r11")
+         + x86_jmpfn("rt_pl_dc_leave_γ", lvg_fp)
+         + x86_deflabel_id(3)
+         + x86_rsp_load64("rdi", -(kt + 16))
+         + x86("mov", "rsi", "rsp")
+         + x86("add", "rsi", (long)(-kt))
+         + x86_rsp_load64("r11", -32)
+         + x86("push", "r11")
+         + x86_jmpfn("rt_pl_dc_leave_ω", lvw_fp);
+}
+extern "C" void xa_flat_dc_stub(void) { bb_emit_x86(xa_flat_dc_stub_str()); }

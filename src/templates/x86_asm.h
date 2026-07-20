@@ -561,6 +561,28 @@ inline std::string x86_jmp_reg(const char * r) {
     return std::string(" jmp ") + r + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-DC (REGAIN-1C s108) — the direct det call's site transfer.  Intentional medium split of the R10 sanctioned class (the RO-load/call precedent): TEXT names the callee's dc stub label directly
+ * (cross-graph legal, one .s); BINARY rides the fixed dc-fn slot (`movabs r11, &slot; call qword [r11]` — per-graph slabs make cross-graph rel32 unrepresentable, and the slot is filled at graph
+ * seal, strictly before any runtime transfer).  r11 is caller-saved and dead at every site. */
+inline std::string x86_call_dc(const char * dcname, uint64_t slot) {
+    if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("r11", slot); std::string c; c += (char)0x41; c += (char)0xFF; c += (char)0x13; r += x86_Lrec(c); return r; }
+    return std::string(" call ") + dcname + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-DC — jmp to an EXTERNALLY-OWNED bb_label_t by pointer: the 'X' record (raw label pointer, rel32-discovered by the walker — the existing record, produced here for the first time from a
+ * template-side helper).  Same-emission-session only (the pointer must outlive resolution); the dc stub's jmp to its own graph's α_body is exactly that.  TEXT twin takes the label's NAME. */
+inline std::string x86_jmp_lblptr(bb_label_t * l, const char * txt) {
+    if (MEDIUM_BINARY) { std::string r = x86_Lrec(x86_b1(0xE9)); r += (char)'X'; uint64_t v = (uint64_t)(uintptr_t)l; for (int j = 0; j < 8; j++) r += (char)(unsigned char)(v >> (8 * j)); return r; }
+    return std::string(" jmp ") + txt + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-DC — tail-transfer to a C runtime leaf from a stub-local shim: TEXT ` jmp sym@PLT`; BINARY `movabs rax, fp; jmp rax` (rax dead at both shims: γ carries the result in rdi:rsi, ω carries
+ * nothing).  The leaf's own `ret` then returns to the emitted site through the retaddr the shim just re-pushed. */
+inline std::string x86_jmpfn(const char * sym, uint64_t fp) {
+    if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("rax", fp); std::string c; c += (char)0xFF; c += (char)0xE0; r += x86_Lrec(c); return r; }
+    return std::string(" jmp ") + sym + "@PLT\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_mem(const char * base, int disp) {
     if (MEDIUM_BINARY) {
         int b = x86_rnum(base); std::string code; if (b >= 8) code += (char)0x41; code += (char)0xFF; int lo = b & 7; int sib = (lo == 4);

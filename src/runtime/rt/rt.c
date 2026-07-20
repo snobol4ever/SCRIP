@@ -935,6 +935,7 @@ typedef struct {
 } rt_pcall_t;
 extern int  rt_value_trail_mark(void);
 extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
+extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 static rt_pcall_t *g_pcall;
 static int         g_pcall_top, g_pcall_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1002,7 +1003,7 @@ DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0)
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
     rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2: the det callee subtree fully unwound before this landing (LIFO law), so every trail entry since call-open whose address sits below the landing rsp points into DEAD stack — drop them at death, before reuse can alias.  GENERATOR first deliveries land here too (ONE-POP law) with their activation RETAINED and its cells LIVE below the landing — the recorded regime gates them out. */
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2 WINDOW FORM (PL-DC s108): exact dead activation [c.fb, landing), replacing the frame-size-luck band — see resolution.c */
     return rt_proc_epilogue_body(c, 0, frame0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1014,7 +1015,7 @@ DESCR_t rt_proc_call_epilogue_ω(void)
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
     rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2: same death tidy as the γ landing — normally a zero-iteration walk (the failing callee's own final unwind already popped to its entry mark), kept for the entries a non-unwinding failure path may leave */
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2 WINDOW FORM: same as the γ landing */
     return rt_proc_epilogue_body(c, 1, NULVCL);
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1049,7 +1050,7 @@ DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
     rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);
     Σ = c.save_Σ; Σlen = c.save_Σlen;
     result = rt_nret_fix(result, c.wn);
     if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
@@ -1061,11 +1062,65 @@ DESCR_t rt_proc_call_epilogue_slim_ω(void)
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
     rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_below(c.vtmark, (char *)__builtin_frame_address(0) + 16);
+    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);
     Σ = c.save_Σ; Σlen = c.save_Σlen;
     DESCR_t result = rt_nret_fix(FAILDESCR, c.wn);
     if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
     return result;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-DC DIRECT-CALL FAMILY (REGAIN-1 SLICE C, 2026-07-20 s108) — the emit-time-resolved DIRECT det call: the site `call`s the callee's per-proc dc stub (m4: named `call proc_X_dcα`; m3: `call [r11]`
+ * through the fixed dc-fn slot below), the stub self-builds the SAME frame layout the wire prologue makes (retaddr parked in the free kt-32 header pad, γ/ω wires pointed at two stub-local ret-shims),
+ * and ONE slim prep crossing replaces {open_detN + prologue_lex + lexprep2}: it binds the arg CELL POINTERS the stub stashed in the param slots, NULVCL-pads to nparams, seeds slot0 + the suffix zone,
+ * and pushes the RSP-F-2 vtmark onto the dc micro-stack.  The γ/ω ret-shims tail-jmp the leave leaves, which pop the mark, run the SAME death-tidy the wire epilogues run, and `ret` to the site with
+ * the DESCR in rax:rdx (v==99 = FAIL, the site's existing join).  NO pcall record rides this path — the lex epilogue body is `failed ? FAILDESCR : frame0` (wn=0 identity), Σ untouched, so the record
+ * bought nothing but the vtmark, which the micro-stack now carries.  Eligibility is emit-time-static (registered !dyn !gen nparams==nargs<=4, hatch SCRIP_NO_DC); every ineligible call keeps the wire
+ * verbatim.  Fixed-address slot array (NOT a g_rt_gen_procs field): the registry reallocs on growth and the m3 site bakes the slot address at emit time, so the slot must never move.  Longjmp unwinds
+ * need no bookkeeping: the FRAME-CELL vtmark dies with its frame. */
+static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn);
+#define RT_DC_FNS_MAX 8192
+static void *g_rt_dc_fns_store[RT_DC_FNS_MAX];
+void **rt_pl_dc_slot(long idx) { return (idx >= 0 && idx < RT_DC_FNS_MAX) ? &g_rt_dc_fns_store[idx] : (void **)0; }
+void rt_proc_set_dcfn(const char *name, void *fp) { int i = name ? rt_proc_hash_lookup(name) : -1; if (i >= 0 && i < RT_DC_FNS_MAX) g_rt_dc_fns_store[i] = fp; }
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-DC ELIGIBILITY — the ONE predicate both the site arm and the driver's stub arming read (table facts only; p->fn deliberately untested — it is unset at m4 compile time, and dc-eligible ⊆
+ * registered ⊆ has-graph guarantees the stub exists).  Hatch: SCRIP_NO_DC=1 restores the wire path byte-for-byte on both sides. */
+int rt_pl_dc_ok(const char *name, int nargs)
+{
+    static int off = -1; if (off < 0) { const char *e = getenv("SCRIP_NO_DC"); off = (e && *e == '1') ? 1 : 0; }
+    if (off) return 0;
+    { int i = name ? rt_proc_hash_lookup(name) : -1;
+      if (i < 0 || i >= RT_DC_FNS_MAX) return 0;
+      { rt_proc_t *p = &g_rt_gen_procs[i];
+        return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && p->nparams == nargs && nargs >= 0 && nargs <= 4) ? 1 : 0; } }
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long nargs, long idx)
+{
+    (void)idx;
+    DESCR_t *zf = (DESCR_t *)fb;
+    DESCR_t **pp = (DESCR_t **)((char *)fb + 16);
+    DESCR_t *s0 = (nargs > 0) ? pp[0] : (DESCR_t *)0, *s1 = (nargs > 1) ? pp[1] : (DESCR_t *)0, *s2 = (nargs > 2) ? pp[2] : (DESCR_t *)0, *s3 = (nargs > 3) ? pp[3] : (DESCR_t *)0;
+    if (s0) zf[1] = *s0; if (s1) zf[2] = *s1; if (s2) zf[3] = *s2; if (s3) zf[4] = *s3;
+    for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
+    zf[0] = NULVCL;
+    { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
+    *(long *)((char *)fb - 16) = (long)rt_value_trail_mark();   /* PL-DC FRAME-CELL vtmark (FACT RULE "no §10 global" — the s108 gate red): the stub carved 16 bytes below fb; the mark lives THERE, dies with the frame (longjmp-immune for free), and the γ/ω shims hand it back to the leaves in registers */
+    rt_k_level++;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb)
+{
+    rt_k_level--;
+    rt_value_trail_tidy_dead_window((int)vtmark, fb, (char *)__builtin_frame_address(0) + 16);
+    return r;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb)
+{
+    rt_k_level--;
+    rt_value_trail_tidy_dead_window((int)vtmark, fb, (char *)__builtin_frame_address(0) + 16);
+    return FAILDESCR;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
