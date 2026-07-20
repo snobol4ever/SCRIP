@@ -171,6 +171,7 @@ main_α_body:
 .Lx12_10:
  test rax, rax
  jz .Lx12_0
+ mov r8d, 0
  lea rcx, [rip + .Lx12_4]
  lea rdx, [rip + .Lx12_5]
  jmp rax

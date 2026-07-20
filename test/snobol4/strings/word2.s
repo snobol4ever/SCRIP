@@ -17,6 +17,9 @@ proc_PAT$0_α:
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 488], rsp
+mov qword ptr [rbp + 496], r8
+mov dword ptr [rbp + 488], r14d
+proc_PAT$0_attempt:
 proc_PAT$0_α_body:
 lea rax, [rip + xchain0_n0_β]
 mov qword ptr [rbp + 464], rax
@@ -242,6 +245,30 @@ xchain0_n0_af:
  add rsp, 16
  add rsp, 16
  jmp xchain0_n11_β
+proc_PAT$0_scanhit:
+cmp qword ptr [rbp + 496], 1
+jne 7f
+mov ecx, dword ptr [rbp + 488]
+lea rdx, [rip + g_scan_hit_start]
+mov dword ptr [rdx], ecx
+7:
+jmp proc_PAT$0_γ
+proc_PAT$0_scanfail:
+cmp qword ptr [rbp + 496], 1
+jne 8f
+mov eax, dword ptr [rbp + 488]
+inc eax
+cmp eax, r15d
+jg 8f
+lea rcx, [rip + g_anchor]
+cmp qword ptr [rcx], 0
+jne 8f
+mov dword ptr [rbp + 488], eax
+mov r14d, eax
+mov rsp, rbp
+jmp proc_PAT$0_attempt
+8:
+jmp proc_PAT$0_ω
 proc_PAT$0_res:
 add rsp, 8
 pop rbp
@@ -447,10 +474,14 @@ main_α_body:
 .Lx37_10:
  test rax, rax
  jz .Lx37_0
+ mov r8d, 1
  lea rcx, [rip + .Lx37_4]
  lea rdx, [rip + .Lx37_5]
  jmp rax
 .Lx37_4:
+ lea rcx, [rip + g_scan_hit_start]
+ mov rax, qword ptr [rcx]
+ mov dword ptr [rbp + 256], eax
  jmp xchain27_n8_α
 .Lx37_5:
  jmp xchain27_n6_β
