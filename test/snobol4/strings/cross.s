@@ -441,28 +441,15 @@ xchain0_n13_af:
  mov r12, qword ptr [rbp + 784]
  mov rbp, qword ptr [rbp + 792]
  jmp xchain0_n9_α
-# IR_MATCH_SEQ_NARY
+# IR_MATCH_SEQ_NARY (SPD SEQ-STATIC: zero-counter, sigma/phi statically wired)
  xchain0_n25_α:
  mov dword ptr [rbp + 864], r14d
- mov dword ptr [rbp + 868], 0
  jmp xchain0_n27_α
 xchain0_n25_as:
- mov eax, dword ptr [rbp + 868]
- add eax, 1
- mov dword ptr [rbp + 868], eax
- cmp eax, 1
- je xchain0_n28_α
  jmp xchain0_n26_α
  xchain0_n25_β:
- mov dword ptr [rbp + 868], 2
+ jmp xchain0_n28_β
 xchain0_n25_af:
- mov eax, dword ptr [rbp + 868]
- sub eax, 1
- mov dword ptr [rbp + 868], eax
- cmp eax, 0
- je xchain0_n27_β
- cmp eax, 1
- je xchain0_n28_β
  jmp xchain0_n24_β
 # IR_MATCH_RELEASE
  xchain0_n26_α:
@@ -511,7 +498,7 @@ xchain0_n25_af:
  mov esi, r14d
  lea rdi, [rip + .S2]
  call rt_at_cursor@PLT
- jmp xchain0_n25_as
+ jmp xchain0_n28_α
  xchain0_n27_β:
  jmp xchain0_n25_af
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
@@ -534,7 +521,7 @@ xchain0_n25_af:
 .Lx40_4:
  jmp xchain0_n25_as
 .Lx40_5:
- jmp xchain0_n25_af
+ jmp xchain0_n27_β
 .Lx40_0:
  push r14
  push r15
@@ -570,7 +557,7 @@ xchain0_n25_af:
  mov edi, r14d
  call rt_defer_close@PLT
  test eax, eax
- js xchain0_n25_af
+ js xchain0_n27_β
  mov r14d, eax
  lea rax, [rip + .Lx40_6]
  sub rsp, 8
@@ -578,7 +565,7 @@ xchain0_n25_af:
  jmp xchain0_n25_as
 .Lx40_6:
  add rsp, 16
- jmp xchain0_n25_af
+ jmp xchain0_n27_β
  xchain0_n28_β:
  jmp qword ptr [rsp]
 # IR_LIT_STRING
