@@ -901,10 +901,17 @@ static int pl_num_cmp(const char *s, DESCR_t a, DESCR_t b) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * pl_real_iso_str(double fv, char * fb, int bufsz) {
+    for (int prec = 15; prec <= 17; prec++) { snprintf(fb, (size_t)bufsz, "%.*g", prec, fv); if (strtod(fb, (char **)0) == fv) break; }
+    if (!strpbrk(fb, ".eEnN")) { size_t n = strlen(fb); if (n + 2 < (size_t)bufsz) { fb[n] = '.'; fb[n + 1] = '0'; fb[n + 2] = '\0'; } }
+    return fb;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_arith2(const char *op, DESCR_t a, DESCR_t b) {
     extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
     int ai = (a.v == DT_I), bi = (b.v == DT_I);
     if (ai && bi && !strcmp(op, "idiv")) { if (b.i == 0) return FAILDESCR; return INTVAL(a.i / b.i); }
+    if (ai && bi && !strcmp(op, "div"))  { if (b.i == 0) return FAILDESCR; return REALVAL((double)a.i / (double)b.i); }
     if (ai && bi && !strcmp(op, "mod"))  { if (b.i == 0) return FAILDESCR; long long m = a.i % b.i; if (m && ((m < 0) != (b.i < 0))) m += b.i; return INTVAL(m); }
     return rt_num_arith(a, b, pl_is_op_code(op));
 }
@@ -1523,7 +1530,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int codes = (fn[9] == 'o');
         DESCR_t n0 = rt_pl_deref_val(args[0]);
         if (n0.v == DT_I || n0.v == DT_R) {
-            char buf[64]; if (n0.v == DT_I) snprintf(buf, sizeof buf, "%lld", (long long)n0.i); else snprintf(buf, sizeof buf, "%g", n0.r);
+            char buf[64]; if (n0.v == DT_I) snprintf(buf, sizeof buf, "%lld", (long long)n0.i); else pl_real_iso_str(n0.r, buf, sizeof buf);
             size_t bl = strlen(buf); DESCR_t *elems = (DESCR_t *)rt_ws_alloc((bl > 0 ? bl : 1) * sizeof(DESCR_t));
             for (size_t i = 0; i < bl; i++) {
                 if (codes) { elems[i].v = (DTYPE_t)DT_I; elems[i].slen = 0; elems[i].i = (unsigned char)buf[i]; }
@@ -1532,9 +1539,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             DESCR_t lst = pl_list_from_arr(elems, (int)bl);
             if (plw_unify_vals(args[1], lst)) { *out = lst; return 1; } *out = FAILDESCR; return 1;
         }
-        { DESCR_t elems[512]; int n = pl_list_to_arr(args[1], elems, 512);
+        { DESCR_t a1 = rt_pl_deref_val(args[1]); char buf[513]; int n;
+          if (a1.v == DT_S || a1.v == (DTYPE_t)DT_A) { const char * cs = pl_atom_str(a1); if (!cs) { *out = FAILDESCR; return 1; } n = (int)strlen(cs); if (n > 512) n = 512; memcpy(buf, cs, (size_t)n); }
+          else { DESCR_t elems[512]; n = pl_list_to_arr(args[1], elems, 512);
           if (n < 0) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
-          char buf[513]; for (int i = 0; i < n; i++) { if (codes) { if (elems[i].v != DT_I) { *out = FAILDESCR; return 1; } buf[i] = (char)elems[i].i; } else { const char *cs = pl_atom_str(elems[i]); if (!cs || !cs[0]) { *out = FAILDESCR; return 1; } buf[i] = cs[0]; } }
+          for (int i = 0; i < n; i++) { if (codes) { if (elems[i].v != DT_I) { *out = FAILDESCR; return 1; } buf[i] = (char)elems[i].i; } else { const char *cs = pl_atom_str(elems[i]); if (!cs || !cs[0]) { *out = FAILDESCR; return 1; } buf[i] = cs[0]; } } }
           buf[n] = 0;
           char *e1 = (char *)0, *e2 = (char *)0; long long iv = strtoll(buf, &e1, 10); double dv = strtod(buf, &e2);
           DESCR_t r;
@@ -1545,6 +1554,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "$write") && nargs == 1) {
         DESCR_t v = rt_pl_deref_val(args[0]);
+        if (v.v == DT_R) { extern const char * pl_real_iso_str(double, char *, int); char _fb[64]; fputs(pl_real_iso_str(v.r, _fb, sizeof _fb), stdout); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
         out_write_descr(stdout, v, 0);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }

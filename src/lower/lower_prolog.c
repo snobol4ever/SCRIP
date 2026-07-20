@@ -1056,6 +1056,25 @@ static void lower_pl_register_all_preds(void) {
         }
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lower_pl_register_dyn_only_preds(void) {
+    for (int i = 0; i < g_stage2.pl_dyn_n; i++) {
+        const char * nm = g_stage2.pl_dyn_name[i]; int ar = g_stage2.pl_dyn_arity[i];
+        if (!nm) continue;
+        char key[200]; snprintf(key, sizeof key, "%s/%d", nm, ar);
+        if (resolve_bb_lookup(key, ar)) continue;
+        int bb_idx = lower_pl_dyniter_graph(nm, ar);
+        if (bb_idx < 0) continue;
+        resolve_bb_register(strdup(key), ar, bb_idx);
+        int pi = stage2_proc_grow(&g_stage2);
+        g_stage2.proc_table[pi].name         = strdup(key);
+        g_stage2.proc_table[pi].proc         = NULL;
+        g_stage2.proc_table[pi].entry_pc     = -1;
+        g_stage2.proc_table[pi].bb_idx       = bb_idx;
+        g_stage2.proc_table[pi].nparams      = ar;
+        g_stage2.proc_table[pi].is_generator = 1;
+    }
+}
 typedef struct { const char * key; const tree_t * ch; int state; } pl_det_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_det_name_in(const char * nm, const char * const * lst) { for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
@@ -1317,6 +1336,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     pl_expand_disjunctions();
     lower_pl_register_all_preds();
+    lower_pl_register_dyn_only_preds();
     pl_det_classify_all();
     return &g_stage2;
 }
