@@ -74,16 +74,22 @@ void *rt_pl_pred_beta(const char *key)  { for (int i = 0; i < g_plw_pred_n; i++)
 int rt_pl_pred_nslots_rt(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].nslots; return 8; }
 static int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
 static int plw_poison_trap(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_PL_POISON_TRAP"); p = e ? (atoi(e) != 0) : 0; } return p; }
-static DESCR_t *plw_cell_deref(DESCR_t *c) {
+static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
     DESCR_t *prev = (DESCR_t *)0;
+    int pt = plw_poison_trap();
     for (int guard = 0; guard < 4096; guard++) {
-        if (plw_poison_trap() && *(unsigned int *)c == 0xDDDDDDDDu) { fprintf(stderr, "[POISON-READ] c=%p prev=%p prev={v=%d slen=%u p=%p}\n", (void *)c, (void *)prev, prev ? (int)prev->v : -1, prev ? prev->slen : 0u, prev ? prev->p : (void *)0); fflush(stderr); abort(); }
+        if (pt && *(unsigned int *)c == 0xDDDDDDDDu) { fprintf(stderr, "[POISON-READ] c=%p prev=%p prev={v=%d slen=%u p=%p}\n", (void *)c, (void *)prev, prev ? (int)prev->v : -1, prev ? prev->slen : 0u, prev ? prev->p : (void *)0); fflush(stderr); abort(); }
         if (c->v == DT_N && c->slen == 1 && c->p) { prev = c; c = (DESCR_t *)c->p; continue; }
         if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) { prev = c; c = ((VCELL_t *)c->p)->cellp; continue; }
         if (c->v == (DTYPE_t)DT_PLVAR && c->p && c->p != (void *)c) { prev = c; c = (DESCR_t *)c->p; continue; }
         return c;
     }
     return c;
+}
+static inline DESCR_t *plw_cell_deref(DESCR_t *c) {
+    if (__builtin_expect(plw_poison_trap(), 0)) return plw_cell_deref_slow(c);
+    if (c->v != DT_N && (c->v != (DTYPE_t)DT_PLVAR || !c->p || c->p == (void *)c)) return c;
+    return plw_cell_deref_slow(c);
 }
 extern void *rt_plj_alloc(size_t);
 static void plw_bind(DESCR_t *cell, DESCR_t word) { pl_trail_push(&g_pl_trail, cell); *cell = word; }
