@@ -95,19 +95,25 @@ int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg
 void rt_pl_write_cell(void *cell)
 {
     extern void pl_write(Term *);
+    arena_mark_t cm = rt_pl_cterm_mark();
     pl_write(pl_cell_to_term((pl_cell_t *)cell));
+    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
     extern void pl_writeq(Term *);
+    arena_mark_t cm = rt_pl_cterm_mark();
     pl_writeq(pl_cell_to_term((pl_cell_t *)cell));
+    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_canonical_cell(void *cell)
 {
     extern void pl_write_canonical(Term *);
+    arena_mark_t cm = rt_pl_cterm_mark();
     pl_write_canonical(pl_cell_to_term((pl_cell_t *)cell));
+    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_opt_is_true(Term *o) { if (!o) return 0; o = term_deref(o); if (o && o->tag == TERM_COMPOUND && o->compound.arity == 1) { Term *a = term_deref(o->compound.args[0]); return a && a->tag == TERM_ATOM && !strcmp(prolog_atom_name(a->atom_id), "true"); } return 0; }
@@ -115,6 +121,7 @@ static int pl_opt_is_true(Term *o) { if (!o) return 0; o = term_deref(o); if (o 
 void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
 {
     extern void pl_write_term_opts(Term *, int, int, int, long);
+    arena_mark_t cm = rt_pl_cterm_mark();
     Term *t = term_cell ? pl_cell_to_term((pl_cell_t *)term_cell) : (Term *)0;
     Term *lst = opts_cell ? term_deref(pl_cell_to_term((pl_cell_t *)opts_cell)) : (Term *)0;
     int quoted = 0, ignore_ops = 0, numbervars = 0; long max_depth = 0;
@@ -130,6 +137,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
         lst = term_deref(lst->compound.args[1]);
     }
     pl_write_term_opts(t, quoted, ignore_ops, numbervars, max_depth);
+    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
@@ -491,6 +499,7 @@ void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
     extern void pl_write(Term *); extern void pl_writeq(Term *);
     if (!fmt) return;
+    arena_mark_t cm = rt_pl_cterm_mark();
     Term *args = list_cell ? pl_cell_to_term((pl_cell_t *)list_cell) : (Term *)0;
     for (const char *p = fmt; *p; p++) {
         if (*p != '~') { putchar(*p); continue; }
@@ -511,6 +520,7 @@ void rt_pl_format_cell(const char *fmt, void *list_cell)
         else if (*p == 'n' || *p == 'N') { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) putchar('\n'); }
         else if (*p == '~') { putchar('~'); }
     }
+    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)

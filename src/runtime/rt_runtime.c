@@ -391,9 +391,11 @@ Term *rt_pl_cell_to_term(void *cell) {
 int rt_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (!op) return 0;
     pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
+    arena_mark_t cm = rt_pl_cterm_mark();
     Term *T0 = rt_cmp_cell_to_term_shared((pl_cell_t *)t0, vaddr, vterm, &vn, 256);
     Term *T1 = rt_cmp_cell_to_term_shared((pl_cell_t *)t1, vaddr, vterm, &vn, 256);
     int c = resolve_term_compare(T0, T1);
+    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
     if (strcmp(op, "==")   == 0) return (c == 0) ? 1 : 0;
     if (strcmp(op, "\\==") == 0) return (c != 0) ? 1 : 0;
     if (strcmp(op, "@<")   == 0) return (c <  0) ? 1 : 0;

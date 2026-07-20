@@ -58,6 +58,7 @@ void        *rt_agg_alloc(int kind, size_t n);             /* COLLECTABLE aggreg
 void        *rt_pl_cterm_alloc(size_t n);
 arena_mark_t rt_pl_cterm_mark(void);
 void         rt_pl_cterm_release(arena_mark_t m);
+int          rt_pl_ctr_on(void);
 /* PL-WS-2 step 2 (env-gated SCRIP_PL_WS_RECLAIM=1): SECOND island for the trail-covered
  * pl_cell_t builder stream (rt_pl_compound_cell/rt_pl_unify_struct blk allocs) — the
  * queensn 1.6M-call leak. Survivor Terms stay on the cterm island above (never rewound),
