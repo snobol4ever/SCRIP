@@ -1380,6 +1380,7 @@ void lower_icon_resolve_call_kinds(void) {
             const char * vn = IR_LIT(nd).sval;
             if (!vn || !vn[0] || vn[0] == '&') continue;
             if (is_global(vn)) continue;
+            if (graph_has_local(g, vn)) continue;
             int skip = 0;
             for (int k = 0; !skip && g->pnames && k < g->nparams; k++) if (g->pnames[k] && !strcmp(g->pnames[k], vn)) skip = 1;
             for (int k = 0; !skip && k < g->n; k++) {
