@@ -1697,6 +1697,24 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
     xa_dispatch(XA_FLAT_PROLOGUE);
     if (g_is_text) g_emit_pos += 7;
+    bb_label_t lbl_attempt, lbl_scanhit, lbl_scanfail;
+    static int _scan_off = -1; if (_scan_off < 0) { const char *_e = getenv("SCRIP_SCAN_OFF"); _scan_off = (_e && *_e == '1') ? 1 : 0; }   /* SPD-2 hatch: SCRIP_SCAN_OFF=1 = same-build A/B (BP-5/BP-6 precedent) */
+    int scan_live = (!_scan_off && ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* SPD-2 RETRY-INTERNAL: RSP/rbp flavor only (fb==rbp hardwired below); legacy frame modes keep the classic per-position round trip */
+    if (scan_live) {
+        emit_label_initf(&lbl_attempt,  "%s_attempt",  prefix);
+        emit_label_initf(&lbl_scanhit,  "%s_scanhit",  prefix);
+        emit_label_initf(&lbl_scanfail, "%s_scanfail", prefix);
+        int kt = g_emit.flat_frame_bytes;
+        if (g_is_text) {
+            char _sc[192];
+            snprintf(_sc, sizeof _sc, "mov qword ptr [rbp + %d], r8\nmov dword ptr [rbp + %d], r14d\n", kt - 32, kt - 40);   /* [kt-32]=scan flag (caller r8: defer fast arm is the SOLE flat_pat entry), [kt-40]=attempt start */
+            emit_text_n(_sc, strlen(_sc));
+        } else {
+            ef_b3(0x4C, 0x89, 0x85); bb_emit_u32((uint32_t)(kt - 32));
+            ef_b3(0x44, 0x89, 0xB5); bb_emit_u32((uint32_t)(kt - 40));
+        }
+        emit_label_define_bb(&lbl_attempt);
+    }
     emit_label_define_bb(&lbl_α_body);
     enum { CH_MAX = 8192, Q_MAX = CH_MAX * 16 };
     IR_t *nodes[CH_MAX]; int n = 0;
@@ -2004,11 +2022,60 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           } }
         { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
           long _p0 = _dd ? emit_text_count() : 0;
+          g_emit.op_scan = 0; g_emit.op_scan_head_off = -1;
+          if (scan_live) { if (node_γ == &lbl_γ) node_γ = &lbl_scanhit; if (node_ω == &lbl_ω) node_ω = &lbl_scanfail; }   /* SPD-2: every whole-pattern exit funnels through the scan blocks (ports bind node_γ/node_ω, so template port jumps are covered) */
+          if (nodes[i]->op == IR_MATCH_DEFER) {   /* SPD-2 op_scan criterion: sole frozen-pattern statement root = head's γ (GOTO-chased) is THIS node AND this node's ω resolved to the head's β */
+              int _hk = -1; for (int _k = 0; _k < n; _k++) if (nodes[_k]->op == IR_MATCH_HEAD) { _hk = _k; break; }
+              if (_hk >= 0) { IR_t *_gt = nodes[_hk]->γ.node; { int _gg = 0; while (_gt && _gt->op == IR_GOTO && _gg++ < 128) _gt = _gt->γ.node; }
+                  if (_gt == nodes[i] && node_ω == betas[_hk]) { g_emit.op_scan = 1; g_emit.op_scan_head_off = (int)drive_value_slot(nodes[_hk]); } }
+          }
           emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
           if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
     }
     g_emit.op_beta_dead = 0;
     g_emit.op_wpop = 0;
+    if (scan_live) {   /* SPD-2 RETRY-INTERNAL blocks.  scanhit: publish the winning start for the statement-side head-slot write-back, fall to γ.  scanfail: flag off → γ.. no, → ω; else start+1, bound (r15d=Δ), &ANCHOR test — any exit → ω; otherwise write back start, r14d=start, rsp=rbp (post-carve frontier: every element grant sits below), jmp attempt. */
+        int kt = g_emit.flat_frame_bytes;
+        extern uint64_t g_scan_hit_start; extern long g_anchor;
+        emit_label_define_bb(&lbl_scanhit);
+        if (g_is_text) {
+            char _sh[256];
+            snprintf(_sh, sizeof _sh, "cmp qword ptr [rbp + %d], 1\njne 7f\nmov ecx, dword ptr [rbp + %d]\nlea rdx, [rip + g_scan_hit_start]\nmov dword ptr [rdx], ecx\n7:\n", kt - 32, kt - 40);
+            emit_text_n(_sh, strlen(_sh));
+        } else {
+            ef_b3(0x48, 0x83, 0xBD); bb_emit_u32((uint32_t)(kt - 32)); ef_b1(0x01);
+            ef_b2(0x75, 0x12);
+            ef_b2(0x8B, 0x8D); bb_emit_u32((uint32_t)(kt - 40));
+            ef_b2(0x48, 0xBA); bb_emit_u64((uint64_t)(uintptr_t)&g_scan_hit_start);
+            ef_b2(0x89, 0x0A);
+        }
+        emit_jmp_label(&lbl_γ, JMP_JMP);
+        emit_label_define_bb(&lbl_scanfail);
+        if (g_is_text) {
+            char _sf[512];
+            snprintf(_sf, sizeof _sf,
+                "cmp qword ptr [rbp + %d], 1\njne 8f\nmov eax, dword ptr [rbp + %d]\ninc eax\ncmp eax, r15d\njg 8f\nlea rcx, [rip + g_anchor]\ncmp qword ptr [rcx], 0\njne 8f\nmov dword ptr [rbp + %d], eax\nmov r14d, eax\nmov rsp, rbp\n",
+                kt - 32, kt - 40, kt - 40);
+            emit_text_n(_sf, strlen(_sf));
+            emit_jmp_label(&lbl_attempt, JMP_JMP);
+            emit_text_n("8:\n", 3);
+        } else {
+            ef_b3(0x48, 0x83, 0xBD); bb_emit_u32((uint32_t)(kt - 32)); ef_b1(0x01);
+            ef_b2(0x75, 0x2E);                                    /* jne -> block end: 6+2+3+2+10+4+2+6+3+3+5 = 46 */
+            ef_b2(0x8B, 0x85); bb_emit_u32((uint32_t)(kt - 40));
+            ef_b2(0xFF, 0xC0);
+            ef_b3(0x44, 0x39, 0xF8);
+            ef_b2(0x7F, 0x21);                                    /* jg -> block end: 10+4+2+6+3+3+5 = 33 */
+            ef_b2(0x48, 0xB9); bb_emit_u64((uint64_t)(uintptr_t)&g_anchor);
+            ef_b4(0x48, 0x83, 0x39, 0x00);
+            ef_b2(0x75, 0x11);                                    /* jne -> block end: 6+3+3+5 = 17 */
+            ef_b2(0x89, 0x85); bb_emit_u32((uint32_t)(kt - 40));
+            ef_b3(0x41, 0x89, 0xC6);
+            ef_b3(0x48, 0x89, 0xEC);
+            emit_jmp_label(&lbl_attempt, JMP_JMP);
+        }
+        emit_jmp_label(&lbl_ω, JMP_JMP);
+    }
     if (g_emit.flat_jmp_entry) {
         /* PROC-CONV: EMPTY body (n==0) — α_body would otherwise fall into the res landing below and run its
          * `add rsp,8; pop zr` on the initial α pass (no frontier record present ⇒ rsp/zr corruption ⇒ the ω-half

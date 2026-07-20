@@ -602,6 +602,7 @@ void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_PATSTK_ISLAND_BYTES (8u << 20)
 uint64_t g_patstk_sp = 0;
+uint64_t g_scan_hit_start = 0;   /* SPD-2 RETRY-INTERNAL: flat_pat blob publishes the WINNING attempt-start on scan-mode gamma; the statement defer gamma-cont copies it into the head counter slot (replace-span source) */
 uint64_t g_pat_main_rsp = 0;
 static const char *g_patstk_base = 0;
 void rt_patstk_lazy_init(void) {
