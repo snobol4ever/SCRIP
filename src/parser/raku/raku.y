@@ -430,20 +430,34 @@ if_stmt
         { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$3); expr_add_child(e,$5); expr_add_child(e,$7); $$=e; }
     | KW_IF '(' expr ')' block KW_ELSE if_stmt
         { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$3); expr_add_child(e,$5); expr_add_child(e,$7); $$=e; }
+    | KW_IF expr block
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$2); expr_add_child(e,$3); $$=e; }
+    | KW_IF expr block KW_ELSE block
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$2); expr_add_child(e,$3); expr_add_child(e,$5); $$=e; }
+    | KW_IF expr block KW_ELSE if_stmt
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$2); expr_add_child(e,$3); expr_add_child(e,$5); $$=e; }
     ;
 while_stmt
     : KW_WHILE '(' expr ')' block
         { $$=expr_binary(TT_WHILE,$3,$5); }
+    | KW_WHILE expr block
+        { $$=expr_binary(TT_WHILE,$2,$3); }
     ;
 unless_stmt
     : KW_UNLESS '(' expr ')' block
         { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$3); ast_push(e,$5); $$=e; }
     | KW_UNLESS '(' expr ')' block KW_ELSE block
         { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$3); ast_push(e,$5); ast_push(e,$7); $$=e; }
+    | KW_UNLESS expr block
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$2); ast_push(e,$3); $$=e; }
+    | KW_UNLESS expr block KW_ELSE block
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$2); ast_push(e,$3); ast_push(e,$5); $$=e; }
     ;
 until_stmt
     : KW_UNTIL '(' expr ')' block
         { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$3); expr_add_child(e,$5); $$=e; }
+    | KW_UNTIL expr block
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$2); expr_add_child(e,$3); $$=e; }
     ;
 repeat_stmt
     : KW_REPEAT block
@@ -596,6 +610,10 @@ sub_body
     | '{' stmt_list expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
           ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+    | '{' stmt_list KW_SAY expr '}'
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=$2; exprlist_append(l,s); $$=make_seq(l); }
+    | '{' stmt_list KW_PRINT expr '}'
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
     ;
 method_body
     : '{' stmt_list '}'          { $$=make_seq($2); }
@@ -603,6 +621,10 @@ method_body
     | '{' stmt_list expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
           ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+    | '{' stmt_list KW_SAY expr '}'
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=$2; exprlist_append(l,s); $$=make_seq(l); }
+    | '{' stmt_list KW_PRINT expr '}'
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
     ;
 class_decl
     : KW_CLASS IDENT is_clauses '{' class_body_list '}'
@@ -914,6 +936,12 @@ param_list
 block
     : '{' stmt_list '}'  { $$=make_seq($2); }
     | '{' YADA '}'       { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); $$=make_seq(l); }
+    | '{' stmt_list expr '}'
+        { ExprList *l=$2; exprlist_append(l,$3); $$=make_seq(l); }
+    | '{' stmt_list KW_SAY expr '}'
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=$2; exprlist_append(l,s); $$=make_seq(l); }
+    | '{' stmt_list KW_PRINT expr '}'
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
     ;
 closure
     : '{' expr '}'  { $$=$2; }
