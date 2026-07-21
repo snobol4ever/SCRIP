@@ -11,13 +11,14 @@ void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes);
 std::string bb_coerce_string() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (_.op_sa < 0 || _.op_off < 0) return x86_bomb("bb_coerce_string: needs operand slot (op_sa) + own value slot (op_off)");
-    return x86("comment", "IR_COERCE_STRING")
-         + x86_alpha()
-         + x86("lea",  "rdi", FRQ(_.op_sa))
-         + x86("lea",  "rsi", FRQ(_.op_off))
-         + x86("mov",  "rdx", (long)_.op_ival)
-         + x86("call", "rt_coerce_str_d", (uint64_t)(uintptr_t)(void *)rt_coerce_str_d)
-         + x86_gamma()
-         + x86_beta_trampoline();
+    return IF(_.op_sa < 0 || _.op_off < 0, x86_bomb("bb_coerce_string: needs operand slot (op_sa) + own value slot (op_off)"))
+         + IF(!(_.op_sa < 0 || _.op_off < 0),
+             x86("comment", "IR_COERCE_STRING")
+           + x86_alpha()
+           + x86("lea",  "rdi", FRQ(_.op_sa))
+           + x86("lea",  "rsi", FRQ(_.op_off))
+           + x86("mov",  "rdx", (long)_.op_ival)
+           + x86("call", "rt_coerce_str_d", (uint64_t)(uintptr_t)(void *)rt_coerce_str_d)
+           + x86_gamma()
+           + x86_beta_trampoline());
 }
