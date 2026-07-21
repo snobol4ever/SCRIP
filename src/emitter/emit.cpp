@@ -732,7 +732,17 @@ extern "C" int fc_head_fp(const IR_t *);                      /* zeta_storage.c 
 extern "C" int fc_leaf_disp(const IR_t *);                    /* zeta_storage.c — R12-ERAD s65: per-leaf flat displacement under ZC_FRAME_RSP; -1 = unregistered (deliver 0) */
 extern "C" int fc_seq_active(const IR_t *);                   /* zeta_storage.c — ZB-FC-3b: this SEQUENCE is FORTH-converted (zero LOCALS; sigma/phi become static edge re-points) */
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
+static int walk_bb_node_inner(IR_t * nd, FILE * out);
+extern "C" int bbprof_on(void);
+extern "C" void bbprof_record(int nid, int kind, int uid, void *lo, void *hi);
 int walk_bb_node(IR_t * nd, FILE * out) {
+    if (!(nd && MEDIUM_BINARY && bbprof_on())) return walk_bb_node_inner(nd, out);
+    int lo = bb_emit_pos;
+    int rc = walk_bb_node_inner(nd, out);
+    if (bb_emit_pos > lo) bbprof_record(bb_node_id(nd), (int)nd->op, g_emit.x86_uid, (void *)(bb_emit_buf + lo), (void *)(bb_emit_buf + bb_emit_pos));
+    return rc;
+}
+static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
     extern int  bb_slot_get(IR_t *nd);
