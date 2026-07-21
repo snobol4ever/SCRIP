@@ -2,6 +2,11 @@
 #include <unistd.h>
 #include <setjmp.h>
 int core_icn_error(int code, DESCR_t val);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline size_t sv_len(DESCR_t arg, const char *coerced) {
+    if (arg.v == DT_S && arg.slen != 0xFFFFFFFFu) return arg.slen ? (size_t)arg.slen : (coerced ? strlen(coerced) : 0);
+    return coerced ? strlen(coerced) : 0;
+}
 #include "rt/rt_arena.h"
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
@@ -3887,9 +3892,9 @@ static __attribute__((noinline)) int bn_date(DESCR_t *args, int nargs, DESCR_t *
 static __attribute__((noinline)) int bn_trim(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 1) return -1;
     const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
-    size_t n = strlen(sv); while (n > 0 && sv[n-1] == ' ') n--;
+    size_t n = sv_len(args[0], sv); while (n > 0 && sv[n-1] == ' ') n--;
     char *buf = (char *)rt_ws_alloc_c(n + 1); memcpy(buf, sv, n); buf[n] = 0;
-    *out = STRVAL(buf); return 1;
+    *out = BSTRVAL(buf, n); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *out) {
@@ -3898,9 +3903,9 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
     DESCR_t nn = args[1]; _SNOCOERCE(nn);
     long long k = IS_REAL_fn(nn) ? (long long)nn.r : nn.i;
     if (k < 0) { *out = FAILDESCR; return 1; }
-    size_t sl = strlen(sv); char *buf = (char *)rt_ws_alloc_c(sl * (size_t)k + 1);
+    size_t sl = sv_len(args[0], sv); char *buf = (char *)rt_ws_alloc_c(sl * (size_t)k + 1);
     for (long long i = 0; i < k; i++) memcpy(buf + (size_t)i * sl, sv, sl);
-    buf[sl * (size_t)k] = 0; *out = STRVAL(buf); return 1;
+    buf[sl * (size_t)k] = 0; *out = BSTRVAL(buf, sl * (size_t)k); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_t *out) {
@@ -3910,18 +3915,19 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
     const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
     const char *fv = VARVAL_fn(args[1]); if (!fv) fv = "";
     const char *tv = VARVAL_fn(args[2]); if (!tv) tv = "";
-    size_t fl = strlen(fv);
-    if (fl != strlen(tv) || !fl) { *out = FAILDESCR; return 1; }
+    size_t sl = sv_len(args[0], sv);
+    size_t fl = sv_len(args[1], fv);
+    if (fl != sv_len(args[2], tv) || !fl) { *out = FAILDESCR; return 1; }
     if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : 0; }
     char mloc[256]; char *map = mloc;
     if (!g_rm_off && fl < 63) { unsigned s = ((unsigned char)fv[0] * 31u + (unsigned)fl) & 3u;
         if (g_rm[s].v && g_rm[s].n == (unsigned char)fl && !memcmp(g_rm[s].f, fv, fl) && !memcmp(g_rm[s].t, tv, fl)) map = g_rm[s].map;
         else { map = g_rm[s].map; for (int i = 0; i < 256; i++) map[i] = (char)i; for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k];
                memcpy(g_rm[s].f, fv, fl); memcpy(g_rm[s].t, tv, fl); g_rm[s].n = (unsigned char)fl; g_rm[s].v = 1; } }
-    else { for (int i = 0; i < 256; i++) map[i] = (char)i; for (const char *f2 = fv, *t2 = tv; *f2; f2++, t2++) map[(unsigned char)*f2] = *t2; }
-    size_t n = strlen(sv); char *buf = (char *)rt_ws_alloc_c(n + 1);
+    else { for (int i = 0; i < 256; i++) map[i] = (char)i; for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k]; }
+    size_t n = sl; char *buf = (char *)rt_ws_alloc_c(n + 1);
     for (size_t i = 0; i < n; i++) buf[i] = map[(unsigned char)sv[i]];
-    buf[n] = 0; *out = STRVAL(buf); return 1;
+    buf[n] = 0; *out = BSTRVAL(buf, n); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_substr(DESCR_t *args, int nargs, DESCR_t *out) {

@@ -2271,6 +2271,7 @@ extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_
  * outside-γ/ω, jump back, never call/ret.  runtime_eval.c brackets its emit_chain calls with this pair and
  * enters through rt_chain_enter (the C-side resolve→wire→jmp).  Same K_total formula as the PAT$ gate above. */
 extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
+    extern int g_flat_dc_np; g_flat_dc_np = -1;
     return emit_jmp_entry_arm_region(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

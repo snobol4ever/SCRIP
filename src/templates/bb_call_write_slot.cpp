@@ -46,10 +46,11 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcws_binop_concat_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(const char *) = rt_write_strz_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+static std::string bcws_binop_concat_bin(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     return x86_alpha()
-         + x86_frame_load64("rdi", off + 8)
-         + x86("call", "rt_write_strz_nl", fptr)
+         + x86_frame_load64("rdi", off)
+         + x86_frame_load64("rsi", off + 8)
+         + x86("call", "rt_write_any_nl", fptr)
          + x86_gamma()
          + x86_beta()
          + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
@@ -78,8 +79,9 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
                          + x86("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
         if (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT)
             return x86_alpha()
-                 + x86("mov", "rdi", "[" + std::string(x86_zr()) + " + " + std::to_string(off + 8) + "]")
-                 + x86("call",     "rt_write_strz_nl@PLT")
+                 + x86("mov", "rdi", "[" + std::string(x86_zr()) + " + " + std::to_string(off) + "]")
+                 + x86("mov", "rsi", "[" + std::string(x86_zr()) + " + " + std::to_string(off + 8) + "]")
+                 + x86("call",     "rt_write_any_nl@PLT")
                  + x86("jmp",      _.lbl_γ) + tail;
         return x86_alpha()
              + x86("mov", "rdi", "[" + std::string(x86_zr()) + " + " + std::to_string(off) + "]")

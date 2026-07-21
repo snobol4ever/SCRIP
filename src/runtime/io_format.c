@@ -8,6 +8,11 @@
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void output_val(DESCR_t v) {
+    if (v.v == DT_S && v.slen && v.slen != 0xFFFFFFFFu) {
+        if (v.s) fwrite(v.s, 1, (size_t)v.slen, stdout);
+        fputc('\n', stdout);
+        return;
+    }
     char *s = VARVAL_fn(v);
     printf("%s\n", s ? s : "");
 }
@@ -30,6 +35,10 @@ void rt_write_any_nl(DESCR_t d)
     else if (d.v == DT_R)  { char b[64]; rt_format_float(b, sizeof b, d.r); fprintf(stdout, "%s\n", b); }
     else if (d.v == DT_FAIL) fputc('\n', stdout);
     else if (d.v == DT_DATA) { const char *s = rk_obj_stringify(d, 1); if (s) out_write_str(stdout, s); fputc('\n', stdout); }
+    else if (d.v == DT_S && d.slen && d.slen != 0xFFFFFFFFu) {
+        if (d.s) fwrite(d.s, 1, (size_t)d.slen, stdout);
+        fputc('\n', stdout);
+    }
     else {
         char *s = VARVAL_fn(d);
         if (s) out_write_str(stdout, s);
