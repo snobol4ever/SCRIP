@@ -232,6 +232,11 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
             extern const char *real_str(double r, char *buf, int bufsz);
             char _ab[64], _bb[64]; const char *as, *bs;
+            if (a.v == DT_T && a.tbl && a.tbl->is_set && b.v == DT_T && b.tbl && b.tbl->is_set) {
+                if (op == BINOP_CUNION) return TABLE_VAL(set_union(a.tbl, b.tbl));
+                if (op == BINOP_CDIFF)  return TABLE_VAL(set_diff(a.tbl, b.tbl));
+                return TABLE_VAL(set_inter(a.tbl, b.tbl));
+            }
             if (IS_CSET_fn(a) || a.v == DT_S || a.v == DT_SNUL) as = a.s ? a.s : "";
             else if (IS_INT_fn(a))  { snprintf(_ab, sizeof _ab, "%lld", (long long)a.i); as = _ab; }
             else if (IS_REAL_fn(a)) { real_str(a.r, _ab, sizeof _ab); as = _ab; }

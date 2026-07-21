@@ -106,6 +106,9 @@ void      table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t 
 void      table_set_descr_keyown(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val);
 int       table_delete(TBBLK_t *tbl, const char *key);
 int       table_has(TBBLK_t *tbl, const char *key);
+TBBLK_t  *set_union(TBBLK_t *x, TBBLK_t *y);
+TBBLK_t  *set_diff(TBBLK_t *x, TBBLK_t *y);
+TBBLK_t  *set_inter(TBBLK_t *x, TBBLK_t *y);
 typedef struct _DATINST_tType {
     char   *name;
     int     nfields;

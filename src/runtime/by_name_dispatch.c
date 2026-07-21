@@ -5796,6 +5796,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             *out=subscript_get(l,r); return 1;
         }
         if (!strcmp(fn,"++") || !strcmp(fn,"--") || !strcmp(fn,"**")) {
+            if (l.v == DT_T && l.tbl && l.tbl->is_set && r.v == DT_T && r.tbl && r.tbl->is_set) {
+                if (fn[0]=='+') *out=TABLE_VAL(set_union(l.tbl, r.tbl));
+                else if (fn[1]=='-') *out=TABLE_VAL(set_diff(l.tbl, r.tbl));
+                else *out=TABLE_VAL(set_inter(l.tbl, r.tbl));
+                return 1;
+            }
             char _lbuf[64], _rbuf[64];
             const char *la, *ra;
             if (IS_INT_fn(l))       { snprintf(_lbuf,sizeof _lbuf,"%lld",(long long)l.i); la=_lbuf; }

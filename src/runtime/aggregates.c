@@ -175,6 +175,29 @@ int table_has(TBBLK_t *tbl, const char *key) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
+    if (!dst || !src) return;
+    for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = src->buckets[i]; e; e = e->next) table_set_descr(dst, e->key, e->key_descr, e->key_descr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) {
+    TBBLK_t *r = table_new(); r->is_set = 1;
+    set_copy_all(r, x); set_copy_all(r, y);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y) {
+    TBBLK_t *r = table_new(); r->is_set = 1;
+    if (x) for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = x->buckets[i]; e; e = e->next) if (!table_has(y, e->key)) table_set_descr(r, e->key, e->key_descr, e->key_descr);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y) {
+    TBBLK_t *r = table_new(); r->is_set = 1;
+    if (x) for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = x->buckets[i]; e; e = e->next) if (table_has(y, e->key)) table_set_descr(r, e->key, e->key_descr, e->key_descr);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_table_idx_get(DESCR_t base, DESCR_t key) {
     if (base.v != DT_T || !base.tbl) return NULVCL;
     char kb[64];
