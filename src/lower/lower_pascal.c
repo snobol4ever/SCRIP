@@ -71,12 +71,14 @@ static int pas_name_is_byref(pcx_t * cx, const char * name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int pas_is_agg_local(const char * name);
 static const char * pas_resolve_name(pcx_t * cx, const char * name, int * slot_out) {
     const pas_scope_t * found_sc = NULL;
     int slot = -1;
     for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) { slot = sl; found_sc = s; break; } }
     if (slot_out) *slot_out = slot;
     if (slot >= 0 && found_sc && found_sc->proc_name && pas_cap_find(found_sc->proc_name, name)) { if (slot_out) *slot_out = -1; const char * m = pas_cap_mangle(found_sc->proc_name, name); pas_reg_var(m); return m; }
+    if (slot >= 0 && found_sc && found_sc->proc_name && strcmp(found_sc->proc_name, "main") != 0 && pas_is_agg_local(name)) { if (slot_out) *slot_out = -1; const char * m = pas_cap_mangle(found_sc->proc_name, name); pas_reg_var(m); return m; }
     return name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
