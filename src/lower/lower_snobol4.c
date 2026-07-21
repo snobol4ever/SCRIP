@@ -1358,6 +1358,23 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_LIT(A).ival = (long)na;   /* promoted → _.op_ival = N for the template's dispatch chains (walk_bb_node line ~697); the σ/φ inside-edge tags carry membership, so no extent is needed */
         return A;
     }
+    case TT_FNC: {
+        /* SN4-PAT-FNC (2026-07-21): a call in pattern position.  Snocone's frontend never runs pat_prim_kind (snobol4.y:37) so a pattern primitive such as LEN(1)/SPAN(cs) arrives here as a generic TT_FNC whose callee name is data; if the name is a primitive, synthesize the matching TT_* node from the call's argument children and recurse into the landed primitive case.  Otherwise the call is a value-returning expression (upr(x), IDENT(...)): SNOBOL4 eager semantics evaluate it once and use the result as a pattern, so materialize it into a fresh PATTMP$n temp via sx_lower and route to IR_MATCH_DEFER on that name — the exact statement-level idiom at the TT_SCAN driver, now reachable at any pattern nesting depth. */
+        const char * name = t->v.sval; int argbase = 0;
+        if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
+        static const struct { const char * n; tree_e k; } pm[] = { {"ANY",TT_ANY},{"NOTANY",TT_NOTANY},{"SPAN",TT_SPAN},{"BREAK",TT_BREAK},{"BREAKX",TT_BREAKX},{"LEN",TT_LEN},{"POS",TT_POS},{"RPOS",TT_RPOS},{"TAB",TT_TAB},{"RTAB",TT_RTAB},{"ARB",TT_ARB},{"ARBNO",TT_ARBNO},{"REM",TT_REM},{"FAIL",TT_FAIL},{"SUCCEED",TT_SUCCEED},{"FENCE",TT_FENCE},{"ABORT",TT_ABORT},{"BAL",TT_BAL},{NULL,TT_VAR} };
+        tree_e pk = TT_VAR;
+        if (name) for (int i = 0; pm[i].n; i++) if (!strcmp(name, pm[i].n)) { pk = pm[i].k; break; }
+        if (pk != TT_VAR) { extern tree_t * ast_stmt_new(tree_e kind); tree_t * syn = ast_stmt_new(pk); for (int k = argbase; k < t->n; k++) ast_push(syn, (tree_t *) t->c[k]); return sno_pat_node(cx, syn, succ, fail); }
+        static int g_pattmp_pat_n = 0;
+        char nmb[32]; snprintf(nmb, sizeof nmb, "PATTMP$P%d", g_pattmp_pat_n++);
+        char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
+        IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = tmpn; sno_fz_mark_defer(g, nd, tmpn); sno_ω_to(nd, fail);
+        IR_t * asn = lc_build(g, IR_ASSIGN, nd, fail); IR_LIT(asn).sval = tmpn;
+        IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, asn, fail, &vr);
+        if (vr) ir_operand_push(asn, vr);
+        return ec;
+    }
     default:
         sno_fatal("pattern element not in the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB; SEQ+ALT landed SN4-PAT-3h)", NULL);
     }
@@ -1394,6 +1411,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
     if (k == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (k == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
+    if (k == TT_FNC) return 1;                                     /* SN4-PAT-FNC (2026-07-21): a call in pattern position — primitive-name synthesis or value-materialize+DEFER, handled in sno_pat_node's TT_FNC case */
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
