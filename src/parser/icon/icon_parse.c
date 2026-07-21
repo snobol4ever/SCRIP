@@ -376,7 +376,8 @@ static int is_relop(IcnTkKind k) {
     return k==TK_LT || k==TK_LE || k==TK_GT || k==TK_GE ||
            k==TK_EQ || k==TK_NEQ ||
            k==TK_SLT || k==TK_SLE || k==TK_SGT || k==TK_SGE ||
-           k==TK_SEQ || k==TK_SNE;
+           k==TK_SEQ || k==TK_SNE ||
+           k==TK_IDENTICAL || k==TK_NOTIDENT;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e relop_ekind(IcnTkKind k) {
@@ -387,6 +388,7 @@ static tree_e relop_ekind(IcnTkKind k) {
         case TK_SLT: return TT_LLT;  case TK_SLE: return TT_LLE;
         case TK_SGT: return TT_LGT;  case TK_SGE: return TT_LGE;
         case TK_SEQ: return TT_LEQ;  case TK_SNE: return TT_LNE;
+        case TK_IDENTICAL: return TT_IDENTICAL;  case TK_NOTIDENT: return TT_NIDENTICAL;
         default:     return TT_EQ;
     }
 }
@@ -402,29 +404,31 @@ static tree_t *parse_rel(IcnParser *p) {
     return n;
 }
 static tree_t *parse_assign(IcnParser *p);
+static tree_t *parse_scan(IcnParser *p);
+static tree_t *parse_alt(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_and(IcnParser *p) {
-    tree_t *n = parse_assign(p);
+    tree_t *n = parse_scan(p);
     if (!n) return NULL;
     if (!check(p, TK_AND)) return n;
     tree_t *conj = ast_node_new(TT_CONJ);
     push_child(conj, n);
     while (check(p, TK_AND)) {
         advance(p);
-        push_child(conj, parse_assign(p));
+        push_child(conj, parse_scan(p));
     }
     return conj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_to(IcnParser *p) {
-    tree_t *n = parse_rel(p);
+    tree_t *n = parse_alt(p);
     if (!n) return NULL;
     while (check(p, TK_TO)) {
         advance(p);
-        tree_t *limit = parse_rel(p);
+        tree_t *limit = parse_alt(p);
         if (check(p, TK_BY)) {
             advance(p);
-            tree_t *step = parse_rel(p);
+            tree_t *step = parse_alt(p);
             tree_t *tby = ast_node_new(TT_TO_BY);
             push_child(tby, n); push_child(tby, limit); push_child(tby, step);
             n = tby;
@@ -436,14 +440,14 @@ static tree_t *parse_to(IcnParser *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_alt(IcnParser *p) {
-    tree_t *n = parse_to(p);
+    tree_t *n = parse_rel(p);
     if (!n) return NULL;
     if (!check(p, TK_BAR)) return n;
     tree_t *alt = ast_node_new(TT_ALTERNATE);
     push_child(alt, n);
     while (check(p, TK_BAR)) {
         advance(p);
-        push_child(alt, parse_to(p));
+        push_child(alt, parse_rel(p));
     }
     return alt;
 }
@@ -459,11 +463,11 @@ static int is_augop(IcnTkKind k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_activate(IcnParser *p) {
-    tree_t *n = parse_alt(p);
+    tree_t *n = parse_to(p);
     if (!n) return NULL;
     while (check(p, TK_AT)) {
         advance(p);
-        n = e_binary(TT_ACTIVATE, n, parse_alt(p));
+        n = e_binary(TT_ACTIVATE, n, parse_to(p));
     }
     return n;
 }
@@ -486,14 +490,6 @@ static tree_t *parse_assign(IcnParser *p) {
     if (check(p, TK_VALSWAP)) {
         advance(p);
         return e_binary(TT_REVSWAP, n, parse_assign(p));
-    }
-    if (check(p, TK_IDENTICAL)) {
-        advance(p);
-        return e_binary(TT_IDENTICAL, n, parse_assign(p));
-    }
-    if (check(p, TK_NOTIDENT)) {
-        advance(p);
-        return e_binary(TT_NIDENTICAL, n, parse_assign(p));
     }
     if (is_augop(p->cur.kind)) {
         IcnTkKind aug = p->cur.kind; advance(p);
@@ -530,9 +526,15 @@ static tree_t *parse_assign(IcnParser *p) {
         push_child(op, n); push_child(op, rhs);
         return op;
     }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *parse_scan(IcnParser *p) {
+    tree_t *n = parse_assign(p);
+    if (!n) return NULL;
     if (check(p, TK_QMARK)) {
         advance(p);
-        return e_binary(TT_SCAN, n, parse_block_or_expr(p));
+        return e_binary(TT_SCAN, n, parse_scan(p));
     }
     return n;
 }
