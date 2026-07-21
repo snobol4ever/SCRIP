@@ -50,7 +50,7 @@ static void sno_scan_code_use(const tree_t * t) {
     }
     if ((t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) && t->n > 0 && t->c[0]) {
         const tree_t * g0 = t->c[0];
-        if ((g0->t == TT_QLIT && g0->v.sval && g0->v.sval[0] == '$') || g0->t == TT_INDIRECT) { g_sno_uses_code = 1; return; }
+        if (g0->t != TT_QLIT || (g0->v.sval && g0->v.sval[0] == '$')) { g_sno_uses_code = 1; return; }
     }
     for (int i = 0; i < t->n; i++) sno_scan_code_use(t->c[i]);
 }
@@ -642,7 +642,22 @@ static const char * sgoto(const tree_t * s, tree_e kind) {
         if (!a || a->t != kind) continue;
         if (a->n > 0 && a->c[0] && a->c[0]->t == TT_QLIT && a->c[0]->v.sval) return a->c[0]->v.sval;
         if (a->n > 0 && a->c[0] && a->c[0]->t == TT_INDIRECT && a->c[0]->n > 0 && a->c[0]->c[0] && a->c[0]->c[0]->t == TT_VAR && a->c[0]->c[0]->v.sval) { const char * v = a->c[0]->c[0]->v.sval; sno_reg_var(v); size_t ln = strlen(v); char * o = (char *) rt_ws_alloc(ln + 2); o[0] = '$'; memcpy(o + 1, v, ln); o[ln + 1] = 0; return o; }
-        sno_fatal("computed indirect goto :($(expr)) not in the landed subset (simple :($var) supported)", NULL);
+        return NULL;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- computed indirect goto :($(expr)) — the parser strips the `$` and hands the goto field the operand tree
+ *--- directly (TT_CAT/TT_VAR/etc, never a plain static QLIT).  Returns that operand tree, or NULL for the
+ *--- static / simple-$var forms sgoto already resolves. ---*/
+static const tree_t * sgoto_expr(const tree_t * s, tree_e kind) {
+    for (int i = 0; i < s->n; i++) {
+        const tree_t * a = s->c[i];
+        if (!a || a->t != kind || a->n == 0 || !a->c[0]) continue;
+        const tree_t * g0 = a->c[0];
+        if (g0->t == TT_QLIT) return NULL;
+        if (g0->t == TT_INDIRECT && g0->n > 0 && g0->c[0] && g0->c[0]->t == TT_VAR) return NULL;
+        return g0;
     }
     return NULL;
 }
@@ -654,6 +669,22 @@ static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);
     IR_LIT(gd).sval = lp_strdup(nm);
     return gd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- computed indirect goto :($(expr)) (manual "Indirect Gotos", multi-way branch).  Evaluate the operand
+ *--- expression into a hidden IGT$n global, then reuse the simple `$var` path: IR_GOTO_DEFERRED("$IGT$n")
+ *--- -> rt_goto_transfer reads IGT$n's string value and transfers to that label.  Operand evaluates at
+ *--- TRANSFER time (only the taken branch reaches this target), matching SPITBOL goto-field semantics. ---*/
+static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {
+    static int g_igt_n = 0;
+    char nmb[24]; snprintf(nmb, sizeof nmb, "IGT$%d", g_igt_n++);
+    char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
+    size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = '$'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
+    IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL); IR_LIT(gd).sval = dn;
+    IR_t * asn = lc_build(g, IR_ASSIGN, gd, gd); IR_LIT(asn).sval = tmpn;
+    IR_t * vr = NULL; IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
+    ir_operand_push(asn, vr);
+    return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_qlit_fold(const tree_t * t) {
@@ -1702,8 +1733,11 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const char * goU = sgoto(s, TT_GOTO_U);
         const char * goS = sgoto(s, TT_GOTO_S);
         const char * goF = sgoto(s, TT_GOTO_F);
-        IR_t * sT = goS ? sno_goto_target(g, goS, exitnd) : (goU ? sno_goto_target(g, goU, exitnd) : next);
-        IR_t * fT = goF ? sno_goto_target(g, goF, exitnd) : (goU ? sno_goto_target(g, goU, exitnd) : next);
+        const tree_t * exU = goU ? NULL : sgoto_expr(s, TT_GOTO_U);
+        const tree_t * exS = goS ? NULL : sgoto_expr(s, TT_GOTO_S);
+        const tree_t * exF = goF ? NULL : sgoto_expr(s, TT_GOTO_F);
+        IR_t * sT = goS ? sno_goto_target(g, goS, exitnd) : exS ? sno_goto_computed_target(g, &cx, exS, exitnd) : goU ? sno_goto_target(g, goU, exitnd) : exU ? sno_goto_computed_target(g, &cx, exU, exitnd) : next;
+        IR_t * fT = goF ? sno_goto_target(g, goF, exitnd) : exF ? sno_goto_computed_target(g, &cx, exF, exitnd) : goU ? sno_goto_target(g, goU, exitnd) : exU ? sno_goto_computed_target(g, &cx, exU, exitnd) : next;
         IR_t * sJ = lc_build(g, IR_GOTO, sT, NULL);
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);
         if (is_def && is_def[i]) { lc_γ_to(anchor[i], sJ); continue; }
