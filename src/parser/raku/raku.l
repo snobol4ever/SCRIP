@@ -124,6 +124,14 @@ WS       [ \t\r]
 "&"             { return '&'; }
 ":="            { return OP_BIND; }
 "~~"            { raku_after_smatch = 1; return OP_SMATCH; }
+"++"            { return OP_INC; }
+"--"            { return OP_DEC; }
+"+="            { return OP_ADD_EQ; }
+"-="            { return OP_SUB_EQ; }
+"*="            { return OP_MUL_EQ; }
+"/="            { return OP_DIV_EQ; }
+"~="            { return OP_CAT_EQ; }
+"//"            { return OP_DOR; }
 "+"             { return '+'; }
 "-"             { return '-'; }
 "*"             { return '*'; }

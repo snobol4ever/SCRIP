@@ -2263,6 +2263,86 @@ my $x = 2;
 if ($x == 1) { say "a" } elsif ($x == 2) { say "b" } else { say "c" }
 EOF
 
+# --- RAKU-100: compound assignment += -= *= /= ~=, prefix/postfix ++/--, defined-or // — rung (c).
+# Rakudo: compound-assign at %assignment prec (desugared $x op= e -> $x = $x op e);
+# ++ / -- at %auto-increment prec (desugared $x++ -> $x = $x + 1);
+# // at %defined-or prec, __rk_dor(a,b) runtime: returns a if defined (non-NUL non-FAIL), else b.
+# Semantics: 0 // "x" -> 0 (zero is defined); undef // "x" -> "x".
+raku "compound_add_eq" "8" << 'EOF'
+my $x = 5;
+$x += 3;
+say $x;
+EOF
+
+raku "compound_sub_eq" "3" << 'EOF'
+my $x = 7;
+$x -= 4;
+say $x;
+EOF
+
+raku "compound_mul_eq" "24" << 'EOF'
+my $x = 6;
+$x *= 4;
+say $x;
+EOF
+
+raku "compound_div_eq" "4" << 'EOF'
+my $x = 24;
+$x /= 6;
+say $x;
+EOF
+
+raku "compound_cat_eq" "hello world" << 'EOF'
+my $s = "hello";
+$s ~= " world";
+say $s;
+EOF
+
+raku "postfix_inc" "$(printf '1\n2')" << 'EOF'
+my $i = 0;
+$i++;
+say $i;
+$i++;
+say $i;
+EOF
+
+raku "postfix_dec" "$(printf '2\n1')" << 'EOF'
+my $i = 3;
+$i--;
+say $i;
+$i--;
+say $i;
+EOF
+
+raku "prefix_inc" "6" << 'EOF'
+my $n = 5;
+++$n;
+say $n;
+EOF
+
+raku "prefix_dec" "4" << 'EOF'
+my $n = 5;
+--$n;
+say $n;
+EOF
+
+raku "defined_or_undef" "default" << 'EOF'
+my $x;
+say $x // "default";
+EOF
+
+raku "defined_or_zero_is_defined" "0" << 'EOF'
+my $x = 0;
+say $x // "oops";
+EOF
+
+raku "defined_or_chain" "$(printf 'ok\nfallback')" << 'EOF'
+my $a = "ok";
+my $b;
+say $a // "nope";
+say $b // "fallback";
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
