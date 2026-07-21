@@ -2145,6 +2145,124 @@ my $x = 5;
 if ($x > 3) { say "big"; }
 EOF
 
+# --- RAKU-100: trailing statement-only forms before } (no semicolon) — rung (a).
+# Rakudo Grammar.nqp: statementlist = <statement> <.eat-terminator>*, eat-terminator accepts ; OR
+# bumping into )]} OR EOF — the terminator is optional before } for EVERY statement, not just exprs.
+# Prior session covered trailing bare-expr + say/print; this covers the stmt-only heads (method call,
+# field/twigil assign, array/hash element set, take).
+raku "trail_methcall_noargs" "$(printf '7\n7')" << 'EOF'
+class Box { has $.v; method show() { say $!v } }
+my $b = Box.new(v => 7);
+for 1..2 { $b.show() }
+EOF
+
+raku "trail_methcall_args" "$(printf '1\n2\n3')" << 'EOF'
+class Ctr { has $.n; method emit($x) { say $x } }
+my $c = Ctr.new(n => 0);
+for 1..3 -> $i { $c.emit($i) }
+EOF
+
+raku "trail_arr_set" "$(printf '0\n10\n20')" << 'EOF'
+my @a = 0 xx 3;
+for 0..2 -> $i { @a[$i] = $i * 10 }
+say @a[0]; say @a[1]; say @a[2];
+EOF
+
+raku "trail_hash_set" "$(printf '100\n200')" << 'EOF'
+my %h;
+for 1..2 -> $i { %h{$i} = $i * 100 }
+say %h{1}; say %h{2};
+EOF
+
+raku "trail_methcall_in_if" "done" << 'EOF'
+class Sayer { has $.t; method go() { say $!t } }
+my $s = Sayer.new(t => "done");
+if True { $s.go() }
+EOF
+
+raku "trail_semi_still_works" "$(printf '9\n9')" << 'EOF'
+class Box2 { has $.v; method show() { say $!v } }
+my $b = Box2.new(v => 9);
+for 1..2 { $b.show(); }
+EOF
+
+# --- RAKU-100: postfix statement modifiers — rung (b).
+# Rakudo Grammar.nqp statement-mod-cond:sym<if|unless> + statement-mod-loop:sym<for|while|until>.
+# STMT if/unless COND (run once, conditional); STMT while/until COND (loop); STMT for LIST ($_ topic).
+# Pure grammar: reuses TT_IF / TT_UNLESS / TT_WHILE / TT_UNTIL / TT_EVERY+TT_ITERATE AST + lowering.
+raku "postfix_if_true" "big" << 'EOF'
+my $x = 5;
+say "big" if $x > 3;
+EOF
+
+raku "postfix_if_false_skips" "" << 'EOF'
+my $x = 1;
+say "big" if $x > 3;
+EOF
+
+raku "postfix_unless" "small" << 'EOF'
+my $x = 2;
+say "small" unless $x > 3;
+EOF
+
+raku "postfix_for_topic" "$(printf '1\n2\n3')" << 'EOF'
+say $_ for 1..3;
+EOF
+
+raku "postfix_while" "3" << 'EOF'
+my $i = 0;
+$i = $i + 1 while $i < 3;
+say $i;
+EOF
+
+raku "postfix_until" "3" << 'EOF'
+my $i = 0;
+$i = $i + 1 until $i >= 3;
+say $i;
+EOF
+
+raku "postfix_if_on_assign" "$(printf '99\n99')" << 'EOF'
+my $x = 10;
+my $y = 0;
+$y = 99 if $x > 5;
+say $y;
+$y = 7 if $x > 50;
+say $y;
+EOF
+
+raku "postfix_print_if" "hi" << 'EOF'
+my $ok = 1;
+print "hi" if $ok == 1;
+EOF
+
+# --- RAKU-100: elsif keyword — rung (c). KW_ELSIF was already lexed but unused in the grammar;
+# wired into if_stmt as an else-if chain (paren + paren-less), building nested TT_IF. Rakudo
+# Grammar.nqp block-if uses <else>=[ 'elsif'... | 'else'... ]. Pure grammar, no lexer/token change.
+raku "elsif_mid" "b" << 'EOF'
+my $x = 2;
+if $x == 1 { say "a" } elsif $x == 2 { say "b" } else { say "c" }
+EOF
+
+raku "elsif_falls_to_else" "c" << 'EOF'
+my $x = 9;
+if $x == 1 { say "a" } elsif $x == 2 { say "b" } else { say "c" }
+EOF
+
+raku "elsif_no_else" "a" << 'EOF'
+my $x = 1;
+if $x == 1 { say "a" } elsif $x == 2 { say "b" }
+EOF
+
+raku "elsif_chain3" "e" << 'EOF'
+my $x = 5;
+if $x == 1 { say "a" } elsif $x == 2 { say "b" } elsif $x == 5 { say "e" } else { say "z" }
+EOF
+
+raku "elsif_paren" "b" << 'EOF'
+my $x = 2;
+if ($x == 1) { say "a" } elsif ($x == 2) { say "b" } else { say "c" }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
