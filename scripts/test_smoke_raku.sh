@@ -2343,6 +2343,63 @@ say $a // "nope";
 say $b // "fallback";
 EOF
 
+raku "return_sub_trailing" "5" << 'EOF'
+sub f() { return 5 }
+say f();
+EOF
+
+raku "return_method_trailing" "7" << 'EOF'
+class C { method g() { return 7 } }
+my $o = C.new;
+say $o.g();
+EOF
+
+raku "return_bare_trailing" "hi" << 'EOF'
+sub f() { say "hi"; return }
+f();
+EOF
+
+raku "return_ifelse_branches" "$(printf '2\n1')" << 'EOF'
+sub f($x) { if $x { return 1 } else { return 2 } }
+say f(0);
+say f(1);
+EOF
+
+raku "methchain_new_go" "42" << 'EOF'
+class C { method go() { 42 } }
+say C.new.go();
+EOF
+
+raku "methchain_new_go_rval" "7" << 'EOF'
+class C { method go() { 7 } }
+my $x = C.new.go();
+say $x;
+EOF
+
+raku "methchain_self_deep" "3" << 'EOF'
+class C { method f() { self } method g() { 3 } }
+my $o = C.new;
+say $o.f().g();
+EOF
+
+raku "methcall_mod_for" "$(printf 'g\ng')" << 'EOF'
+class C { method go() { say "g" } }
+my $o = C.new;
+$o.go() for 1..2;
+EOF
+
+raku "methcall_mod_if" "g" << 'EOF'
+class C { method go() { say "g" } }
+my $o = C.new;
+$o.go() if 1;
+EOF
+
+raku "methcall_mod_if_arg" "9" << 'EOF'
+class C { method n($x) { say $x } }
+my $o = C.new;
+$o.n(9) if 1;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
