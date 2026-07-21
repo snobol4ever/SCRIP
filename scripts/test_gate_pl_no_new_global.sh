@@ -79,6 +79,10 @@ PL_FILES=$(ls \
 #                        frontend's error path (Icon, SNOBOL4, Prolog alike). Referenced via extern in arithmetic.c
 #                        (always was) and now also in the dop_call/rt_call_arr gateways (REGAIN-2 s102). Pre-existing
 #                        in the gate-scanned set via arithmetic.c; first made visible by the s102 floor-fix extern refs.
+# g_pl_flags             ISO PROLOG-FLAG STORE (unification.c). The `current_prolog_flag/2` + `set_prolog_flag/2`
+# g_pl_flags_n           registry — genuinely per-process mutable configuration state (double_quotes/unknown are RW;
+#                        bounded/max_integer/min_integer are RO). A small fixed keyed table, NOT a §10 control stack;
+#                        the direct sibling of g_uinfix's parse-time op registry. Sanctioned by Lon directive (PL-ISO-12).
 SANCTIONED="
 g_resolve_trail
 g_pl_trail
@@ -106,6 +110,8 @@ g_pl_copy_slot_ctr
 g_pl_copy_slot_mode
 g_core_errjmp_stk
 g_core_errjmp_n
+g_pl_flags
+g_pl_flags_n
 "
 
 # ---- TIER 2: LEGACY-DOOMED — grandfathered, ratchet to zero (each IS a §10 NOT-NEEDED structure) -

@@ -204,6 +204,8 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter") || !strcmp(name, "$call")) return 1;
     if (!strcmp(name, "$clause") || !strcmp(name, "$current_predicate") || !strcmp(name, "$predicate_property")) return 1;
     if (!strcmp(name, "$current_op")) return 1;
+    if (!strcmp(name, "$current_prolog_flag")) return 1;
+    if (!strcmp(name, "$set_prolog_flag")) return 1;
     if (!strcmp(name, "$op")) return 1;
     return 0;
 }
@@ -1515,6 +1517,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             while (lt && lt->tag == TERM_COMPOUND && lt->compound.arity == 2 && guard++ < 4096) { Term *hd = term_deref(lt->compound.args[0]); if (hd && hd->tag == TERM_ATOM) { extern const char *prolog_atom_name(int); const char *hn = prolog_atom_name(hd->atom_id); if (hn && prolog_op_table_add(hn, prec, tystr)) added = 1; } lt = term_deref(lt->compound.args[1]); } }
         if (!added) { rt_pl_iso_throw_pi("domain_error", "operator_specifier", tystr, 0); *out = FAILDESCR; return 1; }
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$set_prolog_flag") && nargs == 2) {
+        extern int rt_pl_set_prolog_flag(DESCR_t, DESCR_t);
+        if (rt_pl_set_prolog_flag(args[0], args[1])) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
+        *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$char_code") && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
@@ -3180,6 +3187,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "write", 1, "$write" },
         { "put_char", 1, "$put_char" }, { "tab", 1, "$tab" },
         { "op", 3, "$op" },
+        { "set_prolog_flag", 2, "$set_prolog_flag" },
         { 0, 0, 0 } };
     if (!nm) return (const char *)0;
     for (int i = 0; tab[i].nm; i++) if (!strcmp(nm, tab[i].nm) && ar == tab[i].ar) return tab[i].tgt;
@@ -3568,6 +3576,7 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
     if (fn && resume && !strcmp(fn, "$current_predicate") && nargs >= 1) { extern DESCR_t rt_pl_current_predicate_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_predicate_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$predicate_property") && nargs >= 2) { extern DESCR_t rt_pl_predicate_property_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_predicate_property_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$current_op") && nargs >= 3) { extern DESCR_t rt_pl_current_op_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_op_gen(args, nargs, resume); }
+    if (fn && resume && !strcmp(fn, "$current_prolog_flag") && nargs >= 2) { extern DESCR_t rt_pl_current_prolog_flag_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_prolog_flag_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$sub_atom") && nargs >= 5) return rt_pl_sub_atom_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$between") && nargs >= 3) return rt_pl_between_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$for") && nargs >= 3) { DESCR_t a3[3]; a3[0] = args[1]; a3[1] = args[2]; a3[2] = args[0]; return rt_pl_between_gen(a3, 3, resume); }
