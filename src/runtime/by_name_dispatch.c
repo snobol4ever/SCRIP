@@ -5500,7 +5500,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
         *out = rt_make_list(pairs, n); return 1;
     }
-    if ((!strcmp(fn,"sort")&&nargs==1)||(!strcmp(fn,"sortf")&&nargs==2)) {
+    if ((!strcmp(fn,"sort")&&(nargs==1||nargs==2))||(!strcmp(fn,"sortf")&&nargs==2)) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");

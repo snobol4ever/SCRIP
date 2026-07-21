@@ -439,6 +439,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     }
     case TT_AUGOP: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1]; int bc = augop_code((int) t->v.ival);
+        if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs) {
+            tree_t * scn = ast_node_new(TT_SCAN); ast_push(scn, (tree_t *) lhs); ast_push(scn, (tree_t *) rhs);
+            tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, scn);
+            return lower(cx, as, γ, ω, res);
+        }
         if (lhs && lhs->t == TT_VAR && rhs && icn_augop_binop_tt((int) t->v.ival) != (tree_e) 0) {
             tree_t * bo = ast_node_new(icn_augop_binop_tt((int) t->v.ival)); ast_push(bo, (tree_t *) lhs); ast_push(bo, (tree_t *) rhs);
             tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, bo);
