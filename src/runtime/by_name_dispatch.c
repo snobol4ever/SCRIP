@@ -3979,6 +3979,7 @@ DESCR_t proc_as_value(const char *name) {
     }
     static const char *builtins[] = {
         "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin",
+        "__pas_read_i_f","__pas_read_c_f","__pas_readln_f","__pas_eof_f","__pas_eoln_f","__pas_getbufch","__pas_getbufch_f",
         "__pas_ca_pack","__pas_ca_unpack",
         "__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove",
         "flush",
@@ -4385,6 +4386,18 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         int c = getchar();
         if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, stdin); *out = INTVAL(1); return 1; }
         ungetc(c, stdin); *out = INTVAL(0); return 1;
+    }
+    if ((!strcmp(fn, "__pas_read_i_f") || !strcmp(fn, "__pas_read_c_f") || !strcmp(fn, "__pas_readln_f") || !strcmp(fn, "__pas_eof_f") || !strcmp(fn, "__pas_eoln_f") || !strcmp(fn, "__pas_getbufch_f")) && nargs == 1) {
+        extern FILE *fh_get(int); FILE *f = IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : NULL; if (!f) f = stdin;
+        if (!strcmp(fn, "__pas_read_i_f")) { long long v = 0; if (fscanf(f, " %lld", &v) != 1) v = 0; *out = INTVAL(v); return 1; }
+        if (!strcmp(fn, "__pas_read_c_f")) { int c = fgetc(f); if (c == EOF) c = 26; *out = INTVAL((long long)(unsigned char)c); return 1; }
+        if (!strcmp(fn, "__pas_readln_f")) { int c; while ((c = fgetc(f)) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_eof_f")) { int c = fgetc(f); if (c == EOF) { *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
+        if (!strcmp(fn, "__pas_eoln_f")) { int c = fgetc(f); if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, f); *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
+        { int c = fgetc(f); if (c == EOF) { *out = INTVAL((long long)' '); return 1; } ungetc(c, f); *out = INTVAL((long long)(unsigned char)c); return 1; }
+    }
+    if (!strcmp(fn, "__pas_getbufch") && nargs == 0) {
+        int c = getchar(); if (c == EOF) { *out = INTVAL((long long)' '); return 1; } ungetc(c, stdin); *out = INTVAL((long long)(unsigned char)c); return 1;
     }
     if (!strcmp(fn, "__pas_trunc") && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
