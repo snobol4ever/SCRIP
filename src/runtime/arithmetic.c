@@ -220,8 +220,8 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || !b.s[0])) b = INTVAL(0);
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
-    double ld = to_real(a), rd = to_real(b);
-    int64_t li = to_int(a), ri = to_int(b);
+    double ld = csop ? 0.0 : to_real(a), rd = csop ? 0.0 : to_real(b);
+    int64_t li = csop ? 0 : to_int(a), ri = csop ? 0 : to_int(b);
     switch (op) {
         case BINOP_ADD: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
         case BINOP_SUB: return anyf ? REALVAL(ld - rd) : INTVAL(li - ri);
