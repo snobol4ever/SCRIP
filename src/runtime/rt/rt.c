@@ -1089,6 +1089,7 @@ int rt_pl_dc_ok(const char *name, int nargs)
 {
     static int off = -1; if (off < 0) { const char *e = getenv("SCRIP_NO_DC"); off = (e && *e == '1') ? 1 : 0; }
     if (off) return 0;
+    if (name && strncmp(name, "LBL__", 5) == 0) return 0;   /* PL-DC vs LBL__ (s119): main-program pseudo-procs arm flat_lex=0 (emit.cpp emit_jmp_entry_for_proc: is_lbl) — they are entered ONLY through rt_chain_enter (rt_goto_transfer arm 4), never a direct dc call, so admitting them here drifts the site/callee predicate and trips the FATAL PL-DC guard on CODE label-transfer.  Exclude structurally, mirroring the flat_lex shape. */
     { int i = name ? rt_proc_hash_lookup(name) : -1;
       if (i < 0 || i >= RT_DC_FNS_MAX) return 0;
       { rt_proc_t *p = &g_rt_gen_procs[i];
