@@ -383,26 +383,28 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
         if (!C) sno_fatal("loop with no condition", NULL);
         int is_until = (t->t == TT_UNTIL);
+        IR_t * gate = lc_build(cx->g, IR_GOTO, NULL, NULL);
         IR_t * cr = NULL;
-        IR_t * ce = is_until ? sx_lower(cx, C, γ, NULL, &cr) : sx_lower(cx, C, NULL, γ, &cr);
+        IR_t * ce = is_until ? sx_lower(cx, C, γ, gate, &cr) : sx_lower(cx, C, gate, γ, &cr);
         IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
         cx->loop_exit = γ; cx->loop_next = ce;
         IR_t * be = B ? sco_branch(cx, B, ce, ω) : ce;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
-        if (cr) { if (is_until) { if (!cr->ω.node) lc_ω_to(cr, be); } else { if (!cr->γ.node) lc_γ_to(cr, be); } }
+        lc_γ_to(gate, be);
         if (res) *res = NULL;
         return ce;
     }
     case TT_DO_WHILE: {
         const tree_t * B = (t->n > 0) ? t->c[0] : NULL; const tree_t * C = (t->n > 1) ? t->c[1] : NULL;
         if (!C) sno_fatal("do-while without condition outside the landed subset", NULL);
+        IR_t * gate = lc_build(cx->g, IR_GOTO, NULL, NULL);
         IR_t * cr = NULL;
-        IR_t * ce = sx_lower(cx, C, NULL, γ, &cr);
+        IR_t * ce = sx_lower(cx, C, gate, γ, &cr);
         IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
         cx->loop_exit = γ; cx->loop_next = ce;
         IR_t * be = B ? sco_branch(cx, B, ce, ω) : ce;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
-        if (cr) { if (!cr->γ.node) lc_γ_to(cr, be); }
+        lc_γ_to(gate, be);
         if (res) *res = NULL;
         return be;
     }
@@ -410,14 +412,15 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         const tree_t * INIT = (t->n > 0) ? t->c[0] : NULL; const tree_t * C = (t->n > 1) ? t->c[1] : NULL;
         const tree_t * STEP = (t->n > 2) ? t->c[2] : NULL; const tree_t * B = (t->n > 3) ? t->c[3] : NULL;
         if (!C) sno_fatal("for-loop without condition outside the landed subset", NULL);
+        IR_t * gate = lc_build(cx->g, IR_GOTO, NULL, NULL);
         IR_t * cr = NULL;
-        IR_t * ce = sx_lower(cx, C, NULL, γ, &cr);
+        IR_t * ce = sx_lower(cx, C, gate, γ, &cr);
         IR_t * se = STEP ? sx_lower(cx, STEP, ce, ω, NULL) : ce;
         IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
         cx->loop_exit = γ; cx->loop_next = se;
         IR_t * be = B ? sco_branch(cx, B, se, ω) : se;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
-        if (cr) { if (!cr->γ.node) lc_γ_to(cr, be); }
+        lc_γ_to(gate, be);
         IR_t * ie = INIT ? sx_lower(cx, INIT, ce, ω, NULL) : ce;
         if (res) *res = NULL;
         return ie;
@@ -442,6 +445,15 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
         if (L->t == TT_SCAN && L->n >= 2) {
             IR_t * e = sno_lower_match(cx, L, R, 1, γ, ω);
+            if (res) *res = NULL;
+            return e;
+        }
+        if (L->t == TT_SEQ && L->n >= 2) {
+            extern tree_t * ast_stmt_new(tree_e kind);
+            const tree_t * pat = (L->n == 2) ? L->c[1] : NULL;
+            if (!pat) { tree_t * ps = ast_stmt_new(TT_SEQ); for (int k = 1; k < L->n; k++) ast_push(ps, (tree_t *) L->c[k]); pat = ps; }
+            tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, (tree_t *) L->c[0]); ast_push(sc, (tree_t *) pat);
+            IR_t * e = sno_lower_match(cx, sc, R, 1, γ, ω);
             if (res) *res = NULL;
             return e;
         }
@@ -588,6 +600,16 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return e;
         }
         return j;
+    }
+    case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F: {
+        const char * nm = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : t->v.sval;
+        if (!nm || !nm[0]) sno_fatal("goto with no resolvable label", NULL);
+        IR_t * land = bb_label_landing(nm);
+        if (!land) sno_fatal("goto to unknown label", nm);
+        IR_t * taken = lc_build(cx->g, IR_GOTO, land, NULL);
+        if (res) *res = NULL;
+        if (t->t == TT_GOTO_U) return taken;
+        return lc_build(cx->g, IR_GOTO, (t->t == TT_GOTO_S) ? taken : γ, (t->t == TT_GOTO_S) ? γ : taken);
     }
     case TT_CAPT_CURSOR: {
         const tree_t * tgt = (t->n > 0) ? t->c[0] : NULL;
@@ -914,6 +936,7 @@ static long sno_prearg_codes(int tt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
     const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
+    if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0]) arg = arg->c[0];
     if (!arg || arg->t == TT_DEFER) sno_fatal("pattern primitive argument outside the operand-edge subset (missing or deferred *expr argument)", NULL);
     if (cx->npre >= 64) sno_fatal("too many runtime pattern-primitive arguments in one statement (operand-edge pre-chain limit 64)", NULL);
     cx->pre[cx->npre].arg = arg; cx->pre[cx->npre].prim = prim;
@@ -1060,6 +1083,13 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
     return S;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_capt_name(const tree_t * tgt) {
+    if (!tgt) return NULL;
+    if (tgt->t == TT_VAR) return tgt->v.sval;
+    if (tgt->t == TT_INDIRECT && tgt->n > 0 && tgt->c[0] && tgt->c[0]->t == TT_QLIT) return tgt->c[0]->v.sval;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -1194,13 +1224,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         long long n = 0;
         if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT) n = t->c[0]->v.ival;
-        else if (t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER) sno_pre_req(cx, t, nd);
+        else if (t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0)) sno_pre_req(cx, t, nd);
         else sno_fatal("LEN with a deferred or missing count is outside the operand-edge subset", NULL);
         IR_LIT(nd).ival = n;
         return nd;
     }
     case TT_CAPT_COND_ASGN: {
-        const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
@@ -1241,7 +1271,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return save;                                               /* capture entry is the SAVE node */
     }
     case TT_CAPT_IMMED_ASGN: {
-        const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
@@ -1416,9 +1446,9 @@ static int sno_pat_supported(const tree_t * t) {
     const tree_e k = sno_pat_eff_kind(t);                          /* SN4-BAREKW: bare keywords arrive as TT_VAR */
     if (k == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
     if (k == TT_QLIT) return 1;
-    if (k == TT_ANY || k == TT_NOTANY) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
-    if (k == TT_SPAN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
-    if (k == TT_BREAK || k == TT_BREAKX) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
+    if (k == TT_ANY || k == TT_NOTANY) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
+    if (k == TT_SPAN) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
+    if (k == TT_BREAK || k == TT_BREAKX) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
     if (k == TT_TAB || k == TT_RTAB) return t->n > 0 && t->c[0] != NULL;
     if (k == TT_POS || k == TT_RPOS) return t->n > 0 && t->c[0] != NULL;
     if (k == TT_REM || k == TT_ARB) return 1;
@@ -1428,9 +1458,9 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_arbno_chain_on() || !sno_pat_contains_arbno(t->c[0]));
     if (k == TT_VAR) return t->v.sval != NULL;
     if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
-    if (k == TT_LEN) return t->n > 0 && t->c[0] && t->c[0]->t != TT_DEFER;
-    if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
-    if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_supported(t->c[0]);
+    if (k == TT_LEN) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
+    if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER) && sno_pat_supported(t->c[0]);
+    if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER) && sno_pat_supported(t->c[0]);
     if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
     if (k == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (k == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
