@@ -61,6 +61,8 @@ void  fh_set_input(int idx);
 void  fh_set_output(int idx);
 FILE *fh_cur_out_fp(void);
 FILE *fh_cur_in_fp(void);
+int   fh_capture_begin(char **bufp, size_t *szp, int *saved_out);
+void  fh_capture_end(int idx, int saved_out);
 const char *define_spec_from_expr(tree_t *subj);
 const char *define_entry_from_expr(tree_t *subj);
 #include "stage2.h"

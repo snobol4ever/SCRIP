@@ -206,6 +206,8 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$term_variables") || !strcmp(name, "$subsumes_term")) return 1;
     if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
     if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
+    if (!strcmp(name, "$write_to_atom") || !strcmp(name, "$format_to_atom") || !strcmp(name, "$read_from_atom")) return 1;
+    if (!strcmp(name, "$wot_begin") || !strcmp(name, "$wot_end") || !strcmp(name, "$wot_abort")) return 1;
     if (!strcmp(name, "$sub_atom") || !strcmp(name, "$atom_to_term") || !strcmp(name, "$read")) return 1;
     if (!strcmp(name, "$bag_prep_b") || !strcmp(name, "$bag_prep_s") || !strcmp(name, "$keysort") || !strcmp(name, "$bag_group")) return 1;
     if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter") || !strcmp(name, "$call")) return 1;
@@ -942,6 +944,31 @@ static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     return c;
 }
 static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
+static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern(const char *); char *o = (char *)rt_ws_alloc(n + 1); if (n) memcpy(o, s, n); o[n] = 0; DESCR_t d; d.v = DT_S; d.slen = (uint32_t)n; d.s = o; (void)prolog_atom_intern(o); return d; }
+static int pl_sink_kind(DESCR_t a) {
+    extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
+    DESCR_t v = rt_pl_deref_val(a);
+    if ((int)v.v != DT_PLREF) return 0;
+    int fid = (int)(v.slen >> 16); int ar = (int)(v.slen & 0xFFFFu); if (ar != 1) return 0;
+    const char *fnm = prolog_atom_name(fid); if (!fnm) return 0;
+    if (!strcmp(fnm, "atom")) return 1;
+    if (!strcmp(fnm, "string")) return 2;
+    if (!strcmp(fnm, "codes")) return 3;
+    if (!strcmp(fnm, "chars")) return 4;
+    return 0;
+}
+static DESCR_t pl_sink_build(int kind, const char *s, size_t n) {
+    if (kind == 1 || kind == 2) return pl_mk_atom_dup(s, n);
+    DESCR_t *elems = (DESCR_t *)rt_ws_alloc((n > 0 ? n : 1) * sizeof(DESCR_t));
+    for (size_t i = 0; i < n; i++) {
+        if (kind == 3) { elems[i].v = (DTYPE_t)DT_I; elems[i].slen = 0; elems[i].i = (unsigned char)s[i]; }
+        else { char *o = (char *)rt_ws_alloc(2); o[0] = s[i]; o[1] = 0; elems[i] = pl_mk_atom_dup(o, 1); }
+    }
+    return pl_list_from_arr(elems, (int)n);
+}
+typedef struct { char *buf; size_t sz; int saved_out; int idx; } PlWotFrame;
+static PlWotFrame pl_wot_stk[32];
+static int pl_wot_sp = -1;
 static int pl_is_nil(DESCR_t v) {
     if (v.v == DT_S || v.v == DT_SNUL) return v.s && !strcmp(v.s, "[]");
     if (v.v == (DTYPE_t)DT_A) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm && !strcmp(nm, "[]"); }
@@ -1458,6 +1485,7 @@ DESCR_t rt_pl_dop_cmp_ne(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!fn) return 0;
+    extern int fh_capture_begin(char **, size_t *, int *); extern void fh_capture_end(int, int);
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
     if (!strncmp(fn, "__rk_test_", 10)) {
         const char *op = fn + 10; char sb1[512]; char sb2[512]; char msg[1024];
@@ -1695,13 +1723,78 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "$format3") && nargs == 3) {
         extern int fh_current_output(void); extern void fh_set_output(int); extern void rt_pl_format_cell(const char *, void *);
-        int idx = pl_resolve_stream_arg(args[0], "format/3", 1);
-        if (idx < 0) { *out = FAILDESCR; return 1; }
+        int sink = pl_sink_kind(args[0]);
         const char *fmt = pl_atom_str(rt_pl_deref_val(args[1]));
         if (!fmt) { *out = FAILDESCR; return 1; }
+        if (sink) {
+            char *buf = (char *)0; size_t sz = 0; int saved_out = 0;
+            int cidx = fh_capture_begin(&buf, &sz, &saved_out);
+            if (cidx < 0) { *out = FAILDESCR; return 1; }
+            DESCR_t t2 = args[2]; rt_pl_format_cell(fmt, (void *)plw_det_cell(&t2));
+            fh_capture_end(cidx, saved_out);
+            DESCR_t res = pl_sink_build(sink, buf ? buf : "", sz); if (buf) free(buf);
+            DESCR_t inner = ((DESCR_t *)rt_pl_deref_val(args[0]).p)[0];
+            if (plw_unify_vals(inner, res)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+        }
+        int idx = pl_resolve_stream_arg(args[0], "format/3", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
         int old = fh_current_output(); fh_set_output(idx);
         DESCR_t t2 = args[2]; rt_pl_format_cell(fmt, (void *)plw_det_cell(&t2));
         fh_set_output(old);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$write_to_atom") && nargs == 2) {
+        extern void rt_pl_writeq_cell(void *);
+        char *buf = (char *)0; size_t sz = 0; int saved_out = 0;
+        int cidx = fh_capture_begin(&buf, &sz, &saved_out);
+        if (cidx < 0) { *out = FAILDESCR; return 1; }
+        DESCR_t t1 = args[1]; rt_pl_writeq_cell((void *)plw_det_cell(&t1));
+        fh_capture_end(cidx, saved_out);
+        DESCR_t res = pl_mk_atom_dup(buf ? buf : "", sz); if (buf) free(buf);
+        if (plw_unify_vals(args[0], res)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$format_to_atom") && nargs == 3) {
+        extern void rt_pl_format_cell(const char *, void *);
+        const char *fmt = pl_atom_str(rt_pl_deref_val(args[1]));
+        if (!fmt) { *out = FAILDESCR; return 1; }
+        char *buf = (char *)0; size_t sz = 0; int saved_out = 0;
+        int cidx = fh_capture_begin(&buf, &sz, &saved_out);
+        if (cidx < 0) { *out = FAILDESCR; return 1; }
+        DESCR_t t2 = args[2]; rt_pl_format_cell(fmt, (void *)plw_det_cell(&t2));
+        fh_capture_end(cidx, saved_out);
+        DESCR_t res = pl_mk_atom_dup(buf ? buf : "", sz); if (buf) free(buf);
+        if (plw_unify_vals(args[0], res)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$read_from_atom") && nargs == 2) {
+        extern const char *plc_rd_entry(const char *, DESCR_t *, DESCR_t *, char (*)[64], int *, int);
+        const char *txt = pl_atom_str(rt_pl_deref_val(args[0]));
+        if (!txt) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        DESCR_t tval; DESCR_t bv[64]; char bn[64][64]; int nb = 0;
+        const char *e = plc_rd_entry(txt, &tval, bv, bn, &nb, 64);
+        if (!e) { *out = FAILDESCR; return 1; }
+        if (plw_unify_vals(args[1], tval)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$wot_begin") && (nargs == 0 || nargs == 1)) {
+        if (pl_wot_sp >= 0 && pl_wot_sp + 1 >= (int)(sizeof pl_wot_stk / sizeof pl_wot_stk[0])) { *out = FAILDESCR; return 1; }
+        int slot = pl_wot_sp + 1; pl_wot_stk[slot].buf = (char *)0; pl_wot_stk[slot].sz = 0; pl_wot_stk[slot].saved_out = 0;
+        int cidx = fh_capture_begin(&pl_wot_stk[slot].buf, &pl_wot_stk[slot].sz, &pl_wot_stk[slot].saved_out);
+        if (cidx < 0) { *out = FAILDESCR; return 1; }
+        pl_wot_stk[slot].idx = cidx; pl_wot_sp = slot;
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$wot_end") && nargs == 1) {
+        if (pl_wot_sp < 0) { *out = FAILDESCR; return 1; }
+        int slot = pl_wot_sp--; fh_capture_end(pl_wot_stk[slot].idx, pl_wot_stk[slot].saved_out);
+        int sink = pl_sink_kind(args[0]);
+        char *buf = pl_wot_stk[slot].buf; size_t sz = pl_wot_stk[slot].sz;
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1;
+        if (!sink) { if (buf) free(buf); *out = FAILDESCR; return 1; }
+        DESCR_t res = pl_sink_build(sink, buf ? buf : "", sz); if (buf) free(buf);
+        DESCR_t inner = ((DESCR_t *)rt_pl_deref_val(args[0]).p)[0];
+        if (plw_unify_vals(inner, res)) *out = r; else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$wot_abort") && (nargs == 0 || nargs == 1)) {
+        if (pl_wot_sp >= 0) { int slot = pl_wot_sp--; fh_capture_end(pl_wot_stk[slot].idx, pl_wot_stk[slot].saved_out); if (pl_wot_stk[slot].buf) free(pl_wot_stk[slot].buf); }
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$findall_new") && nargs == 0) { *out = rt_findall_new(); return 1; }
@@ -3305,6 +3398,9 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "atomic_list_concat", 2, "$aop_atomic_list_concat" }, { "atomic_list_concat", 3, "$aop_atomic_list_concat" },
         { "concat_atom", 2, "$aop_concat_atom" }, { "concat_atom", 3, "$aop_concat_atom" },
         { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
+        { "write_to_atom", 2, "$write_to_atom" }, { "format_to_atom", 3, "$format_to_atom" }, { "read_from_atom", 2, "$read_from_atom" },
+        { "with_output_to", 2, "$with_output_to" },
+        { "$wot_begin", 0, "$wot_begin" }, { "$wot_end", 1, "$wot_end" }, { "$wot_abort", 0, "$wot_abort" },
         { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
         { "assertz", 1, "$dyn_assertz" }, { "assert", 1, "$dyn_assertz" }, { "asserta", 1, "$dyn_asserta" }, { "retract", 1, "$retract" },
         { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
@@ -3926,7 +4022,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
-    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern struct Term *rt_pl_cell_to_term(void *); extern void pl_write(struct Term *); DESCR_t _pt = av; fflush(dest); arena_mark_t _cm = rt_pl_cterm_mark(); pl_write(rt_pl_cell_to_term(plw_entry(&_pt))); if (rt_pl_ctr_on()) rt_pl_cterm_release(_cm); return; }
+    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern struct Term *rt_pl_cell_to_term(void *); extern void pl_write(struct Term *); extern void pl_wr_set_fp(FILE *); DESCR_t _pt = av; fflush(dest); arena_mark_t _cm = rt_pl_cterm_mark(); pl_wr_set_fp(dest); pl_write(rt_pl_cell_to_term(plw_entry(&_pt))); pl_wr_set_fp((FILE *)0); if (rt_pl_ctr_on()) rt_pl_cterm_release(_cm); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }

@@ -414,6 +414,11 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("fail"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "with_output_to") && t->n == 2) {
+            tree_t * arm = pl_synth_fnc2(";", pl_synth_fnc2("->", pl_synth_fnc1("once", t->c[1]), pl_synth_fnc1("$wot_end", t->c[0])), pl_synth_fnc2(",", pl_synth_qlit("$wot_abort"), pl_synth_qlit("fail")));
+            tree_t * whole = pl_synth_fnc2(",", pl_synth_qlit("$wot_begin"), arm);
+            return goal(cx, whole, γnext, ωfail, entry_out);
+        }
         if (!strcmp(nm, "forall") && t->n == 2) {
             tree_t * inner = pl_synth_fnc2(",", t->c[0], pl_synth_fnc1("\\+", t->c[1]));
             return goal(cx, pl_synth_fnc1("\\+", inner), γnext, ωfail, entry_out);
@@ -661,6 +666,13 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return call;
         }
         if (is_builtin_exec(nm)) { IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; return nd; }
+        if (!strcmp(nm, "$wot_begin") || !strcmp(nm, "$wot_abort")) {
+            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = nm;
+            IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = "";
+            ir_operand_push(call, a);
+            if (entry_out) *entry_out = a;
+            return call;
+        }
         IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, 0);
         if (entry_out) *entry_out = nd;
         cx->beta = nd;
