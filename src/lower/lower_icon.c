@@ -522,6 +522,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             { IR_t * bvf = icn_arm_result(bv); if (bvf) γ_to(bvf, asn); else if (!bv) γ_to(be, asn); }   /* wiring-kind arm keeps its own exit edge (return leaves the proc, not the case) */
             IR_t * idc = build(cx, IR_CALL_BUILTIN, be, chain_next);
             IR_LIT(idc).sval = (char *) "IDENTICAL";
+            if (is_resumable(t->c[bi])) lc_γ_to_α(idc, be);   /* ICN-CASE-ALT-BODY α-FORCE: a matched arm whose body is a naked resumable (alternation/if/every) must ENTER FRESH — default γ wiring β-stamps the entry, so `{ A | B }` enters at B (second alternand) skipping A; the jtran bc_transfer_to/bc_conditional_transfer_to `put(...) | runerr` blocker, 2026-07-21 */
             ir_operand_push(idc, sr);
             ir_operand_push(idc, kn);
             γ_to(kn, idc);
