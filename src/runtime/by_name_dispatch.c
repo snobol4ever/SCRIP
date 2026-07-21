@@ -5650,6 +5650,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (!strcmp(fn,"SNO$PBN") && nargs == 2) { extern DESCR_t pat_mk_num(int, int64_t); *out = pat_mk_num((int)to_int(args[0]), to_int(args[1])); return 1; }
     if (!strcmp(fn,"SNO$PB0") && nargs == 1) { extern DESCR_t pat_mk_nil(int); *out = pat_mk_nil((int)to_int(args[0])); return 1; }
     if (!strcmp(fn,"SNO$PBC") && nargs == 3) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); *out = pat_mk_capt((int)to_int(args[0]), VARVAL_fn(args[1]), args[2]); return 1; }
+    if (!strcmp(fn,"SNO$PCUR") && nargs == 1) { extern DESCR_t pat_mk_cursor(const char *); *out = pat_mk_cursor(VARVAL_fn(args[0])); return 1; }
     if (!strcmp(fn,"SNO$PBALT") && nargs == 2) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); *out = pat_alt(args[0], args[1]); return 1; }
     if (!strcmp(fn,"SNO$PARB") && nargs == 1) { extern DESCR_t pat_arbno(DESCR_t); *out = pat_arbno(args[0]); return 1; }
     if (!strcmp(fn,"SNO$PFEN") && nargs == 1) { extern DESCR_t pat_fence_p(DESCR_t); *out = pat_fence_p(args[0]); return 1; }

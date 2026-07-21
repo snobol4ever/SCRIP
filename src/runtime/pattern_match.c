@@ -66,6 +66,7 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     case TT_DEFER: { tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
     case TT_FENCE: if (r->ival) ast_push(t, dtp_rcp_tree(r->l, self)); break;
     case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: { ast_push(t, dtp_rcp_tree(r->l, self)); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
+    case TT_CAPT_CURSOR: { tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
     default: break;
     }
     return t;
@@ -186,6 +187,7 @@ DESCR_t pat_mk_cset(int tt, const char *cs) { DESCR_t v; v.v = DT_P; v.slen = 0;
 DESCR_t pat_mk_num(int tt, int64_t n) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, n, 0, 0)); return v; }
 DESCR_t pat_mk_nil(int tt) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, 0, 0, 0)); return v; }
 DESCR_t pat_mk_capt(int tt, const char *name, DESCR_t sub) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, rcp_of(sub), 0)); return v; }
+DESCR_t pat_mk_cursor(const char *name) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_CAPT_CURSOR, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
 DESCR_t pat_defer(const char *name) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
