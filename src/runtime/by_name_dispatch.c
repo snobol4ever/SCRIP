@@ -216,6 +216,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$clause") || !strcmp(name, "$current_predicate") || !strcmp(name, "$predicate_property")) return 1;
     if (!strcmp(name, "$current_op")) return 1;
     if (!strcmp(name, "$current_prolog_flag")) return 1;
+    if (!strcmp(name, "$current_stream")) return 1;
     if (!strcmp(name, "$set_prolog_flag")) return 1;
     if (!strcmp(name, "$current_output") || !strcmp(name, "$current_input")) return 1;
     if (!strcmp(name, "$set_output") || !strcmp(name, "$set_input")) return 1;
@@ -3861,6 +3862,7 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
     if (fn && resume && !strcmp(fn, "$predicate_property") && nargs >= 2) { extern DESCR_t rt_pl_predicate_property_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_predicate_property_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$current_op") && nargs >= 3) { extern DESCR_t rt_pl_current_op_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_op_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$current_prolog_flag") && nargs >= 2) { extern DESCR_t rt_pl_current_prolog_flag_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_prolog_flag_gen(args, nargs, resume); }
+    if (fn && resume && !strcmp(fn, "$current_stream") && nargs >= 1) { extern DESCR_t rt_pl_current_stream_gen(DESCR_t *, int, int64_t *); { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); } return rt_pl_current_stream_gen(args, nargs, resume); }
     if (fn && resume && !strcmp(fn, "$sub_atom") && nargs >= 5) return rt_pl_sub_atom_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$between") && nargs >= 3) return rt_pl_between_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$for") && nargs >= 3) { DESCR_t a3[3]; a3[0] = args[1]; a3[1] = args[2]; a3[2] = args[0]; return rt_pl_between_gen(a3, 3, resume); }
