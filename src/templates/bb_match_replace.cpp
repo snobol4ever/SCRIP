@@ -29,10 +29,6 @@ std::string bb_match_replace() {
          + x86("label",  LS(0))
          + x86(".string", _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
-         /* REG-3: a replacement statement's RELEASE γ defers the outer-rbp restore to HERE — REPLACE is the
-          * statement's LAST window reader (its subject/start/end rode [rbp+off] under the anchored view).
-          * FRQ resolves per this box's own class: anchored [rbp+off] with rbp==base, granted [rsp+off] at
-          * unwound base (idempotent — rbp was never re-tenanted), flat_pat [r12+off] island. */
          + x86("mov", "rbp", FRQ(_.op_off + 40))
          + x86_gamma();
 }
