@@ -1350,10 +1350,11 @@ DESCR_t rt_pl_current_op_gen(DESCR_t *args, int nargs, int64_t *resume) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int rw; char val[32]; int is_int; long long ival; } pl_flag_ent_t;
-static pl_flag_ent_t g_pl_flags[] = { { "bounded", 0, "true", 0, 0 }, { "max_integer", 0, "", 1, 9223372036854775807LL }, { "min_integer", 0, "", 1, (-9223372036854775807LL - 1) }, { "double_quotes", 1, "atom", 0, 0 }, { "unknown", 1, "error", 0, 0 }, { "occurs_check", 1, "false", 0, 0 } };
+static pl_flag_ent_t g_pl_flags[] = { { "bounded", 0, "true", 0, 0 }, { "max_integer", 0, "", 1, 9223372036854775807LL }, { "min_integer", 0, "", 1, (-9223372036854775807LL - 1) }, { "double_quotes", 1, "atom", 0, 0 }, { "unknown", 1, "error", 0, 0 }, { "occurs_check", 1, "false", 0, 0 }, { "dialect", 1, "gnu", 0, 0 } };
 static const int g_pl_flags_n = (int)(sizeof g_pl_flags / sizeof g_pl_flags[0]);
 typedef struct { int i; int mark; } pl_flagit_t;
 static pl_flag_ent_t *pl_flag_find(const char *nm) { if (!nm) return (pl_flag_ent_t *)0; for (int i = 0; i < g_pl_flags_n; i++) if (!strcmp(g_pl_flags[i].name, nm)) return &g_pl_flags[i]; return (pl_flag_ent_t *)0; }
+int rt_pl_dialect_is_swi(void) { pl_flag_ent_t *e = pl_flag_find("dialect"); return e && !strcmp(e->val, "swi"); }
 static Term *pl_flag_value_term(const pl_flag_ent_t *f) { if (f->is_int) return term_new_int(f->ival); return term_new_atom(prolog_atom_intern(f->val)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_set_prolog_flag(DESCR_t fd, DESCR_t vd) {
