@@ -16,7 +16,7 @@ typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char 
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define SNO_EXPR_MAX 256
+#define SNO_EXPR_MAX 4096
 static struct { const char * name; const tree_t * expr; } g_sno_exprs[SNO_EXPR_MAX];
 static int g_sno_nexpr = 0;
 static int g_sno_expr_salt = 0;
@@ -262,15 +262,25 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = mk; return kt;
     }
     case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: {
-        const char * vn = (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+        const tree_t * tgt = (t->n > 1) ? t->c[1] : NULL;
+        const char * vn = (tgt && tgt->t == TT_VAR) ? tgt->v.sval : NULL;
         if (vn) sno_reg_var(vn);
-        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
-        if (!vn) sno_fatal("capture target in a runtime-built pattern is not a simple variable", NULL);
+        if (!vn && tgt && tgt->t == TT_DEFER) { const char * bn = sno_expr_collect((tgt->n > 0) ? tgt->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBC";
         IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, NULL, ω); IR_LIT(kt).ival = (int64_t) t->t;
-        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(nl).sval = (char *) vn;
-        IR_t * vs = NULL; IR_t * es = sx_lower(cx, t->c[0], NULL, ω, &vs);
-        lc_γ_to(kt, nl); lc_γ_to(nl, es); lc_γ_to(vs, mk);
+        IR_t * nl; IR_t * es; IR_t * vs = NULL;
+        if (vn) {
+            nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(nl).sval = (char *) vn;
+            es = sx_lower(cx, t->c[0], NULL, ω, &vs);
+            lc_γ_to(kt, nl); lc_γ_to(nl, es);
+        } else if (tgt && tgt->t == TT_INDIRECT) {
+            IR_t * nv = NULL; IR_t * en = sx_lower(cx, (tgt->n > 0) ? tgt->c[0] : NULL, NULL, ω, &nv);
+            es = sx_lower(cx, t->c[0], NULL, ω, &vs);
+            lc_γ_to(kt, en); lc_γ_to(nv, es); nl = nv;
+        } else {
+            sno_fatal("capture target in a runtime-built pattern is not a simple variable", NULL); return NULL;
+        }
+        lc_γ_to(vs, mk);
         ir_operand_push(mk, kt); ir_operand_push(mk, nl); ir_operand_push(mk, vs);
         if (res) *res = mk; return kt;
     }
@@ -578,6 +588,19 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return e;
         }
         return j;
+    }
+    case TT_CAPT_CURSOR: {
+        const tree_t * tgt = (t->n > 0) ? t->c[0] : NULL;
+        if (!tgt || tgt->t != TT_VAR || !tgt->v.sval) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
+        sno_reg_var(tgt->v.sval);
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PCUR";
+        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = (char *) tgt->v.sval;
+        ir_operand_push(mk, nl);
+        if (res) *res = mk; return nl;
+    }
+    case TT_VLIST: {
+        const tree_t * first = (t->n > 0) ? t->c[0] : NULL;
+        return sx_lower(cx, first, γ, ω, res);
     }
     default: {
         char buf[64]; snprintf(buf, sizeof buf, "tree kind %d", (int) t->t);
