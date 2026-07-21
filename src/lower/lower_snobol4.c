@@ -48,6 +48,10 @@ static void sno_scan_code_use(const tree_t * t) {
         if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval;
         if (fn && !strcmp(fn, "CODE")) { g_sno_uses_code = 1; return; }
     }
+    if ((t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) && t->n > 0 && t->c[0]) {
+        const tree_t * g0 = t->c[0];
+        if ((g0->t == TT_QLIT && g0->v.sval && g0->v.sval[0] == '$') || g0->t == TT_INDIRECT) { g_sno_uses_code = 1; return; }
+    }
     for (int i = 0; i < t->n; i++) sno_scan_code_use(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -637,7 +641,8 @@ static const char * sgoto(const tree_t * s, tree_e kind) {
         const tree_t * a = s->c[i];
         if (!a || a->t != kind) continue;
         if (a->n > 0 && a->c[0] && a->c[0]->t == TT_QLIT && a->c[0]->v.sval) return a->c[0]->v.sval;
-        sno_fatal("indirect/computed goto not in the landed subset", NULL);
+        if (a->n > 0 && a->c[0] && a->c[0]->t == TT_INDIRECT && a->c[0]->n > 0 && a->c[0]->c[0] && a->c[0]->c[0]->t == TT_VAR && a->c[0]->c[0]->v.sval) { const char * v = a->c[0]->c[0]->v.sval; sno_reg_var(v); size_t ln = strlen(v); char * o = (char *) rt_ws_alloc(ln + 2); o[0] = '$'; memcpy(o + 1, v, ln); o[ln + 1] = 0; return o; }
+        sno_fatal("computed indirect goto :($(expr)) not in the landed subset (simple :($var) supported)", NULL);
     }
     return NULL;
 }
