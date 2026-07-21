@@ -335,6 +335,12 @@ static void pl_write_canonical_term(Term *t) {
             const char *fn = prolog_atom_name(t->compound.functor);
             if (!fn) fn = "?";
             if (t->compound.functor == ATOM_DOT && t->compound.arity == 2) {
+                extern int rt_pl_dialect_is_swi(void);
+                if (!rt_pl_dialect_is_swi()) {
+                    fprintf(plw(), "'.'("); pl_write_canonical_term(t->compound.args[0]);
+                    fprintf(plw(), ","); pl_write_canonical_term(t->compound.args[1]);
+                    fprintf(plw(), ")"); break;
+                }
                 fprintf(plw(), "["); pl_write_canonical_term(t->compound.args[0]);
                 Term *tail = term_deref(t->compound.args[1]);
                 while (tail && tail->tag==TERM_COMPOUND && tail->compound.functor==ATOM_DOT && tail->compound.arity==2) {
