@@ -473,6 +473,23 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = ae ? ae : a;
             return call;
         }
+        if (!strcmp(nm, "write") && t->n == 2) {
+            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$write2";
+            IR_t * se = NULL; IR_t * s = term_e(cx, t->c[0], &se);
+            IR_t * ae = NULL; IR_t * a = term_e(cx, t->c[1], &ae);
+            lc_γ_to(s, ae ? ae : a); lc_ω_to(s, ωfail); lc_γ_to(a, nd); lc_ω_to(a, ωfail);
+            ir_operand_push(nd, s); ir_operand_push(nd, a);
+            if (entry_out) *entry_out = se ? se : s;
+            return nd;
+        }
+        if (!strcmp(nm, "nl") && t->n == 1) {
+            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$nl1";
+            IR_t * se = NULL; IR_t * s = term_e(cx, t->c[0], &se);
+            lc_γ_to(s, nd); lc_ω_to(s, ωfail);
+            ir_operand_push(nd, s);
+            if (entry_out) *entry_out = se ? se : s;
+            return nd;
+        }
         if (!strcmp(nm, "put_char") && t->n == 1) {
             IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$put_char";
             IR_t * ae = NULL; IR_t * a = term_e(cx, t->c[0], &ae);
@@ -629,8 +646,15 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         const char * nm = t->v.sval ? t->v.sval : "?";
         if (!strcmp(nm, "true"))  return build(cx, IR_SUCCEED, γnext, ωfail);
         if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
-        if (!strcmp(nm, "nl")) {
-            IR_t * call = build(cx, IR_CALL, γnext, ωfail); IR_LIT(call).sval = "write";
+        if (!strcmp(nm, "nl") && t->n == 0) {
+            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$nl0";
+            IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = "";
+            ir_operand_push(call, a);
+            if (entry_out) *entry_out = a;
+            return call;
+        }
+        if (!strcmp(nm, "flush_output") && t->n == 0) {
+            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$flush_output";
             IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = "";
             ir_operand_push(call, a);
             if (entry_out) *entry_out = a;

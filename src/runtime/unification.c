@@ -102,25 +102,30 @@ void rt_pl_write_cell(void *cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
-    extern void pl_writeq(Term *);
+    extern void pl_writeq(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
+    pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
     pl_writeq(pl_cell_to_term((pl_cell_t *)cell));
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
+    pl_wr_set_fp((FILE *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_canonical_cell(void *cell)
 {
-    extern void pl_write_canonical(Term *);
+    extern void pl_write_canonical(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
+    pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
     pl_write_canonical(pl_cell_to_term((pl_cell_t *)cell));
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
+    pl_wr_set_fp((FILE *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_opt_is_true(Term *o) { if (!o) return 0; o = term_deref(o); if (o && o->tag == TERM_COMPOUND && o->compound.arity == 1) { Term *a = term_deref(o->compound.args[0]); return a && a->tag == TERM_ATOM && !strcmp(prolog_atom_name(a->atom_id), "true"); } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
 {
-    extern void pl_write_term_opts(Term *, int, int, int, long);
+    extern void pl_write_term_opts(Term *, int, int, int, long); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
+    pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
     Term *t = term_cell ? pl_cell_to_term((pl_cell_t *)term_cell) : (Term *)0;
     Term *lst = opts_cell ? term_deref(pl_cell_to_term((pl_cell_t *)opts_cell)) : (Term *)0;
@@ -138,6 +143,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
     }
     pl_write_term_opts(t, quoted, ignore_ops, numbervars, max_depth);
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
+    pl_wr_set_fp((FILE *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
@@ -497,30 +503,32 @@ static Term *pl_fmt_next_arg(Term **args) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
-    extern void pl_write(Term *); extern void pl_writeq(Term *);
+    extern void pl_write(Term *); extern void pl_writeq(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
     if (!fmt) return;
+    FILE *fd = fh_cur_out_fp(); pl_wr_set_fp(fd);
     arena_mark_t cm = rt_pl_cterm_mark();
     Term *args = list_cell ? pl_cell_to_term((pl_cell_t *)list_cell) : (Term *)0;
     for (const char *p = fmt; *p; p++) {
-        if (*p != '~') { putchar(*p); continue; }
+        if (*p != '~') { fputc(*p, fd); continue; }
         p++;
         int have_n = 0; long nval = 0;
         if (*p == '*') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) { nval = h->ival; have_n = 1; } p++; }
         else { while (*p >= '0' && *p <= '9') { nval = nval * 10 + (*p - '0'); have_n = 1; p++; } }
         if (*p == 'w' || *p == 'a' || *p == 'p') { Term *h = pl_fmt_next_arg(&args); if (h) pl_write(h); }
         else if (*p == 'q') { Term *h = pl_fmt_next_arg(&args); if (h) pl_writeq(h); }
-        else if (*p == 'd') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) printf("%ld", h->ival); }
-        else if (*p == 'e') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; printf("%e", d); } }
-        else if (*p == 'g') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; printf("%g", d); } }
-        else if (*p == 'f') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; printf("%.*f", have_n ? (int)nval : 6, d); } }
-        else if (*p == 'r' || *p == 'R') { Term *h = pl_fmt_next_arg(&args); int base = have_n ? (int)nval : 8; if (h && h->tag == TERM_INT && base >= 2 && base <= 36) { char buf[72]; int bi = 0; unsigned long u = (h->ival < 0) ? (unsigned long)(-h->ival) : (unsigned long)h->ival; const char *dig = (*p == 'R') ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz"; if (u == 0) buf[bi++] = '0'; while (u) { buf[bi++] = dig[u % (unsigned long)base]; u /= (unsigned long)base; } if (h->ival < 0) putchar('-'); while (bi) putchar(buf[--bi]); } }
-        else if (*p == 'c') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) putchar((int)h->ival); } }
-        else if (*p == 's') { Term *h = pl_fmt_next_arg(&args); Term *lst = h ? term_deref(h) : (Term *)0; while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) { Term *e = term_deref(lst->compound.args[0]); if (e && e->tag == TERM_INT) putchar((int)e->ival); lst = term_deref(lst->compound.args[1]); } }
+        else if (*p == 'd') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) fprintf(fd, "%ld", h->ival); }
+        else if (*p == 'e') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; fprintf(fd, "%e", d); } }
+        else if (*p == 'g') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; fprintf(fd, "%g", d); } }
+        else if (*p == 'f') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; fprintf(fd, "%.*f", have_n ? (int)nval : 6, d); } }
+        else if (*p == 'r' || *p == 'R') { Term *h = pl_fmt_next_arg(&args); int base = have_n ? (int)nval : 8; if (h && h->tag == TERM_INT && base >= 2 && base <= 36) { char buf[72]; int bi = 0; unsigned long u = (h->ival < 0) ? (unsigned long)(-h->ival) : (unsigned long)h->ival; const char *dig = (*p == 'R') ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz"; if (u == 0) buf[bi++] = '0'; while (u) { buf[bi++] = dig[u % (unsigned long)base]; u /= (unsigned long)base; } if (h->ival < 0) fputc('-', fd); while (bi) fputc(buf[--bi], fd); } }
+        else if (*p == 'c') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) fputc((int)h->ival, fd); } }
+        else if (*p == 's') { Term *h = pl_fmt_next_arg(&args); Term *lst = h ? term_deref(h) : (Term *)0; while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) { Term *e = term_deref(lst->compound.args[0]); if (e && e->tag == TERM_INT) fputc((int)e->ival, fd); lst = term_deref(lst->compound.args[1]); } }
         else if (*p == 'i') { pl_fmt_next_arg(&args); }
-        else if (*p == 'n' || *p == 'N') { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) putchar('\n'); }
-        else if (*p == '~') { putchar('~'); }
+        else if (*p == 'n' || *p == 'N') { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) fputc('\n', fd); }
+        else if (*p == '~') { fputc('~', fd); }
     }
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
+    pl_wr_set_fp((FILE *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
