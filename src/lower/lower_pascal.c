@@ -211,7 +211,8 @@ static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tre
     for (int k = 0; k < nargs; k++) {
         IR_t * ar = NULL; IR_t * ae;
         if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
-            IR_t * vr = build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
+            int _brslot = -1; const char * _brn = pas_resolve_name(cx, args[k]->v.sval, &_brslot);
+            IR_t * vr = build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = _brn;
             ae = vr; ar = vr;
         } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
             IR_t * vr = build(cx, IR_VAR, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
