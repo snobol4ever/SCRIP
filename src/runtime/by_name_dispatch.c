@@ -197,6 +197,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$write2") || !strcmp(name, "$nl1") || !strcmp(name, "$nl0")) return 1;
     if (!strcmp(name, "$writeq2") || !strcmp(name, "$write_canonical2") || !strcmp(name, "$write_term3") || !strcmp(name, "$format3")) return 1;
     if (!strcmp(name, "$put_char") || !strcmp(name, "$tab")) return 1;
+    if (!strcmp(name, "$get_char") || !strcmp(name, "$peek_char") || !strcmp(name, "$get_code") || !strcmp(name, "$peek_code") || !strcmp(name, "$put_code")) return 1;
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
     if (!strcmp(name, "$format1") || !strcmp(name, "$format2") || !strcmp(name, "$copy_term")) return 1;
@@ -1680,6 +1681,27 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern FILE *fh_cur_out_fp(void); FILE *_td = fh_cur_out_fp();
         DESCR_t v = rt_pl_deref_val(args[0]); long n = IS_INT_fn(v) ? (long)v.i : (IS_REAL_fn(v) ? (long)v.r : 0);
         for (long i = 0; i < n; i++) fputc(' ', _td);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if ((!strcmp(fn, "$get_char") || !strcmp(fn, "$peek_char") || !strcmp(fn, "$get_code") || !strcmp(fn, "$peek_code")) && (nargs == 1 || nargs == 2)) {
+        extern FILE *fh_cur_in_fp(void); extern FILE *fh_get(int); extern DESCR_t rt_pl_deref_val(DESCR_t);
+        int peek = (!strcmp(fn, "$peek_char") || !strcmp(fn, "$peek_code")); int code = (!strcmp(fn, "$get_code") || !strcmp(fn, "$peek_code")); int ridx = (nargs == 2) ? 1 : 0;
+        FILE *f; if (nargs == 2) { int idx = pl_resolve_stream_arg(args[0], code ? (peek ? "peek_code/2" : "get_code/2") : (peek ? "peek_char/2" : "get_char/2"), 0); if (idx < 0) { *out = FAILDESCR; return 1; } f = fh_get(idx); if (!f) f = fh_cur_in_fp(); } else f = fh_cur_in_fp();
+        int c = fgetc(f); if (peek && c != EOF) ungetc(c, f);
+        DESCR_t r;
+        if (code) { r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = (c == EOF) ? -1 : (unsigned char)c; }
+        else if (c == EOF) { r = pl_mk_atom("end_of_file"); }
+        else { char *o = (char *)rt_ws_alloc(2); o[0] = (char)c; o[1] = 0; r = pl_mk_atom(o); }
+        if (plw_unify_vals(args[ridx], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$put_code") && (nargs == 1 || nargs == 2)) {
+        extern FILE *fh_cur_out_fp(void); extern FILE *fh_get(int); extern DESCR_t rt_pl_deref_val(DESCR_t);
+        FILE *f; int vidx; if (nargs == 2) { int idx = pl_resolve_stream_arg(args[0], "put_code/2", 1); if (idx < 0) { *out = FAILDESCR; return 1; } f = fh_get(idx); if (!f) f = fh_cur_out_fp(); vidx = 1; } else { f = fh_cur_out_fp(); vidx = 0; }
+        DESCR_t v = rt_pl_deref_val(args[vidx]);
+        if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        long code = IS_INT_fn(v) ? (long)v.i : (IS_REAL_fn(v) ? (long)v.r : -1);
+        if (code < 0) { rt_pl_iso_throw_type("integer", v); *out = FAILDESCR; return 1; }
+        fputc((int)code, f);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$write2") && nargs == 2) {
@@ -3410,6 +3432,9 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "succ", 2, "$succ" }, { "plus", 3, "$plus" }, { "atom_length", 2, "$atom_length" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" },
         { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "write", 1, "$write" },
         { "put_char", 1, "$put_char" }, { "tab", 1, "$tab" },
+        { "get_char", 1, "$get_char" }, { "get_char", 2, "$get_char" }, { "peek_char", 1, "$peek_char" }, { "peek_char", 2, "$peek_char" },
+        { "get_code", 1, "$get_code" }, { "get_code", 2, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "peek_code", 2, "$peek_code" },
+        { "put_code", 1, "$put_code" }, { "put_code", 2, "$put_code" },
         { "op", 3, "$op" },
         { "set_prolog_flag", 2, "$set_prolog_flag" },
         { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" },
