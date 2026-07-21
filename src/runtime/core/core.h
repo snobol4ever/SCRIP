@@ -9,6 +9,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) {
+        if (d.slen == 0xFFFFFFFFu) return d.s ? strlen(d.s) : 0;
         if (d.slen) return (size_t)d.slen;
         return d.s ? strlen(d.s) : 0;
     }
