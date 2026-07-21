@@ -1,5 +1,6 @@
 #include "lower_snobol4.h"
 #include "ast.h"
+#include "../parser/icon/icon_lex.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -292,6 +293,18 @@ static void emit_expr(core_ctx_t *c, const tree_t *e) {
     case TT_SCAN:
         emit(c, "("); emit_expr(c, e->c[0]); emit(c, " ? "); emit_expr(c, e->c[1]); emit(c, ")");
         break;
+    case TT_AUGOP: {
+        const char *op =
+            e->v.ival == TK_AUGMINUS ? " - " :
+            e->v.ival == TK_AUGSTAR  ? " * " :
+            e->v.ival == TK_AUGSLASH ? " / " :
+            e->v.ival == TK_AUGPOW   ? " ** " :
+                                       " + " ;
+        emit(c, "("); emit_expr(c, e->c[0]); emit(c, " = (");
+        emit_expr(c, e->c[0]); emit(c, "%s", op); emit_expr(c, e->c[1]);
+        emit(c, "))");
+        break;
+    }
     default:
         emit(c, "'?TT_%d?'", (int)e->t);
         break;
@@ -425,12 +438,15 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             emit(c, "%s\tOUTPUT =", label_sanitize(Lend)); emit_nl(c);
             return;
         }
-        if (subj->t == TT_DO_WHILE && subj->n >= 4) {
-            const char *Lcont = sval_or(subj->c[2], "_Lcont");
-            const char *Lend  = sval_or(subj->c[3], "_Lend");
+        if (subj->t == TT_DO_WHILE && subj->n >= 2) {
             int seq = ++c->if_seq;
-            char Ltop[32];
+            char Ltop[32], Lcont_buf[32], Lend_buf[32];
+            const char *Lcont, *Lend;
             snprintf(Ltop, sizeof Ltop, "_Ldotop_%04d", seq);
+            snprintf(Lcont_buf, sizeof Lcont_buf, "_Ldocont_%04d", seq);
+            snprintf(Lend_buf,  sizeof Lend_buf,  "_Ldoend_%04d",  seq);
+            Lcont = (subj->n >= 4 && subj->c[2]) ? sval_or(subj->c[2], Lcont_buf) : Lcont_buf;
+            Lend  = (subj->n >= 4 && subj->c[3]) ? sval_or(subj->c[3], Lend_buf)  : Lend_buf;
             if (c->pending_label) {
                 emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
                 c->pending_label = NULL;
@@ -537,6 +553,59 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             else                  { emit(c, "\t"); }
             emit(c, ":(%s)", label_sanitize(tgt));
             emit_nl(c);
+            return;
+        }
+        if (subj->t == TT_CASE && subj->n >= 1) {
+            int seq = ++c->if_seq;
+            int npairs = (subj->n - 1) / 2;
+            int k, default_idx = -1;
+            char swd_raw[32], swd[40], Lend[32];
+            char (*Lcase)[32] = NULL;
+            snprintf(swd_raw, sizeof swd_raw, "_swd_%04d", seq);
+            snprintf(swd, sizeof swd, "%s", label_sanitize(swd_raw));
+            snprintf(Lend, sizeof Lend, "_Lswend_%04d", seq);
+            Lcase = (char (*)[32])malloc((size_t)(npairs > 0 ? npairs : 1) * 32);
+            for (k = 0; k < npairs; k++) snprintf(Lcase[k], 32, "_Lswc_%04d_%02d", seq, k);
+            if (c->pending_label) {
+                emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
+                c->pending_label = NULL;
+            }
+            emit(c, "\t%s = ", swd);
+            emit_expr(c, subj->c[0]);
+            emit_nl(c);
+            for (k = 0; k < npairs; k++) {
+                const tree_t *val = subj->c[1 + 2 * k];
+                if (val && val->t == TT_NUL) { default_idx = k; continue; }
+                emit(c, "\tIDENT(%s,", swd);
+                emit_expr(c, val);
+                emit(c, ")\t:S(%s)", label_sanitize(Lcase[k]));
+                emit_nl(c);
+            }
+            if (default_idx >= 0) { emit(c, "\t:(%s)", label_sanitize(Lcase[default_idx])); emit_nl(c); }
+            else                  { emit(c, "\t:(%s)", label_sanitize(Lend));             emit_nl(c); }
+            if (c->loop_top < SNO_LOOP_STACK_MAX) {
+                c->break_lbl[c->loop_top] = Lend;
+                c->cont_lbl [c->loop_top] = (c->loop_top > 0) ? c->cont_lbl[c->loop_top - 1] : NULL;
+                c->loop_top++;
+            }
+            for (k = 0; k < npairs; k++) {
+                const tree_t *body = subj->c[2 + 2 * k];
+                c->pending_label = strdup(Lcase[k]);
+                if (body && body->t == TT_PROGRAM && body->n > 0) {
+                    int j;
+                    for (j = 0; j < body->n; j++) emit_node(c, body->c[j]);
+                } else if (body) {
+                    emit_node(c, body);
+                }
+                if (c->pending_label) {
+                    emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
+                    c->pending_label = NULL;
+                }
+                emit(c, "\t:(%s)", label_sanitize(Lend)); emit_nl(c);
+            }
+            if (c->loop_top > 0) c->loop_top--;
+            emit(c, "%s\tOUTPUT =", label_sanitize(Lend)); emit_nl(c);
+            free(Lcase);
             return;
         }
         if (subj->t == TT_LOOP_BREAK || subj->t == TT_LOOP_NEXT) {
