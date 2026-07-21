@@ -49,7 +49,7 @@ std::string bb_match_defer() {
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
-         + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))   /* SPD-2: sole flat_pat entry gate -- r8=1 arms the blob's internal positional retry (statement scan), 0 = anchored-at-cursor (nested defer, dcap) */
+         + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
          + x86_lea_id("rcx", 4)
          + x86_lea_id("rdx", 5)
          + x86_jmp_reg("rax")
@@ -57,7 +57,7 @@ std::string bb_match_defer() {
          + IF(_.op_scan && _.op_scan_head_off >= 0,
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
              + x86("mov",  "rax", "[rcx]")
-             + x86("mov",  FR(_.op_scan_head_off), "eax"))   /* SPD-2: winning attempt-start -> head counter (bb_match_replace span source) */
+             + x86("mov",  FR(_.op_scan_head_off), "eax"))
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
