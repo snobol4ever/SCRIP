@@ -11,12 +11,13 @@ extern "C" {
 std::string bb_coret() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (_.op_sa < 0) return x86_alpha() + x86_bomb("bb_coret: no produced-value slot (coret.operand[0] has no DESCR slot -- body value node missing from chain)");
-    return x86("comment", "IR_CORET yield")
-         + x86_alpha()
-         + x86("mov",  "rdi", FRQ(_.op_sa))
-         + x86("mov",  "rsi", FRQ(_.op_sa + 8))
-         + x86("xor",  "edx", "edx")
-         + x86("call", "scrip_coret", (uint64_t)(uintptr_t)(void *)scrip_coret)
-         + x86_gamma();
+    return IF(_.op_sa < 0, x86_alpha() + x86_bomb("bb_coret: no produced-value slot (coret.operand[0] has no DESCR slot -- body value node missing from chain)"))
+         + IF(!(_.op_sa < 0),
+             x86("comment", "IR_CORET yield")
+           + x86_alpha()
+           + x86("mov",  "rdi", FRQ(_.op_sa))
+           + x86("mov",  "rsi", FRQ(_.op_sa + 8))
+           + x86("xor",  "edx", "edx")
+           + x86("call", "scrip_coret", (uint64_t)(uintptr_t)(void *)scrip_coret)
+           + x86_gamma());
 }
