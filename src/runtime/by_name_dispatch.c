@@ -194,6 +194,8 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
     if (!strcmp(name, "$write")) return 1;
+    if (!strcmp(name, "$write2") || !strcmp(name, "$nl1") || !strcmp(name, "$nl0")) return 1;
+    if (!strcmp(name, "$writeq2") || !strcmp(name, "$write_canonical2") || !strcmp(name, "$write_term3") || !strcmp(name, "$format3")) return 1;
     if (!strcmp(name, "$put_char") || !strcmp(name, "$tab")) return 1;
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
@@ -211,6 +213,9 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$current_op")) return 1;
     if (!strcmp(name, "$current_prolog_flag")) return 1;
     if (!strcmp(name, "$set_prolog_flag")) return 1;
+    if (!strcmp(name, "$current_output") || !strcmp(name, "$current_input")) return 1;
+    if (!strcmp(name, "$set_output") || !strcmp(name, "$set_input")) return 1;
+    if (!strcmp(name, "$flush_output") || !strcmp(name, "$flush_output1")) return 1;
     if (!strcmp(name, "$op")) return 1;
     return 0;
 }
@@ -1031,6 +1036,38 @@ void rt_pl_iso_throw_type(const char *type, DESCR_t culprit) {
     plc_iso_ball(plc_iso_comp("type_error", 2, kids));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_iso_throw_domain(const char *domain, DESCR_t culprit) {
+    DESCR_t kids[2]; kids[0] = plc_iso_atom(domain ? domain : "?"); kids[1] = culprit;
+    plc_iso_ball(plc_iso_comp("domain_error", 2, kids));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_iso_throw_existence(const char *type, DESCR_t culprit) {
+    DESCR_t kids[2]; kids[0] = plc_iso_atom(type ? type : "?"); kids[1] = culprit;
+    plc_iso_ball(plc_iso_comp("existence_error", 2, kids));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_stream_term(int idx) { DESCR_t k[1]; k[0].v = (DTYPE_t)DT_I; k[0].slen = 0; k[0].i = idx; return plc_iso_comp("$stream", 1, k); }
+static int pl_stream_alias_idx(const char *nm) {
+    if (!nm) return -1;
+    if (!strcmp(nm, "user_input")) return 0; if (!strcmp(nm, "user_output")) return 1; if (!strcmp(nm, "user_error")) return 2;
+    extern FILE *fh_get(int); extern char *fh_name[]; for (int i = 0; i < 64; i++) { if (fh_get(i) && fh_name[i] && !strcmp(fh_name[i], nm)) return i; } return -1;
+}
+static int pl_resolve_stream_arg(DESCR_t a, const char *errfn, int want_output) {
+    extern FILE *fh_get(int);
+    DESCR_t v = rt_pl_deref_val(a);
+    (void)errfn;
+    if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); return -1; }
+    int idx = -1;
+    if (IS_FH_fn(v)) idx = (int)v.i;
+    else if ((int)v.v == DT_PLREF) { int fid = (int)(v.slen >> 16); int ar = (int)(v.slen & 0xFFFFu); const char *fnm = prolog_atom_name(fid); if (fnm && !strcmp(fnm, "$stream") && ar == 1 && v.p) { DESCR_t k = rt_pl_deref_val(((DESCR_t *)v.p)[0]); if (k.v == DT_I) idx = (int)k.i; } if (idx < 0) { rt_pl_iso_throw_domain("stream_or_alias", v); return -1; } }
+    else if ((int)v.v == DT_A || v.v == DT_S) { const char *nm = pl_atom_str(v); idx = pl_stream_alias_idx(nm); if (idx < 0) { rt_pl_iso_throw_existence("stream", v); return -1; } }
+    else { rt_pl_iso_throw_domain("stream_or_alias", v); return -1; }
+    if (idx < 0 || idx >= 64 || !fh_get(idx)) { rt_pl_iso_throw_existence("stream", v); return -1; }
+    if (want_output == 1 && idx == 0) { rt_pl_iso_throw_permission("output", "stream", "user_input", 0); return -1; }
+    if (want_output == 0 && (idx == 1 || idx == 2)) { rt_pl_iso_throw_permission("input", "stream", idx == 1 ? "user_output" : "user_error", 0); return -1; }
+    return idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_proc_defined_static(const char *name, long arity) {
     if (!name) return 0;
     char key[256]; snprintf(key, sizeof key, "%s/%ld", name, arity);
@@ -1528,6 +1565,39 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (rt_pl_set_prolog_flag(args[0], args[1])) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$current_output") && nargs == 1) {
+        extern int fh_current_output(void);
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        if ((int)v.v == DT_A || v.v == DT_S) { rt_pl_iso_throw_domain("stream", v); *out = FAILDESCR; return 1; }
+        DESCR_t st = pl_stream_term(fh_current_output());
+        if (plw_unify_vals(args[0], st)) { *out = st; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$current_input") && nargs == 1) {
+        extern int fh_current_input(void);
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        if ((int)v.v == DT_A || v.v == DT_S) { rt_pl_iso_throw_domain("stream", v); *out = FAILDESCR; return 1; }
+        DESCR_t st = pl_stream_term(fh_current_input());
+        if (plw_unify_vals(args[0], st)) { *out = st; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$set_output") && nargs == 1) {
+        extern void fh_set_output(int); int idx = pl_resolve_stream_arg(args[0], "set_output/1", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        fh_set_output(idx); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$set_input") && nargs == 1) {
+        extern void fh_set_input(int); int idx = pl_resolve_stream_arg(args[0], "set_input/1", 0);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        fh_set_input(idx); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$flush_output") && (nargs == 0 || nargs == 1)) {
+        extern FILE *fh_cur_out_fp(void); fflush(fh_cur_out_fp());
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$flush_output1") && nargs == 1) {
+        extern FILE *fh_get(int); int idx = pl_resolve_stream_arg(args[0], "flush_output/1", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        FILE *fp = fh_get(idx); if (fp) fflush(fp); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
     if (!strcmp(fn, "$char_code") && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
         DESCR_t a = rt_pl_deref_val(args[0]); const char *cs = pl_atom_str(a);
@@ -1565,20 +1635,73 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
           if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
     }
     if (!strcmp(fn, "$write") && nargs == 1) {
+        extern FILE *fh_cur_out_fp(void); FILE *_wd = fh_cur_out_fp();
         DESCR_t v = rt_pl_deref_val(args[0]);
-        if (v.v == DT_R) { extern const char * pl_real_iso_str(double, char *, int); char _fb[64]; fputs(pl_real_iso_str(v.r, _fb, sizeof _fb), stdout); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
-        out_write_descr(stdout, v, 0);
+        if (v.v == DT_R) { extern const char * pl_real_iso_str(double, char *, int); char _fb[64]; fputs(pl_real_iso_str(v.r, _fb, sizeof _fb), _wd); DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
+        out_write_descr(_wd, v, 0);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$put_char") && nargs == 1) {
+        extern FILE *fh_cur_out_fp(void);
         DESCR_t v = rt_pl_deref_val(args[0]); const char *s = pl_atom_str(v);
         if (!s || !s[0] || s[1]) { rt_pl_iso_throw_type("character", v); *out = FAILDESCR; return 1; }
-        fputc((unsigned char)s[0], stdout);
+        fputc((unsigned char)s[0], fh_cur_out_fp());
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$tab") && nargs == 1) {
+        extern FILE *fh_cur_out_fp(void); FILE *_td = fh_cur_out_fp();
         DESCR_t v = rt_pl_deref_val(args[0]); long n = IS_INT_fn(v) ? (long)v.i : (IS_REAL_fn(v) ? (long)v.r : 0);
-        for (long i = 0; i < n; i++) fputc(' ', stdout);
+        for (long i = 0; i < n; i++) fputc(' ', _td);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$write2") && nargs == 2) {
+        extern FILE *fh_get(int); int idx = pl_resolve_stream_arg(args[0], "write/2", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        FILE *wd = fh_get(idx); if (!wd) wd = stdout;
+        DESCR_t v = rt_pl_deref_val(args[1]);
+        if (v.v == DT_R) { extern const char * pl_real_iso_str(double, char *, int); char _fb[64]; fputs(pl_real_iso_str(v.r, _fb, sizeof _fb), wd); }
+        else out_write_descr(wd, v, 0);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$nl1") && nargs == 1) {
+        extern FILE *fh_get(int); int idx = pl_resolve_stream_arg(args[0], "nl/1", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        FILE *wd = fh_get(idx); if (!wd) wd = stdout; fputc('\n', wd);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$nl0") && (nargs == 0 || nargs == 1)) {
+        extern FILE *fh_cur_out_fp(void); fputc('\n', fh_cur_out_fp());
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if ((!strcmp(fn, "$writeq2") || !strcmp(fn, "$write_canonical2")) && nargs == 2) {
+        extern int fh_current_output(void); extern void fh_set_output(int);
+        extern void rt_pl_writeq_cell(void *); extern void rt_pl_write_canonical_cell(void *);
+        int idx = pl_resolve_stream_arg(args[0], fn[6] == 'q' ? "writeq/2" : "write_canonical/2", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        int old = fh_current_output(); fh_set_output(idx);
+        DESCR_t t1 = args[1];
+        if (fn[6] == 'q') rt_pl_writeq_cell((void *)plw_det_cell(&t1)); else rt_pl_write_canonical_cell((void *)plw_det_cell(&t1));
+        fh_set_output(old);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$write_term3") && nargs == 3) {
+        extern int fh_current_output(void); extern void fh_set_output(int); extern void rt_pl_write_term_cell(void *, void *);
+        int idx = pl_resolve_stream_arg(args[0], "write_term/3", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        int old = fh_current_output(); fh_set_output(idx);
+        DESCR_t t1 = args[1], t2 = args[2]; rt_pl_write_term_cell((void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
+        fh_set_output(old);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$format3") && nargs == 3) {
+        extern int fh_current_output(void); extern void fh_set_output(int); extern void rt_pl_format_cell(const char *, void *);
+        int idx = pl_resolve_stream_arg(args[0], "format/3", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        const char *fmt = pl_atom_str(rt_pl_deref_val(args[1]));
+        if (!fmt) { *out = FAILDESCR; return 1; }
+        int old = fh_current_output(); fh_set_output(idx);
+        DESCR_t t2 = args[2]; rt_pl_format_cell(fmt, (void *)plw_det_cell(&t2));
+        fh_set_output(old);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$findall_new") && nargs == 0) { *out = rt_findall_new(); return 1; }
@@ -3193,6 +3316,10 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "put_char", 1, "$put_char" }, { "tab", 1, "$tab" },
         { "op", 3, "$op" },
         { "set_prolog_flag", 2, "$set_prolog_flag" },
+        { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" },
+        { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" },
+        { "flush_output", 1, "$flush_output1" },
+        { "writeq", 2, "$writeq2" }, { "write_canonical", 2, "$write_canonical2" }, { "write_term", 3, "$write_term3" }, { "format", 3, "$format3" },
         { 0, 0, 0 } };
     if (!nm) return (const char *)0;
     for (int i = 0; tab[i].nm; i++) if (!strcmp(nm, tab[i].nm) && ar == tab[i].ar) return tab[i].tgt;
@@ -3241,8 +3368,8 @@ static int plc_det_exec(plc_slv_t *s) {
     case 'i': { DESCR_t v; if (!plc_eval(s->av[1], &v)) return 0; DESCR_t *tv = (DESCR_t *)rt_ws_alloc(sizeof(DESCR_t)); *tv = v; return plw_unify_cells(s->av[0], tv); }
     case 'c': { DESCR_t a2, b2, o; if (!plc_eval(s->av[0], &a2) || !plc_eval(s->av[1], &b2)) return 0; char nb[24]; snprintf(nb, sizeof nb, "$cmp_%s", s->det); DESCR_t in[2]; in[0] = a2; in[1] = b2;
                 if (!script_try_call_builtin_by_name(nb, in, 2, &o)) return 0; return o.v != DT_FAIL; }
-    case 'l': { fputc('\n', stdout); return 1; }
-    case 'W': { DESCR_t rv; rv.v = (DTYPE_t)DT_PLVAR; rv.slen = 0; rv.p = (void *)s->av[0]; DESCR_t o; script_try_call_builtin_by_name("$write", &rv, 1, &o); fputc('\n', stdout); return 1; }
+    case 'l': { extern FILE *fh_cur_out_fp(void); fputc('\n', fh_cur_out_fp()); return 1; }
+    case 'W': { extern FILE *fh_cur_out_fp(void); DESCR_t rv; rv.v = (DTYPE_t)DT_PLVAR; rv.slen = 0; rv.p = (void *)s->av[0]; DESCR_t o; script_try_call_builtin_by_name("$write", &rv, 1, &o); fputc('\n', fh_cur_out_fp()); return 1; }
     case 'd': { DESCR_t in[16]; int n = s->nav > 16 ? 16 : s->nav;
                 for (int i = 0; i < n; i++) { in[i].v = (DTYPE_t)DT_PLVAR; in[i].slen = 0; in[i].p = (void *)s->av[i]; }
                 DESCR_t o; if (!script_try_call_builtin_by_name(s->det, in, n, &o)) return 0; return o.v != DT_FAIL; }

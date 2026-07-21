@@ -79,7 +79,8 @@ collect_files() {
                   "$CORPUS"/rung2[0-9]_*.pl \
                   "$CORPUS"/rung3[0-9]_*.pl \
                   "$CORPUS"/rung4[0-9]_*.pl \
-                  "$CORPUS"/rung5[0-9]_*.pl; do
+                  "$CORPUS"/rung5[0-9]_*.pl \
+                  "$CORPUS"/rung6[0-9]_*.pl; do
             [ -f "$pl" ] && FILES+=("$pl")
         done
     fi
