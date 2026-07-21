@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# jcon_selfhost_run.sh -- compile an Icon program with SCRIP-jtran, link with SCRIP-jlink, bundle with the
+# JCON Java runtime, and run it on the JVM. This is the end-to-end self-host proof: an Icon program compiled
+# by the SCRIP-built JCON translator, executed on real JCON bytecode.
+# Mirrors jcon-master/bin/jcont's bytecode+link+run path, substituting SCRIP-built jtran/jlink.
+# The .icn input must already be semicolonized (SCRIP requires explicit ';'); pass RAW=1 to semicolonize first.
+# Usage: bash scripts/jcon_selfhost_run.sh path/to/prog.icn [args...]
+#        RAW=1 bash scripts/jcon_selfhost_run.sh newline_style.icn
+set -euo pipefail
+
+SCRIP=${SCRIP:-/home/claude/work/SCRIP}
+JCONREPO=${JCONREPO:-/home/claude/work/jcon-master/jcon-master}
+JT=${JT:-/home/claude/jt}
+JRTS="$JCONREPO/bin/jcon.zip"
+JAVA="java -noverify"
+SEMI="$SCRIP/tools/semicolonize_icon.py"
+
+SRC=${1:?usage: jcon_selfhost_run.sh prog.icn [args...]}; shift || true
+BASE=$(basename "$SRC" .icn)
+MOD='l$'"$BASE"                 # canonical JCON module-class name, e.g. l$hello_t
+TDIR="$JT/run_$BASE"
+
+if [ "${RAW:-0}" = "1" ]; then python3 "$SEMI" "$SRC" "$JT/$BASE.icn"; SRC="$JT/$BASE.icn"; fi
+
+rm -rf "$TDIR"; mkdir -p "$TDIR"
+
+echo "== translate: SCRIP-jtran preproc:yylex:parse:ast2ir:bc_File -> .class =="
+SCRIP_BETA_ELIDE_OFF=1 "$JT/jtran" preproc "$SRC" : yylex : parse : ast2ir : \
+    bc_File -O -class:"$MOD" -dir:"$TDIR/" </dev/null
+ls "$TDIR"/*.class >/dev/null 2>&1 || { echo "FAIL: no .class produced"; exit 1; }
+
+echo "== bundle module classes -> $BASE.zip (jcon.ZipMerge) =="
+( cd "$TDIR" && $JAVA -cp "$JRTS" jcon.ZipMerge "$JT/$BASE.zip" links *.class )
+
+echo "== link: SCRIP-jlink $BASE $MOD -> $BASE.class =="
+rm -f "$TDIR"/*.class
+( cd "$TDIR" && "$JT/jlink" "$BASE" "$MOD" )
+[ -f "$TDIR/$BASE.class" ] || { echo "FAIL: jlink produced no $BASE.class"; exit 1; }
+
+echo "== manifest + combined.zip (FindFiles + ZipMerge) =="
+mkdir -p "$TDIR/META-INF"
+printf 'Manifest-Version: 1.0\nMain-Class: %s\nCreated-By: SCRIP-selfhost\n' "$BASE" >"$TDIR/META-INF/MANIFEST.MF"
+$JAVA -cp "$JRTS" jcon.FindFiles "" "$JT/$BASE.zip" >"$TDIR/zip.list"
+( cd "$TDIR" && $JAVA -cp "$JRTS" jcon.ZipMerge combined.zip META-INF/MANIFEST.MF "$BASE.class" $(cat zip.list) )
+
+echo "== run: java -cp combined.zip:jcon.zip $BASE =="
+echo "---- program output ----"
+$JAVA -cp "$TDIR/combined.zip:$JRTS" "$BASE" "$@"
+echo "---- end output ----"

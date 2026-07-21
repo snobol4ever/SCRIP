@@ -4190,6 +4190,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
             if (av.v == DT_SNUL) continue;
+            if (dest != stdout && dest != stderr && IS_STR_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u); if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; }
             out_write_descr(dest, av, nl);
         }
         if (nl) fputc('\n', dest);
@@ -4282,7 +4283,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t av = args[0];
         int n = (int)(IS_INT_fn(av) ? av.i : (long long)strtol(VARVAL_fn(av)?VARVAL_fn(av):"0",NULL,10));
         char *buf = rt_ws_alloc(2); buf[0]=(char)(n&0xFF); buf[1]='\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, 1); return 1;
     }
     if (!strcmp(fn,"cset") && nargs == 1) {
         DESCR_t av = args[0];
