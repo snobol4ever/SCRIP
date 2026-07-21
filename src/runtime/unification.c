@@ -1341,6 +1341,50 @@ DESCR_t rt_pl_current_op_gen(DESCR_t *args, int nargs, int64_t *resume) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *name; int rw; char val[32]; int is_int; long long ival; } pl_flag_ent_t;
+static pl_flag_ent_t g_pl_flags[] = { { "bounded", 0, "true", 0, 0 }, { "max_integer", 0, "", 1, 9223372036854775807LL }, { "min_integer", 0, "", 1, (-9223372036854775807LL - 1) }, { "double_quotes", 1, "atom", 0, 0 }, { "unknown", 1, "error", 0, 0 }, { "occurs_check", 1, "false", 0, 0 } };
+static const int g_pl_flags_n = (int)(sizeof g_pl_flags / sizeof g_pl_flags[0]);
+typedef struct { int i; int mark; } pl_flagit_t;
+static pl_flag_ent_t *pl_flag_find(const char *nm) { if (!nm) return (pl_flag_ent_t *)0; for (int i = 0; i < g_pl_flags_n; i++) if (!strcmp(g_pl_flags[i].name, nm)) return &g_pl_flags[i]; return (pl_flag_ent_t *)0; }
+static Term *pl_flag_value_term(const pl_flag_ent_t *f) { if (f->is_int) return term_new_int(f->ival); return term_new_atom(prolog_atom_intern(f->val)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_set_prolog_flag(DESCR_t fd, DESCR_t vd) {
+    extern void rt_pl_iso_throw_instantiation(void);
+    extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
+    Term *ft = pl_cell_to_term((pl_cell_t *)&fd); ft = ft ? term_deref(ft) : (Term *)0;
+    if (!ft || ft->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return 0; }
+    if (ft->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    const char *fn = prolog_atom_name(ft->atom_id); if (!fn) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    pl_flag_ent_t *e = pl_flag_find(fn); if (!e) { rt_pl_iso_throw_pi("domain_error", "prolog_flag", fn, 0); return 0; }
+    if (!e->rw) { extern void rt_pl_iso_throw_permission(const char *, const char *, const char *, int); rt_pl_iso_throw_permission("modify", "flag", fn, 0); return 0; }
+    Term *vt = pl_cell_to_term((pl_cell_t *)&vd); vt = vt ? term_deref(vt) : (Term *)0;
+    if (!vt || vt->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return 0; }
+    if (vt->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    const char *vs = prolog_atom_name(vt->atom_id); if (!vs) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    snprintf(e->val, sizeof e->val, "%s", vs); e->is_int = 0; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_current_prolog_flag_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern pl_trail_t g_pl_trail;
+    extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
+    if (nargs < 2 || !resume) return FAILDESCR;
+    if (*resume == 0) {
+        Term *nm = pl_cell_to_term((pl_cell_t *)&args[0]); nm = nm ? term_deref(nm) : (Term *)0;
+        if (nm && nm->tag != TERM_VAR && nm->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return FAILDESCR; }
+        pl_flagit_t *it = (pl_flagit_t *)rt_ws_alloc(sizeof *it); it->i = 0; it->mark = pl_trail_mark(&g_pl_trail); *resume = (int64_t)(intptr_t)it;
+    }
+    pl_flagit_t *it = (pl_flagit_t *)(intptr_t)*resume;
+    while (it->i < g_pl_flags_n) {
+        pl_trail_unwind(&g_pl_trail, it->mark);
+        pl_flag_ent_t *e = &g_pl_flags[it->i++];
+        Term *nameT = term_new_atom(prolog_atom_intern(e->name));
+        Term *valT = pl_flag_value_term(e);
+        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], nameT, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[1], valT, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     extern pl_trail_t g_pl_trail;
     dyn_cursor_t *cur = (dyn_cursor_t *)cursor;

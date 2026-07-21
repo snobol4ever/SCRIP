@@ -410,6 +410,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "current_predicate") && t->n == 1) pl_ensure_gen_builtin_pred("$current_predicate", "current_predicate", 1);
         if (!strcmp(nm, "predicate_property") && t->n == 2) pl_ensure_gen_builtin_pred("$predicate_property", "predicate_property", 2);
         if (!strcmp(nm, "current_op") && t->n == 3) pl_ensure_gen_builtin_pred("$current_op", "current_op", 3);
+        if (!strcmp(nm, "current_prolog_flag") && t->n == 2) pl_ensure_gen_builtin_pred("$current_prolog_flag", "current_prolog_flag", 2);
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("fail"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
@@ -984,7 +985,9 @@ static int dj_is_plain(const tree_t * t) {
 static tree_t * dj_mkvar(int idx) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = idx; return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dj_expand_node(tree_t * t) {
-    if (!t || t->t != TT_FNC || !t->v.sval) return 0;
+    if (!t) return 0;
+    if (t->t == TT_IF || t->t == TT_PROGRAM) { int any = 0; for (int i = 0; i < t->n; i++) if (dj_expand_node(t->c[i])) any = 1; return any; }
+    if (t->t != TT_FNC || !t->v.sval) return 0;
     const char * f = t->v.sval;
     if (dj_is_plain(t) && !dj_has_cut(t)) {
         const tree_t * branches[64]; int nb = 0; { const tree_t * d = t; while (dj_is_plain(d) && nb < 63) { branches[nb++] = d->c[0]; d = d->c[1]; } branches[nb++] = d; }
@@ -1296,6 +1299,7 @@ static void pl_register_program(stage2_t * s2, const tree_t * prog) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     pl_register_program(&g_stage2, prog);
+    pl_expand_disjunctions();
     pl_ll_prepass();
     pl_dyn_mark_prepass();
     const char *goal_key = NULL;
@@ -1334,7 +1338,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             g_stage2.proc_table[pi].nparams  = 0;
         }
     }
-    pl_expand_disjunctions();
     lower_pl_register_all_preds();
     lower_pl_register_dyn_only_preds();
     pl_det_classify_all();
