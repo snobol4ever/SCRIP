@@ -1394,6 +1394,23 @@ DESCR_t rt_pl_current_prolog_flag_gen(DESCR_t *args, int nargs, int64_t *resume)
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_current_stream_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern pl_trail_t g_pl_trail; extern FILE *fh_get(int); extern int prolog_atom_intern(const char *);
+    if (nargs < 1 || !resume) return FAILDESCR;
+    if (*resume == 0) { pl_flagit_t *it = (pl_flagit_t *)rt_ws_alloc(sizeof *it); it->i = 0; it->mark = pl_trail_mark(&g_pl_trail); *resume = (int64_t)(intptr_t)it; }
+    pl_flagit_t *it = (pl_flagit_t *)(intptr_t)*resume;
+    while (it->i < 64) {
+        int idx = it->i++;
+        if (!fh_get(idx)) continue;
+        pl_trail_unwind(&g_pl_trail, it->mark);
+        Term *sa[1]; sa[0] = term_new_int(idx);
+        Term *st = term_new_compound(prolog_atom_intern("$stream"), 1, sa);
+        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], st, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     extern pl_trail_t g_pl_trail;
     dyn_cursor_t *cur = (dyn_cursor_t *)cursor;
