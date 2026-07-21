@@ -1361,6 +1361,7 @@ int main(int argc, char **argv)
             if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1: main zeta frame on the driver's own stack (was rt_frame() arena memo); R12-ERAD: under RSP the blob self-allocates, rdi unused */
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
+            { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
             (void)fn(mf, 0);
             goto run_done;
         }
@@ -1447,6 +1448,7 @@ int main(int argc, char **argv)
                     void *mf = NULL;
                     if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
                     if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP */
+                    { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20) */
                     (void)fn(mf, 0);
                     { extern int g_gva_active; g_gva_active = 0; } goto run_done;
                 }
@@ -1466,6 +1468,7 @@ int main(int argc, char **argv)
         abort();
     }
 run_done:
+    { extern void bbprof_report(void); bbprof_report(); }   /* RUNG BBPROF: stop timer + per-box sample table; no-op if never armed */
     if (opt_bench) {
         clock_gettime(CLOCK_MONOTONIC, &_t3);
         double parse_ms = (_t1.tv_sec - _t0.tv_sec)*1e3 + (_t1.tv_nsec - _t0.tv_nsec)/1e6;

@@ -74,6 +74,7 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt_protected.c \
     $(RT)/rt/pat_pool.c \
     $(RT)/rt/rt_coexpr.c \
+    $(RT)/rt/bbprof.c \
     $(SRC)/runtime/core/core.c \
     $(SRC)/runtime/core/argval.c \
     $(SRC)/runtime/core/name_save.c \
@@ -538,6 +539,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_protected.c -o $(OBJ)/rt_protected.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/pat_pool.c -o $(OBJ)/pat_pool.o
 	$(CC) $(CRT)   -c $(SRC)/runtime/rt/rt_coexpr.c -o $(OBJ)/rt_coexpr.o
+	$(CC) $(CRT)   -c $(SRC)/runtime/rt/bbprof.c -o $(OBJ)/bbprof.o
 	$(CC) $(CRT)   -c $(SRC)/driver/driver_globals.c -o $(OBJ)/driver_globals.o
 	$(CC) $(CRT)   -c $(SRC)/driver/driver_label.c   -o $(OBJ)/driver_label.o
 	$(CC) $(CRT)   -c $(SRC)/driver/driver_hooks.c   -o $(OBJ)/driver_hooks.o
@@ -548,7 +550,7 @@ scrip:
 	$(CC) $(CRT)   -c $(SRC)/driver/stmt_ast.c       -o $(OBJ)/stmt_ast.o
 	$(CC) $(CRT)   -c $(SRC)/driver/polyglot.c -o $(OBJ)/polyglot.o
 	$(CC) $(CRT)   -c $(SRC)/driver/scrip.c  -o $(OBJ)/scrip_driver.o
-	$(CXX) -m64 -no-pie $(OBJ)/*.o $(LIBS) -o scrip
+	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/*.o $(LIBS) -o scrip
 	@echo "Built: scrip"
 
 
