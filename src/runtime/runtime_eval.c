@@ -157,8 +157,11 @@ static eval_chain_fn eval_build_chain(const char *s)
     char *src = (char *)rt_ws_alloc(n + 4);
     if (!src) return NULL;
     snprintf(src, n + 4, "(%s)", s);
+    extern void sno_error_quiet_begin(void); extern void sno_error_quiet_end(void); extern const char *sno_error_captured(void); extern const char *g_sno_errtext;
+    sno_error_quiet_begin();
     tree_t *e = parse_expr_pat_from_str(src);
-    if (!e) return NULL;
+    sno_error_quiet_end();
+    if (!e) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return NULL; }
     tree_t *var = ast_stmt_new(TT_VAR);
     var->v.sval = rt_ws_strdup(EVAL_TMP);
     tree_t *st = ast_stmt_new(TT_STMT);
@@ -300,8 +303,11 @@ DESCR_t code(const char *src)
     extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx);
     extern const char *sno_stmt_label(const tree_t *s);
     extern int g_frame_active;
+    extern void sno_error_quiet_begin(void); extern void sno_error_quiet_end(void); extern const char *sno_error_captured(void); extern const char *g_sno_errtext;
+    sno_error_quiet_begin();
     tree_t *prog = sno_parse_string_ast(src, NULL);
-    if (!prog || prog->n == 0) return FAILDESCR;
+    sno_error_quiet_end();
+    if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return FAILDESCR; }
     eval_chain_fn first = NULL;
     int k = 0;
     for (int i = 0; i < prog->n; i++) {

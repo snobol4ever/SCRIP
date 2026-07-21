@@ -12,6 +12,14 @@ void sno_error(int, const char *, ...);
 char *inc_dirs[64];
 int   n_inc = 0;
 int   sno_nerrors = 0;
+static int  sno_err_quiet = 0;
+static char sno_err_capture[1024];
+/*--------------------------------------------------------------------------------------------------------------------*/
+void sno_error_quiet_begin(void) { sno_err_quiet = 1; sno_err_capture[0] = '\0'; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void sno_error_quiet_end(void) { sno_err_quiet = 0; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
 static int   g_stmt_lineno = 1;
 static char  strbuf[65536];
@@ -280,6 +288,11 @@ G       ({WS}|{CONT})*
 /*--------------------------------------------------------------------------------------------------------------------*/
 void sno_error(int ln, const char *fmt, ...) {
     va_list ap;
+    if (sno_err_quiet) {
+        va_start(ap,fmt); vsnprintf(sno_err_capture,sizeof(sno_err_capture),fmt,ap); va_end(ap);
+        sno_nerrors++;
+        return;
+    }
     fprintf(stderr,"snobol4:%d: error: ",ln);
     va_start(ap,fmt); vfprintf(stderr,fmt,ap); va_end(ap);
     fputc('\n',stderr);
