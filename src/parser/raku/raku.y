@@ -228,9 +228,12 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_BIND
 %token OP_DOTEQ
 %token OP_SMATCH
+%token OP_INC OP_DEC
+%token OP_ADD_EQ OP_SUB_EQ OP_MUL_EQ OP_DIV_EQ OP_CAT_EQ
+%token OP_DOR
 %token OP_DIV
 %token OP_REP_X OP_REP_XX
-%type <node> stmt expr atom range_expr cmp_expr tern_expr jct_expr add_expr closure
+%type <node> stmt expr atom range_expr cmp_expr tern_expr jct_expr dor_expr add_expr closure
 %type <node> mul_expr unary_expr postfix_expr call_expr block
 %type <node> repl_expr addsub_expr
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail
@@ -437,6 +440,33 @@ stmt
     | KW_PRINT expr KW_UNLESS expr ';'
         { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$2);
           tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$4); ast_push(e,seq1(p)); $$=e; }
+    | VAR_SCALAR OP_ADD_EQ expr ';'
+        { tree_t *v=var_node($1);
+          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_ADD,v,$3)); }
+    | VAR_SCALAR OP_SUB_EQ expr ';'
+        { tree_t *v=var_node($1);
+          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_SUB,v,$3)); }
+    | VAR_SCALAR OP_MUL_EQ expr ';'
+        { tree_t *v=var_node($1);
+          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_MUL,v,$3)); }
+    | VAR_SCALAR OP_DIV_EQ expr ';'
+        { tree_t *v=var_node($1);
+          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_DIV,v,$3)); }
+    | VAR_SCALAR OP_CAT_EQ expr ';'
+        { tree_t *v=var_node($1);
+          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_CAT,v,$3)); }
+    | VAR_SCALAR OP_INC ';'
+        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
+          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_ADD,var_node($1),one)); }
+    | VAR_SCALAR OP_DEC ';'
+        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
+          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_SUB,var_node($1),one)); }
+    | OP_INC VAR_SCALAR ';'
+        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
+          $$=expr_binary(TT_ASSIGN,var_node($2),expr_binary(TT_ADD,var_node($2),one)); }
+    | OP_DEC VAR_SCALAR ';'
+        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
+          $$=expr_binary(TT_ASSIGN,var_node($2),expr_binary(TT_SUB,var_node($2),one)); }
     | expr ';' { $$=$1; }
     | ';' { $$=make_seq(exprlist_new()); }
     | if_stmt           { $$=$1; }
@@ -1069,6 +1099,11 @@ cmp_expr
 jct_expr
     : jct_expr '|' range_expr  { $$=mk_junction("any",$1,$3); }
     | jct_expr '&' range_expr  { $$=mk_junction("all",$1,$3); }
+    | dor_expr                 { $$=$1; }
+    ;
+dor_expr
+    : dor_expr OP_DOR range_expr
+        { tree_t *c=make_call("__rk_dor"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }
     | range_expr               { $$=$1; }
     ;
 range_expr

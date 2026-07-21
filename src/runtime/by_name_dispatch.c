@@ -4085,6 +4085,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!t) { *out = FAILDESCR; return 1; }
         *out = v; return 1;
     }
+    if (!strcmp(fn, "__rk_defined") && nargs == 1) {
+        DESCR_t v = args[0]; int t = (!IS_FAIL_fn(v)) && (v.v != DT_SNUL); *out = t ? INTVAL(1) : FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "__rk_dor") && nargs == 2) {
+        DESCR_t a = args[0]; int def = (!IS_FAIL_fn(a)) && (a.v != DT_SNUL); *out = def ? a : args[1]; return 1;
+    }
     if (!strcmp(fn, "__rk_bool_val") && nargs == 1) {
         DESCR_t v = args[0];
         int t = 0;
