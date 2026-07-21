@@ -127,6 +127,57 @@ static tree_t *seq1(tree_t *stmt) {
     return seq;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_with_mod(tree_t *stmt, tree_t *cond, int negate) {
+    tree_t *topic = ast_node_new(TT_ASSIGN); expr_add_child(topic, leaf_sval(TT_VAR, "_")); expr_add_child(topic, cond);
+    tree_t *dcall = make_call("__rk_defined"); expr_add_child(dcall, leaf_sval(TT_VAR, "_"));
+    tree_t *gate = ast_node_new(negate ? TT_UNLESS : TT_IF); expr_add_child(gate, dcall); expr_add_child(gate, seq1(stmt));
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR); expr_add_child(seq, topic); expr_add_child(seq, gate);
+    return seq;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_given_mod(tree_t *stmt, tree_t *topicval) {
+    tree_t *topic = ast_node_new(TT_ASSIGN); expr_add_child(topic, leaf_sval(TT_VAR, "_")); expr_add_child(topic, topicval);
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR); expr_add_child(seq, topic); expr_add_child(seq, stmt);
+    return seq;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_range_ex(tree_t *lo, tree_t *hi) {
+    if (hi && hi->t == TT_ILIT) { tree_t *d = ast_node_new(TT_ILIT); d->v.ival = hi->v.ival - 1; return expr_binary(TT_TO, lo, d); }
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    return expr_binary(TT_TO, lo, expr_binary(TT_SUB, hi, one));
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_dec(tree_t *hi) {
+    if (hi && hi->t == TT_ILIT) { tree_t *d = ast_node_new(TT_ILIT); d->v.ival = hi->v.ival - 1; return d; }
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    return expr_binary(TT_SUB, hi, one);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_tree_clone(tree_t *e) {
+    if (!e) return NULL;
+    tree_t *c = ast_node_new(e->t); c->v = e->v;
+    if ((e->t == TT_VAR || e->t == TT_QLIT || e->t == TT_FNC) && e->v.sval) c->v.sval = strdup(e->v.sval);
+    for (int i = 0; i < e->n; i++) expr_add_child(c, rk_tree_clone(e->c[i]));
+    return c;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_chain_cmp(tree_e k) {
+    return k == TT_LT || k == TT_GT || k == TT_LE || k == TT_GE || k == TT_EQ || k == TT_NE || k == TT_LEQ || k == TT_LNE;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_chain_last_operand(tree_t *left) {
+    if (!left) return NULL;
+    if (rk_is_chain_cmp(left->t) && left->n == 2) return expr_right(left);
+    if (left->t == TT_SEQ && left->n == 2) return rk_chain_last_operand(expr_right(left));
+    return NULL;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_chain_cmp(tree_t *left, tree_e op, tree_t *right) {
+    tree_t *last = rk_chain_last_operand(left);
+    if (last) return expr_binary(TT_SEQ, left, expr_binary(op, rk_tree_clone(last), right));
+    return expr_binary(op, left, right);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *lower_interp_str(const char *s) {
     int len = s ? (int)strlen(s) : 0;
     tree_t *result = NULL;
@@ -206,7 +257,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_MY KW_SAY KW_PRINT KW_IF KW_ELSE KW_ELSIF KW_WHILE KW_FOR
 %token KW_SUB KW_GATHER KW_TAKE KW_RETURN
 %token KW_CONSTANT
-%token KW_GIVEN KW_WHEN KW_DEFAULT
+%token KW_GIVEN KW_WHEN KW_DEFAULT KW_WITH KW_WITHOUT
 %token KW_EXISTS KW_DELETE KW_UNLESS KW_UNTIL KW_REPEAT
 %token KW_MAP KW_GREP KW_SORT
 %token KW_TRY KW_CATCH KW_DIE
@@ -395,6 +446,12 @@ stmt
     | scalar_methcall KW_FOR expr ';'
         { tree_t *gen=expr_unary(TT_ITERATE,$3); gen->v.sval=(char*)intern("_");
           $$=expr_binary(TT_EVERY, gen, seq1($1)); }
+    | scalar_methcall KW_WITH expr ';'
+        { $$=rk_with_mod($1,$3,0); }
+    | scalar_methcall KW_WITHOUT expr ';'
+        { $$=rk_with_mod($1,$3,1); }
+    | scalar_methcall KW_GIVEN expr ';'
+        { $$=rk_given_mod($1,$3); }
     | VAR_ARRAY '[' expr ']' '=' expr ';'
         { tree_t *c=ast_node_new(TT_ARR_SET);
           ast_push(c,var_node($1)); ast_push(c,$3); ast_push(c,$6); $$=c; }
@@ -421,6 +478,12 @@ stmt
     | expr KW_FOR expr ';'
         { tree_t *gen=expr_unary(TT_ITERATE,$3); gen->v.sval=(char*)intern("_");
           $$=expr_binary(TT_EVERY, gen, seq1($1)); }
+    | expr KW_WITH expr ';'
+        { $$=rk_with_mod($1,$3,0); }
+    | expr KW_WITHOUT expr ';'
+        { $$=rk_with_mod($1,$3,1); }
+    | expr KW_GIVEN expr ';'
+        { $$=rk_given_mod($1,$3); }
     | KW_SAY expr KW_IF expr ';'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$2);
           tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$4); expr_add_child(e,seq1(s)); $$=e; }
@@ -434,6 +497,12 @@ stmt
     | KW_SAY expr KW_WHILE expr ';'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$2);
           $$=expr_binary(TT_WHILE,$4,seq1(s)); }
+    | KW_SAY expr KW_WITH expr ';'
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$2); $$=rk_with_mod(s,$4,0); }
+    | KW_SAY expr KW_WITHOUT expr ';'
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$2); $$=rk_with_mod(s,$4,1); }
+    | KW_SAY expr KW_GIVEN expr ';'
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$2); $$=rk_given_mod(s,$4); }
     | KW_PRINT expr KW_IF expr ';'
         { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$2);
           tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$4); expr_add_child(e,seq1(p)); $$=e; }
@@ -557,8 +626,8 @@ for_stmt
     | KW_FOR add_expr OP_RANGE_EX add_expr OP_ARROW VAR_SCALAR block
         { const char *vn = intern(strip_sigil($6)); free($6);
           tree_t *r = ast_node_new(TT_FOR_RANGE);
-          ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, $2); ast_push(r, $4); ast_push(r, $7);
-          tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 1; ast_push(r, ex);
+          ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, $2); ast_push(r, rk_dec($4)); ast_push(r, $7);
+          tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
           $$ = r; }
     | KW_FOR expr OP_ARROW VAR_SCALAR block
         { const char *vn = intern(strip_sigil($4)); free($4);
@@ -1096,12 +1165,12 @@ tern_expr
 cmp_expr
     : cmp_expr OP_AND jct_expr  { $$=expr_binary(TT_SEQ,$1,$3); }
     | cmp_expr OP_OR  jct_expr  { $$=expr_binary(TT_ALT,$1,$3); }
-    | jct_expr OP_EQ  jct_expr  { $$=expr_binary(TT_EQ,$1,$3); }
-    | jct_expr OP_NE  jct_expr  { $$=expr_binary(TT_NE,$1,$3); }
-    | jct_expr '<'    jct_expr  { $$=expr_binary(TT_LT,$1,$3); }
-    | jct_expr '>'    jct_expr  { $$=expr_binary(TT_GT,$1,$3); }
-    | jct_expr OP_LE  jct_expr  { $$=expr_binary(TT_LE,$1,$3); }
-    | jct_expr OP_GE  jct_expr  { $$=expr_binary(TT_GE,$1,$3); }
+    | cmp_expr OP_EQ  jct_expr  { $$=rk_chain_cmp($1,TT_EQ,$3); }
+    | cmp_expr OP_NE  jct_expr  { $$=rk_chain_cmp($1,TT_NE,$3); }
+    | cmp_expr '<'    jct_expr  { $$=rk_chain_cmp($1,TT_LT,$3); }
+    | cmp_expr '>'    jct_expr  { $$=rk_chain_cmp($1,TT_GT,$3); }
+    | cmp_expr OP_LE  jct_expr  { $$=rk_chain_cmp($1,TT_LE,$3); }
+    | cmp_expr OP_GE  jct_expr  { $$=rk_chain_cmp($1,TT_GE,$3); }
     | jct_expr OP_SEQ jct_expr  { $$=expr_binary(TT_LEQ,$1,$3); }
     | jct_expr OP_SNE jct_expr  { $$=expr_binary(TT_LNE,$1,$3); }
     | jct_expr OP_SMATCH LIT_REGEX
@@ -1136,7 +1205,7 @@ dor_expr
     ;
 range_expr
     : add_expr OP_RANGE    add_expr { $$=expr_binary(TT_TO,$1,$3); }
-    | add_expr OP_RANGE_EX add_expr { $$=expr_binary(TT_TO,$1,$3); }
+    | add_expr OP_RANGE_EX add_expr { $$=rk_range_ex($1,$3); }
     | add_expr                      { $$=$1; }
     ;
 add_expr
@@ -1162,6 +1231,7 @@ mul_expr
 unary_expr
     : '-' unary_expr %prec UMINUS  { $$=expr_unary(TT_MNS,$2); }
     | '!' unary_expr               { $$=expr_unary(TT_NOT,$2); }
+    | CARET unary_expr             { tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0; $$=rk_range_ex(z,$2); }
     | postfix_expr                 { $$=$1; }
     ;
 postfix_expr : call_expr { $$=$1; } ;

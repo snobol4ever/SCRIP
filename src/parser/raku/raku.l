@@ -61,6 +61,8 @@ WS       [ \t\r]
 "while"         { return KW_WHILE; }
 "for"           { return KW_FOR; }
 "given"         { return KW_GIVEN; }
+"without"       { return KW_WITHOUT; }
+"with"          { return KW_WITH; }
 "when"          { return KW_WHEN; }
 "default"       { return KW_DEFAULT; }
 "sub"           { return KW_SUB; }
