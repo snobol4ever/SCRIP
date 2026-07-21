@@ -2400,6 +2400,137 @@ my $o = C.new;
 $o.n(9) if 1;
 EOF
 
+raku "mod_with_defined" "yes" << 'EOF'
+my $x = 5;
+say "yes" with $x;
+EOF
+
+raku "mod_with_undef_skips" "end" << 'EOF'
+my $y;
+say "nope" with $y;
+say "end";
+EOF
+
+raku "mod_with_topicalizes" "42" << 'EOF'
+my $x = 42;
+say $_ with $x;
+EOF
+
+raku "mod_without_undef_fires" "gone" << 'EOF'
+my $y;
+say "gone" without $y;
+EOF
+
+raku "mod_without_defined_skips" "end" << 'EOF'
+my $x = 3;
+say "nope" without $x;
+say "end";
+EOF
+
+raku "mod_with_zero_is_defined" "z" << 'EOF'
+my $x = 0;
+say "z" with $x;
+EOF
+
+raku "mod_with_expr_head" "$(printf '7')" << 'EOF'
+my $x = 7;
+my $r = 0;
+$r = $_ with $x;
+say $r;
+EOF
+
+raku "mod_without_expr_head" "9" << 'EOF'
+my $y;
+my $r = 0;
+$r = 9 without $y;
+say $r;
+EOF
+
+raku "chain_cmp_in_range" "in" << 'EOF'
+my $x = 5;
+if 1 < $x < 10 { say "in" }
+EOF
+
+raku "chain_cmp_out_high" "out" << 'EOF'
+my $x = 50;
+if 1 < $x < 10 { say "bad" } else { say "out" }
+EOF
+
+raku "chain_cmp_out_low" "out" << 'EOF'
+my $x = 1;
+if 1 < $x < 10 { say "bad" } else { say "out" }
+EOF
+
+raku "chain_cmp_le_inclusive" "in" << 'EOF'
+my $x = 1;
+if 1 <= $x < 10 { say "in" }
+EOF
+
+raku "chain_cmp_descending" "gt" << 'EOF'
+my $x = 5;
+if 10 > $x > 1 { say "gt" }
+EOF
+
+raku "chain_cmp_unless" "fires" << 'EOF'
+my $x = 5;
+unless 1 < $x < 3 { say "fires" }
+EOF
+
+raku "chain_cmp_triple" "yes" << 'EOF'
+if 1 < 2 < 3 < 4 { say "yes" }
+EOF
+
+raku "chain_cmp_quad_false" "out" << 'EOF'
+if 1 < 2 < 9 < 4 { say "bad" } else { say "out" }
+EOF
+
+raku "chain_cmp_mixed_ops" "m" << 'EOF'
+my $a = 5;
+if 1 < $a == 5 { say "m" }
+EOF
+
+raku "mod_given_topicalizes" "42" << 'EOF'
+say $_ given 42;
+EOF
+
+raku "mod_given_var" "$(printf 'val is 7')" << 'EOF'
+my $x = 7;
+say "val is " ~ $_ given $x;
+EOF
+
+raku "mod_given_expr_head" "9" << 'EOF'
+my $r = 0;
+$r = $_ given 9;
+say $r;
+EOF
+
+raku "mod_given_runs_once" "$(printf 'x')" << 'EOF'
+my $c = "";
+$c = $c ~ "x" given 1;
+say $c;
+EOF
+
+raku "range_ex_pointy" "$(printf '0\n1\n2\n3\n4')" << 'EOF'
+for 0 ..^ 5 -> $i { say $i }
+EOF
+
+raku "range_ex_var_end" "$(printf '0\n1\n2')" << 'EOF'
+my $n = 3;
+for 0 ..^ $n -> $i { say $i }
+EOF
+
+raku "upto_prefix_pointy" "$(printf '0\n1\n2\n3\n4')" << 'EOF'
+for ^5 -> $i { say $i }
+EOF
+
+raku "upto_prefix_topic" "$(printf '0\n1\n2')" << 'EOF'
+for ^3 { say $_ }
+EOF
+
+raku "range_ex_value" "$(printf '1\n2\n3')" << 'EOF'
+for 1 ..^ 4 -> $x { say $x }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
