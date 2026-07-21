@@ -20,6 +20,7 @@ int  g_jcon   = 0;
 long g_stno    = 0;
 long g_stcount = 0;
 long g_lastno  = 0;
+const char *g_sno_errtext = NULL;
 #define KW_CSET_MAX 16
 static struct { const char *ptr; const char *name; int len; } g_kw_cset_names[KW_CSET_MAX];
 static int g_kw_cset_count = 0;
@@ -220,6 +221,7 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     if (!strcmp(lk, "alphabet")) { extern char alphabet[257]; return BSTRVAL(alphabet, 256); }
+    if (!strcmp(lk, "errtext")) return g_sno_errtext ? STRVAL(g_sno_errtext) : STRVAL("");
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
     return NV_GET_fn(sval);
