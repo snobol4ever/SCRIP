@@ -47,8 +47,8 @@ DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t start   = to_int(i);
     int64_t len_    = to_int(n);
-    size_t blen     = strlen(STRVAL_fn);
-    size_t ncpts    = utf8_strlen(STRVAL_fn);
+    size_t blen     = (s.v == DT_S && s.slen != 0xFFFFFFFFu) ? (s.slen ? (size_t)s.slen : (STRVAL_fn?strlen(STRVAL_fn):0)) : (STRVAL_fn?strlen(STRVAL_fn):0);
+    size_t ncpts    = utf8_strlen_n(STRVAL_fn, blen);
     if (start < 1) return FAILDESCR;
     if ((size_t)start > ncpts + 1) return STRVAL(rt_str_dup(""));
     if (len_ < 0) len_ = 0;
@@ -58,7 +58,7 @@ DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
     char *r = rt_str_alloc((long)bspan);
     memcpy(r, STRVAL_fn + boff, bspan);
     r[bspan] = '\0';
-    return STRVAL(r);
+    return BSTRVAL(r, bspan);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t TRIM_fn(DESCR_t s) {
@@ -102,11 +102,11 @@ DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t REVERS_fn(DESCR_t s) {
     const char *STRVAL_fn = VARVAL_fn(s);
-    int len = (int)strlen(STRVAL_fn);
+    int len = (s.v == DT_S && s.slen != 0xFFFFFFFFu) ? (int)(s.slen ? s.slen : (STRVAL_fn?strlen(STRVAL_fn):0)) : (int)(STRVAL_fn?strlen(STRVAL_fn):0);
     char *r = rt_str_alloc(len);
     for (int i = 0; i < len; i++) r[i] = STRVAL_fn[len - 1 - i];
     r[len] = '\0';
-    return STRVAL(r);
+    return BSTRVAL(r, len);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t BCHAR_fn(DESCR_t n) {

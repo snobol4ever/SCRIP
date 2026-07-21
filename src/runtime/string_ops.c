@@ -36,24 +36,24 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
         return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(n));
     }
     const char *asp, *bsp;
-    long alc = -1;
-    if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); asp = (as.v == DT_S || as.v == DT_SNUL) ? VARVAL_fn(as) : NULL; }
+    long alc = -1; long al_auth = -1, bl_auth = -1;
+    if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); if (as.v == DT_S || as.v == DT_SNUL) { asp = VARVAL_fn(as); al_auth = (long)descr_slen(as); } else asp = NULL; }
     if (a.v == DT_S && asp) alc = rt_sxt_match(asp);
-    if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); bsp = (bs.v == DT_S || bs.v == DT_SNUL) ? VARVAL_fn(bs) : NULL; }
+    if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); if (bs.v == DT_S || bs.v == DT_SNUL) { bsp = VARVAL_fn(bs); bl_auth = (long)descr_slen(bs); } else bsp = NULL; }
     if (!asp) asp = "";
     if (!bsp) bsp = "";
-    size_t bl = strlen(bsp);
+    size_t bl = (bl_auth >= 0) ? (size_t)bl_auth : strlen(bsp);
     if (alc >= 0) {
         char *x = rt_sxt_extend((char *)asp, alc, (long)bl);
-        if (x) { memcpy(x + alc, bsp, bl); x[(size_t)alc + bl] = '\0'; rt_sxt_note(x, alc + (long)bl); return STRVAL(x); }
+        if (x) { memcpy(x + alc, bsp, bl); x[(size_t)alc + bl] = '\0'; rt_sxt_note(x, alc + (long)bl); return BSTRVAL(x, alc + (long)bl); }
     }
-    size_t al = (alc >= 0) ? (size_t)alc : strlen(asp);
+    size_t al = (alc >= 0) ? (size_t)alc : ((al_auth >= 0) ? (size_t)al_auth : strlen(asp));
     char *buf = rt_str_alloc((long)(al + bl));
     memcpy(buf, asp, al);
     memcpy(buf + al, bsp, bl);
     buf[al + bl] = '\0';
     rt_sxt_note(buf, (long)(al + bl));
-    return STRVAL(buf);
+    return BSTRVAL(buf, (long)(al + bl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {

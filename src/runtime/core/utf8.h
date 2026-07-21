@@ -18,6 +18,13 @@ static inline size_t utf8_strlen(const char *s) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline size_t utf8_strlen_n(const char *s, size_t blen) {
+    if (!s) return 0;
+    size_t off = 0, n = 0;
+    while (off < blen) { off += (size_t)utf8_seqlen((unsigned char)s[off]); n++; }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline size_t utf8_char_offset(const char *s, size_t slen, size_t ch) {
     size_t off = 0, i = 1;
     while (off < slen && i < ch) { off += (size_t)utf8_seqlen((unsigned char)s[off]); i++; }
