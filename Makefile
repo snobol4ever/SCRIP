@@ -30,7 +30,7 @@ OBJ     := /tmp/si_objs
 CC      := gcc
 CXX     := g++
 WARN    := -w
-RT_OPT  ?= -O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # runtime .so opt level; make RT_OPT="-O0 -g" restores the pre-s112 debug build (emergency/gdb-heavy hunts)
+RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # FACT RULE O0-DEV (s119): runtime .so DEFAULTS to -O0 — feature-dev builds must be FAST. -O2 is PERF-ONLY, explicit opt-in: make RT_OPT="-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer" libscrip_rt  (or PERF=1 via jcon_selfhost_build.sh). NEVER -O1/-O2 while developing features.
 CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
 CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED $(ZCFLAGS)
@@ -278,7 +278,7 @@ RT_PIC_SRCS := \
     $(SRC)/parser/pascal/pascal.lex.c \
     $(SRC)/parser/pascal/pascal_driver.c
 
-RT_OPT ?= -O2
+RT_OPT ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # FACT RULE O0-DEV (s119): default -O0; -O2 is perf-only explicit opt-in
 RT_INCS := -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
     -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer
 RT_OBJDIR := out/rt_pic
