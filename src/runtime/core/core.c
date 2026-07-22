@@ -16,6 +16,7 @@ int g_call_fastpath_off = 0;
 #include <fcntl.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <sys/resource.h>
 #include <time.h>
 #define MON_RS "\x1e"
 #define MON_US "\x1f"
@@ -1616,8 +1617,21 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
     char *fname = rt_ws_strdup(name);
     return NV_GET_fn(fname);
 }
+int core_stack_floor_raised = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
+    if (!core_stack_floor_raised) {
+        core_stack_floor_raised = 1;
+        long floor = 64L * 1024 * 1024;
+        const char *e = getenv("SCRIP_STACK");
+        if (e && e[0]) { char *ep = NULL; long ev = strtol(e, &ep, 10);
+            if (ev > 0) { if (ep && (*ep == 'k' || *ep == 'K')) ev *= 1024L; else if (ep && (*ep == 'm' || *ep == 'M')) ev *= 1024L * 1024L; floor = ev; } }
+        struct rlimit rl;
+        if (getrlimit(RLIMIT_STACK, &rl) == 0) {
+            if (rl.rlim_max != RLIM_INFINITY && (rlim_t)floor > rl.rlim_max) floor = (long)rl.rlim_max;
+            if (rl.rlim_cur == RLIM_INFINITY || (rlim_t)floor > rl.rlim_cur) { rl.rlim_cur = (rlim_t)floor; setrlimit(RLIMIT_STACK, &rl); }
+        }
+    }
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
     NV_SET_fn("ALPHABET", BSTRVAL(alphabet, 256));

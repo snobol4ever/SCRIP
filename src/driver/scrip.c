@@ -11,6 +11,7 @@
 #include <setjmp.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/resource.h>
 #include "../parser/snobol4/scrip_cc.h"
 #include "../parser/snocone/snocone_driver.h"
 #include "../parser/prolog/prolog_driver.h"
@@ -354,6 +355,19 @@ static void drive_slots_all(stage2_t * s2) {
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long parse_mem_arg(const char *s) {
+    char *end = NULL; errno = 0; long v = strtol(s, &end, 10); if (errno || end == s || v < 0) return -1;
+    if (*end == 'k' || *end == 'K') { v *= 1024L; end++; } else if (*end == 'm' || *end == 'M') { v *= 1024L * 1024L; end++; }
+    return (*end == '\0') ? v : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int apply_stack_limit(long bytes) {
+    struct rlimit rl; if (getrlimit(RLIMIT_STACK, &rl) != 0) return -1;
+    if (rl.rlim_max != RLIM_INFINITY && (rlim_t)bytes > rl.rlim_max) bytes = (long)rl.rlim_max;
+    if (rl.rlim_cur != RLIM_INFINITY && (rlim_t)bytes <= rl.rlim_cur) return 0;
+    rl.rlim_cur = (rlim_t)bytes; return setrlimit(RLIMIT_STACK, &rl);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -384,6 +398,14 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;
     }
+    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdim", argv[argi][1])) {
+        char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
+        if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -%c needs a value\n", sw); return 2; } rest = argv[++argi]; }
+        v = parse_mem_arg(rest); if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
+        if (sw == 's') { if (apply_stack_limit(v) != 0) { fprintf(stderr, "scrip: -s%ld: could not raise stack limit\n", v); return 2; } }
+        else if (sw == 'm') { extern long g_maxlngth; g_maxlngth = v; }
+        argi++;
+    }
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
     if (mode_compile_x86 && mode_run) {
         fprintf(stderr, "scrip: --compile (x86) is mutually exclusive with --run\n");
@@ -407,6 +429,11 @@ int main(int argc, char **argv)
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n"
             "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
+            "\n"
+            "Memory options (SPITBOL-compatible; value may end in k or m, e.g. -s256m -m8m):\n"
+            "  -sN              max stack space; raises RLIMIT_STACK for deep pattern backtracking (default: OS, 8m)\n"
+            "  -mN              max object size -> &MAXLNGTH (default 5m)\n"
+            "  -dN -iN          accepted for SPITBOL invocation compatibility (SCRIP's GC arena is not byte-sized)\n"
             "\n"
             "Frontend inferred from file extension:\n"
             "  .sno=SNOBOL4  .icn=Icon  .pl=Prolog  .sc=Snocone  .reb=Rebus\n"
