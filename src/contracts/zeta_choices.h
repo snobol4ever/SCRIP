@@ -215,7 +215,7 @@
 /* SG SPAN-GUTS switches (GOAL-SNOBOL4-BB.md SG ladder, Lon directive s126 + s127 "unroll DEFAULT"): the bb_match_{span,break,breakx,any,notany,span_var} family.
  * ZC_SPAN_LIT_UNROLL   — level-1 LITERAL-needle loop-unroll on/off (s125 machinery); DEFAULT ON (Lon s127).  OFF = same body at factor 1 (one char-step per iteration).
  * ZC_UNROLL_FACTOR     — chars per unrolled literal-loop iteration (s125 hardcoded 4; lifted here, s125's owed switch).
- * ZC_CSET_CHAIN_MAX    — literal needle length at or below which the compare-chain is emitted instead of the 256B membership table (s125 flagged 8 too high; A/B owed, do not blind-change).
+ * ZC_CSET_CHAIN_MAX    — literal needle length at or below which the compare-chain is emitted instead of the 256B membership table (s127 A/B RESOLVED on treebank-lit x100: MAX=8 256ms / MAX=3 239ms / MAX=2 249ms — 4-char chains lose to the table, 1-3-char chains win; pattern_bt/claws5 wash).
  * ZC_SPAN_GUTS         — VARIABLE-needle (op_sa >= 0 / span_var) membership mechanism: INLINE = emitted inner loop over the needle bytes, slen-bounded; CALL = hand-written x86 leaf
  *                        (src/runtime/rt/rt_sg_scan.S, R13/R15-aware lean convention, no C ABI dance).  Both are NUL-SAFE by explicit length — the strchr-per-char arm is DELETED
  *                        (Lon s126: strchr truncates a NUL-bearing needle AND strchr(s,0) matches the terminator, falsely accepting a NUL subject byte as a member). */
@@ -226,7 +226,7 @@
 #define ZC_UNROLL_FACTOR 4
 #endif
 #ifndef ZC_CSET_CHAIN_MAX
-#define ZC_CSET_CHAIN_MAX 8
+#define ZC_CSET_CHAIN_MAX 3
 #endif
 #define ZC_SPAN_GUTS_INLINE 0
 #define ZC_SPAN_GUTS_CALL   1
