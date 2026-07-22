@@ -2903,6 +2903,38 @@ my @a = 5, 6, 7;
 say @a.keys.elems;
 EOF
 
+raku "preinc_expr_new" "6" << 'EOF'
+my $i = 5; my $j = ++$i; say $j;
+EOF
+
+raku "preinc_expr_var" "6" << 'EOF'
+my $i = 5; my $j = ++$i; say $i;
+EOF
+
+raku "postinc_expr_old" "5" << 'EOF'
+my $i = 5; my $j = $i++; say $j;
+EOF
+
+raku "postinc_expr_var" "6" << 'EOF'
+my $i = 5; my $j = $i++; say $i;
+EOF
+
+raku "predec_expr_new" "4" << 'EOF'
+my $i = 5; my $j = --$i; say $j;
+EOF
+
+raku "postdec_expr_old" "5" << 'EOF'
+my $i = 5; say $i--;
+EOF
+
+raku "incdec_stmt_still" "5" << 'EOF'
+my $i = 3; $i++; $i++; say $i;
+EOF
+
+raku "postinc_say_arg" "7" << 'EOF'
+my $i = 7; say $i++;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

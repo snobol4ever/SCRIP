@@ -134,6 +134,15 @@ static tree_t *rk_cstyle_loop(tree_t *init, tree_t *cond, tree_t *incr, tree_t *
 static tree_t *rk_incdec(const char *var, int add) {
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     return expr_binary(TT_ASSIGN, var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one));
+}/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_post_incdec(const char *var, int add) {
+    static int __post_uid = 0; char tmp[32]; snprintf(tmp, sizeof tmp, "__post_%d", __post_uid++);
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), var_node(var)));
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    expr_add_child(seq, expr_binary(TT_ASSIGN, var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one)));
+    expr_add_child(seq, leaf_sval(TT_VAR, tmp));
+    return seq;
 }
 static tree_t *rk_destructure(ExprList *targets, tree_t *rhs_arr) {
     static int __destr_uid = 0;
@@ -557,18 +566,6 @@ stmt
     | VAR_SCALAR OP_CAT_EQ expr ';'
         { tree_t *v=var_node($1);
           $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_CAT,v,$3)); }
-    | VAR_SCALAR OP_INC ';'
-        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
-          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_ADD,var_node($1),one)); }
-    | VAR_SCALAR OP_DEC ';'
-        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
-          $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_SUB,var_node($1),one)); }
-    | OP_INC VAR_SCALAR ';'
-        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
-          $$=expr_binary(TT_ASSIGN,var_node($2),expr_binary(TT_ADD,var_node($2),one)); }
-    | OP_DEC VAR_SCALAR ';'
-        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1;
-          $$=expr_binary(TT_ASSIGN,var_node($2),expr_binary(TT_SUB,var_node($2),one)); }
     | expr ';' { $$=$1; }
     | ';' { $$=make_seq(exprlist_new()); }
     | if_stmt           { $$=$1; }
@@ -674,10 +671,6 @@ loop_stmt
     ;
 loop_incr
     : expr                { $$=$1; }
-    | VAR_SCALAR OP_INC   { $$=rk_incdec($1,1); }
-    | VAR_SCALAR OP_DEC   { $$=rk_incdec($1,0); }
-    | OP_INC VAR_SCALAR   { $$=rk_incdec($2,1); }
-    | OP_DEC VAR_SCALAR   { $$=rk_incdec($2,0); }
     ;
 for_stmt
     : KW_FOR add_expr OP_RANGE add_expr OP_ARROW VAR_SCALAR block
@@ -1559,6 +1552,10 @@ atom
           else { $$=call; } }
     | LIT_INTERP_STR  { $$=lower_interp_str($1); }
     | VAR_SCALAR      { $$=var_node($1); }
+    | OP_INC VAR_SCALAR { $$=rk_incdec($2,1); }
+    | OP_DEC VAR_SCALAR { $$=rk_incdec($2,0); }
+    | VAR_SCALAR OP_INC { $$=rk_post_incdec($1,1); }
+    | VAR_SCALAR OP_DEC { $$=rk_post_incdec($1,0); }
     | VAR_ARRAY       { $$=var_node($1); }
     | VAR_HASH        { $$=var_node($1); }
     | VAR_CAPTURE
