@@ -122,6 +122,16 @@ void rt_pl_write_canonical_cell(void *cell)
     pl_wr_set_fp((FILE *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_display_cell(void *cell)
+{
+    extern void pl_write_term_opts(Term *, int, int, int, long); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
+    pl_wr_set_fp(fh_cur_out_fp());
+    arena_mark_t cm = rt_pl_cterm_mark();
+    pl_write_term_opts(pl_cell_to_term_named((pl_cell_t *)cell), 0, 1, 0, 0);
+    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
+    pl_wr_set_fp((FILE *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_opt_is_true(Term *o) { if (!o) return 0; o = term_deref(o); if (o && o->tag == TERM_COMPOUND && o->compound.arity == 1) { Term *a = term_deref(o->compound.args[0]); return a && a->tag == TERM_ATOM && !strcmp(prolog_atom_name(a->atom_id), "true"); } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
