@@ -260,6 +260,7 @@ int rt_builtin_is_known(const char *name)
         "max", "min",
         "trim", "reverse", "repl", "map", "left", "center", "right",
         "detab", "entab", "read", "reads",
+        "sprintf", "printf",
         "iand", "ior", "ixor", "ishift", "icom",
         "table", "list", "set", "sort", "sortf", "get", "pop", "pull",
         "member", "insert", "delete", "key",
@@ -1187,6 +1188,55 @@ static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_tap_diag(const char *msg) {
     fprintf(stderr, "# %s\n", msg ? msg : ""); fflush(stderr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen) {
+    size_t cap = strlen(fmt) + 64, len = 0; char *buf = (char *)rt_ws_alloc(cap); int ai = from;
+    for (const char *p = fmt; *p; ) {
+        if (*p != '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *p++; continue; }
+        const char *start = p; p++;
+        if (*p == '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = '%'; p++; continue; }
+        char spec[64]; int sp = 0; spec[sp++] = '%';
+        while (*p == '-' || *p == '+' || *p == ' ' || *p == '0' || *p == '#') { if (sp < 60) spec[sp++] = *p; p++; }
+        long width = -1;
+        if (*p == '*') { width = (ai < nargs) ? (IS_INT_fn(args[ai]) ? (long)args[ai].i : (IS_REAL_fn(args[ai]) ? (long)args[ai].r : 0)) : 0; ai++; sp += snprintf(spec + sp, sizeof spec - sp, "%ld", width); p++; }
+        else while (*p >= '0' && *p <= '9') { if (sp < 60) spec[sp++] = *p; p++; }
+        if (*p == '.') { if (sp < 60) spec[sp++] = '.'; p++;
+            if (*p == '*') { long prec = (ai < nargs) ? (IS_INT_fn(args[ai]) ? (long)args[ai].i : (IS_REAL_fn(args[ai]) ? (long)args[ai].r : 0)) : 0; ai++; sp += snprintf(spec + sp, sizeof spec - sp, "%ld", prec); p++; }
+            else while (*p >= '0' && *p <= '9') { if (sp < 60) spec[sp++] = *p; p++; } }
+        char conv = *p; if (!conv) { if (len + 1 < cap) buf[len++] = '%'; break; } p++;
+        DESCR_t a = (ai < nargs) ? args[ai] : NULVCL; ai++;
+        char piece[512]; char sb[256]; int done = 0;
+        if (conv == 'd' || conv == 'i' || conv == 'u' || conv == 'x' || conv == 'X' || conv == 'o') {
+            long lv = IS_INT_fn(a) ? (long)a.i : (IS_REAL_fn(a) ? (long)a.r : atol(to_cstring(a, sb, sizeof sb)));
+            char cspec[68]; int cl = 0; for (int k = 0; k < sp; k++) cspec[cl++] = spec[k]; cspec[cl++] = 'l'; cspec[cl++] = conv; cspec[cl] = 0;
+            snprintf(piece, sizeof piece, cspec, lv); done = 1;
+        } else if (conv == 'e' || conv == 'E' || conv == 'f' || conv == 'F' || conv == 'g' || conv == 'G') {
+            double dv = IS_REAL_fn(a) ? a.r : (IS_INT_fn(a) ? (double)a.i : atof(to_cstring(a, sb, sizeof sb)));
+            char cspec[68]; int cl = 0; for (int k = 0; k < sp; k++) cspec[cl++] = spec[k]; cspec[cl++] = conv; cspec[cl] = 0;
+            snprintf(piece, sizeof piece, cspec, dv); done = 1;
+        } else if (conv == 'c') {
+            long lv = IS_INT_fn(a) ? (long)a.i : (IS_REAL_fn(a) ? (long)a.r : atol(to_cstring(a, sb, sizeof sb)));
+            char cspec[68]; int cl = 0; for (int k = 0; k < sp; k++) cspec[cl++] = spec[k]; cspec[cl++] = 'c'; cspec[cl] = 0;
+            snprintf(piece, sizeof piece, cspec, (int)lv); done = 1;
+        } else if (conv == 's') {
+            const char *sv = to_cstring(a, sb, sizeof sb); if (!sv) sv = "";
+            char cspec[68]; int cl = 0; for (int k = 0; k < sp; k++) cspec[cl++] = spec[k]; cspec[cl++] = 's'; cspec[cl] = 0;
+            int need = snprintf(NULL, 0, cspec, sv);
+            if (need >= (int)sizeof piece) { char *big = (char *)rt_ws_alloc((size_t)need + 1); snprintf(big, (size_t)need + 1, cspec, sv);
+                if (len + (size_t)need + 1 > cap) { cap = len + (size_t)need + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; }
+                memcpy(buf + len, big, (size_t)need); len += (size_t)need; continue; }
+            snprintf(piece, sizeof piece, cspec, sv); done = 1;
+        } else if (conv == 'b') {
+            unsigned long uv = IS_INT_fn(a) ? (unsigned long)a.i : (IS_REAL_fn(a) ? (unsigned long)a.r : (unsigned long)atol(to_cstring(a, sb, sizeof sb)));
+            char bits[72]; int bn = 0; if (uv == 0) bits[bn++] = '0'; else { char tmp[72]; int tn = 0; while (uv) { tmp[tn++] = (char)('0' + (uv & 1)); uv >>= 1; } while (tn) bits[bn++] = tmp[--tn]; } bits[bn] = 0;
+            long w = 0; int zero = 0; for (int k = 1; k < sp; k++) { if (spec[k] == '0') zero = 1; else if (spec[k] >= '1' && spec[k] <= '9') { w = w * 10 + (spec[k] - '0'); } }
+            int pad = (int)w - bn; if (pad > 0) { char pc = zero ? '0' : ' '; for (int k = 0; k < pad; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = pc; } }
+            for (int k = 0; k < bn; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = bits[k]; } continue;
+        } else { for (const char *q = start; q <= start + (p - start) - 1; q++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *q; } continue; }
+        if (done) { size_t pl = strlen(piece); if (len + pl + 1 > cap) { cap = len + pl + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } memcpy(buf + len, piece, pl); len += pl; }
+    }
+    buf[len] = 0; *outp = buf; if (outlen) *outlen = len;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2877,6 +2927,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         while (n > 0 && (s[n-1] == ' ' || s[n-1] == '\t' || s[n-1] == '\n' || s[n-1] == '\r')) n--;
         char *o = rt_ws_alloc(n + 1); memcpy(o, s, n); o[n] = '\0';
         *out = STRVAL(o); return 1;
+    }
+    if ((!strcmp(fn, "sprintf") || !strcmp(fn, "__rk_sprintf")) && nargs >= 1) {
+        char fb[512]; const char *fmt = to_cstring(args[0], fb, sizeof fb); if (!fmt) fmt = "";
+        char *r = NULL; size_t rl = 0; rk_sprintf_core(fmt, args, nargs, 1, &r, &rl);
+        *out = BSTRVAL(r, rl); return 1;
+    }
+    if ((!strcmp(fn, "printf") || !strcmp(fn, "__rk_printf")) && nargs >= 1) {
+        char fb[512]; const char *fmt = to_cstring(args[0], fb, sizeof fb); if (!fmt) fmt = "";
+        char *r = NULL; size_t rl = 0; rk_sprintf_core(fmt, args, nargs, 1, &r, &rl);
+        fwrite(r, 1, rl, stdout); *out = INTVAL(1); return 1;
     }
     if (!strcmp(fn, "array_sort") && nargs == 1) {
         const char *as = VARVAL_fn(args[0]); if (!as || !*as) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
