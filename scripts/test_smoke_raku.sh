@@ -2586,6 +2586,16 @@ my $x = 10;
 say $x;
 EOF
 
+raku "trail_mod_sub_body" "big" << 'EOF'
+sub f($x) { say "big" if $x > 3 }
+f(5);
+EOF
+
+raku "trail_mod_method_body" "hi" << 'EOF'
+class C { method m($x) { say "hi" unless $x } }
+C.new.m(0);
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
