@@ -2797,6 +2797,36 @@ repeat {
 } while $i < 10;
 EOF
 
+raku "arr_reverse" "2 1 3" << 'EOF'
+my @a = 3, 1, 2;
+say @a.reverse;
+EOF
+
+raku "arr_sort_num" "1 2 3" << 'EOF'
+my @a = 3, 1, 2;
+say @a.sort;
+EOF
+
+raku "arr_sort_str" "apple banana cherry" << 'EOF'
+my @s = "banana", "apple", "cherry";
+say @s.sort;
+EOF
+
+raku "arr_unique" "3 1 2" << 'EOF'
+my @b = 3, 1, 2, 1;
+say @b.unique;
+EOF
+
+raku "arr_method_obj_wins" "$(printf 'custom-sort\ncustom-rev')" << 'EOF'
+class Widget {
+    method sort() { return "custom-sort"; }
+    method reverse() { return "custom-rev"; }
+}
+my $w = Widget.new;
+say $w.sort;
+say $w.reverse;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
