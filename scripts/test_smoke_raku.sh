@@ -2670,6 +2670,52 @@ raku "loop_cstyle_decr" "$(printf '3\n2\n1')" << 'EOF'
 loop (my $i = 3; $i > 0; $i--) { say $i; }
 EOF
 
+raku "methname_kw_sort" "99" << 'EOF'
+class C { method sort() { return 99 } }
+my $o = C.new;
+say $o.sort;
+EOF
+
+raku "methname_kw_say_chain" "7" << 'EOF'
+class C { method say() { return 7 } }
+say C.new.say;
+EOF
+
+raku "methname_kw_map_arg" "5" << 'EOF'
+class C { method map($x) { return $x + 1 } }
+my $o = C.new;
+say $o.map(4);
+EOF
+
+raku "methname_kw_take_noparen" "5" << 'EOF'
+class C { method take() { return 5 } }
+my $o = C.new;
+say $o.take;
+EOF
+
+raku "methname_kw_return" "3" << 'EOF'
+class C { method return() { return 3 } }
+my $o = C.new;
+say $o.return();
+EOF
+
+raku "methname_kw_grep_empty_paren" "8" << 'EOF'
+class C { method grep() { return 8 } }
+my $o = C.new;
+say $o.grep();
+EOF
+
+raku "methname_kw_multi_sort" "40" << 'EOF'
+class C { multi method sort(Int $x) { return $x * 10 } }
+my $o = C.new;
+say $o.sort(4);
+EOF
+
+raku "methname_normal_still_works" "42" << 'EOF'
+class C { method go() { return 42 } }
+say C.new.go;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
