@@ -2852,6 +2852,37 @@ my @a = 3, 1, 2;
 say @a.sort.first;
 EOF
 
+raku "hash_keys" "a,b,c" << 'EOF'
+my %h = a => 1, b => 2, c => 3;
+say %h.keys.sort.join(",");
+EOF
+
+raku "hash_values" "1,2,3" << 'EOF'
+my %h = a => 1, b => 2, c => 3;
+say %h.values.sort.join(",");
+EOF
+
+raku "hash_pairs" "a:1 b:2 c:3" << 'EOF'
+my %h = a => 1, b => 2, c => 3;
+say %h.pairs.sort.join(" ");
+EOF
+
+raku "hash_kv_elems" "6" << 'EOF'
+my %h = a => 1, b => 2, c => 3;
+say %h.kv.elems;
+EOF
+
+raku "hash_keys_elems" "3" << 'EOF'
+my %h = one => 10, two => 20, three => 30;
+say %h.keys.elems;
+EOF
+
+raku "hash_method_obj_wins" "custom-keys" << 'EOF'
+class Cfg { method keys() { return "custom-keys"; } }
+my $c = Cfg.new;
+say $c.keys;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
