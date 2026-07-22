@@ -184,6 +184,15 @@ inline std::string x86_movzx_subj_byte(const char * dst, int disp) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_movzx_bir(const char * dst, const char * base, const char * idx) {
+    int g = x86_rnum(dst), bn = x86_rnum(base), in = x86_rnum(idx);
+    uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (in >= 8) rex |= 0x02; if (bn >= 8) rex |= 0x01;
+    uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
+    uint8_t sib   = (uint8_t)((0 << 6) | ((in & 7) << 3) | (bn & 7));
+    std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)0x00;
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [" + base + " + " + idx + "]\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_mov_subj_q(const char * dst, int disp) {
     int g = x86_rnum(dst);
     uint8_t rex = 0x48 | 0x01; if (g >= 8) rex |= 0x04;
@@ -1071,7 +1080,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64 };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -1120,7 +1129,12 @@ inline void x86_parse(const xop & x, opnd & o) {
     { char ns[32]; int k = 0; for (const char * q = s; *q && k < 31; q++) if (*q != ' ') ns[k++] = *q; ns[k] = 0;
       if (!strncmp(ns, "[r13+rcx+", 9)) { o.kind = XK_R13RCX; o.off = atoi(ns + 9); return; }
       if (!strcmp(ns, "[r13+rcx]")) { o.kind = XK_R13RCX; o.off = 0; return; }
-      if (!strcmp(ns, "[r10]"))     { o.kind = XK_R10MIR; return; } }
+      if (!strcmp(ns, "[r10]"))     { o.kind = XK_R10MIR; return; }
+      { const char * pp = strchr(ns, '+'); size_t nn = strlen(ns);
+        if (ns[0] == '[' && pp && nn >= 3 && ns[nn - 1] == ']' && !strchr(pp + 1, '+') && !strchr(ns, '*')) {
+          size_t bl = (size_t)(pp - (ns + 1)); if (bl > 7) bl = 7; char bb[8]; memcpy(bb, ns + 1, bl); bb[bl] = 0;
+          size_t il = (size_t)((ns + nn - 1) - (pp + 1)); if (il > 7) il = 7; char ii[8]; memcpy(ii, pp + 1, il); ii[il] = 0;
+          if (x86_is_reg(bb) && x86_is_reg(ii)) { memcpy(o.base, bb, bl + 1); memcpy(o.idx, ii, il + 1); o.kind = XK_MEMBI; return; } } } }
     if (!strcmp(s, "[rip + __]"))              { o.kind = XK_RIPSEAL; return; }
     if (!strncmp(s, "f64:", 4))                {
         o.kind = XK_IMM; o.imm = 0; o.txt = s; { unsigned long long bb = strtoull(s + 4, 0, 10); memcpy(&o.imm, &bb, sizeof(long) < 8 ? sizeof(long) : 8); } o.off = 1; return;
@@ -1322,7 +1336,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
                 a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
         abort();
     }
-    if (!strcmp(mnem, "movzx"))  { return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0); }
+    if (!strcmp(mnem, "movzx"))  { if (b.kind == XK_MEMBI) return x86_movzx_bir(a.txt, b.base, b.idx); return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0); }
     if (!strcmp(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
     if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
     if (!strcmp(mnem, "movsd"))  {
