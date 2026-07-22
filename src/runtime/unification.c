@@ -94,10 +94,12 @@ int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
-    extern void pl_write(Term *);
+    extern void pl_write(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
+    pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
     pl_write(pl_cell_to_term((pl_cell_t *)cell));
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
+    pl_wr_set_fp((FILE *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
@@ -845,6 +847,13 @@ int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell) {
     int mark = pl_trail_mark(&g_pl_trail);
     counter = pl_numbervars_walk((pl_cell_t *)term_cell, counter, var_id, &g_pl_trail);
     if (!pl_unify_term_into_cell((pl_cell_t *)end_cell, term_new_int(counter), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_numbervars1_cell(void *term_cell) {
+    extern pl_trail_t g_pl_trail;
+    int var_id = prolog_atom_intern("$VAR");
+    pl_numbervars_walk((pl_cell_t *)term_cell, 0, var_id, &g_pl_trail);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
