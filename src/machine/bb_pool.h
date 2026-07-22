@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 typedef uint8_t * bb_buf_t;
-#define BB_POOL_SIZE   (4 * 1024 * 1024)
+#define BB_POOL_SIZE   (16 * 1024 * 1024)
 void     bb_pool_init    (void);
 int      bb_in_pool      (const void * p);
 bb_buf_t bb_alloc        (size_t size);

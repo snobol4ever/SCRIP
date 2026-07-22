@@ -182,7 +182,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *fa = args->items[0]; int isf = fa && fa->t == TT_VAR && fa->v.sval && pas_is_filevar(fa->v.sval);
         int isstd = fa && fa->t == TT_VAR && fa->v.sval && pas_is_stdstream(fa->v.sval);
         const char *base = !strcmp(name, "eof") ? "__pas_eof" : "__pas_eoln";
-        if (isf && !isstd) { char fn2[32]; snprintf(fn2, sizeof fn2, "%s_f", base); return mk_fnc1(fn2, pas_tree_clone(fa)); }
+        if (isf && !isstd) { const char *fn2 = !strcmp(name, "eof") ? "__pas_eof_f" : "__pas_eoln_f"; return mk_fnc1(fn2, pas_tree_clone(fa)); }
         return mk_fnc0(base);
     }
     if (name && (!strcmp(name, "GetBufCh") || !strcmp(name, "getbufch")) && args && args->count >= 1) {
