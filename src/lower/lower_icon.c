@@ -10,7 +10,11 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
+    /* ICN-BREAK-CHAIN: stack of enclosing (exit,next) so `break expr` can target an outer loop.
+       Pushed around each loop body; `break break …` exits that many nested loops. */
+    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; int loop_sp;
 } icx_t;
+#define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
 static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
@@ -489,7 +493,30 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], ret, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); *res = ret; return entry; }
         *res = ret; return ret; }
     case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-    case TT_LOOP_BREAK: { IR_t * lx = cx->loop_exit; IR_t * nd = lx ? build(cx, IR_GOTO, lx, lx) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
+    case TT_LOOP_BREAK: {
+        /* `break` exits the current loop.  In Icon `break expr` evaluates expr in the ENCLOSING
+           loop's context, so a chain of bare breaks (`break break …`) exits that many nested
+           loops.  Count the leading break-chain depth k and target the k-th enclosing loop. */
+        int k = 1; const tree_t * ch = (t->n >= 1) ? t->c[0] : NULL;
+        while (ch && ch->t == TT_LOOP_BREAK) { k++; ch = (ch->n >= 1) ? ch->c[0] : NULL; }
+        if (!ch) {
+            int idx = cx->loop_sp - k;
+            IR_t * lx = (idx >= 0 && idx < ICN_LOOP_STK_MAX) ? cx->loop_stk_exit[idx] : NULL;
+            if (!lx) lx = cx->loop_exit;   /* fewer enclosing loops than breaks: fall to outermost known */
+            IR_t * nd = lx ? build(cx, IR_GOTO, lx, lx) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd;
+        } else {
+            /* break <non-break-expr>: peel the current loop, evaluate expr in the enclosing loop's
+               context (so a break/next inside targets one loop out), then exit the current loop.
+               The expr's value is not propagated (loops here carry no break-value). */
+            IR_t * cur_exit = cx->loop_exit;
+            IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
+            int idx = cx->loop_sp - 2; IR_t * se = cx->loop_exit, * sn = cx->loop_next;
+            if (idx >= 0 && idx < ICN_LOOP_STK_MAX) { cx->loop_exit = cx->loop_stk_exit[idx]; cx->loop_next = cx->loop_stk_next[idx]; }
+            IR_t * ev = NULL; IR_t * en = lower(cx, ch, exit_goto, exit_goto, &ev);
+            cx->loop_exit = se; cx->loop_next = sn;
+            *res = en; return en;
+        }
+    }
     case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOCAL: case TT_STATIC_DECL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_INITIAL: {
@@ -850,7 +877,9 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT;
+    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, CENT, CENT, &bval);
+    cx->loop_sp--;
     lc_γ_to(cval, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
     *res = NULL; return centry;
@@ -864,7 +893,7 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT;
-    IR_t * b_entry; if (B) { IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); } else b_entry = CENT;
+    IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++; IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); cx->loop_sp--; } else b_entry = CENT;
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
     *res = NULL; return centry;
@@ -874,7 +903,9 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     const tree_t * B = (t->n > 0) ? t->c[0] : NULL;
     IR_t * H = build(cx, IR_GOTO, NULL, ω);
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ; cx->loop_next = H;
+    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
+    cx->loop_sp--;
     lc_γ_to(H, b_entry); lc_ω_to(H, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
     cx->beta = γ; *res = NULL; return H;
@@ -1133,7 +1164,9 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
         ir_operand_push(unmk, mark);
         cx->loop_next = unmk;
+        if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
         b_entry = lower(cx, B, unmk, unmk, &bval);
+        cx->loop_sp--;
         lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);   /* α-FORCE (IR_GOTO-survey protocol): the bounded body ENTERS FRESH each lap (interp.r Op_Mark — bounded ≡ fresh evaluation, never resume); promoting γ_to would β-stamp a naked generator-kind entry (if/alternation as first body stmt) = enter exhausted = statement-continue (rung35 break/next disease). Contrast unmk→gen_beta above: that IS a resume, its promotion stays. */
         b_entry = mark;
     }
