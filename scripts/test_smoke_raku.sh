@@ -2983,6 +2983,22 @@ raku "fmt_method_str" "[   hi]" << 'EOF'
 my $s = "hi"; say $s.fmt("[%5s]");
 EOF
 
+raku "starts_with_true" "1" << 'EOF'
+say "hello".starts-with("he");
+EOF
+
+raku "starts_with_false" "0" << 'EOF'
+say "hello".starts-with("xy");
+EOF
+
+raku "ends_with_true" "1" << 'EOF'
+say "hello".ends-with("lo");
+EOF
+
+raku "ends_with_false" "0" << 'EOF'
+say "hello".ends-with("xy");
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
