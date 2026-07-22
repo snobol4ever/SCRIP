@@ -275,7 +275,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_RANGE OP_RANGE_EX
 %token OP_ARROW
 %token OP_EQ OP_NE OP_LE OP_GE
-%token OP_SEQ OP_SNE
+%token OP_SEQ OP_SNE OP_SLT OP_SLE OP_SGT OP_SGE
 %token OP_AND OP_OR OP_TERNARY1 OP_TERNARY2
 %token OP_BIND
 %token OP_DOTEQ
@@ -299,7 +299,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %left  OP_OR
 %left  OP_AND
 %left  '!'
-%left  OP_EQ OP_NE '<' '>' OP_LE OP_GE OP_SEQ OP_SNE OP_SMATCH
+%left  OP_EQ OP_NE '<' '>' OP_LE OP_GE OP_SEQ OP_SNE OP_SLT OP_SLE OP_SGT OP_SGE OP_SMATCH
 %left  '|' '&'
 %left  OP_RANGE OP_RANGE_EX
 %left  '~'
@@ -1293,6 +1293,10 @@ cmp_expr
     | cmp_expr OP_GE  jct_expr  { $$=rk_chain_cmp($1,TT_GE,$3); }
     | jct_expr OP_SEQ jct_expr  { $$=expr_binary(TT_LEQ,$1,$3); }
     | jct_expr OP_SNE jct_expr  { $$=expr_binary(TT_LNE,$1,$3); }
+    | jct_expr OP_SLT jct_expr  { $$=expr_binary(TT_LLT,$1,$3); }
+    | jct_expr OP_SLE jct_expr  { $$=expr_binary(TT_LLE,$1,$3); }
+    | jct_expr OP_SGT jct_expr  { $$=expr_binary(TT_LGT,$1,$3); }
+    | jct_expr OP_SGE jct_expr  { $$=expr_binary(TT_LGE,$1,$3); }
     | jct_expr OP_SMATCH LIT_REGEX
         { tree_t *c = ast_node_new(TT_SMATCH);
           ast_push(c, $1);

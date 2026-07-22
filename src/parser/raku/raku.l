@@ -109,6 +109,10 @@ WS       [ \t\r]
 "False"         { raku_yylval.ival = 0; return LIT_INT; }
 "eq"            { return OP_SEQ; }
 "ne"            { return OP_SNE; }
+"lt"            { return OP_SLT; }
+"le"            { return OP_SLE; }
+"gt"            { return OP_SGT; }
+"ge"            { return OP_SGE; }
 [ \t]+"xx"/[^A-Za-z0-9_-]  { return OP_REP_XX; }
 [ \t]+"x"/[^A-Za-z0-9_-]   { return OP_REP_X; }
 "div"           { return OP_DIV; }
