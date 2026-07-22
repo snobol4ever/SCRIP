@@ -17,7 +17,7 @@ typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char 
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SNO_EXPR_MAX 4096
-static struct { const char * name; const tree_t * expr; } g_sno_exprs[SNO_EXPR_MAX];
+static struct { const char * name; const tree_t * expr; int salt; } g_sno_exprs[SNO_EXPR_MAX];
 static int g_sno_nexpr = 0;
 static int g_sno_expr_salt = 0;
 void sno_expr_salt_next(void) { g_sno_expr_salt++; }
@@ -72,12 +72,19 @@ static tree_t * sfind_expr(const tree_t * s, const char * tag) { const tree_t * 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_reg_var(const char * nm) { if (nm && nm[0] && nm[0] != '&') global_register(lp_strdup(nm)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_expr_eq(const tree_t * a, const tree_t * b) {
+    if (a == b) return 1; if (!a || !b) return 0; if (a->t != b->t || a->n != b->n) return 0; if (a->v.ival != b->v.ival) return 0;
+    for (int i = 0; i < a->n; i++) if (!sno_expr_eq(a->c[i], b->c[i])) return 0; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_expr_collect(const tree_t * expr) {
     if (!expr) sno_fatal("unevaluated-expression operator (*) with no operand", NULL);
+    for (int i = 0; i < g_sno_nexpr; i++) if (g_sno_exprs[i].salt == g_sno_expr_salt && sno_expr_eq(g_sno_exprs[i].expr, expr)) return g_sno_exprs[i].name;
     if (g_sno_nexpr >= SNO_EXPR_MAX) sno_fatal("too many unevaluated expressions (*) in one program", NULL);
     char buf[32]; if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPR$%dF%d", g_sno_nexpr, g_sno_expr_salt); else snprintf(buf, sizeof buf, "EXPR$%d", g_sno_nexpr);
     g_sno_exprs[g_sno_nexpr].name = lp_strdup(buf);
     g_sno_exprs[g_sno_nexpr].expr = expr;
+    g_sno_exprs[g_sno_nexpr].salt = g_sno_expr_salt;
     return g_sno_exprs[g_sno_nexpr++].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1535,6 +1542,7 @@ static int sno_pat_right_sealed(const tree_t * t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_pat_collect(const tree_t * pat) {
+    for (int i = 0; i < g_sno_npat; i++) if (sno_expr_eq(g_sno_pats[i].pat, pat)) return g_sno_pats[i].name;
     if (g_sno_npat >= SNO_PAT_MAX) sno_fatal("too many stored patterns in one program", NULL);
     char buf[32]; snprintf(buf, sizeof buf, "PAT$%d", g_sno_npat);
     g_sno_pats[g_sno_npat].name = lp_strdup(buf);
