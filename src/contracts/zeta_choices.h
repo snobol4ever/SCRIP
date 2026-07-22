@@ -233,6 +233,16 @@
 #ifndef ZC_SPAN_GUTS
 #define ZC_SPAN_GUTS ZC_SPAN_GUTS_INLINE
 #endif
+/* ZC_LIT_GUTS — LITERAL-needle (op_sa < 0) guts mechanism, the A/B/C flavor switch (Lon directive s128: "100% loop un-rolling versus INLINE versus CALL" on the match-only pair).  UNROLL = the s125
+ * unrolled chain/table machinery (DEFAULT — today's bytes, gated byte-identical); INLINE = the SAME emitted inner needle-loop as the ZC_SPAN_GUTS INLINE arm, needle bytes reached RO ([rip+.Sn] TEXT /
+ * movabs sval BINARY — sval lives on the pattern header's rcp, blob-lifetime-stable), length an imm32; CALL = the rt_sg_scan.S leafs with the RO needle pointer + imm32 length.  All three respect the
+ * R13=Σ/R14=δ/R15=Δ contract.  bb_match_breakx keeps UNROLL-only this rung (β-extension arm doubles the surface; neither match-only program uses BREAKX). */
+#define ZC_LIT_GUTS_UNROLL 0
+#define ZC_LIT_GUTS_INLINE 1
+#define ZC_LIT_GUTS_CALL   2
+#ifndef ZC_LIT_GUTS
+#define ZC_LIT_GUTS ZC_LIT_GUTS_UNROLL
+#endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if ZC_COLLECTION == ZC_COL_GC
 #error "ZC_COL_GC is a stub until GC-4 lands (ARCH-ZETA-LOCAL-STORAGE.md section 6e)"
