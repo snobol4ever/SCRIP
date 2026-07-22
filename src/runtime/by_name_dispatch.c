@@ -514,6 +514,16 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
     if (!strcmp(meth, "starts-with") && nmargs >= 1) { char nb[128]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; size_t ln = strlen(nd); *out = INTVAL((ln <= n && !strncmp(s, nd, ln)) ? 1 : 0); return 1; }
     if (!strcmp(meth, "ends-with") && nmargs >= 1) { char nb[128]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; size_t ln = strlen(nd); *out = INTVAL((ln <= n && !strncmp(s + (n - ln), nd, ln)) ? 1 : 0); return 1; }
+    if (!strcmp(meth, "subst") && nmargs >= 1) {
+        char nb[256]; const char *needle = to_cstring(margs[0], nb, sizeof nb); if (!needle) needle = "";
+        char rb[256]; const char *repl = (nmargs >= 2) ? to_cstring(margs[1], rb, sizeof rb) : ""; if (!repl) repl = "";
+        size_t nl = strlen(needle), rl = strlen(repl);
+        const char *hit = (nl > 0) ? strstr(s, needle) : NULL;
+        if (!hit) { char *o = (char *)rt_ws_alloc(n + 1); memcpy(o, s, n + 1); *out = STRVAL(o); return 1; }
+        size_t pre = (size_t)(hit - s); char *o = (char *)rt_ws_alloc(n - nl + rl + 1);
+        memcpy(o, s, pre); memcpy(o + pre, repl, rl); memcpy(o + pre + rl, hit + nl, n - pre - nl); o[n - nl + rl] = '\0';
+        *out = STRVAL(o); return 1;
+    }
     if (!strcmp(meth, "index") && nmargs >= 1) {
         char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; const char *hit = strstr(s, nd); *out = hit ? INTVAL((long)(hit - s)) : NULVCL; return 1;
     }
