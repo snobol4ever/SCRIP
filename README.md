@@ -417,7 +417,9 @@ The pure pattern-match programs `corpus/programs/snobol4/demo/{claws5-match,tree
 (one big anchored match, zero side effects; needles fold 100% frozen-LITERAL) measured under
 the four `ZC_*` literal-guts flavors of `bb_match_{span,break,any,notany}`: **A** = default
 (compare-chain ≤ `ZC_CSET_CHAIN_MAX`=3, else 256-byte membership table, subject step unrolled
-×`ZC_UNROLL_FACTOR`=4) · **A∞** = unlimited compare-chain (`ZC_CSET_CHAIN_MAX=256`: every
+×`ZC_UNROLL_FACTOR`=4) · **R** = `ZC_LIT_GUTS=RANGE` (cset coalesced into contiguous RANGES at
+emit; single byte = `cmp/je`, run = unsigned-sub trick `mov eax,esi; sub; cmp; jbe`; claws5's
+36-char cset = 2 range tests) · **A∞** = unlimited compare-chain (`ZC_CSET_CHAIN_MAX=256`: every
 literal cset a full inline chain, 36-char csets = 36 compares) · **B** = `ZC_LIT_GUTS=INLINE`
 (emitted inner needle-loop, RO needle) · **C** = `ZC_LIT_GUTS=CALL` (`rt_sg_scan.S` R13/R15-aware
 lean leafs). All flavors ride R13=Σ/R14=δ/R15=Δ. In-program `TIME()` CPU ms (slurp/compile/startup
@@ -428,11 +430,13 @@ reps; `wall` = whole-process shell ms. SPITBOL = official x64 `sbl -b -d512m -i6
 | program | engine | slurp ms | match ms | per-match ms | wall ms |
 |---|---|--:|--:|--:|--:|
 | claws5-match | **A (chain≤3+table) m4** | 14 | 39 | **0.195** | **65** |
+| claws5-match | R (range chain) m4 | 13 | 44 | 0.220 | 69 |
 | claws5-match | A∞ (full chain) m4 | 14 | 64 | 0.320 | 89 |
 | claws5-match | B (INLINE) m4 | 14 | 141 | 0.705 | 171 |
 | claws5-match | C (CALL) m4 | 14 | 144 | 0.720 | 174 |
 | claws5-match | SPITBOL | 13 | 45 | 0.225 | 68 |
 | treebank-match | A m4 | 78 | 84 | 1.680 | 204 |
+| treebank-match | R m4 | 74 | 78 | 1.560 | 191 |
 | treebank-match | A∞ m4 | 77 | 96 | 1.920 | 213 |
 | treebank-match | B m4 | 76 | 95 | 1.900 | 211 |
 | treebank-match | C m4 | 76 | 103 | 2.060 | 218 |
@@ -442,9 +446,10 @@ reps; `wall` = whole-process shell ms. SPITBOL = official x64 `sbl -b -d512m -i6
 `FINDING-2026-07-22-CLAUDE-SN4-SG-ABC-LIT-GUTS-UNROLL-VS-INLINE-VS-CALL.md`.)
 **Readings:** on long csets (claws5's 10/26/36-char) the 256B **table wins everything** and
 SCRIP beats SPITBOL per-match (0.195 vs 0.225) *and* on whole-process wall (65 vs 68, compile
-included); the **full chain beats INLINE/CALL** (0.32 vs 0.71 — chains do beat per-char loops,
-confirming the old chains-beat-strchr report) **but loses to the table by 60%**, so the
-chain-then-table ladder with a small chain cap stands. treebank's flavor spread is only ~20%
+included); the ladder is **table (0.195) > range-chain (0.220, ≈SPITBOL) > full byte-chain (0.32) >
+INLINE/CALL (0.71)** — chains do beat per-char loops (the old chains-beat-strchr report holds),
+ranges beat chains by 45%, and the L1-hot table's single load-compare-branch still edges the
+range tests' extra branch per range by ~15%; the chain-≤3-then-table ladder stands. treebank's flavor spread is only ~20%
 — its 2.2–2.6× gap vs SPITBOL is **not in the cset guts** but in the recursive `*group`/ARBNO
 backtracking machinery (SPD-2/BP-9) **and in slurp**: SCRIP's per-line `src = src line CHAR(10)`
 costs 78 ms vs SPITBOL's 31 (claws5's CHAR-free slurp is at parity, 14 vs 13 — the delta is
