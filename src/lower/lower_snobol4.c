@@ -877,8 +877,12 @@ static const char * sno_cset_fold(const tree_t * a) {
     if (!a) return NULL;
     if (a->t == TT_QLIT) return a->v.sval ? a->v.sval : "";
     if (a->t == TT_KEYWORD && a->v.sval) {
-        if (!strcmp(a->v.sval, "LCASE") || !strcmp(a->v.sval, "lcase")) return "abcdefghijklmnopqrstuvwxyz";
-        if (!strcmp(a->v.sval, "UCASE") || !strcmp(a->v.sval, "ucase")) return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        static const struct { const char * n; const char * v; } kc[] = { { "lcase", "abcdefghijklmnopqrstuvwxyz" }, { "ucase", "ABCDEFGHIJKLMNOPQRSTUVWXYZ" }, { "digits", "0123456789" }, { "ht", "\t" }, { "lf", "\n" }, { "nl", "\n" }, { "vt", "\x0B" }, { "ff", "\x0C" }, { "cr", "\r" }, { "esc", "\x1B" } };
+        char lk[16]; size_t li = 0; for (; a->v.sval[li] && li < sizeof lk - 1; li++) lk[li] = (a->v.sval[li] >= 'A' && a->v.sval[li] <= 'Z') ? (char)(a->v.sval[li] - 'A' + 'a') : a->v.sval[li]; lk[li] = 0;
+        for (size_t k = 0; k < sizeof kc / sizeof *kc; k++) if (!strcmp(lk, kc[k].n)) return kc[k].v;
+    }
+    if (a->t == TT_FNC && a->v.sval && (!strcmp(a->v.sval, "CHAR") || !strcmp(a->v.sval, "char")) && a->n == 1 && a->c[0] && a->c[0]->t == TT_ILIT && a->c[0]->v.ival >= 1 && a->c[0]->v.ival <= 255) {
+        char * cb = (char *) malloc(2); if (!cb) return NULL; cb[0] = (char)(unsigned char) a->c[0]->v.ival; cb[1] = 0; return cb;
     }
     if (a->t == TT_VAR && a->v.sval) return sno_cconst_lookup(a->v.sval);
     if (a->t == TT_SEQ || a->t == TT_CAT) {
