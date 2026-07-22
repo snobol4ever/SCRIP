@@ -265,7 +265,7 @@ int rt_builtin_is_known(const char *name)
         "__apply__",
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
-        "__rk_arr_xx", "__rk_arr_at",
+        "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -2576,6 +2576,40 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    if (!strcmp(fn, "__rk_arr_sort") && nargs >= 1) {
+        const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
+        size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
+        int nel = 0, cap = nargs * 64;
+        for (int i = 0; i < nargs; i++) {
+            char scratch[64];
+            const char *cs = to_cstring(args[i], scratch, sizeof scratch);
+            const char *seg = cs;
+            for (;;) {
+                const char *nx = strchr(seg, SOH);
+                size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+                if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+                if (!nx) break;
+                seg = nx + 1;
+            }
+        }
+        for (int a = 1; a < nel; a++) {
+            const char *keys = els[a]; size_t keyl = lens[a]; int b = a - 1;
+            while (b >= 0) {
+                const char *xs = els[b]; const char *ys = keys; char *xe; char *ye;
+                long long xi = strtoll(xs, &xe, 10); long long yi = strtoll(ys, &ye, 10);
+                int both_num = (*xe == '\0' && xe != xs && *ye == '\0' && ye != ys);
+                int cmp = both_num ? (xi > yi ? 1 : xi < yi ? -1 : 0) : strcmp(xs, ys);
+                if (cmp <= 0) break;
+                els[b + 1] = els[b]; lens[b + 1] = lens[b]; b--;
+            }
+            els[b + 1] = keys; lens[b + 1] = keyl;
+        }
+        size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
+        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
+        buf[p] = '\0';
+        *out = STRVAL(buf); return 1;
+    }
     if (!strcmp(fn, "sum") && nargs >= 1) {
         long long isum = 0; double rsum = 0.0; int any_real = 0;
         for (int i = 0; i < nargs; i++) {
@@ -3076,6 +3110,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
         }
         if (nargs >= 2 && args[0].v != DT_DATA && rt_str_method(mname0, args[0], &args[2], nargs - 2, out)) return 1;
+        if (args[0].v != DT_DATA && mname0) {
+            const char *rtn = VARVAL_fn(args[0]);
+            int is_dat_recv = (rtn && dat_find_type(rtn));
+            if (!is_dat_recv) {
+                int is_arrm = !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
+                           || !strcmp(mname0, "elems") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
+                           || !strcmp(mname0, "head") || !strcmp(mname0, "tail");
+                if (is_arrm) {
+                    const char *afn = !strcmp(mname0, "sort") ? "__rk_arr_sort" : mname0;
+                    int total = 1 + (nargs - 2);
+                    DESCR_t *fa = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+                    if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = args[0]; }
+                    else { fa[0] = args[0]; for (int k = 0; k < nargs - 2; k++) fa[1 + k] = args[2 + k]; }
+                    extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+                    if (script_try_call_builtin_by_name(afn, fa, total, out)) return 1;
+                }
+            }
+        }
         if (args[0].v != DT_DATA) {
             const char *tname = VARVAL_fn(args[0]);
             extern int rt_proc_has_native_fn(const char *name);
