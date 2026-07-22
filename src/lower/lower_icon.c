@@ -83,6 +83,7 @@ static int is_resumable(const tree_t * t) {
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res);
 static int icn_subtree_has_suspend(const tree_t *n);
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -113,6 +114,21 @@ static int icn_arg_is_scan_fn(const tree_t * a) {
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (name && !strcmp(name, "seq")) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
+    if (name && !strcmp(name, "name") && nargs == 1) {
+        const tree_t * na = t->c[argbase];
+        if (na && na->t == TT_VAR && na->v.sval && na->v.sval[0] != '&') {
+            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = na->v.sval; if (res) *res = nd; return nd;
+        }
+        IR_t * vr = NULL; IR_t * ve = lower_lvalue_var(cx, na, ω, &vr);
+        if (ve && vr) {
+            IR_t * ncall = build(cx, IR_CALL, γ, ω); IR_LIT(ncall).sval = (char *) name; if (res) *res = ncall;
+            IR_t * argβ = cx->beta;
+            lc_γ_to(vr, ncall); ir_operand_push(ncall, vr);
+            if (argβ && argβ != ω) { ω_to(ncall, argβ); cx->beta = argβ; }
+            else cx->beta = ω;
+            return ve;
+        }
+    }
     int gb = name && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
                    || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal"))));   /* 1-arg implicit-subject forms retag to IR_SCAN_* (icn_retag_scan_body) whose templates suspend/resume -- they are generators and need the same beta/resume wiring as the 2-arg explicit-subject forms (scan1 tables: every writes(hdr | upto(skips) | nl) generated one value) */
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;

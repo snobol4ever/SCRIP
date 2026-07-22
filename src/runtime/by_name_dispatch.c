@@ -4295,6 +4295,15 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     *out = STRVAL(t); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long rt_record_image_id(void *inst)
+{
+    static void *ptrs[4096]; static long ids[4096]; static int n_ent = 0; static long next_id = 0;
+    for (int i = 0; i < n_ent; i++) if (ptrs[i] == inst) return ids[i];
+    if (n_ent < 4096) { ptrs[n_ent] = inst; ids[n_ent] = ++next_id; return ids[n_ent++]; }
+    return ++next_id;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
 {
     const char *sv = VARVAL_fn(args[0]);
@@ -4729,11 +4738,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             snprintf(buf,256,"file(?)"); *out = STRVAL(buf); return 1;
         }
         if (IS_INT_fn(av)) {
-            int idx = (int)av.i;
-            if (idx >= 0 && idx < FH_MAX && fh_name[idx]) {
-                snprintf(buf,256,"file(%s)",fh_name[idx]);
-                *out = STRVAL(buf); return 1;
-            }
             snprintf(buf,256,"%lld",(long long)av.i); *out = STRVAL(buf); return 1;
         }
         if (IS_REAL_fn(av))      { real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
@@ -4745,7 +4749,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                           ? (int)av.u->fields[1].i : 0;
                 snprintf(buf,128,"list(%d)",cnt); *out = STRVAL(buf); return 1;
             }
-            snprintf(buf,256,"record(%s)",tname); *out = STRVAL(buf); return 1;
+            { int nf = (av.u->type ? av.u->type->nfields : 0); long id = rt_record_image_id(av.u); snprintf(buf,256,"record %s_%ld(%d)",tname,id,nf); *out = STRVAL(buf); return 1; }
         }
         if (av.v==DT_DATA)       { *out = STRVAL("record"); return 1; }
         if (av.v==DT_E) {
@@ -5733,6 +5737,22 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t lref = args[1];
         if (lref.v == DT_S && lref.s) NV_SET_fn(lref.s, rhs);
         *out = rhs; return 1;
+    }
+    if (!strcmp(fn,"name") && nargs == 1) {
+        DESCR_t a = args[0];
+        if (a.v == DT_N && a.slen == 0 && a.s && *a.s) { *out = STRVAL(rt_ws_strdup_c(a.s)); return 1; }
+        if (IS_NAMETRAP_fn(a) && a.p) {
+            VCELL_t *vc = (VCELL_t *)a.p;
+            if (vc->key && *vc->key) { *out = STRVAL(rt_ws_strdup_c(vc->key)); return 1; }
+            if (vc->sv.v == DT_N && (vc->sv.slen == 0 || vc->sv.slen == 2) && vc->len > 0) {
+                DESCR_t bn; int r1 = try_call_builtin_by_name("name", &vc->sv, 1, &bn);
+                const char *base = (r1 && bn.v == DT_S && bn.s) ? bn.s : "";
+                char sb[128]; snprintf(sb, sizeof sb, "%s[%ld:%ld]", base, (long)vc->pos, (long)(vc->pos + vc->len));
+                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+            }
+            *out = FAILDESCR; return 1;
+        }
+        *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn,"variable") && nargs == 1) {
         const char *vname = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
