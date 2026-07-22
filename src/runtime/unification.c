@@ -857,6 +857,34 @@ int rt_pl_numbervars1_cell(void *term_cell) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_acyclic_walk(pl_cell_t *c, pl_cell_t ***ppath, int *pdepth, int *pcap)
+{
+    int base = *pdepth, ret = 1;
+    for (;;) {
+        pl_cell_t *d = pl_deref(c);
+        if ((int)d->v != DT_PLREF) { ret = 1; break; }
+        int cyc = 0; for (int i = 0; i < *pdepth; i++) if ((*ppath)[i] == d) { cyc = 1; break; }
+        if (cyc) { ret = 0; break; }
+        if (*pdepth >= *pcap) { int nc = *pcap * 2; pl_cell_t **np = (pl_cell_t **)realloc(*ppath, (size_t)nc * sizeof(pl_cell_t *)); if (!np) { ret = 0; break; } *ppath = np; *pcap = nc; }
+        (*ppath)[(*pdepth)++] = d;
+        int ar = pl_arity(d); pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(d);
+        if (ar <= 0) { ret = 1; break; }
+        int bad = 0; for (int i = 0; i < ar - 1; i++) if (!pl_acyclic_walk(&aa[i], ppath, pdepth, pcap)) { bad = 1; break; }
+        if (bad) { ret = 0; break; }
+        c = &aa[ar - 1];
+    }
+    *pdepth = base; return ret;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_acyclic_cell(void *term_cell)
+{
+    if (!term_cell) return 1;
+    int cap = 256, depth = 0; pl_cell_t **path = (pl_cell_t **)malloc((size_t)cap * sizeof(pl_cell_t *));
+    if (!path) return 1;
+    int r = pl_acyclic_walk((pl_cell_t *)term_cell, &path, &depth, &cap);
+    free(path); return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_string_cell(void *term_cell, void *str_cell)
 {
     extern pl_trail_t g_pl_trail;
