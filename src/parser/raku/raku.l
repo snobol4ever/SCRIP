@@ -136,6 +136,7 @@ WS       [ \t\r]
 "//"            { return OP_DOR; }
 "+"             { return '+'; }
 "-"             { return '-'; }
+"**"            { return OP_POW; }
 "*"             { return '*'; }
 "%"             { return '%'; }
 "~"             { return '~'; }
