@@ -216,6 +216,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$print_to_atom") || !strcmp(name, "$print_to_chars") || !strcmp(name, "$print_to_codes")) return 1;
     if (!strcmp(name, "$write_term_to_atom") || !strcmp(name, "$write_term_to_chars") || !strcmp(name, "$write_term_to_codes")) return 1;
     if (!strcmp(name, "$format_to_chars") || !strcmp(name, "$format_to_codes") || !strcmp(name, "$read_from_chars") || !strcmp(name, "$read_from_codes")) return 1;
+    if (!strcmp(name, "$read_term_from_atom") || !strcmp(name, "$read_term_from_chars") || !strcmp(name, "$read_term_from_codes")) return 1;
     if (!strcmp(name, "$wot_begin") || !strcmp(name, "$wot_end") || !strcmp(name, "$wot_abort")) return 1;
     if (!strcmp(name, "$sub_atom") || !strcmp(name, "$atom_to_term") || !strcmp(name, "$read")) return 1;
     if (!strcmp(name, "$bag_prep_b") || !strcmp(name, "$bag_prep_s") || !strcmp(name, "$keysort") || !strcmp(name, "$bag_group")) return 1;
@@ -956,6 +957,9 @@ static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     return c;
 }
 static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *pl_var_cell_ptr(DESCR_t v) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(v); return (d.v == (DTYPE_t)DT_PLVAR) ? d.p : (void *)0; }
+static void pl_count_var_occ(DESCR_t t, void *target, int *cnt) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(t); if (d.v == (DTYPE_t)DT_PLVAR) { if (d.p == target) (*cnt)++; return; } if (d.v == (DTYPE_t)DT_PLREF) { int ar = (int)(d.slen & 0xFFFFu); DESCR_t *kids = (DESCR_t *)d.p; for (int i = 0; i < ar; i++) pl_count_var_occ(kids[i], target, cnt); } }
 static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern(const char *); char *o = (char *)rt_ws_alloc(n + 1); if (n) memcpy(o, s, n); o[n] = 0; DESCR_t d; d.v = DT_S; d.slen = (uint32_t)n; d.s = o; (void)prolog_atom_intern(o); return d; }
 static int pl_sink_kind(DESCR_t a) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
@@ -1893,6 +1897,30 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *e = plc_rd_entry(txt, &tval, bv, bn, &nb, 64); free(txt);
             if (!e) { *out = FAILDESCR; return 1; }
             if (plw_unify_vals(args[1], tval)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+        }
+    }
+    {
+        int src = -1;
+        if (!strcmp(fn, "$read_term_from_atom")) src = 2; else if (!strcmp(fn, "$read_term_from_chars")) src = 0; else if (!strcmp(fn, "$read_term_from_codes")) src = 1;
+        if (src >= 0 && nargs == 3) {
+            extern const char *plc_rd_entry(const char *, DESCR_t *, DESCR_t *, char (*)[64], int *, int); extern const char *prolog_atom_name(int);
+            char *txt = (src == 2) ? (char *)0 : pl_list_to_cstr(rt_pl_deref_val(args[0]), src);
+            const char *ctxt = (src == 2) ? pl_atom_str(rt_pl_deref_val(args[0])) : txt;
+            if (!ctxt) { if (txt) free(txt); rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+            DESCR_t tval; DESCR_t bv[64]; char bn[64][64]; int nb = 0;
+            const char *e = plc_rd_entry(ctxt, &tval, bv, bn, &nb, 64); if (txt) free(txt);
+            if (!e) { *out = FAILDESCR; return 1; }
+            if (!plw_unify_vals(args[1], tval)) { *out = FAILDESCR; return 1; }
+            DESCR_t opts[64]; int no = pl_list_to_arr(rt_pl_deref_val(args[2]), opts, 64);
+            if (no < 0) { *out = FAILDESCR; return 1; }
+            for (int oi = 0; oi < no; oi++) {
+                DESCR_t od = rt_pl_deref_val(opts[oi]); if (od.v != (DTYPE_t)DT_PLREF || (int)(od.slen & 0xFFFFu) != 1) continue;
+                const char *onm = prolog_atom_name((int)(od.slen >> 16)); DESCR_t oarg = ((DESCR_t *)od.p)[0]; if (!onm) continue;
+                if (!strcmp(onm, "variables")) { if (!plw_unify_vals(oarg, pl_list_from_arr(bv, nb))) { *out = FAILDESCR; return 1; } }
+                else if (!strcmp(onm, "variable_names")) { DESCR_t pr[64]; for (int i = 0; i < nb; i++) { DESCR_t two[2]; two[0] = pl_mk_atom(bn[i]); two[1] = bv[i]; pr[i] = plc_iso_comp("=", 2, two); } if (!plw_unify_vals(oarg, pl_list_from_arr(pr, nb))) { *out = FAILDESCR; return 1; } }
+                else if (!strcmp(onm, "singletons")) { DESCR_t sg[64]; int ns = 0; for (int i = 0; i < nb; i++) { void *vp = pl_var_cell_ptr(bv[i]); int c = 0; if (vp) pl_count_var_occ(tval, vp, &c); if (c == 1) { DESCR_t two[2]; two[0] = pl_mk_atom(bn[i]); two[1] = bv[i]; sg[ns++] = plc_iso_comp("=", 2, two); } } if (!plw_unify_vals(oarg, pl_list_from_arr(sg, ns))) { *out = FAILDESCR; return 1; } }
+            }
+            DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
         }
     }
     if (!strcmp(fn, "$write_to_atom") && nargs == 2) {
@@ -3677,6 +3705,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "write_term_to_atom", 3, "$write_term_to_atom" }, { "write_term_to_chars", 3, "$write_term_to_chars" }, { "write_term_to_codes", 3, "$write_term_to_codes" },
         { "format_to_chars", 3, "$format_to_chars" }, { "format_to_codes", 3, "$format_to_codes" },
         { "read_from_chars", 2, "$read_from_chars" }, { "read_from_codes", 2, "$read_from_codes" },
+        { "read_term_from_atom", 3, "$read_term_from_atom" }, { "read_term_from_chars", 3, "$read_term_from_chars" }, { "read_term_from_codes", 3, "$read_term_from_codes" },
         { "with_output_to", 2, "$with_output_to" },
         { "$wot_begin", 0, "$wot_begin" }, { "$wot_end", 1, "$wot_end" }, { "$wot_abort", 0, "$wot_abort" },
         { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
