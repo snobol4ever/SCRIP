@@ -5211,6 +5211,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             nt->dflt = src.tbl->dflt;
             nt->init = src.tbl->init;
             nt->inc  = src.tbl->inc;
+            nt->is_set = src.tbl->is_set;
             for (int b = 0; b < TABLE_BUCKETS; b++)
                 for (TBPAIR_t *p = src.tbl->buckets[b]; p; p = p->next)
                     table_set_descr(nt, p->key, p->key_descr, p->val);
