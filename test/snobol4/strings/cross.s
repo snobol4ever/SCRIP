@@ -347,13 +347,21 @@ xchain0_n13_af:
 .Lx28_239:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- mov rdi, qword ptr [rbp + 600]
- call strchr@PLT
- test rax, rax
- jne .Lx28_240
+ mov r8, qword ptr [rbp + 600]
+ mov r9d, dword ptr [rbp + 596]
+ mov edx, 0
+.Lx28_5:
+ cmp edx, r9d
+ jl .Lx28_240
  add rsp, 16
  jmp xchain0_n15_β
 .Lx28_240:
+ movzx edi, byte ptr [r8 + rdx]
+ cmp esi, edi
+ je .Lx28_6
+ add edx, 1
+ jmp .Lx28_5
+.Lx28_6:
  add r14d, 1
  jmp xchain0_n17_α
  xchain0_n19_β:

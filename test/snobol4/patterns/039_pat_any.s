@@ -140,25 +140,18 @@ main_α_body:
  xchain0_n7_α:
  mov eax, r14d
  cmp eax, r15d
- jl .Lx11_240
+ jl .Lx11_239
+ add rsp, 16
+ jmp xchain0_n3_β
+.Lx11_239:
+ movsxd rcx, r14d
+ movzx esi, byte ptr [r13+rcx]
+ lea rdi, [rip + .C0]
+ cmp byte ptr [rdi+rsi], 0
+ jne .Lx11_240
  add rsp, 16
  jmp xchain0_n3_β
 .Lx11_240:
- movsxd rcx, r14d
- movzx esi, byte ptr [r13+rcx]
- cmp esi, 97
- je .Lx11_0
- cmp esi, 101
- je .Lx11_0
- cmp esi, 105
- je .Lx11_0
- cmp esi, 111
- je .Lx11_0
- cmp esi, 117
- je .Lx11_0
- add rsp, 16
- jmp xchain0_n3_β
-.Lx11_0:
  add r14d, 1
  jmp xchain0_n8_α
  xchain0_n7_β:
@@ -263,4 +256,23 @@ add rsp, 65544
 ret
 .section .rodata
 .S0: .string "V"
+.text
+.section .rodata
+.C0:
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1
+ .byte 0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+ .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 .text
