@@ -2999,6 +2999,18 @@ raku "ends_with_false" "0" << 'EOF'
 say "hello".ends-with("xy");
 EOF
 
+raku "subst_first" "heLlo" << 'EOF'
+say "hello".subst("l","L");
+EOF
+
+raku "subst_nomatch" "hello" << 'EOF'
+say "hello".subst("xy","Z");
+EOF
+
+raku "subst_grow" "bbaa" << 'EOF'
+say "aaa".subst("a","bb");
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
