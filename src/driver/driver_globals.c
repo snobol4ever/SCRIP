@@ -6,20 +6,25 @@ const char *g_subject = "";
 #define FH_MAX 64
 FILE *fh_table[FH_MAX];
 char *fh_name[FH_MAX];
+char  fh_mode[FH_MAX];
+char  fh_type[FH_MAX];
 int   fh_init = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_ensure_init(void) {
     if (fh_init) return;
     memset(fh_table,0,sizeof fh_table);
     memset(fh_name,0,sizeof fh_name);
+    memset(fh_mode,0,sizeof fh_mode);
+    memset(fh_type,0,sizeof fh_type);
     fh_table[0]=stdin; fh_table[1]=stdout; fh_table[2]=stderr;
     fh_name[0]="&input"; fh_name[1]="&output"; fh_name[2]="&errout";
+    fh_mode[0]='r'; fh_mode[1]='w'; fh_mode[2]='w'; fh_type[0]='t'; fh_type[1]='t'; fh_type[2]='t';
     fh_init=1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!fh_table[i]){fh_table[i]=fp;fh_name[i]=NULL;return i;}
+    for(int i=3;i<FH_MAX;i++) if(!fh_table[i]){fh_table[i]=fp;fh_name[i]=NULL;fh_mode[i]=0;fh_type[i]='t';return i;}
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

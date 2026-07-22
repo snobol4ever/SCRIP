@@ -1411,6 +1411,38 @@ DESCR_t rt_pl_current_stream_gen(DESCR_t *args, int nargs, int64_t *resume) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int si; int pi; int mark; } pl_spropit_t;
+DESCR_t rt_pl_stream_property_gen(DESCR_t *args, int nargs, int64_t *resume) {
+    extern pl_trail_t g_pl_trail; extern FILE *fh_get(int); extern int prolog_atom_intern(const char *); extern void *rt_ws_alloc(size_t); extern char *fh_name[]; extern char fh_mode[]; extern char fh_type[];
+    if (nargs < 2 || !resume) return FAILDESCR;
+    if (*resume == 0) { pl_spropit_t *it0 = (pl_spropit_t *)rt_ws_alloc(sizeof *it0); it0->si = 0; it0->pi = 0; it0->mark = pl_trail_mark(&g_pl_trail); *resume = (int64_t)(intptr_t)it0; }
+    pl_spropit_t *it = (pl_spropit_t *)(intptr_t)*resume;
+    while (it->si < 64) {
+        int idx = it->si;
+        if (!fh_get(idx)) { it->si++; it->pi = 0; continue; }
+        char m = fh_mode[idx]; char ty = fh_type[idx];
+        while (it->pi < 8) {
+            int pi = it->pi++;
+            Term *prop = (Term *)0; Term *pa[1];
+            if (pi == 0) { if (idx >= 3 && fh_name[idx]) { pa[0] = term_new_atom(prolog_atom_intern(fh_name[idx])); prop = term_new_compound(prolog_atom_intern("file_name"), 1, pa); } }
+            else if (pi == 1) { pa[0] = term_new_atom(prolog_atom_intern(m == 'r' ? "read" : (m == 'a' ? "append" : "write"))); prop = term_new_compound(prolog_atom_intern("mode"), 1, pa); }
+            else if (pi == 2) { prop = term_new_atom(prolog_atom_intern(m == 'r' ? "input" : "output")); }
+            else if (pi == 3) { pa[0] = term_new_atom(prolog_atom_intern(ty == 'b' ? "binary" : "text")); prop = term_new_compound(prolog_atom_intern("type"), 1, pa); }
+            else if (pi == 4) { if (idx >= 3) { pa[0] = term_new_atom(prolog_atom_intern("true")); prop = term_new_compound(prolog_atom_intern("reposition"), 1, pa); } }
+            else if (pi == 5) { if (idx >= 3) { pa[0] = term_new_atom(prolog_atom_intern("eof_code")); prop = term_new_compound(prolog_atom_intern("eof_action"), 1, pa); } }
+            else if (pi == 6) { if (idx >= 3) { pa[0] = term_new_atom(prolog_atom_intern("block")); prop = term_new_compound(prolog_atom_intern("buffering"), 1, pa); } }
+            else if (pi == 7) { if (idx >= 3) { FILE *fp = fh_get(idx); const char *eos = "not"; if (fp && m == 'r') { if (feof(fp)) eos = "past"; else { int cpk = getc(fp); if (cpk == EOF) eos = "at"; else ungetc(cpk, fp); } } pa[0] = term_new_atom(prolog_atom_intern(eos)); prop = term_new_compound(prolog_atom_intern("end_of_stream"), 1, pa); } }
+            if (!prop) continue;
+            pl_trail_unwind(&g_pl_trail, it->mark);
+            Term *sa[1]; sa[0] = term_new_int(idx); Term *st = term_new_compound(prolog_atom_intern("$stream"), 1, sa);
+            if (pl_unify_term_into_cell((pl_cell_t *)&args[0], st, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[1], prop, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+        }
+        it->si++; it->pi = 0;
+    }
+    pl_trail_unwind(&g_pl_trail, it->mark);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     extern pl_trail_t g_pl_trail;
     dyn_cursor_t *cur = (dyn_cursor_t *)cursor;

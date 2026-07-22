@@ -412,6 +412,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "current_op") && t->n == 3) pl_ensure_gen_builtin_pred("$current_op", "current_op", 3);
         if (!strcmp(nm, "current_prolog_flag") && t->n == 2) pl_ensure_gen_builtin_pred("$current_prolog_flag", "current_prolog_flag", 2);
         if (!strcmp(nm, "current_stream") && t->n == 1) pl_ensure_gen_builtin_pred("$current_stream", "current_stream", 1);
+        if (!strcmp(nm, "stream_property") && t->n == 2) pl_ensure_gen_builtin_pred("$stream_property", "stream_property", 2);
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("fail"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return lower_ite(cx, t->c[0], pl_synth_qlit("true"), pl_synth_qlit("true"), γnext, ωfail, entry_out);
