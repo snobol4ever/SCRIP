@@ -12,8 +12,14 @@ extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
-static long sp_chainp() { return _.op_sa < 0 && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
-static long sp_tablep() { return _.op_sa < 0 && !sp_chainp(); }
+static char sp_nlb[24];
+static long sp_gu() { return _.op_sa < 0 && ZC_LIT_GUTS == ZC_LIT_GUTS_UNROLL; }
+static long sp_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
+static long sp_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
+static std::string sp_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  FRQ(_.op_sa + 8)) + x86("mov", "r9d", FR(_.op_sa + 4)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "r9d", CSK()); }
+static std::string sp_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "edx", FR(_.op_sa + 4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "edx", CSK()); }
+static long sp_chainp() { return sp_gu() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
+static long sp_tablep() { return sp_gu() && !sp_chainp(); }
 static std::string sp_memb(long u, long i) { return i >= CSK() ? x86("jmp", L(1)) + x86("def", L(10 + u)) : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(10 + u)) + sp_memb(u, i + 1); }
 static std::string sp_char(long u) { return x86("cmp", "ecx", "r15d") + x86("jge", L(1)) + x86("movzx", "esi", "[r13+rcx]") + (sp_chainp() ? sp_memb(u, 0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("je", L(1))) + x86("add", "ecx", (long)1); }
 static std::string sp_unroll(long u) { return u >= (ZC_SPAN_LIT_UNROLL ? ZC_UNROLL_FACTOR : 1) ? x86("jmp", L(0)) : sp_char(u) + sp_unroll(u + 1); }
@@ -22,12 +28,12 @@ std::string bb_match_span() {
     if (!PLATFORM_X86) return std::string();
     static char c[24];
     const void * ct = sp_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
+    if (_.op_sa < 0 && ZC_LIT_GUTS != ZC_LIT_GUTS_UNROLL) strtab_label(sp_nlb, sizeof sp_nlb, _.op_sval ? _.op_sval : "");
     return x86("comment", "IR_MATCH_SPAN")
          + x86_alpha()
-         + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE,
+         + IF(sp_gi(),
               x86("mov",    FR(_.x86_scratch_off), (long)0)
-            + x86("mov",    "r8",  FRQ(_.op_sa + 8))
-            + x86("mov",    "r9d", FR(_.op_sa + 4))
+            + sp_ndl_r8()
             + x86("def",    L(0))
             + x86("mov",    "eax", "r14d")
             + x86("add",    "eax", FR(_.x86_scratch_off))
@@ -55,16 +61,15 @@ std::string bb_match_span() {
             + x86("mov",    FR(_.x86_scratch_off + 4), "edx")
             + x86("add",    "edx", "eax")
             + x86("mov",    "r14d", "edx"))
-         + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL,
+         + IF(sp_gc(),
               x86("mov",    "edi", "r14d")
-            + x86("mov",    "rsi", FRQ(_.op_sa + 8))
-            + x86("mov",    "edx", FR(_.op_sa + 4))
+            + sp_ndl_rsi()
             + x86("call",   "rt_sg_scan_nonmember", (uint64_t)(uintptr_t)(void *)rt_sg_scan_nonmember)
             + x86("cmp",    "eax", "r14d")
             + x86_omega("jle")
             + x86("mov",    FR(_.x86_scratch_off + 4), "r14d")
             + x86("mov",    "r14d", "eax"))
-         + IF(_.op_sa < 0,
+         + IF(sp_gu(),
               IF(sp_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
             + x86("movsxd", "rcx", "r14d")
             + x86("def",    L(0))
