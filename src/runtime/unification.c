@@ -97,7 +97,7 @@ void rt_pl_write_cell(void *cell)
     extern void pl_write(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
     pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
-    pl_write(pl_cell_to_term((pl_cell_t *)cell));
+    pl_write(pl_cell_to_term_named((pl_cell_t *)cell));
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
     pl_wr_set_fp((FILE *)0);
 }
@@ -107,7 +107,7 @@ void rt_pl_writeq_cell(void *cell)
     extern void pl_writeq(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
     pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
-    pl_writeq(pl_cell_to_term((pl_cell_t *)cell));
+    pl_writeq(pl_cell_to_term_named((pl_cell_t *)cell));
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
     pl_wr_set_fp((FILE *)0);
 }
@@ -117,7 +117,7 @@ void rt_pl_write_canonical_cell(void *cell)
     extern void pl_write_canonical(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
     pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
-    pl_write_canonical(pl_cell_to_term((pl_cell_t *)cell));
+    pl_write_canonical(pl_cell_to_term_named((pl_cell_t *)cell));
     if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
     pl_wr_set_fp((FILE *)0);
 }
@@ -129,7 +129,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
     extern void pl_write_term_opts(Term *, int, int, int, long); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
     pl_wr_set_fp(fh_cur_out_fp());
     arena_mark_t cm = rt_pl_cterm_mark();
-    Term *t = term_cell ? pl_cell_to_term((pl_cell_t *)term_cell) : (Term *)0;
+    Term *t = term_cell ? pl_cell_to_term_named((pl_cell_t *)term_cell) : (Term *)0;
     Term *lst = opts_cell ? term_deref(pl_cell_to_term((pl_cell_t *)opts_cell)) : (Term *)0;
     int quoted = 0, ignore_ops = 0, numbervars = 0; long max_depth = 0;
     while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) {
@@ -509,7 +509,7 @@ void rt_pl_format_cell(const char *fmt, void *list_cell)
     if (!fmt) return;
     FILE *fd = fh_cur_out_fp(); pl_wr_set_fp(fd);
     arena_mark_t cm = rt_pl_cterm_mark();
-    Term *args = list_cell ? pl_cell_to_term((pl_cell_t *)list_cell) : (Term *)0;
+    Term *args = list_cell ? pl_cell_to_term_named((pl_cell_t *)list_cell) : (Term *)0;
     for (const char *p = fmt; *p; p++) {
         if (*p != '~') { fputc(*p, fd); continue; }
         p++;
@@ -576,6 +576,31 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
     else if (!strcmp(ty, "newline"))      ok = (ch == '\n');
     else { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     if (!ok) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell)
+{
+    extern pl_trail_t g_pl_trail;
+    if (!lower_cell || !upper_cell) return 0;
+    pl_cell_t *lo = pl_deref((pl_cell_t *)lower_cell);
+    pl_cell_t *up = pl_deref((pl_cell_t *)upper_cell);
+    int lo_bound = !pl_cell_unbound(lo), up_bound = !pl_cell_unbound(up);
+    if (!lo_bound && !up_bound) { extern void rt_pl_iso_throw_instantiation(void); rt_pl_iso_throw_instantiation(); return 0; }
+    char b0[256];
+    if (lo_bound) {
+        const char *cs = atom_op_text(pl_cell_to_term(lo), b0, sizeof b0);
+        if (!cs || !cs[0] || cs[1]) return 0;
+        char c2[2] = { (char)toupper((unsigned char)cs[0]), 0 };
+        int mark = pl_trail_mark(&g_pl_trail);
+        if (!pl_unify_term_into_cell(up, term_new_atom(prolog_atom_intern(c2)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        return 1;
+    }
+    const char *cs = atom_op_text(pl_cell_to_term(up), b0, sizeof b0);
+    if (!cs || !cs[0] || cs[1]) return 0;
+    char c2[2] = { (char)tolower((unsigned char)cs[0]), 0 };
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify_term_into_cell(lo, term_new_atom(prolog_atom_intern(c2)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
