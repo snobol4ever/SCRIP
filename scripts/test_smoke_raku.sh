@@ -2626,6 +2626,30 @@ my $i = 0;
 loop { $i = $i + 1; say $i; last if $i >= 3 }
 EOF
 
+raku "srelop_lt" "y" << 'EOF'
+sub main() { say "abc" lt "abd" ?? "y" !! "n"; }
+EOF
+
+raku "srelop_gt" "y" << 'EOF'
+sub main() { say "b" gt "a" ?? "y" !! "n"; }
+EOF
+
+raku "srelop_le_eq" "y" << 'EOF'
+sub main() { say "abc" le "abc" ?? "y" !! "n"; }
+EOF
+
+raku "srelop_ge" "y" << 'EOF'
+sub main() { say "b" ge "a" ?? "y" !! "n"; }
+EOF
+
+raku "srelop_lt_lexicographic" "y" << 'EOF'
+sub main() { say "10" lt "9" ?? "y" !! "n"; }
+EOF
+
+raku "srelop_gt_var" "y" << 'EOF'
+my $a = "zebra"; my $b = "apple"; say $a gt $b ?? "y" !! "n";
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

@@ -154,26 +154,30 @@ typedef struct ExprList {
     OP_GE = 334,                   /* OP_GE  */
     OP_SEQ = 335,                  /* OP_SEQ  */
     OP_SNE = 336,                  /* OP_SNE  */
-    OP_AND = 337,                  /* OP_AND  */
-    OP_OR = 338,                   /* OP_OR  */
-    OP_TERNARY1 = 339,             /* OP_TERNARY1  */
-    OP_TERNARY2 = 340,             /* OP_TERNARY2  */
-    OP_BIND = 341,                 /* OP_BIND  */
-    OP_DOTEQ = 342,                /* OP_DOTEQ  */
-    OP_SMATCH = 343,               /* OP_SMATCH  */
-    OP_INC = 344,                  /* OP_INC  */
-    OP_DEC = 345,                  /* OP_DEC  */
-    OP_ADD_EQ = 346,               /* OP_ADD_EQ  */
-    OP_SUB_EQ = 347,               /* OP_SUB_EQ  */
-    OP_MUL_EQ = 348,               /* OP_MUL_EQ  */
-    OP_DIV_EQ = 349,               /* OP_DIV_EQ  */
-    OP_CAT_EQ = 350,               /* OP_CAT_EQ  */
-    OP_DOR = 351,                  /* OP_DOR  */
-    OP_DIV = 352,                  /* OP_DIV  */
-    OP_REP_X = 353,                /* OP_REP_X  */
-    OP_REP_XX = 354,               /* OP_REP_XX  */
-    OP_POW = 355,                  /* OP_POW  */
-    UMINUS = 356                   /* UMINUS  */
+    OP_SLT = 337,                  /* OP_SLT  */
+    OP_SLE = 338,                  /* OP_SLE  */
+    OP_SGT = 339,                  /* OP_SGT  */
+    OP_SGE = 340,                  /* OP_SGE  */
+    OP_AND = 341,                  /* OP_AND  */
+    OP_OR = 342,                   /* OP_OR  */
+    OP_TERNARY1 = 343,             /* OP_TERNARY1  */
+    OP_TERNARY2 = 344,             /* OP_TERNARY2  */
+    OP_BIND = 345,                 /* OP_BIND  */
+    OP_DOTEQ = 346,                /* OP_DOTEQ  */
+    OP_SMATCH = 347,               /* OP_SMATCH  */
+    OP_INC = 348,                  /* OP_INC  */
+    OP_DEC = 349,                  /* OP_DEC  */
+    OP_ADD_EQ = 350,               /* OP_ADD_EQ  */
+    OP_SUB_EQ = 351,               /* OP_SUB_EQ  */
+    OP_MUL_EQ = 352,               /* OP_MUL_EQ  */
+    OP_DIV_EQ = 353,               /* OP_DIV_EQ  */
+    OP_CAT_EQ = 354,               /* OP_CAT_EQ  */
+    OP_DOR = 355,                  /* OP_DOR  */
+    OP_DIV = 356,                  /* OP_DIV  */
+    OP_REP_X = 357,                /* OP_REP_X  */
+    OP_REP_XX = 358,               /* OP_REP_XX  */
+    OP_POW = 359,                  /* OP_POW  */
+    UMINUS = 360                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -190,7 +194,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 194 "raku.tab.h"
+#line 198 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;
