@@ -4276,11 +4276,12 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     else if (IS_CSET_fn(av)) t="cset";
     else if (IS_FH_fn(av))   t="file";
     else if (av.v==DT_E) {
-        t = "function";
-        if (av.slen == 0xFFFFFFFEu && av.s) {
-            for (int _ti=0;_ti<g_stage2.proc_count;_ti++) if (g_stage2.proc_table[_ti].name && !strcmp(g_stage2.proc_table[_ti].name,av.s)){t="procedure";break;}
-            if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
-        } else t="procedure";
+        t = "procedure";
+        if (!strcmp(fn,"DATATYPE")) { t = "function";
+            if (av.slen == 0xFFFFFFFEu && av.s) {
+                for (int _ti=0;_ti<g_stage2.proc_count;_ti++) if (g_stage2.proc_table[_ti].name && !strcmp(g_stage2.proc_table[_ti].name,av.s)){t="procedure";break;}
+                if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
+            } else t="procedure"; }
     }
     else if (av.v==DT_X)     t="EXPRESSION";
     else if (av.v==DT_P)     t="PATTERN";
