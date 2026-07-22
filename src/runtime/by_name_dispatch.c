@@ -192,13 +192,14 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
-    if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes")) return 1;
+    if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes") || !strcmp(name, "$name")) return 1;
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
     if (!strcmp(name, "$write")) return 1;
     if (!strcmp(name, "$write2") || !strcmp(name, "$nl1") || !strcmp(name, "$nl0")) return 1;
     if (!strcmp(name, "$writeq2") || !strcmp(name, "$write_canonical2") || !strcmp(name, "$write_term3") || !strcmp(name, "$format3")) return 1;
     if (!strcmp(name, "$put_char") || !strcmp(name, "$tab")) return 1;
-    if (!strcmp(name, "$get_char") || !strcmp(name, "$peek_char") || !strcmp(name, "$get_code") || !strcmp(name, "$peek_code") || !strcmp(name, "$put_code")) return 1;
+    if (!strcmp(name, "$get_char") || !strcmp(name, "$peek_char") || !strcmp(name, "$get_code") || !strcmp(name, "$peek_code") || !strcmp(name, "$put_code") || !strcmp(name, "$get_byte") || !strcmp(name, "$peek_byte") || !strcmp(name, "$put_byte")) return 1;
+    if (!strcmp(name, "$unget_char") || !strcmp(name, "$unget_code") || !strcmp(name, "$unget_byte")) return 1;
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$acyclic_term")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
@@ -1617,6 +1618,32 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         o[n] = 0; DESCR_t r = pl_mk_atom(o);
         if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$name") && nargs == 2) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        DESCR_t a0 = rt_pl_deref_val(args[0]);
+        if (a0.v == DT_S || a0.v == (DTYPE_t)DT_A || a0.v == DT_I || a0.v == DT_R) {
+            char nb[64]; const char *s;
+            if (a0.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)a0.i); s = nb; }
+            else if (a0.v == DT_R) { pl_real_iso_str(a0.r, nb, sizeof nb); s = nb; }
+            else s = pl_atom_str(a0);
+            size_t n = strlen(s); DESCR_t *elems = (DESCR_t *)rt_ws_alloc((n > 0 ? n : 1) * sizeof(DESCR_t));
+            for (size_t i = 0; i < n; i++) { elems[i].v = (DTYPE_t)DT_I; elems[i].slen = 0; elems[i].i = (unsigned char)s[i]; }
+            DESCR_t lst = pl_list_from_arr(elems, (int)n);
+            if (plw_unify_vals(args[1], lst)) { *out = lst; return 1; } *out = FAILDESCR; return 1;
+        }
+        { char buf[1025]; int n; DESCR_t a1 = rt_pl_deref_val(args[1]);
+          if (a1.v == DT_S || a1.v == (DTYPE_t)DT_A) { const char *cs = pl_atom_str(a1); if (!cs) { *out = FAILDESCR; return 1; } n = (int)strlen(cs); if (n > 1024) n = 1024; memcpy(buf, cs, (size_t)n); }
+          else { DESCR_t elems[1024]; n = pl_list_to_arr(args[1], elems, 1024);
+            if (n < 0) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+            for (int i = 0; i < n; i++) { if (elems[i].v != DT_I) { *out = FAILDESCR; return 1; } buf[i] = (char)elems[i].i; } }
+          buf[n] = 0;
+          char *e1 = (char *)0, *e2 = (char *)0; long long iv = strtoll(buf, &e1, 10); double dv = strtod(buf, &e2);
+          DESCR_t r;
+          if (n > 0 && e2 > e1 && e2 && !*e2) { r.v = DT_R; r.slen = 0; r.r = dv; }
+          else if (n > 0 && e1 && !*e1 && e1 != buf) { r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = iv; }
+          else { char *o = (char *)rt_ws_alloc((size_t)n + 1); memcpy(o, buf, (size_t)n); o[n] = 0; r = pl_mk_atom(o); }
+          if (plw_unify_vals(args[0], r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
+    }
     if (!strcmp(fn, "$op") && nargs == 3) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
         extern int prolog_op_table_add(const char *, int, const char *);
@@ -1745,6 +1772,38 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         long code = IS_INT_fn(v) ? (long)v.i : (IS_REAL_fn(v) ? (long)v.r : -1);
         if (code < 0) { rt_pl_iso_throw_type("integer", v); *out = FAILDESCR; return 1; }
         fputc((int)code, f);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if ((!strcmp(fn, "$get_byte") || !strcmp(fn, "$peek_byte")) && (nargs == 1 || nargs == 2)) {
+        extern FILE *fh_cur_in_fp(void); extern FILE *fh_get(int); extern DESCR_t rt_pl_deref_val(DESCR_t);
+        int peek = !strcmp(fn, "$peek_byte"); int ridx = (nargs == 2) ? 1 : 0;
+        FILE *f; if (nargs == 2) { int idx = pl_resolve_stream_arg(args[0], peek ? "peek_byte/2" : "get_byte/2", 0); if (idx < 0) { *out = FAILDESCR; return 1; } f = fh_get(idx); if (!f) f = fh_cur_in_fp(); } else f = fh_cur_in_fp();
+        { DESCR_t bv = rt_pl_deref_val(args[ridx]); if (bv.v == DT_I) { if (bv.i < -1 || bv.i > 255) { rt_pl_iso_throw_type("in_byte", bv); *out = FAILDESCR; return 1; } } else if (bv.v == (DTYPE_t)DT_A || bv.v == DT_S) { rt_pl_iso_throw_type("in_byte", bv); *out = FAILDESCR; return 1; } }
+        int c = fgetc(f); if (peek && c != EOF) ungetc(c, f);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = (c == EOF) ? -1 : (unsigned char)c;
+        if (plw_unify_vals(args[ridx], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$put_byte") && (nargs == 1 || nargs == 2)) {
+        extern FILE *fh_cur_out_fp(void); extern FILE *fh_get(int); extern DESCR_t rt_pl_deref_val(DESCR_t);
+        FILE *f; int vidx; if (nargs == 2) { int idx = pl_resolve_stream_arg(args[0], "put_byte/2", 1); if (idx < 0) { *out = FAILDESCR; return 1; } f = fh_get(idx); if (!f) f = fh_cur_out_fp(); vidx = 1; } else { f = fh_cur_out_fp(); vidx = 0; }
+        DESCR_t v = rt_pl_deref_val(args[vidx]);
+        if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        if (v.v != DT_I) { rt_pl_iso_throw_type("byte", v); *out = FAILDESCR; return 1; }
+        if (v.i < 0 || v.i > 255) { rt_pl_iso_throw_type("byte", v); *out = FAILDESCR; return 1; }
+        fputc((int)v.i, f);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if ((!strcmp(fn, "$unget_char") || !strcmp(fn, "$unget_code") || !strcmp(fn, "$unget_byte")) && (nargs == 1 || nargs == 2)) {
+        extern FILE *fh_cur_in_fp(void); extern FILE *fh_get(int); extern DESCR_t rt_pl_deref_val(DESCR_t);
+        int kind = (!strcmp(fn, "$unget_char")) ? 0 : (!strcmp(fn, "$unget_code")) ? 1 : 2; int vidx = (nargs == 2) ? 1 : 0;
+        FILE *f; if (nargs == 2) { int idx = pl_resolve_stream_arg(args[0], (kind == 0) ? "unget_char/2" : (kind == 1) ? "unget_code/2" : "unget_byte/2", 0); if (idx < 0) { *out = FAILDESCR; return 1; } f = fh_get(idx); if (!f) f = fh_cur_in_fp(); } else f = fh_cur_in_fp();
+        DESCR_t v = rt_pl_deref_val(args[vidx]);
+        if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        int ch;
+        if (kind == 0) { const char *cs = pl_atom_str(v); if (!cs || !cs[0] || cs[1]) { rt_pl_iso_throw_type("character", v); *out = FAILDESCR; return 1; } ch = (unsigned char)cs[0]; }
+        else if (kind == 1) { if (v.v != DT_I) { rt_pl_iso_throw_type("integer", v); *out = FAILDESCR; return 1; } if (v.i == -1) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; } if (v.i < 0 || v.i > 255) { rt_pl_iso_throw_type("integer", v); *out = FAILDESCR; return 1; } ch = (int)v.i; }
+        else { if (v.v != DT_I) { rt_pl_iso_throw_type("byte", v); *out = FAILDESCR; return 1; } if (v.i == -1) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; } if (v.i < 0 || v.i > 255) { rt_pl_iso_throw_type("byte", v); *out = FAILDESCR; return 1; } ch = (int)v.i; }
+        ungetc(ch, f);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$open") && (nargs == 3 || nargs == 4)) {
@@ -3715,11 +3774,15 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "atom_to_term", 3, "$atom_to_term" }, { "char_code", 2, "$char_code" }, { "number_chars", 2, "$number_chars" }, { "number_codes", 2, "$number_codes" },
         { "read", 1, "$read" }, { "read_term", 2, "$read" },
         { "succ", 2, "$succ" }, { "plus", 3, "$plus" }, { "atom_length", 2, "$atom_length" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" },
-        { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "write", 1, "$write" },
+        { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "name", 2, "$name" }, { "write", 1, "$write" },
         { "put_char", 1, "$put_char" }, { "tab", 1, "$tab" },
         { "get_char", 1, "$get_char" }, { "get_char", 2, "$get_char" }, { "peek_char", 1, "$peek_char" }, { "peek_char", 2, "$peek_char" },
         { "get_code", 1, "$get_code" }, { "get_code", 2, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "peek_code", 2, "$peek_code" },
         { "put_code", 1, "$put_code" }, { "put_code", 2, "$put_code" },
+        { "get_byte", 1, "$get_byte" }, { "get_byte", 2, "$get_byte" }, { "peek_byte", 1, "$peek_byte" }, { "peek_byte", 2, "$peek_byte" },
+        { "put_byte", 1, "$put_byte" }, { "put_byte", 2, "$put_byte" },
+        { "unget_char", 1, "$unget_char" }, { "unget_char", 2, "$unget_char" }, { "unget_code", 1, "$unget_code" }, { "unget_code", 2, "$unget_code" },
+        { "unget_byte", 1, "$unget_byte" }, { "unget_byte", 2, "$unget_byte" },
         { "op", 3, "$op" },
         { "set_prolog_flag", 2, "$set_prolog_flag" },
         { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" },
