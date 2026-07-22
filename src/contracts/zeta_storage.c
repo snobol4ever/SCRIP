@@ -14,7 +14,7 @@ static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sva
 #define ZLS_MAX_SCOPES  4096
 #define ZLS_MAX_GRAPHS  4096
 #define ZLS_MAX_VSLOTS  4096
-#define ZLS_MAX_MARKS   8192
+#define ZLS_MAX_MARKS   65536   /* SN4 (2026-07-22): was 8192. Each entry-in-main DEFINE (labelled-range-in-main idiom) re-lowers the full statement array to build its own correctly-framed graph, re-marking every main label; beauty (~163 labels x ~39 such DEFINEs) blows 8192 mid-lowering. Sharing main's graph would cut the marks but hands a called DEFINE main's oversized frame (SIGBUS at scale) — so per-DEFINE graphs stay and the table grows instead (~24B/entry). */
 typedef struct { const IR_t * nd; int scope_id; int off; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
