@@ -2935,6 +2935,42 @@ raku "postinc_say_arg" "7" << 'EOF'
 my $i = 7; say $i++;
 EOF
 
+raku "sprintf_zeropad" "007" << 'EOF'
+say sprintf("%03d", 7);
+EOF
+
+raku "sprintf_leftjust" "42   |" << 'EOF'
+say sprintf("%-5d|", 42);
+EOF
+
+raku "sprintf_hex" "ff FF" << 'EOF'
+say sprintf("%x %X", 255, 255);
+EOF
+
+raku "sprintf_binary" "1010" << 'EOF'
+say sprintf("%b", 10);
+EOF
+
+raku "sprintf_binary_pad" "00000101" << 'EOF'
+say sprintf("%08b", 5);
+EOF
+
+raku "sprintf_float_prec" "3.14" << 'EOF'
+say sprintf("%.2f", 3.14159);
+EOF
+
+raku "sprintf_str_int" "x=5" << 'EOF'
+say sprintf("%s=%d", "x", 5);
+EOF
+
+raku "sprintf_literal_pct" "100%" << 'EOF'
+say sprintf("100%%");
+EOF
+
+raku "printf_basic" "1-2" << 'EOF'
+printf("%d-%d\n", 1, 2);
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
