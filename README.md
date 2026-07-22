@@ -411,6 +411,45 @@ vs SPITBOL hand-asm and CSNOBOL4 `-O3`): string manipulation/pattern on string-h
 mixed workloads, EVAL, and the GC-bound string-concat-heavy programmes (roman, table_access).
 `eval_dynamic` crashes (known, deprioritised).
 
+### Match-only pair — literal-needle guts flavors (s128, SCRIP runtime `-O0`)
+
+The pure pattern-match programs `corpus/programs/snobol4/demo/{claws5-match,treebank-match}.sno`
+(one big anchored match, zero side effects; needles fold 100% frozen-LITERAL) measured under
+the four `ZC_*` literal-guts flavors of `bb_match_{span,break,any,notany}`: **A** = default
+(compare-chain ≤ `ZC_CSET_CHAIN_MAX`=3, else 256-byte membership table, subject step unrolled
+×`ZC_UNROLL_FACTOR`=4) · **A∞** = unlimited compare-chain (`ZC_CSET_CHAIN_MAX=256`: every
+literal cset a full inline chain, 36-char csets = 36 compares) · **B** = `ZC_LIT_GUTS=INLINE`
+(emitted inner needle-loop, RO needle) · **C** = `ZC_LIT_GUTS=CALL` (`rt_sg_scan.S` R13/R15-aware
+lean leafs). All flavors ride R13=Σ/R14=δ/R15=Δ. In-program `TIME()` CPU ms (slurp/compile/startup
+excluded), K in-program match repetitions (claws5 K=200, treebank K=50), medians of 5 interleaved
+reps; `wall` = whole-process shell ms. SPITBOL = official x64 `sbl -b -d512m -i64m [-s256m]`,
+`-CASE 0`. 12/12 correctness matrix ref-identical; all four flavors byte-verified distinct in `.s`.
+
+| program | engine | slurp ms | match ms | per-match ms | wall ms |
+|---|---|--:|--:|--:|--:|
+| claws5-match | **A (chain≤3+table) m4** | 14 | 39 | **0.195** | **65** |
+| claws5-match | A∞ (full chain) m4 | 14 | 64 | 0.320 | 89 |
+| claws5-match | B (INLINE) m4 | 14 | 141 | 0.705 | 171 |
+| claws5-match | C (CALL) m4 | 14 | 144 | 0.720 | 174 |
+| claws5-match | SPITBOL | 13 | 45 | 0.225 | 68 |
+| treebank-match | A m4 | 78 | 84 | 1.680 | 204 |
+| treebank-match | A∞ m4 | 77 | 96 | 1.920 | 213 |
+| treebank-match | B m4 | 76 | 95 | 1.900 | 211 |
+| treebank-match | C m4 | 76 | 103 | 2.060 | 218 |
+| treebank-match | SPITBOL | 31 | 39 | **0.780** | **85** |
+
+(m3 within noise of m4 on every row — full grid incl. m3 in
+`FINDING-2026-07-22-CLAUDE-SN4-SG-ABC-LIT-GUTS-UNROLL-VS-INLINE-VS-CALL.md`.)
+**Readings:** on long csets (claws5's 10/26/36-char) the 256B **table wins everything** and
+SCRIP beats SPITBOL per-match (0.195 vs 0.225) *and* on whole-process wall (65 vs 68, compile
+included); the **full chain beats INLINE/CALL** (0.32 vs 0.71 — chains do beat per-char loops,
+confirming the old chains-beat-strchr report) **but loses to the table by 60%**, so the
+chain-then-table ladder with a small chain cap stands. treebank's flavor spread is only ~20%
+— its 2.2–2.6× gap vs SPITBOL is **not in the cset guts** but in the recursive `*group`/ARBNO
+backtracking machinery (SPD-2/BP-9) **and in slurp**: SCRIP's per-line `src = src line CHAR(10)`
+costs 78 ms vs SPITBOL's 31 (claws5's CHAR-free slurp is at parity, 14 vs 13 — the delta is
+per-line `CHAR(10)` builtin dispatch, a compile-time-folding lead).
+
 ## Prolog Benchmark — SCRIP vs GNU Prolog vs SWI-Prolog
 
 The Prolog frontend is measured against the two mainstream engines — **GNU Prolog 1.4.5**
