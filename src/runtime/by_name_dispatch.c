@@ -265,7 +265,7 @@ int rt_builtin_is_known(const char *name)
         "__apply__",
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
-        "__rk_arr_xx",
+        "__rk_arr_xx", "__rk_arr_at",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -1510,6 +1510,23 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!fn) return 0;
     extern int fh_capture_begin(char **, size_t *, int *); extern void fh_capture_end(int, int);
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__rk_arr_at") && nargs == 2) {
+        if (args[0].v == DT_A && args[0].arr) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = NULVCL; return 1; } *out = b->data[i - b->lo]; return 1;
+        }
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
+        if (idx < 0) { *out = NULVCL; return 1; }
+        if (idx == 0 && !*cur) { *out = NULVCL; return 1; }
+        if (idx >= 1 && !strchr(cur, SOH) && (size_t)idx <= strlen(cur)) { *out = INTVAL((long long)(unsigned char)cur[idx - 1]); return 1; }
+        const char *seg = cur; long k = 0;
+        for (;;) {
+            const char *nx = strchr(seg, SOH);
+            if (k == idx) { size_t elen = nx ? (size_t)(nx - seg) : strlen(seg); *out = elem_to_descr(seg, elen); return 1; }
+            if (!nx) { *out = NULVCL; return 1; }
+            seg = nx + 1; k++;
+        }
+    }
     if (!strncmp(fn, "__rk_test_", 10)) {
         const char *op = fn + 10; char sb1[512]; char sb2[512]; char msg[1024];
         if (!strcmp(op, "plan")) { long n = (nargs > 0 && IS_INT_fn(args[0])) ? (long)args[0].i : 0; g_tap_planned = n; g_tap_no_plan = 0; printf("1..%ld\n", n); fflush(stdout); *out = NULVCL; return 1; }

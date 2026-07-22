@@ -135,6 +135,20 @@ static tree_t *rk_incdec(const char *var, int add) {
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     return expr_binary(TT_ASSIGN, var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one));
 }
+static tree_t *rk_destructure(ExprList *targets, tree_t *rhs_arr) {
+    static int __destr_uid = 0;
+    char tmp[32]; snprintf(tmp, sizeof tmp, "__destr_%d", __destr_uid++);
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    tree_t *bind = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), rhs_arr); expr_add_child(seq, bind);
+    int n = targets ? targets->count : 0;
+    for (int i = 0; i < n; i++) {
+        tree_t *get = make_call("__rk_arr_at"); expr_add_child(get, leaf_sval(TT_VAR, tmp));
+        tree_t *idx = ast_node_new(TT_ILIT); idx->v.ival = i; expr_add_child(get, idx);
+        expr_add_child(seq, expr_binary(TT_ASSIGN, targets->items[i], get));
+    }
+    if (targets) exprlist_free(targets);
+    return seq;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_with_mod(tree_t *stmt, tree_t *cond, int negate) {
     tree_t *topic = ast_node_new(TT_ASSIGN); expr_add_child(topic, leaf_sval(TT_VAR, "_")); expr_add_child(topic, cond);
@@ -301,6 +315,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail scalar_methcall
 %type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl
 %type <node> pair_list
+%type <list> scalar_list
 %type <sval> is_clauses meth_name
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
 %right '=' OP_BIND
@@ -339,6 +354,12 @@ stmt
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
     | KW_MY VAR_SCALAR ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), ast_node_new(TT_NUL)); }
+    | KW_MY '(' scalar_list ')' '=' expr ';'
+        { $$ = rk_destructure($3, $6); }
+    | KW_MY '(' scalar_list ')' '=' expr ',' arg_list ';'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$6);
+          ExprList *args=$8; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          $$ = rk_destructure($3, call); }
     | KW_MY VAR_ARRAY ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), make_call("__rk_undef")); }
     | KW_MY VAR_HASH ';'
@@ -1381,6 +1402,10 @@ unary_expr
 pow_expr
     : postfix_expr OP_POW unary_expr  { $$=expr_binary(TT_POW,$1,$3); }
     | postfix_expr                    { $$=$1; }
+    ;
+scalar_list
+    : VAR_SCALAR                    { $$ = exprlist_append(exprlist_new(), var_node($1)); free($1); }
+    | scalar_list ',' VAR_SCALAR    { $$ = exprlist_append($1, var_node($3)); free($3); }
     ;
 meth_name
     : IDENT      { $$=$1; }
