@@ -41,7 +41,7 @@ static const char * g_pl_nl_arith[] = { "*", "**", "+", "-", "/", "//", "/\\", "
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_arith_fn(const char * s, int n) { if (!s || n < 1 || n > 2) return 0; for (int i = 0; g_pl_nl_arith[i]; i++) if (!strcmp(s, g_pl_nl_arith[i])) return 1; return 0; }
 static int is_builtin_visible(const char * s) { return s && (!strcmp(s, "write") || !strcmp(s, "nl") || !strcmp(s, "format") || !strcmp(s, "aggregate_all")); }
-static const char * g_pl_nl_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", "=\\=", ">", ">=", "@<", "@=<", "@>", "@>=", "\\==", "abolish", "arg", "assert", "asserta", "assertz", "atom",
+static const char * g_pl_nl_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", "=\\=", ">", ">=", "@<", "@=<", "@>", "@>=", "\\==", "abolish", "acyclic_term", "arg", "assert", "asserta", "assertz", "atom",
     "atom_chars", "atom_codes", "atom_concat", "atom_length", "atom_number", "atom_string", "atomic", "atomic_list_concat", "callable", "char_type", "compound", "concat_atom", "copy_term",
     "downcase_atom", "float", "functor", "ground", "integer", "is", "is_list", "msort", "nb_getval", "nb_setval", "nonvar", "number", "number_chars", "number_codes", "number_string", "numbervars", "plus", "print", "retract",
     "retractall", "sort", "string_chars", "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "term_string", "term_to_atom", "throw",
