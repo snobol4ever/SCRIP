@@ -215,6 +215,7 @@ struct IR_t {
     IR_ref_t     ω;
     IR_t       ** operands;
     int           n_operands;
+    int           in_scan;   /* ICN-SCAN-STRUCT: 1 iff this node is lexically inside a ? scan body. Set structurally at lower time (TT_SCAN range-mark); read by emit_drive to set g_scan_regs_live per-node. Replaces the emit-order-dependent running counter, whose value depended on the four-port BFS walk order and dropped to 0 mid-body when a scan's leave box (IR_SCAN) was emitted before in-scan keyword-assigns reached via an IR_ACTIVATE fail edge. */
     union { const char * sval; int64_t ival; double dval; };
 };
 #define IR_LIT(nd)  (*(nd))

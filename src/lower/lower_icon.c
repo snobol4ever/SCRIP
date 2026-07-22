@@ -651,7 +651,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
          * leave entirely. Interpose α-stamped GOTOs. (Same trampoline idiom as the STMT-BOUNDARY case.) */
         IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
         IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
+        int scan_body_lo = cx->g->n;   /* ICN-SCAN-STRUCT: first node index of the ? body (enter/leave/subject-expr boxes are built outside [lo,n) and stay in_scan=0) */
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
+        for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;   /* ICN-SCAN-STRUCT: every node created while lowering the ? body is structurally in-scan; nested scans re-mark their bodies to the same 1. This is the structural source of truth for r13/r14/r15 liveness, read per-node by emit_drive. */
         if (bv) ir_operand_push(leave_succ, bv);
         icn_retag_scan_body(cx->g, 0);
         lc_γ_to(enter, b_entry);
