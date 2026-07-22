@@ -272,6 +272,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_hash",
         "elems", "push_pure",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
+        "hash_keys", "hash_values", "hash_pairs", "hash_kv",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
         "die", "script_die",
@@ -3234,6 +3235,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (args[0].v != DT_DATA && mname0) {
             const char *rtn = VARVAL_fn(args[0]);
             int is_dat_recv = (rtn && dat_find_type(rtn));
+            if (!is_dat_recv && rtn && strchr(rtn, '\x02')) {
+                int is_hashm = !strcmp(mname0, "keys") || !strcmp(mname0, "values") || !strcmp(mname0, "pairs") || !strcmp(mname0, "kv");
+                if (is_hashm) {
+                    const char *hfn = !strcmp(mname0, "keys") ? "hash_keys" : !strcmp(mname0, "values") ? "hash_values"
+                                    : !strcmp(mname0, "pairs") ? "hash_pairs" : "hash_kv";
+                    DESCR_t fa[1]; fa[0] = args[0];
+                    extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+                    if (script_try_call_builtin_by_name(hfn, fa, 1, out)) return 1;
+                }
+            }
             if (!is_dat_recv) {
                 int is_arrm = !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
@@ -3695,6 +3706,31 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
                 memcpy(na, acc, al);
                 if (al) na[al++] = SOH;
                 memcpy(na + al, pair, pl); na[al + pl] = '\0';
+                acc = na;
+            }
+            if (!nx) break;
+            seg = nx + 1;
+        }
+        *out = STRVAL(acc); return 1;
+    }
+    if (!strcmp(fn, "hash_kv") && nargs >= 1) {
+        if (!*h) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        char *acc = rt_ws_strdup("");
+        const char *seg = h;
+        while (*seg) {
+            const char *nx   = strchr(seg, SOH);
+            size_t      plen = nx ? (size_t)(nx - seg) : strlen(seg);
+            const char *stx  = (const char *)memchr(seg, STX, plen);
+            if (stx) {
+                size_t klen = (size_t)(stx - seg);
+                const char *vstart = stx + 1;
+                size_t vlen = nx ? (size_t)(nx - vstart) : strlen(vstart);
+                size_t al = strlen(acc);
+                char *na = rt_ws_alloc(al + (al ? 1 : 0) + klen + 1 + vlen + 1);
+                memcpy(na, acc, al);
+                if (al) na[al++] = SOH;
+                memcpy(na + al, seg, klen); al += klen; na[al++] = SOH;
+                memcpy(na + al, vstart, vlen); na[al + vlen] = '\0';
                 acc = na;
             }
             if (!nx) break;
