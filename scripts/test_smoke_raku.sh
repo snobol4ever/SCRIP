@@ -2827,6 +2827,31 @@ say $w.sort;
 say $w.reverse;
 EOF
 
+raku "arr_min_num" "1" << 'EOF'
+my @a = 3, 1, 2;
+say @a.min;
+EOF
+
+raku "arr_max_num" "3" << 'EOF'
+my @a = 3, 1, 2;
+say @a.max;
+EOF
+
+raku "arr_first" "3" << 'EOF'
+my @a = 3, 1, 2;
+say @a.first;
+EOF
+
+raku "arr_min_str" "apple" << 'EOF'
+my @s = "cherry", "apple", "banana";
+say @s.min;
+EOF
+
+raku "arr_sort_chain" "1" << 'EOF'
+my @a = 3, 1, 2;
+say @a.sort.first;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
