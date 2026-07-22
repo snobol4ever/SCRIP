@@ -209,6 +209,12 @@ int pl_builtin_is_known(const char *name)
     if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
     if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
     if (!strcmp(name, "$write_to_atom") || !strcmp(name, "$format_to_atom") || !strcmp(name, "$read_from_atom")) return 1;
+    if (!strcmp(name, "$write_to_chars") || !strcmp(name, "$write_to_codes") || !strcmp(name, "$writeq_to_atom") || !strcmp(name, "$writeq_to_chars") || !strcmp(name, "$writeq_to_codes")) return 1;
+    if (!strcmp(name, "$write_canonical_to_atom") || !strcmp(name, "$write_canonical_to_chars") || !strcmp(name, "$write_canonical_to_codes")) return 1;
+    if (!strcmp(name, "$display_to_atom") || !strcmp(name, "$display_to_chars") || !strcmp(name, "$display_to_codes")) return 1;
+    if (!strcmp(name, "$print_to_atom") || !strcmp(name, "$print_to_chars") || !strcmp(name, "$print_to_codes")) return 1;
+    if (!strcmp(name, "$write_term_to_atom") || !strcmp(name, "$write_term_to_chars") || !strcmp(name, "$write_term_to_codes")) return 1;
+    if (!strcmp(name, "$format_to_chars") || !strcmp(name, "$format_to_codes") || !strcmp(name, "$read_from_chars") || !strcmp(name, "$read_from_codes")) return 1;
     if (!strcmp(name, "$wot_begin") || !strcmp(name, "$wot_end") || !strcmp(name, "$wot_abort")) return 1;
     if (!strcmp(name, "$sub_atom") || !strcmp(name, "$atom_to_term") || !strcmp(name, "$read")) return 1;
     if (!strcmp(name, "$bag_prep_b") || !strcmp(name, "$bag_prep_s") || !strcmp(name, "$keysort") || !strcmp(name, "$bag_group")) return 1;
@@ -987,6 +993,17 @@ static int pl_list_to_arr(DESCR_t lst, DESCR_t *out, int max) {
         out[n++] = rt_pl_deref_val(kids[0]); cur = rt_pl_deref_val(kids[1]);
     }
     return pl_is_nil(cur) ? n : -1;
+}
+static char *pl_list_to_cstr(DESCR_t arg, int codes) {
+    DESCR_t elems[4096]; int n = pl_list_to_arr(arg, elems, 4096);
+    if (n < 0) return (char *)0;
+    char *o = (char *)malloc((size_t)n + 1);
+    if (!o) return (char *)0;
+    for (int i = 0; i < n; i++) {
+        if (codes) { if (elems[i].v != DT_I) { free(o); return (char *)0; } o[i] = (char)elems[i].i; }
+        else { const char *cs = pl_atom_str(elems[i]); if (!cs || !cs[0]) { free(o); return (char *)0; } o[i] = cs[0]; }
+    }
+    o[n] = 0; return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_term_to_cell(Term *t) {
@@ -1798,12 +1815,74 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         fh_set_output(old);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
+    {
+        int wk = 0, sk = 0;
+        if (!strcmp(fn, "$write_to_atom")) { wk = 1; sk = 1; } else if (!strcmp(fn, "$write_to_chars")) { wk = 1; sk = 4; } else if (!strcmp(fn, "$write_to_codes")) { wk = 1; sk = 3; }
+        else if (!strcmp(fn, "$writeq_to_atom")) { wk = 2; sk = 1; } else if (!strcmp(fn, "$writeq_to_chars")) { wk = 2; sk = 4; } else if (!strcmp(fn, "$writeq_to_codes")) { wk = 2; sk = 3; }
+        else if (!strcmp(fn, "$write_canonical_to_atom")) { wk = 3; sk = 1; } else if (!strcmp(fn, "$write_canonical_to_chars")) { wk = 3; sk = 4; } else if (!strcmp(fn, "$write_canonical_to_codes")) { wk = 3; sk = 3; }
+        else if (!strcmp(fn, "$display_to_atom")) { wk = 3; sk = 1; } else if (!strcmp(fn, "$display_to_chars")) { wk = 3; sk = 4; } else if (!strcmp(fn, "$display_to_codes")) { wk = 3; sk = 3; }
+        else if (!strcmp(fn, "$print_to_atom")) { wk = 1; sk = 1; } else if (!strcmp(fn, "$print_to_chars")) { wk = 1; sk = 4; } else if (!strcmp(fn, "$print_to_codes")) { wk = 1; sk = 3; }
+        if (wk && nargs == 2) {
+            extern void rt_pl_write_cell(void *); extern void rt_pl_writeq_cell(void *); extern void rt_pl_write_canonical_cell(void *);
+            char *buf = (char *)0; size_t sz = 0; int saved_out = 0;
+            int cidx = fh_capture_begin(&buf, &sz, &saved_out);
+            if (cidx < 0) { *out = FAILDESCR; return 1; }
+            DESCR_t t1 = args[1]; void *tc = (void *)plw_det_cell(&t1);
+            if (wk == 1) rt_pl_write_cell(tc); else if (wk == 2) rt_pl_writeq_cell(tc); else rt_pl_write_canonical_cell(tc);
+            fh_capture_end(cidx, saved_out);
+            DESCR_t res = pl_sink_build(sk, buf ? buf : "", sz); if (buf) free(buf);
+            if (plw_unify_vals(args[0], res)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+        }
+    }
+    {
+        int sk = 0;
+        if (!strcmp(fn, "$write_term_to_atom")) sk = 1; else if (!strcmp(fn, "$write_term_to_chars")) sk = 4; else if (!strcmp(fn, "$write_term_to_codes")) sk = 3;
+        if (sk && nargs == 3) {
+            extern void rt_pl_write_term_cell(void *, void *);
+            char *buf = (char *)0; size_t sz = 0; int saved_out = 0;
+            int cidx = fh_capture_begin(&buf, &sz, &saved_out);
+            if (cidx < 0) { *out = FAILDESCR; return 1; }
+            DESCR_t t1 = args[1], t2 = args[2]; rt_pl_write_term_cell((void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
+            fh_capture_end(cidx, saved_out);
+            DESCR_t res = pl_sink_build(sk, buf ? buf : "", sz); if (buf) free(buf);
+            if (plw_unify_vals(args[0], res)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+        }
+    }
+    {
+        int sk = 0;
+        if (!strcmp(fn, "$format_to_chars")) sk = 4; else if (!strcmp(fn, "$format_to_codes")) sk = 3;
+        if (sk && nargs == 3) {
+            extern void rt_pl_format_cell(const char *, void *);
+            const char *fmt = pl_atom_str(rt_pl_deref_val(args[1]));
+            if (!fmt) { *out = FAILDESCR; return 1; }
+            char *buf = (char *)0; size_t sz = 0; int saved_out = 0;
+            int cidx = fh_capture_begin(&buf, &sz, &saved_out);
+            if (cidx < 0) { *out = FAILDESCR; return 1; }
+            DESCR_t t2 = args[2]; rt_pl_format_cell(fmt, (void *)plw_det_cell(&t2));
+            fh_capture_end(cidx, saved_out);
+            DESCR_t res = pl_sink_build(sk, buf ? buf : "", sz); if (buf) free(buf);
+            if (plw_unify_vals(args[0], res)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+        }
+    }
+    {
+        int rc = 0;
+        if (!strcmp(fn, "$read_from_chars")) rc = 0; else if (!strcmp(fn, "$read_from_codes")) rc = 1; else rc = -1;
+        if (rc >= 0 && nargs == 2) {
+            extern const char *plc_rd_entry(const char *, DESCR_t *, DESCR_t *, char (*)[64], int *, int);
+            char *txt = pl_list_to_cstr(rt_pl_deref_val(args[0]), rc);
+            if (!txt) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+            DESCR_t tval; DESCR_t bv[64]; char bn[64][64]; int nb = 0;
+            const char *e = plc_rd_entry(txt, &tval, bv, bn, &nb, 64); free(txt);
+            if (!e) { *out = FAILDESCR; return 1; }
+            if (plw_unify_vals(args[1], tval)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+        }
+    }
     if (!strcmp(fn, "$write_to_atom") && nargs == 2) {
-        extern void rt_pl_writeq_cell(void *);
+        extern void rt_pl_write_cell(void *);
         char *buf = (char *)0; size_t sz = 0; int saved_out = 0;
         int cidx = fh_capture_begin(&buf, &sz, &saved_out);
         if (cidx < 0) { *out = FAILDESCR; return 1; }
-        DESCR_t t1 = args[1]; rt_pl_writeq_cell((void *)plw_det_cell(&t1));
+        DESCR_t t1 = args[1]; rt_pl_write_cell((void *)plw_det_cell(&t1));
         fh_capture_end(cidx, saved_out);
         DESCR_t res = pl_mk_atom_dup(buf ? buf : "", sz); if (buf) free(buf);
         if (plw_unify_vals(args[0], res)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
@@ -1908,6 +1987,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern int rt_pl_numbervars_cell(void *, void *, void *);
         DESCR_t t0 = args[0], t1 = args[1], t2 = args[2];
         int ok = rt_pl_numbervars_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$numbervars") && nargs == 1) {
+        extern int rt_pl_numbervars1_cell(void *);
+        DESCR_t t0 = args[0];
+        int ok = rt_pl_numbervars1_cell((void *)plw_det_cell(&t0));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
     if ((!strcmp(fn, "$writeq") || !strcmp(fn, "$print")) && nargs == 1) {
@@ -3437,7 +3522,7 @@ const char *rt_pl_cmp_suffix(const char *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_pl_det_builtin_target(const char *nm, int ar) {
     static const struct { const char *nm; int ar; const char *tgt; } tab[] = {
-        { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "keysort", 2, "$keysort" }, { "$bag_prep_b", 2, "$bag_prep_b" }, { "$bag_prep_s", 2, "$bag_prep_s" }, { "numbervars", 3, "$numbervars" }, { "copy_term", 2, "$copy_term" },
+        { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "keysort", 2, "$keysort" }, { "$bag_prep_b", 2, "$bag_prep_b" }, { "$bag_prep_s", 2, "$bag_prep_s" }, { "numbervars", 3, "$numbervars" }, { "numbervars", 1, "$numbervars" }, { "copy_term", 2, "$copy_term" },
         { "char_type", 2, "$char_type" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
         { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" },
         { "compound", 1, "$tt_compound" }, { "callable", 1, "$tt_callable" }, { "ground", 1, "$tt_ground" }, { "is_list", 1, "$tt_is_list" },
@@ -3454,6 +3539,14 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "concat_atom", 2, "$aop_concat_atom" }, { "concat_atom", 3, "$aop_concat_atom" },
         { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
         { "write_to_atom", 2, "$write_to_atom" }, { "format_to_atom", 3, "$format_to_atom" }, { "read_from_atom", 2, "$read_from_atom" },
+        { "write_to_chars", 2, "$write_to_chars" }, { "write_to_codes", 2, "$write_to_codes" },
+        { "writeq_to_atom", 2, "$writeq_to_atom" }, { "writeq_to_chars", 2, "$writeq_to_chars" }, { "writeq_to_codes", 2, "$writeq_to_codes" },
+        { "write_canonical_to_atom", 2, "$write_canonical_to_atom" }, { "write_canonical_to_chars", 2, "$write_canonical_to_chars" }, { "write_canonical_to_codes", 2, "$write_canonical_to_codes" },
+        { "display_to_atom", 2, "$display_to_atom" }, { "display_to_chars", 2, "$display_to_chars" }, { "display_to_codes", 2, "$display_to_codes" },
+        { "print_to_atom", 2, "$print_to_atom" }, { "print_to_chars", 2, "$print_to_chars" }, { "print_to_codes", 2, "$print_to_codes" },
+        { "write_term_to_atom", 3, "$write_term_to_atom" }, { "write_term_to_chars", 3, "$write_term_to_chars" }, { "write_term_to_codes", 3, "$write_term_to_codes" },
+        { "format_to_chars", 3, "$format_to_chars" }, { "format_to_codes", 3, "$format_to_codes" },
+        { "read_from_chars", 2, "$read_from_chars" }, { "read_from_codes", 2, "$read_from_codes" },
         { "with_output_to", 2, "$with_output_to" },
         { "$wot_begin", 0, "$wot_begin" }, { "$wot_end", 1, "$wot_end" }, { "$wot_abort", 0, "$wot_abort" },
         { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
