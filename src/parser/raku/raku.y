@@ -658,7 +658,11 @@ until_stmt
     ;
 repeat_stmt
     : KW_REPEAT block
-        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); $$=e; }
+        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); e->v.ival=0; $$=e; }
+    | KW_REPEAT block KW_WHILE expr ';'
+        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); expr_add_child(e,$4); e->v.ival=1; $$=e; }
+    | KW_REPEAT block KW_UNTIL expr ';'
+        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); expr_add_child(e,$4); e->v.ival=2; $$=e; }
     ;
 loop_stmt
     : KW_LOOP block
