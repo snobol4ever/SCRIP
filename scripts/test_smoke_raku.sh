@@ -2531,6 +2531,61 @@ raku "range_ex_value" "$(printf '1\n2\n3')" << 'EOF'
 for 1 ..^ 4 -> $x { say $x }
 EOF
 
+raku "pow_basic" "1024" << 'EOF'
+say 2 ** 10;
+EOF
+
+raku "pow_right_assoc" "512" << 'EOF'
+say 2 ** 3 ** 2;
+EOF
+
+raku "pow_tighter_than_uminus" "-4" << 'EOF'
+say -2 ** 2;
+EOF
+
+raku "pow_tighter_than_add" "11" << 'EOF'
+say 3 + 2 ** 3;
+EOF
+
+raku "pow_tighter_than_mul" "18" << 'EOF'
+say 2 * 3 ** 2;
+EOF
+
+raku "pow_var_base" "25" << 'EOF'
+my $b = 5;
+say $b ** 2;
+EOF
+
+raku "trail_mod_say_unless_true" "hi" << 'EOF'
+my $x = 0;
+{ say "hi" unless $x }
+EOF
+
+raku "trail_mod_say_unless_false" "" << 'EOF'
+my $x = 1;
+{ say "hi" unless $x }
+EOF
+
+raku "trail_mod_say_if" "big" << 'EOF'
+my $x = 5;
+{ say "big" if $x > 3 }
+EOF
+
+raku "trail_mod_say_with" "def" << 'EOF'
+my $d = 42;
+{ say "def" with $d }
+EOF
+
+raku "trail_mod_say_for" "$(printf '1\n2\n3')" << 'EOF'
+{ say $_ for 1..3 }
+EOF
+
+raku "trail_mod_expr_if" "11" << 'EOF'
+my $x = 10;
+{ $x = $x + 1 if $x > 5 }
+say $x;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
