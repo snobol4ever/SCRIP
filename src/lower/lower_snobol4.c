@@ -1462,13 +1462,15 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         tree_e pk = TT_VAR;
         if (name) for (int i = 0; pm[i].n; i++) if (!strcmp(name, pm[i].n)) { pk = pm[i].k; break; }
         if (pk != TT_VAR) { extern tree_t * ast_stmt_new(tree_e kind); tree_t * syn = ast_stmt_new(pk); for (int k = argbase; k < t->n; k++) ast_push(syn, (tree_t *) t->c[k]); return sno_pat_node(cx, syn, succ, fail); }
-        static int g_pattmp_pat_n = 0;
-        char nmb[32]; snprintf(nmb, sizeof nmb, "PATTMP$P%d", g_pattmp_pat_n++);
-        char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
-        IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = tmpn; sno_fz_mark_defer(g, nd, tmpn); sno_ω_to(nd, fail);
-        IR_t * asn = lc_build(g, IR_ASSIGN, nd, fail); IR_LIT(asn).sval = tmpn;
-        IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, asn, fail, &vr);
-        if (vr) ir_operand_push(asn, vr);
+        /* SN4 kill-manufactured-names (2026-07-22): no PATTMP$P global, no IR_ASSIGN, no name.  The eager
+         * value-returning call is lowered once (SNOBOL4 eager semantics) into its own value node, which becomes
+         * operand[0] of an IR_MATCH_VALUE node; that node reads FR(op_a_slot) at match time — DT_P runs the
+         * compiled pattern fn, a scalar is a literal match.  Killing the per-occurrence sno_reg_var(tmpn) is what
+         * removes the GLOBAL_MAX/zls flood (PATTMP$P3128) that blocked beauty self-host; each match node's value
+         * lives in its own per-node slot, so nested/sequential eager calls no longer clobber a shared name. */
+        IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL); sno_ω_to(mv, fail);
+        IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, mv, fail, &vr);
+        if (vr) ir_operand_push(mv, vr);
         return ec;
     }
     default:
@@ -2080,11 +2082,23 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
      * entry-label DEFINE shape below — flowing through the existing proc registration in BOTH mode drivers
      * untouched.  rt_goto_transfer resolves fragment-registry first (fragment labels OVERRIDE main's, per the
      * manual), then these.  Use-gated on g_sno_uses_code => byte-zero perturbation for programs without CODE. */
+    /* EVAL/CODE (manual Ch.9): a CODE fragment may goto BACK into a main-program label (its `:S(L)F(DONE)`
+     * fields), so every main label must be transfer-reachable at runtime.  Each labelled statement becomes a
+     * pseudo-proc "LBL__<name>".  SN4 kill-the-O(n^2) (2026-07-22): the old shape re-lowered the ENTIRE
+     * statement array once PER LABEL (entry_idx=i), so a P-label program pushed P*P zls group-marks and built
+     * P near-identical graphs — beauty self-host (129 labels) overflowed the 8192 mark table before emitting a
+     * line.  The graphs differ ONLY in which anchor is the entry, so instead we SHARE the main graph's bb_idx
+     * and set proc_entry_node to that label's already-built anchor (bb_label_landing — the registry still holds
+     * main's labels here, nothing re-lowered since the main build above).  emit_chain starts at proc_entry_node
+     * (bb_proc_entry falls back to g->entry only when it is NULL), so each LBL__ proc emits the main graph from
+     * its label onward using main's slot layout — one graph, N entry points, marks/slots no longer squared.
+     * Use-gated on g_sno_uses_code => byte-zero perturbation for programs without CODE. */
     if (g_sno_uses_code) {
         for (int i = 0; i < nst; i++) {
             const char * lbl = sfind_str(st[i], ":lbl");
             if (!lbl || !lbl[0]) continue;
-            IR_graph_t * gl = sno_build_graph(st, nst, i, is_def, NULL);
+            IR_t * enode = bb_label_landing(lbl);
+            if (!enode) continue;
             char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", lbl);
             int lpi = stage2_proc_grow(&g_stage2);
             g_stage2.proc_table[lpi].name = lp_strdup(lname);
@@ -2095,7 +2109,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             g_stage2.proc_table[lpi].is_generator = 0;
             g_stage2.proc_table[lpi].dyn_scope = 0;
             g_stage2.proc_table[lpi].result_name = NULL;
-            g_stage2.proc_table[lpi].bb_idx = bb_program_add(&g_stage2.bbp, gl);
+            g_stage2.proc_table[lpi].bb_idx = g_stage2.proc_table[pi].bb_idx;
+            g_stage2.proc_table[lpi].proc_entry_node = enode;
         }
     }
     for (int di = 0; di < ndefs; di++) {

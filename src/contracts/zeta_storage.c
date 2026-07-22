@@ -113,6 +113,8 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_DEFER:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "defer.pad (ZS-2 jmp-entry, Lon s58: the fn/frame cell pair is DELETED — the blob is a jmp-entered new activation that self-allocates on rsp with a 32B wire header, so there is nothing to stash and nothing to guard; quad KEPT at 16B so no later node's offset shifts)", nd); return 1;
+    case IR_MATCH_VALUE:
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "matchvalue.pad (SN4 kill-manufactured-names: structural clone of defer.pad — the value lives in operand[0]'s slot, resume rides rsp, nothing to stash here; 16B quad KEPT so no later node's offset shifts)", nd); return 1;
     case IR_MATCH_TAB: case IR_MATCH_RTAB:
         /* UNIFORM-BETA WIRING (Claude, this session, per Lon "EVERY BB must be wired properly"): TAB/RTAB
          * OVERWRITE r14d (mov, not add) — the only match primitives whose cursor effect is unrecoverable by
@@ -205,7 +207,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     }
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
-static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
+static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
     zls_entry(nd, scope_id, off);
