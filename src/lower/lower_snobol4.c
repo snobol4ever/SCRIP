@@ -1268,7 +1268,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_CAPT_COND_ASGN: {
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
-        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
+        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05): capture spans [start-of-inner, current) on a
          * per-box STACK — SAVE.α pushes the open cursor, SAVE.β pops it, the COND at every inner yield
@@ -1309,7 +1309,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_CAPT_IMMED_ASGN: {
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
-        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const char * bn = sno_expr_collect((t->c[1]->n > 0) ? t->c[1]->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
+        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         /* $ immediate assignment: SAME span/capture-stack shape as . (TT_CAPT_COND_ASGN) above — the only
          * difference is IR_MATCH_ASSIGN_IMM vs _COND, which bb_match_capture()'s op_phase (2 vs 1) turns into
