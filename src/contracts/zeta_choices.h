@@ -240,6 +240,10 @@
 #define ZC_LIT_GUTS_UNROLL 0
 #define ZC_LIT_GUTS_INLINE 1
 #define ZC_LIT_GUTS_CALL   2
+#define ZC_LIT_GUTS_RANGE  3
+/* RANGE (Lon s128, "4th variant"): same unrolled subject-step body as UNROLL, but the membership test is a chain of RANGES — the literal cset's bytes coalesced into maximal contiguous runs at emit
+ * time.  A single-byte run emits `cmp esi,b; je HIT` (2 inst); a multi-byte run emits the unsigned-sub trick `mov eax,esi; sub eax,lo; cmp eax,hi-lo; jbe HIT` (4 inst, eax dead at every use site).
+ * SPAN(&LCASE &UCASE '0123456789') = 3 range tests instead of a 62-compare chain or a 256B table load. */
 #ifndef ZC_LIT_GUTS
 #define ZC_LIT_GUTS ZC_LIT_GUTS_UNROLL
 #endif
