@@ -543,7 +543,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(idc, kn);
             γ_to(kn, idc);
             if (kβ && kβ != ω) lc_ω_to_β(idc, kβ);   /* ICN-CASE-ALT irgen: ir_opfn("===",[e,v], L[i].expr.ir.resume) — mismatch RESUMES the selector generator for its next alternative; exhaustion then exits via the selector's ω (chain_next above) */
-            chain_next = ke ? ke : idc;
+            IR_t * ke_target = ke ? ke : idc;
+            if (ke && is_resumable(t->c[ki])) {   /* ICN-CASE-ALT SELECTOR α-FORCE: a resumable alternation selector must ENTER FRESH on each case-evaluation. The promoting helpers (γ_to :16 / build auto-β :22) β-stamp a generator-kind entry, so when the case sits inside a generator context (every v := gen do case v of {a|b|c:}) the selector is entered in RESUME mode = exhausted = no match (even the first alternand misses). Mirrors the BODY α-FORCE at :541 and the IR_GOTO trampoline idiom at :842/:1128. Stepping through alternands on mismatch still uses kβ at :545; this only fixes the INITIAL entry edge. */
+                IR_t * KENT = build(cx, IR_GOTO, NULL, NULL);
+                lc_γ_to_α(KENT, ke); lc_ω_to_α(KENT, ke);
+                ke_target = KENT;
+            }
+            chain_next = ke_target;
         }
         γ_to(sr, chain_next);
         cx->beta = ω; *res = cvar; return se; }
