@@ -221,6 +221,13 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     if (!strcmp(lk, "alphabet")) { extern char alphabet[257]; return BSTRVAL(alphabet, 256); }
+    if (!strcmp(lk, "digits")) return STRVAL("0123456789");
+    if (!strcmp(lk, "ht")) return STRVAL("\t");
+    if (!strcmp(lk, "lf") || !strcmp(lk, "nl")) return STRVAL("\n");
+    if (!strcmp(lk, "vt")) return STRVAL("\x0B");
+    if (!strcmp(lk, "ff")) return STRVAL("\x0C");
+    if (!strcmp(lk, "cr")) return STRVAL("\r");
+    if (!strcmp(lk, "esc")) return STRVAL("\x1B");
     if (!strcmp(lk, "errtext")) return g_sno_errtext ? STRVAL(g_sno_errtext) : STRVAL("");
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
