@@ -570,6 +570,12 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)rt_ws_alloc(n + (size_t)nsep * sl + 1); int op = 0;
         for (size_t i = 0; i < n; i++) { if (s[i] == SOH) { memcpy(r + op, sep, sl); op += (int)sl; } else r[op++] = s[i]; } r[op] = '\0'; *out = STRVAL(r); return 1;
     }
+    if (!strcmp(meth, "fmt")) {
+        extern void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen);
+        char fb[256]; const char *fmt = (nmargs >= 1) ? to_cstring(margs[0], fb, sizeof fb) : "%s"; if (!fmt) fmt = "%s";
+        DESCR_t fa[2]; fa[0] = margs ? margs[0] : NULVCL; fa[1] = recv;
+        char *r = NULL; size_t rl = 0; rk_sprintf_core(fmt, fa, 2, 1, &r, &rl); *out = BSTRVAL(r, rl); return 1;
+    }
     return 0;
 }
 static long g_pas_heap_ctr = 0;
@@ -1190,7 +1196,7 @@ static void rk_tap_diag(const char *msg) {
     fprintf(stderr, "# %s\n", msg ? msg : ""); fflush(stderr);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen) {
+void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen) {
     size_t cap = strlen(fmt) + 64, len = 0; char *buf = (char *)rt_ws_alloc(cap); int ai = from;
     for (const char *p = fmt; *p; ) {
         if (*p != '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *p++; continue; }
