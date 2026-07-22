@@ -265,7 +265,7 @@ int rt_builtin_is_known(const char *name)
         "__apply__",
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
-        "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort",
+        "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -2610,6 +2610,40 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    if ((!strcmp(fn, "__rk_arr_min") || !strcmp(fn, "__rk_arr_max")) && nargs >= 1) {
+        int want_max = (fn[10] == 'a');
+        const char *best = NULL; size_t bestl = 0; long long bestn = 0; int best_num = 0; int have = 0;
+        for (int i = 0; i < nargs; i++) {
+            char scratch[64];
+            const char *cs = to_cstring(args[i], scratch, sizeof scratch);
+            const char *seg = cs;
+            for (;;) {
+                const char *nx = strchr(seg, SOH);
+                size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+                char eb[64]; size_t cl = L < 63 ? L : 63; memcpy(eb, seg, cl); eb[cl] = '\0';
+                char *ep; long long v = strtoll(eb, &ep, 10); int isn = (*ep == '\0' && ep != eb);
+                int take;
+                if (!have) take = 1;
+                else if (isn && best_num) take = want_max ? (v > bestn) : (v < bestn);
+                else { int c = strcmp(eb, best ? best : ""); take = want_max ? (c > 0) : (c < 0); }
+                if (take) { char *cp = rt_ws_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestl = cl; bestn = v; best_num = isn; have = 1; }
+                if (!nx) break;
+                seg = nx + 1;
+            }
+        }
+        if (!have) { *out = NULVCL; return 1; }
+        *out = best_num ? INTVAL(bestn) : STRVAL(rt_ws_strdup_c(best)); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_first") && nargs >= 1) {
+        char scratch[64];
+        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        const char *nx = strchr(cs, SOH);
+        size_t L = nx ? (size_t)(nx - cs) : strlen(cs);
+        if (L == 0 && !nx && (!cs || !*cs)) { *out = NULVCL; return 1; }
+        char *cp = rt_ws_alloc(L + 1); memcpy(cp, cs, L); cp[L] = '\0';
+        char *ep; long long v = strtoll(cp, &ep, 10);
+        *out = (*ep == '\0' && ep != cp) ? INTVAL(v) : STRVAL(cp); return 1;
+    }
     if (!strcmp(fn, "sum") && nargs >= 1) {
         long long isum = 0; double rsum = 0.0; int any_real = 0;
         for (int i = 0; i < nargs; i++) {
@@ -3116,9 +3150,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (!is_dat_recv) {
                 int is_arrm = !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
-                           || !strcmp(mname0, "head") || !strcmp(mname0, "tail");
+                           || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
+                           || !strcmp(mname0, "max") || !strcmp(mname0, "first");
                 if (is_arrm) {
-                    const char *afn = !strcmp(mname0, "sort") ? "__rk_arr_sort" : mname0;
+                    const char *afn = !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
+                                    : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first" : mname0;
                     int total = 1 + (nargs - 2);
                     DESCR_t *fa = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
                     if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = args[0]; }
