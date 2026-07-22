@@ -9,15 +9,21 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define LITN() ((long) strlen(_.op_sval ? _.op_sval : ""))
+static long LITD(long k) { uint32_t w; memcpy(&w, _.op_sval + k, 4); return (long)(int32_t)w; }
 static std::string lit_chain(long n, long k) {
     return k >= n
              ? std::string()
-         : (n > 10 && k + 8 <= n)
+         : (k + 8 <= n)
              ? x86("mov",    "rdx", LIDX(k))
              + x86("movabs", "rax", LITQ(k))
              + x86("cmp",    "rdx", "rax")
              + x86_omega("jne")
              + lit_chain(n, k + 8)
+         : (k + 4 <= n)
+             ? x86("mov",    "edx", LIDX(k))
+             + x86("cmp",    "edx", LITD(k))
+             + x86_omega("jne")
+             + lit_chain(n, k + 4)
          : x86("movzx", "eax", LIDX(k))
              + x86("cmp",   "eax", (int)(unsigned char)_.op_sval[k])
              + x86_omega("jne")
