@@ -388,6 +388,11 @@ Term *rt_pl_cell_to_term(void *cell) {
     return rt_cmp_cell_to_term_shared((pl_cell_t *)cell, vaddr, vterm, &vn, 256);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+Term *rt_pl_cell_to_term_named(void *cell) {
+    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
+    return pl_cell_to_term_named((pl_cell_t *)cell);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (!op) return 0;
     pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;

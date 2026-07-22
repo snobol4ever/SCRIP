@@ -1984,6 +1984,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int ok = rt_pl_char_type_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)0);
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$lower_upper") && nargs == 2) {
+        extern int rt_pl_lower_upper_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_lower_upper_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
     if (!strcmp(fn, "$numbervars") && nargs == 3) {
         extern int rt_pl_numbervars_cell(void *, void *, void *);
         DESCR_t t0 = args[0], t1 = args[1], t2 = args[2];
@@ -3530,7 +3536,7 @@ const char *rt_pl_cmp_suffix(const char *s) {
 const char *rt_pl_det_builtin_target(const char *nm, int ar) {
     static const struct { const char *nm; int ar; const char *tgt; } tab[] = {
         { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "keysort", 2, "$keysort" }, { "$bag_prep_b", 2, "$bag_prep_b" }, { "$bag_prep_s", 2, "$bag_prep_s" }, { "numbervars", 3, "$numbervars" }, { "numbervars", 1, "$numbervars" }, { "copy_term", 2, "$copy_term" }, { "acyclic_term", 1, "$acyclic_term" },
-        { "char_type", 2, "$char_type" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
+        { "char_type", 2, "$char_type" }, { "lower_upper", 2, "$lower_upper" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
         { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" },
         { "compound", 1, "$tt_compound" }, { "callable", 1, "$tt_callable" }, { "ground", 1, "$tt_ground" }, { "is_list", 1, "$tt_is_list" },
         { "var", 1, "$tt_var" }, { "nonvar", 1, "$tt_nonvar" }, { "atom", 1, "$tt_atom" }, { "number", 1, "$tt_number" },
@@ -4184,7 +4190,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
-    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern struct Term *rt_pl_cell_to_term(void *); extern void pl_write(struct Term *); extern void pl_wr_set_fp(FILE *); DESCR_t _pt = av; fflush(dest); arena_mark_t _cm = rt_pl_cterm_mark(); pl_wr_set_fp(dest); pl_write(rt_pl_cell_to_term(plw_entry(&_pt))); pl_wr_set_fp((FILE *)0); if (rt_pl_ctr_on()) rt_pl_cterm_release(_cm); return; }
+    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern struct Term *rt_pl_cell_to_term_named(void *); extern void pl_write(struct Term *); extern void pl_wr_set_fp(FILE *); DESCR_t _pt = av; fflush(dest); arena_mark_t _cm = rt_pl_cterm_mark(); pl_wr_set_fp(dest); pl_write(rt_pl_cell_to_term_named(plw_entry(&_pt))); pl_wr_set_fp((FILE *)0); if (rt_pl_ctr_on()) rt_pl_cterm_release(_cm); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }

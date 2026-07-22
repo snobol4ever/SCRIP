@@ -24,6 +24,35 @@ static inline Term *pl_cell_to_term(pl_cell_t *c) {
     }
     return term_new_var(-1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { pl_cell_t *seen[1024]; int n; } pl_v2t_map;
+static inline int pl_v2t_index(pl_v2t_map *m, pl_cell_t *d) {
+    for (int i = 0; i < m->n; i++) if (m->seen[i] == d) return i;
+    if (m->n < 1024) { m->seen[m->n] = d; return m->n++; }
+    return m->n - 1;
+}
+static inline Term *pl_cell_to_term_named_r(pl_cell_t *c, pl_v2t_map *m) {
+    pl_cell_t *d = pl_deref(c);
+    int t = (int)d->v;
+    if (pl_cell_unbound(d)) return term_new_var(pl_v2t_index(m, d));
+    if (t == DT_I)     return term_new_int((long)d->i);
+    if (t == DT_A)     return term_new_atom((int)d->i);
+    if (t == DT_S)     { extern int prolog_atom_intern(const char *); return term_new_atom(prolog_atom_intern(d->s ? d->s : "")); }
+    if (t == DT_R)     return term_new_float(d->r);
+    if (t == DT_PLREF) {
+        int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
+        pl_cell_t *aa = (pl_cell_t *)d->p;
+        Term **args = (Term **)PL_CELL_ALLOC((size_t)(ar > 0 ? ar : 1) * sizeof(Term *));
+        for (int i = 0; i < ar; i++) args[i] = pl_cell_to_term_named_r(&aa[i], m);
+        return term_new_compound(fn, ar, args);
+    }
+    return term_new_var(pl_v2t_index(m, d));
+}
+static inline Term *pl_cell_to_term_named(pl_cell_t *c) {
+    pl_v2t_map m; m.n = 0;
+    return pl_cell_to_term_named_r(c, &m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int pl_unify_term_into_cell(pl_cell_t *dst, Term *t, pl_trail_t *trail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_cell_t pl_term_to_cell_word_m(Term *t, Term **vk, pl_cell_t **vv, int *vn, int cap) {
