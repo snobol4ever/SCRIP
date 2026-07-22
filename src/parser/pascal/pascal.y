@@ -475,6 +475,15 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
         ast_push(e, sel->c[0]->c[1]); ast_push(e, sel->c[1]); ast_push(e, rhs);
         return e;
     }
+    if (sel && sel->t == TT_IDX && sel->n == 2 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && sel->c[1] && sel->c[1]->t == TT_ILIT) {
+        const char *_brt = pas_with_sel_rtype(sel->c[0]); const char *_frt = _brt ? pas_rectype_field_rectype_by_index(_brt, sel->c[1]->v.ival) : NULL;
+        const char *_rhsrt = pas_with_sel_rtype(rhs);
+        if (_frt && _rhsrt) {
+            tree_t *upd = ast_node_new(TT_FNC); ast_push(upd, leaf_s(TT_VAR, "__pas_nrec_field_set"));
+            ast_push(upd, pas_tree_clone(sel->c[0])); ast_push(upd, pas_tree_clone(sel->c[1])); ast_push(upd, rhs);
+            return bin(TT_ASSIGN, sel->c[0], upd);
+        }
+    }
     return bin(TT_ASSIGN, sel, rhs);
 }
 static tree_t *mk_ident(const char *name) {

@@ -2335,6 +2335,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char rb[64]; const char *rv = to_cstring(args[3], rb, sizeof rb);
         *out = STRVAL(pas_nrec_subrec_set(cur, fi, ei, rv)); return 1;
     }
+    if (!strcmp(fn, "__pas_nrec_field_set") && nargs == 3) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        long fi = IS_INT_fn(args[1]) ? args[1].i : 0; if (fi < 0) { *out = args[0]; return 1; }
+        char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb); if (!rv) rv = "";
+        size_t rvl = strlen(rv); char *nf = rt_ws_alloc(rvl + 1); for (size_t j = 0; j < rvl; j++) nf[j] = (rv[j] == SOH) ? '\x05' : rv[j]; nf[rvl] = '\0';
+        const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
+        for (;;) { const char *nx = strchr(s, SOH); if (k == fi) { fstart = s; fend = nx; break; } if (!nx) { fstart = NULL; break; } s = nx + 1; k++; }
+        if (!fstart) { *out = args[0]; return 1; }
+        size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
+        char *o = rt_ws_alloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, nf, rvl); if (fend) memcpy(o + pre + rvl, fend, post); o[pre + rvl + post] = '\0';
+        *out = STRVAL(o); return 1;
+    }
     if (!strcmp(fn, "__pas_nrec_deref_set") && nargs == 4) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[3]; return 1; }
         DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[3]; return 1; }
