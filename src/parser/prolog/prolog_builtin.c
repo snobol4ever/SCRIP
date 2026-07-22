@@ -438,7 +438,7 @@ static void pl_wt(Term *t, int quoted, int ignore_ops, int numbervars, long max_
                 break;
             }
             if (!is_op) {
-                pl_wt_atom(fn, quoted); fprintf(plw(), "(");
+                if (fn && fn[0] == '.' && fn[1] == 0) fprintf(plw(), "'.'"); else pl_wt_atom(fn, quoted); fprintf(plw(), "(");
                 for (int i = 0; i < t->compound.arity; i++) { if(i) fprintf(plw(), ","); pl_wt(t->compound.args[i],quoted,ignore_ops,numbervars,max_depth,depth+1); }
                 fprintf(plw(), ")");
             }

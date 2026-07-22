@@ -203,6 +203,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$acyclic_term")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
+    if (!strcmp(name, "$display") || !strcmp(name, "$display2") || !strcmp(name, "$print2")) return 1;
     if (!strcmp(name, "$format1") || !strcmp(name, "$format2") || !strcmp(name, "$copy_term")) return 1;
     if (!strcmp(name, "$write_term")) return 1;
     if (!strcmp(name, "$functor") || !strcmp(name, "$arg") || !strcmp(name, "$univ")) return 1;
@@ -1935,6 +1936,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         fh_set_output(old);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
+    if ((!strcmp(fn, "$display2") || !strcmp(fn, "$print2")) && nargs == 2) {
+        extern int fh_current_output(void); extern void fh_set_output(int);
+        extern void rt_pl_display_cell(void *); extern void rt_pl_write_cell(void *);
+        int idx = pl_resolve_stream_arg(args[0], fn[1] == 'd' ? "display/2" : "print/2", 1);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        int old = fh_current_output(); fh_set_output(idx);
+        DESCR_t t1 = args[1];
+        if (fn[1] == 'd') rt_pl_display_cell((void *)plw_det_cell(&t1)); else rt_pl_write_cell((void *)plw_det_cell(&t1));
+        fh_set_output(old);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
     if (!strcmp(fn, "$write_term3") && nargs == 3) {
         extern int fh_current_output(void); extern void fh_set_output(int); extern void rt_pl_write_term_cell(void *, void *);
         int idx = pl_resolve_stream_arg(args[0], "write_term/3", 1);
@@ -2182,10 +2194,22 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int ok = rt_pl_acyclic_cell((void *)plw_det_cell(&t0));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
-    if ((!strcmp(fn, "$writeq") || !strcmp(fn, "$print")) && nargs == 1) {
+    if (!strcmp(fn, "$writeq") && nargs == 1) {
         extern void rt_pl_writeq_cell(void *);
         DESCR_t t0 = args[0];
         rt_pl_writeq_cell((void *)plw_det_cell(&t0));
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$display") && nargs == 1) {
+        extern void rt_pl_display_cell(void *);
+        DESCR_t t0 = args[0];
+        rt_pl_display_cell((void *)plw_det_cell(&t0));
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$print") && nargs == 1) {
+        extern void rt_pl_write_cell(void *);
+        DESCR_t t0 = args[0];
+        rt_pl_write_cell((void *)plw_det_cell(&t0));
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$write_canonical") && nargs == 1) {
@@ -3921,6 +3945,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "flush_output", 1, "$flush_output1" },
         { "open", 3, "$open" }, { "open", 4, "$open" }, { "close", 1, "$close" }, { "close", 2, "$close" },
         { "writeq", 2, "$writeq2" }, { "write_canonical", 2, "$write_canonical2" }, { "write_term", 3, "$write_term3" }, { "format", 3, "$format3" },
+        { "display", 1, "$display" }, { "display", 2, "$display2" }, { "print", 2, "$print2" },
         { 0, 0, 0 } };
     if (!nm) return (const char *)0;
     for (int i = 0; tab[i].nm; i++) if (!strcmp(nm, tab[i].nm) && ar == tab[i].ar) return tab[i].tgt;
