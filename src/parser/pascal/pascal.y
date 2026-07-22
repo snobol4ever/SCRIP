@@ -133,6 +133,17 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (isln) { if (fstream) pnl_push(stmts, mk_fnc1("__pas_readln_f", pas_tree_clone(fstream))); else pnl_push(stmts, mk_fnc0("__pas_readln")); }
         return seq_of(stmts);
     }
+    if (name && (!strcmp(name, "ReadInt") || !strcmp(name, "readint")) && args && args->count >= 3) {
+        tree_t *fa = args->items[0]; tree_t *fstream = NULL; int start = 0;
+        if (fa && fa->t == TT_VAR && fa->v.sval && pas_is_filevar(fa->v.sval)) { if (!pas_is_stdstream(fa->v.sval)) fstream = fa; start = 2; }
+        PNodeList *stmts = pnl_new();
+        for (int i = start; i + 1 < args->count; i += 2) {
+            tree_t *v = args->items[i];
+            if (fstream) pnl_push(stmts, mk_assign(v, mk_fnc1("__pas_read_i_f", pas_tree_clone(fstream))));
+            else pnl_push(stmts, mk_assign(v, mk_fnc0("__pas_read_i")));
+        }
+        return seq_of(stmts);
+    }
     if (name && !strcmp(name, "assign") && args && args->count >= 3) {
         tree_t *fv = args->items[0]; tree_t *nm = args->items[2];
         return mk_assign(fv, mk_fnc1("__pas_fassign", nm));

@@ -641,8 +641,13 @@ int emit_binop_opnd_slot(IR_t *o) {
 }
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t *g_bnr_vnode[4096]; static int g_bnr_vn = 0; static const char *g_bnr_vname[4096]; static int g_bnr_vnn = 0;
+static int bnr_node_seen(IR_t *o) { for (int i = 0; i < g_bnr_vn; i++) if (g_bnr_vnode[i] == o) return 1; if (g_bnr_vn < 4096) g_bnr_vnode[g_bnr_vn++] = o; return 0; }
+static int bnr_name_seen(const char *n) { for (int i = 0; i < g_bnr_vnn; i++) if (g_bnr_vname[i] == n || (g_bnr_vname[i] && !strcmp(g_bnr_vname[i], n))) return 1; if (g_bnr_vnn < 4096) g_bnr_vname[g_bnr_vnn++] = n; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int var_assigned_real_static(IR_graph_t *g, const char *name, int depth) {
     if (!g || !g->all || !name || depth > 8) return 0;
+    if (bnr_name_seen(name)) return 0;
     for (int i = 0; i < g->n; i++) {
         IR_t *m = g->all[i];
         if (!m || m->op != IR_ASSIGN || !IR_LIT(m).sval || strcmp(IR_LIT(m).sval, name)) continue;
@@ -654,6 +659,7 @@ static int var_assigned_real_static(IR_graph_t *g, const char *name, int depth) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth) {
     if (!o || depth > 8) return 0;
+    if (bnr_node_seen(o)) return 0;
     if (o->op == IR_LIT_REAL) return 1;
     if (o->op == IR_VAR && IR_LIT(o).sval) return var_assigned_real_static(g, IR_LIT(o).sval, depth);
     if (o->op == IR_BINOP) {
@@ -670,7 +676,9 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
     if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return 1;
     int is_num = (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || (op >= BINOP_LT && op <= BINOP_NE));
     if (!is_num) return 0;
-    return binop_operand_real_static(g, bb_child0(nd), 0) || binop_operand_real_static(g, bb_child1(nd), 0);
+    g_bnr_vn = 0; g_bnr_vnn = 0;
+    int r = binop_operand_real_static(g, bb_child0(nd), 0); if (!r) { g_bnr_vn = 0; g_bnr_vnn = 0; r = binop_operand_real_static(g, bb_child1(nd), 0); }
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
