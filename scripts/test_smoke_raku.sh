@@ -2749,6 +2749,54 @@ say $a;
 say $b;
 EOF
 
+raku "repeat_while" "$(printf '1\n2\n3')" << 'EOF'
+my $i = 0;
+repeat {
+    $i = $i + 1;
+    say $i;
+} while $i < 3;
+EOF
+
+raku "repeat_until" "$(printf '11\n12')" << 'EOF'
+my $j = 10;
+repeat {
+    $j = $j + 1;
+    say $j;
+} until $j >= 12;
+EOF
+
+raku "repeat_while_runs_once" "5" << 'EOF'
+my $k = 5;
+repeat {
+    say $k;
+} while $k > 100;
+EOF
+
+raku "repeat_until_runs_once" "7" << 'EOF'
+my $n = 7;
+repeat {
+    say $n;
+} until $n > 0;
+EOF
+
+raku "repeat_next" "$(printf '1\n3\n4')" << 'EOF'
+my $i = 0;
+repeat {
+    $i = $i + 1;
+    next if $i == 2;
+    say $i;
+} while $i < 4;
+EOF
+
+raku "repeat_last" "$(printf '1\n2')" << 'EOF'
+my $i = 0;
+repeat {
+    $i = $i + 1;
+    last if $i == 3;
+    say $i;
+} while $i < 10;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
