@@ -1084,6 +1084,12 @@ static void drive_unowned(IR_t *nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_unowned(nd); return; }
+    /* ICN-SCAN-STRUCT: the scan-register-live flag is a STRUCTURAL property of each node (set at lower time
+     * by TT_SCAN range-marking), not a function of emit-walk order. Publishing it here, before every node's
+     * template runs, makes r13/r14/r15 sync decisions (bb_keyword_assign &subject/&pos, bb_suspend, bb_rev_swap,
+     * x86_scan_sync_*) correct regardless of the four-port BFS order — the previous running counter dropped to 0
+     * mid-body when a scan's IR_SCAN leave box was emitted before in-scan boxes reached via an IR_ACTIVATE fail edge. */
+    { extern int g_scan_regs_live; g_scan_regs_live = nd->in_scan ? 1 : 0; }
     switch (nd->op) {
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -1540,12 +1546,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = 1;
         g_emit.op_off = drive_value_slot(nd);
-        { extern int g_scan_regs_live; g_scan_regs_live++; }
+        /* ICN-SCAN-STRUCT: removed g_scan_regs_live++ — the flag is now published per-node from nd->in_scan at emit_drive top (structural, order-independent). */
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN: {
         g_emit.op_sb  = 0;
-        { extern int g_scan_regs_live; if (g_scan_regs_live > 0) g_scan_regs_live--; }
+        /* ICN-SCAN-STRUCT: removed g_scan_regs_live-- — see emit_drive top; leave/enter boxes carry in_scan=0 so the flag is 0 while their own templates run (they load/restore r13/r14/r15 unconditionally anyway). */
         IR_t * enter_nd = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = nd_slot(enter_nd);
         if (g_emit.op_off < 0) { drive_unowned(nd); break; }
