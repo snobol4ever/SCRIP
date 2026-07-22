@@ -7,6 +7,9 @@ extern "C" {
 #include "bb_templates.h"
 }
 #include "x86_asm.h"
+extern "C" long rt_sg_scan_member(void);
+extern "C" long rt_sg_scan_nonmember(void);
+extern "C" long rt_sg_member(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
 static long sp_chainp() { return _.op_sa < 0 && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
@@ -21,8 +24,10 @@ std::string bb_match_span() {
     const void * ct = sp_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     return x86("comment", "IR_MATCH_SPAN")
          + x86_alpha()
-         + IF(_.op_sa >= 0,
+         + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE,
               x86("mov",    FR(_.x86_scratch_off), (long)0)
+            + x86("mov",    "r8",  FRQ(_.op_sa + 8))
+            + x86("mov",    "r9d", FR(_.op_sa + 4))
             + x86("def",    L(0))
             + x86("mov",    "eax", "r14d")
             + x86("add",    "eax", FR(_.x86_scratch_off))
@@ -30,10 +35,16 @@ std::string bb_match_span() {
             + x86("jge",    L(1))
             + x86("movsxd", "rcx", "eax")
             + x86("movzx",  "esi", "[r13+rcx]")
-            + x86("mov",    "rdi", FRQ(_.op_sa + 8))
-            + x86("call",   "strchr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *, int))strchr)
-            + x86("test",   "rax", "rax")
-            + x86("je",     L(1))
+            + x86("mov",    "edx", (long)0)
+            + x86("def",    L(2))
+            + x86("cmp",    "edx", "r9d")
+            + x86("jge",    L(1))
+            + x86("movzx",  "edi", "[r8+rdx]")
+            + x86("cmp",    "esi", "edi")
+            + x86("je",     L(3))
+            + x86("add",    "edx", (long)1)
+            + x86("jmp",    L(2))
+            + x86("def",    L(3))
             + x86("add",    FR(_.x86_scratch_off), (long)1)
             + x86("jmp",    L(0))
             + x86("def",    L(1))
@@ -44,6 +55,15 @@ std::string bb_match_span() {
             + x86("mov",    FR(_.x86_scratch_off + 4), "edx")
             + x86("add",    "edx", "eax")
             + x86("mov",    "r14d", "edx"))
+         + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL,
+              x86("mov",    "edi", "r14d")
+            + x86("mov",    "rsi", FRQ(_.op_sa + 8))
+            + x86("mov",    "edx", FR(_.op_sa + 4))
+            + x86("call",   "rt_sg_scan_nonmember", (uint64_t)(uintptr_t)(void *)rt_sg_scan_nonmember)
+            + x86("cmp",    "eax", "r14d")
+            + x86_omega("jle")
+            + x86("mov",    FR(_.x86_scratch_off + 4), "r14d")
+            + x86("mov",    "r14d", "eax"))
          + IF(_.op_sa < 0,
               IF(sp_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
             + x86("movsxd", "rcx", "r14d")
