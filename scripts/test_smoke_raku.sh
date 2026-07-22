@@ -2716,6 +2716,39 @@ class C { method go() { return 42 } }
 say C.new.go;
 EOF
 
+raku "destr_two_bare" "$(printf '3\n7')" << 'EOF'
+my ($a, $b) = 3, 7;
+say $a;
+say $b;
+EOF
+
+raku "destr_three_last" "3" << 'EOF'
+my ($a, $b, $c) = 1, 2, 3;
+say $c;
+EOF
+
+raku "destr_paren_list_sum" "30" << 'EOF'
+my ($a, $b) = (10, 20);
+say $a + $b;
+EOF
+
+raku "destr_strings" "bar" << 'EOF'
+my ($x, $y) = "foo", "bar";
+say $y;
+EOF
+
+raku "destr_fewer_rhs" "$(printf '1\n2')" << 'EOF'
+my ($a, $b, $c) = 1, 2;
+say $a;
+say $b;
+EOF
+
+raku "destr_extra_rhs_dropped" "$(printf '1\n2')" << 'EOF'
+my ($a, $b) = 1, 2, 3;
+say $a;
+say $b;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
