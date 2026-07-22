@@ -294,6 +294,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
+    case TT_CLOOP: {
+        IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
+        IR_t * incr_entry = lower_rblock(cx, t->c[2], LOOP, ω);
+        IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
+        cx->loop_exit = γ; cx->loop_next = incr_entry;
+        IR_t * bentry = lower_rblock(cx, t->c[3], incr_entry, ω);
+        cx->loop_exit = sv_exit; cx->loop_next = sv_next;
+        IR_t * centry = lower_cond(cx, t->c[1], bentry, γ);
+        γ_to(LOOP, centry); ω_to(LOOP, centry);
+        IR_t * ientry = lower_rblock(cx, t->c[0], LOOP, ω);
+        *res = LOOP; return ientry; }
     case TT_UNTIL: {
         IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
         IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
