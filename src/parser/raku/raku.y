@@ -126,6 +126,15 @@ static tree_t *seq1(tree_t *stmt) {
     if (stmt) expr_add_child(seq, stmt);
     return seq;
 }
+static tree_t *rk_cstyle_loop(tree_t *init, tree_t *cond, tree_t *incr, tree_t *body) {
+    tree_t *n = ast_node_new(TT_CLOOP);
+    expr_add_child(n, init); expr_add_child(n, cond); expr_add_child(n, incr); expr_add_child(n, body);
+    return n;
+}
+static tree_t *rk_incdec(const char *var, int add) {
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    return expr_binary(TT_ASSIGN, var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one));
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_with_mod(tree_t *stmt, tree_t *cond, int negate) {
     tree_t *topic = ast_node_new(TT_ASSIGN); expr_add_child(topic, leaf_sval(TT_VAR, "_")); expr_add_child(topic, cond);
@@ -290,7 +299,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> mul_expr unary_expr pow_expr postfix_expr call_expr block
 %type <node> repl_expr addsub_expr
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail scalar_methcall
-%type <node> unless_stmt until_stmt repeat_stmt loop_stmt class_decl grammar_decl role_decl
+%type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl
 %type <node> pair_list
 %type <sval> is_clauses
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
@@ -633,6 +642,17 @@ repeat_stmt
 loop_stmt
     : KW_LOOP block
         { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1; $$=expr_binary(TT_WHILE,one,$2); }
+    | KW_LOOP '(' KW_MY VAR_SCALAR '=' expr ';' expr ';' loop_incr ')' block
+        { $$=rk_cstyle_loop(expr_binary(TT_ASSIGN,var_node($4),$6),$8,$10,$12); }
+    | KW_LOOP '(' expr ';' expr ';' loop_incr ')' block
+        { $$=rk_cstyle_loop($3,$5,$7,$9); }
+    ;
+loop_incr
+    : expr                { $$=$1; }
+    | VAR_SCALAR OP_INC   { $$=rk_incdec($1,1); }
+    | VAR_SCALAR OP_DEC   { $$=rk_incdec($1,0); }
+    | OP_INC VAR_SCALAR   { $$=rk_incdec($2,1); }
+    | OP_DEC VAR_SCALAR   { $$=rk_incdec($2,0); }
     ;
 for_stmt
     : KW_FOR add_expr OP_RANGE add_expr OP_ARROW VAR_SCALAR block

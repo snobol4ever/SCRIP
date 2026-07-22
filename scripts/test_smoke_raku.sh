@@ -2650,6 +2650,26 @@ raku "srelop_gt_var" "y" << 'EOF'
 my $a = "zebra"; my $b = "apple"; say $a gt $b ?? "y" !! "n";
 EOF
 
+raku "loop_cstyle_basic" "$(printf '0\n1\n2')" << 'EOF'
+loop (my $i = 0; $i < 3; $i++) { say $i; }
+EOF
+
+raku "loop_cstyle_sum" "10" << 'EOF'
+my $s = 0; loop (my $i = 1; $i <= 4; $i++) { $s = $s + $i; } say $s;
+EOF
+
+raku "loop_cstyle_last" "$(printf '0\n1\n2')" << 'EOF'
+loop (my $i = 0; $i < 10; $i++) { last if $i == 3; say $i; }
+EOF
+
+raku "loop_cstyle_next_runs_incr" "$(printf '0\n2\n3')" << 'EOF'
+loop (my $i = 0; $i < 4; $i++) { next if $i == 1; say $i; }
+EOF
+
+raku "loop_cstyle_decr" "$(printf '3\n2\n1')" << 'EOF'
+loop (my $i = 3; $i > 0; $i--) { say $i; }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
