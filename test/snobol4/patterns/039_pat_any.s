@@ -140,18 +140,25 @@ main_α_body:
  xchain0_n7_α:
  mov eax, r14d
  cmp eax, r15d
- jl .Lx10_239
+ jl .Lx11_240
  add rsp, 16
  jmp xchain0_n3_β
-.Lx10_239:
+.Lx11_240:
  movsxd rcx, r14d
  movzx esi, byte ptr [r13+rcx]
- lea rdi, [rip + .C0]
- cmp byte ptr [rdi+rsi], 0
- jne .Lx10_240
+ cmp esi, 97
+ je .Lx11_0
+ cmp esi, 101
+ je .Lx11_0
+ cmp esi, 105
+ je .Lx11_0
+ cmp esi, 111
+ je .Lx11_0
+ cmp esi, 117
+ je .Lx11_0
  add rsp, 16
  jmp xchain0_n3_β
-.Lx10_240:
+.Lx11_0:
  add r14d, 1
  jmp xchain0_n8_α
  xchain0_n7_β:
@@ -187,26 +194,26 @@ main_α_body:
  mov rsi, r12
  mov rdx, r13
  call rt_dcap_end_ok_open@PLT
-.Lx14_1:
+.Lx15_1:
  test rax, rax
- je .Lx14_2
+ je .Lx15_2
  call rt_proc_open_fn@PLT
- lea rcx, [rip + .Lx14_3]
- lea rdx, [rip + .Lx14_4]
+ lea rcx, [rip + .Lx15_3]
+ lea rdx, [rip + .Lx15_4]
  jmp rax
-.Lx14_3:
+.Lx15_3:
  call rt_proc_call_epilogue_γ@PLT
  mov rdi, rax
  mov rsi, rdx
  call rt_dcap_step@PLT
- jmp .Lx14_1
-.Lx14_4:
+ jmp .Lx15_1
+.Lx15_4:
  call rt_proc_call_epilogue_ω@PLT
  mov rdi, rax
  mov rsi, rdx
  call rt_dcap_step@PLT
- jmp .Lx14_1
-.Lx14_2:
+ jmp .Lx15_1
+.Lx15_2:
  call rt_dcap_end_ok_close@PLT
  add rsp, 8
  pop r13
@@ -226,14 +233,14 @@ main_α_body:
  xchain0_n11_α:
  mov rsi, qword ptr [rbp + 368]
  mov rdx, qword ptr [rbp + 376]
- mov rdi, qword ptr [rip + .Lx16_0]
+ mov rdi, qword ptr [rip + .Lx17_0]
  call NV_SET_fn@PLT
  mov qword ptr [rbp + 352], rax
  mov qword ptr [rbp + 360], rdx
  jmp main_γ
-.Lx16_0:
- .quad .Lx16_0_s
-.Lx16_0_s:
+.Lx17_0:
+ .quad .Lx17_0_s
+.Lx17_0_s:
  .string "OUTPUT"
 main_β:
 jmp main_ω
@@ -256,23 +263,4 @@ add rsp, 65544
 ret
 .section .rodata
 .S0: .string "V"
-.text
-.section .rodata
-.C0:
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1
- .byte 0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 .text
