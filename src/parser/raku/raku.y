@@ -259,6 +259,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_CONSTANT
 %token KW_GIVEN KW_WHEN KW_DEFAULT KW_WITH KW_WITHOUT
 %token KW_EXISTS KW_DELETE KW_UNLESS KW_UNTIL KW_REPEAT
+%token KW_LOOP KW_LAST KW_NEXT
 %token KW_MAP KW_GREP KW_SORT
 %token KW_TRY KW_CATCH KW_DIE
 %token KW_CLASS KW_METHOD KW_HAS KW_NEW
@@ -289,7 +290,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> mul_expr unary_expr pow_expr postfix_expr call_expr block
 %type <node> repl_expr addsub_expr
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail scalar_methcall
-%type <node> unless_stmt until_stmt repeat_stmt class_decl grammar_decl role_decl
+%type <node> unless_stmt until_stmt repeat_stmt loop_stmt class_decl grammar_decl role_decl
 %type <node> pair_list
 %type <sval> is_clauses
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
@@ -555,6 +556,17 @@ stmt
     | unless_stmt       { $$=$1; }
     | until_stmt        { $$=$1; }
     | repeat_stmt       { $$=$1; }
+    | loop_stmt         { $$=$1; }
+    | KW_LAST ';'       { $$=ast_node_new(TT_LOOP_BREAK); }
+    | KW_NEXT ';'       { $$=ast_node_new(TT_LOOP_NEXT); }
+    | KW_LAST KW_IF expr ';'
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$3); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); $$=e; }
+    | KW_LAST KW_UNLESS expr ';'
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$3); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); $$=e; }
+    | KW_NEXT KW_IF expr ';'
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$3); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); $$=e; }
+    | KW_NEXT KW_UNLESS expr ';'
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$3); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); $$=e; }
     | sub_decl          { $$=$1; }
     | class_decl        { $$=$1; }
     | role_decl         { $$=$1; }
@@ -617,6 +629,10 @@ until_stmt
 repeat_stmt
     : KW_REPEAT block
         { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); $$=e; }
+    ;
+loop_stmt
+    : KW_LOOP block
+        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1; $$=expr_binary(TT_WHILE,one,$2); }
     ;
 for_stmt
     : KW_FOR add_expr OP_RANGE add_expr OP_ARROW VAR_SCALAR block
@@ -1236,6 +1252,18 @@ block
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$4); ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_RETURN '}'
         { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+    | '{' stmt_list KW_LAST '}'
+        { ExprList *l=$2; exprlist_append(l,ast_node_new(TT_LOOP_BREAK)); $$=make_seq(l); }
+    | '{' stmt_list KW_NEXT '}'
+        { ExprList *l=$2; exprlist_append(l,ast_node_new(TT_LOOP_NEXT)); $$=make_seq(l); }
+    | '{' stmt_list KW_LAST KW_IF expr '}'
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+    | '{' stmt_list KW_LAST KW_UNLESS expr '}'
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+    | '{' stmt_list KW_NEXT KW_IF expr '}'
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+    | '{' stmt_list KW_NEXT KW_UNLESS expr '}'
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
     ;
 closure
     : '{' expr '}'  { $$=$2; }

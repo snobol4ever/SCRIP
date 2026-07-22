@@ -2596,6 +2596,36 @@ class C { method m($x) { say "hi" unless $x } }
 C.new.m(0);
 EOF
 
+raku "loop_ctl_while_last_if" "$(printf '0\n1\n2')" << 'EOF'
+my $i = 0;
+while $i < 10 { last if $i >= 3; say $i; $i = $i + 1 }
+EOF
+
+raku "loop_ctl_while_next_if" "$(printf '1\n3\n4')" << 'EOF'
+my $i = 0;
+while $i < 4 { $i = $i + 1; next if $i == 2; say $i }
+EOF
+
+raku "loop_ctl_bare_loop_last" "$(printf '0\n1\n2')" << 'EOF'
+my $i = 0;
+loop { last if $i >= 3; say $i; $i = $i + 1 }
+EOF
+
+raku "loop_ctl_until_last" "$(printf '0\n1')" << 'EOF'
+my $i = 0;
+until $i >= 10 { last if $i >= 2; say $i; $i = $i + 1 }
+EOF
+
+raku "loop_ctl_nested_inner_only" "$(printf '0-0\n0-1\n1-0\n1-1')" << 'EOF'
+my $o = 0;
+while $o < 2 { my $i = 0; while $i < 5 { last if $i >= 2; say "$o-$i"; $i = $i + 1 }; $o = $o + 1 }
+EOF
+
+raku "loop_ctl_last_if_trailing" "$(printf '1\n2\n3')" << 'EOF'
+my $i = 0;
+loop { $i = $i + 1; say $i; last if $i >= 3 }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
