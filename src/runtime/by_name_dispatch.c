@@ -268,6 +268,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
+        "__rk_arr_keys", "__rk_arr_values",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -2732,6 +2733,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *ep; long long v = strtoll(cp, &ep, 10);
         *out = (*ep == '\0' && ep != cp) ? INTVAL(v) : STRVAL(cp); return 1;
     }
+    if (!strcmp(fn, "__rk_arr_values") && nargs >= 1) {
+        char scratch[64];
+        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        *out = STRVAL(rt_ws_strdup_c(cs ? cs : "")); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_keys") && nargs >= 1) {
+        char scratch[64];
+        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        if (!cs || !*cs) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        int nel = 1; for (const char *p = cs; *p; p++) if (*p == SOH) nel++;
+        char *buf = rt_ws_alloc((size_t)nel * 24 + 1); int p = 0;
+        for (int i = 0; i < nel; i++) { if (i) buf[p++] = SOH; char nb[24]; int L = snprintf(nb, sizeof nb, "%d", i); memcpy(buf + p, nb, (size_t)L); p += L; }
+        buf[p] = '\0'; *out = STRVAL(buf); return 1;
+    }
     if (!strcmp(fn, "sum") && nargs >= 1) {
         long long isum = 0; double rsum = 0.0; int any_real = 0;
         for (int i = 0; i < nargs; i++) {
@@ -3249,10 +3264,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 int is_arrm = !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
                            || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
-                           || !strcmp(mname0, "max") || !strcmp(mname0, "first");
+                           || !strcmp(mname0, "max") || !strcmp(mname0, "first")
+                           || !strcmp(mname0, "keys") || !strcmp(mname0, "values");
                 if (is_arrm) {
                     const char *afn = !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
-                                    : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first" : mname0;
+                                    : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first"
+                                    : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values" : mname0;
                     int total = 1 + (nargs - 2);
                     DESCR_t *fa = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
                     if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = args[0]; }

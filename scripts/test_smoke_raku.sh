@@ -2883,6 +2883,26 @@ my $c = Cfg.new;
 say $c.keys;
 EOF
 
+raku "arr_keys_idx" "0,1,2" << 'EOF'
+my @a = "p", "q", "r";
+say @a.keys.join(",");
+EOF
+
+raku "arr_values_elems" "p,q,r" << 'EOF'
+my @a = "p", "q", "r";
+say @a.values.join(",");
+EOF
+
+raku "arr_values_sum" "60" << 'EOF'
+my @n = 10, 20, 30;
+say @n.values.sum;
+EOF
+
+raku "arr_keys_chain" "3" << 'EOF'
+my @a = 5, 6, 7;
+say @a.keys.elems;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
