@@ -120,6 +120,12 @@ static int xaf_anchor_off(void) {
     if (!g_emit_cfg || g_emit_cfg->zeta_mark_slot < 0) { fprintf(stderr, "FATAL xa_flat: frame-active graph with no zeta_mark slot -- the graph-scope anchor has no home (zls_build did not run?)\n"); abort(); }
     return g_emit_cfg->zeta_mark_slot + 8;
 }
+static int xaf_outer_frame_k(void) {
+    int rg = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
+    int k = rg + 8;
+    if (k < 65544) k = 65544;
+    return k;
+}
 static std::string xaf_frame_rsp_rm(uint32_t disp, unsigned char op) {
     int z = x86_zr_num(), lo = z & 7; std::string c;
     c += (char)(0x48 | (z >= 8 ? 0x01 : 0x00)); c += (char)op;
@@ -210,15 +216,16 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                         out_site = (int)rg.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
                         return rg;
                     }
-                    std::string r = bytes(3, "\x48\x81\xEC") + u32le(65544)
+                    int K = xaf_outer_frame_k();
+                    std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)K)
                                   + bytes(3, "\x48\x89\xE7")
-                                  + bytes(1, "\xB9") + u32le(65544)
+                                  + bytes(1, "\xB9") + u32le((uint32_t)K)
                                   + bytes(2, "\x31\xC0")
                                   + bytes(2, "\xF3\xAA")
                                   + xaf_anchor_enter_bin()
                                   + (x86_port_mode() == ZC_PORT_HEAP ? bytes(4, "\x48\x8B\x1C\x25") + u32le((uint32_t)RT_WS_TOP) : std::string()) /* REG-4b OUTER SEED, byte twin of TEXT's mov rbx, qword ptr [RT_WS_TOP]: outermost graphs only — jmp-entry blobs inherit rbx live */
                                   + bytes(4, "\x4C\x8B\x24\x25") + u32le((uint32_t)RT_CAS_TOP) /* REG-6 OUTER SEED, byte twin of TEXT's mov r12, qword ptr [RT_CAS_TOP] (byte-verified vs as s80): r12 = live pend/dcap top for the whole graph — jmp-entry blobs/EVAL fragments inherit it via the callee-saved contract; cell pre-warmed by rt_pin_init's chained rt_dcap_lazy_init.  UNGATED: the pend stack is live in every port mode.  No epilogue publish: the pump takes the top BY ARGUMENT (rsi) and LIFO balance means top==base at every graph exit, so the cell stays truthful without one. */
-                                  + bytes(4, "\x48\x89\xAC\x24") + u32le(65536) /* CALLER-RBP SAVE (ABI fix, mode-3): store caller rbp at [rsp+K-8] header slot before the seed clobbers rbp; restored before every ret.  The mode-3 caller (scrip main) is a canary-protected C fn that relies on rbp being preserved; mode-4's caller (main: wrapper) does not, so this was latent until the exit-code sweep. */
+                                  + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(K - 8)) /* CALLER-RBP SAVE (ABI fix, mode-3): store caller rbp at [rsp+K-8] header slot before the seed clobbers rbp; restored before every ret.  The mode-3 caller (scrip main) is a canary-protected C fn that relies on rbp being preserved; mode-4's caller (main: wrapper) does not, so this was latent until the exit-code sweep. */
                                   + bytes(3, "\x48\x89\xE5") /* REG-7 U1 OUTER SEED, byte twin of TEXT's mov rbp, rsp (48 89 E5, byte-verified vs as s82): rbp = the activation FLAT BASE (REG-MAP law 1) — rsp == flat base here by LIFO balance, the frame view every FR/FRQ consumer flips to at U3.  DEAD WEIGHT until U3; jmp-entry blobs get their own save/seed/restore at U2 (pat blobs already have it, s79).  Bare clobber safe by the same callee-saved dance contract the rbx/r12 seeds above ride. */
                                   + (g_flat_outer_nparams >= 1 ? bytes(1, "\x56") + bytes(4, "\x48\x83\xEC\x08") /* ICNBENCH-ARGS-RSP (closes the R12-ERAD main(args) FENCE): push rsi (entry selector survives the call) + sub rsp,8 (base ≡ 0 mod 16 → call-parity 0 kept) */
                                                               + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_main_args_fetch) /* movabs rax, rt_main_args_fetch — raw bytes per the lexprep precedent above (legacy raw-byte family, no L-record) */
@@ -298,11 +305,12 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
                     if (g_gen_proc_active || g_resumable_callable_active)   /* PL-GEN-RSP fix (TEXT twin): adopt the heap fb (rdi) as the rbp frame base; frame survives beta-resume on the heap, rsp stays free */
                         return banner + "  push rbp\n  mov rbp, rdi\n  cmp esi, 0\n  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
-                    char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", 65544, 65544); /* 65536+8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
+                    int K = xaf_outer_frame_k();
+                    char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", K, K); /* K = region+8 (floored 65544); 8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
                     std::string pro = banner + fb + xaf_anchor_enter_text();
                     if (x86_port_mode() == ZC_PORT_HEAP) pro += std::string("  mov rbx, ") + ABSQ(RT_WS_TOP) + "\n"; /* REG-4b OUTER SEED (twin of the BINARY arm's 48 8B 1C 25): outermost graphs only — jmp-entry blobs inherit rbx live through C's callee-saved contract */
                     pro += std::string("  mov r12, ") + ABSQ(RT_CAS_TOP) + "\n"; /* REG-6 OUTER SEED (twin of the BINARY arm's 4C 8B 24 25, byte-verified vs as s80): r12 = live pend/dcap top, UNGATED, inherited by jmp-entry blobs; cell pre-warmed by rt_pin_init.  No epilogue publish — pump takes rsi, LIFO balance keeps the cell truthful at exit. */
-                    pro += std::string("  mov [rsp + 65536], rbp\n"); /* CALLER-RBP SAVE (ABI fix, twin of BINARY 48 89 AC 24 00 00 01 00): store caller rbp at [rsp+K-8] header slot before the seed clobbers it; restored before every ret */
+                    { char rbps[64]; snprintf(rbps, sizeof rbps, "  mov [rsp + %d], rbp\n", K - 8); pro += std::string(rbps); } /* CALLER-RBP SAVE (ABI fix, twin of BINARY 48 89 AC 24): store caller rbp at [rsp+K-8] header slot before the seed clobbers it; restored before every ret */
                     pro += std::string("  mov rbp, rsp\n"); /* REG-7 U1 OUTER SEED (twin of the BINARY arm's 48 89 E5): rbp = activation flat base per REG-MAP law 1 — dead until U3's consumer flip; blobs save/seed/restore their own (s79 pat, U2 non-pat).  Bare clobber safe: the dance restores callee-saved regs, same as rbx/r12 above. */
                     { extern int g_flat_outer_nparams; if (g_flat_outer_nparams >= 1) pro += std::string("  push rsi\n  sub rsp, 8\n  call rt_main_args_fetch@PLT\n  add rsp, 8\n  pop rsi\n  mov [rbp + 16], rax\n  mov [rbp + 24], rdx\n"); } /* ICNBENCH-ARGS-RSP TEXT twin: bind staged main(args) into the param-0 slot; esi preserved, rsp call-parity 0 kept */
                     if (g_gen_proc_active || g_resumable_callable_active)
@@ -413,11 +421,12 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = fg;
                     return sg + fg;
                 }
+                int Ke = xaf_outer_frame_k();
                 std::string succ_half = bytes(1, "\xB8") + u32le(1)
                                       + bytes(2, "\x31\xD2")
                                       + xaf_anchor_leave_bin()
-                                      + bytes(4, "\x48\x8B\xAC\x24") + u32le(65536) /* CALLER-RBP RESTORE (ABI fix): rsp==base after anchor-leave, reload caller rbp from [rsp+K-8] header slot before rejoining the caller */
-                                      + bytes(3, "\x48\x81\xC4") + u32le(65544)
+                                      + bytes(4, "\x48\x8B\xAC\x24") + u32le((uint32_t)(Ke - 8)) /* CALLER-RBP RESTORE (ABI fix): rsp==base after anchor-leave, reload caller rbp from [rsp+K-8] header slot before rejoining the caller */
+                                      + bytes(3, "\x48\x81\xC4") + u32le((uint32_t)Ke)
                                       + bytes(1, "\xC3");
                 std::string fail_half = xaf_anchor_leave_bin()
                                       + bytes(3, "\xC7\x04\x24") + u32le(99)
@@ -425,8 +434,8 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(5, "\x48\xC7\x44\x24\x08") + u32le(0)
                                       + bytes(1, "\xB8") + u32le(99)
                                       + bytes(2, "\x31\xD2")
-                                      + bytes(4, "\x48\x8B\xAC\x24") + u32le(65536) /* CALLER-RBP RESTORE (ABI fix): reload caller rbp from [rsp+K-8] before rejoining the caller */
-                                      + bytes(3, "\x48\x81\xC4") + u32le(65544)
+                                      + bytes(4, "\x48\x8B\xAC\x24") + u32le((uint32_t)(Ke - 8)) /* CALLER-RBP RESTORE (ABI fix): reload caller rbp from [rsp+K-8] before rejoining the caller */
+                                      + bytes(3, "\x48\x81\xC4") + u32le((uint32_t)Ke)
                                       + bytes(1, "\xC3");
                 out_site = (int)succ_half.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
                 if (out_succ) *out_succ = succ_half;
@@ -518,11 +527,14 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                         if (out_fail) *out_fail = fgt;
                         return sgt + fgt;
                     }
-                    std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + "mov rbp, [rsp + 65536]\n" + "add rsp, 65544\n" + "ret\n";
+                    int Kt = xaf_outer_frame_k();
+                    char rbpr[64]; snprintf(rbpr, sizeof rbpr, "mov rbp, [rsp + %d]\n", Kt - 8);
+                    char frel[64]; snprintf(frel, sizeof frel, "add rsp, %d\n", Kt);
+                    std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + rbpr + frel + "ret\n";
                     std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
                          + xaf_anchor_leave_text()
                          + "mov dword ptr [rsp+0], 99\n" + "mov dword ptr [rsp+4], 0\n" + "mov qword ptr [rsp+8], 0\n"
-                         + "mov eax, 99\n" + "xor edx, edx\n" + "mov rbp, [rsp + 65536]\n" + "add rsp, 65544\n" + "ret\n";
+                         + "mov eax, 99\n" + "xor edx, edx\n" + rbpr + frel + "ret\n";
                     if (out_succ) *out_succ = succ_half;
                     if (out_fail) *out_fail = fail_half;
                     return succ_half + fail_half;

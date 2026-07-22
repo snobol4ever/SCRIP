@@ -447,7 +447,7 @@ extern cap_t    * bb_cap_new_call           (bb_box_fn child_fn, void *child_sta
 extern cap_t    * bb_cap_new                (bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
 void (*g_cap_fixup_cb)(void *cap_ptr, const char *child_α_label) = NULL;
 const char *child_cache_get_lbl(bb_box_fn fn);
-#define FLAT_BUF_MAX  (256 * 1024)
+#define FLAT_BUF_MAX  (1024 * 1024)
 int g_flat_node_id   = 0;
 static int g_seq_static_cur = 0;
 int g_last_flat_frame_bytes = 0;
