@@ -512,6 +512,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "Str")) { *out = STRVAL(rt_ws_strdup_c(s)); return 1; }
     if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
+    if (!strcmp(meth, "starts-with") && nmargs >= 1) { char nb[128]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; size_t ln = strlen(nd); *out = INTVAL((ln <= n && !strncmp(s, nd, ln)) ? 1 : 0); return 1; }
+    if (!strcmp(meth, "ends-with") && nmargs >= 1) { char nb[128]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; size_t ln = strlen(nd); *out = INTVAL((ln <= n && !strncmp(s + (n - ln), nd, ln)) ? 1 : 0); return 1; }
     if (!strcmp(meth, "index") && nmargs >= 1) {
         char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; const char *hit = strstr(s, nd); *out = hit ? INTVAL((long)(hit - s)) : NULVCL; return 1;
     }
