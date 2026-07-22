@@ -9,11 +9,11 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
-static long bk_chainp() { return _.op_sa < 0 && CSK() >= 1 && CSK() <= 8; }
+static long bk_chainp() { return _.op_sa < 0 && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long bk_tablep() { return _.op_sa < 0 && !bk_chainp(); }
 static std::string bk_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(1)) + bk_memb(i + 1); }
 static std::string bk_char() { return x86("cmp", "ecx", "r15d") + x86_omega("jge") + x86("movzx", "esi", "[r13+rcx]") + (bk_chainp() ? bk_memb(0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("jnz", L(1))) + x86("add", "ecx", (long)1); }
-static std::string bk_unroll(long u) { return u >= 4 ? x86("jmp", L(0)) : bk_char() + bk_unroll(u + 1); }
+static std::string bk_unroll(long u) { return u >= (ZC_SPAN_LIT_UNROLL ? ZC_UNROLL_FACTOR : 1) ? x86("jmp", L(0)) : bk_char() + bk_unroll(u + 1); }
 std::string bb_match_break() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();

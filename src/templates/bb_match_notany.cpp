@@ -9,8 +9,8 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
-static long na_chainp() { return _.op_sa < 0 && CSK() >= 2 && CSK() <= 8; }
-static long na_tablep() { return _.op_sa < 0 && (CSK() == 0 || CSK() > 8); }
+static long na_chainp() { return _.op_sa < 0 && CSK() >= 2 && CSK() <= ZC_CSET_CHAIN_MAX; }
+static long na_tablep() { return _.op_sa < 0 && (CSK() == 0 || CSK() > ZC_CSET_CHAIN_MAX); }
 static std::string na_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86_omega("je") + na_memb(i + 1); }
 std::string bb_match_notany() {
     if (!PLATFORM_X86) return std::string();
