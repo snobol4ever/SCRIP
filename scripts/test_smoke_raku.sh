@@ -2971,6 +2971,18 @@ raku "printf_basic" "1-2" << 'EOF'
 printf("%d-%d\n", 1, 2);
 EOF
 
+raku "fmt_method_int" "007" << 'EOF'
+my $x = 7; say $x.fmt("%03d");
+EOF
+
+raku "fmt_method_hex" "ff" << 'EOF'
+say 255.fmt("%x");
+EOF
+
+raku "fmt_method_str" "[   hi]" << 'EOF'
+my $s = "hi"; say $s.fmt("[%5s]");
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
