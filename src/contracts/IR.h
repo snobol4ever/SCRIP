@@ -137,6 +137,14 @@ typedef enum {
     IR_MATCH_ATP,
     IR_MATCH_CALLOUT,
     IR_MATCH_DEFER,
+    IR_MATCH_VALUE,         /* SN4 kill-manufactured-names (2026-07-22): match a pattern VALUE carried in operand[0]
+                             * (a fresh slot, drive_value_slot) instead of a manufactured global name; the eager
+                             * TT_FNC pattern-position call lowers its result once into operand[0] and this node
+                             * reads FR(op_a_slot) and matches it — DT_P runs the compiled pattern fn, a scalar is
+                             * a literal match — no NV_SET/NV_GET, no global slot, no thunk-proc registration (that
+                             * per-occurrence name minting is the GLOBAL_MAX/zls flood blocking beauty self-host).
+                             * Structural clone of IR_MATCH_DEFER at every plumbing site; only the value SOURCE
+                             * differs (operand slot vs op_sval name), so it never owes a *X/DT_X call transfer. */
     IR_MATCH_HEAD,
     IR_MATCH_RELEASE,       /* BB-OWNED-ζ statement-scope pivot: α reads the saved rt_zls_mark() pointer from
                              * its operand[0] (the statement's own IR_MATCH_HEAD node, via drive_value_slot,

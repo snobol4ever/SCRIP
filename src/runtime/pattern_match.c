@@ -966,6 +966,27 @@ void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SN4 kill-manufactured-names (2026-07-22): the VALUE-operand siblings of rt_defer_get_pat_fn / rt_defer_open.
+ * IR_MATCH_VALUE hands the already-computed pattern value in by POINTER (operand[0]'s frame slot) instead of a
+ * global name, so there is no NV_GET, no *X star-transfer, and no DT_X owed call (the eager TT_FNC result is a
+ * concrete value).  DT_P -> run the compiled pattern fn (dtp_fn_of, the box's first arm); a scalar -> store it
+ * and let rt_defer_close do the literal match (the box's second arm).  A DT_P or DT_X reaching close is not a
+ * scalar and close returns -1 (clean fail), so the box's DT_P-first order is what keeps semantics correct. */
+void *rt_match_value_get_pat_fn(DESCR_t *pval)
+{
+    if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); return dtp_fn_of(pval->p); }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_match_value_open(DESCR_t *pval)
+{
+    rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
+    DESCR_t val = pval ? *pval : NULVCL;
+    if (IS_FAIL_fn(val)) { s->failed = 1; return 0; }
+    s->val = val;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);

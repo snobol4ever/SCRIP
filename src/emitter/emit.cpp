@@ -851,6 +851,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ARB:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZB-FC-4 fixed-cell grant (ex-zls2, Lon s50 S14) */
     case IR_MATCH_BAL:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_bal()); } return 0;                                                                                                            /* SN4-BAL (s34): generator over paren-balanced extents; no ZLS2 grant (in-frame, SPAN shape) */
     case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
+    case IR_MATCH_VALUE:          { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;  /* SN4 kill-manufactured-names: match operand[0]'s pattern value (op_a_slot), no name */
     case IR_MATCH_ARBNO:          { extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); extern int fc_tail_ncap(const IR_t *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
                                     if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; }
                                     else { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; int _chain = (x86_port_mode() == ZC_PORT_FORTH); g_emit.op_arbno_chain = _chain; g_emit.op_sb = (_sp + (_chain ? 24 : 16) + 15) & ~15; } else { g_emit.op_sa = -1; g_emit.op_sb = -1; g_emit.op_arbno_chain = 0; } }
@@ -1273,6 +1274,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     }
     case IR_MATCH_REM: case IR_MATCH_ARB: case IR_MATCH_BAL: {
         g_emit.x86_scratch_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_VALUE: {
+        g_emit.op_sa = -1; g_emit.op_off = -1;
+        g_emit.x86_scratch_off = drive_value_slot(nd);
+        g_emit.bb_child_fn = (void *) 0; g_emit.bb_child_lbl = (const char *) 0;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_DEFER: {
@@ -1766,7 +1773,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (c->op == IR_MOVE_LABEL && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_REPALT && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_REPALT && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
-        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
+        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER || c->op == IR_MATCH_VALUE) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
         if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < Q_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node) {
@@ -1786,7 +1793,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < Q_MAX)
             queue[qt++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
-        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
+        if (((c->op >= IR_MATCH_LIT && c->op <= IR_MATCH_ASSIGN_SAVE) || c->op == IR_MATCH_DEFER || c->op == IR_MATCH_VALUE) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;  /* SN4-PAT: match-family ω is a real control edge (next alternative / fail handler; DEFER folded in for SN4-PAT-FOLD) */
         if (c->op == IR_SUSPEND && c->n_operands > 1 && c->operands[1] && qt < Q_MAX) queue[qt++] = c->operands[1];
         if (c->op == IR_CREATE && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
         if (c->op == IR_MOVE_LABEL && c->n_operands > 0 && c->operands[0] && qt < Q_MAX) queue[qt++] = c->operands[0];
