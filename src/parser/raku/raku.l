@@ -75,6 +75,9 @@ WS       [ \t\r]
 "unless"        { return KW_UNLESS; }
 "until"         { return KW_UNTIL; }
 "repeat"        { return KW_REPEAT; }
+"loop"          { return KW_LOOP; }
+"last"          { return KW_LAST; }
+"next"          { return KW_NEXT; }
 "map"           { return KW_MAP; }
 "grep"          { return KW_GREP; }
 "sort"          { return KW_SORT; }

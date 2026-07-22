@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "lower.h"
-typedef struct { IR_graph_t * g; IR_t * try_catch; } rcx_t;
+typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; } rcx_t;
 #define RK_GRAM_MAX 64
 static const char * g_rk_gram_names[RK_GRAM_MAX];
 static int          g_rk_gram_n = 0;
@@ -287,21 +287,35 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         *res = e; return e; }
     case TT_WHILE: {
         IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
+        IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
+        cx->loop_exit = γ; cx->loop_next = LOOP;
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
+        cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
     case TT_UNTIL: {
         IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
+        IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
+        cx->loop_exit = γ; cx->loop_next = LOOP;
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
+        cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], γ, bentry);
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
     case TT_REPEAT: {
         IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
+        IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
+        cx->loop_exit = ω; cx->loop_next = LOOP;
         IR_t * bentry = (t->n > 0) ? lower_rblock(cx, t->c[0], LOOP, ω) : LOOP;
+        cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         γ_to(LOOP, bentry); ω_to(LOOP, bentry);
         *res = LOOP; return bentry; }
+    case TT_LOOP_BREAK: case TT_LOOP_NEXT: {
+        IR_t * tgt = (t->t == TT_LOOP_BREAK) ? cx->loop_exit : cx->loop_next;
+        if (!tgt) tgt = ω;
+        IR_t * j = build(cx, IR_GOTO, tgt, tgt);
+        *res = NULL; return j; }
     case TT_EVERY: if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0) {
         const char * vname = t->c[0]->v.sval ? t->c[0]->v.sval : "_"; const tree_t * src = t->c[0]->c[0]; const tree_t * body = t->c[1];
         const tree_t * xf = NULL; int xfk = 0;
@@ -634,7 +648,7 @@ static void rk_discover_procs(const tree_t * prog) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
-    IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g; cx.try_catch = NULL;
+    IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g; cx.try_catch = NULL; cx.loop_exit = NULL; cx.loop_next = NULL;
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * sentry = succ; IR_t * entry = succ;
     for (int i = (pd ? pd->n : 0) - 1; i >= 1; i--) {
@@ -875,7 +889,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++)
         if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) { has_main = 1; break; }
     if (!has_main) {
-        IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.g = tg; tcx.try_catch = NULL;
+        IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.g = tg; tcx.try_catch = NULL; tcx.loop_exit = NULL; tcx.loop_next = NULL;
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
         IR_t * sentry = succ; IR_t * entry = succ;
         for (int i = prog->n - 1; i >= 0; i--) {
