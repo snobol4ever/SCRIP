@@ -39,17 +39,8 @@ xchain0_n0_af:
  cmp eax, r15d
  jg xchain0_n0_af
  movsxd rcx, r14d
- movzx eax, byte ptr [r13+rcx]
- cmp eax, 32
- jne xchain0_n0_af
- movzx eax, byte ptr [r13+rcx+1]
- cmp eax, 116
- jne xchain0_n0_af
- movzx eax, byte ptr [r13+rcx+2]
- cmp eax, 104
- jne xchain0_n0_af
- movzx eax, byte ptr [r13+rcx+3]
- cmp eax, 101
+ mov edx, dword ptr [r13+rcx]
+ cmp edx, 1701344288
  jne xchain0_n0_af
  movzx eax, byte ptr [r13+rcx+4]
  cmp eax, 32
@@ -134,17 +125,8 @@ xchain0_n4_af:
  cmp eax, r15d
  jg xchain0_n4_af
  movsxd rcx, r14d
- movzx eax, byte ptr [r13+rcx]
- cmp eax, 32
- jne xchain0_n4_af
- movzx eax, byte ptr [r13+rcx+1]
- cmp eax, 111
- jne xchain0_n4_af
- movzx eax, byte ptr [r13+rcx+2]
- cmp eax, 102
- jne xchain0_n4_af
- movzx eax, byte ptr [r13+rcx+3]
- cmp eax, 32
+ mov edx, dword ptr [r13+rcx]
+ cmp edx, 543584032
  jne xchain0_n4_af
  add r14d, 4
  jmp xchain0_n4_s0

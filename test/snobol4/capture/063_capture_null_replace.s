@@ -117,17 +117,8 @@ main_α_body:
  cmp eax, r15d
  jg xchain0_n3_β
  movsxd rcx, r14d
- movzx eax, byte ptr [r13+rcx]
- cmp eax, 32
- jne xchain0_n3_β
- movzx eax, byte ptr [r13+rcx+1]
- cmp eax, 119
- jne xchain0_n3_β
- movzx eax, byte ptr [r13+rcx+2]
- cmp eax, 111
- jne xchain0_n3_β
- movzx eax, byte ptr [r13+rcx+3]
- cmp eax, 114
+ mov edx, dword ptr [r13+rcx]
+ cmp edx, 1919907616
  jne xchain0_n3_β
  movzx eax, byte ptr [r13+rcx+4]
  cmp eax, 108

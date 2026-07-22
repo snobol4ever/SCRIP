@@ -36,59 +36,92 @@ xchain0_n0_af:
  xchain0_n1_α:
  sub rsp, 16
  lea rdi, [rip + .C0]
- mov dword ptr [rsp + 0], 0
+ movsxd rcx, r14d
 .Lx4_0:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
+ jl .Lx4_237
+ add rsp, 16
+ jmp xchain0_n0_af
+.Lx4_237:
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ jnz .Lx4_1
+ add ecx, 1
+ cmp ecx, r15d
+ jl .Lx4_238
+ add rsp, 16
+ jmp xchain0_n0_af
+.Lx4_238:
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ jnz .Lx4_1
+ add ecx, 1
+ cmp ecx, r15d
+ jl .Lx4_239
+ add rsp, 16
+ jmp xchain0_n0_af
+.Lx4_239:
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ jnz .Lx4_1
+ add ecx, 1
+ cmp ecx, r15d
  jl .Lx4_240
  add rsp, 16
  jmp xchain0_n0_af
 .Lx4_240:
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  cmp byte ptr [rdi+rsi], 0
  jnz .Lx4_1
- add dword ptr [rsp + 0], 1
+ add ecx, 1
  jmp .Lx4_0
 .Lx4_1:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- mov r14d, eax
+ mov dword ptr [rsp + 0], r14d
+ mov r14d, ecx
  jmp xchain0_n2_α
  xchain0_n1_β:
- mov eax, r14d
- sub eax, dword ptr [rsp + 0]
- mov r14d, eax
+ mov r14d, dword ptr [rsp + 0]
  add rsp, 16
  jmp xchain0_n0_af
 # IR_MATCH_SPAN
  xchain0_n2_α:
  sub rsp, 16
  lea rdi, [rip + .C0]
- mov dword ptr [rsp + 0], 0
+ movsxd rcx, r14d
 .Lx6_0:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
  jge .Lx6_1
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  cmp byte ptr [rdi+rsi], 0
  je .Lx6_1
- add dword ptr [rsp + 0], 1
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx6_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ je .Lx6_1
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx6_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ je .Lx6_1
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx6_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ je .Lx6_1
+ add ecx, 1
  jmp .Lx6_0
 .Lx6_1:
- mov eax, dword ptr [rsp + 0]
- test eax, eax
+ cmp ecx, r14d
  jg .Lx6_240
  add rsp, 16
  jmp xchain0_n1_β
 .Lx6_240:
- mov edx, r14d
- mov dword ptr [rsp + 4], edx
- add edx, eax
- mov r14d, edx
+ mov dword ptr [rsp + 4], r14d
+ mov r14d, ecx
  jmp xchain0_n0_as
  xchain0_n2_β:
  xchain0_n2_β:

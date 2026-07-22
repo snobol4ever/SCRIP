@@ -140,32 +140,55 @@ xchain0_n8_af:
 # IR_MATCH_BREAK
  xchain0_n11_α:
  sub rsp, 16
- lea rdi, [rip + .C0]
- mov dword ptr [rsp + 0], 0
+ movsxd rcx, r14d
 .Lx22_0:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
+ jl .Lx22_237
+ add rsp, 16
+ add rsp, 16
+ jmp xchain0_n0_af
+.Lx22_237:
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx22_1
+ add ecx, 1
+ cmp ecx, r15d
+ jl .Lx22_238
+ add rsp, 16
+ add rsp, 16
+ jmp xchain0_n0_af
+.Lx22_238:
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx22_1
+ add ecx, 1
+ cmp ecx, r15d
+ jl .Lx22_239
+ add rsp, 16
+ add rsp, 16
+ jmp xchain0_n0_af
+.Lx22_239:
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx22_1
+ add ecx, 1
+ cmp ecx, r15d
  jl .Lx22_240
  add rsp, 16
  add rsp, 16
  jmp xchain0_n0_af
 .Lx22_240:
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- cmp byte ptr [rdi+rsi], 0
- jnz .Lx22_1
- add dword ptr [rsp + 0], 1
+ cmp esi, 32
+ je .Lx22_1
+ add ecx, 1
  jmp .Lx22_0
 .Lx22_1:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- mov r14d, eax
+ mov dword ptr [rsp + 0], r14d
+ mov r14d, ecx
  jmp xchain0_n4_α
  xchain0_n11_β:
- mov eax, r14d
- sub eax, dword ptr [rsp + 0]
- mov r14d, eax
+ mov r14d, dword ptr [rsp + 0]
  add rsp, 16
  add rsp, 16
  jmp xchain0_n0_af
@@ -187,30 +210,49 @@ xchain0_n8_af:
 # IR_MATCH_SPAN
  xchain0_n13_α:
  sub rsp, 16
- lea rdi, [rip + .C0]
- mov dword ptr [rsp + 0], 0
+ movsxd rcx, r14d
 .Lx26_0:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
  jge .Lx26_1
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- cmp byte ptr [rdi+rsi], 0
- je .Lx26_1
- add dword ptr [rsp + 0], 1
+ cmp esi, 32
+ je .Lx26_10
+ jmp .Lx26_1
+.Lx26_10:
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx26_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx26_11
+ jmp .Lx26_1
+.Lx26_11:
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx26_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx26_12
+ jmp .Lx26_1
+.Lx26_12:
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx26_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx26_13
+ jmp .Lx26_1
+.Lx26_13:
+ add ecx, 1
  jmp .Lx26_0
 .Lx26_1:
- mov eax, dword ptr [rsp + 0]
- test eax, eax
+ cmp ecx, r14d
  jg .Lx26_240
  add rsp, 16
  jmp xchain0_n12_β
 .Lx26_240:
- mov edx, r14d
- mov dword ptr [rsp + 4], edx
- add edx, eax
- mov r14d, edx
+ mov dword ptr [rsp + 4], r14d
+ mov r14d, ecx
  jmp xchain0_n5_as
  xchain0_n13_β:
  xchain0_n13_β:
@@ -220,49 +262,84 @@ xchain0_n8_af:
 # IR_MATCH_BREAKX
  xchain0_n14_α:
  sub rsp, 16
- lea rdi, [rip + .C0]
- mov dword ptr [rsp + 0], 0
+ mov dword ptr [rsp + 4], r14d
+ movsxd rcx, r14d
 .Lx28_0:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
+ jl .Lx28_237
+ add rsp, 16
+ add rsp, 16
+ jmp xchain0_n5_β
+.Lx28_237:
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx28_1
+ add ecx, 1
+ cmp ecx, r15d
+ jl .Lx28_238
+ add rsp, 16
+ add rsp, 16
+ jmp xchain0_n5_β
+.Lx28_238:
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx28_1
+ add ecx, 1
+ cmp ecx, r15d
+ jl .Lx28_239
+ add rsp, 16
+ add rsp, 16
+ jmp xchain0_n5_β
+.Lx28_239:
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx28_1
+ add ecx, 1
+ cmp ecx, r15d
  jl .Lx28_240
  add rsp, 16
  add rsp, 16
  jmp xchain0_n5_β
 .Lx28_240:
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- cmp byte ptr [rdi+rsi], 0
- jnz .Lx28_1
- add dword ptr [rsp + 0], 1
+ cmp esi, 32
+ je .Lx28_1
+ add ecx, 1
  jmp .Lx28_0
 .Lx28_1:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- mov r14d, eax
+ mov r14d, ecx
  jmp xchain0_n7_α
  xchain0_n14_β:
- lea rdi, [rip + .C0]
- mov eax, r14d
- sub eax, dword ptr [rsp + 0]
- mov dword ptr [rsp + 4], eax
- add dword ptr [rsp + 0], 1
+ movsxd rcx, r14d
+ add ecx, 1
 .Lx28_2:
- mov eax, dword ptr [rsp + 4]
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
  jge .Lx28_4
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- cmp byte ptr [rdi+rsi], 0
- jnz .Lx28_3
- add dword ptr [rsp + 0], 1
+ cmp esi, 32
+ je .Lx28_3
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx28_4
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx28_3
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx28_4
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx28_3
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx28_4
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx28_3
+ add ecx, 1
  jmp .Lx28_2
 .Lx28_3:
- mov eax, dword ptr [rsp + 4]
- add eax, dword ptr [rsp + 0]
- mov r14d, eax
+ mov r14d, ecx
  jmp xchain0_n7_α
 .Lx28_4:
  mov r14d, dword ptr [rsp + 4]
@@ -287,30 +364,57 @@ xchain0_n8_af:
 # IR_MATCH_SPAN
  xchain0_n16_α:
  sub rsp, 16
- lea rdi, [rip + .C1]
- mov dword ptr [rsp + 0], 0
+ movsxd rcx, r14d
 .Lx32_0:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
  jge .Lx32_1
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
- cmp byte ptr [rdi+rsi], 0
- je .Lx32_1
- add dword ptr [rsp + 0], 1
+ cmp esi, 32
+ je .Lx32_10
+ cmp esi, 58
+ je .Lx32_10
+ jmp .Lx32_1
+.Lx32_10:
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx32_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx32_11
+ cmp esi, 58
+ je .Lx32_11
+ jmp .Lx32_1
+.Lx32_11:
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx32_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx32_12
+ cmp esi, 58
+ je .Lx32_12
+ jmp .Lx32_1
+.Lx32_12:
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx32_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp esi, 32
+ je .Lx32_13
+ cmp esi, 58
+ je .Lx32_13
+ jmp .Lx32_1
+.Lx32_13:
+ add ecx, 1
  jmp .Lx32_0
 .Lx32_1:
- mov eax, dword ptr [rsp + 0]
- test eax, eax
+ cmp ecx, r14d
  jg .Lx32_240
  add rsp, 16
  jmp xchain0_n15_β
 .Lx32_240:
- mov edx, r14d
- mov dword ptr [rsp + 4], edx
- add edx, eax
- mov r14d, edx
+ mov dword ptr [rsp + 4], r14d
+ mov r14d, ecx
  jmp xchain0_n8_as
  xchain0_n16_β:
  xchain0_n16_β:
@@ -774,40 +878,4 @@ ret
 .S1: .string "WHO"
 .S2: .string "WHAT"
 .S3: .string "PAT"
-.text
-.section .rodata
-.C0:
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-.C1:
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 .text

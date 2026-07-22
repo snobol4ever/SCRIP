@@ -140,30 +140,42 @@ main_α_body:
  xchain0_n7_α:
  sub rsp, 16
  lea rdi, [rip + .C0]
- mov dword ptr [rsp + 0], 0
+ movsxd rcx, r14d
 .Lx11_0:
- mov eax, r14d
- add eax, dword ptr [rsp + 0]
- cmp eax, r15d
+ cmp ecx, r15d
  jge .Lx11_1
- movsxd rcx, eax
  movzx esi, byte ptr [r13+rcx]
  cmp byte ptr [rdi+rsi], 0
  je .Lx11_1
- add dword ptr [rsp + 0], 1
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx11_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ je .Lx11_1
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx11_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ je .Lx11_1
+ add ecx, 1
+ cmp ecx, r15d
+ jge .Lx11_1
+ movzx esi, byte ptr [r13+rcx]
+ cmp byte ptr [rdi+rsi], 0
+ je .Lx11_1
+ add ecx, 1
  jmp .Lx11_0
 .Lx11_1:
- mov eax, dword ptr [rsp + 0]
- test eax, eax
+ cmp ecx, r14d
  jg .Lx11_240
  add rsp, 16
  add rsp, 16
  jmp xchain0_n3_β
 .Lx11_240:
- mov edx, r14d
- mov dword ptr [rsp + 4], edx
- add edx, eax
- mov r14d, edx
+ mov dword ptr [rsp + 4], r14d
+ mov r14d, ecx
  jmp xchain0_n8_α
  xchain0_n7_β:
  xchain0_n7_β:
