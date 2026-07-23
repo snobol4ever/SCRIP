@@ -4953,6 +4953,10 @@ typedef struct { unsigned gen; unsigned char len; signed char kind; short nf; ch
 static dtax_ent_t g_dtax[256];
 static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dtx4(dtax_ent_t *e, unsigned char l, const char *nm, void *h) { if (!e || !l) return; e->gen = rt_dtax_gen; e->len = l; e->kind = 4; e->nf = 0; memcpy(e->nm, nm, l); e->ctor = h; e->syn = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dtx5(dtax_ent_t *e, unsigned char l, const char *nm, void *h, short x) { if (!e || !l) return; e->gen = rt_dtax_gen; e->len = l; e->kind = 5; e->nf = x; memcpy(e->nm, nm, l); e->ctor = h; e->syn = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     DESCR_t av = args[0];
@@ -5014,6 +5018,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if (!dtax_off()) { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; }
       if (!*_q && _dxl) { _dx = &g_dtax[_dxh & 255u];
         if (_dx->gen == rt_dtax_gen && _dx->len == _dxl && !memcmp(_dx->nm, fn, _dxl)) {
+          if (_dx->kind == 4 && _dx->ctor) return ((int (*)(DESCR_t *, int, DESCR_t *))_dx->ctor)(args, nargs, out);
+          if (_dx->kind == 5 && _dx->ctor) return ((int (*)(DESCR_t *, int, DESCR_t *, int))_dx->ctor)(args, nargs, out, (int)_dx->nf);
           if (_dx->kind == 2 && _dx->syn) return try_call_builtin_by_name(_dx->syn, args, nargs, out);
           if (_dx->kind == 1 && _dx->ctor) { extern DESCR_t dat_construct_byref(void *, DESCR_t *, int);
             if (nargs <= (int)_dx->nf) { DESCR_t _fv[64]; int _nf = _dx->nf > 64 ? 64 : (int)_dx->nf;
@@ -5034,24 +5040,24 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     { size_t _fl = strlen(fn);
       if (_fl >= 2 && _fl <= 8) { int _r = -1;
         switch (((unsigned)_fl << 8) | (unsigned char)fn[0]) {
-        case (2u<<8)|'E': if (fn[1]=='Q') _r = bn_numrel(args, nargs, out, 0); break;
-        case (2u<<8)|'N': if (fn[1]=='E') _r = bn_numrel(args, nargs, out, 1); break;
-        case (2u<<8)|'L': if (fn[1]=='T') _r = bn_numrel(args, nargs, out, 2); else if (fn[1]=='E') _r = bn_numrel(args, nargs, out, 3); break;
-        case (2u<<8)|'G': if (fn[1]=='T') _r = bn_numrel(args, nargs, out, 4); else if (fn[1]=='E') _r = bn_numrel(args, nargs, out, 5); break;
+        case (2u<<8)|'E': if (fn[1]=='Q') { dtx5(_dx, _dxl, fn, (void *)bn_numrel, 0); _r = bn_numrel(args, nargs, out, 0); } break;
+        case (2u<<8)|'N': if (fn[1]=='E') { dtx5(_dx, _dxl, fn, (void *)bn_numrel, 1); _r = bn_numrel(args, nargs, out, 1); } break;
+        case (2u<<8)|'L': if (fn[1]=='T') { dtx5(_dx, _dxl, fn, (void *)bn_numrel, 2); _r = bn_numrel(args, nargs, out, 2); } else if (fn[1]=='E') { dtx5(_dx, _dxl, fn, (void *)bn_numrel, 3); _r = bn_numrel(args, nargs, out, 3); } break;
+        case (2u<<8)|'G': if (fn[1]=='T') { dtx5(_dx, _dxl, fn, (void *)bn_numrel, 4); _r = bn_numrel(args, nargs, out, 4); } else if (fn[1]=='E') { dtx5(_dx, _dxl, fn, (void *)bn_numrel, 5); _r = bn_numrel(args, nargs, out, 5); } break;
         case (3u<<8)|'L': { int _o = fn[1]=='G'&&fn[2]=='T' ? 0 : fn[1]=='L'&&fn[2]=='T' ? 1 : fn[1]=='G'&&fn[2]=='E' ? 2 : fn[1]=='L'&&fn[2]=='E' ? 3 : fn[1]=='E'&&fn[2]=='Q' ? 4 : fn[1]=='N'&&fn[2]=='E' ? 5 : -1;
-                            if (_o >= 0) _r = bn_lexrel(args, nargs, out, _o); } break;
-        case (4u<<8)|'S': if (!strcmp(fn, "SIZE")) _r = bn_size(args, nargs, out); break;
-        case (4u<<8)|'T': if (!strcmp(fn, "TIME")) _r = bn_time(args, nargs, out); else if (!strcmp(fn, "TRIM")) _r = bn_trim(args, nargs, out); break;
-        case (4u<<8)|'D': if (!strcmp(fn, "DATE")) _r = bn_date(args, nargs, out); else if (!strcmp(fn, "DUPL")) _r = bn_dupl(args, nargs, out); break;
+                            if (_o >= 0) { dtx5(_dx, _dxl, fn, (void *)bn_lexrel, (short)_o); _r = bn_lexrel(args, nargs, out, _o); } } break;
+        case (4u<<8)|'S': if (!strcmp(fn, "SIZE")) { dtx4(_dx, _dxl, fn, (void *)bn_size); _r = bn_size(args, nargs, out); } break;
+        case (4u<<8)|'T': if (!strcmp(fn, "TIME")) { dtx4(_dx, _dxl, fn, (void *)bn_time); _r = bn_time(args, nargs, out); } else if (!strcmp(fn, "TRIM")) { dtx4(_dx, _dxl, fn, (void *)bn_trim); _r = bn_trim(args, nargs, out); } break;
+        case (4u<<8)|'D': if (!strcmp(fn, "DATE")) { dtx4(_dx, _dxl, fn, (void *)bn_date); _r = bn_date(args, nargs, out); } else if (!strcmp(fn, "DUPL")) { dtx4(_dx, _dxl, fn, (void *)bn_dupl); _r = bn_dupl(args, nargs, out); } break;
         case (4u<<8)|'F': if (!strcmp(fn, "FAIL")) { *out = FAILDESCR; return 1; } break;
-        case (4u<<8)|'L': if (!strcmp(fn, "LPAD")) _r = bn_lpad(args, nargs, out); break;
-        case (4u<<8)|'R': if (!strcmp(fn, "RPAD")) _r = bn_rpad(args, nargs, out); break;
-        case (5u<<8)|'I': if (!strcmp(fn, "IDENT")) _r = bn_identdiffer(args, nargs, out, 1); break;
-        case (5u<<8)|'R': if (!strcmp(fn, "REMDR")) _r = bn_remdr(args, nargs, out); break;
-        case (6u<<8)|'S': if (!strcmp(fn, "SUBSTR")) _r = bn_substr(args, nargs, out); break;
-        case (6u<<8)|'D': if (!strcmp(fn, "DIFFER")) _r = bn_identdiffer(args, nargs, out, 0); break;
-        case (7u<<8)|'R': if (!strcmp(fn, "REPLACE")) _r = bn_replace(args, nargs, out); else if (!strcmp(fn, "REVERSE")) _r = bn_reverse(args, nargs, out); break;
-        case (7u<<8)|'I': if (!strcmp(fn, "INTEGER")) _r = bn_integer(args, nargs, out); break;
+        case (4u<<8)|'L': if (!strcmp(fn, "LPAD")) { dtx4(_dx, _dxl, fn, (void *)bn_lpad); _r = bn_lpad(args, nargs, out); } break;
+        case (4u<<8)|'R': if (!strcmp(fn, "RPAD")) { dtx4(_dx, _dxl, fn, (void *)bn_rpad); _r = bn_rpad(args, nargs, out); } break;
+        case (5u<<8)|'I': if (!strcmp(fn, "IDENT")) { dtx5(_dx, _dxl, fn, (void *)bn_identdiffer, 1); _r = bn_identdiffer(args, nargs, out, 1); } break;
+        case (5u<<8)|'R': if (!strcmp(fn, "REMDR")) { dtx4(_dx, _dxl, fn, (void *)bn_remdr); _r = bn_remdr(args, nargs, out); } break;
+        case (6u<<8)|'S': if (!strcmp(fn, "SUBSTR")) { dtx4(_dx, _dxl, fn, (void *)bn_substr); _r = bn_substr(args, nargs, out); } break;
+        case (6u<<8)|'D': if (!strcmp(fn, "DIFFER")) { dtx5(_dx, _dxl, fn, (void *)bn_identdiffer, 0); _r = bn_identdiffer(args, nargs, out, 0); } break;
+        case (7u<<8)|'R': if (!strcmp(fn, "REPLACE")) { dtx4(_dx, _dxl, fn, (void *)bn_replace); _r = bn_replace(args, nargs, out); } else if (!strcmp(fn, "REVERSE")) { dtx4(_dx, _dxl, fn, (void *)bn_reverse); _r = bn_reverse(args, nargs, out); } break;
+        case (7u<<8)|'I': if (!strcmp(fn, "INTEGER")) { dtx4(_dx, _dxl, fn, (void *)bn_integer); _r = bn_integer(args, nargs, out); } break;
         case (7u<<8)|'S': if (!strcmp(fn, "SUCCEED")) { *out = NULVCL; return 1; } break;
         case (8u<<8)|'D': if (!strcmp(fn, "DATATYPE") && nargs == 1) _r = bn_type_datatype(fn, args, nargs, out); break;
         case (8u<<8)|'S': if (!strcmp(fn, "SNO$NAME") && nargs == 1) _r = bn_sno_name(args, nargs, out); else if (!strcmp(fn, "SNO$NRET")) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 1; *out = NULVCL; _r = 1; } break;
