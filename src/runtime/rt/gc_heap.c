@@ -25,6 +25,11 @@ static char *g_hp_end = (char *)0;
 static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
 static long  g_hp_blocks = 0;
+static char *g_wsi_base = (char *)0;
+static char *g_wsi_ws = (char *)0;
+static char *g_wsi_wss = (char *)0;
+static char *g_wsi_end = (char *)0;
+static long  g_wsi_blocks = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
@@ -102,6 +107,7 @@ static void rt_gcheap_report(void)
     if (!getenv("SCRIP_ZETA_TELEM")) return;
     long live = rt_gcheap_verify();
     fprintf(stderr, "[ZHP] ZC_HEAP_STRINGS=%d arena=%dMB blocks=%ld(alloc'd)=%ld(walked) bytes=%ld verify=OK\n", (int)ZC_HEAP_STRINGS, (int)ZC_HEAP_MB, g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L);
+    fprintf(stderr, "[WSI] island=%dMB blocks=%ld ws_bytes=%ld wss_bytes=%ld\n", (int)ZC_WSI_MB, g_wsi_blocks, g_wsi_base ? (long)(g_wsi_ws - g_wsi_base) : 0L, g_wsi_base ? (long)(g_wsi_end - g_wsi_wss) : 0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_init(void)
@@ -210,20 +216,32 @@ char *rt_str_dup(const char *s)
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GC-U-6 slice 1 (s84) → GC-U-7 ROOTS (s90): THE WORKSPACE lives IN the collected span — rt_ws_* on rt_gcheap_alloc(HB_WS): ONE reserved-VA span, ONE cursor (g_hp_top), uniform rt_hblk_t titles,
- * gc_collect_ex the one collector over everything. HB_WS remains BLANKET-PINNED at reset — s90 MEASURED why it must (window-first probe): interned names and registry payloads live in HB_WS blocks
- * whose ONLY references sit in raw-malloc'd IR/driver structures no root layer can see. THE WS-CLASS SPLIT (this session): HB_WSC is the COLLECTABLE workspace class — ZERO-POINTER char payloads
- * referenced ONLY through DESCRs or conservatively-scanned locations (DESCR STRVALs, C locals/statics, ζ frames, coexpr spills) — allocated via rt_ws_alloc_c/rt_ws_strdup_c, NOT blanket-pinned at
- * reset, honored by the ws_only conservative filters, promoted to HBF_PIN when marked (fwd=self, never slid — raw char* referents cannot be adjusted), RECLAIMED when dead (frontier-drop restored).
- * Its payloads are NEVER transitively scanned (zero-pointer contract; scanning string bytes would mint false pins). rt_ws_* stays the IMMORTAL class (interned names, registries, pointer-bearing
- * growth tables — anything a raw-malloc'd structure may reference). rt_ws_realloc grows into the IMMORTAL class regardless of source. HB_ZBLK is UN-PINNED and registration-governed: both clients
- * cover themselves by construction (rt_zh_bump_slow registers each refill window pin+range; coexpr stacks register at carve, unregister at destroy, retitle HB_FILL dead) — dead stacks reclaim. Marked
- * HB_WS/HB_ZBLK blocks are PROMOTED to HBF_PIN at forward (fwd=self, never slid, never adjusted-through); their payloads get the transitive conservative scan (closes the s88 latent gap: DESCRs
- * inside WS blocks reference DT_S payloads nothing else roots). The grow-only realloc's old-size decode reads the rt_hblk_t (size - 16). */
+/* WSI — THE WORKSPACE ISLAND (s131, Lon "all your choices" ruling on the s130 pin-floor diagnosis; supersedes the s84 "workspace IN the collected span" placement): the IMMORTAL classes HB_WS
+ * (pointer-bearing: interned names, registries, growth tables — anything a raw-malloc'd structure may reference) and HB_WSS (zero-pointer immortal strings, rt_ws_strdup/lp_strdup) move to their
+ * OWN rt_slab_region in the rt_gva_island/CAS class: base-pinned, never in the block walk, never a slide barrier, never collected — so the value heap compacts to ARENA START, the reset walk and
+ * pmap refill go O(live), and warm-page reuse (the SPITBOL regeneration property, ARCH-ZETA §6a) becomes reachable. TWO CURSORS, ONE REGION (the ZLS/ZLS2 idiom): HB_WS bumps UP from base with
+ * FULL-ZERO payloads (manual pin 3 — the conservative scanner reads every word, uninitialized bytes would mint random pins); HB_WSS bumps DOWN from end, payload = the copied bytes, NEVER scanned
+ * (zero-pointer contract; scanning string bytes mints false pins — the s130 lesson). Both keep 16B rt_hblk_t titles so rt_ws_realloc's old-size decode is unchanged and the island stays verifiable.
+ * ROOT DUTY: gc_collect_ex conservatively scans [g_wsi_base, g_wsi_ws) — the WS side ONLY — as a root pass each collect (replaces the reset-time blanket pin + transitive scan of marked WS blocks;
+ * covers the s88 latent gap the same way: DESCRs inside WS blocks reference value blocks nothing else roots; referenced aggregates ride the existing marked-block fixpoint). Raw-malloc'd referrers
+ * INTO the island need no adjust — the island never moves (which is why TR-5 stops being a prerequisite for the pin-floor fix and stays the later precision path). HB_WSC is UNTOUCHED by this move:
+ * the COLLECTABLE workspace class stays in the span (ws_only filters, PIN-when-marked, reclaimed when dead). HB_ZBLK unchanged (registration-governed). Exhaustion = loud bomb naming ZC_WSI_MB. */
+static void rt_wsi_init(void)
+{
+    long mb = (long)ZC_WSI_MB;
+    g_wsi_base = (char *)rt_slab_region((size_t)mb << 20);
+    if (!g_wsi_base) { fprintf(stderr, "[WSI] workspace island slab failed (%ld MB) — lower ZC_WSI_MB\n", mb); abort(); }
+    g_wsi_ws = g_wsi_base; g_wsi_end = g_wsi_base + ((size_t)mb << 20); g_wsi_wss = g_wsi_end;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_ws_alloc(size_t n)
 {
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WS, (uint64_t)n);
-    return rt_gcheap_alloc((uint16_t)HB_WS, (uint64_t)(n ? n : 1));
+    if (!g_wsi_base) rt_wsi_init();
+    { uint64_t total = sizeof(rt_hblk_t) + ((((uint64_t)(n ? n : 1)) + 15u) & ~15ull);
+      if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise ZC_WSI_MB\n", (int)ZC_WSI_MB, g_wsi_blocks); abort(); }
+      { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = HB_WS; h->flags = HBF_TTL; memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
+        g_wsi_ws += total; g_wsi_blocks += 1; return (void *)(h + 1); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_ws_realloc(void *p, size_t n)
@@ -238,7 +256,11 @@ char *rt_ws_strdup(const char *s)
 {
     if (!s) return (char *)0;
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WSS, 0);
-    { size_t n = strlen(s); char *q = (char *)rt_gcheap_alloc((uint16_t)HB_WSS, (uint64_t)(n + 1)); memcpy(q, s, n + 1); return q; }
+    if (!g_wsi_base) rt_wsi_init();
+    { size_t n = strlen(s); uint64_t total = sizeof(rt_hblk_t) + (((uint64_t)(n + 1) + 15u) & ~15ull);
+      if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise ZC_WSI_MB\n", (int)ZC_WSI_MB, g_wsi_blocks); abort(); }
+      { char *at = g_wsi_wss - total; rt_hblk_t *h = (rt_hblk_t *)at; h->fwd = 0; h->size = (uint32_t)total; h->type = HB_WSS; h->flags = HBF_TTL; memcpy((void *)(h + 1), s, n + 1);
+        g_wsi_wss = at; g_wsi_blocks += 1; return (char *)(h + 1); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_ws_alloc_c(size_t n)
@@ -361,7 +383,7 @@ static void gc_cons_scan_t(const char *lo, const char *hi, int ws_only)
     const char *p = (const char *)(((uintptr_t)lo + 7u) & ~(uintptr_t)7u);
     for (; p + 8 <= hi; p += 8) { const char *q = *(const char *const *)p;
         if (!ws_only) rt_gc_pin_ptr(q);
-        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) {
+        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) {
             if (!(h->flags & HBF_PIN) && h->type >= 200 && h->type < 216) { g_gc_pin_tag[g_gc_scan_tag & 7][h->type - 200] += 1;
                 if (g_gc_pin_src_n < 32) { g_gc_pin_src[g_gc_pin_src_n][0] = (void *)p; g_gc_pin_src[g_gc_pin_src_n][1] = (void *)(uintptr_t)h->type; g_gc_pin_src_n++; } }
             h->flags |= (HBF_MARK | HBF_PIN); } } }
@@ -542,11 +564,12 @@ static long gc_collect_ex(int cons_stack)
         g_gc_idxbuf = (rt_hblk_t **)realloc((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); }
     g_gc_idx = g_gc_idxbuf;
     { char *p = g_hp_arena; long i = 0; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)malloc((((size_t)(g_hp_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN);
-        if (h->type == HB_WS || h->type == HB_WSS) h->flags |= (uint16_t)(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; for (char *gs = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } g_gc_pmap_top = g_hp_top; }
+        h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; for (char *gs = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } g_gc_pmap_top = g_hp_top; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_ncell = 0; g_gc_nraw = 0; g_gc_interior = 0;
     for (long i = 0; i < g_gc_rpin_n; i++) rt_gc_pin_ptr(g_gc_rpin[i]);
     for (long i = 0; i < g_gc_rrng_n; i++) if (g_gc_rrng[i].lo < g_gc_rrng[i].hi) gc_cons_scan(g_gc_rrng[i].lo, g_gc_rrng[i].hi);
+    if (g_wsi_base && g_wsi_ws > g_wsi_base) gc_cons_scan((const char *)g_wsi_base, (const char *)g_wsi_ws);
     gc_static_segs_init();
     g_gc_scan_tag = 1;
     for (long i = 0; i < g_gc_nseg; i++) if (g_gc_segs[i].lo < g_gc_segs[i].hi) gc_cons_scan_t((const char *)g_gc_segs[i].lo, (const char *)g_gc_segs[i].hi, 1);
@@ -574,7 +597,7 @@ static long gc_collect_ex(int cons_stack)
     dest = g_hp_arena;
     { long pws = 0, pwsc = 0, pzb = 0, pval = 0, dwsc = 0, pagg = 0, dagg = 0;
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        if ((h->flags & HBF_MARK) && (h->type == HB_WS || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) h->flags |= HBF_PIN;
+        if ((h->flags & HBF_MARK) && (h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) h->flags |= HBF_PIN;
         if (h->type == HB_WSC && !(h->flags & HBF_PIN)) dwsc++;
         if (h->type >= HB_AGGV && h->type <= HB_AGGT && !(h->flags & HBF_PIN)) dagg++;
         if (h->flags & HBF_PIN) { if (h->type == HB_WS) pws++; else if (h->type == HB_WSC) pwsc++; else if (h->type >= HB_AGGV && h->type <= HB_AGGT) pagg++; else if (h->type == HB_ZBLK) pzb++;
