@@ -515,6 +515,9 @@ xchain0_n25_af:
  mov rdx, qword ptr [1879052360]
  cmp eax, 3
  jne .Lx41_9
+ mov rax, qword ptr [rdx + 0]
+ test rax, rax
+ jne .Lx41_10
  mov rdi, rdx
  call dtp_fn_of@PLT
  jmp .Lx41_10
