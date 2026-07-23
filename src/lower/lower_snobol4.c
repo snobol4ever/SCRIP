@@ -304,6 +304,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = mk; return ei;
     }
     case TT_FENCE: {
+        /* pattern-VALUE construction (assignment time), both forms: n==0 = FENCE0 (the bare variable — SNO$PB0 builds the primitive pattern object); n>0 = FENCE1 (FENCE(P) — SNO$PFEN wraps P's value) */
         if (t->n == 0) { IR_t * mk0 = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk0).sval = (char *) "SNO$PB0"; IR_t * kt0 = lc_build(cx->g, IR_LIT_INTEGER, mk0, ω); IR_LIT(kt0).ival = (int64_t) TT_FENCE; ir_operand_push(mk0, kt0); if (res) *res = mk0; return kt0; }
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PFEN";
         IR_t * vi = NULL; IR_t * ei = sx_lower(cx, t->c[0], NULL, ω, &vi);
@@ -814,7 +815,20 @@ static tree_e sno_pat_eff_kind(const tree_t * t) {
     return TT_VAR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FENCE0 vs FENCE1 (Lon naming ruling, 2026-07-23 s133).  TWO distinct primitives share the TT_FENCE tree kind, split by arity:
+ * FENCE0 = the protected pattern VARIABLE (bare `FENCE`, manual Ch.4/18: matches the null string moving forward; the scanner backing up through it FAILS THE WHOLE ATTEMPT — pat_seal, not the left
+ *          neighbor, and not HEAD's anchor advance: FENCE-first "effectively anchors").  As a four-port box its entire body would be two unconditional jmps — α→γ, β→ω — so it stays NODE-FREE: the
+ *          spine walk erases it into pure edge rewiring (right-of-fence ω edges aimed at the seal target, resume repoints skipped).  Its ζ sync point (crossing forward kills everything to its LEFT)
+ *          is the recorded sync-3 residue: the restore watermark is the ENCLOSING bracket's (HEAD / ARBNO iteration), not its own α — plumbing deferred.
+ * FENCE1 = the SPITBOL FUNCTION `FENCE(P)` (manual ln 9328: matches as P, but on backup the alternatives WITHIN P are invisible — one-shot commit; elements LEFT of the fence stay live).  Also pure
+ *          rewiring for match CONTROL, but since s133 it mints a physical IR_MATCH_FENCE1 box, existing solely as the SYNC-POINT ζ RELEASE bracket: α records the watermark, the σ commit glue
+ *          bulk-restores it (bb_match_fence1.cpp) — wiring cannot move rsp, so the release is the one thing that NEEDS instructions.
+ * sno_is_fence() remains the umbrella (the spine splitter and the ARBNO tail-seal marker treat both forms identically: each seals its right). */
 static int sno_is_fence(const tree_t * t) { return t && sno_pat_eff_kind(t) == TT_FENCE; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_is_fence1(const tree_t * t) { return t && t->t == TT_FENCE && t->n > 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_is_fence0(const tree_t * t) { return sno_is_fence(t) && !sno_is_fence1(t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_seq_flatten_pat(const tree_t * t, const tree_t ** elems, int * ne) {
     if (!t) return;
@@ -1191,6 +1205,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return nd;
     }
     case TT_FENCE:
+        /* WHOLE-PATTERN fence (not a spine element — TT_SEQ's splitter owns those): FENCE1 lowers P transparently — nothing exists to its right to seal against, and the match-bracket RELEASE is the
+         * sync point that fires the instant P commits, so no IR_MATCH_FENCE1 box is needed; FENCE0 alone matches null = succ.  (Reachability from a TT_ALT arm is a recorded question for the goal file:
+         * an arm-nested FENCE1 arrives here transparent, i.e. unsealed — crosscheck-clean at the s131 watermark.) */
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
     case TT_DEFER: {
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
@@ -1379,15 +1396,37 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             return ne == 1 ? sno_pat_node(cx, elems[0], succ, fail) : sno_seq_nary(cx, elems, ne, succ, fail);
         IR_t * cur_succ = succ; IR_t * right_tail = NULL; int right_tail_idx = -1; int right_sealed = 0;
         for (int i = ne - 1; i >= 0; ) {
-            if (sno_is_fence(elems[i])) {                                           /* seals everything to its right; the element to its left cannot resume into it */
+            if (sno_is_fence(elems[i])) {                                           /* FENCE0 or FENCE1: each seals everything to its right; the element to its left cannot resume into it */
                 right_sealed = 1;
-                const tree_t * inner = (elems[i]->t == TT_FENCE && elems[i]->n > 0) ? elems[i]->c[0] : NULL;
-                if (inner) {                                                        /* FENCE(P): lower P with the pre-seal fail so P retries normally on forward-fail; the seal blocks re-entry after success */
+                const tree_t * inner = sno_is_fence1(elems[i]) ? elems[i]->c[0] : NULL;   /* inner != NULL ⇔ FENCE1; FENCE0 stays node-free (pure rewiring — its box body would be α→γ, β→ω) */
+                if (inner) {                                                        /* FENCE1 = FENCE(P): lower P with the pre-seal fail so P retries normally on forward-fail; the seal blocks re-entry after success */
+                    /* SYNC-POINT ζ RELEASE (Lon ruling s132, sync point 2 — FENCE(P) success exit).  The old wiring was PURE EDGE
+                     * REWIRING: P succeeded straight into cur_succ and every ζ cell P's boxes retained (uniform-β) sat on the stack
+                     * until the match bracket died, even though the seal makes them unreachable the instant P commits (its
+                     * alternatives are invisible backing up — manual ln 4716).  Measured: json-match.sno's FENCE-per-token ws eats
+                     * >32MB ≤64MB of ζ on a 632KB subject (SCRIP_STACK ladder, s132/this rung).  Now the fence is ONE
+                     * IR_MATCH_FENCE1 box in the ALT/SEQ σ/φ-glue mold: F.α records the watermark (rsp under FORTH; the zls2 cursor
+                     * under the heap ports) into its granted [rbp+off] quad — depth-immune, per-activation, so DEFER recursion
+                     * through the same fence is safe — and jmps P's entry; P is lowered succ=F fail=F with the standard inside-edge
+                     * retag, so P's commit lands F's na_s glue (bulk-restore to the watermark, jmp F.γ = the old cur_succ) and P's
+                     * leftward exhaust lands na_f (same restore — the identity by LIFO — then F.ω = the old fail_p).  Resume-from-
+                     * the-right stays STRUCTURALLY absent (right_sealed skips the repoint below, exactly as before); F.β falls into
+                     * na_f as the ARBNO-seal "resume ≡ abandon" precedent demands should any future wiring reach it. */
                     IR_t * fail_p = (i > first_fence) ? cx->pat_seal : fail;
+                    int f_idx = g->n;
+                    IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
+                    sno_ω_to(F, fail_p);
+                    IR_LIT(F).ival = 1;
                     int before_p = g->n;
-                    IR_t * pe = sno_pat_node(cx, inner, cur_succ, fail_p);
+                    IR_t * pe = sno_pat_node(cx, inner, F, F);
                     IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
-                    cur_succ = pe; right_tail = p_tail; right_tail_idx = before_p;
+                    for (int q = before_p; q < g->n; q++) { IR_t * x = g->all[q];
+                        if (!x) continue;
+                        if (x->ω.node == F) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+                        if (x->γ.node == F) { if (x->op == IR_GOTO && x->ω.node == F) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; } }
+                    ir_operand_push(F, pe);
+                    ir_operand_push(F, p_tail);
+                    cur_succ = F; right_tail = F; right_tail_idx = f_idx;
                 }
                 i--;
                 continue;
