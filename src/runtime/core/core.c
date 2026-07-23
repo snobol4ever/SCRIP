@@ -2783,9 +2783,18 @@ const char *FUNC_ENTRY_fn(const char *fname) {
 static FILE *_input_fp = NULL;
 static char *_input_buf = NULL;
 static size_t _input_cap = 0;
+static long _input_rlen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t input_read(void) {
     if (!_input_fp) _input_fp = stdin;
+    if (_input_rlen > 0) {
+        extern char *rt_str_alloc(long n);
+        char *b = rt_str_alloc(_input_rlen);
+        size_t got = fread(b, 1, (size_t)_input_rlen, _input_fp);
+        if (got == 0) return FAILDESCR;
+        b[got] = '\0';
+        { DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; }
+    }
     ssize_t nread = getline(&_input_buf, &_input_cap, _input_fp);
     if (nread < 0) return FAILDESCR;
     if (nread > 0 && _input_buf[nread-1] == '\n') { _input_buf[nread-1] = '\0'; nread--; }
@@ -2818,6 +2827,17 @@ static const char *_io_varname(DESCR_t d) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
+    const char *p = spec ? strchr(spec, '[') : NULL;
+    if (!p) return;
+    for (p++; *p && *p != ']'; p++) {
+        if (*p == '-' && (p[1] == 'f' || p[1] == 'r' || p[1] == 'q')) {
+            char k = p[1]; char *e = NULL; long v = strtol(p + 2, &e, 10);
+            if (e && e > p + 2) { if (k == 'f') *fd = v; else *rlen = v; p = e - 1; }
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _INPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
     char fname_buf[4096];
@@ -2829,8 +2849,13 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
     if (!fname || !fname[0]) {
+        extern int dup(int);
+        long fd = -1, rlen = 0;
+        _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
         if (_input_fp && _input_fp != stdin) fclose(_input_fp);
         _input_fp = stdin;
+        if (fd >= 0) { FILE *nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR; _input_fp = nf; }
+        _input_rlen = rlen;
         return NULVCL;
     }
     FILE *f = fopen(fname, "r");
