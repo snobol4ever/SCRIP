@@ -179,6 +179,12 @@ static tree_t *rk_range_ex(tree_t *lo, tree_t *hi) {
     return expr_binary(TT_TO, lo, expr_binary(TT_SUB, hi, one));
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_arr_rhs(tree_t *rhs) {
+    if (!rhs || rhs->t != TT_TO || rhs->n < 2) return rhs;
+    tree_t *call = make_call("__rk_range_arr"); expr_add_child(call, rhs->c[0]); expr_add_child(call, rhs->c[1]);
+    return call;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_dec(tree_t *hi) {
     if (hi && hi->t == TT_ILIT) { tree_t *d = ast_node_new(TT_ILIT); d->v.ival = hi->v.ival - 1; return d; }
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
@@ -377,7 +383,7 @@ stmt
     | KW_MY VAR_HASH ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), make_call("__rk_undef")); }
     | KW_MY VAR_ARRAY '=' expr ';'
-        { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), rk_arr_rhs($4)); }
     | KW_MY VAR_ARRAY '=' expr ',' arg_list ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$4);
           ExprList *args=$6; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
@@ -398,7 +404,7 @@ stmt
     | KW_MY IDENT VAR_SCALAR '=' expr ';'
         { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,$5); $$=e; }
     | KW_MY IDENT VAR_ARRAY '=' expr ';'
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,$5); $$=e; }
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,rk_arr_rhs($5)); $$=e; }
     | KW_MY IDENT VAR_ARRAY '=' expr ',' arg_list ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$5);
           ExprList *args=$7; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
