@@ -3123,6 +3123,71 @@ for 65..69 -> $i { print chr($i) }
 say "";
 EOF
 
+# --- RAKU-100: reduction metaoperator [OP] (Rakudo metaops.rakumod METAOP_REDUCE_LEFT, \op branch:
+# empty->op.() identity, one->that element unchanged, N->strict left fold). Operand is an explicit
+# comma-list or array var (value-position range materialization is a separate pre-existing gap — see
+# FINDING-2026-07-23-CLAUDE-RK-REDUCE-METAOP-LEFT-FOLD.md; a range smoke is intentionally excluded). ---
+raku "reduce_add_list" "10" << 'EOF'
+say [+] (1, 2, 3, 4);
+EOF
+
+raku "reduce_add_array" "10" << 'EOF'
+my @a = 1, 2, 3, 4;
+say [+] @a;
+EOF
+
+raku "reduce_mul_list" "24" << 'EOF'
+say [*] (1, 2, 3, 4);
+EOF
+
+raku "reduce_cat_str" "abc" << 'EOF'
+my @w = "a", "b", "c";
+say [~] @w;
+EOF
+
+raku "reduce_cat_nums" "1234" << 'EOF'
+say [~] (1, 2, 3, 4);
+EOF
+
+raku "reduce_sub_leftfold" "-8" << 'EOF'
+say [-] (1, 2, 3, 4);
+EOF
+
+raku "reduce_max_list" "4" << 'EOF'
+say [max] (3, 1, 4, 2);
+EOF
+
+raku "reduce_min_list" "1" << 'EOF'
+say [min] (3, 1, 4, 2);
+EOF
+
+raku "reduce_add_empty_identity" "0" << 'EOF'
+say [+] ();
+EOF
+
+raku "reduce_mul_empty_identity" "1" << 'EOF'
+say [*] ();
+EOF
+
+raku "reduce_add_single" "5" << 'EOF'
+say [+] 5;
+EOF
+
+raku "reduce_mul_single" "7" << 'EOF'
+say [*] 7;
+EOF
+
+raku "reduce_add_real_promote" "6.5" << 'EOF'
+my @m = 1.5, 2.5, 2.5;
+say [+] @m;
+EOF
+
+raku "reduce_compose_add" "30" << 'EOF'
+my @a = 1, 2, 3, 4;
+my @b = 5, 6, 9;
+say ([+] @a) + ([+] @b);
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
