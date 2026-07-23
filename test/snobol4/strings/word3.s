@@ -7,22 +7,22 @@ proc_PAT$0_α:
     .global proc_PAT$0_β
     .global proc_PAT$0_γ
     .global proc_PAT$0_ω
-  sub rsp, 560
-  mov [rsp + 536], rcx
-  mov [rsp + 544], rdx
-  mov [rsp + 552], rbp
+  sub rsp, 528
+  mov [rsp + 504], rcx
+  mov [rsp + 512], rdx
+  mov [rsp + 520], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 528
+  mov ecx, 496
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 520], rsp
-mov qword ptr [rbp + 528], r8
-mov dword ptr [rbp + 520], r14d
+  mov qword ptr [rsp + 488], rsp
+mov qword ptr [rbp + 496], r8
+mov dword ptr [rbp + 488], r14d
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
 lea rax, [rip + xchain0_n0_β]
-mov qword ptr [rbp + 496], rax
+mov qword ptr [rbp + 464], rax
 # IR_MATCH_SEQ_NARY (ZB-FC-3b: zero cell, LIFO-structural)
  xchain0_n0_α:
  jmp xchain0_n1_α
@@ -366,24 +366,24 @@ xchain0_n8_af:
  add rsp, 16
  jmp xchain0_n8_β
 proc_PAT$0_scanhit:
-cmp qword ptr [rbp + 528], 1
+cmp qword ptr [rbp + 496], 1
 jne 7f
-mov ecx, dword ptr [rbp + 520]
+mov ecx, dword ptr [rbp + 488]
 lea rdx, [rip + g_scan_hit_start]
 mov dword ptr [rdx], ecx
 7:
 jmp proc_PAT$0_γ
 proc_PAT$0_scanfail:
-cmp qword ptr [rbp + 528], 1
+cmp qword ptr [rbp + 496], 1
 jne 8f
-mov eax, dword ptr [rbp + 520]
+mov eax, dword ptr [rbp + 488]
 inc eax
 cmp eax, r15d
 jg 8f
 lea rcx, [rip + g_anchor]
 cmp qword ptr [rcx], 0
 jne 8f
-mov dword ptr [rbp + 520], eax
+mov dword ptr [rbp + 488], eax
 mov r14d, eax
 mov rsp, rbp
 jmp proc_PAT$0_attempt
@@ -393,18 +393,18 @@ proc_PAT$0_res:
 add rsp, 8
 pop rbp
 proc_PAT$0_β:
-jmp qword ptr [rbp + 496]
+jmp qword ptr [rbp + 464]
 proc_PAT$0_γ:
 push rbp
 lea rax, [rip + proc_PAT$0_res]
 push rax
-mov rax, [rbp + 536]
-mov rbp, [rbp + 552]
+mov rax, [rbp + 504]
+mov rbp, [rbp + 520]
 jmp rax
 proc_PAT$0_ω:
-mov rax, [rbp + 544]
-lea rsp, [rbp + 560]
-mov rbp, [rbp + 552]
+mov rax, [rbp + 512]
+lea rsp, [rbp + 528]
+mov rbp, [rbp + 520]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -419,7 +419,7 @@ proc_startup:
   mov esi, 0
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 528
+  mov esi, 496
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1
