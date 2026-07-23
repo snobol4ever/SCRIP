@@ -667,6 +667,13 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = a;
             return call;
         }
+        { extern const char * rt_pl_det_builtin_target(const char * nm2, int ar2);
+          const char * det_tgt0 = rt_pl_det_builtin_target(nm, 0);
+          if (det_tgt0) {
+              IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = det_tgt0;
+              if (entry_out) *entry_out = call;
+              return call;
+          } }
         if (is_builtin_exec(nm)) { IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; return nd; }
         if (!strcmp(nm, "$wot_begin") || !strcmp(nm, "$wot_abort")) {
             IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = nm;
