@@ -159,6 +159,12 @@ WS       [ \t\r]
 "}"             { return '}'; }
 "("             { return '('; }
 ")"             { return ')'; }
+"[+]"           { raku_yylval.sval = strdup("+");   return OP_REDUCE; }
+"[-]"           { raku_yylval.sval = strdup("-");   return OP_REDUCE; }
+"[*]"           { raku_yylval.sval = strdup("*");   return OP_REDUCE; }
+"[~]"           { raku_yylval.sval = strdup("~");   return OP_REDUCE; }
+"[min]"         { raku_yylval.sval = strdup("min"); return OP_REDUCE; }
+"[max]"         { raku_yylval.sval = strdup("max"); return OP_REDUCE; }
 "["             { return '['; }
 "]"             { return ']'; }
 ";"             { return ';'; }

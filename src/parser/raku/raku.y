@@ -298,6 +298,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_ROLE
 %token KW_MULTI KW_PROTO
 %token <sval> OP_NAME
+%token <sval> OP_REDUCE
 %token <sval> KW_HANDLES
 %token <sval> WORDLIST
 %token OP_COLON_D OP_COLON_U
@@ -1400,6 +1401,11 @@ unary_expr
     : '-' unary_expr %prec UMINUS  { $$=expr_unary(TT_MNS,$2); }
     | '!' unary_expr               { $$=expr_unary(TT_NOT,$2); }
     | CARET unary_expr             { tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0; $$=rk_range_ex(z,$2); }
+    | OP_REDUCE unary_expr
+        { const char *rop = !strcmp($1,"+") ? "__rk_reduce_add" : !strcmp($1,"-") ? "__rk_reduce_sub"
+                          : !strcmp($1,"*") ? "__rk_reduce_mul" : !strcmp($1,"~") ? "__rk_reduce_cat"
+                          : !strcmp($1,"min") ? "__rk_reduce_min" : "__rk_reduce_max";
+          tree_t *e=make_call(rop); expr_add_child(e,$2); free($1); $$=e; }
     | pow_expr                     { $$=$1; }
     ;
 pow_expr
