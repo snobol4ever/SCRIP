@@ -122,6 +122,7 @@ typedef struct {
     char rw[64]; char sigil[64]; char priv[64]; char mro[64][64]; int mro_len; char parents[8][64]; int nparents;
     char roles[8][64]; int nroles; char methods[32][64]; int nmethods; char has_build; char build_keys[16][64]; int nbuild_keys;
     char handles_meth[32][64]; char handles_fld[32][64]; int nhandles;
+    long serial_next;
 } DatType;
 DatType *dat_register(const char *spec);
 DatType *dat_find_type(const char *name);

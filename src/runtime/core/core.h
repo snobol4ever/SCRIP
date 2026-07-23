@@ -115,10 +115,12 @@ typedef struct _DATINST_tType {
     int     nfields;
     char  **fields;
     struct _DATINST_tType *next;
+    long    serial_next;
 } DATBLK_t;
 typedef struct _DATINST_t {
     DATBLK_t *type;
     DESCR_t   *fields;
+    long      id;
 } DATINST_t;
 void DEFDAT_fn(const char *spec);
 DESCR_t DATCON_fn(const char *type_name, ...);
