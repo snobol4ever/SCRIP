@@ -201,6 +201,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$get_char") || !strcmp(name, "$peek_char") || !strcmp(name, "$get_code") || !strcmp(name, "$peek_code") || !strcmp(name, "$put_code") || !strcmp(name, "$get_byte") || !strcmp(name, "$peek_byte") || !strcmp(name, "$put_byte")) return 1;
     if (!strcmp(name, "$unget_char") || !strcmp(name, "$unget_code") || !strcmp(name, "$unget_byte")) return 1;
     if (!strcmp(name, "$get1") || !strcmp(name, "$skip1")) return 1;
+    if (!strcmp(name, "$number_atom")) return 1;
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$acyclic_term")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
@@ -1859,6 +1860,26 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (v.v != DT_I) { rt_pl_iso_throw_type("integer", v); *out = FAILDESCR; return 1; }
         long target = (long)v.i; FILE *f = fh_cur_in_fp(); int c; do { c = fgetc(f); } while (c != EOF && c != (int)target);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$number_atom") && nargs == 2) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t a = rt_pl_deref_val(args[1]);
+        if (a.v == DT_S || a.v == (DTYPE_t)DT_A) {
+            const char *str = pl_atom_str(a); if (!str) { rt_pl_iso_throw_type("atom", a); *out = FAILDESCR; return 1; }
+            char *end; long long iv = strtoll(str, &end, 10); DESCR_t num;
+            if (end != str && *end == 0) { num.v = (DTYPE_t)DT_I; num.slen = 0; num.i = (long)iv; }
+            else { double dv = strtod(str, &end); if (end == str || *end != 0) { *out = FAILDESCR; return 1; } num.v = (DTYPE_t)DT_R; num.slen = 0; num.r = dv; }
+            if (plw_unify_vals(args[0], num)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; } *out = FAILDESCR; return 1;
+        }
+        if (a.v == (DTYPE_t)DT_PLVAR || a.v == DT_SNUL || a.v == DT_FAIL) {
+            DESCR_t n = rt_pl_deref_val(args[0]); char nb[64];
+            if (n.v == (DTYPE_t)DT_PLVAR || n.v == DT_SNUL || n.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+            if (IS_INT_fn(n)) snprintf(nb, sizeof nb, "%ld", (long)n.i);
+            else if (IS_REAL_fn(n)) { const char *fs = pl_real_iso_str(n.r, nb, sizeof nb); if (fs != nb) { size_t L = strlen(fs); if (L < sizeof nb) memcpy(nb, fs, L + 1); } }
+            else { rt_pl_iso_throw_type("number", n); *out = FAILDESCR; return 1; }
+            DESCR_t atm = pl_mk_atom_dup(nb, strlen(nb));
+            if (plw_unify_vals(args[1], atm)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; } *out = FAILDESCR; return 1;
+        }
+        rt_pl_iso_throw_type("atom", a); *out = FAILDESCR; return 1;
     }
     if ((!strcmp(fn, "$get_byte") || !strcmp(fn, "$peek_byte")) && (nargs == 1 || nargs == 2)) {
         extern FILE *fh_cur_in_fp(void); extern FILE *fh_get(int); extern DESCR_t rt_pl_deref_val(DESCR_t);
@@ -3950,6 +3971,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "get_code", 1, "$get_code" }, { "get_code", 2, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "peek_code", 2, "$peek_code" },
         { "put_code", 1, "$put_code" }, { "put_code", 2, "$put_code" },
         { "get0", 1, "$get_code" }, { "put", 1, "$put_code" }, { "get", 1, "$get1" }, { "skip", 1, "$skip1" },
+        { "number_atom", 2, "$number_atom" },
         { "get_byte", 1, "$get_byte" }, { "get_byte", 2, "$get_byte" }, { "peek_byte", 1, "$peek_byte" }, { "peek_byte", 2, "$peek_byte" },
         { "put_byte", 1, "$put_byte" }, { "put_byte", 2, "$put_byte" },
         { "unget_char", 1, "$unget_char" }, { "unget_char", 2, "$unget_char" }, { "unget_code", 1, "$unget_code" }, { "unget_code", 2, "$unget_code" },
