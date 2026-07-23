@@ -55,7 +55,7 @@ extern int         Δ;
 #include "../contracts/zeta_choices.h"
 #include "../runtime/rt/zeta_alloc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *asm_sym_name(const char *nm) { static char b[256]; snprintf(b, sizeof b, "%s", nm ? nm : ""); for (char *c = b; *c; c++) if (*c == '/') *c = '$'; return b; }
+static const char *asm_sym_name(const char *nm) { static char b[256]; int j = 0; for (const char *c = nm ? nm : ""; *c && j < 250; c++) { unsigned char u = (unsigned char) *c; if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') b[j++] = (char) u; else j += snprintf(b + j, (size_t) (256 - j), "$%02X", u); } b[j] = 0; return b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;

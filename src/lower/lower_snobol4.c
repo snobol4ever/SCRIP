@@ -2019,6 +2019,28 @@ void sno_expr_thunks_build(int x0) {
     g_sno_in_patproc = sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_lbl_index(const tree_t ** st, int nst, const char * nm) { if (!nm || !nm[0] || nm[0] == '$') return -1; if (!strcmp(nm, "RETURN") || !strcmp(nm, "FRETURN") || !strcmp(nm, "END") || !strcmp(nm, "NRETURN")) return -1; for (int i = 0; i < nst; i++) { const char * l = sfind_str(st[i], ":lbl"); if (l && !strcmp(l, nm)) return i; } return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- SN4 kill-the-O(n^2) small-per-DEFINE-graph body extraction: the classic entry-in-main DEFINE idiom names an ENTRY label in the flat main statement list; its body is the statements REACHABLE from that entry by fall-through plus local S/F/U label gotos (RETURN/FRETURN/END/NRETURN and computed/$-indirect gotos are terminals — they leave the function or resolve at runtime).  BFS the reachable set into inbody[]; the caller builds a graph of ONLY those statements (own exitnd => correct RETURN, own emission => no re-emission collision, O(body) not O(main) => the mark/entry/scope tables scale linearly).  A goto to a label OUTSIDE the body is absent from the sub-graph's reset label registry, so sno_goto_target falls back to IR_GOTO_DEFERRED/rt_goto_transfer automatically — main-label escapes resolve at runtime for free.  Fall-through is taken unless the statement transfers unconditionally OR both its success and failure edges are covered by explicit gotos.  Returns the reachable-statement count. ---*/
+static int sno_reach_body(const tree_t ** st, int nst, int eidx, char * inbody) {
+    for (int i = 0; i < nst; i++) inbody[i] = 0;
+    int * stk = (int *) malloc((size_t) (nst > 0 ? nst : 1) * sizeof(int)); int sp = 0; int cnt = 0;
+    if (eidx >= 0 && eidx < nst) { inbody[eidx] = 1; cnt = 1; stk[sp++] = eidx; }
+    while (sp > 0) {
+        const tree_t * s = st[stk[--sp]]; int i = 0; for (int k = 0; k < nst; k++) if (st[k] == s) { i = k; break; }
+        if (sfind(s, ":end")) continue;
+        const char * goU = sgoto(s, TT_GOTO_U); const char * goS = sgoto(s, TT_GOTO_S); const char * goF = sgoto(s, TT_GOTO_F);
+        const tree_t * exU = goU ? NULL : sgoto_expr(s, TT_GOTO_U); const tree_t * exS = goS ? NULL : sgoto_expr(s, TT_GOTO_S); const tree_t * exF = goF ? NULL : sgoto_expr(s, TT_GOTO_F);
+        int tU = sno_lbl_index(st, nst, goU); if (tU >= 0 && !inbody[tU]) { inbody[tU] = 1; cnt++; stk[sp++] = tU; }
+        int tS = sno_lbl_index(st, nst, goS); if (tS >= 0 && !inbody[tS]) { inbody[tS] = 1; cnt++; stk[sp++] = tS; }
+        int tF = sno_lbl_index(st, nst, goF); if (tF >= 0 && !inbody[tF]) { inbody[tF] = 1; cnt++; stk[sp++] = tF; }
+        int uncond = (goU != NULL) || (exU != NULL); int cov_s = (goS != NULL) || (exS != NULL); int cov_f = (goF != NULL) || (exF != NULL);
+        int falls = !uncond && !(cov_s && cov_f);
+        if (falls && i + 1 < nst && !inbody[i + 1]) { inbody[i + 1] = 1; cnt++; stk[sp++] = i + 1; }
+    }
+    free(stk); return cnt;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_sno_nexpr = 0;
@@ -2101,8 +2123,11 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         for (int i = 0; i < nst; i++) {
             const char * lbl = sfind_str(st[i], ":lbl");
             if (!lbl || !lbl[0]) continue;
-            IR_t * enode = bb_label_landing(lbl);
-            if (!enode) continue;
+            char * inbody = (char *) malloc((size_t) (nst > 0 ? nst : 1)); int bn = sno_reach_body(st, nst, i, inbody);
+            const tree_t ** bst = (const tree_t **) calloc((size_t) (bn > 0 ? bn : 1), sizeof(tree_t *)); int * bis = (int *) calloc((size_t) (bn > 0 ? bn : 1), sizeof(int)); int bk = 0; int bentry = 0;
+            for (int j = 0; j < nst; j++) if (inbody[j]) { if (j == i) bentry = bk; bis[bk] = is_def ? is_def[j] : 0; bst[bk++] = st[j]; }
+            IR_graph_t * gl = sno_build_graph(bst, bk, bentry, bis, NULL);
+            free(inbody); free((void *) bst); free(bis);
             char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", lbl);
             int lpi = stage2_proc_grow(&g_stage2);
             g_stage2.proc_table[lpi].name = lp_strdup(lname);
@@ -2113,8 +2138,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             g_stage2.proc_table[lpi].is_generator = 0;
             g_stage2.proc_table[lpi].dyn_scope = 0;
             g_stage2.proc_table[lpi].result_name = NULL;
-            g_stage2.proc_table[lpi].bb_idx = g_stage2.proc_table[pi].bb_idx;
-            g_stage2.proc_table[lpi].proc_entry_node = enode;
+            g_stage2.proc_table[lpi].proc_entry_node = NULL;
+            g_stage2.proc_table[lpi].bb_idx = bb_program_add(&g_stage2.bbp, gl);
         }
     }
     for (int di = 0; di < ndefs; di++) {
@@ -2134,7 +2159,11 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             int eidx = -1;
             for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
             if (eidx < 0) continue; /* entry label doesn't exist anywhere: this DEFINE is dead (never callable); SPITBOL only resolves an entry at call time, not at DEFINE time, so a program that never calls it must still run (132_pat_fence_eps_recur_shallow) */
-            gf = sno_build_graph(st, nst, eidx, is_def, rn);
+            char * inbody = (char *) malloc((size_t) (nst > 0 ? nst : 1)); int bn = sno_reach_body(st, nst, eidx, inbody);
+            const tree_t ** bst = (const tree_t **) calloc((size_t) (bn > 0 ? bn : 1), sizeof(tree_t *)); int * bis = (int *) calloc((size_t) (bn > 0 ? bn : 1), sizeof(int)); int bk = 0; int bentry = 0;
+            for (int i = 0; i < nst; i++) if (inbody[i]) { if (i == eidx) bentry = bk; bis[bk] = is_def ? is_def[i] : 0; bst[bk++] = st[i]; }
+            gf = sno_build_graph(bst, bk, bentry, bis, rn);
+            free(inbody); free((void *) bst); free(bis);
         }
         int fpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[fpi].name = defs[di].fname;
