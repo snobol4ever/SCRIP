@@ -1452,6 +1452,31 @@ inline std::string x86_scan_sync_in_rr() {
          + x86("mov", "r14", "rax")
          + x86("pop", "rdx") + x86("pop", "rax");
 }
+/* ICN-SCAN-CALL-SYNC (?-less callee, 2026-07-22): UNCONDITIONAL variants of the two above, NOT gated on
+ * g_scan_regs_live. A by-name scan builtin (tab/move/upto/many/any/find/match/pos/bal via rt_call_arr) ALWAYS
+ * reads/writes the scan_pos/scan_subj globals, so it must hand off the register-world cursor (r14) even when the
+ * emitter judged the box "not in scan" — the classic case being a ?-less scanning callee (JTRAN's preproc_scan_text
+ * / lex_yylex0), whose scan ops are structurally in_scan=0 because the governing ? lives in the *caller*. Without
+ * the handoff the inline scan primitives (register-world r14) and the by-name dispatch (global scan_pos) desync,
+ * and a later sync_out publishes a stale r14=0, resetting &pos to 1 -> the co-expression re-scans the same line
+ * forever -> coexpr-stack overflow. Same doctrine as the unconditional &pos:=/&subject:= reload in bb_keyword_assign;
+ * a stray sync outside any real scan is harmless (r14 is dedicated; scan_pos is re-established at the next ? enter). */
+inline std::string x86_scan_sync_out_force() {
+    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
+}
+inline std::string x86_scan_sync_in_rr_force() {
+    return x86("push", "rax") + x86("push", "rdx")
+         + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
+         + x86("mov", "r14", "rax")
+         + x86("pop", "rdx") + x86("pop", "rax");
+}
+/* Names whose by-name dispatch touches the scan globals; used to decide when the forced sync above is required. */
+inline bool x86_is_scan_builtin_name(const char *fn) {
+    if (!fn) return false;
+    return !strcmp(fn, "tab")  || !strcmp(fn, "move") || !strcmp(fn, "upto") || !strcmp(fn, "many")
+        || !strcmp(fn, "any")  || !strcmp(fn, "find") || !strcmp(fn, "match")|| !strcmp(fn, "pos")
+        || !strcmp(fn, "bal");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_free_call() definition (forward-declared above x86_jmp; see that declaration's comment for why
  * this must live here, after x86() itself is defined). */

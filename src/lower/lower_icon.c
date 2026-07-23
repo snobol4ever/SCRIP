@@ -85,6 +85,21 @@ static int is_resumable(const tree_t * t) {
     case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: case TT_ITERATE: return 1;
     default: return 0; }
 }
+/* ICN-CURSOR-BACKTRACK: tab/move (and the unary =s == tab(match(s))) advance &pos and, on backtrack, must run
+ * their beta to RESTORE &pos (register-world r14). They are not generators, so is_resumable()/icn_call_allow_gen()
+ * return 0 for them, which made the conjunction wiring below skip their beta as a resume target -> a failing right
+ * operand (`tab(2) & &fail`, lexer `="." & tab(many(&digits))`) fell straight through to the statement's ω without
+ * ever rewinding the cursor. This predicate marks exactly the cursor-moving operands so the conjunction routes a
+ * later operand's failure back through their β. (upto/many/any/find/bal/pos/match do NOT move &pos and are handled
+ * by is_resumable via icn_call_allow_gen where they are generators, so they are intentionally excluded here.) */
+static int icn_tree_is_cursor_mover(const tree_t * a) {
+    if (!a) return 0; if (a->t == TT_STMT) a = stmt_subj(a); if (!a) return 0;
+    if (a->t == TT_MATCH_UNARY) return 1;
+    if (a->t == TT_REVASSIGN && a->n >= 2) return icn_tree_is_cursor_mover(a->c[1]);
+    if (a->t != TT_FNC) return 0;
+    const char * nm = (a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR) ? a->c[0]->v.sval : NULL;
+    return nm && (!strcmp(nm, "tab") || !strcmp(nm, "move"));
+}
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -621,7 +636,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 IR_t * tgt = ω; if (lr >= 0) tgt = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
                 γ_to(jn[i], tgt); ω_to(jn[i], tgt);
             }
-            if (is_resumable(S[i])) lr = i;
+            if (is_resumable(S[i]) || icn_tree_is_cursor_mover(S[i])) lr = i;
         }
         if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
         cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];

@@ -293,6 +293,13 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
     for (int i = 0; i < (int)narg; i++)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
+    /* ICN-SCAN-CALL-SYNC (?-less callee): a by-name scan builtin reads/writes the scan_pos/scan_subj globals, so
+     * publish the register-world cursor (r14 -> scan_pos) before the call even when this box is in_scan=0. Without it,
+     * a ?-less scanning callee (preproc_scan_text / lex_yylex0) mixes inline scan primitives (r14) with by-name
+     * dispatch (global scan_pos), the two desync, and a stale sync_out later resets &pos to 1 -> infinite co-expr
+     * re-scan -> coexpr-stack overflow. See x86_scan_sync_out_force in x86_asm.h. */
+    bool scansync = x86_is_scan_builtin_name(fn);
+    if (scansync) s += x86_scan_sync_out_force();
     const char * dsym = 0; void * dfp = dop_direct_fp(fn, narg, &dsym);
     if (dfp) {
         s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf: ") + dsym + " (no by-name dispatch)").c_str());
@@ -311,6 +318,11 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
+    /* ICN-SCAN-CALL-SYNC (?-less callee): reload the register-world cursor from the global the callee just advanced
+     * (scan_pos -> r14) so subsequent inline scan primitives see the new position. Preserves rax/rdx (the call
+     * result) across the sync so the fail check below is unaffected. Runs on the straight-through path; on the fail
+     * (omega) path the scan builtin left &pos unchanged, so r14 is already correct. */
+    if (scansync) s += x86_scan_sync_in_rr_force();
     s += x86("cmp", "eax", (long)99);
     s += x86_omega("je");
     s += x86_gamma();
@@ -336,6 +348,16 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     for (int i = 0; i < (int)narg; i++)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     s += x86("mov", FRQ(genoff), (long)0);
+    /* ICN-SCAN-CALL-SYNC (?-less callee, generator variant): publish the register-world cursor (r14 -> scan_pos)
+     * ONCE at alpha, before the re-pump loop. A scan generator such as upto/find/bal reads scan_pos as the lower
+     * bound of its generation; `while tab(upto(c))` re-evaluates the condition each iteration, re-entering this box
+     * at alpha, so this alpha-only publish makes each fresh evaluation start from the current cursor. The beta
+     * re-pump (backtracking within a single evaluation) deliberately does NOT re-publish, so the generator
+     * continues its in-progress enumeration rather than restarting. Without this, a ?-less scanning callee
+     * (preproc_scan_text) leaves scan_pos stale and the generator re-enumerates from a wrong position, so the
+     * co-expression never advances past the first token -> the same line is yielded forever. */
+    bool scansync = x86_is_scan_builtin_name(fn);
+    if (scansync) s += x86_scan_sync_out_force();
     s += x86("def", L(60));
     s += x86("directive", ".section .rodata")
        + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
@@ -348,6 +370,11 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     s += x86("call", "rt_call_arr_gen", fptr);
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
+    /* NOTE: intentionally NO sync_in here. Scan builtins dispatched as generators (upto/find/bal/many/any/...) are
+     * read-only w.r.t. &pos — they yield positions but never move the cursor (only tab/move do, and those flow
+     * through the non-generator path). A sync_in would reload r14 from the unchanged scan_pos, rewinding the
+     * register cursor back to this generator's start on every produce and stalling the enclosing scan. The
+     * alpha-only sync_out above is sufficient to seed each fresh evaluation. */
     s += x86("cmp", "eax", (long)99);
     s += x86_omega("je");
     s += x86_gamma();
