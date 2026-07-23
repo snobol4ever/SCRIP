@@ -23,6 +23,7 @@ typedef enum {
     IR_ASSIGN_VAR,
     IR_BINOP,
     IR_BINOP_TEST,
+    IR_BINOP_RELOP_VAL,
     IR_CALL,
     IR_CALL_BUILTIN,
     IR_CALL_BUILTIN_GEN,
