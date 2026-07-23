@@ -944,6 +944,13 @@ extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 static rt_pcall_t *g_pcall;
 static int         g_pcall_top, g_pcall_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_ws_roots(void)
+{
+    extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
+    for (int i = 0; i < g_name_save_top; i++) rt_gc_visit_descr(&g_name_save[i].old);
+    for (int i = 0; i < g_pcall_top; i++) rt_gc_visit_raw(&g_pcall[i].save_Σ);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_pcall_grow(void)
 {
     if (g_pcall_top < g_pcall_cap) return;
