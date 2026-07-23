@@ -516,6 +516,9 @@ main_α_body:
  mov rdx, qword ptr [1879052328]
  cmp eax, 3
  jne .Lx34_9
+ mov rax, qword ptr [rdx + 0]
+ test rax, rax
+ jne .Lx34_10
  mov rdi, rdx
  call dtp_fn_of@PLT
  jmp .Lx34_10
