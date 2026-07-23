@@ -492,8 +492,11 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     }
     if (sel && sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[0]->t == TT_FNC && sel->c[0]->n >= 2
         && sel->c[0]->c[0] && sel->c[0]->c[0]->v.sval && !strcmp(sel->c[0]->c[0]->v.sval, "__pas_deref")) {
+        const char *_dbrt = (sel->c[1] && sel->c[1]->t == TT_ILIT) ? pas_with_sel_rtype(sel->c[0]) : NULL;
+        const char *_dfrt = _dbrt ? pas_rectype_field_rectype_by_index(_dbrt, sel->c[1]->v.ival) : NULL;
+        const char *_drhsrt = _dfrt ? pas_with_sel_rtype(rhs) : NULL;
         tree_t *e = ast_node_new(TT_FNC);
-        ast_push(e, leaf_s(TT_VAR, "__pas_field_set"));
+        if (_dfrt && _drhsrt) ast_push(e, leaf_s(TT_VAR, "__pas_nrec_pfield_set")); else ast_push(e, leaf_s(TT_VAR, "__pas_field_set"));
         ast_push(e, sel->c[0]->c[1]); ast_push(e, sel->c[1]); ast_push(e, rhs);
         return e;
     }
@@ -680,7 +683,7 @@ record_field_list:
     | record_field
     ;
 record_field:
-    id_list COLON type { if ($1) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_pend_add($1->items[i]->v.sval); }
+    id_list COLON type { if ($1) { char *_svp = g_pas_pend_ptrtarget; int _svc = g_pas_pend_ischar; int _sva = g_pas_pend_arr_ischar; for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) { g_pas_pend_ptrtarget = _svp; g_pas_pend_ischar = _svc; g_pas_pend_arr_ischar = _sva; pas_pend_add($1->items[i]->v.sval); } } }
     |
     ;
 record_case_opt:
