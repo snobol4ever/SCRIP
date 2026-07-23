@@ -446,7 +446,24 @@ static tree_t *pas_nested_field_resolve(tree_t *base, const char *fld) {
     if (_brt) { int _nfi = pas_rectype_field_index(_brt, fld); if (_nfi >= 0) { tree_t *e = ast_node_new(TT_IDX); ast_push(e, base); ast_push(e, ilit(_nfi)); const char *_fe = pas_rectype_field_enum_by_index(_brt, _nfi); if (_fe) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } pas_nrec_mark_add(e); return e; } }
     return bin(TT_FIELD, base, leaf_s(TT_VAR, fld));
 }
+static int pas_recspan_nf(tree_t *e) {
+    if (!e) return 0;
+    if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && !pas_is_nrec_idx(e)) { int nf = pas_arrrec_find(e->c[0]->v.sval, NULL); if (nf > 1) return nf; }
+    if (e->t == TT_VAR && e->v.sval) { for (int i = 0; i < g_pas_nrecvar; i++) if (g_pas_recvars[i].vname && !strcmp(g_pas_recvars[i].vname, e->v.sval)) return g_pas_recvars[i].nf; }
+    return 0;
+}
+static tree_t *pas_recspan_slot(tree_t *e, long long fi) {
+    if (e->t == TT_IDX && e->n == 2) return pas_arrrec_flatten(pas_tree_clone(e), fi);
+    tree_t *s = ast_node_new(TT_IDX); ast_push(s, pas_tree_clone(e)); ast_push(s, ilit(fi)); return s;
+}
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
+    { int lnf = pas_recspan_nf(sel); int rnf = pas_recspan_nf(rhs);
+      int has_idx = ((sel && sel->t == TT_IDX) || (rhs && rhs->t == TT_IDX));
+      if (lnf > 1 && lnf == rnf && has_idx) {
+          PNodeList *cps = pnl_new();
+          for (long long fi = 0; fi < lnf; fi++) pnl_push(cps, bin(TT_ASSIGN, pas_recspan_slot(sel, fi), pas_recspan_slot(rhs, fi)));
+          return seq_of(cps);
+      } }
     if (sel && sel->t == TT_IDX && sel->n >= 2 && pas_is_nrec_idx(sel)) {
         tree_t *inner = sel->c[0]; tree_t *ei_nd = sel->c[1];
         if (inner && inner->t == TT_IDX && inner->n >= 2) {
