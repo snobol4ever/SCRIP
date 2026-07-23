@@ -7,16 +7,16 @@ proc_MATCHIT_α:
     .global proc_MATCHIT_β
     .global proc_MATCHIT_γ
     .global proc_MATCHIT_ω
-  sub rsp, 672
-  mov [rsp + 648], rcx
-  mov [rsp + 656], rdx
-  mov [rsp + 664], rbp
+  sub rsp, 576
+  mov [rsp + 552], rcx
+  mov [rsp + 560], rdx
+  mov [rsp + 568], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 640
+  mov ecx, 544
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 632], rsp
+  mov qword ptr [rsp + 536], rsp
 proc_MATCHIT_α_body:
 # IR_VAR
  xchain0_n0_α:
@@ -300,14 +300,14 @@ jmp proc_MATCHIT_ω
 proc_MATCHIT_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 648]
-lea rsp, [rbp + 672]
-mov rbp, [rbp + 664]
+mov rax, [rbp + 552]
+lea rsp, [rbp + 576]
+mov rbp, [rbp + 568]
 jmp rax
 proc_MATCHIT_ω:
-mov rax, [rbp + 656]
-lea rsp, [rbp + 672]
-mov rbp, [rbp + 664]
+mov rax, [rbp + 560]
+lea rsp, [rbp + 576]
+mov rbp, [rbp + 568]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -334,7 +334,7 @@ proc_startup:
   mov esi, 1
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 640
+  mov esi, 544
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1

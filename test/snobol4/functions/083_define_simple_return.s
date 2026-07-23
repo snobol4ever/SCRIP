@@ -7,16 +7,16 @@ proc_double_α:
     .global proc_double_β
     .global proc_double_γ
     .global proc_double_ω
-  sub rsp, 448
-  mov [rsp + 424], rcx
-  mov [rsp + 432], rdx
-  mov [rsp + 440], rbp
+  sub rsp, 256
+  mov [rsp + 232], rcx
+  mov [rsp + 240], rdx
+  mov [rsp + 248], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 416
+  mov ecx, 224
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 408], rsp
+  mov qword ptr [rsp + 216], rsp
 proc_double_α_body:
 # IR_LIT_INTEGER
  xchain0_n0_α:
@@ -89,14 +89,14 @@ jmp proc_double_ω
 proc_double_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 424]
-lea rsp, [rbp + 448]
-mov rbp, [rbp + 440]
+mov rax, [rbp + 232]
+lea rsp, [rbp + 256]
+mov rbp, [rbp + 248]
 jmp rax
 proc_double_ω:
-mov rax, [rbp + 432]
-lea rsp, [rbp + 448]
-mov rbp, [rbp + 440]
+mov rax, [rbp + 240]
+lea rsp, [rbp + 256]
+mov rbp, [rbp + 248]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -123,7 +123,7 @@ proc_startup:
   mov esi, 1
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 416
+  mov esi, 224
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1

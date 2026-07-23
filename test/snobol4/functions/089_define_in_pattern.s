@@ -7,16 +7,16 @@ proc_upcase_α:
     .global proc_upcase_β
     .global proc_upcase_γ
     .global proc_upcase_ω
-  sub rsp, 496
-  mov [rsp + 472], rcx
-  mov [rsp + 480], rdx
-  mov [rsp + 488], rbp
+  sub rsp, 304
+  mov [rsp + 280], rcx
+  mov [rsp + 288], rdx
+  mov [rsp + 296], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 464
+  mov ecx, 272
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 456], rsp
+  mov qword ptr [rsp + 264], rsp
 proc_upcase_α_body:
 # IR_VAR
  xchain0_n0_α:
@@ -96,14 +96,14 @@ jmp proc_upcase_ω
 proc_upcase_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 472]
-lea rsp, [rbp + 496]
-mov rbp, [rbp + 488]
+mov rax, [rbp + 280]
+lea rsp, [rbp + 304]
+mov rbp, [rbp + 296]
 jmp rax
 proc_upcase_ω:
-mov rax, [rbp + 480]
-lea rsp, [rbp + 496]
-mov rbp, [rbp + 488]
+mov rax, [rbp + 288]
+lea rsp, [rbp + 304]
+mov rbp, [rbp + 296]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -130,7 +130,7 @@ proc_startup:
   mov esi, 1
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 464
+  mov esi, 272
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1

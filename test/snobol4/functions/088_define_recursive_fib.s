@@ -7,16 +7,16 @@ proc_fib_α:
     .global proc_fib_β
     .global proc_fib_γ
     .global proc_fib_ω
-  sub rsp, 1072
-  mov [rsp + 1048], rcx
-  mov [rsp + 1056], rdx
-  mov [rsp + 1064], rbp
+  sub rsp, 688
+  mov [rsp + 664], rcx
+  mov [rsp + 672], rdx
+  mov [rsp + 680], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 1040
+  mov ecx, 656
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 1032], rsp
+  mov qword ptr [rsp + 648], rsp
 proc_fib_α_body:
 # IR_VAR
  xchain0_n0_α:
@@ -445,14 +445,14 @@ jmp proc_fib_ω
 proc_fib_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 1048]
-lea rsp, [rbp + 1072]
-mov rbp, [rbp + 1064]
+mov rax, [rbp + 664]
+lea rsp, [rbp + 688]
+mov rbp, [rbp + 680]
 jmp rax
 proc_fib_ω:
-mov rax, [rbp + 1056]
-lea rsp, [rbp + 1072]
-mov rbp, [rbp + 1064]
+mov rax, [rbp + 672]
+lea rsp, [rbp + 688]
+mov rbp, [rbp + 680]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -479,7 +479,7 @@ proc_startup:
   mov esi, 1
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 1040
+  mov esi, 656
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1

@@ -7,16 +7,16 @@ proc_swap_α:
     .global proc_swap_β
     .global proc_swap_γ
     .global proc_swap_ω
-  sub rsp, 592
-  mov [rsp + 568], rcx
-  mov [rsp + 576], rdx
-  mov [rsp + 584], rbp
+  sub rsp, 464
+  mov [rsp + 440], rcx
+  mov [rsp + 448], rdx
+  mov [rsp + 456], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 560
+  mov ecx, 432
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 552], rsp
+  mov qword ptr [rsp + 424], rsp
 proc_swap_α_body:
 # IR_VAR
  xchain0_n0_α:
@@ -131,14 +131,14 @@ jmp proc_swap_ω
 proc_swap_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 568]
-lea rsp, [rbp + 592]
-mov rbp, [rbp + 584]
+mov rax, [rbp + 440]
+lea rsp, [rbp + 464]
+mov rbp, [rbp + 456]
 jmp rax
 proc_swap_ω:
-mov rax, [rbp + 576]
-lea rsp, [rbp + 592]
-mov rbp, [rbp + 584]
+mov rax, [rbp + 448]
+lea rsp, [rbp + 464]
+mov rbp, [rbp + 456]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -169,7 +169,7 @@ proc_startup:
   mov esi, 3
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 560
+  mov esi, 432
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1
