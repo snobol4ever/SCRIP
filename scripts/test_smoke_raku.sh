@@ -3041,6 +3041,49 @@ raku "divis_prec_over_add" "yes" << 'EOF'
 if 1 + 2 %% 3 { say "yes" } else { say "no" }
 EOF
 
+raku "chr_fn_upper" "A" << 'EOF'
+say chr(65);
+EOF
+
+raku "chr_fn_lower" "a" << 'EOF'
+say chr(97);
+EOF
+
+raku "ord_fn" "65" << 'EOF'
+say ord("A");
+EOF
+
+raku "chr_method" "A" << 'EOF'
+say 65.chr;
+EOF
+
+raku "ord_method" "90" << 'EOF'
+say "Z".ord;
+EOF
+
+raku "chr_var" "B" << 'EOF'
+my $n = 66;
+say chr($n);
+EOF
+
+raku "ord_var_method" "122" << 'EOF'
+my $c = "z";
+say $c.ord;
+EOF
+
+raku "chr_ord_roundtrip" "Q" << 'EOF'
+say chr(ord("Q"));
+EOF
+
+raku "chr_concat" "Hi" << 'EOF'
+say chr(72) ~ chr(105);
+EOF
+
+raku "chr_loop" "ABCDE" << 'EOF'
+for 65..69 -> $i { print chr($i) }
+say "";
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

@@ -258,7 +258,7 @@ int rt_builtin_is_known(const char *name)
     if (!strncmp(name, "__rk_test_", 10)) return 1;
     static const char *known[] = {
         "write", "writes", "stop",
-        "integer", "real", "string", "numeric", "char", "ord", "cset",
+        "integer", "real", "string", "numeric", "char", "chr", "ord", "cset",
         "type", "image", "proc", "args", "copy",
         "abs", "sqrt", "sin", "cos", "tan", "exp", "log",
         "asin", "acos", "atan", "dtor", "rtod",
@@ -537,6 +537,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from; if (from < 0) from = 0; if (ln < 0) ln = 0;
         *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1;
     }
+    if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_ws_alloc(2); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
+    if (!strcmp(meth, "ord")) { if (!s || !*s) { *out = FAILDESCR; return 1; } *out = INTVAL((unsigned char)s[0]); return 1; }
     if (!strcmp(meth, "abs")) { if (IS_INT_fn(recv)) { long v = (long)recv.i; *out = INTVAL(v < 0 ? -v : v); } else { *out = REALVAL(fabs(to_real(recv))); } return 1; }
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
@@ -5170,7 +5172,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (end != s && (*end=='\0'||*end==' ')) { *out = REALVAL(rv); return 1; }
         *out = FAILDESCR; return 1;
     }
-    if (!strcmp(fn,"char") && nargs == 1) {
+    if ((!strcmp(fn,"char") || !strcmp(fn,"chr")) && nargs == 1) {
         DESCR_t av = args[0];
         int n = (int)(IS_INT_fn(av) ? av.i : (long long)strtol(VARVAL_fn(av)?VARVAL_fn(av):"0",NULL,10));
         char *buf = rt_ws_alloc(2); buf[0]=(char)(n&0xFF); buf[1]='\0';
