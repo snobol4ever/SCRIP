@@ -188,7 +188,7 @@ typedef struct ExprList {
 #if ! defined RAKU_YYSTYPE && ! defined RAKU_YYSTYPE_IS_DECLARED
 union RAKU_YYSTYPE
 {
-#line 276 "raku.y"
+#line 284 "raku.y"
 
     long      ival;
     double    dval;

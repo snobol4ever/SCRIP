@@ -3256,6 +3256,48 @@ for 1..3 -> $x { $t = $t + $x; }
 say $t;
 EOF
 
+raku "slice_range_mid" "2,3,4" << 'EOF'
+my @a = 1,2,3,4,5;
+say @a[1..3].join(",");
+EOF
+
+raku "slice_range_head" "1,2,3" << 'EOF'
+my @a = 1,2,3,4,5;
+say @a[0..2].join(",");
+EOF
+
+raku "slice_range_sum" "12" << 'EOF'
+my @a = 1,2,3,4,5;
+say @a[2..4].sum;
+EOF
+
+raku "slice_range_single" "3" << 'EOF'
+my @a = 1,2,3,4,5;
+say @a[2..2].join(",");
+EOF
+
+raku "slice_range_exclusive" "2,3,4" << 'EOF'
+my @a = 1,2,3,4,5;
+say @a[1..^4].join(",");
+EOF
+
+raku "slice_range_var_bounds" "2,3,4" << 'EOF'
+my @a = 1,2,3,4,5;
+my $lo = 1;
+my $hi = 3;
+say @a[$lo..$hi].join(",");
+EOF
+
+raku "slice_of_materialized_range" "12,13,14,15" << 'EOF'
+my @r = 10..20;
+say @r[2..5].join(",");
+EOF
+
+raku "slice_scalar_index_unaffected" "3" << 'EOF'
+my @a = 1,2,3,4,5;
+say @a[2];
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

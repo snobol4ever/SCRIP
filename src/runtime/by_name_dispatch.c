@@ -276,7 +276,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
@@ -2781,6 +2781,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (long long v = lo; v <= hi; v++) { if (p > 0) buf[p++] = SOH; char eb[24]; int el = snprintf(eb, sizeof eb, "%lld", v); memcpy(buf + p, eb, (size_t)el); p += (size_t)el; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_slice") && nargs == 3) {
+        char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch); if (!cs) cs = "";
+        long long lo = IS_INT_fn(args[1]) ? (long long)args[1].i : (IS_REAL_fn(args[1]) ? (long long)args[1].r : 0);
+        long long hi = IS_INT_fn(args[2]) ? (long long)args[2].i : (IS_REAL_fn(args[2]) ? (long long)args[2].r : 0);
+        if (lo < 0) lo = 0;
+        if (hi < lo) { char *e = rt_ws_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
+        char *buf = rt_ws_alloc(strlen(cs) + 1); size_t p = 0; const char *seg = cs; long long k = 0; int wrote = 0;
+        for (;;) {
+            const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            if (k >= lo && k <= hi) { if (wrote) buf[p++] = SOH; memcpy(buf + p, seg, L); p += L; wrote = 1; }
+            if (!nx || k >= hi) break;
+            seg = nx + 1; k++;
+        }
+        buf[p] = '\0'; *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "__rk_arr_xx") && nargs == 2) {
         char scratch[64];
