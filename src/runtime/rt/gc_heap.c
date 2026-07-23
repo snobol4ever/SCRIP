@@ -288,6 +288,13 @@ static long g_gc_rrng_n = 0, g_gc_rrng_cap = 0;
 static struct gc_seg_t { char *lo, *hi; } *g_gc_segs = (struct gc_seg_t *)0;
 static long g_gc_nseg = -1, g_gc_seg_cap = 0;
 static rt_hblk_t **g_gc_idx = (rt_hblk_t **)0;
+static rt_hblk_t **g_gc_idxbuf = (rt_hblk_t **)0;
+static long g_gc_icap = 0;
+static char *g_gc_scanbuf = (char *)0;
+static long g_gc_scap = 0;
+static rt_hblk_t **g_gc_liveo = (rt_hblk_t **)0;
+static uint64_t *g_gc_livef = (uint64_t *)0;
+static long g_gc_lcap = 0;
 static long g_gc_nblk = 0;
 static uint32_t *g_gc_pmap = (uint32_t *)0;
 static void **g_gc_hs = (void **)0;
@@ -336,7 +343,7 @@ static char *g_gc_pmap_top = (char *)0;   /* g_hp_top at the time the pmap was f
 static rt_hblk_t *gc_blk_of(const char *p)
 {
     if (!p || p < g_hp_arena || p >= g_hp_top || !g_gc_idx) return (rt_hblk_t *)0;
-    if (g_gc_pmap && p < g_gc_pmap_top) { long i = (long)g_gc_pmap[(size_t)(p - g_hp_arena) >> 9]; rt_hblk_t *h = g_gc_idx[i]; while ((char *)h + h->size <= p) h = g_gc_idx[++i]; return h; }
+    if (g_gc_pmap && p < g_gc_pmap_top) { long i = (long)g_gc_pmap[(size_t)(p - g_hp_arena) >> 9]; if (i < g_gc_nblk) { rt_hblk_t *h = g_gc_idx[i]; while (i + 1 < g_gc_nblk && (char *)h + h->size <= p) h = g_gc_idx[++i]; if ((char *)h <= p && p < (char *)h + h->size) return h; } }
     { long lo = 0, hi = g_gc_nblk - 1; while (lo <= hi) { long m = (lo + hi) >> 1; char *b = (char *)g_gc_idx[m]; if (p < b) hi = m - 1; else if (p >= b + g_gc_idx[m]->size) lo = m + 1; else return g_gc_idx[m]; } return (rt_hblk_t *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -530,9 +537,11 @@ static long gc_collect_ex(int cons_stack)
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
     g_hp_win = (char *)0; g_hp_wend = (char *)0;
     g_gc_nblk = 0; { char *p = g_hp_arena; while (p < g_hp_top) { g_gc_nblk++; p += ((rt_hblk_t *)p)->size; } }
-    g_gc_idx = (rt_hblk_t **)malloc((size_t)g_gc_nblk * sizeof(*g_gc_idx)); if (!g_gc_idx && g_gc_nblk) abort();
+    if (g_gc_nblk > g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap : 4096; while (g_gc_icap < g_gc_nblk) g_gc_icap *= 2;
+        g_gc_idxbuf = (rt_hblk_t **)realloc((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); }
+    g_gc_idx = g_gc_idxbuf;
     { char *p = g_hp_arena; long i = 0; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)malloc((((size_t)(g_hp_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN);
-        if (h->type == HB_WS) h->flags |= (uint16_t)(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; for (char *gs = (char *)(((uintptr_t)p + 511u) & ~(uintptr_t)511u); gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } g_gc_pmap_top = g_hp_top; }
+        if (h->type == HB_WS) h->flags |= (uint16_t)(HBF_MARK | HBF_PIN); h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; for (char *gs = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } g_gc_pmap_top = g_hp_top; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_ncell = 0; g_gc_nraw = 0; g_gc_interior = 0;
     for (long i = 0; i < g_gc_rpin_n; i++) rt_gc_pin_ptr(g_gc_rpin[i]);
@@ -547,7 +556,9 @@ static long gc_collect_ex(int cons_stack)
     core_gc_roots(); gen_gc_roots(); rt_gc_root_args();
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
-    { char *scanned = (char *)calloc((size_t)(g_gc_nblk ? g_gc_nblk : 1), 1); int changed = 1; if (!scanned) abort();
+    { char *scanned; int changed = 1;
+      if (g_gc_nblk >= g_gc_scap) { g_gc_scap = g_gc_scap ? g_gc_scap : 4096; while (g_gc_scap <= g_gc_nblk) g_gc_scap *= 2; g_gc_scanbuf = (char *)realloc((void *)g_gc_scanbuf, (size_t)g_gc_scap); if (!g_gc_scanbuf) abort(); }
+      scanned = g_gc_scanbuf; memset(scanned, 0, (size_t)(g_gc_nblk ? g_gc_nblk : 1));
       while (changed) { changed = 0;
         for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
             if (scanned[i] || !(h->flags & (HBF_MARK | HBF_PIN))) continue;
@@ -558,7 +569,7 @@ static long gc_collect_ex(int cons_stack)
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); scanned[i] = 1; changed = 1; if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); scanned[i] = 1; changed = 1; if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
-      free(scanned); }
+    }
     dest = g_hp_arena;
     { long pws = 0, pwsc = 0, pzb = 0, pval = 0, dwsc = 0, pagg = 0, dagg = 0;
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
@@ -573,7 +584,9 @@ static long gc_collect_ex(int cons_stack)
     if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC]   pin-classes ws=%ld wsc=%ld agg=%ld zblk=%ld val=%ld  wsc-dead=%ld agg-dead=%ld\n", pws, pwsc, pagg, pzb, pval, dwsc, dagg); }
     for (long i = 0; i < g_gc_ncell; i++) { DESCR_t *d = g_gc_cells[i]; rt_hblk_t *h = gc_blk_of(d->s); if (h && h->fwd && h->fwd != (uint64_t)h) d->s = (char *)((rt_hblk_t *)h->fwd + 1) + (d->s - (char *)(h + 1)); }
     for (long i = 0; i < g_gc_nraw; i++) { const char **loc = g_gc_raws[i]; rt_hblk_t *h = gc_blk_of(*loc); if (h && h->fwd && h->fwd != (uint64_t)h) *loc = (const char *)((rt_hblk_t *)h->fwd + 1) + (*loc - (const char *)(h + 1)); }
-    liveo = (rt_hblk_t **)malloc((size_t)(nlive ? nlive : 1) * sizeof(*liveo)); livef = (uint64_t *)malloc((size_t)(nlive ? nlive : 1) * sizeof(*livef)); if (!liveo || !livef) abort();
+    if (nlive >= g_gc_lcap) { g_gc_lcap = g_gc_lcap ? g_gc_lcap : 4096; while (g_gc_lcap <= nlive) g_gc_lcap *= 2;
+        g_gc_liveo = (rt_hblk_t **)realloc((void *)g_gc_liveo, (size_t)g_gc_lcap * sizeof(*g_gc_liveo)); g_gc_livef = (uint64_t *)realloc((void *)g_gc_livef, (size_t)g_gc_lcap * sizeof(*g_gc_livef)); if (!g_gc_liveo || !g_gc_livef) abort(); }
+    liveo = g_gc_liveo; livef = g_gc_livef;
     for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->fwd) { liveo[li] = g_gc_idx[i]; livef[li] = g_gc_idx[i]->fwd; li++; }
     dest = g_hp_arena;
     for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size;
@@ -590,7 +603,7 @@ static long gc_collect_ex(int cons_stack)
       for (int si = 0; si < g_gc_pin_src_n; si++) fprintf(stderr, "[ZGC-SRC] word_at=%p type=%ld\n", g_gc_pin_src[si][0], (long)(uintptr_t)g_gc_pin_src[si][1]);
       memset(g_gc_pin_tag, 0, sizeof g_gc_pin_tag); g_gc_pin_src_n = 0; }
     if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld: blocks %ld->%ld (pinned %ld, fill %ld) bytes %ld->%ld reclaimed %ld win=%ld cells=%ld raws=%ld interior=%ld\n", g_gc_runs, g_gc_nblk, nlive, npin, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_ncell, g_gc_nraw, g_gc_interior);
-    free(liveo); free(livef); free(g_gc_idx); g_gc_idx = (rt_hblk_t **)0;
+    g_gc_idx = (rt_hblk_t **)0;
     g_gc_in = 0;
     return before_b - after_b;
 }
