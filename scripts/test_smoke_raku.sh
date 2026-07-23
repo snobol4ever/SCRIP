@@ -3188,6 +3188,74 @@ my @b = 5, 6, 9;
 say ([+] @a) + ([+] @b);
 EOF
 
+raku "range_arr_elems" "5" << 'EOF'
+my @a = 1..5;
+say @a.elems;
+EOF
+
+raku "range_arr_sum" "15" << 'EOF'
+my @a = 1..5;
+say @a.sum;
+EOF
+
+raku "range_arr_min" "1" << 'EOF'
+my @a = 1..5;
+say @a.min;
+EOF
+
+raku "range_arr_max" "5" << 'EOF'
+my @a = 1..5;
+say @a.max;
+EOF
+
+raku "range_arr_reduce_add" "15" << 'EOF'
+my @a = 1..5;
+say [+] @a;
+EOF
+
+raku "range_arr_reduce_mul" "120" << 'EOF'
+my @a = 1..5;
+say [*] @a;
+EOF
+
+raku "range_arr_join" "1,2,3,4" << 'EOF'
+my @a = 1..4;
+say @a.join(",");
+EOF
+
+raku "range_arr_single" "1" << 'EOF'
+my @a = 3..3;
+say @a.elems;
+EOF
+
+raku "range_arr_empty" "0" << 'EOF'
+my @a = 5..1;
+say @a.elems;
+EOF
+
+raku "range_arr_var_bounds" "20" << 'EOF'
+my $lo = 2;
+my $hi = 6;
+my @a = $lo..$hi;
+say @a.sum;
+EOF
+
+raku "range_arr_exclusive" "3" << 'EOF'
+my @e = 1..^4;
+say @e.elems;
+EOF
+
+raku "range_arr_typed" "10" << 'EOF'
+my Int @a = 1..4;
+say @a.sum;
+EOF
+
+raku "range_for_generator_unaffected" "6" << 'EOF'
+my $t = 0;
+for 1..3 -> $x { $t = $t + $x; }
+say $t;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
