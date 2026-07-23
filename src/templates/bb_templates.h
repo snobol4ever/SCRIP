@@ -30,7 +30,7 @@ std::string bb_match_arb();
 std::string bb_match_bal();
 std::string bb_match_arbno();
 std::string bb_match_abort();
-std::string bb_match_fence();
+std::string bb_match_fence1();
 std::string bb_match_alternate();
 std::string bb_match_sequence();
 std::string bb_scan_sequence();

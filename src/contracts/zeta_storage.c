@@ -100,6 +100,17 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off, 16, ZK_RAW, 0, "bal.n/start/depth", nd); return 1;
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "break.cnt/cur", nd); return 1;
+    case IR_MATCH_FENCE1:
+        /* SYNC-POINT ζ RELEASE (Lon ruling s132; sync point 2 = FENCE1 = FENCE(P) success exit; FENCE0, the bare variable, stays node-free — sync-3 residue).  One quad: +0 holds
+         * the α-recorded watermark — the raw rsp under the FORTH/cstack port (the fenced span's pre-push
+         * frontier; ZK_RAW: a machine-stack address, never a GC-scanned arena pointer), the ZLS2 cursor under
+         * the ALLOC/INLINE/OWNED ports (the head.zls2_mark caveat applies: arena-cursor tag honesty deferred
+         * with the same rationale).  The na_s seal-success glue restores to it, bulk-whacking every ζ cell P
+         * retained (its alternatives are invisible on backup — manual ln 4716 — so no β will ever look for
+         * them); na_f restores too (defensive exactness: leftward exhaust arrives at mark depth by LIFO, the
+         * mov is then the identity).  NO fc_geom registration BY DESIGN: the slot must stay [rbp+off]
+         * (depth-immune) because the σ glue reads it at the DYNAMIC post-P depth. */
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "fence.watermark (α-saved rsp under FORTH / zls2 cursor under ALLOC; σ/φ glue restores)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "fence.pad (unused)", nd); return 1;
     case IR_MATCH_ARB:
         /* ZLS2 second consumer (Claude Sonnet 5, 2026-07-08) -- the "natural sibling" GOAL-SNOBOL4-BB.md names
          * for extending BB-OWNED-zeta past ARBNO. ARB's existing 16B grant already carried 8B of unused pad
@@ -207,12 +218,35 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     }
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
-static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
+static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
     zls_entry(nd, scope_id, off);
     zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
     return 1 + zls_grant_locals(nd, scope_id, off + 16);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SLOT-ELIDE S1 (Lon ruling s133: "some BB's will have a result and some will not determined by NEED").  SCRATCH-ALIAS, degrade-never-die: a node whose result no one reads gets NO quad of its own —
+ * its zx entry aliases ONE shared per-graph scratch quad (the first dead node's own slot becomes it), so templates that self-write results write harmlessly and layout math never sees a hole; frame Σ
+ * shrinks by (dead−1)×16 and the prologue stosb with it (s132: the match phase is STORE-BOUND, 63% stores).  TWO safety fences, both whitelists so drift cannot create a wrong answer: (1) only kinds
+ * POSITIVELY KNOWN to own zero locals may elide (zls_elide_ok — the default-grant leaf class; a kind with locals keeps its result so the locals@+16 layout law is untouched); (2) liveness marks a node
+ * on ANY operand reference EXCEPT from the four SNOBOL4 constructs whose operands are pure entry/resume wiring (ALT/SEQ/ARBNO/FENCE1 + MOVE_LABEL's label operand); DISJUNCTION/HEAD/REPALT/the Icon
+ * scan twins stay in the reader class because their operand lists mix wiring with real slot reads (emit.cpp op_parts/op_sa/op_off) — conservative toward LIVE.  SCRIP_SLOT_ELIDE=0 is the kill-switch. */
+static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
+    for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
+        if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_FENCE1 || c->op == IR_MOVE_LABEL) continue;   /* ARBNO deliberately NOT here: operands[2] geometry bracket is a REAL slot read (s133 crosscheck caught it — 075/164/167/W04 arbno family) */
+        for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; for (int i = 0; i < g->n; i++) if (g->all[i] == p) { live[i] = 1; break; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
+    if (zls_is_wiring(nd->op)) return 0;
+    if (!live && zls_elide_ok(nd->op)) {
+        if (*scratch_off < 0) { *scratch_off = off; zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); return 1; }
+        zls_entry(nd, scope_id, *scratch_off); return 0;
+    }
+    return zls_grant(nd, scope_id, off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_scope_new(int parent, int klass, const char * name) {
@@ -267,6 +301,25 @@ static int fct_leaf_range(IR_graph_t * g, int k0, int k1, int pfx, int bias, con
     return pfx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SLOT-ELIDE S0 CENSUS (Lon ruling s133: unused result quads are bug #1).  SCRIP_SLOT_CENSUS=1 prints, per graph, how many result quads exist vs how many are ever referenced as a VALUE operand —
+ * operand references FROM the pure-wiring construct kinds (ALT/SEQ/ARBNO/FENCE1/scan twins/REPALT/MOVE_LABEL: their operands are entry/resume NODES, not value reads) do not count.  DISJUNCTION and
+ * MATCH_HEAD are deliberately left in the value-reader class (their operand lists mix wiring with real reads), so the dead count is a conservative FLOOR on the S1 win.  O(n²) walk — census only. */
+static void zls_slot_census(IR_graph_t * g) {
+    static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_SLOT_CENSUS"); on = (e && *e == '1') ? 1 : 0; } if (!on || !g) return;
+    static long tg = 0, tl = 0, tn = 0;
+    extern int zls_result_off(const IR_t *);
+    int G = 0, L = 0;
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || zls_is_wiring(nd->op) || zls_result_off(nd) < 0) continue; G++;
+        int ref = 0;
+        for (int k = 0; k < g->n && !ref; k++) { IR_t * c = g->all[k]; if (!c || c == nd) continue;
+            if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_REPALT || c->op == IR_MOVE_LABEL) continue;
+            for (int j = 0; j < c->n_operands; j++) if (c->operands[j] == nd) { ref = 1; break; } }
+        if (ref) L++; }
+    tg += G; tl += L; tn++;
+    fprintf(stderr, "[SLOT-CENSUS] g=%p n=%d result_quads=%d value_refd=%d dead_floor=%d rq_bytes %d -> %d | TOTALS graphs=%ld quads=%ld refd=%ld dead=%ld bytes %ld -> %ld\n",
+            (void *)g, g->n, G, L, G - L, G * 16, (L + 1) * 16, tn, tg, tl, tg - tl, tg * 16, (tl + tn) * 16);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
     if (!g) return;
     zls_graph_t * r = zls_g_find(g);
@@ -295,12 +348,19 @@ void zls_build(IR_graph_t * g) {
         zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int cur = 0;
-    for (int i = 0; i < g->n; i++) {
+    { static int eon = -1; if (eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); eon = (e && *e == '0') ? 0 : 1; }
+      char lv_sbuf[1024]; char * lv = (g->n <= (int)sizeof lv_sbuf) ? lv_sbuf : (char *)malloc((size_t)g->n);
+      memset(lv, 0, (size_t)g->n);
+      if (eon) zls_mark_value_refs(g, lv);
+      int scratch_off = -1;
+      for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
         while (cur < nl && i >= mstart[cur]) cur++;
         int sc = (cur > 0) ? mfirst[cur - 1] : root;
-        k += zls_grant(nd, sc, base + k * 16);
+        k += eon ? zls_grant_elide(nd, sc, base + k * 16, lv[i], &scratch_off) : zls_grant(nd, sc, base + k * 16);
+      }
+      if (lv != lv_sbuf) free(lv);
     }
     r->resume_off = -1;
     for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) {
@@ -397,6 +457,7 @@ void zls_build(IR_graph_t * g) {
         for (int w = 0; w < fct[c].nw; w++) fc_cond_register(fct[c].wcd[w], fpb + span + rspan + 32 + 16 * w);   /* WRAP-CAPTURE: COND reads its element slot at the uniform yield depth (elem - fpb) */
       }
     }
+    zls_slot_census(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
