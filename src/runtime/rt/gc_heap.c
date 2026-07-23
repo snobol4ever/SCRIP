@@ -225,7 +225,11 @@ char *rt_str_dup(const char *s)
  * ROOT DUTY: gc_collect_ex conservatively scans [g_wsi_base, g_wsi_ws) — the WS side ONLY — as a root pass each collect (replaces the reset-time blanket pin + transitive scan of marked WS blocks;
  * covers the s88 latent gap the same way: DESCRs inside WS blocks reference value blocks nothing else roots; referenced aggregates ride the existing marked-block fixpoint). Raw-malloc'd referrers
  * INTO the island need no adjust — the island never moves (which is why TR-5 stops being a prerequisite for the pin-floor fix and stays the later precision path). HB_WSC is UNTOUCHED by this move:
- * the COLLECTABLE workspace class stays in the span (ws_only filters, PIN-when-marked, reclaimed when dead). HB_ZBLK unchanged (registration-governed). Exhaustion = loud bomb naming ZC_WSI_MB. */
+ * the COLLECTABLE workspace class stays in the span (ws_only filters, PIN-when-marked, reclaimed when dead) — CONTRACT TIGHTENED s131: a WSC/PLJ/AGG/ZBLK block referenced ONLY from a writable C
+ * static must have that static REGISTERED (rt_gc_root_range_add) — the EVERY-COLLECT blanket dl_iterate_phdr statics scan is OFF by default (SCRIP_GC_STATICS_BLANKET=1 restores it, debug/A-B
+ * flavor). CENSUS EVIDENCE (s131): 48.4MB of writable statics scanned per collect; across json-match B=16 (656 collects), the full gc torture suite at STRESS=7, and icon+prolog smokes at STRESS=7,
+ * tag=1 minted ZERO pins except ONE self-artifact — g_hp_arena (the allocator's own base pointer) pinning block 0; ws_only gating means the scan could never root plain DT_S anyway (value-world
+ * statics are the precise enumerators' job). HB_ZBLK unchanged (registration-governed). Exhaustion = loud bomb naming ZC_WSI_MB. */
 static void rt_wsi_init(void)
 {
     long mb = (long)ZC_WSI_MB;
@@ -570,9 +574,10 @@ static long gc_collect_ex(int cons_stack)
     for (long i = 0; i < g_gc_rpin_n; i++) rt_gc_pin_ptr(g_gc_rpin[i]);
     for (long i = 0; i < g_gc_rrng_n; i++) if (g_gc_rrng[i].lo < g_gc_rrng[i].hi) gc_cons_scan(g_gc_rrng[i].lo, g_gc_rrng[i].hi);
     if (g_wsi_base && g_wsi_ws > g_wsi_base) gc_cons_scan((const char *)g_wsi_base, (const char *)g_wsi_ws);
-    gc_static_segs_init();
-    g_gc_scan_tag = 1;
-    for (long i = 0; i < g_gc_nseg; i++) if (g_gc_segs[i].lo < g_gc_segs[i].hi) gc_cons_scan_t((const char *)g_gc_segs[i].lo, (const char *)g_gc_segs[i].hi, 1);
+    { static int blanket = -1; if (blanket < 0) { const char *e = getenv("SCRIP_GC_STATICS_BLANKET"); blanket = (e && *e && *e != '0') ? 1 : 0; }
+      if (blanket) { gc_static_segs_init();
+        g_gc_scan_tag = 1;
+        for (long i = 0; i < g_gc_nseg; i++) if (g_gc_segs[i].lo < g_gc_segs[i].hi) gc_cons_scan_t((const char *)g_gc_segs[i].lo, (const char *)g_gc_segs[i].hi, 1); } }
     { char *chi; gc_coexpr_roots(&chi);
       if (cons_stack) { int wso = (cons_stack == 2); g_gc_scan_tag = 2; setjmp(jb); gc_cons_scan_t((const char *)&jb, (const char *)&jb + sizeof jb, wso);
         { char *lo = &anchor, *hi = chi ? chi : gc_stack_top(); g_gc_scan_tag = 3; if (lo < hi) gc_cons_scan_t((const char *)lo, (const char *)hi, wso); g_gc_scan_tag = 0; } } }
