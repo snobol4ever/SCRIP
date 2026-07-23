@@ -7,16 +7,16 @@ proc_ispos_α:
     .global proc_ispos_β
     .global proc_ispos_γ
     .global proc_ispos_ω
-  sub rsp, 688
-  mov [rsp + 664], rcx
-  mov [rsp + 672], rdx
-  mov [rsp + 680], rbp
+  sub rsp, 304
+  mov [rsp + 280], rcx
+  mov [rsp + 288], rdx
+  mov [rsp + 296], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 656
+  mov ecx, 272
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 648], rsp
+  mov qword ptr [rsp + 264], rsp
 proc_ispos_α_body:
 # IR_VAR
  xchain0_n0_α:
@@ -97,14 +97,14 @@ jmp proc_ispos_ω
 proc_ispos_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 664]
-lea rsp, [rbp + 688]
-mov rbp, [rbp + 680]
+mov rax, [rbp + 280]
+lea rsp, [rbp + 304]
+mov rbp, [rbp + 296]
 jmp rax
 proc_ispos_ω:
-mov rax, [rbp + 672]
-lea rsp, [rbp + 688]
-mov rbp, [rbp + 680]
+mov rax, [rbp + 288]
+lea rsp, [rbp + 304]
+mov rbp, [rbp + 296]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -131,7 +131,7 @@ proc_startup:
   mov esi, 1
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 656
+  mov esi, 272
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1

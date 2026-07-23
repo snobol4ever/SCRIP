@@ -7,16 +7,16 @@ proc_bumpit_α:
     .global proc_bumpit_β
     .global proc_bumpit_γ
     .global proc_bumpit_ω
-  sub rsp, 352
-  mov [rsp + 328], rcx
-  mov [rsp + 336], rdx
-  mov [rsp + 344], rbp
+  sub rsp, 256
+  mov [rsp + 232], rcx
+  mov [rsp + 240], rdx
+  mov [rsp + 248], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 320
+  mov ecx, 224
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 312], rsp
+  mov qword ptr [rsp + 216], rsp
 proc_bumpit_α_body:
 # IR_VAR
  xchain0_n0_α:
@@ -89,14 +89,14 @@ jmp proc_bumpit_ω
 proc_bumpit_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 328]
-lea rsp, [rbp + 352]
-mov rbp, [rbp + 344]
+mov rax, [rbp + 232]
+lea rsp, [rbp + 256]
+mov rbp, [rbp + 248]
 jmp rax
 proc_bumpit_ω:
-mov rax, [rbp + 336]
-lea rsp, [rbp + 352]
-mov rbp, [rbp + 344]
+mov rax, [rbp + 240]
+lea rsp, [rbp + 256]
+mov rbp, [rbp + 248]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -123,7 +123,7 @@ proc_startup:
   mov esi, 1
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 320
+  mov esi, 224
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1
