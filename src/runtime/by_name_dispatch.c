@@ -236,6 +236,8 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$set_output") || !strcmp(name, "$set_input")) return 1;
     if (!strcmp(name, "$flush_output") || !strcmp(name, "$flush_output1")) return 1;
     if (!strcmp(name, "$open") || !strcmp(name, "$close")) return 1;
+    if (!strcmp(name, "$see") || !strcmp(name, "$tell") || !strcmp(name, "$append")) return 1;
+    if (!strcmp(name, "$seeing") || !strcmp(name, "$telling") || !strcmp(name, "$seen") || !strcmp(name, "$told")) return 1;
     if (!strcmp(name, "$at_end_of_stream")) return 1;
     if (!strcmp(name, "$op")) return 1;
     return 0;
@@ -1984,6 +1986,37 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         FILE *fp = fh_get(idx);
         if (idx >= 3 && fp) { fflush(fp); fclose(fp); if (fh_name[idx]) { free(fh_name[idx]); fh_name[idx] = (char *)0; } fh_free(idx); }
         else if (fp) fflush(fp);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if ((!strcmp(fn, "$see") || !strcmp(fn, "$tell") || !strcmp(fn, "$append")) && nargs == 1) {
+        extern int fh_alloc(FILE *); extern FILE *fh_get(int); extern char *fh_name[]; extern char fh_mode[]; extern char fh_type[]; extern void fh_ensure_init(void); extern void fh_set_input(int); extern void fh_set_output(int);
+        int out_dir = strcmp(fn, "$see") != 0; const char *omode = !strcmp(fn, "$append") ? "a" : (out_dir ? "w" : "r"); char mch = !strcmp(fn, "$append") ? 'a' : (out_dir ? 'w' : 'r');
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        fh_ensure_init(); int idx = -1;
+        if ((int)v.v == DT_PLREF) { idx = pl_resolve_stream_arg(v, fn, out_dir); if (idx < 0) { *out = FAILDESCR; return 1; } }
+        else if ((int)v.v == DT_A || v.v == DT_S) { const char *nm = pl_atom_str(v); if (!nm || !nm[0]) { rt_pl_iso_throw_domain("source_sink", v); *out = FAILDESCR; return 1; }
+            if (!out_dir && (!strcmp(nm, "user") || !strcmp(nm, "user_input"))) idx = 0;
+            else if (out_dir && (!strcmp(nm, "user") || !strcmp(nm, "user_output"))) idx = 1;
+            else { int e = pl_stream_alias_idx(nm); if (e >= 3 && fh_get(e) && ((out_dir && (fh_mode[e] == 'w' || fh_mode[e] == 'a')) || (!out_dir && fh_mode[e] == 'r'))) idx = e;
+                else { errno = 0; FILE *fp = fopen(nm, omode); if (!fp) { if (errno == ENOENT || errno == ENOTDIR) rt_pl_iso_throw_existence("source_sink", v); else rt_pl_iso_throw_permission("open", "source_sink", nm, 0); *out = FAILDESCR; return 1; }
+                    idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } fh_name[idx] = strdup(nm); fh_mode[idx] = mch; fh_type[idx] = 't'; } } }
+        else { rt_pl_iso_throw_domain("source_sink", v); *out = FAILDESCR; return 1; }
+        if (out_dir) fh_set_output(idx); else fh_set_input(idx);
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if ((!strcmp(fn, "$seeing") || !strcmp(fn, "$telling")) && nargs == 1) {
+        extern int fh_current_input(void); extern int fh_current_output(void); extern char *fh_name[];
+        int out_dir = strcmp(fn, "$seeing") != 0; int idx = out_dir ? fh_current_output() : fh_current_input();
+        DESCR_t nameterm; if (idx <= 2) nameterm = plc_iso_atom("user"); else if (fh_name[idx] && fh_name[idx][0]) nameterm = pl_mk_atom_dup(fh_name[idx], strlen(fh_name[idx])); else nameterm = pl_stream_term(idx);
+        if (plw_unify_vals(args[0], nameterm)) { *out = rt_pl_deref_val(args[0]); return 1; } *out = FAILDESCR; return 1;
+    }
+    if ((!strcmp(fn, "$seen") || !strcmp(fn, "$told")) && (nargs == 0 || nargs == 1)) {
+        extern int fh_current_input(void); extern int fh_current_output(void); extern void fh_set_input(int); extern void fh_set_output(int); extern FILE *fh_get(int); extern void fh_free(int); extern char *fh_name[];
+        int out_dir = strcmp(fn, "$seen") != 0; int idx = out_dir ? fh_current_output() : fh_current_input(); FILE *fp = fh_get(idx);
+        if (idx >= 3 && fp) { fflush(fp); fclose(fp); if (fh_name[idx]) { free(fh_name[idx]); fh_name[idx] = (char *)0; } fh_free(idx); }
+        else if (fp) fflush(fp);
+        if (out_dir) fh_set_output(1); else fh_set_input(0);
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$write2") && nargs == 2) {
@@ -4040,6 +4073,9 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "open", 3, "$open" }, { "open", 4, "$open" }, { "close", 1, "$close" }, { "close", 2, "$close" },
         { "writeq", 2, "$writeq2" }, { "write_canonical", 2, "$write_canonical2" }, { "write_term", 3, "$write_term3" }, { "format", 3, "$format3" },
         { "display", 1, "$display" }, { "display", 2, "$display2" }, { "print", 2, "$print2" },
+        { "see", 1, "$see" }, { "seeing", 1, "$seeing" }, { "seen", 0, "$seen" },
+        { "tell", 1, "$tell" }, { "telling", 1, "$telling" }, { "told", 0, "$told" },
+        { "append", 1, "$append" },
         { 0, 0, 0 } };
     if (!nm) return (const char *)0;
     for (int i = 0; tab[i].nm; i++) if (!strcmp(nm, tab[i].nm) && ar == tab[i].ar) return tab[i].tgt;
