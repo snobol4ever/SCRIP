@@ -32,19 +32,20 @@ std::string bb_keyword_icon() {
              + tail;
     }
     if (!strcmp(kw, "pos")) {
-        if (g_scan_regs_live)
-            return x86("comment", "KEYWORD_pos_reg")
-                 + x86_alpha()
-                 + x86("mov", FRQ(_.op_off), (long)DT_I)
-                 + x86("mov", "rax", "r14")
-                 + x86("add", "rax", (long)1)
-                 + x86("mov", FRQ(_.op_off + 8), "rax")
-                 + tail;
-        return x86("comment", "KEYWORD_pos_call")
+        /* &pos ALWAYS reads the register-world cursor r14 (+1 for Icon's 1-based &pos), never the scan_pos global.
+         * r14 is the per-thread scan cursor: it is inherited across calls, so a ?-less scanning callee
+         * (preproc_scan_text) that runs inline scan primitives on the caller's ambient subject sees the live cursor
+         * here, matching those primitives. The old g_scan_regs_live gate routed in_scan=0 reads through
+         * rt_keyword_pos (the scan_pos global), which the inline primitives never update -> &pos read stale ->
+         * e.g. `&subject[&pos-1]` computed the wrong char and upto scanned for the wrong set. Outside any scan r14
+         * is 0 so &pos reads 1, matching the scan_pos default; &pos:= and by-name scan dispatch keep r14 and the
+         * global in lock-step, so this never diverges from a correctly-maintained global. */
+        return x86("comment", "KEYWORD_pos_reg [always r14+1: register cursor is the source of truth, incl. ?-less scanning callees]")
              + x86_alpha()
-             + x86("call", "rt_keyword_pos", (uint64_t)(uintptr_t)(void *)rt_keyword_pos)
-             + x86("mov", FRQ(_.op_off),     "rax")
-             + x86("mov", FRQ(_.op_off + 8), "rdx")
+             + x86("mov", FRQ(_.op_off), (long)DT_I)
+             + x86("mov", "rax", "r14")
+             + x86("add", "rax", (long)1)
+             + x86("mov", FRQ(_.op_off + 8), "rax")
              + tail;
     }
     if (!strcmp(kw, "null"))
