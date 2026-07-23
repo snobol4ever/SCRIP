@@ -316,11 +316,12 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_ADD_EQ OP_SUB_EQ OP_MUL_EQ OP_DIV_EQ OP_CAT_EQ
 %token OP_DOR
 %token OP_DIV
+%token OP_DIVIS
 %token OP_REP_X OP_REP_XX
 %token OP_POW
 %type <node> stmt expr atom range_expr cmp_expr tern_expr jct_expr dor_expr add_expr closure
 %type <node> mul_expr unary_expr pow_expr postfix_expr call_expr block
-%type <node> repl_expr addsub_expr
+%type <node> repl_expr addsub_expr divis_expr
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail scalar_methcall
 %type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl
 %type <node> pair_list
@@ -333,6 +334,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %left  OP_AND
 %left  '!'
 %left  OP_EQ OP_NE '<' '>' OP_LE OP_GE OP_SEQ OP_SNE OP_SLT OP_SLE OP_SGT OP_SGE OP_SMATCH
+%left  OP_DIVIS
 %left  '|' '&'
 %left  OP_RANGE OP_RANGE_EX
 %left  '~'
@@ -1321,38 +1323,42 @@ tern_expr
     | cmp_expr             { $$=$1; }
     ;
 cmp_expr
-    : cmp_expr OP_AND jct_expr  { $$=expr_binary(TT_SEQ,$1,$3); }
-    | cmp_expr OP_OR  jct_expr  { $$=expr_binary(TT_ALT,$1,$3); }
-    | cmp_expr OP_EQ  jct_expr  { $$=rk_chain_cmp($1,TT_EQ,$3); }
-    | cmp_expr OP_NE  jct_expr  { $$=rk_chain_cmp($1,TT_NE,$3); }
-    | cmp_expr '<'    jct_expr  { $$=rk_chain_cmp($1,TT_LT,$3); }
-    | cmp_expr '>'    jct_expr  { $$=rk_chain_cmp($1,TT_GT,$3); }
-    | cmp_expr OP_LE  jct_expr  { $$=rk_chain_cmp($1,TT_LE,$3); }
-    | cmp_expr OP_GE  jct_expr  { $$=rk_chain_cmp($1,TT_GE,$3); }
-    | jct_expr OP_SEQ jct_expr  { $$=expr_binary(TT_LEQ,$1,$3); }
-    | jct_expr OP_SNE jct_expr  { $$=expr_binary(TT_LNE,$1,$3); }
-    | jct_expr OP_SLT jct_expr  { $$=expr_binary(TT_LLT,$1,$3); }
-    | jct_expr OP_SLE jct_expr  { $$=expr_binary(TT_LLE,$1,$3); }
-    | jct_expr OP_SGT jct_expr  { $$=expr_binary(TT_LGT,$1,$3); }
-    | jct_expr OP_SGE jct_expr  { $$=expr_binary(TT_LGE,$1,$3); }
-    | jct_expr OP_SMATCH LIT_REGEX
+    : cmp_expr OP_AND divis_expr  { $$=expr_binary(TT_SEQ,$1,$3); }
+    | cmp_expr OP_OR  divis_expr  { $$=expr_binary(TT_ALT,$1,$3); }
+    | cmp_expr OP_EQ  divis_expr  { $$=rk_chain_cmp($1,TT_EQ,$3); }
+    | cmp_expr OP_NE  divis_expr  { $$=rk_chain_cmp($1,TT_NE,$3); }
+    | cmp_expr '<'    divis_expr  { $$=rk_chain_cmp($1,TT_LT,$3); }
+    | cmp_expr '>'    divis_expr  { $$=rk_chain_cmp($1,TT_GT,$3); }
+    | cmp_expr OP_LE  divis_expr  { $$=rk_chain_cmp($1,TT_LE,$3); }
+    | cmp_expr OP_GE  divis_expr  { $$=rk_chain_cmp($1,TT_GE,$3); }
+    | divis_expr OP_SEQ divis_expr  { $$=expr_binary(TT_LEQ,$1,$3); }
+    | divis_expr OP_SNE divis_expr  { $$=expr_binary(TT_LNE,$1,$3); }
+    | divis_expr OP_SLT divis_expr  { $$=expr_binary(TT_LLT,$1,$3); }
+    | divis_expr OP_SLE divis_expr  { $$=expr_binary(TT_LLE,$1,$3); }
+    | divis_expr OP_SGT divis_expr  { $$=expr_binary(TT_LGT,$1,$3); }
+    | divis_expr OP_SGE divis_expr  { $$=expr_binary(TT_LGE,$1,$3); }
+    | divis_expr OP_SMATCH LIT_REGEX
         { tree_t *c = ast_node_new(TT_SMATCH);
           ast_push(c, $1);
           ast_push(c, leaf_sval(TT_QLIT, $3));
           ast_push(c, leaf_sval(TT_QLIT, "match"));
           $$ = c; }
-    | jct_expr OP_SMATCH LIT_MATCH_GLOBAL
+    | divis_expr OP_SMATCH LIT_MATCH_GLOBAL
         { tree_t *c = ast_node_new(TT_SMATCH);
           ast_push(c, $1);
           ast_push(c, leaf_sval(TT_QLIT, $3));
           ast_push(c, leaf_sval(TT_QLIT, "match_global"));
           $$ = c; }
-    | jct_expr OP_SMATCH LIT_SUBST
+    | divis_expr OP_SMATCH LIT_SUBST
         { tree_t *c = ast_node_new(TT_SMATCH);
           ast_push(c, $1);
           ast_push(c, leaf_sval(TT_QLIT, $3));
           ast_push(c, leaf_sval(TT_QLIT, "subst"));
           $$ = c; }
+    | divis_expr                 { $$=$1; }
+    ;
+divis_expr
+    : divis_expr OP_DIVIS jct_expr  { $$=expr_binary(TT_DIVIS,$1,$3); }
     | jct_expr                 { $$=$1; }
     ;
 jct_expr

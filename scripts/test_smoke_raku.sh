@@ -3011,6 +3011,36 @@ raku "subst_grow" "bbaa" << 'EOF'
 say "aaa".subst("a","bb");
 EOF
 
+raku "divis_true" "yes" << 'EOF'
+if 6 %% 3 { say "yes" } else { say "no" }
+EOF
+
+raku "divis_false" "no" << 'EOF'
+if 7 %% 3 { say "yes" } else { say "no" }
+EOF
+
+raku "divis_var" "even" << 'EOF'
+my $n = 8;
+if $n %% 2 { say "even" } else { say "odd" }
+EOF
+
+raku "divis_var_odd" "odd" << 'EOF'
+my $n = 7;
+if $n %% 2 { say "even" } else { say "odd" }
+EOF
+
+raku "divis_zero_dividend" "yes" << 'EOF'
+if 0 %% 5 { say "yes" } else { say "no" }
+EOF
+
+raku "divis_unless" "notdiv" << 'EOF'
+unless 10 %% 3 { say "notdiv" }
+EOF
+
+raku "divis_prec_over_add" "yes" << 'EOF'
+if 1 + 2 %% 3 { say "yes" } else { say "no" }
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
