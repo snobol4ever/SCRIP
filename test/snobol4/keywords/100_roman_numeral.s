@@ -7,16 +7,16 @@ proc_roman_α:
     .global proc_roman_β
     .global proc_roman_γ
     .global proc_roman_ω
-  sub rsp, 5696
-  mov [rsp + 5672], rcx
-  mov [rsp + 5680], rdx
-  mov [rsp + 5688], rbp
+  sub rsp, 5120
+  mov [rsp + 5096], rcx
+  mov [rsp + 5104], rdx
+  mov [rsp + 5112], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 5664
+  mov ecx, 5088
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 5656], rsp
+  mov qword ptr [rsp + 5080], rsp
 proc_roman_α_body:
 # IR_LIT_STRING
  xchain0_n0_α:
@@ -1796,14 +1796,14 @@ jmp proc_roman_ω
 proc_roman_γ:
 mov rdi, [rbp]
 mov rsi, [rbp + 8]
-mov rax, [rbp + 5672]
-lea rsp, [rbp + 5696]
-mov rbp, [rbp + 5688]
+mov rax, [rbp + 5096]
+lea rsp, [rbp + 5120]
+mov rbp, [rbp + 5112]
 jmp rax
 proc_roman_ω:
-mov rax, [rbp + 5680]
-lea rsp, [rbp + 5696]
-mov rbp, [rbp + 5688]
+mov rax, [rbp + 5104]
+lea rsp, [rbp + 5120]
+mov rbp, [rbp + 5112]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -1838,7 +1838,7 @@ proc_startup:
   mov esi, 5
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 5664
+  mov esi, 5088
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1
