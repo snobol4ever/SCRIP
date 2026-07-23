@@ -4947,10 +4947,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_record_image_id(void *inst)
 {
-    static void *ptrs[4096]; static long ids[4096]; static int n_ent = 0; static long next_id = 0;
-    for (int i = 0; i < n_ent; i++) if (ptrs[i] == inst) return ids[i];
-    if (n_ent < 4096) { ptrs[n_ent] = inst; ids[n_ent] = ++next_id; return ids[n_ent++]; }
-    return ++next_id;
+    return inst ? ((DATINST_t *)inst)->id : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)

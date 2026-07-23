@@ -1273,6 +1273,7 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     if (!t) return NULVCL;
     DATINST_t *u = rt_ws_alloc(sizeof(DATINST_t));
     u->type   = t;
+    u->id     = t->serial_next++;
     u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++)
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
@@ -2064,6 +2065,7 @@ void DEFDAT_fn(const char *spec) {
         tok = strtok(NULL, ",");
     }
     t->next    = _udef_types;
+    t->serial_next = 1;
     _udef_types = t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2078,6 +2080,7 @@ DESCR_t DATCON_fn(const char *typename, ...) {
     if (!t) return NULVCL;
     DATINST_t *u = rt_ws_alloc(sizeof(DATINST_t));
     u->type   = t;
+    u->id     = t->serial_next++;
     u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++) u->fields[i] = NULVCL;
     va_list ap;

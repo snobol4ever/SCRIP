@@ -342,6 +342,8 @@ static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_ws_strdup(t->fields[i]);
     blk->next    = NULL;
     inst->type   = blk;
+    if (t->serial_next < 1) t->serial_next = 1;
+    inst->id     = t->serial_next++;
     inst->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++) {
         inst->fields[i] = (i < nargs) ? args[i] : NULVCL;
