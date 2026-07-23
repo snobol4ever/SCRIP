@@ -112,9 +112,16 @@ static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int fro
     if (res) *res = nd; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_divis_desugar(const tree_t * t) {
+    tree_t * md = ast_node_new(TT_MOD); ast_push(md, (tree_t *) t->c[0]); ast_push(md, (tree_t *) t->c[1]);
+    tree_t * z = ast_node_new(TT_ILIT); z->v.ival = 0;
+    tree_t * eq = ast_node_new(TT_EQ); ast_push(eq, md); ast_push(eq, z); return eq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on_false) {
     if (c && c->t == TT_STMT) { const tree_t * sub = stmt_subj(c); if (sub) c = sub; }
     if (!c) return on_true;
+    if (c->t == TT_DIVIS && c->n > 1) return lower_cond(cx, rk_divis_desugar(c), on_true, on_false);
     if (rk_is_relop(c->t) && c->n > 1) {
         IR_t * op = build(cx, IR_BINOP_TEST, on_true, on_false); IR_LIT(op).ival = lc_binop_code(c->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, c->c[0], NULL, on_false, &lr);
@@ -171,6 +178,7 @@ static IR_t * rk_xf_body(rcx_t * cx, const tree_t * xf, int xfk, const char * vn
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    if (t->t == TT_DIVIS && t->n > 1) { return lower_rv(cx, rk_divis_desugar(t), γ, ω, res); }
     if (rk_is_relop(t->t)) {
         if (t->n < 2) return rk_excise(cx, γ, ω, res);
         IR_t * op = build(cx, IR_BINOP_TEST, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);

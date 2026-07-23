@@ -145,6 +145,7 @@ WS       [ \t\r]
 "-"             { return '-'; }
 "**"            { return OP_POW; }
 "*"             { return '*'; }
+"%%"            { return OP_DIVIS; }
 "%"             { return '%'; }
 "~"             { return '~'; }
 "<"[ \t]*[a-zA-Z0-9_.:/*+?=!$-]+([ \t]+[a-zA-Z0-9_.:/*+?=!$-]+)+[ \t]*">"  {
