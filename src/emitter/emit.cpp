@@ -824,6 +824,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
     case IR_BINOP_TEST:          bb_emit_x86(bb_binop_relop());       return 0;
+    case IR_BINOP_RELOP_VAL:     bb_emit_x86(bb_binop_relop_val());   return 0;
     case IR_BINOP:
         switch (g_emit.op_binop_kind) {
         case BINOP_CAT_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
@@ -1116,7 +1117,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_BINOP: case IR_BINOP_TEST: {
+    case IR_BINOP: case IR_BINOP_TEST: case IR_BINOP_RELOP_VAL: {
         g_emit.op_relop_descr = 0; g_emit.op_num_real = 0; g_emit.op_arith_descr = 0; g_emit.op_gva_k1 = -1; g_emit.op_gva_k2 = -1;
         g_emit.op_imm_a_ok = 0; g_emit.op_imm_b_ok = 0; g_emit.op_imm_a = 0; g_emit.op_imm_b = 0;
         int sa = -1, sb = -1;
@@ -1768,7 +1769,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
         if (c->γ.node && qt < Q_MAX) queue[qt++] = c->γ.node;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_BINOP_RELOP_VAL || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < Q_MAX)
@@ -1793,7 +1794,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
         nodes[n++] = c;
         if (c->γ.node && qt < Q_MAX) queue[qt++] = c->γ.node;
-        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
+        if ((c->op == IR_BINOP || c->op == IR_BINOP_TEST || c->op == IR_BINOP_RELOP_VAL || c->op == IR_UNOP || c->op == IR_UNOP_TEST || c->op == IR_NULLTEST_VAR || c->op == IR_COERCE_STRING || c->op == IR_COERCE_INTEGER || c->op == IR_COERCE_NUMERIC || c->op == IR_COERCE_REAL || c->op == IR_CMP_TEST) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op) || c->op == IR_PROC_GEN || c->op == IR_ACTIVATE) && c->ω.node && qt < Q_MAX) queue[qt++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && qt < Q_MAX)

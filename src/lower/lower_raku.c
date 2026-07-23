@@ -129,6 +129,7 @@ static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on
         γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); return ea;
     }
     if (c->t == TT_NOT && c->n > 0) return lower_cond(cx, c->c[0], on_false, on_true);
+    if (c->t == TT_SEQ && c->n > 1) { IR_t * rhs = lower_cond(cx, c->c[1], on_true, on_false); return lower_cond(cx, c->c[0], rhs, on_false); }
     IR_t * bk = build(cx, IR_CALL, on_true, on_false); IR_LIT(bk).sval = "__rk_bool";
     IR_t * r = NULL; IR_t * e = lower_rv(cx, c, bk, on_false, &r);
     if (r) ir_operand_push(bk, r);
@@ -181,7 +182,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     if (t->t == TT_DIVIS && t->n > 1) { return lower_rv(cx, rk_divis_desugar(t), γ, ω, res); }
     if (rk_is_relop(t->t)) {
         if (t->n < 2) return rk_excise(cx, γ, ω, res);
-        IR_t * op = build(cx, IR_BINOP_TEST, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);
+        IR_t * op = build(cx, IR_BINOP_RELOP_VAL, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
         γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea; }
     if (rk_is_binop(t->t)) {

@@ -1529,7 +1529,7 @@ class Vec { has $.x; }
 multi sub infix:<+>(Vec $a, Vec $b) { return Vec.new(x => $a.x + $b.x); }
 sub main() { my $a = 7; my $b = 5; say($a + $b); say($a - $b); say($a * $b); }
 EOF
-raku "op_overload_relop_objs" "7" << 'EOF'
+raku "op_overload_relop_objs" "1" << 'EOF'
 class Box { has $.n; }
 multi sub infix:<<>(Box $a, Box $b) { return $a.n < $b.n; }
 sub main() { my $a = Box.new(n => 3); my $b = Box.new(n => 7); say($a < $b); }
@@ -1540,7 +1540,7 @@ class Dog is Animal { }
 multi sub infix:<<>(Animal $a, Animal $b) { return $a.size + $b.size; }
 sub main() { my $d1 = Dog.new(size => 10); my $d2 = Dog.new(size => 20); say($d1 < $d2); }
 EOF
-raku "op_overload_relop_int_unaffected" "$(printf '9\n9')" << 'EOF'
+raku "op_overload_relop_int_unaffected" "$(printf '1\n1')" << 'EOF'
 sub main() { say(3 < 9); say(5 < 9); }
 EOF
 raku "for_range_pointy" "$(printf '1\n2\n3\ndone')" << 'EOF'
@@ -3039,6 +3039,45 @@ EOF
 
 raku "divis_prec_over_add" "yes" << 'EOF'
 if 1 + 2 %% 3 { say "yes" } else { say "no" }
+EOF
+
+raku "relop_val_eq_true" "1" << 'EOF'
+say (6 == 6);
+EOF
+
+raku "relop_val_gt_false" "0" << 'EOF'
+say (6 > 7);
+EOF
+
+raku "relop_val_ne_true" "1" << 'EOF'
+say (3 != 4);
+EOF
+
+raku "relop_val_lt_var" "1" << 'EOF'
+my $x = 4; my $y = 9;
+say ($x < $y);
+EOF
+
+raku "relop_val_le_boundary" "1" << 'EOF'
+say (9 <= 9);
+EOF
+
+raku "relop_val_cond_still_branches" "$(printf 'ct\nlt')" << 'EOF'
+my $x = 4; my $y = 9;
+if ($x < $y) { say "ct" } else { say "cf" }
+if (4 < 9) { say "lt" } else { say "lf" }
+EOF
+
+raku "divis_val_true" "1" << 'EOF'
+say 6 %% 3;
+EOF
+
+raku "divis_val_false" "0" << 'EOF'
+say 7 %% 3;
+EOF
+
+raku "divis_val_zero_dividend" "1" << 'EOF'
+say 0 %% 5;
 EOF
 
 raku "chr_fn_upper" "A" << 'EOF'

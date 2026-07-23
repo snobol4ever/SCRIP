@@ -61,6 +61,7 @@ std::string bb_call(IR_t * pBB);
 std::string bb_iterate();
 std::string bb_key_gen(IR_t * pBB);
 std::string bb_binop_relop();
+std::string bb_binop_relop_val();
 std::string bb_binop_arith();
 std::string bb_binop_gvar_arith();
 std::string bb_binop_gvar_arith_slot();
