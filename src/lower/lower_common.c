@@ -43,10 +43,7 @@ tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *lp_strdup(const char *s) {
     if (!s) return NULL;
-    size_t n = strlen(s) + 1;
-    char *c = (char *) rt_ws_alloc(n);
-    if (c) memcpy(c, s, n);
-    return c;
+    { extern char *rt_ws_strdup(const char *); return rt_ws_strdup(s); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * norm_charseq(DESCR_t d) {
