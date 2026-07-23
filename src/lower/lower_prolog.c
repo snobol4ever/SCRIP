@@ -23,6 +23,14 @@ static const char * pl_pi_name(const char * nm, int ar) {
     snprintf(buf, sizeof buf, "%s/%d", nm, ar); return strdup(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_existence_err(lcx_t * cx, const char * nm, int ar, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$existence_error";
+    IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = pl_pi_name(nm, ar);
+    ir_operand_push(call, a);
+    if (entry_out) *entry_out = a;
+    return call;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_fact_choice_lookup(const char * nm, int arity) {
     extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
     extern stage2_t g_stage2;
@@ -602,13 +610,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
               if (entry_out) *entry_out = first ? first : nd;
               return nd;
           } }
-        if (is_builtin_exec(nm)) {
-            IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; IR_LIT(nd).ival = t->n;
-            IR_t * sav = cx->tω; if (is_builtin_argw(nm)) cx->tω = ωfail;
-            for (int i = 0; i < t->n; i++) ir_operand_push(nd, term(cx, t->c[i]));
-            cx->tω = sav;
-            return nd;
-        }
+        if (is_builtin_exec(nm)) return pl_existence_err(cx, nm, t->n, γnext, ωfail, entry_out);
         if (!strcmp(nm, "phrase") && (t->n == 2 || t->n == 3)) {
             const tree_t * gt = t->c[0];
             const char * callee = (gt && gt->v.sval) ? gt->v.sval : "?";
@@ -668,7 +670,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
               if (entry_out) *entry_out = call;
               return call;
           } }
-        if (is_builtin_exec(nm)) { IR_t * nd = build(cx, IR_OP_COUNT, γnext, ωfail); IR_LIT(nd).sval = nm; return nd; }
+        if (is_builtin_exec(nm)) return pl_existence_err(cx, nm, 0, γnext, ωfail, entry_out);
         if (!strcmp(nm, "$wot_begin") || !strcmp(nm, "$wot_abort")) {
             IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = nm;
             IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = "";

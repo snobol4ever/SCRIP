@@ -189,7 +189,7 @@ int pl_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
     if (!strcmp(name, "$unify") || !strcmp(name, "$unify_lst") || !strcmp(name, "$ix_g") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
-    if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow")) return 1;
+    if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow") || !strcmp(name, "$existence_error")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes") || !strcmp(name, "$name")) return 1;
@@ -2489,6 +2489,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "$trail_mark") && nargs == 0) return dop_trail_mark(args, nargs, out);
     if (!strcmp(fn, "$trail_unwind") && nargs == 1) return dop_trail_unwind(args, nargs, out);
     if (!strcmp(fn, "$throw") && nargs == 1) { extern void rt_pl_throw_set(void *); DESCR_t t0 = args[0]; rt_pl_throw_set((void *)plw_det_cell(&t0)); *out = FAILDESCR; return 1; }
+    if (!strcmp(fn, "$existence_error") && nargs == 1) { const char *k = pl_atom_str(rt_pl_deref_val(args[0])); rt_pl_iso_throw_existence_key(k ? k : "?"); *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "$unwind_nothrow") && nargs == 1) return dop_unwind_nothrow(args, nargs, out);
     if (!strcmp(fn, "$catch_check") && nargs == 2) {
         extern int rt_pl_throw_pending(void); extern int rt_pl_throw_match(void *);
@@ -4160,6 +4161,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "flush_output", 1, "$flush_output1" },
         { "open", 3, "$open" }, { "open", 4, "$open" }, { "close", 1, "$close" }, { "close", 2, "$close" },
         { "writeq", 2, "$writeq2" }, { "write_canonical", 2, "$write_canonical2" }, { "write_term", 3, "$write_term3" }, { "format", 3, "$format3" },
+        { "write", 2, "$write2" }, { "nl", 1, "$nl1" },
         { "display", 1, "$display" }, { "display", 2, "$display2" }, { "print", 2, "$print2" },
         { "see", 1, "$see" }, { "seeing", 1, "$seeing" }, { "seen", 0, "$seen" },
         { "tell", 1, "$tell" }, { "telling", 1, "$telling" }, { "told", 0, "$told" },
