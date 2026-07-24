@@ -7,22 +7,22 @@ proc_PAT$0_α:
     .global proc_PAT$0_β
     .global proc_PAT$0_γ
     .global proc_PAT$0_ω
-  sub rsp, 240
-  mov [rsp + 216], rcx
-  mov [rsp + 224], rdx
-  mov [rsp + 232], rbp
+  sub rsp, 208
+  mov [rsp + 184], rcx
+  mov [rsp + 192], rdx
+  mov [rsp + 200], rbp
   mov rbp, rsp
   mov rdi, rsp
-  mov ecx, 208
+  mov ecx, 176
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 200], rsp
-mov qword ptr [rbp + 208], r8
-mov dword ptr [rbp + 200], r14d
+  mov qword ptr [rsp + 168], rsp
+mov qword ptr [rbp + 176], r8
+mov dword ptr [rbp + 168], r14d
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
 lea rax, [rip + xchain0_n0_β]
-mov qword ptr [rbp + 176], rax
+mov qword ptr [rbp + 144], rax
 # IR_MATCH_SEQ_NARY (ZB-FC-3b: zero cell, LIFO-structural)
  xchain0_n0_α:
  jmp xchain0_n1_α
@@ -155,24 +155,24 @@ xchain0_n4_af:
  sub r14d, 3
  jmp xchain0_n4_af
 proc_PAT$0_scanhit:
-cmp qword ptr [rbp + 208], 1
+cmp qword ptr [rbp + 176], 1
 jne 7f
-mov ecx, dword ptr [rbp + 200]
+mov ecx, dword ptr [rbp + 168]
 lea rdx, [rip + g_scan_hit_start]
 mov dword ptr [rdx], ecx
 7:
 jmp proc_PAT$0_γ
 proc_PAT$0_scanfail:
-cmp qword ptr [rbp + 208], 1
+cmp qword ptr [rbp + 176], 1
 jne 8f
-mov eax, dword ptr [rbp + 200]
+mov eax, dword ptr [rbp + 168]
 inc eax
 cmp eax, r15d
 jg 8f
 lea rcx, [rip + g_anchor]
 cmp qword ptr [rcx], 0
 jne 8f
-mov dword ptr [rbp + 200], eax
+mov dword ptr [rbp + 168], eax
 mov r14d, eax
 mov rsp, rbp
 jmp proc_PAT$0_attempt
@@ -182,18 +182,18 @@ proc_PAT$0_res:
 add rsp, 8
 pop rbp
 proc_PAT$0_β:
-jmp qword ptr [rbp + 176]
+jmp qword ptr [rbp + 144]
 proc_PAT$0_γ:
 push rbp
 lea rax, [rip + proc_PAT$0_res]
 push rax
-mov rax, [rbp + 216]
-mov rbp, [rbp + 232]
+mov rax, [rbp + 184]
+mov rbp, [rbp + 200]
 jmp rax
 proc_PAT$0_ω:
-mov rax, [rbp + 224]
-lea rsp, [rbp + 240]
-mov rbp, [rbp + 232]
+mov rax, [rbp + 192]
+lea rsp, [rbp + 208]
+mov rbp, [rbp + 200]
 jmp rax
 proc_startup:
   sub rsp, 8
@@ -208,7 +208,7 @@ proc_startup:
   mov esi, 0
   call rt_proc_set_nparams@PLT
   lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 208
+  mov esi, 176
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname0]
   mov esi, 1
@@ -253,7 +253,7 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 408], rsp
+  mov qword ptr [rsp + 392], rsp
   mov r12, qword ptr [1879048192]
   mov [rsp + 65536], rbp
   mov rbp, rsp
@@ -325,14 +325,14 @@ main_α_body:
  xchain17_n5_α:
  mov rax, qword ptr [1879052304]
  mov rdx, qword ptr [1879052312]
- mov qword ptr [rbp + 368], rax
- mov qword ptr [rbp + 376], rdx
+ mov qword ptr [rbp + 352], rax
+ mov qword ptr [rbp + 360], rdx
  jmp xchain17_n6_α
 # IR_MATCH_HEAD
  xchain17_n6_α:
  mov qword ptr [rbp + 296], rbp
- mov rdi, qword ptr [rbp + 368]
- mov rsi, qword ptr [rbp + 376]
+ mov rdi, qword ptr [rbp + 352]
+ mov rsi, qword ptr [rbp + 360]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
@@ -484,12 +484,12 @@ jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, qword ptr [rbp + 408]
+mov rsp, qword ptr [rbp + 392]
 mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 main_ω:
-mov rsp, qword ptr [rbp + 408]
+mov rsp, qword ptr [rbp + 392]
 mov dword ptr [rsp+0], 99
 mov dword ptr [rsp+4], 0
 mov qword ptr [rsp+8], 0
