@@ -1355,7 +1355,7 @@ int main(int argc, char **argv)
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }   /* PL-DC s108: m3 twin of the m4 arming (pat blobs excluded structurally) */
-                bb_box_fn pfn = emit_chain(s2->bbp.table[idx]->entry, NULL, "proc_flat");
+                bb_box_fn pfn = emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, "proc_flat");
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
