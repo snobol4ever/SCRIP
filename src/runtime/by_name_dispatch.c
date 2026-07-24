@@ -5912,7 +5912,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (nargs >= 2) {
             const char *s = VARVAL_fn(args[1]); if (!s) s = "";
             int slen = (int)strlen(s);
-            int i1 = (nargs >= 3) ? (int)args[2].i : (scan_pos > 0 ? scan_pos : 1);
+            int i1 = (nargs >= 3) ? (int)args[2].i : 1;
             int i2 = (nargs >= 4) ? (int)args[3].i : slen + 1;
             if (i1 <= 0 || i1 > slen) { *out = FAILDESCR; return 1; }
             if (i2 <= 0) i2 = slen + 1;
@@ -5930,7 +5930,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (nargs >= 2) {
             const char *s = VARVAL_fn(args[1]); if (!s) s = "";
             int slen = (int)strlen(s);
-            int i1 = (nargs >= 3) ? (int)args[2].i : (scan_pos > 0 ? scan_pos : 1);
+            int i1 = (nargs >= 3) ? (int)args[2].i : 1;
             int i2 = (nargs >= 4) ? (int)args[3].i : slen + 1;
             if (i1 <= 0 || i1 > slen) { *out = FAILDESCR; return 1; }
             if (i2 <= 0) i2 = slen + 1;
@@ -5950,7 +5950,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (nargs >= 2) {
             const char *s = VARVAL_fn(args[1]); if (!s) s = "";
             int slen = (int)strlen(s);
-            int i1 = (nargs >= 3) ? (int)args[2].i : (scan_pos > 0 ? scan_pos : 1);
+            int i1 = (nargs >= 3) ? (int)args[2].i : 1;
             int i2 = (nargs >= 4) ? (int)args[3].i : slen + 1;
             if (i1 <= 0 || i1 > slen) { *out = FAILDESCR; return 1; }
             if (i2 <= 0) i2 = slen + 1;
