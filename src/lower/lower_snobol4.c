@@ -1801,6 +1801,23 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     return subj_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- SN4 kill-the-O(n^2) FINAL SHAPE (Lon: "DEFINE is a single statement"): an entry-in-main DEFINE needs a callable
+ *--- proc with its OWN exitnd (correct RETURN via the runtime activation record) but NO re-lowered body — the body
+ *--- statements already live in the ONE main graph, emitted once.  So mint a TINY 1-node ENTRY-STUB graph: the α is an
+ *--- IR_GOTO_DEFERRED to the entry LABEL NAME (rt_goto_transfer resolves name -> the body's already-emitted address at
+ *--- runtime, the same wire CODE fragments use to jump back into the body), and the stub carries its own exitnd/failnd
+ *--- so RETURN/FRETURN unwind to THIS proc's epilogue, not the program exit.  emit_chain on the 1-node stub is cheap
+ *--- and collision-free (no shared node re-walked).  O(1) per DEFINE. ---*/
+static IR_graph_t * sno_build_call_stub(const char * entry_label) {
+    IR_graph_t * g = IR_alloc(64);
+    IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
+    IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
+    IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, failnd);
+    IR_LIT(gd).sval = lp_strdup(entry_label);
+    g->entry = gd;
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0;
@@ -2200,7 +2217,12 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
      * (bb_proc_entry falls back to g->entry only when it is NULL), so each LBL__ proc emits the main graph from
      * its label onward using main's slot layout — one graph, N entry points, marks/slots no longer squared.
      * Use-gated on g_sno_uses_code => byte-zero perturbation for programs without CODE. */
-    if (g_sno_uses_code) {
+    /* SN4-STUB SCAFFOLD (TEMPORARY, gated): running this loop under SCRIP_SN4_STUB registers the DEFINE entry
+     * labels (via LBL__/arm-4) so the 1-node entry-stub's rt_goto_transfer resolves — this PROVED the stub
+     * end-to-end on eim (fact(5)=120/fact(8)=40320).  BUT it re-lowers ALL labels (sno_reach_body+sno_build_graph
+     * below), re-introducing the O(n^2) it is meant to kill, so beauty still overflows here.  REPLACE with
+     * re-emission-free registration of only the DEFINE entry anchors (main-emission-time symbol + rt_label_set_fn). */
+    if (g_sno_uses_code || getenv("SCRIP_SN4_STUB")) {
         for (int i = 0; i < nst; i++) {
             const char * lbl = sfind_str(st[i], ":lbl");
             if (!lbl || !lbl[0]) continue;
@@ -2240,11 +2262,14 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             int eidx = -1;
             for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
             if (eidx < 0) continue; /* entry label doesn't exist anywhere: this DEFINE is dead (never callable); SPITBOL only resolves an entry at call time, not at DEFINE time, so a program that never calls it must still run (132_pat_fence_eps_recur_shallow) */
+            if (getenv("SCRIP_SN4_STUB")) { gf = sno_build_call_stub(defs[di].entry); }
+            else {
             char * inbody = (char *) malloc((size_t) (nst > 0 ? nst : 1)); int bn = sno_reach_body(st, nst, eidx, inbody);
             const tree_t ** bst = (const tree_t **) calloc((size_t) (bn > 0 ? bn : 1), sizeof(tree_t *)); int * bis = (int *) calloc((size_t) (bn > 0 ? bn : 1), sizeof(int)); int bk = 0; int bentry = 0;
             for (int i = 0; i < nst; i++) if (inbody[i]) { if (i == eidx) bentry = bk; bis[bk] = is_def ? is_def[i] : 0; bst[bk++] = st[i]; }
             gf = sno_build_graph(bst, bk, bentry, bis, rn);
             free(inbody); free((void *) bst); free(bis);
+            }
         }
         int fpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[fpi].name = defs[di].fname;
