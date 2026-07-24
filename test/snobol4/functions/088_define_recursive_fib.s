@@ -12,10 +12,9 @@ proc_fib_α:
   mov [rsp + 672], rdx
   mov [rsp + 680], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 656
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 640], 0
   mov qword ptr [rsp + 648], rsp
 proc_fib_α_body:
 # IR_VAR

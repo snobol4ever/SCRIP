@@ -12,8 +12,11 @@ proc_MATCHIT_α:
   mov [rsp + 528], rdx
   mov [rsp + 536], rbp
   mov rbp, rsp
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
   mov rdi, rsp
-  mov ecx, 512
+  add rdi, 256
+  mov ecx, 256
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 504], rsp

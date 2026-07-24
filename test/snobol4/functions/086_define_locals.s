@@ -12,10 +12,9 @@ proc_swap_α:
   mov [rsp + 448], rdx
   mov [rsp + 456], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 432
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 416], 0
   mov qword ptr [rsp + 424], rsp
 proc_swap_α_body:
 # IR_VAR

@@ -12,10 +12,9 @@ proc_ispos_α:
   mov [rsp + 288], rdx
   mov [rsp + 296], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 272
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 256], 0
   mov qword ptr [rsp + 264], rsp
 proc_ispos_α_body:
 # IR_VAR

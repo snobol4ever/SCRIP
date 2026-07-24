@@ -12,8 +12,11 @@ proc_PAT$0_α:
   mov [rsp + 432], rdx
   mov [rsp + 440], rbp
   mov rbp, rsp
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
   mov rdi, rsp
-  mov ecx, 416
+  add rdi, 112
+  mov ecx, 304
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 408], rsp
@@ -649,6 +652,10 @@ main_α_body:
  jmp xchain34_n3_α
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain34_n7_α:
+ lea rsi, [rip + g_sno_defer_cells+0]
+ mov rax, qword ptr [rsi + 0]
+ test rax, rax
+ jne .Lx44_11
  mov rax, qword ptr [1879052288]
  mov rdx, qword ptr [1879052296]
  cmp eax, 3
@@ -662,6 +669,9 @@ main_α_body:
 .Lx44_9:
  xor eax, eax
 .Lx44_10:
+ lea rsi, [rip + g_sno_defer_cells+0]
+ mov qword ptr [rsi + 0], rax
+.Lx44_11:
  test rax, rax
  jz .Lx44_0
  mov r8d, 1
