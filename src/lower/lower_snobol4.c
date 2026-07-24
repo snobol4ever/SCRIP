@@ -928,6 +928,18 @@ static void sno_fz_write(const char * nm) {
     g_sno_fzw_cnt[i]++;
 }
 static int sno_fz_wrcount(const char * nm) { for (int i = 0; i < g_sno_nfzw; i++) if (!strcmp(g_sno_fzw_name[i], nm)) return g_sno_fzw_cnt[i]; return 0; }
+/* s137 OVER-SEAL candidate table (Lon ruling): (name, tree) pairs from every VAR = <supported-pattern-RHS> assignment — WIDER than g_sno_fz (no invariance gate: sealing
+ * needs the runtime DT_P to be compiled from exactly this tree, which sno_pat_collect at the assignment site guarantees for any supported RHS; inlining's invariance bar is
+ * irrelevant here).  Eligibility is judged LAZILY at lookup: !g_sno_fz_unsafe (EVAL/CODE/CLEAR/untrackable writes void every static claim) && wrcount == 1 (single write
+ * program-wide — the INPUT poison above rides the same counter). */
+static int g_sno_seal_enabled = 0;   /* s137 MAIN-LOWERING GATE: seal eligibility is a WHOLE-PROGRAM static claim; the runtime EVAL/CODE fragment compiler re-enters this file with fragment-local fz
+ * state (fresh statics in an AOT process, fragment-only wrcounts) which proves nothing program-wide — so lower_sno_stage2 (the whole-program entry) grants it once and no fragment
+ * path ever does.  m3 fragment-bearing programs are exactly the EVAL/CODE-unsafe ones, so warm-process fragments were already blocked; this makes the m4 runtime process match by construction. */
+static struct { const char * name; const tree_t * pat; } g_sno_seal[SNO_PAT_MAX]; static int g_sno_nseal = 0;
+static void sno_seal_note(const char * nm, const tree_t * pat) { if (!nm || !pat || g_sno_nseal >= SNO_PAT_MAX) return; for (int i = 0; i < g_sno_nseal; i++) if (!strcmp(g_sno_seal[i].name, nm)) return; g_sno_seal[g_sno_nseal].name = nm; g_sno_seal[g_sno_nseal].pat = pat; g_sno_nseal++; }
+static const tree_t * sno_seal_pat(const char * nm) { if (!g_sno_seal_enabled || !nm || g_sno_fz_unsafe || sno_fz_wrcount(nm) != 1) return NULL; for (int i = 0; i < g_sno_nseal; i++) if (!strcmp(g_sno_seal[i].name, nm)) return g_sno_seal[i].pat; return NULL; }
+static int sno_pat_right_sealed(const tree_t * t);
+static int sno_defer_sealed(const char * nm) { const tree_t * p = sno_seal_pat(nm); return p ? sno_pat_right_sealed(p) : 0; }   /* s137: defer target resolves (eligibly) to a right-sealed tree → IR_t.seal */
 static void sno_fz_scan(const tree_t * t) {
     if (!t) return;
     if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) sno_fz_write(t->c[1]->v.sval);
@@ -935,7 +947,15 @@ static void sno_fz_scan(const tree_t * t) {
     if (t->t == TT_SWAP || t->t == TT_REVSWAP) for (int i = 0; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_VAR) sno_fz_write(t->c[i]->v.sval);
     if (t->t == TT_FNC && t->v.sval) { const char * fn = t->v.sval;
         if (!strcmp(fn, "EVAL") || !strcmp(fn, "eval") || !strcmp(fn, "CODE") || !strcmp(fn, "code") || !strcmp(fn, "CONVERT") || !strcmp(fn, "convert")) g_sno_fz_unsafe = 1;
-        if (!strcmp(fn, "INPUT") || !strcmp(fn, "input") || !strcmp(fn, "CLEAR") || !strcmp(fn, "clear")) g_sno_fz_unsafe = 1; }
+        if (!strcmp(fn, "CLEAR") || !strcmp(fn, "clear")) g_sno_fz_unsafe = 1;
+        /* s137 FZ REFINEMENT: INPUT(.V, ...) associates exactly ONE named variable — poison THAT name (a double write ⇒ wrcount ≥ 2 excludes it from fz inlining and seal
+         * eligibility forever) instead of nuking the whole-program table.  The old blanket unsafe made ANY program with an INPUT association (json-match's raw-mode read)
+         * lose every frozen pattern AND every seal.  Name not statically extractable (computed association) ⇒ the blanket unsafe stands, exactly as before. */
+        if (!strcmp(fn, "INPUT") || !strcmp(fn, "input")) { const tree_t * a0 = (t->n > 0) ? t->c[0] : NULL; const char * an = NULL;
+            if (a0 && a0->t == TT_NAME && a0->n > 0 && a0->c[0] && a0->c[0]->t == TT_VAR) an = a0->c[0]->v.sval;   /* .V — unary dot parses as TT_NAME(TT_VAR) */
+            else if (a0 && a0->t == TT_VAR) an = a0->v.sval;
+            else if (a0 && a0->t == TT_QLIT) an = a0->v.sval;
+            if (an && an[0]) { sno_fz_write(an); sno_fz_write(an); } else g_sno_fz_unsafe = 1; } }
     for (int i = 0; i < t->n; i++) sno_fz_scan(t->c[i]);
 }
 static int sno_pat_invariant(const tree_t * t) {
@@ -973,6 +993,7 @@ static void sno_fz_build_table(const tree_t ** st, int nst) {
         if (subj && subj->t == TT_SCAN) { const tree_t * sv = (subj->n > 0) ? subj->c[0] : NULL; if (sv && sv->t == TT_VAR && sv->v.sval) sno_fz_write(sv->v.sval); else g_sno_fz_unsafe = 1; continue; }
         if (subj && subj->t == TT_VAR && subj->v.sval) {
             sno_fz_write(subj->v.sval);
+            if (repl && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) sno_seal_note(subj->v.sval, repl);   /* s137: every supported pattern assignment is a seal CANDIDATE (invariance not required — see the table comment) */
             if (repl && g_sno_nfz < SNO_PAT_MAX && sno_is_pattern_rhs(repl) && sno_pat_supported(repl) && sno_pat_invariant(repl)) {
                 g_sno_fz[g_sno_nfz].var = subj->v.sval; g_sno_fz[g_sno_nfz].pat = repl; g_sno_fz[g_sno_nfz].procname = NULL; g_sno_nfz++; }
             continue; }
@@ -1211,13 +1232,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
     case TT_DEFER: {
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
-        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); sno_ω_to(nd, fail); return nd; }
+        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval); sno_ω_to(nd, fail); return nd; }
         { const char * bn = sno_expr_collect(in); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn);
           IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); sno_ω_to(nd, fail); return nd; }
     }
     case TT_VAR: {                                                 /* SN4-BAREKW: the REM/ARB/FENCE strcmp bandages that lived here are now in sno_pat_eff_kind() */
         const char * nm = t->v.sval;
-        { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); sno_ω_to(nd, fail); return nd; }
+        { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm); sno_ω_to(nd, fail); return nd; }
     }
     case TT_REM: {
         IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL);
@@ -1428,6 +1449,19 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     ir_operand_push(F, p_tail);
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx;
                 }
+                else if (i > 0) {                                                   /* s137 OVER-SEAL (Lon ruling): an INTERIOR FENCE0 gets the operand-free sync box (ival=0) — its α IS the forward
+                                                                                     * commit (match null), and the box body is now non-empty: whack the activation's dynamic ζ to the rbp floor
+                                                                                     * (bb_match_fence1.cpp ival=0 arm), then γ.  Wiring is the s133 erasure's, verbatim: ω → the pre-seal fail
+                                                                                     * (backup ≡ attempt abort), right_sealed already set above so the left run gets no resume repoint and the box
+                                                                                     * gets no inbound β.  FIRST-POSITION FENCE0 (i==0, the anchor idiom) keeps the node-free erasure: zero left
+                                                                                     * context in this spine, nothing to whack, the s133 reasoning stands there. */
+                    IR_t * fail_p = (i > first_fence) ? cx->pat_seal : fail;
+                    int f_idx = g->n;
+                    IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
+                    sno_ω_to(F, fail_p);
+                    IR_LIT(F).ival = 0;
+                    cur_succ = F; right_tail = F; right_tail_idx = f_idx;
+                }
                 i--;
                 continue;
             }
@@ -1578,11 +1612,18 @@ static int sno_pat_right_sealed(const tree_t * t) {
      * expose a resume surface — FENCE(P)'s alternatives are visible only moving forward, and bare FENCE fails
      * the match on backup; the pre-resume return-once-and-dead behavior WAS the seal (the v1-FENCE admission's
      * "no resume edge is ever stamped into the body from outside").  A mid-pattern fence needs no gate here:
-     * the resume cascade reaches its in-blob seal wiring naturally.  Captures are transparent wrappers. */
+     * the resume cascade reaches its in-blob seal wiring naturally.  Captures are transparent wrappers.
+     * s137 OVER-SEAL (Lon ruling): the chase now crosses VAR/DEFER references — a rightmost `X` / `*X` whose name
+     * eligibly resolves in g_sno_seal (single write, fz-safe program) recurses into the STORED tree, so sealing is
+     * TRANSITIVE (json: ws sealed ⇒ jelement sealed ⇒ jmember sealed).  Depth-guarded against table cycles (X=*Y,
+     * Y=*X).  Dual consumers: blob body_root=NULL at PAT$/RT emission (resume-surface removal now widens through
+     * refs) and sno_defer_sealed → IR_t.seal (the caller-side fence-demarked whack). */
     if (!t) return 0;
     if (sno_is_fence(t)) return 1;
     if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1) return sno_pat_right_sealed(t->c[1]);
     if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 0) return sno_pat_right_sealed(t->c[0]);
+    if (t->t == TT_VAR && t->v.sval) { static int depth = 0; if (depth >= 32) return 0; const tree_t * p = sno_seal_pat(t->v.sval); if (!p) return 0; depth++; int r = sno_pat_right_sealed(p); depth--; return r; }
+    if (g_sno_seal_enabled && t->t == TT_DEFER && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) return sno_pat_right_sealed(t->c[0]);   /* defer-of-VAR only: any other deferee is dynamic at match time and its static tree proves nothing */
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2081,6 +2122,7 @@ static int sno_reach_body(const tree_t ** st, int nst, int eidx, char * inbody) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
+    g_sno_seal_enabled = 1;   /* s137 MAIN-LOWERING GATE grant: this entry is the whole-program lowering (fragments enter via sno_lower_fragment_at, never here) — see the flag doc at its definition */
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_sno_nexpr = 0;
     g_sno_npat = 0;

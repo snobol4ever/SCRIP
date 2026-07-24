@@ -750,6 +750,7 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     if (bb_emit_pos > lo) bbprof_record(bb_node_id(nd), (int)nd->op, g_emit.x86_uid, (void *)(bb_emit_buf + lo), (void *)(bb_emit_buf + bb_emit_pos));
     return rc;
 }
+static int drive_value_slot(IR_t *nd);
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
@@ -851,7 +852,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
     case IR_MATCH_ARB:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZB-FC-4 fixed-cell grant (ex-zls2, Lon s50 S14) */
     case IR_MATCH_BAL:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_bal()); } return 0;                                                                                                            /* SN4-BAL (s34): generator over paren-balanced extents; no ZLS2 grant (in-frame, SPAN shape) */
-    case IR_MATCH_DEFER:          { bb_prepare(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var */
+    case IR_MATCH_DEFER:          { bb_prepare(nd); g_emit.op_seal = nd->seal ? 1 : 0; if (nd->seal) g_emit.op_off = drive_value_slot(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var; s137 OVER-SEAL: seal state written HERE (post-prologue, both drive paths) from IR_t.seal — op_off repointed at the defer.pad quad (the α rsp watermark) only when sealed, so unsealed defers never read it */
     case IR_MATCH_VALUE:          { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;  /* SN4 kill-manufactured-names: match operand[0]'s pattern value (op_a_slot), no name */
     case IR_MATCH_ARBNO:          { extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); extern int fc_tail_ncap(const IR_t *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
                                     if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; }
@@ -1210,7 +1211,13 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd); g_emit.op_phase = 0;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_ALTERNATE: case IR_MATCH_SEQUENCE: case IR_MATCH_ARBNO: case IR_MATCH_FENCE1: case IR_SCAN_SEQUENCE: case IR_SCAN_ALTERNATE: {   /* SN4-NARY-ALT/-SEQ/-ARBNO + FENCE sync box + Icon scan nary: 2N operands = (entry_i, resume_i), N = n_operands/2 (ARBNO's [2] = geometry bracket, N=1); pairs 0..N-1 = entry α's, N..2N-1 = resume β's, 2N = success-glue def, 2N+1 = fail-glue def */
+    case IR_MATCH_FENCE1: {   /* s137 OVER-SEAL: ival==0 = the FENCE0 interior sync box — operand-free, PURE 4-port (α whacks to the rbp floor, β abandons), so it rides the GENERIC drive (op_ival promoted
+                               * from IR_LIT at the prologue above; the granted quad is unused by the ival=0 template arm).  The operand form (FENCE(P), ival==1) keeps the flat-path-only contract below. */
+        if (nd->n_operands == 0) { g_emit.op_off = drive_value_slot(nd); DRIVE_PAIR_RESET(); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break; }
+        drive_unowned(nd);       /* replaced below by flat_drive path — the n-ary constructs are driven from codegen_flat_chain_body where the label arrays live */
+        break;
+    }
+    case IR_MATCH_ALTERNATE: case IR_MATCH_SEQUENCE: case IR_MATCH_ARBNO: case IR_SCAN_SEQUENCE: case IR_SCAN_ALTERNATE: {   /* SN4-NARY-ALT/-SEQ/-ARBNO + Icon scan nary: 2N operands = (entry_i, resume_i), N = n_operands/2 (ARBNO's [2] = geometry bracket, N=1); pairs 0..N-1 = entry α's, N..2N-1 = resume β's, 2N = success-glue def, 2N+1 = fail-glue def */
         drive_unowned(nd);       /* replaced below by flat_drive path — the n-ary constructs are driven from codegen_flat_chain_body where the label arrays live */
         break;
     }

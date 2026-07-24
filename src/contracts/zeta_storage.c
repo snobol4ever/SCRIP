@@ -101,7 +101,8 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "break.cnt/cur", nd); return 1;
     case IR_MATCH_FENCE1:
-        /* SYNC-POINT ζ RELEASE (Lon ruling s132; sync point 2 = FENCE1 = FENCE(P) success exit; FENCE0, the bare variable, stays node-free — sync-3 residue).  One quad: +0 holds
+        /* SYNC-POINT ζ RELEASE (Lon ruling s132; sync point 2 = FENCE1 = FENCE(P) success exit.  s137 over-seal: interior FENCE0 now shares this op as an operand-free ival=0 sync box — it takes this
+         * quad grant uniformly but its template arm never reads it, the whack target being the rbp activation floor; first-position FENCE0 stays node-free).  One quad: +0 holds
          * the α-recorded watermark — the raw rsp under the FORTH/cstack port (the fenced span's pre-push
          * frontier; ZK_RAW: a machine-stack address, never a GC-scanned arena pointer), the ZLS2 cursor under
          * the ALLOC/INLINE/OWNED ports (the head.zls2_mark caveat applies: arena-cursor tag honesty deferred
@@ -123,7 +124,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_REM:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_DEFER:
-        zls_field(scope_id, off, 16, ZK_RAW, 0, "defer.pad (ZS-2 jmp-entry, Lon s58: the fn/frame cell pair is DELETED — the blob is a jmp-entered new activation that self-allocates on rsp with a 32B wire header, so there is nothing to stash and nothing to guard; quad KEPT at 16B so no later node's offset shifts)", nd); return 1;
+        zls_field(scope_id, off, 16, ZK_RAW, 0, "defer.pad (ZS-2 jmp-entry, Lon s58: the fn/frame cell pair is DELETED — the blob is a jmp-entered new activation that self-allocates on rsp with a 32B wire header, so there is nothing to stash and nothing to guard; quad KEPT at 16B so no later node's offset shifts. s137 OVER-SEAL: when IR_t.seal, quad +0 is REPURPOSED as the fence-demarked sync watermark — α stamps rsp there, the γ/ω glues and β bulk-restore it; +8 stays pad)", nd); return 1;
     case IR_MATCH_VALUE:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "matchvalue.pad (SN4 kill-manufactured-names: structural clone of defer.pad — the value lives in operand[0]'s slot, resume rides rsp, nothing to stash here; 16B quad KEPT so no later node's offset shifts)", nd); return 1;
     case IR_MATCH_TAB: case IR_MATCH_RTAB:

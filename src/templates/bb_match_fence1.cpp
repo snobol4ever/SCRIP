@@ -32,17 +32,38 @@ static std::string fence_release(int off) {
     return x86_align_enter() + x86("mov", "rdi", FRQ(off)) + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to) + x86_align_leave();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* s137 OVER-SEAL (Lon ruling, this session): a fence's forward commit — the OUTSIDE of its γ — demarks a sync point past which NO backtracking is guaranteed (FENCE0: backup aborts the attempt; FENCE1:
+ * the s133 seal already made both directions edge-dead corpus-wide), so the ENTIRE dynamic-ζ chunk of the current activation is whacked there, not just the fence's own interior.  THE WHACK IS ONE MOV:
+ * `mov rsp, rbp` — rbp IS the activation's dynamic-ζ floor (the U2/U1 seed `mov rbp, rsp` right after the self-alloc `sub rsp, K_total`, xa_flat.cpp ~170/229; every box carve, choice cell, and retained
+ * nested-activation frame sits BELOW it; every surviving value/quad sits ABOVE it in the rbp flat frame, and dcap pends ride the r12 mmap island).  Precedent: SPD-2's scanfail block uses the identical
+ * `rsp=rbp` bulk-free ("post-carve frontier: every element grant sits below", emit.cpp ~2070).  Retention drops O(activations) → O(depth): each committed sub-match's retained frame dies at the next
+ * enclosing fence commit instead of at the match bracket.  na_s also REWRITES the watermark quad := rbp (the new floor), so a post-commit na_f arrival (the ARBNO in-body abandon route) restores to the
+ * floor, never below it into whacked-and-reused bytes.  cstack/FORTH ports only — the arena ports keep the s133 own-span release (their activation floor is not plumbed; correct, unoptimized). */
+static std::string fence_whack_commit(int off) {
+    if (x86_port_cstack()) return x86("mov", "rsp", "rbp") + x86("mov", FRQ(off), "rbp");
+    return fence_release(off);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence1() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
+    if (_.op_ival == 0)   /* FENCE0 sync box (s137): the bare-variable FENCE lowered as an INTERIOR spine element — operand-free, no watermark (its α IS the commit: match null, whack, γ); β ≡ abandon
+                           * (post-commit backup is the attempt-abort, routed by the lowerer's ω edge exactly as the s133 erasure routed it — the box adds only the whack).  First-position FENCE0 (the
+                           * anchor idiom) stays node-free in the lowerer: zero left context, nothing to whack. */
+        return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — whack the activation's dynamic zeta to the rbp floor — then gamma; beta abandons to omega)")
+             + x86_alpha()
+             + IF(x86_port_cstack(), x86("mov", "rsp", "rbp"))
+             + x86_gamma()
+             + x86_beta()
+             + x86_omega();
     return _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_FENCE1: watermark slot not granted (zls)")
-         : x86("comment", "IR_MATCH_FENCE1 (SYNC-POINT zeta RELEASE: watermark at alpha, bulk-restore at the seal-success glue)")
+         : x86("comment", "IR_MATCH_FENCE1 (SYNC-POINT zeta RELEASE: watermark at alpha, OVER-SEAL whack to the rbp activation floor at the seal-success glue — s137 ruling)")
          + x86_alpha()
          + fence_mark_save(_.op_off)
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
-         + fence_release(_.op_off)
+         + fence_whack_commit(_.op_off)
          + x86_gamma()
          + x86_beta()
          + x86("def", PAIR(3))
