@@ -7,7 +7,7 @@
 # with host load across runs (s143: treebank 51<->71 same bytes).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
 SBL="${SBL:-/home/claude/x64/bin/sbl}"; CORPUS="${CORPUS:-/home/claude/corpus}"; D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"
-input_of() { case $1 in claws5) echo $D/CLAWS5inTASA.dat;; treebank) echo $D/VBGinTASA.dat;; json) echo $D/twitter.json;; calculator-1) echo $D/calculator.input;; esac; }
+input_of() { case $1 in claws5-match) echo $D/CLAWS5inTASA.dat;; treebank-match) echo $D/VBGinTASA.dat;; json-match) echo $D/twitter.json;; calculator-1-match|calculator-2-match) echo $D/calculator.input;; esac; }
 mkrep() { python3 - "$1" "$2" "$3" << 'PYEOF'
 import re, sys
 src_path, out_path, reps = sys.argv[1], sys.argv[2], int(sys.argv[3])
@@ -16,7 +16,7 @@ for i, l in enumerate(lines):
     m = re.match(r'^(\s*)src\s+(\S+)\s+:F\((\w+)\)\s*$', l)
     if m and 'INPUT' not in l: mi, ind, pat, flab = i, m.group(1), m.group(2), m.group(3)
 tail = [ind+'tape           =  &LCASE &UCASE', ind+'tape           LEN(%d) . reps'%reps,
- 'benchloop'+ind[9:]+'src            '+pat+'                     :F('+flab+')',
+ 'benchloop'.ljust(max(len(ind),10))+'src            '+pat+'                     :F('+flab+')',
  ind+'reps           LEN(1) =                    :S(benchloop)',
  ind+"OUTPUT         =  'matched bytes=' SIZE(src) :(END)", flab.ljust(len(ind))+"OUTPUT         =  'Pattern match failed'", 'END']
 open(out_path,'w').write('\n'.join(lines[:mi]+tail)+'\n')
@@ -46,11 +46,12 @@ open(sys.argv[2],'w').write(head+'\n'+tail+'\n')
 PYEOF
 }
 cd "$W"
-for p in claws5 treebank json; do mkrep "$D/$p-match.sno" "$W/$p-rep.sno" 51; done
-evalrep "$W/calculator-1-rep.sno"
-for p in claws5 treebank json calculator-1; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
-for p in claws5 treebank json calculator-1; do IN=$(input_of $p)
-  so=$(timeout 180 "$SBL" -b "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout 180 "$W/$p.prog" < "$IN" 2>/dev/null)
+REPS="${REPS:-20}"
+PROGS="${PROGS:-claws5-match treebank-match json-match calculator-1-match calculator-2-match}"
+for p in $PROGS; do mkrep "$D/$p.sno" "$W/$p-rep.sno" "$REPS"; done
+for p in $PROGS; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
+for p in $PROGS; do IN=$(input_of $p)
+  so=$(timeout 300 "$SBL" -b "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout 300 "$W/$p.prog" < "$IN" 2>/dev/null)
   [ "$so" = "$mo" ] || { echo "$p IDENTITY FAIL sbl=[$so] m4=[$mo]"; exit 1; }
   s=(); m=()
   for i in 1 2 3 4 5 6 7; do t0=$(date +%s%N); "$SBL" -b "$W/$p-rep.sno" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
