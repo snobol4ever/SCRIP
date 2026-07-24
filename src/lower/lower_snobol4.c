@@ -1232,13 +1232,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
     case TT_DEFER: {
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
-        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval); sno_ω_to(nd, fail); return nd; }
+        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval) ? 1 : (sno_seal_pat(in->v.sval) ? 2 : 0);   /* s142: 1 = full right-seal (s137 whack); 2 = WRITE-ONCE only (name eligibly resolves in g_sno_seal: single write, fz-safe) — enables the defer-site entry-cell, NOT the whack */ sno_ω_to(nd, fail); return nd; }
         { const char * bn = sno_expr_collect(in); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn);
           IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); sno_ω_to(nd, fail); return nd; }
     }
     case TT_VAR: {                                                 /* SN4-BAREKW: the REM/ARB/FENCE strcmp bandages that lived here are now in sno_pat_eff_kind() */
         const char * nm = t->v.sval;
-        { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm); sno_ω_to(nd, fail); return nd; }
+        { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class, twin of the TT_VAR arm above */ sno_ω_to(nd, fail); return nd; }
     }
     case TT_REM: {
         IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL);
