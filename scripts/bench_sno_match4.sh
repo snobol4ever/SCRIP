@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # bench_sno_match4.sh — the 4-way SNOBOL4 match/eval benchmark protocol (s143).
-# claws5/treebank/json (match-only, tape rep52) + expression (evaluator, tape rep10)
+# claws5/treebank/json (match-only, tape rep52) + calculator-1 (evaluator, tape rep10)
 # vs official SPITBOL, interleaved A/B x7 medians.  RT_OPT is whatever libscrip_rt
 # was built with (-O0 unless Lon directed otherwise) — LABEL REPORTED NUMBERS WITH IT.
 # Same-moment interleaved pairs are the only valid comparison; absolute ms drift
 # with host load across runs (s143: treebank 51<->71 same bytes).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
 SBL="${SBL:-/home/claude/x64/bin/sbl}"; CORPUS="${CORPUS:-/home/claude/corpus}"; D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"
-input_of() { case $1 in claws5) echo $D/CLAWS5inTASA.dat;; treebank) echo $D/VBGinTASA.dat;; json) echo $D/twitter.json;; expression) echo $D/expression-eval.input;; esac; }
+input_of() { case $1 in claws5) echo $D/CLAWS5inTASA.dat;; treebank) echo $D/VBGinTASA.dat;; json) echo $D/twitter.json;; calculator-1) echo $D/calculator.input;; esac; }
 mkrep() { python3 - "$1" "$2" "$3" << 'PYEOF'
 import re, sys
 src_path, out_path, reps = sys.argv[1], sys.argv[2], int(sys.argv[3])
@@ -22,7 +22,7 @@ tail = [ind+'tape           =  &LCASE &UCASE', ind+'tape           LEN(%d) . rep
 open(out_path,'w').write('\n'.join(lines[:mi]+tail)+'\n')
 PYEOF
 }
-evalrep() { python3 - "$D/expression-eval.sno" "$1" << 'PYEOF'
+evalrep() { python3 - "$D/calculator-1.sno" "$1" << 'PYEOF'
 import sys
 src = open(sys.argv[1]).read().splitlines()
 cut = next(i for i,l in enumerate(src) if l.startswith('loop'))
@@ -47,9 +47,9 @@ PYEOF
 }
 cd "$W"
 for p in claws5 treebank json; do mkrep "$D/$p-match.sno" "$W/$p-rep.sno" 51; done
-evalrep "$W/expression-rep.sno"
-for p in claws5 treebank json expression; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
-for p in claws5 treebank json expression; do IN=$(input_of $p)
+evalrep "$W/calculator-1-rep.sno"
+for p in claws5 treebank json calculator-1; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
+for p in claws5 treebank json calculator-1; do IN=$(input_of $p)
   so=$(timeout 180 "$SBL" -b "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout 180 "$W/$p.prog" < "$IN" 2>/dev/null)
   [ "$so" = "$mo" ] || { echo "$p IDENTITY FAIL sbl=[$so] m4=[$mo]"; exit 1; }
   s=(); m=()
