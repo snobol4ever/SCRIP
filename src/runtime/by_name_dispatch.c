@@ -78,11 +78,13 @@ void rt_pl_pred_bind(const char *key, void *alpha, void *beta, int nslots) {
 void *rt_pl_pred_alpha(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].alpha; fprintf(stderr, "rt_pl_pred_alpha: unknown predicate %s\n", key); abort(); }
 void *rt_pl_pred_beta(const char *key)  { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].beta;  fprintf(stderr, "rt_pl_pred_beta: unknown predicate %s\n", key);  abort(); }
 int rt_pl_pred_nslots_rt(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].nslots; return 8; }
-static int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
-static int plw_poison_trap(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_PL_POISON_TRAP"); p = e ? (atoi(e) != 0) : 0; } return p; }
+static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
+static int g_plw_poison = -1;
+static int plw_poison_trap(void) { if (g_plw_poison < 0) { const char *e = getenv("SCRIP_PL_POISON_TRAP"); g_plw_poison = (e && atoi(e) != 0) ? 1 : 0; } return g_plw_poison; }
+__attribute__((constructor)) static void plw_poison_init(void) { (void)plw_poison_trap(); }
 static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
     DESCR_t *prev = (DESCR_t *)0;
-    int pt = plw_poison_trap();
+    int pt = g_plw_poison > 0;
     for (int guard = 0; guard < 4096; guard++) {
         if (pt && *(unsigned int *)c == 0xDDDDDDDDu) { fprintf(stderr, "[POISON-READ] c=%p prev=%p prev={v=%d slen=%u p=%p}\n", (void *)c, (void *)prev, prev ? (int)prev->v : -1, prev ? prev->slen : 0u, prev ? prev->p : (void *)0); fflush(stderr); abort(); }
         if (c->v == DT_N && c->slen == 1 && c->p) { prev = c; c = (DESCR_t *)c->p; continue; }
@@ -92,8 +94,8 @@ static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
     }
     return c;
 }
-static inline DESCR_t *plw_cell_deref(DESCR_t *c) {
-    if (__builtin_expect(plw_poison_trap(), 0)) return plw_cell_deref_slow(c);
+static inline __attribute__((always_inline)) DESCR_t *plw_cell_deref(DESCR_t *c) {
+    if (__builtin_expect(g_plw_poison > 0, 0)) return plw_cell_deref_slow(c);
     if (c->v != DT_N && (c->v != (DTYPE_t)DT_PLVAR || !c->p || c->p == (void *)c)) return c;
     return plw_cell_deref_slow(c);
 }
@@ -132,7 +134,7 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
-static DESCR_t *plw_entry(DESCR_t *tmp) {
+static inline __attribute__((always_inline)) DESCR_t *plw_entry(DESCR_t *tmp) {
     if (tmp->v == DT_N && tmp->slen == 1 && tmp->p) return (DESCR_t *)tmp->p;
     if (tmp->v == DT_N && tmp->slen == 2 && tmp->p && ((VCELL_t *)tmp->p)->cellp) return ((VCELL_t *)tmp->p)->cellp;
     return tmp;
