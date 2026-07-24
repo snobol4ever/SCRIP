@@ -137,3 +137,10 @@ const char *real_str(double r, char *buf, int bufsz) {
     snprintf(buf, bufsz, "%s", out);
     return buf;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *icon_real_str(double r, char *buf, int bufsz) {
+    real_str(r, buf, bufsz);
+    size_t n = strlen(buf);
+    if (n > 0 && buf[n - 1] == '.' && (int)n < bufsz - 1) { buf[n] = '0'; buf[n + 1] = '\0'; }
+    return buf;
+}
