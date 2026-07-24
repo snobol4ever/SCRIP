@@ -103,6 +103,8 @@ void bbprof_report(void)
     if (g_timer_ok) { struct itimerspec z; memset(&z, 0, sizeof z); timer_settime(g_timer, 0, &z, NULL); }
     else { struct itimerval it; memset(&it, 0, sizeof it); setitimer(ITIMER_PROF, &it, NULL); }
     g_armed = 0;
+    { const char *e = getenv("SCRIP_BBPROF_MAP"); if (e && *e == '1') { extern const char *bb_op_name(int);
+        for (int i = 0; i < g_n; i++) fprintf(stderr, "[BBMAP] %#lx %#lx %s %d %d\n", (unsigned long)g_tab[i].lo, (unsigned long)g_tab[i].hi, bb_op_name(g_tab[i].kind), g_tab[i].nid, g_tab[i].uid); } }
     if (g_total == 0) { fprintf(stderr, "[BBPROF] 0 samples\n"); return; }
     extern const char *bb_op_name(int);
     bbprof_e **rank = (bbprof_e **)malloc((size_t)g_n * sizeof(bbprof_e *));
