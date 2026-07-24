@@ -39,7 +39,7 @@ main_α:
   mov ecx, 65544
   xor eax, eax
   rep stosb
-  mov qword ptr [rsp + 680], rsp
+  mov qword ptr [rsp + 664], rsp
   mov r12, qword ptr [1879048192]
   mov [rsp + 65536], rbp
   mov rbp, rsp
@@ -71,16 +71,16 @@ main_α_body:
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
  mov rdx, qword ptr [1879052296]
- mov qword ptr [rbp + 416], rax
- mov qword ptr [rbp + 424], rdx
+ mov qword ptr [rbp + 400], rax
+ mov qword ptr [rbp + 408], rdx
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
 # IR_MATCH_HEAD
  xchain0_n3_α:
  mov qword ptr [rbp + 200], rbp
- mov rdi, qword ptr [rbp + 416]
- mov rsi, qword ptr [rbp + 424]
+ mov rdi, qword ptr [rbp + 400]
+ mov rsi, qword ptr [rbp + 408]
  call rt_match_enter@PLT
  mov r13, rax
  mov r15, rdx
@@ -115,9 +115,9 @@ main_α_body:
  jmp xchain0_n4_α
 # IR_LIT_STRING
  xchain0_n4_α:
- mov qword ptr [rbp + 464], 1
+ mov qword ptr [rbp + 448], 1
  mov rax, qword ptr [rip + .Lx6_0]
- mov qword ptr [rbp + 472], rax
+ mov qword ptr [rbp + 456], rax
  jmp xchain0_n6_α
  xchain0_n4_β:
  jmp main_γ
@@ -136,12 +136,12 @@ xchain0_n5_af:
  jmp xchain0_n3_β
 # IR_ASSIGN global
  xchain0_n6_α:
- mov rsi, qword ptr [rbp + 464]
- mov rdx, qword ptr [rbp + 472]
+ mov rsi, qword ptr [rbp + 448]
+ mov rdx, qword ptr [rbp + 456]
  mov rdi, qword ptr [rip + .Lx9_0]
  call NV_SET_fn@PLT
- mov qword ptr [rbp + 448], rax
- mov qword ptr [rbp + 456], rdx
+ mov qword ptr [rbp + 432], rax
+ mov qword ptr [rbp + 440], rdx
  jmp main_γ
  xchain0_n6_β:
  jmp main_γ
@@ -252,8 +252,8 @@ xchain0_n5_af:
  xchain0_n13_α:
  mov rax, qword ptr [1879052304]
  mov rdx, qword ptr [1879052312]
- mov qword ptr [rbp + 576], rax
- mov qword ptr [rbp + 584], rdx
+ mov qword ptr [rbp + 560], rax
+ mov qword ptr [rbp + 568], rdx
  jmp xchain0_n16_α
  xchain0_n13_β:
  jmp main_γ
@@ -325,9 +325,9 @@ xchain0_n5_af:
  jmp xchain0_n10_β
 # IR_LIT_STRING
  xchain0_n16_α:
- mov qword ptr [rbp + 608], 1
+ mov qword ptr [rbp + 592], 1
  mov rax, qword ptr [rip + .Lx25_0]
- mov qword ptr [rbp + 616], rax
+ mov qword ptr [rbp + 600], rax
  jmp xchain0_n17_α
  xchain0_n16_β:
  jmp main_γ
@@ -337,13 +337,13 @@ xchain0_n5_af:
  .string " / "
  xchain0_n17_α:
 # IR_BINOP_CONCAT
- mov rdi, qword ptr [rbp + 576]
- mov rsi, qword ptr [rbp + 584]
- mov rdx, qword ptr [rbp + 608]
- mov rcx, qword ptr [rbp + 616]
+ mov rdi, qword ptr [rbp + 560]
+ mov rsi, qword ptr [rbp + 568]
+ mov rdx, qword ptr [rbp + 592]
+ mov rcx, qword ptr [rbp + 600]
  call str_concat_d@PLT
- mov qword ptr [rbp + 544], rax
- mov qword ptr [rbp + 552], rdx
+ mov qword ptr [rbp + 528], rax
+ mov qword ptr [rbp + 536], rdx
  jmp xchain0_n18_α
  xchain0_n17_β:
  jmp main_γ
@@ -351,31 +351,31 @@ xchain0_n5_af:
  xchain0_n18_α:
  mov rax, qword ptr [1879052320]
  mov rdx, qword ptr [1879052328]
- mov qword ptr [rbp + 640], rax
- mov qword ptr [rbp + 648], rdx
+ mov qword ptr [rbp + 624], rax
+ mov qword ptr [rbp + 632], rdx
  jmp xchain0_n19_α
  xchain0_n18_β:
  jmp main_γ
  xchain0_n19_α:
 # IR_BINOP_CONCAT
- mov rdi, qword ptr [rbp + 544]
- mov rsi, qword ptr [rbp + 552]
- mov rdx, qword ptr [rbp + 640]
- mov rcx, qword ptr [rbp + 648]
+ mov rdi, qword ptr [rbp + 528]
+ mov rsi, qword ptr [rbp + 536]
+ mov rdx, qword ptr [rbp + 624]
+ mov rcx, qword ptr [rbp + 632]
  call str_concat_d@PLT
- mov qword ptr [rbp + 512], rax
- mov qword ptr [rbp + 520], rdx
+ mov qword ptr [rbp + 496], rax
+ mov qword ptr [rbp + 504], rdx
  jmp xchain0_n20_α
  xchain0_n19_β:
  jmp main_γ
 # IR_ASSIGN global
  xchain0_n20_α:
- mov rsi, qword ptr [rbp + 512]
- mov rdx, qword ptr [rbp + 520]
+ mov rsi, qword ptr [rbp + 496]
+ mov rdx, qword ptr [rbp + 504]
  mov rdi, qword ptr [rip + .Lx29_0]
  call NV_SET_fn@PLT
- mov qword ptr [rbp + 496], rax
- mov qword ptr [rbp + 504], rdx
+ mov qword ptr [rbp + 480], rax
+ mov qword ptr [rbp + 488], rdx
  jmp main_γ
  xchain0_n20_β:
  jmp main_γ
@@ -388,12 +388,12 @@ jmp main_ω
 main_γ:
 mov eax, 1
 xor edx, edx
-mov rsp, qword ptr [rbp + 680]
+mov rsp, qword ptr [rbp + 664]
 mov rbp, [rsp + 65536]
 add rsp, 65544
 ret
 main_ω:
-mov rsp, qword ptr [rbp + 680]
+mov rsp, qword ptr [rbp + 664]
 mov dword ptr [rsp+0], 99
 mov dword ptr [rsp+4], 0
 mov qword ptr [rsp+8], 0
