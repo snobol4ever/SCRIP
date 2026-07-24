@@ -14,11 +14,9 @@ proc_MATCHIT_α:
   mov rbp, rsp
   mov qword ptr [rsp], 0
   mov qword ptr [rsp + 8], 0
-  mov rdi, rsp
-  add rdi, 256
-  mov ecx, 256
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp + 256], 0
+  mov qword ptr [rsp + 264], 0
+  mov qword ptr [rsp + 496], 0
   mov qword ptr [rsp + 504], rsp
 proc_MATCHIT_α_body:
 # IR_VAR
