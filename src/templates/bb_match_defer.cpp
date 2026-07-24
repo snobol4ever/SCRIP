@@ -25,8 +25,16 @@ std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
+    /* s137 OVER-SEAL (Lon ruling: a fence clearly demarks a point OUTSIDE a γ where entire chunks of ζ can be whacked, since no backtracking is guaranteed): when the defer's target is a STATICALLY
+     * right-sealed stored pattern (IR_t.seal → op_seal), this element is that demarked sync point in ITS OWN activation — α stamps rsp into the defer.pad quad (FRQ(op_off), rbp-relative → recursion-
+     * safe), the L(4)/L(5) glues restore it (bulk-freeing the callee's ENTIRE retained subtree: frame, suspend record, every transitive carve — the resume surface is already dead by NCB-2/SZ-1
+     * body_root=NULL, so nothing the whack destroys is ever read), and β restores-then-ωs instead of `jmp [rsp+0]` (the fast-path record is whacked; the SLOW-path L(6) exhaust record is discarded by
+     * the same restore, keeping the frontier LIFO exact for the left neighbour).  CSTACK/FORTH only — other ports keep the untouched original body. */
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
+         + IF(_.op_seal && x86_port_cstack(),
+               x86("comment", "s137 SEALED defer: fence-demarked sync point (watermark in defer.pad)")
+             + x86("mov",  FRQ(_.op_off), "rsp"))
          + IF(g_gva_active && _.op_gva_k >= 0,
                x86("mov",  "rax", ABSQ(RT_GVA_VA + _.op_gva_k * 16))
              + x86("mov",  "rdx", ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
@@ -57,6 +65,8 @@ std::string bb_match_defer() {
          + x86_lea_id("rdx", 5)
          + x86_jmp_reg("rax")
          + x86("def",  L(4))
+         + IF(_.op_seal && x86_port_cstack(),
+               x86("mov",  "rsp", FRQ(_.op_off)))
          + IF(_.op_scan && _.op_scan_head_off >= 0,
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
              + x86("mov",  "rax", "[rcx]")
@@ -64,6 +74,8 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
+         + IF(_.op_seal && x86_port_cstack(),
+               x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
          + x86("def",  "L0")
@@ -124,6 +136,7 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_g6, "g_rspd_g6")
          + x86_omega()
          + x86_beta()
-         + rspd_snap(&g_rspd_beta, "g_rspd_beta")
-         + x86_jmp_mem("rsp", 0);
+         + ((_.op_seal && x86_port_cstack())
+              ? (x86("mov", "rsp", FRQ(_.op_off)) + x86_omega())
+              : (rspd_snap(&g_rspd_beta, "g_rspd_beta") + x86_jmp_mem("rsp", 0)));
 }

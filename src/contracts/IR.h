@@ -217,6 +217,7 @@ struct IR_t {
     IR_t       ** operands;
     int           n_operands;
     int           in_scan;   /* ICN-SCAN-STRUCT: 1 iff this node is lexically inside a ? scan body. Set structurally at lower time (TT_SCAN range-mark); read by emit_drive to set g_scan_regs_live per-node. Replaces the emit-order-dependent running counter, whose value depended on the four-port BFS walk order and dropped to 0 mid-body when a scan's leave box (IR_SCAN) was emitted before in-scan keyword-assigns reached via an IR_ACTIVATE fail edge. */
+    int           seal;      /* s137 OVER-SEAL (Lon ruling): 1 iff this IR_MATCH_DEFER's target is a STATICALLY right-sealed stored pattern (single-write name whose tree's rightmost element is a fence form, sno_pat_right_sealed with the VAR/DEFER chase) — the defer's γ is then a fence-demarked sync point in the CALLER's activation: α saves an rsp watermark, γ/ω restore it (whacking the callee's entire retained subtree — its frame, its suspend record, everything it carved), and β is an unconditional exhaust (the sealed blob's resume is dead by NCB-2/SZ-1, so the record the whack destroys is never read). Set at lower time (defer build sites), promoted to templates as op_seal by the emit_drive DEFER case. */
     union { const char * sval; int64_t ival; double dval; };
 };
 #define IR_LIT(nd)  (*(nd))
