@@ -2528,8 +2528,6 @@ proc_PAT$3_α:
   mov qword ptr [rsp + 8], 0
   mov qword ptr [rsp + 48], 0
   mov qword ptr [rsp + 56], 0
-  mov qword ptr [rsp + 64], 0
-  mov qword ptr [rsp + 72], 0
   mov qword ptr [rsp + 80], 0
   mov qword ptr [rsp + 88], 0
   mov qword ptr [rsp + 96], 0
@@ -2643,8 +2641,6 @@ proc_PAT$4_α:
   mov qword ptr [rsp + 8], 0
   mov qword ptr [rsp + 48], 0
   mov qword ptr [rsp + 56], 0
-  mov qword ptr [rsp + 64], 0
-  mov qword ptr [rsp + 72], 0
   mov qword ptr [rsp + 80], 0
   mov qword ptr [rsp + 88], 0
   mov qword ptr [rsp + 96], 0
@@ -2756,11 +2752,11 @@ proc_PAT$5_α:
   mov rbp, rsp
   mov qword ptr [rsp], 0
   mov qword ptr [rsp + 8], 0
-  mov rdi, rsp
-  add rdi, 48
-  mov ecx, 112
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp + 48], 0
+  mov qword ptr [rsp + 56], 0
+  mov qword ptr [rsp + 128], 0
+  mov qword ptr [rsp + 136], 0
+  mov qword ptr [rsp + 144], 0
   mov qword ptr [rsp + 152], rsp
 mov qword ptr [rbp + 160], r8
 mov dword ptr [rbp + 152], r14d
@@ -3276,11 +3272,11 @@ proc_PAT$7_α:
   mov rbp, rsp
   mov qword ptr [rsp], 0
   mov qword ptr [rsp + 8], 0
-  mov rdi, rsp
-  add rdi, 96
-  mov ecx, 96
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp + 96], 0
+  mov qword ptr [rsp + 104], 0
+  mov qword ptr [rsp + 160], 0
+  mov qword ptr [rsp + 168], 0
+  mov qword ptr [rsp + 176], 0
   mov qword ptr [rsp + 184], rsp
 mov qword ptr [rbp + 192], r8
 mov dword ptr [rbp + 184], r14d
@@ -3611,11 +3607,11 @@ proc_PAT$8_α:
   mov rbp, rsp
   mov qword ptr [rsp], 0
   mov qword ptr [rsp + 8], 0
-  mov rdi, rsp
-  add rdi, 112
-  mov ecx, 96
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp + 112], 0
+  mov qword ptr [rsp + 120], 0
+  mov qword ptr [rsp + 176], 0
+  mov qword ptr [rsp + 184], 0
+  mov qword ptr [rsp + 192], 0
   mov qword ptr [rsp + 200], rsp
 mov qword ptr [rbp + 208], r8
 mov dword ptr [rbp + 200], r14d
@@ -4017,11 +4013,11 @@ proc_PAT$9_α:
   mov rbp, rsp
   mov qword ptr [rsp], 0
   mov qword ptr [rsp + 8], 0
-  mov rdi, rsp
-  add rdi, 112
-  mov ecx, 96
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp + 112], 0
+  mov qword ptr [rsp + 120], 0
+  mov qword ptr [rsp + 176], 0
+  mov qword ptr [rsp + 184], 0
+  mov qword ptr [rsp + 192], 0
   mov qword ptr [rsp + 200], rsp
 mov qword ptr [rbp + 208], r8
 mov dword ptr [rbp + 200], r14d

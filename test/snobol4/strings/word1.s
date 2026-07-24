@@ -14,11 +14,11 @@ proc_PAT$0_α:
   mov rbp, rsp
   mov qword ptr [rsp], 0
   mov qword ptr [rsp + 8], 0
-  mov rdi, rsp
-  add rdi, 80
-  mov ecx, 96
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp + 80], 0
+  mov qword ptr [rsp + 88], 0
+  mov qword ptr [rsp + 144], 0
+  mov qword ptr [rsp + 152], 0
+  mov qword ptr [rsp + 160], 0
   mov qword ptr [rsp + 168], rsp
 mov qword ptr [rbp + 176], r8
 mov dword ptr [rbp + 168], r14d
