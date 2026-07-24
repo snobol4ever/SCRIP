@@ -12,11 +12,13 @@ extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *dtp_fn_of(void *headv);
+extern "C" uint64_t g_sno_defer_cells[4096];
 extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
 #define dswap() (ZC_FRAME == ZC_FRAME_RSP)
+static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* s142 DEFER-SITE DIET kill-switch (NOFILL precedent): =0 restores the uncached GVA dance for A/B and emergencies */
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
@@ -25,6 +27,14 @@ std::string bb_match_defer() {
     if (!PLATFORM_X86) return std::string();
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
+    /* s142 DEFER-SITE DIET: per-site WRITE-ONCE entry cell (seal==2, GVA arm only this slice).  Steady state replaces the 8-Ir GVA/DT_P/memo dance with lea+load+test+jne; the cold path is the UNCHANGED
+     * dance plus one store into the cell (a 0 store on the not-yet-DT_P arm is a no-op — the cell arms itself only when the fn first resolves, and write-once makes it permanently valid).  rsi is the
+     * scratch: dead at α on this path (the non-GVA arm's xor esi,esi is the only prior user), clobbered by the dtp_fn_of C call, hence the re-lea before the store.  Index claim = bb_slot_claim precedent
+     * (emit-time staging at template top); ≥4096 falls back to the uncached path; counter monotonic per process (uniqueness is the only requirement). */
+    int ci = (dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 4096) ? g_emit.sn4_defer_cell_n++ : -1;
+    static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
+    const char * clbl = ci >= 0 ? cl[cln] : "";
+    uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     /* s137 OVER-SEAL (Lon ruling: a fence clearly demarks a point OUTSIDE a γ where entire chunks of ζ can be whacked, since no backtracking is guaranteed): when the defer's target is a STATICALLY
      * right-sealed stored pattern (IR_t.seal → op_seal), this element is that demarked sync point in ITS OWN activation — α stamps rsp into the defer.pad quad (FRQ(op_off), rbp-relative → recursion-
      * safe), the L(4)/L(5) glues restore it (bulk-freeing the callee's ENTIRE retained subtree: frame, suspend record, every transitive carve — the resume surface is already dead by NCB-2/SZ-1
@@ -32,9 +42,14 @@ std::string bb_match_defer() {
      * the same restore, keeping the frontier LIFO exact for the left neighbour).  CSTACK/FORTH only — other ports keep the untouched original body. */
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
-         + IF(_.op_seal && x86_port_cstack(),
+         + IF(_.op_seal == 1 && x86_port_cstack(),
                x86("comment", "s137 SEALED defer: fence-demarked sync point (watermark in defer.pad)")
              + x86("mov",  FRQ(_.op_off), "rsp"))
+         + IF(ci >= 0,
+               x86("lea",  "rsi", "[rip + __]", cadr, clbl)
+             + x86("mov",  "rax", RDQ("rsi", 0))
+             + x86("test", "rax", "rax")
+             + x86("jne",  L(11)))
          + IF(g_gva_active && _.op_gva_k >= 0,
                x86("mov",  "rax", ABSQ(RT_GVA_VA + _.op_gva_k * 16))
              + x86("mov",  "rdx", ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
@@ -51,6 +66,10 @@ std::string bb_match_defer() {
              + x86("def",  L(9))
              + x86("xor",  "eax", "eax")
              + x86("def",  L(10)))
+         + IF(ci >= 0,
+               x86("lea",  "rsi", "[rip + __]", cadr, clbl)
+             + x86("mov",  RDQ("rsi", 0), "rax")
+             + x86("def",  L(11)))
          + IF(!(g_gva_active && _.op_gva_k >= 0),
                x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
              + x86("xor",  "esi", "esi")
@@ -65,7 +84,7 @@ std::string bb_match_defer() {
          + x86_lea_id("rdx", 5)
          + x86_jmp_reg("rax")
          + x86("def",  L(4))
-         + IF(_.op_seal && x86_port_cstack(),
+         + IF(_.op_seal == 1 && x86_port_cstack(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + IF(_.op_scan && _.op_scan_head_off >= 0,
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
@@ -74,7 +93,7 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
-         + IF(_.op_seal && x86_port_cstack(),
+         + IF(_.op_seal == 1 && x86_port_cstack(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
@@ -136,7 +155,7 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_g6, "g_rspd_g6")
          + x86_omega()
          + x86_beta()
-         + ((_.op_seal && x86_port_cstack())
+         + ((_.op_seal == 1 && x86_port_cstack())
               ? (x86("mov", "rsp", FRQ(_.op_off)) + x86_omega())
               : (rspd_snap(&g_rspd_beta, "g_rspd_beta") + x86_jmp_mem("rsp", 0)));
 }
