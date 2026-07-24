@@ -2116,6 +2116,53 @@ void sno_expr_thunks_build(int x0) {
     g_sno_in_patproc = sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sno_pat_count(void) { return g_sno_npat; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_pat_thunks_build(int p0) {
+    int sv = g_sno_in_patproc;
+    g_sno_in_patproc = 1;
+    for (int pi2 = p0; pi2 < g_sno_npat; pi2++) {
+        IR_graph_t * gp = IR_alloc(512);
+        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;
+        IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
+        IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
+        px.pat_fail = no; px.pat_seal = no;
+        int before_pat = gp->n;
+        IR_t * pe = sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no);
+        {
+            extern tree_t *ast_stmt_new(tree_e kind);
+            IR_t * paft = pe;
+            for (int api = 0; api < px.npre; api++) {
+                IR_t * co = lc_build(gp, px.pre[api].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, paft, no);
+                IR_LIT(co).ival = px.pre[api].codes;
+                char abuf[48]; snprintf(abuf, sizeof abuf, "%s$A%d", g_sno_pats[pi2].name, api);
+                tree_t * tv = ast_stmt_new(TT_VAR); tv->v.sval = lp_strdup(abuf);
+                IR_t * av = NULL;
+                IR_t * ae = sx_lower(&px, tv, co, no, &av);
+                ir_operand_push(co, av);
+                ir_operand_push(px.pre[api].prim, co);
+                paft = ae;
+            }
+            px.npre = 0;
+            pe = paft;
+        }
+        gp->entry = pe;
+        gp->resumable_callable = 1;
+        gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(g_sno_pats[pi2].pat)) ? gp->all[before_pat] : NULL;
+        int ppi = stage2_proc_grow(&g_stage2);
+        g_stage2.proc_table[ppi].name = g_sno_pats[pi2].name;
+        g_stage2.proc_table[ppi].proc = NULL;
+        g_stage2.proc_table[ppi].entry_pc = -1;
+        g_stage2.proc_table[ppi].nparams = 0;
+        g_stage2.proc_table[ppi].lower_sc.n = 0;
+        g_stage2.proc_table[ppi].is_generator = 0;
+        g_stage2.proc_table[ppi].dyn_scope = 0;
+        g_stage2.proc_table[ppi].result_name = NULL;
+        g_stage2.proc_table[ppi].bb_idx = bb_program_add(&g_stage2.bbp, gp);
+    }
+    g_sno_in_patproc = sv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_lbl_index(const tree_t ** st, int nst, const char * nm) { if (!nm || !nm[0] || nm[0] == '$') return -1; if (!strcmp(nm, "RETURN") || !strcmp(nm, "FRETURN") || !strcmp(nm, "END") || !strcmp(nm, "NRETURN")) return -1; for (int i = 0; i < nst; i++) { const char * l = sfind_str(st[i], ":lbl"); if (l && !strcmp(l, nm)) return i; } return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*--- SN4 kill-the-O(n^2) small-per-DEFINE-graph body extraction: the classic entry-in-main DEFINE idiom names an ENTRY label in the flat main statement list; its body is the statements REACHABLE from that entry by fall-through plus local S/F/U label gotos (RETURN/FRETURN/END/NRETURN and computed/$-indirect gotos are terminals — they leave the function or resolve at runtime).  BFS the reachable set into inbody[]; the caller builds a graph of ONLY those statements (own exitnd => correct RETURN, own emission => no re-emission collision, O(body) not O(main) => the mark/entry/scope tables scale linearly).  A goto to a label OUTSIDE the body is absent from the sub-graph's reset label registry, so sno_goto_target falls back to IR_GOTO_DEFERRED/rt_goto_transfer automatically — main-label escapes resolve at runtime for free.  Fall-through is taken unless the statement transfers unconditionally OR both its success and failure edges are covered by explicit gotos.  Returns the reachable-statement count. ---*/
@@ -2287,58 +2334,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
     }
     sno_expr_thunks_build(0);
-    g_sno_in_patproc = 1;
-    for (int pi2 = 0; pi2 < g_sno_npat; pi2++) {
-        IR_graph_t * gp = IR_alloc(512);
-        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;   /* PAT-ARG-BIND s102: npre was UNINITIALIZED here (UB) */
-        IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
-        IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
-        px.pat_fail = no; px.pat_seal = no;
-        int before_pat = gp->n;
-        IR_t * pe = sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no);
-        /* PAT-ARG-BIND (s102, found via Lon's treebank benchmark): a STORED pattern whose primitive args are
-         * runtime-computed (e.g. NL = CHAR(10); word = BREAK(NL)) reached here with a non-empty pre-chain and
-         * NO consumer -- the args were silently DROPPED and the primitive baked an EMPTY cset (repro: BREAK(NL)
-         * never matches; cconst-foldable args like D = ',' masked the hole).  Until the rung lands (evaluate
-         * args at ASSIGNMENT time into hidden PAT$n$Ai globals -- SPITBOL manual: pattern-function args
-         * evaluate when the pattern is BUILT, not when matched -- and read them here via the pre-chain), this
-         * is a LOUD compile-time refusal instead of a silent wrong answer. */
-        /* PAT-ARG-BIND (s104): the pre-chain lands.  Each runtime-arg primitive reads its arg from the hidden
-         * PAT$n$A<i> global the ASSIGNMENT site stashed (identical sno_pat_node walk order pairs the index).
-         * Shape mirrors the statement-level consumer verbatim: arg-read -> IR_COERCE_* (SPITBOL error codes) ->
-         * operand edge into the primitive; chain runs once per patproc entry, before the pattern head. */
-        {
-            extern tree_t *ast_stmt_new(tree_e kind);
-            IR_t * paft = pe;
-            for (int api = 0; api < px.npre; api++) {
-                IR_t * co = lc_build(gp, px.pre[api].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, paft, no);
-                IR_LIT(co).ival = px.pre[api].codes;
-                char abuf[48]; snprintf(abuf, sizeof abuf, "%s$A%d", g_sno_pats[pi2].name, api);
-                tree_t * tv = ast_stmt_new(TT_VAR); tv->v.sval = lp_strdup(abuf);
-                IR_t * av = NULL;
-                IR_t * ae = sx_lower(&px, tv, co, no, &av);
-                ir_operand_push(co, av);
-                ir_operand_push(px.pre[api].prim, co);
-                paft = ae;
-            }
-            px.npre = 0;
-            pe = paft;
-        }
-        gp->entry = pe;
-        gp->resumable_callable = 1;
-        gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(g_sno_pats[pi2].pat)) ? gp->all[before_pat] : NULL;
-        int ppi = stage2_proc_grow(&g_stage2);
-        g_stage2.proc_table[ppi].name = g_sno_pats[pi2].name;
-        g_stage2.proc_table[ppi].proc = NULL;
-        g_stage2.proc_table[ppi].entry_pc = -1;
-        g_stage2.proc_table[ppi].nparams = 0;
-        g_stage2.proc_table[ppi].lower_sc.n = 0;
-        g_stage2.proc_table[ppi].is_generator = 0;
-        g_stage2.proc_table[ppi].dyn_scope = 0;
-        g_stage2.proc_table[ppi].result_name = NULL;
-        g_stage2.proc_table[ppi].bb_idx = bb_program_add(&g_stage2.bbp, gp);
-    }
-    g_sno_in_patproc = 0;
+    sno_pat_thunks_build(0);
     free((void *) st); free(is_def);
     return &g_stage2;
 }
