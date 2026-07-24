@@ -2323,7 +2323,14 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     codegen_flat_chain_body(entry, prefix);
     int nbytes = emitter_end();
     extern int bb_emit_overflow;
-    if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) { bb_free(buf, FLAT_BUF_MAX); return NULL; }
+    if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) {
+        extern int bb_emit_pos; extern int bb_patch_count;
+        fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%d patches=%d/%d — %s\n",
+                prefix ? prefix : "", bb_emit_overflow, nbytes, bb_emit_pos, FLAT_BUF_MAX, bb_patch_count, BB_PATCH_MAX,
+                (bb_emit_pos >= FLAT_BUF_MAX) ? "FLAT_BUF_MAX exceeded (graph too large for the 1MB flat buffer)" :
+                (bb_patch_count >= BB_PATCH_MAX) ? "BB_PATCH_MAX exceeded" : "empty or invalid emission");
+        bb_free(buf, FLAT_BUF_MAX); return NULL;
+    }
     bb_seal(buf, (size_t)nbytes);
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;

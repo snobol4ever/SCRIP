@@ -2217,20 +2217,23 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
      * (bb_proc_entry falls back to g->entry only when it is NULL), so each LBL__ proc emits the main graph from
      * its label onward using main's slot layout — one graph, N entry points, marks/slots no longer squared.
      * Use-gated on g_sno_uses_code => byte-zero perturbation for programs without CODE. */
-    /* SN4-STUB SCAFFOLD (TEMPORARY, gated): running this loop under SCRIP_SN4_STUB registers the DEFINE entry
-     * labels (via LBL__/arm-4) so the 1-node entry-stub's rt_goto_transfer resolves — this PROVED the stub
-     * end-to-end on eim (fact(5)=120/fact(8)=40320).  BUT it re-lowers ALL labels (sno_reach_body+sno_build_graph
-     * below), re-introducing the O(n^2) it is meant to kill, so beauty still overflows here.  REPLACE with
-     * re-emission-free registration of only the DEFINE entry anchors (main-emission-time symbol + rt_label_set_fn). */
-    if (g_sno_uses_code || getenv("SCRIP_SN4_STUB")) {
+    /* LBL__ FIXED (O(n), shared-graph): each labelled statement becomes LBL__<name> sharing main's bb_idx and
+     * using proc_entry_node to enter the already-built main graph at that label's anchor node.  Zero extra graphs,
+     * zero extra ZLS marks.  rt_goto_transfer finds "LBL__<name>" via rt_proc_get_fn → rt_chain_enter.
+     * SCRIP_SN4_STUB gate removed: the DEFINE entry-stub is orthogonal and still gated separately in the DEFINE
+     * loop below; LBL__ is always produced when g_sno_uses_code (same gate as before). */
+    /* LBL__ O(n) — share main's graph (bb_idx=pi's bb_idx); proc_entry_node points to each label's anchor
+     * already in main's bb_label registry.  No sno_reach_body, no sno_build_graph, no extra ZLS marks.
+     * bb_proc_entry() falls back to g->entry when proc_entry_node==NULL, so sharing is unconditional safe.
+     * emit_chain walks from proc_entry_node through main's node graph using main's slot layout (correct: every
+     * LBL__ entry is a slice of main's execution from that label onward, identical frame geometry). */
+    if (g_sno_uses_code) {
+        int main_bb_idx = g_stage2.proc_table[pi].bb_idx;
         for (int i = 0; i < nst; i++) {
             const char * lbl = sfind_str(st[i], ":lbl");
             if (!lbl || !lbl[0]) continue;
-            char * inbody = (char *) malloc((size_t) (nst > 0 ? nst : 1)); int bn = sno_reach_body(st, nst, i, inbody);
-            const tree_t ** bst = (const tree_t **) calloc((size_t) (bn > 0 ? bn : 1), sizeof(tree_t *)); int * bis = (int *) calloc((size_t) (bn > 0 ? bn : 1), sizeof(int)); int bk = 0; int bentry = 0;
-            for (int j = 0; j < nst; j++) if (inbody[j]) { if (j == i) bentry = bk; bis[bk] = is_def ? is_def[j] : 0; bst[bk++] = st[j]; }
-            IR_graph_t * gl = sno_build_graph(bst, bk, bentry, bis, NULL);
-            free(inbody); free((void *) bst); free(bis);
+            IR_t * anchor = bb_label_landing(lbl);
+            if (!anchor) continue;
             char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", lbl);
             int lpi = stage2_proc_grow(&g_stage2);
             g_stage2.proc_table[lpi].name = lp_strdup(lname);
@@ -2241,8 +2244,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             g_stage2.proc_table[lpi].is_generator = 0;
             g_stage2.proc_table[lpi].dyn_scope = 0;
             g_stage2.proc_table[lpi].result_name = NULL;
-            g_stage2.proc_table[lpi].proc_entry_node = NULL;
-            g_stage2.proc_table[lpi].bb_idx = bb_program_add(&g_stage2.bbp, gl);
+            g_stage2.proc_table[lpi].proc_entry_node = anchor;
+            g_stage2.proc_table[lpi].bb_idx = main_bb_idx;
         }
     }
     for (int di = 0; di < ndefs; di++) {
