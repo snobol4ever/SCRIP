@@ -4773,7 +4773,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
-    if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", real_str(av.r,_rb,sizeof _rb)); return; }
+    if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", icon_real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
     if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern struct Term *rt_pl_cell_to_term_named(void *); extern void pl_write(struct Term *); extern void pl_wr_set_fp(FILE *); DESCR_t _pt = av; fflush(dest); arena_mark_t _cm = rt_pl_cterm_mark(); pl_wr_set_fp(dest); pl_write(rt_pl_cell_to_term_named(plw_entry(&_pt))); pl_wr_set_fp((FILE *)0); if (rt_pl_ctr_on()) rt_pl_cterm_release(_cm); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
@@ -5266,7 +5266,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_STR_fn(av)) { *out = av; return 1; }
         char *buf = rt_ws_alloc(64);
         if (IS_INT_fn(av))       snprintf(buf,64,"%lld",(long long)av.i);
-        else if (IS_REAL_fn(av)) { real_str(av.r,buf,64); }
+        else if (IS_REAL_fn(av)) { icon_real_str(av.r,buf,64); }
         else { *out = NULVCL; return 1; }
         *out = STRVAL(buf); return 1;
     }
