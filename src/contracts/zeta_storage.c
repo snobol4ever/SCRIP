@@ -15,7 +15,7 @@ static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sva
 #define ZLS_MAX_GRAPHS  4096
 #define ZLS_MAX_VSLOTS  4096
 #define ZLS_MAX_MARKS   65536   /* SN4 (2026-07-22): was 8192. Each entry-in-main DEFINE (labelled-range-in-main idiom) re-lowers the full statement array to build its own correctly-framed graph, re-marking every main label; beauty (~163 labels x ~39 such DEFINEs) blows 8192 mid-lowering. Sharing main's graph would cut the marks but hands a called DEFINE main's oversized frame (SIGBUS at scale) — so per-DEFINE graphs stay and the table grows instead (~24B/entry). */
-typedef struct { const IR_t * nd; int scope_id; int off; } zls_entry_t;
+typedef struct { const IR_t * nd; int scope_id; int off; int loff; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; } zls_mark_t;
@@ -65,9 +65,10 @@ static void zls_field(int scope_id, int off, int size, int kind, int audit, cons
     zf[zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_locals_shifted(IR_e op);
 static void zls_entry(const IR_t * nd, int scope_id, int off) {
     if (ze_n >= ZLS_MAX_ENTRIES) { fprintf(stderr, "zls: entry table overflow (%d)\n", ZLS_MAX_ENTRIES); abort(); }
-    ze[ze_n] = (zls_entry_t){ nd, scope_id, off };
+    ze[ze_n] = (zls_entry_t){ nd, scope_id, off, off + (zls_locals_shifted(nd->op) ? 16 : 0) };
     zx[zx_n++] = &ze[ze_n];
     ze_n++;
 }
@@ -235,6 +236,16 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
  * scan twins stay in the reader class because their operand lists mix wiring with real slot reads (emit.cpp op_parts/op_sa/op_off) — conservative toward LIVE.  SCRIP_SLOT_ELIDE=0 is the kill-switch. */
 static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SLOT-ELIDE S4a (Lon directive s138: "reduce the RSP adjustments to ZERO for BB's whose result is NOT USED and have just the local BB memory if any").  The locals-shifted SNOBOL4 match family's front
+ * 16B "result" quad is runtime-DEAD BY CONSTRUCTION: every runtime accessor (drive_value_slot -> nd_slot -> zls_off, bb_prepare's scratch, the fc window bases, sealed-DEFER's watermark repoint) reads
+ * the LOCALS-shifted offset; zls_result_off's only consumers are the census and the --dump pretty-printer.  So a DEAD shifted node needs NO front quad at all -- its locals land AT the entry offset
+ * (loff = off) and the node shrinks by one quad.  LIVE shifted nodes keep the byte-identical legacy layout (result quad + locals@+16), so whatever conservative-live reader exists sees no change.
+ * WHITELIST = kinds positively audited to hold ALL runtime state in their zls_grant_locals fields with no cross-box reader of the front quad: SPAN/BREAK/BREAKX/TAB/RTAB/REM/BAL (fc-cell matchers),
+ * ALTERNATE/SEQUENCE (entry-cursor+index quads), FENCE1 (watermark quad), DEFER/VALUE (pad quads; sealed DEFER's watermark IS the pad quad via zls_off).  EXCLUDED: HEAD (RELEASE/REPLACE cross-box flat
+ * reads), ARBNO (body-window geometry + COLLECTION), ARB (zls2 save-slot), ASSIGN_SAVE (COND cross-reads), SCAN_* (Icon scans use the front quad as the value DESCR -- "the value DESCR is the box
+ * result slot at [base]"), INITIAL.  Same SCRIP_SLOT_ELIDE=0 kill-switch reverts to zls_grant wholesale. */
+static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
         if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_FENCE1 || c->op == IR_MOVE_LABEL) continue;   /* ARBNO deliberately NOT here: operands[2] geometry bracket is a REAL slot read (s133 crosscheck caught it — 075/164/167/W04 arbno family) */
@@ -247,6 +258,7 @@ static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int
         if (*scratch_off < 0) { *scratch_off = off; zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); return 1; }
         zls_entry(nd, scope_id, *scratch_off); return 0;
     }
+    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; return zls_grant_locals(nd, scope_id, off); }
     return zls_grant(nd, scope_id, off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -679,7 +691,7 @@ int fc_leaf_disp(const IR_t * nd) {
     return (int)0x80000000;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->off + (zls_locals_shifted(nd->op) ? 16 : 0); }
+int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->loff; }
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return 0; int end = e->off; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].off + zf[i].size > end) end = zf[i].off + zf[i].size; int b = end - e->off; return (b + 15) & ~15; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
