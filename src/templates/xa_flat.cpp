@@ -1,4 +1,5 @@
 #include <string>
+#include <cstdlib>
 #include "emit.h"
 #include "x86_asm.h"
 extern "C" {
@@ -151,6 +152,11 @@ static std::string xaf_anchor_leave_text(void) {
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int xaf_nofill(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PAT_NOFILL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* SPD-NOFILL (s139): default ON; SCRIP_PAT_NOFILL=0 restores the eager stosb (kill-switch, SCRIP_SLOT_ELIDE precedent) */
+static int xaf_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* SPD-NOFILL verification lane (emit-time twin of rt.c's lexprep2 lane): fill the SKIPPED grant span 0xA5 so any read-before-write surfaces loudly; m4 must be COMPILED with the env set for the lane to bake */
+static std::string xaf_add_rdi_imm_bin(int n) { return (n >= -128 && n <= 127) ? bytes(3, "\x48\x83\xC7") + std::string(1, (char)(unsigned char)n) : bytes(3, "\x48\x81\xC7") + u32le((uint32_t)n); }   /* add rdi, imm — as-matching short form (imm8 when it fits), byte twin of the TEXT "add rdi, N" */
+static int xaf_nofill_from(int sd, int rgn) { static int v = -2; if (v == -2) { const char *e = getenv("SCRIP_NOFILL_FROM"); v = e ? atoi(e) : -1; } if (v >= 0) { int n = v < 16 ? 16 : v; return n > rgn ? rgn : n; } return (sd >= 16 && sd < rgn) ? sd : rgn; }   /* SPD-NOFILL bisect knob: zero [FROM, region); default = seed suffix (rgn = zero nothing beyond slot0).  Diagnostic only — binary-search the offset that must stay zeroed to localize an implicit-zero consumer. */
+static std::string xaf_zero_q_rsp_bin(int off) { return (off >= 0 && off <= 127) ? bytes(4, "\x48\xC7\x44\x24") + std::string(1, (char)(unsigned char)off) + u32le(0) : bytes(4, "\x48\xC7\x84\x24") + u32le((uint32_t)off) + u32le(0); }   /* mov qword ptr [rsp + off], 0 — as-matching disp8/disp32, byte twin of the TEXT spelling */
 static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def) {
     out_site = 0; out_lbl = nullptr; out_def = false;
     if (PLATFORM_X86) {
@@ -176,6 +182,26 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(1, "\xBA") + u32le((uint32_t)(kt - 32))                     /* mov edx, K_region — seed/bind stops below the header */
                                       + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_jmp_frame_lexprep2)   /* movabs rax, rt_jmp_frame_lexprep2 — raw bytes, NOT x86_movabs_r64: this arm is the legacy raw-byte family, an L-record would corrupt the stream */
                                       + bytes(2, "\xFF\xD0");                                             /* call rax — rsp = base ≡ 0 mod 16 here (caller jmps at ≡0, kt is a 16-mult), the SysV pre-call parity; clobbers only caller-saved regs, the wires+rbp are already in the header */
+                        out_site = 0; out_lbl = nullptr; out_def = false;
+                        return r;
+                    }
+                    if (!g_emit.flat_lex && !g_emit.flat_layout_unknown && xaf_nofill()) {   /* SPD-NOFILL (s139): flat_lex=0 jmp-entry citizens (PAT$ patprocs / LBL__ / EVAL-CODE chains / DYN procs) run NO lexprep and carry NO in-frame named locals — the region is box grants (first-write-wins by the four-port contract, rt.c:1402) + the [seed,region) suffix (resume slot / zeta-mark).  Zero ONLY slot0 + that suffix and SKIP the grant span: the blanket rep stosb was 63% of json-match's TOTAL Ir (255.7M/404M, FINDING s139).  Layout-unknown fallback graphs keep the eager arm below; SCRIP_PAT_NOFILL=0 kill-switch; SCRIP_ZLS_POISON=1 poisons the skipped span. */
+                        int rgn = kt - 32, fz = xaf_nofill_from(g_emit.flat_seed_off, rgn);
+                        std::string r = hdr
+                                      + bytes(4, "\x48\xC7\x04\x24") + u32le(0)                          /* mov qword ptr [rsp], 0 — slot0 lo */
+                                      + bytes(5, "\x48\xC7\x44\x24\x08") + u32le(0);                     /* mov qword ptr [rsp + 8], 0 — slot0 hi */
+                        if (xaf_poison() && fz > 16) r = r + bytes(3, "\x48\x89\xE7")                     /* mov rdi, rsp */
+                                      + xaf_add_rdi_imm_bin(16)
+                                      + bytes(1, "\xB9") + u32le((uint32_t)(fz - 16))                     /* ecx = skipped grant span */
+                                      + bytes(2, "\xB0\xA5")                                              /* mov al, 0xA5 */
+                                      + bytes(2, "\xF3\xAA");                                             /* rep stosb — poison lane */
+                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) r = r + xaf_zero_q_rsp_bin(o); }   /* SPD-NOFILL-B (s139): short suffix (the universal case — resume+mark quads, 32B) unrolls to plain quad zeros, eliminating the ~30-40 cycle REP startup per activation */
+                        else if (fz < rgn) r = r + bytes(3, "\x48\x89\xE7")                                /* mov rdi, rsp */
+                                      + xaf_add_rdi_imm_bin(fz)
+                                      + bytes(1, "\xB9") + u32le((uint32_t)(rgn - fz))                    /* ecx = suffix span */
+                                      + bytes(2, "\x31\xC0")                                              /* xor eax, eax */
+                                      + bytes(2, "\xF3\xAA");                                             /* rep stosb — resume/zeta-mark suffix stays zeroed */
+                        r = r + xaf_anchor_enter_bin();
                         out_site = 0; out_lbl = nullptr; out_def = false;
                         return r;
                     }
@@ -285,6 +311,18 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                         char lx2[192];
                         snprintf(lx2, sizeof lx2, "  mov rdi, rsp\n  mov esi, %d\n  mov edx, %d\n  call rt_jmp_frame_lexprep2@PLT\n", g_emit.flat_seed_off, kt - 32);   /* seed suffix + region; rsp = base ≡ 0 mod 16, the SysV pre-call parity */
                         return banner + b2 + xaf_anchor_enter_text() + lx2;
+                    }
+                    if (!g_emit.flat_lex && !g_emit.flat_layout_unknown && xaf_nofill()) {   /* SPD-NOFILL TEXT twin (s139) — see the BINARY arm: slot0 + suffix zero only, grant span skipped (first-write-wins), poison lane under SCRIP_ZLS_POISON=1 */
+                        int rgn = kt - 32, fz = xaf_nofill_from(g_emit.flat_seed_off, rgn);
+                        char b3[640];
+                        snprintf(b3, sizeof b3,
+                            "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n  mov qword ptr [rsp], 0\n  mov qword ptr [rsp + 8], 0\n",
+                            kt, kt - 24, kt - 16, kt - 8);
+                        std::string r3 = std::string(b3);
+                        if (xaf_poison() && fz > 16) { char p3[200]; snprintf(p3, sizeof p3, "  mov rdi, rsp\n  add rdi, 16\n  mov ecx, %d\n  mov al, 0xA5\n  rep stosb\n", fz - 16); r3 += p3; }
+                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { char q3[64]; snprintf(q3, sizeof q3, "  mov qword ptr [rsp + %d], 0\n", o); r3 += q3; } }   /* SPD-NOFILL-B TEXT twin — see the BINARY arm */
+                        else if (fz < rgn) { char s3[200]; snprintf(s3, sizeof s3, "  mov rdi, rsp\n  add rdi, %d\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", fz, rgn - fz); r3 += s3; }
+                        return banner + r3 + xaf_anchor_enter_text();
                     }
                     char b[640];
                     snprintf(b, sizeof b,

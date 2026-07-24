@@ -543,6 +543,7 @@ typedef struct {
     int                          frame_region;
     int                          flat_frame_bytes;    /* ZS-2: K_total for the jmp-entry prologue's sub rsp (32B header + zls region, 16-mult), computed by the blob builder BEFORE emit from zls_g_region */
     int                          flat_seed_off;       /* PL-REGAIN-4: byte offset where the frame's NULVCL-seed suffix starts (resume slot if present, else zeta-mark; named locals follow to region end) — set with flat_frame_bytes from zls_g_resume/zls_g_zeta_mark; 0 = layout unknown, prologue falls back to the full stosb+lexprep fill.  Consumed only by xa_flat's flat_lex arm (rt_jmp_frame_lexprep2). */
+    int                          flat_layout_unknown; /* SPD-NOFILL (s139): 1 = emit_jmp_entry_arm_region took the rg<=0 fallback (zls layout unknown, region defaulted 4096) — xa_flat's no-fill arm is FORBIDDEN for such graphs (slot classification unavailable), they keep the eager stosb; 0 = layout granted through zeta_storage, seed_off trustworthy.  Set beside flat_seed_off, cleared with flat_jmp_entry. */
     struct bb_label_t *          flat_res_p;          /* ZS-2: the β-resume landing stub (lea r12,[rsp+32] falling into lbl_β); prologue stores its address into the [rsp+0] wire */
     struct bb_label_t *          flat_succ_p;
     struct bb_label_t *          flat_fail_p;
