@@ -2265,7 +2265,13 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     int rg = g ? zls_g_region(g) : -1;
     int so = g ? zls_g_resume(g) : -1;
     if (so < 0 && g) so = zls_g_zeta_mark(g);
-    if (g) for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_MATCH_ASSIGN_SAVE) { int off = nd_slot(nd); if (off >= 16 && (so < 0 || off < so)) so = off; } }   /* SPD-NOFILL fix (s139): capture head cells (rt_cap_push/pop/top take &slot — empty state IS zero, read-before-first-push by design) are implicit-zero citizens like resume/zeta-mark, NOT first-write-wins grants; pull the zero suffix down to cover the lowest one.  Found by NOFILL_FROM bisect on 124 ([rbp+144]); explains 124/131/expr_eval/146.  Trio has no captures — no cost there. */
+    int capen; { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NOFILL"); v = e ? (atoi(e) != 0) : 1; } capen = v; }   /* CAP-NOFILL (s143) kill-switch: 0 restores the s139 pull-down (SCRIP_PAT_NOFILL precedent) */
+    g_emit.flat_cap_n = 0; int capovf = !capen;
+    if (g) for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_MATCH_ASSIGN_SAVE) { int off = nd_slot(nd); if (off < 16) continue;
+        if (!capovf) { int dup = 0; for (int j = 0; j < g_emit.flat_cap_n; j++) if (g_emit.flat_cap_off[j] == off) { dup = 1; break; } if (dup) continue;
+            if (g_emit.flat_cap_n < 48) { g_emit.flat_cap_off[g_emit.flat_cap_n++] = off; continue; }
+            capovf = 1; for (int j = 0; j < g_emit.flat_cap_n; j++) if (so < 0 || g_emit.flat_cap_off[j] < so) so = g_emit.flat_cap_off[j]; g_emit.flat_cap_n = 0; }
+        if (so < 0 || off < so) so = off; } }   /* SPD-NOFILL fix (s139) + CAP-NOFILL (s143): capture head cells (rt_cap_push/pop/top take &slot — empty state IS zero, read-before-first-push by design; the +0 buf ptr is deref'd after gen self-heal, so BOTH quads of the 16B grant must be zero) are implicit-zero citizens like resume/zeta-mark, NOT first-write-wins grants.  s139 pulled the zero suffix down to the lowest one, blanketing every grant above it (expression-eval PAT$: 560B rep stosb per activation = 52% of blob Ir); s143 records each site's offset in flat_cap_off for INDIVIDUAL zeroing by xa_flat's SPD-NOFILL arm, keeping flat_seed_off at the true resume/zeta-mark suffix.  SCRIP_CAP_NOFILL=0 or >48 distinct sites = the s139 pull-down.  s139 bisect provenance: 124 ([rbp+144]); explains 124/131/expr_eval/146.  Trio has no captures — no cost there. */
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }   /* SPD-NOFILL (s139): fallback graphs must keep the eager fill — see emit.h flat_layout_unknown */
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
@@ -2284,7 +2290,7 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
 }
 int  g_flat_dc_np = -1;   /* PL-DC (s108): driver-armed direct-call eligibility for the NEXT graph — nparams (0..4) when the callee passes the table predicate (registered, !dyn, !gen, np<=4, hatch off), -1 otherwise.  Set beside emit_jmp_entry_for_proc, cleared with the rest of the jmp-entry arm. */
 long g_last_dc_off = -1;  /* PL-DC (s108): slab byte offset of the just-emitted graph's dc stub label (m3), -1 = none; the driver registers pfn+off via rt_proc_set_dcfn at seal. */
-extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_flat_dc_np = -1; }
+extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_cap_n = 0; g_flat_dc_np = -1; }
 /* PROC-CONV (R12-FREE ladder rung 2) + NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): ordinary procs arm the SAME jmp-entry regime.  DYN procs (SNOBOL4 DEFINE): args ride the name
  * dictionary, a self-allocated zeroed frame is correct.  DET LEXICAL procs (dyn_scope=0 — Icon/Raku): NCB-1d retires their call-regime trampoline — the blob self-allocates and its prologue calls
  * rt_jmp_frame_lexprep (NULVCL fill + rt_frame_bind_args from the staged g_call_args), so the caller-made-frame protocol is gone and flat_lex marks the graph for that prologue tail.  GENERATOR procs

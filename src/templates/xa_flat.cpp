@@ -195,6 +195,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(1, "\xB9") + u32le((uint32_t)(fz - 16))                     /* ecx = skipped grant span */
                                       + bytes(2, "\xB0\xA5")                                              /* mov al, 0xA5 */
                                       + bytes(2, "\xF3\xAA");                                             /* rep stosb — poison lane */
+                        for (int ci = 0; ci < g_emit.flat_cap_n; ci++) { int o = g_emit.flat_cap_off[ci]; if (o >= 16 && o + 16 <= rgn) r = r + xaf_zero_q_rsp_bin(o) + xaf_zero_q_rsp_bin(o + 8); }   /* CAP-NOFILL (s143): zero each 16B rt_cap grant (+0 buf, +8 gen|sp) individually — AFTER the poison fill so the lane still proves no other implicit-zero reader; see emit.cpp emit_jmp_entry_arm_region */
                         if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (o == xaf_anchor_off()) continue; r = r + xaf_zero_q_rsp_bin(o); } }   /* SPD-NOFILL-B (s139): short suffix (the universal case — resume+mark quads, 32B) unrolls to plain quad zeros, eliminating the ~30-40 cycle REP startup per activation.  s142 DEAD-STORE CUT (the s141-proven free store): the anchor quad is unconditionally overwritten by xaf_anchor_enter appended immediately below (mov [rsp+anchor_off], rsp) with no intervening reader — skip its zero in BOTH twins; the guard is equality-based so an anchor outside [fz,rgn) leaves the unroll untouched */
                         else if (fz < rgn) r = r + bytes(3, "\x48\x89\xE7")                                /* mov rdi, rsp */
                                       + xaf_add_rdi_imm_bin(fz)
@@ -320,6 +321,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                             kt, kt - 24, kt - 16, kt - 8);
                         std::string r3 = std::string(b3);
                         if (xaf_poison() && fz > 16) { char p3[200]; snprintf(p3, sizeof p3, "  mov rdi, rsp\n  add rdi, 16\n  mov ecx, %d\n  mov al, 0xA5\n  rep stosb\n", fz - 16); r3 += p3; }
+                        for (int ci = 0; ci < g_emit.flat_cap_n; ci++) { int o = g_emit.flat_cap_off[ci]; if (o >= 16 && o + 16 <= rgn) { char c3[96]; snprintf(c3, sizeof c3, "  mov qword ptr [rsp + %d], 0\n  mov qword ptr [rsp + %d], 0\n", o, o + 8); r3 += c3; } }   /* CAP-NOFILL (s143) TEXT twin — see the BINARY arm */
                         if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (o == xaf_anchor_off()) continue; char q3[64]; snprintf(q3, sizeof q3, "  mov qword ptr [rsp + %d], 0\n", o); r3 += q3; } }   /* SPD-NOFILL-B TEXT twin — see the BINARY arm (s142 dead-store cut mirrored: the anchor quad is re-stored by anchor_enter immediately below) */
                         else if (fz < rgn) { char s3[200]; snprintf(s3, sizeof s3, "  mov rdi, rsp\n  add rdi, %d\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", fz, rgn - fz); r3 += s3; }
                         return banner + r3 + xaf_anchor_enter_text();
