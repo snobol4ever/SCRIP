@@ -578,6 +578,8 @@ typedef struct {
     int *                        op_arg_slot;
     int                          op_arg_slot_cap;
     int                          op_arg_slot_n;
+    int                          op_arbno_zq[8];   /* s141 ARBNO-NOFILL: ζ offsets of the body's IR_MATCH_ASSIGN_SAVE cap BUF quads (implicit-zero citizens, s139 rt_cap head-cell class) — chain-β zeroes ONLY these per element.  APPENDED AT STRUCT END: mid-struct insertion shifted downstream g_emit offsets and broke the m4 runtime-EVAL path (jmp-entry K_total=0) — layout-append is the shared-ABI rule for this struct. */
+    int                          op_arbno_nzq;     /* count for op_arbno_zq; 9 = >8-capture / no-field sentinel → template keeps the eager blanket fill */
 } sm_emit_t;
 extern sm_emit_t g_emit;
 extern IR_graph_t * g_emit_cfg;

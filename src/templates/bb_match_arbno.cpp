@@ -14,6 +14,22 @@ static inline const char * zv() { return ZC_FRAME == ZC_FRAME_RSP ? "rbp" : x86_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int arbno_nofill(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_NOFILL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* ARBNO-NOFILL (s141): default ON; =0 restores the eager per-element window zero (kill-switch, SCRIP_PAT_NOFILL precedent) */
+static int arbno_poison(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZLS_POISON"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* verification lane twin of xa_flat's: fill the SKIPPED window 0xA5 at compile time so any read-before-write in the body subgraph surfaces loudly */
+static std::string arbno_fill_cells(void) { std::string r; for (int i = 0; i < _.op_arbno_nzq; i++) { int w = _.op_arbno_zq[i] - _.op_sa + 24; r += x86("mov", RSP(w), "rax"); } return r; }   /* zero the cap BUF QUAD of each body SAVE cell at its window-relative offset — gen/sp self-heal via the generation stamp (pattern_match.c rt_cap_push) */
+static std::string arbno_fill_window(long op_sb) {
+    return (!arbno_nofill() || _.op_arbno_nzq > 8)
+             ? x86("mov", "eax", 0L) + arbno_zero_window(op_sb)
+         : arbno_poison()
+             ? x86("movabs", "rax", (uint64_t)0xA5A5A5A5A5A5A5A5ULL) + arbno_zero_window(op_sb) + (_.op_arbno_nzq > 0 ? x86("mov", "eax", 0L) + arbno_fill_cells() : std::string())
+         : _.op_arbno_nzq > 0
+             ? x86("mov", "eax", 0L) + arbno_fill_cells()
+             : std::string();
+}   /* ARBNO-NOFILL (s141): the chain-β per-element window [24,op_sb) is the body subgraph's per-iteration ζ region — box grants are first-write-wins by the four-port contract (rt.c:1402), the same
+     * class the s139 SPD-NOFILL proved for PAT$ activation frames; the eager fill was IR_MATCH_ARBNO's 58% treebank Ir share (s140 bbprof, 19-21 quads per element on the inner group ARBNO).  Poison
+     * lane proof (this session): the ONLY implicit-zero citizens across all 311 crosscheck programs are body IR_MATCH_ASSIGN_SAVE cells (066/145, rt_cap head cells empty==zero BY DESIGN) — those are
+     * staged per-node (zls_arbno_zq → op_arbno_zq/nzq) and zeroed targeted; >8 captures (nzq==9 sentinel) falls back to the eager blanket. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * trd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
 static inline const char * trq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
 static std::string tail_zero(int lo, int hi, const char * zr64) { std::string r; for (int k = lo; k < hi; k += 8) r += x86("mov", trq(k), zr64); return r; }
@@ -110,8 +126,7 @@ std::string bb_match_arbno() {
              + x86("mov", RSP(0), zv())
              + x86("mov", RSP(8), "r14")
              + x86("mov", RSP(16), "rax")
-             + x86("mov", "eax", 0L)
-             + arbno_zero_window((long)_.op_sb)
+             + arbno_fill_window((long)_.op_sb)
              + x86("mov", FRQ(_.op_off + 16), "rsp")
              + x86("mov", zv(), "rsp")
              + x86("add", zv(), (long)(24 - _.op_sa))

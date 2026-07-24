@@ -27,7 +27,7 @@ static zls_graph_t  zg[ZLS_MAX_GRAPHS];   static int zg_n = 0;
 static zls_vslot_t  zv[ZLS_MAX_VSLOTS];   static int zv_n = 0;
 static zls_mark_t   zm[ZLS_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[ZLS_MAX_ENTRIES]; static int zx_n = 0;
-typedef struct { const IR_t * nd; int min_off; int span; } zls_ageom_t;
+typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } zls_ageom_t;   /* zq/nzq (s141 ARBNO-NOFILL): ζ offsets of body IR_MATCH_ASSIGN_SAVE cells — the implicit-zero citizens (rt_cap head cells, empty==zero BY DESIGN, s139 class) the chain-β must still zero per element */
 static zls_ageom_t  za[1024];             static int za_n = 0;
 static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
@@ -431,16 +431,17 @@ void zls_build(IR_graph_t * g) {
         for (int j = 0; j < g->n; j++) { if (g->all[j] == nd->operands[1]) i0 = j; if (g->all[j] == nd->operands[2]) i1 = j; }
         if (i0 < 0 || i1 < 0) { fprintf(stderr, "zls: arbno2 geometry — body bracket operands not found in g->all\n"); abort(); }
         if (i0 > i1) { int t = i0; i0 = i1; i1 = t; }
-        int mn = 0x7fffffff, mx = 0;
+        int mn = 0x7fffffff, mx = 0; int azq[8]; int anzq = 0;
         for (int j = i0; j <= i1; j++) {
             const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0;
             if (!e) continue;
             if (e->off < mn) mn = e->off;
+            if (g->all[j]->op == IR_MATCH_ASSIGN_SAVE) { int co = -1; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].kind == ZK_PTR_GC) { co = zf[f].off; break; } if (co >= 0) { if (anzq < 8) azq[anzq++] = co; else anzq = 9; } else anzq = 9; }   /* s141 ARBNO-NOFILL: the implicit-zero citizen is the cap BUF QUAD — the node's registered ZK_PTR_GC field (grant base + 16, zls_locals_shifted) — NOT the grant base; gen/sp self-heal via the g_cap_gen stamp (pattern_match.c:744).  No-field or >8-capture → nzq=9 sentinel → eager blanket. */
             for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > mx) mx = zf[f].off + zf[f].size;
         }
         if (za_n >= (int)(sizeof za / sizeof *za)) { fprintf(stderr, "zls: arbno2 geometry table overflow (%d)\n", (int)(sizeof za / sizeof *za)); abort(); }
-        if (mn == 0x7fffffff) za[za_n++] = (zls_ageom_t){ nd, 16, 0 };
-        else                  za[za_n++] = (zls_ageom_t){ nd, mn, mx - mn };
+        if (mn == 0x7fffffff) za[za_n++] = (zls_ageom_t){ nd, 16, 0, {0}, 0 };
+        else                  { zls_ageom_t a; a.nd = nd; a.min_off = mn; a.span = mx - mn; a.nzq = anzq > 8 ? 9 : anzq; for (int q = 0; q < (anzq > 8 ? 0 : anzq); q++) a.zq[q] = azq[q]; za[za_n++] = a; }
     }
     /* R12-EXIT-1 CARRY-THE-TAIL finalize (see the fc_tail_* block below): LOWER registered structural candidates; only HERE do zls offsets exist, so windows, footprints, op_sb, and every range leaf's
      * fcl displacement land in this pass.  Left leaves take the flat formula (32 + prefix + own, the fc_leaf_walk math verbatim); body leaves rebase into the element ([rsp + off + d] = elem + off - bmn
@@ -477,6 +478,11 @@ int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
     for (int i = 0; i < za_n; i++) if (za[i].nd == nd) { if (min_off) *min_off = za[i].min_off; if (span) *span = za[i].span; return 1; }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zls_arbno_zq(const IR_t * nd, int * zq, int max) {
+    for (int i = 0; i < za_n; i++) if (za[i].nd == nd) { if (za[i].nzq > 8) return 9; int n = za[i].nzq > max ? max : za[i].nzq; for (int q = 0; q < n; q++) zq[q] = za[i].zq[q]; return n; }
+    return 0;
+}   /* s141 ARBNO-NOFILL sibling accessor: body ASSIGN_SAVE ζ offsets (implicit-zero citizens); returns 9 on >8-capture overflow — caller must keep the eager blanket fill */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* zls2_geom — the ZLS2 per-activation frame-protocol geometry authority (Lon directive, 2026-07-08 session:
  * "templates instrumented through x86's α/β/γ/ω with code injection of stack frame bump, restore on
