@@ -12,10 +12,9 @@ proc_Push_α:
   mov [rsp + 736], rdx
   mov [rsp + 744], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 720
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 704], 0
   mov qword ptr [rsp + 712], rsp
 proc_Push_α_body:
 # IR_VAR
@@ -315,10 +314,9 @@ proc_Pop_α:
   mov [rsp + 624], rdx
   mov [rsp + 632], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 608
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 592], 0
   mov qword ptr [rsp + 600], rsp
 proc_Pop_α_body:
 # IR_VAR
@@ -548,10 +546,9 @@ proc_Unary_α:
   mov [rsp + 592], rdx
   mov [rsp + 600], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 576
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 560], 0
   mov qword ptr [rsp + 568], rsp
 proc_Unary_α_body:
  xchain45_n0_α:
@@ -971,10 +968,9 @@ proc_Binary_α:
   mov [rsp + 832], rdx
   mov [rsp + 840], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 816
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 800], 0
   mov qword ptr [rsp + 808], rsp
 proc_Binary_α_body:
  xchain70_n0_α:
@@ -1525,10 +1521,11 @@ proc_PAT$0_α:
   mov [rsp + 80], rdx
   mov [rsp + 88], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 64
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 32], 0
+  mov qword ptr [rsp + 40], 0
+  mov qword ptr [rsp + 48], 0
   mov qword ptr [rsp + 56], rsp
 mov qword ptr [rbp + 64], r8
 mov dword ptr [rbp + 56], r14d
@@ -1634,10 +1631,11 @@ proc_PAT$1_α:
   mov [rsp + 144], rdx
   mov [rsp + 152], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 128
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 96], 0
+  mov qword ptr [rsp + 104], 0
+  mov qword ptr [rsp + 112], 0
   mov qword ptr [rsp + 120], rsp
 mov qword ptr [rbp + 128], r8
 mov dword ptr [rbp + 120], r14d
@@ -1892,10 +1890,11 @@ proc_PAT$2_α:
   mov [rsp + 272], rdx
   mov [rsp + 280], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 256
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 224], 0
+  mov qword ptr [rsp + 232], 0
+  mov qword ptr [rsp + 240], 0
   mov qword ptr [rsp + 248], rsp
 mov qword ptr [rbp + 256], r8
 mov dword ptr [rbp + 248], r14d
@@ -2525,10 +2524,15 @@ proc_PAT$3_α:
   mov [rsp + 128], rdx
   mov [rsp + 136], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 112
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 48], 0
+  mov qword ptr [rsp + 56], 0
+  mov qword ptr [rsp + 64], 0
+  mov qword ptr [rsp + 72], 0
+  mov qword ptr [rsp + 80], 0
+  mov qword ptr [rsp + 88], 0
+  mov qword ptr [rsp + 96], 0
   mov qword ptr [rsp + 104], rsp
 mov qword ptr [rbp + 112], r8
 mov dword ptr [rbp + 104], r14d
@@ -2635,10 +2639,15 @@ proc_PAT$4_α:
   mov [rsp + 128], rdx
   mov [rsp + 136], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 112
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 48], 0
+  mov qword ptr [rsp + 56], 0
+  mov qword ptr [rsp + 64], 0
+  mov qword ptr [rsp + 72], 0
+  mov qword ptr [rsp + 80], 0
+  mov qword ptr [rsp + 88], 0
+  mov qword ptr [rsp + 96], 0
   mov qword ptr [rsp + 104], rsp
 mov qword ptr [rbp + 112], r8
 mov dword ptr [rbp + 104], r14d
@@ -2745,8 +2754,11 @@ proc_PAT$5_α:
   mov [rsp + 176], rdx
   mov [rsp + 184], rbp
   mov rbp, rsp
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
   mov rdi, rsp
-  mov ecx, 160
+  add rdi, 48
+  mov ecx, 112
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 152], rsp
@@ -2996,10 +3008,11 @@ proc_PAT$6_α:
   mov [rsp + 144], rdx
   mov [rsp + 152], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 128
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 96], 0
+  mov qword ptr [rsp + 104], 0
+  mov qword ptr [rsp + 112], 0
   mov qword ptr [rsp + 120], rsp
 mov qword ptr [rbp + 128], r8
 mov dword ptr [rbp + 120], r14d
@@ -3261,8 +3274,11 @@ proc_PAT$7_α:
   mov [rsp + 208], rdx
   mov [rsp + 216], rbp
   mov rbp, rsp
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
   mov rdi, rsp
-  mov ecx, 192
+  add rdi, 96
+  mov ecx, 96
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 184], rsp
@@ -3593,8 +3609,11 @@ proc_PAT$8_α:
   mov [rsp + 224], rdx
   mov [rsp + 232], rbp
   mov rbp, rsp
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
   mov rdi, rsp
-  mov ecx, 208
+  add rdi, 112
+  mov ecx, 96
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 200], rsp
@@ -3996,8 +4015,11 @@ proc_PAT$9_α:
   mov [rsp + 224], rdx
   mov [rsp + 232], rbp
   mov rbp, rsp
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
   mov rdi, rsp
-  mov ecx, 208
+  add rdi, 112
+  mov ecx, 96
   xor eax, eax
   rep stosb
   mov qword ptr [rsp + 200], rsp

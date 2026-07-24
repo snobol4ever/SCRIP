@@ -12,10 +12,9 @@ proc_roman_α:
   mov [rsp + 5104], rdx
   mov [rsp + 5112], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 5088
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 5072], 0
   mov qword ptr [rsp + 5080], rsp
 proc_roman_α_body:
 # IR_LIT_STRING

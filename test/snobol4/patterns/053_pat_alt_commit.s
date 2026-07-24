@@ -12,10 +12,11 @@ proc_PAT$0_α:
   mov [rsp + 96], rdx
   mov [rsp + 104], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 80
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 48], 0
+  mov qword ptr [rsp + 56], 0
+  mov qword ptr [rsp + 64], 0
   mov qword ptr [rsp + 72], rsp
 mov qword ptr [rbp + 80], r8
 mov dword ptr [rbp + 72], r14d
@@ -342,6 +343,10 @@ main_α_body:
  .string "OUTPUT"
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain9_n10_α:
+ lea rsi, [rip + g_sno_defer_cells+0]
+ mov rax, qword ptr [rsi + 0]
+ test rax, rax
+ jne .Lx23_11
  mov rax, qword ptr [1879052288]
  mov rdx, qword ptr [1879052296]
  cmp eax, 3
@@ -355,6 +360,9 @@ main_α_body:
 .Lx23_9:
  xor eax, eax
 .Lx23_10:
+ lea rsi, [rip + g_sno_defer_cells+0]
+ mov qword ptr [rsi + 0], rax
+.Lx23_11:
  test rax, rax
  jz .Lx23_0
  mov r8d, 0

@@ -12,10 +12,9 @@ proc_bumpit_α:
   mov [rsp + 240], rdx
   mov [rsp + 248], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 224
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 208], 0
   mov qword ptr [rsp + 216], rsp
 proc_bumpit_α_body:
 # IR_VAR

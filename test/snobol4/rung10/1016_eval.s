@@ -12,10 +12,9 @@ proc_EXPR$0_α:
   mov [rsp + 96], rdx
   mov [rsp + 104], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 80
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 64], 0
   mov qword ptr [rsp + 72], rsp
 proc_EXPR$0_α_body:
 # IR_LIT_STRING
@@ -66,10 +65,9 @@ proc_EXPR$1_α:
   mov [rsp + 96], rdx
   mov [rsp + 104], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 80
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 64], 0
   mov qword ptr [rsp + 72], rsp
 proc_EXPR$1_α_body:
 # IR_VAR
@@ -117,10 +115,9 @@ proc_EXPR$2_α:
   mov [rsp + 192], rdx
   mov [rsp + 200], rbp
   mov rbp, rsp
-  mov rdi, rsp
-  mov ecx, 176
-  xor eax, eax
-  rep stosb
+  mov qword ptr [rsp], 0
+  mov qword ptr [rsp + 8], 0
+  mov qword ptr [rsp + 160], 0
   mov qword ptr [rsp + 168], rsp
 proc_EXPR$2_α_body:
 # IR_LIT_INTEGER
