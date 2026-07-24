@@ -175,12 +175,15 @@ static eval_chain_fn eval_build_chain(const char *s)
     extern void sno_expr_salt_next(void);
     extern int sno_expr_mark(void);
     extern void sno_expr_thunks_build(int x0);
+    extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
     sno_expr_salt_next();
     int xm = sno_expr_mark();
+    int pat0 = sno_pat_count();
     int pc0 = g_stage2.proc_count;
     void *g = lower_snobol4(prog);
     if (!g) { ast_tree_free_dyn(prog); return NULL; }
     sno_expr_thunks_build(xm);
+    if (sno_pat_count() > pat0) sno_pat_thunks_build(pat0);   /* BLOCKER-C (s144): EVAL expr may mint PAT$N — build proc thunks so eval_thunks_emit_from below emits+registers them (else SNO$MKPAT miss) */
     extern int g_frame_active;
     extern IR_graph_t *g_emit_cfg;
     IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
@@ -308,6 +311,16 @@ DESCR_t code(const char *src)
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
     if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return FAILDESCR; }
+    /* BLOCKER-C (s144): a runtime CODE fragment that contains a pattern match lowers through sno_lower_fragment_at,
+     * whose sno_pat_collect walk MINTS new PAT$N entries (continuing g_sno_npat past the main-program set) but —
+     * unlike lower_sno_stage2 — never turns them into emitted+registered proc_table blobs.  At match time the
+     * fragment body calls SNO$MKPAT("PAT$N") → rt_proc_get_fn → NULL → "compiled pattern blob not registered".
+     * Capture the pattern + proc watermarks BEFORE lowering; after every fragment body is lowered+emitted, build
+     * proc_table thunks for the newly-collected patterns (sno_pat_thunks_build) and emit+register them through the
+     * same eval_thunks_emit_from path the EVAL arm uses.  Mirrors main's sno_pat_thunks_build(0) + driver loop. */
+    extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
+    int pat0 = sno_pat_count();
+    int proc0 = g_stage2.proc_count;
     eval_chain_fn first = NULL;
     int k = 0;
     for (int i = 0; i < prog->n; i++) {
@@ -330,6 +343,7 @@ DESCR_t code(const char *src)
         }
         k++;
     }
+    if (sno_pat_count() > pat0) { sno_pat_thunks_build(pat0); eval_thunks_emit_from(proc0); }
     if (!first) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_C;
