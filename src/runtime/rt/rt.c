@@ -138,6 +138,16 @@ void rt_gvar_assign_pat(const char *name, void *head)
     NV_SET_fn(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zstatic)
+{
+    extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t);
+    DESCR_t d;
+    d.v    = DT_P;
+    d.slen = 0;
+    d.p    = dtp_wrap_fn_sz(fn, zsz, zstatic);
+    NV_SET_fn(name ? name : "", d);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_int(const char *name, int64_t val)
 {
     DESCR_t d;
@@ -492,6 +502,14 @@ long rt_fn_frame_bytes(void *fn)
     for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn && g_rt_gen_procs[i].frame_bytes > 0) return (long)g_rt_gen_procs[i].frame_bytes;
     for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) return (long)g_blob_fb[i].bytes;
     return (long)PROC_FRAME_QWORDS * 8;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_fn_frame_bytes_known(void *fn)
+{
+    if (!fn) return 0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn && g_rt_gen_procs[i].frame_bytes > 0) return (long)g_rt_gen_procs[i].frame_bytes;
+    for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) return (long)g_blob_fb[i].bytes;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_generator(const char *name, int is_gen)
