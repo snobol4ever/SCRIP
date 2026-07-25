@@ -1124,6 +1124,18 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
             if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > k + 1) k = _e - 1; continue; }
             return 0;
         }
+        if (x->op == IR_MATCH_DEFER) {   /* PS-3 s153 DEFER-AS-KNOWN-FOOTPRINT-LEAF: a WRITE-ONCE (seal==2) defer whose name is PROLOGUE-DOMINATED and which carries its PAT$ target literal is ADMISSIBLE
+                                          * -- its per-activation retention (SUSP = align16(32+fb)+fp+16, the emit_patzeta ζ size) is a compile-time constant priced at FINALIZE (registry fed by then;
+                                          * a non-uniform/unregistered target DECLINES the whole candidate there, chain-arm fallback).  The blob carves at its own α and its ω restores the entry
+                                          * frontier ABSOLUTELY (lea rsp,[rbp+K]) so carve/release are exact; β = jmp [rsp+0] finds the γ-record by LIFO.  Same license trio as the s152 DT arm;
+                                          * SCRIP_ARBNO_LATCH=1 arms (opt-in until monitor-proven -- default byte-identical, the walk keeps declining). */
+            static int _dtl = -1; if (_dtl < 0) { const char * _e = getenv("SCRIP_ARBNO_LATCH"); _dtl = _e ? (atoi(_e) != 0) : 0; }
+            if (_dtl && x->seal == 2 && IR_LIT(x).sval && sno_name_prologue_bound(IR_LIT(x).sval)) {
+                const char * _pn = 0; for (int _j = 0; _j < x->n_operands; _j++) { IR_t * _o = x->operands[_j]; if (_o && _o->op == IR_LIT_STRING && IR_LIT(_o).sval && !strncmp(IR_LIT(_o).sval, "PAT$", 4)) { _pn = IR_LIT(_o).sval; break; } }
+                if (_pn) continue;
+            }
+            return 0;
+        }
         { long fck; if (fc_geom(x, &fck)) continue; }
         switch (x->op) {
         case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
@@ -1764,7 +1776,14 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                           }
                         }
                         tl_why = cap_left ? "cap-left" : cap_bad ? "cap-bad" : "walk";
-                        if (!cap_left && !cap_bad && fc_tail_walk(g, before_pat, i_arb) && fc_tail_walk(g, i_b0, i_b1 + 1) && fc_tail_walk(g, i_b1 + 1, g->n)) {
+                        int dfr_regs = 0;   /* PS-3 s153: a DEFER-bearing candidate can DECLINE AT FINALIZE (target unregistered/non-uniform -- knowable only once the emit_patzeta registry is fed), and
+                                             * a finalize-decline must strand NOTHING: the promo/wrap fc_save/fc_cond registrations below grant 16B cells at LOWER assuming the tail path, and a
+                                             * declined-to-chain statement with granted captures is the 163-mine class verbatim.  So defer+captures combos decline HERE (degrade never die; slice 2's
+                                             * record-peek can widen).  The pat_entry SEQ registration is the one lower-side effect a finalize-decline CAN reach -- zeta_storage's decline path
+                                             * fc_seq_unregisters it coherently (emit consults fc_seq_active only after the layout pass). */
+                        if (!cap_left && !cap_bad) { int _hd = 0; for (int k = before_pat; k < g->n && !_hd; k++) { IR_t * x = g->all[k]; if (x && x->op == IR_MATCH_DEFER) _hd = 1; }
+                                                     if (_hd) { int _ap = 0; for (int d = 0; d < scd_n && !_ap; d++) if (promo[d]) _ap = 1; dfr_regs = (n_wrap > 0 || _ap); if (dfr_regs) tl_why = "defer-caps"; } }
+                        if (!cap_left && !cap_bad && !dfr_regs && fc_tail_walk(g, before_pat, i_arb) && fc_tail_walk(g, i_b0, i_b1 + 1) && fc_tail_walk(g, i_b1 + 1, g->n)) {
                             { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int);
                               for (int d = 0; d < scd_n; d++) if (promo[d]) { fc_save_register(scd[d].save); fc_cond_register(scd[d].nd, scd[d].fp_inner); }
                               for (int w = 0; w < n_wrap; w++) fc_save_register(wsv[w]); }   /* WRAP-CAPTURE: the flat cell (delta at +0) -- its 16 joins fpl via fc_geom before finalize */

@@ -29,7 +29,7 @@ static zls_mark_t   zm[ZLS_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[ZLS_MAX_ENTRIES]; static int zx_n = 0;
 typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } zls_ageom_t;   /* zq/nzq (s141 ARBNO-NOFILL): ζ offsets of body IR_MATCH_ASSIGN_SAVE cells — the implicit-zero citizens (rt_cap head cells, empty==zero BY DESIGN, s139 class) the chain-β must still zero per element */
 static zls_ageom_t  za[1024];             static int za_n = 0;
-static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
+static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
 void fc_leaf_register(const IR_t * nd, int d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -281,6 +281,18 @@ int fc_alt_n(const IR_t *);
 int fc_alt_arm_range(const IR_t *, int, int *, int *);
 int fc_geom(const IR_t *, long *);
 void fc_leaf_register(const IR_t *, int);
+int emit_patzeta_lookup(const char *, int *);
+static int fct_pricing = 0;   /* PS-3 s153: 1 ONLY inside the fct ARBNO finalize below -- the defer-as-leaf SUSP pricing must never leak into the other fct_fp_range consumer (zls_g_fp_total, which
+                               * feeds emit_patzeta_register's own fp term: pricing there would make a registered fp depend on registration ORDER via the mid-computation lookups -- a silent
+                               * mode-divergence mine.  Context-gated, the pricing is confined to finalize, where the registry is complete for every reachable target by loop order). */
+static int fct_defer_susp(const IR_t * nd) {   /* the licensed defer's compile-time retention: SUSP = align16(32+fb)+fp+16 via the emit_patzeta registry keyed by the node's PAT$ operand literal;
+                                                * -1 = not licensed here (no PAT$ operand / unregistered / non-uniform target) -- the caller declines the candidate wholesale. */
+    if (!nd || nd->op != IR_MATCH_DEFER || nd->seal != 2) return -1;
+    const char * pn = 0; for (int j = 0; j < nd->n_operands; j++) { const IR_t * o = nd->operands[j]; if (o && o->op == IR_LIT_STRING && IR_LIT(o).sval && !strncmp(IR_LIT(o).sval, "PAT$", 4)) { pn = IR_LIT(o).sval; break; } }
+    int susp = 0;
+    if (!pn || !emit_patzeta_lookup(pn, &susp) || susp <= 0) return -1;
+    return susp;
+}
 static int fct_fp_range(IR_graph_t * g, int k0, int k1) {
     int fp = 0; long fck = 0;
     for (int j = k0; j < k1 && j < g->n; j++) {
@@ -291,6 +303,7 @@ static int fct_fp_range(IR_graph_t * g, int k0, int k1) {
             if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { fp += 16 + fc_alt_fpmax(x); if (_e > j + 1) j = _e - 1; }
             continue;
         }
+        if (x->op == IR_MATCH_DEFER && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) fp += s; continue; }   /* PS-3 s153: the licensed defer is a leaf of size SUSP (finalize pre-scan proved s>0 for every defer in range) */
         if (fc_geom(x, &fck)) fp += (int)fck;
     }
     return fp;
@@ -307,6 +320,7 @@ static int fct_leaf_range(IR_graph_t * g, int k0, int k1, int pfx, int bias, con
             if (_elast > j + 1) j = _elast - 1;
             continue;
         }
+        if (x->op == IR_MATCH_DEFER && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) pfx += s; continue; }   /* PS-3 s153: the defer registers NO fcl displacement (its retention is the CALLEE's carve, never addressed [rsp+const] from outside; β finds the γ-record at [rsp+0] by LIFO) but nodes after it sit SUSP deeper -- the prefix advances */
         long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
         fc_leaf_register(x, pfx + (int)own + bias);
         pfx += (int)own;
@@ -333,6 +347,7 @@ static void zls_slot_census(IR_graph_t * g) {
             (void *)g, g->n, G, L, G - L, G * 16, (L + 1) * 16, tn, tg, tl, tg - tl, tg * 16, (tl + tn) * 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void zls_fct_finalize(IR_graph_t * g, int late);
 void zls_build(IR_graph_t * g) {
     if (!g) return;
     zls_graph_t * r = zls_g_find(g);
@@ -446,20 +461,43 @@ void zls_build(IR_graph_t * g) {
     /* R12-EXIT-1 CARRY-THE-TAIL finalize (see the fc_tail_* block below): LOWER registered structural candidates; only HERE do zls offsets exist, so windows, footprints, op_sb, and every range leaf's
      * fcl displacement land in this pass.  Left leaves take the flat formula (32 + prefix + own, the fc_leaf_walk math verbatim); body leaves rebase into the element ([rsp + off + d] = elem + off - bmn
      * with rsp = elem - prefix - own, so d = prefix + own - bmn, routinely NEGATIVE -- the fcl relax above); right leaves add fp_body + span (their window sits after the body window and rsp is deeper by
-     * the suspended body cells).  The ARBNO node itself registers nothing (its tail arm speaks raw [rsp+const], no FR). */
+     * the suspended body cells).  The ARBNO node itself registers nothing (its tail arm speaks raw [rsp+const], no FR).
+     * PS-3 s153 TWO-PASS: zls_build runs at drive_slots_all time, BEFORE any proc emits -- the emit_patzeta registry is EMPTY then, so a DEFER-bearing candidate cannot price its SUSP leaves yet.
+     * The early pass (late=0) finalizes defer-free candidates exactly as ever and leaves defer-bearing ones PENDING (fin=0, pointers intact); emit_chain calls the late pass (late=1) at each graph's
+     * emission entry, where every earlier-emitted PAT$ is registered, and the pending candidates resolve (price at SUSP) or decline wholesale (chain arm; head/arbno nulled + SEQ unregistered). */
+    zls_fct_finalize(g, 0);
+    zls_slot_census(g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void zls_fct_finalize(IR_graph_t * g, int late) {
+    if (!g) return;
     { extern int fc_geom(const IR_t *, long *); extern void fc_cond_register(const IR_t *, int);
       for (int c = 0; c < fct_n; c++) {
         if (fct[c].fin) continue;
         { int in = 0; for (int j = 0; j < g->n; j++) if (g->all[j] == fct[c].arbno) { in = 1; break; } if (!in) continue; }
+        { int hd = 0; for (int j = fct[c].i0; j < fct[c].r1 && j < g->n && !hd; j++) { IR_t * x = g->all[j]; if (x && x->op == IR_MATCH_DEFER) hd = 1; }
+          if (hd && !late) continue; }   /* pending until the registry is fed */
         int b0 = fct[c].b0, b1 = fct[c].b1, i0 = fct[c].i0, ia = fct[c].ia, r1 = fct[c].r1; long k1 = 0;
         int bmn = 0x7fffffff, bmx = 0, rmn = 0x7fffffff, rmx = 0;
         for (int j = b0; j <= b1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; if (e->off < bmn) bmn = e->off; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > bmx) bmx = zf[f].off + zf[f].size; }
         for (int j = b1 + 1; j < r1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; if (e->off < rmn) rmn = e->off; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > rmx) rmx = zf[f].off + zf[f].size; }
         int span = (bmn == 0x7fffffff) ? 0 : bmx - bmn;
         int rspan = (rmn == 0x7fffffff) ? 0 : rmx - rmn;
+        /* PS-3 s153 DEFER-AS-KNOWN-FOOTPRINT-LEAF pre-scan: fc_tail_walk admitted seal==2 prologue-bound defers STRUCTURALLY at lower; only HERE is the emit_patzeta registry complete (driver loop
+         * registers each PAT$ before the next proc emits, all before main), so the SUSP license is confirmable only now.  EVERY defer in the three ranges must resolve to a registered UNIFORM target
+         * (fct_defer_susp > 0) or the WHOLE candidate declines to the chain arm -- head+arbno NULLED so fc_tail_head (fin-blind, consulted by IR_MATCH_HEAD before this ARBNO emits) and every other
+         * fct consumer miss it coherently: a half-tail statement (head self-pushing, arbno chaining) is the mismatch this wholesale null exists to make impossible. */
+        { int _dok = 1, _dfr = 0;
+          for (int j = i0; j < r1 && j < g->n && _dok; j++) { IR_t * x = g->all[j]; if (x && x->op == IR_MATCH_DEFER) { _dfr = 1; if (fct_defer_susp(x) <= 0) _dok = 0; } }
+          fct[c].dfr = _dfr;
+          if (!_dok) { if (getenv("SCRIP_TAIL_DIAG")) fprintf(stderr, "[TAIL-DIAG] finalize decline: defer target unregistered/non-uniform\n");
+                       { extern void fc_seq_unregister(const IR_t *); extern int fc_seq_active(const IR_t *);
+                         for (int j = i0; j < r1 && j < g->n; j++) { IR_t * x = g->all[j]; if (x && x->op == IR_MATCH_SEQUENCE && fc_seq_active(x)) fc_seq_unregister(x); } }   /* only tail candidates ever register SEQs; any active one in this candidate's range is its own pat_entry */
+                       fct[c].head = 0; fct[c].arbno = 0; continue; } }
         /* L1 ALT-in-body lift: footprints + leaf displacements via the ALT-aware helpers (fct_fp_range/fct_leaf_range above) -- a granted ALT enters each range as 16+fpmax with its arm extent skipped,
          * its arm leaves registering per-arm at pfx+16 with the same region bias.  ALT-free ranges reduce to the exact prior linear walks (same fc_geom sums, same formulas: left = 32+prefix+own flat,
          * body = prefix+own-bmn, right = fpb+prefix+own+span-rmn). */
+        fct_pricing = 1;
         int fpl = fct_fp_range(g, i0, ia);
         int fpb = fct_fp_range(g, b0, b1 + 1);
         int fpr = fct_fp_range(g, b1 + 1, r1);
@@ -467,11 +505,11 @@ void zls_build(IR_graph_t * g) {
         fct_leaf_range(g, i0, ia, 32, 0, fct[c].arbno);
         { int mb = (bmn == 0x7fffffff) ? 0 : bmn; fct_leaf_range(g, b0, b1 + 1, 0, -mb, fct[c].arbno); }
         { int mr = (rmn == 0x7fffffff) ? 0 : rmn; fct_leaf_range(g, b1 + 1, r1, 0, fpb + span - mr, fct[c].arbno); }
+        fct_pricing = 0;
         fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 16 * fct[c].nw + 15) & ~15; fct[c].fin = 1;
         for (int w = 0; w < fct[c].nw; w++) fc_cond_register(fct[c].wcd[w], fpb + span + rspan + 32 + 16 * w);   /* WRAP-CAPTURE: COND reads its element slot at the uniform yield depth (elem - fpb) */
       }
     }
-    zls_slot_census(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
@@ -628,6 +666,7 @@ int fc_alt_fp(const IR_t * nd, int j) {
 static const IR_t * fcs[512];
 static int fcs_n = 0;
 void fc_seq_register(const IR_t * nd) { if (!nd || fcs_n >= 512) return; fcs[fcs_n++] = nd; }
+void fc_seq_unregister(const IR_t * nd) { for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) { fcs[i] = fcs[--fcs_n]; return; } }   /* PS-3 s153: the tail candidate's pat_entry SEQ converts at lower ASSUMING the tail lands; a finalize-decline (defer target unregistered/non-uniform) must revert it or the SEQ's static re-points assume element depths the chain arm never establishes.  Swap-remove; consulted (fc_seq_active) only at emit, after the layout pass where the decline runs. */
 int fc_seq_active(const IR_t * nd) {
     if (!nd || nd->op != IR_MATCH_SEQUENCE) return 0;
     for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) return 1;
@@ -781,6 +820,12 @@ int fc_tail_arbno(const IR_t * nd, int * fpb, int * fpl, int * opsb, int * hdrb)
     for (int i = 0; i < fct_n; i++) if (fct[i].arbno == nd && fct[i].fin) { if (fpb) *fpb = fct[i].fpb; if (fpl) *fpl = fct[i].fpl; if (opsb) *opsb = fct[i].opsb; if (hdrb) *hdrb = fct[i].span + fct[i].rspan; return 1; }
     return 0;
 }
+int fc_tail_dfr(const IR_t * nd) {   /* PS-3 s153: this finalized candidate carries priced DEFER leaves -> the tail α must ZERO the phantom FPB pad [0,FPB) so the zero-guarded defer β's discriminator
+                                      * is deterministic (the pad is otherwise DIRTY STACK -- prior C-call frames -- and granted-leaf βs never cared about content, but the defer β is content-sensitive:
+                                      * a garbage nonzero word reads as a γ-record and jmp's wild).  Defer-free candidates keep the unzeroed pad byte-verbatim. */
+    for (int i = 0; i < fct_n; i++) if (fct[i].arbno == nd && fct[i].fin) return fct[i].dfr;
+    return 0;
+}
 int fc_tail_release(const IR_t * head, int * brdisp) {
     for (int i = 0; i < fct_n; i++) if (fct[i].head == head && fct[i].fin) { if (brdisp) *brdisp = fct[i].fpr + fct[i].fpb + fct[i].span + fct[i].rspan + 16; return 1; }
     return 0;
@@ -788,6 +833,19 @@ int fc_tail_release(const IR_t * head, int * brdisp) {
 int fc_tail_head(const IR_t * head) {
     for (int i = 0; i < fct_n; i++) if (fct[i].head == head) return 1;
     return 0;
+}
+int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {   /* PS-3 s153: is nd a PRICED defer leaf inside a FINALIZED tail candidate of graph g?  Returns its SUSP for the zero-guarded β (the
+                                             * ε-resume convention: the phantom FPB pad is zeros, and every body box's β must be zero-safe -- granted leaves read a zero cell and fail benignly, but
+                                             * the defer's raw `jmp [rsp+0]` on the pad is a jump through NULL, the t3 rip=0 crash.  The guarded β tests the record and, on zero, pops its own SUSP
+                                             * share and ω-transits: the exhausted-leaf behavior, consuming the pad exactly as granted leaves consume theirs).  -1 everywhere else -- flat defers,
+                                             * DT-arm defers, declined/pending candidates all keep the original β byte-verbatim (default md5 identity). */
+    if (!g || !nd || nd->op != IR_MATCH_DEFER) return -1;
+    for (int i = 0; i < fct_n; i++) if (fct[i].fin && fct[i].arbno) {
+        int in = 0; for (int j = 0; j < g->n; j++) if (g->all[j] == fct[i].arbno) { in = 1; break; }
+        if (!in) continue;
+        for (int j = fct[i].i0; j < fct[i].r1 && j < g->n; j++) if (g->all[j] == nd) return fct_defer_susp(nd);
+    }
+    return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* fc_tables_reset -- s67 (the 140/test_case wild-jump fix; s86 U4 sweep deleted the fcanc/fcah tables, two remain).  The fc side tables are keyed by RAW NODE POINTER and were only ever fed by the MAIN
