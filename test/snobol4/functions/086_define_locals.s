@@ -322,14 +322,38 @@ main_α_body:
  jmp .Lx17_2
 .Lx17_5:
  add rsp, 64
+ lea r11, [rip + g_gc_pending]
+ mov eax, dword ptr [r11 + 0]
+ test eax, eax
+ jne .Lx17_20
+ mov rax, qword ptr [rbp + 480]
+ mov rdx, qword ptr [rbp + 488]
+ lea r10, [rip + g_call_args]
+ mov qword ptr [r10 + 0], rax
+ mov qword ptr [r10 + 8], rdx
+ jmp .Lx17_21
+.Lx17_20:
  mov edi, 0
  mov rsi, qword ptr [rbp + 480]
  mov rdx, qword ptr [rbp + 488]
  call rt_arg_stage@PLT
+.Lx17_21:
+ lea r11, [rip + g_gc_pending]
+ mov eax, dword ptr [r11 + 0]
+ test eax, eax
+ jne .Lx17_22
+ mov rax, qword ptr [rbp + 512]
+ mov rdx, qword ptr [rbp + 520]
+ lea r10, [rip + g_call_args]
+ mov qword ptr [r10 + 16], rax
+ mov qword ptr [r10 + 24], rdx
+ jmp .Lx17_23
+.Lx17_22:
  mov edi, 1
  mov rsi, qword ptr [rbp + 512]
  mov rdx, qword ptr [rbp + 520]
  call rt_arg_stage@PLT
+.Lx17_23:
  mov rdi, qword ptr [rip + .Lx17_0]
  mov esi, 2
  call rt_proc_call_open@PLT

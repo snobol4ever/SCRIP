@@ -241,10 +241,22 @@ main_α_body:
  jmp .Lx10_2
 .Lx10_5:
  add rsp, 32
+ lea r11, [rip + g_gc_pending]
+ mov eax, dword ptr [r11 + 0]
+ test eax, eax
+ jne .Lx10_20
+ mov rax, qword ptr [rbp + 320]
+ mov rdx, qword ptr [rbp + 328]
+ lea r10, [rip + g_call_args]
+ mov qword ptr [r10 + 0], rax
+ mov qword ptr [r10 + 8], rdx
+ jmp .Lx10_21
+.Lx10_20:
  mov edi, 0
  mov rsi, qword ptr [rbp + 320]
  mov rdx, qword ptr [rbp + 328]
  call rt_arg_stage@PLT
+.Lx10_21:
  mov rdi, qword ptr [rip + .Lx10_0]
  mov esi, 1
  call rt_proc_call_open@PLT
@@ -349,10 +361,22 @@ main_α_body:
  jmp .Lx14_2
 .Lx14_5:
  add rsp, 32
+ lea r11, [rip + g_gc_pending]
+ mov eax, dword ptr [r11 + 0]
+ test eax, eax
+ jne .Lx14_20
+ mov rax, qword ptr [rbp + 416]
+ mov rdx, qword ptr [rbp + 424]
+ lea r10, [rip + g_call_args]
+ mov qword ptr [r10 + 0], rax
+ mov qword ptr [r10 + 8], rdx
+ jmp .Lx14_21
+.Lx14_20:
  mov edi, 0
  mov rsi, qword ptr [rbp + 416]
  mov rdx, qword ptr [rbp + 424]
  call rt_arg_stage@PLT
+.Lx14_21:
  mov rdi, qword ptr [rip + .Lx14_0]
  mov esi, 1
  call rt_proc_call_open@PLT
