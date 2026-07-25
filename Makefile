@@ -65,6 +65,8 @@ libscrip_rt: out/libscrip_rt.so
 
 # EM-6 runtime objects (all compiled -fPIC so they can go into the .so)
 RT_PIC_SRCS := \
+    $(RT)/rtx/rtx_misc.S \
+    $(RT)/rtx/rtx_init.c \
     $(RT)/rt/rt_slab.c \
     $(RT)/rt/rt_arena.c \
     $(RT)/rt/rt.c \

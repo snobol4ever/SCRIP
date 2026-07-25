@@ -1466,7 +1466,7 @@ void *rt_frame_prep(void *fb, long fbytes)
 /* FAIL LEAF (NCB-1b) — the emitted call site's no-body arm.  rt_proc_call_open returns 0 when the proc has no
  * body; the C trampolines answered that with `return FAILDESCR`, but an emitted site cannot materialise a
  * struct-by-value constant, so it calls this instead and lands the same rax:rdx pair.  Strict leaf. */
-DESCR_t rt_faildescr(void) { return FAILDESCR; }
+DESCR_t c_rt_faildescr(void) { return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
