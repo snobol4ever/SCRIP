@@ -578,67 +578,111 @@ Reproduce: `scripts/test_bench_prolog_4way.sh` (correctness), `scripts/bench_pro
 
 ---
 
-## Icon Benchmark — SCRIP vs Icon vs JCON
+## Icon Benchmark — SCRIP vs Arizona Icon (`icont`/`iconx`)
 
-The Icon frontend is measured against canonical **Icon 9.5** (`icont`/`iconx`, built from
-source) and **JCON 2.2** (Proebsting/Townsend's Icon-on-JVM compiler, built from source on
-OpenJDK 21) on the merged **icon-master/tests/bench + jcon-master/bmark suite**
-(`corpus/benchmarks/icon/`, 10 programs; `corpus/benchmarks/README-ICON-JCON.md` is
-authoritative for the merge). Runner: `scripts/test_icon_bench_corpus.sh` — the canonical
-jcon/bmark invocation protocol on every engine (`concord <concord.dat` · `deal -h 1000` ·
-`geddump <geddump.dat` · `ipxref <ipxref` sources · `micro 0.05` · `micsum <micro-output` ·
-`queens -n10` · `rsg <rsg.dat` · `tgrlink tgrlink.dat` · `version`), with the suite's stock
-`post.icn` output suppression active (`Init__` reassigns `write := 1`), so times measure
-compute, not I/O. This is a DIFFERENT protocol from the 2026-07-14 measurement formerly in
-this section (`OUTPUT=1`, I/O-inclusive, 7 programs) — the two are not comparable rows.
+The Icon frontend is measured against canonical **Arizona Icon 9.5.25a** (`icont`/`iconx`,
+built from source in-sandbox: `make Configure name=linux && make`, NoGraphics) on
+`corpus/benchmarks/icon/` (9 programs; `micro` is not timed — it exists to generate
+`micsum`'s input). Invocation is the stock jcon/bmark protocol (`concord <concord.dat` ·
+`deal -h 1000` · `geddump <geddump.dat` · `ipxref <ipxref` sources · `micsum <micro-output` ·
+`queens -n10` · `rsg <rsg.dat` · `tgrlink tgrlink.dat` · `version`).
 
-**Status, measured 2026-07-18 at SCRIP `f405c6a7` (origin HEAD):** iconx **10/10** ·
-JCON **10/10** (the two anchors agree on all line counts) · **SCRIP m3 6/10 · m4 6/10**.
-Both anchors built and verified in-sandbox; every divergence below is SCRIP's own.
+**Measured 2026-07-25 at SCRIP `2cbdc2b1`, `RT_OPT=-O0`** (the O0-DEV default; no `-O2`
+anywhere — see FACT RULE O2-DIRECTED-ONLY). Single-core container.
 
-**Timing** (ms, wall-clock, best of 3, gcc `-O0`, shared container) on the six programs
-SCRIP runs to completion. `m3` = `--run` (includes in-process parse+lower+emit); `m4` =
-`--compile --target=x86` → `as`+`gcc` binary (run only). Startup floors: iconx ~4 ms ·
-JCON ~125 ms (JVM) · m4 ~4 ms.
+### Protocol — and why this grid replaces the previous one
 
-| Benchmark | iconx | JCON | SCRIP m3 | SCRIP m4 | m4 vs iconx | m4 vs JCON |
-|-----------|------:|-----:|---------:|---------:|------------:|-----------:|
-| concord | 34 | 283 | 14 | 5 | **6.8× faster** | 57× faster |
-| deal | 26 | 290 | 13 | 4 | **6.5× faster** | 72× faster |
-| micsum | 4 | 139 | 8 | 5 | ~parity (floor) | 28× faster |
-| queens | 55 | 325 | 14 | 4 | **13.8× faster** | 81× faster |
-| rsg | 17 | 269 | 27 | 9 | **1.9× faster** | 30× faster |
-| version | 4 | 128 | 6 | 4 | parity (floor) | 32× faster |
+Timing runs with the suite's stock `post.icn` output suppression active (`Init__` reassigns
+`write := 1`, the Icon integer-as-selector idiom), so times measure **compute, not I/O**.
+That suppression also means **stdout cannot validate a timing run** — a program that skips
+its workload entirely still prints the same 30 banner lines.
 
-**Geomean m4 vs iconx = 3.1× faster** over all six (8.5× over the three non-trivial
-workloads concord/deal/queens; micsum/version sit on the ~4 ms process floor).
-**m4 vs JCON = ~46× faster**, but read that with care: JCON's ~125 ms JVM startup floor
-dominates every sub-second program here, so the ratio measures startup as much as code
-quality. m3 beats iconx on the real workloads (2–4×) despite paying full compilation
-inside the measured time.
+Correctness is therefore established in a **separate pass with `OUTPUT=1`**, which restores
+`write`. The true program output is the window strictly between post.icn's
+`*** Benchmarking with output ***` marker and its `elapsed time =` line; that window is
+extracted from both engines and compared byte-for-byte. Runner: `scripts/honest_icon_bench.sh`
+(mode 4) — **not** `test_icon_bench_corpus.sh`, which grades on `rc==0 && output non-empty`
+and by construction cannot distinguish "ran the workload fast" from "skipped the workload".
 
-**The four failures — three are known-cause, two are freshly-pinned regressions:**
+⚠ **The grid formerly in this section (2026-07-18, `f405c6a7`) reported m4 as 6.8×/6.5×/13.8×
+faster than `iconx` on concord/deal/queens. Those numbers are superseded and should not be
+cited.** Five of that grid's six times (4–5 ms) sat on the ~4 ms process floor — the exact
+signature the output-diffing runner was built to detect — and that measurement was taken when
+the suite stood at 6/10 with geddump/tgrlink emitting zero output. The numbers below are
+lower because they are taken on runs whose output is verified to match the oracle.
 
-- **micro** — TIMEOUT, pre-existing heap exhaustion (`[ZHP]` at ~battery 94+; the
-  put/get O(n)-copy-per-append in `by_name_dispatch.c`, WS/GC-ladder territory, not
-  bench-lane). Identical before and after every commit below.
-- **geddump + tgrlink** — rc=0 with ZERO output lines, both modes. **Regression, bisected
-  to exactly `7aade169`** (ICN-GOTO-SURVEY α-force pilot: dj α-entry trampoline
-  eradication + `lower_every` mark→body force-α). Both were passing at `d52fdaac`
-  (tgrlink byte-identical to iconx, 3239L; geddump full-output).
-- **ipxref** — `FATAL emit_drive: IR op=27 has no template`, both modes. **Regression,
-  bisected to exactly `00a027ca`** (ICN-MOVE-LABEL-ERAD slice 2: the IR_DISJUNCTION nary
-  self-state rewrite of `lower_alt`). Passing at `16064867`, the commit immediately before.
-- Why the regressions went unseen: the intervening sessions re-proved the RUNG suite
-  (246/14/32 zero-delta per commit) but never re-ran this bench track, and
-  geddump/ipxref/tgrlink have no (or only partial) diffable rung variants. The bench
-  runner is a report, not a gate — these three now need FZ-style rungs or the runner in
-  the per-commit gate list.
+### Correctness — real program output vs `iconx`
 
-Reproduce: `bash scripts/test_icon_bench_corpus.sh` (builds everything it needs; SKIP_BUILD=1
-after first run). Oracle kit: `icon-master` → `make Configure name=linux && make Icont`;
-`jcon-master` → `make build` with `icont` and a full JDK on PATH (invoke `jcont` via `bash`
-— it uses bashisms; run it from the source dir with bare filenames).
+| Benchmark | oracle lines | SCRIP lines | Verdict |
+|-----------|-------------:|------------:|---------|
+| concord | 1,345 | 1,345 | ✅ IDENTICAL |
+| deal | 17,000 | 17,000 | ✅ IDENTICAL |
+| geddump | 10,145 | 11,222 | ❌ DIVERGE |
+| ipxref | 1,208 | 1,208 | ✅ IDENTICAL |
+| micsum | 2 | 2 | ✅ IDENTICAL |
+| queens | 16,653 | 16,653 | ✅ IDENTICAL |
+| rsg | 5,000 | 1,000 | ❌ DIVERGE — see below |
+| tgrlink | 3,239 | 3,239 | ✅ IDENTICAL |
+| version | 1 | 1 | ⚪ benign — each engine prints its own `&version` |
+
+**6/9 byte-identical · 2 real defects · 1 benign.** Both modes agree on every verdict.
+
+### Timing — wall-clock, best-of-N, `RT_OPT=-O0`
+
+`m3` = `--bench --run` (in-process; **includes** parse+lower+emit in the measured time).
+`m4` = `--compile --target=x86` → `as`+`gcc` binary, run only. Process floor ≈ 4 ms.
+
+| Benchmark | iconx | SCRIP m3 | SCRIP m4 | m4 vs iconx | Output |
+|-----------|------:|---------:|---------:|------------:|--------|
+| concord | 35 | 82 | 63 | 0.56× | ✅ |
+| deal | 27 | 93 | 83 | 0.33× | ✅ |
+| ipxref | 32 | 84 | 61 | 0.52× | ✅ |
+| queens | 57 | 62 | 52 | 1.10× | ✅ |
+| tgrlink | 174 | 230 | 202 | 0.86× | ✅ |
+| micsum | 3 | 9 | 4 | (floor) | ✅ |
+| version | 3 | 5 | 4 | (floor) | ⚪ |
+| geddump | 161 | 273 | 245 | *(void — diverges)* | ❌ |
+| rsg | 17 | 25 | 5 | *(void — short-circuit)* | ❌ |
+
+**Geomean over the five correctness-verified non-trivial workloads: m4 = 0.62× (SCRIP 1.62×
+slower than `iconx`), m3 = 0.50× (2.01× slower).** `micsum`/`version` are excluded as
+process-floor noise; `geddump`/`rsg` are excluded because a program that does not produce the
+oracle's output has no meaningful time.
+
+### Instruction count (callgrind Ir) — the honest metric
+
+Wall-clock on this corpus is startup-dominated; per the measurement protocol only
+`tgrlink`/`geddump` carry trustworthy wall-clock. Ir is the metric that is not.
+
+| Benchmark | iconx Ir | SCRIP Ir | Ratio |
+|-----------|---------:|---------:|-------|
+| tgrlink | 1,338,636,521 | 1,303,410,904 | **SCRIP 1.027× FEWER instructions** |
+| geddump | 1,172,264,182 | 1,367,447,290 | SCRIP 1.17× more *(diverges — not comparable)* |
+
+**This reproduces the s163 diagnosis independently: SCRIP emits native code that executes
+fewer instructions than the `iconx` bytecode interpreter, and still loses on wall clock.**
+The deficit is therefore not instruction count — it is memory behaviour (cold bump-allocated
+arena vs iconx's small warm heap; 25× LL misses and 25× page faults at s163). No
+instruction-shaving rung closes that gap.
+
+### Two live defects
+
+- **`rsg` — resolved from "unexplained" to a named short-circuit.** SCRIP emits exactly
+  **1,000 blank lines (1 distinct value)** against the oracle's 5,000 lines / 1,604 distinct
+  sentences. 1,000 is `rsg.icn`'s default `limit`, so the generator loop runs to its bound
+  and produces empty strings — the grammar never populates. **This voids the 2.83–3.40× m4
+  "speedup" previously carried for `rsg`: it is not faster, it is not doing the work.**
+  Hypothesis (not yet proven, MONITOR-FIRST rung owed): `main` builds
+  `plist := [define,generate,grammar,source,comment,prompter,error]` — a list of *procedure
+  values* — and dispatches through it; procedure-value handling is the adjacent known-weak
+  area (cf. `FINDING-2026-07-20-CLAUDE-ICN-LOCAL-SHADOW-PROC-VALUE-REWRITE-COLLISION.md`).
+- **`geddump`** — 11,222 lines vs the oracle's 10,145, both modes. Pre-pinned; see
+  `GOAL-ICON-BB.md` (`git revert 7aade169` is the standing lead).
+
+Reproduce: `bash scripts/honest_icon_bench.sh` (m4 timing) and `bash scripts/honest_icon_correctness.sh` (the `OUTPUT=1` real-output diff above). Oracle kit:
+`icon-master` → `make Configure name=linux && make` → `bin/icont`, `bin/iconx`. **No Java and
+no JCON/JVM path is involved or required** (Lon directive, 2026-07-21): the JCON column
+carried by the superseded grid is intentionally not refreshed here.
 
 ---
 
