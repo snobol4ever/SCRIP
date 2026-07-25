@@ -236,7 +236,10 @@ void rt_zls2_release_to(void *mark)
  * both worlds: scrip's driver sets it after argv parse (covers mode 3 and all emit-time x86_zeta_mode()
  * reads); mode 4 binaries re-set it at entry via the call xa_file_header BAKES when the flag overrode the
  * ZC_ZETA default (no flag = no bake = byte-identical output).  RUNG-0: nothing allocates by it yet. */
-static int g_zeta_mode = (int)ZC_ZETA;
+/* PL-SINK-8 (2026-07-25): linkage widened static -> extern (NOT a new global — the same cell, one storage class) so the emitted $trail_mark fast path can RIPSEAL-read the mode LIVE rather than trusting a
+ * snapshot.  Live is the honest read: rt_zeta_set_mode is driver-only (--zeta= parse in m3, a baked preamble call in m4) and so always precedes the first goal, but reading the cell each time means the
+ * inline cannot go stale even if that ever changes.  ZH(2) is the only mode with a live zh shadow stack, so ZH -> SLOW and the default ZLS2(1) inlines.  zeta_alloc.c is outside the policed PL_FILES set. */
+int g_zeta_mode = (int)ZC_ZETA;
 void rt_zeta_set_mode(int m) { g_zeta_mode = (m == ZC_ZETA_ZLS) ? ZC_ZETA_ZLS : (m == ZC_ZETA_ZH) ? ZC_ZETA_ZH : ZC_ZETA_ZLS2; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] mode=%s\n", g_zeta_mode == ZC_ZETA_ZLS ? "zls" : g_zeta_mode == ZC_ZETA_ZH ? "zh" : "zls2"); }
 int  rt_zeta_mode(void) { return g_zeta_mode; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

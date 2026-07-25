@@ -146,7 +146,13 @@ void rt_pl_cterm_roots(void **base, size_t *bytes) { if (base) *base = (void *)g
 static uint8_t *g_pl_cellws_base = 0;
 static uint8_t *g_pl_cellws_cur  = 0;
 static uint8_t *g_pl_cellws_end  = 0;
-int rt_pl_cellws_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_PL_WS_RECLAIM"); on = e ? (atoi(e) != 0) : 0; } return on; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-SINK-8 (2026-07-25): the lazy `on` cache is PROMOTED from a function-static to an exported cell so the emitted $trail_mark fast path can RIPSEAL-read it (contract §3 — a per-leaf exported state cell,
+ * g_plw_dot_sl's precedent).  Semantics are UNCHANGED: -1 = unresolved, 0 = off, 1 = on; the resolving read still happens here on first call.  The inline arm tests `!= 0` so an unresolved -1 defers to the
+ * C leaf exactly like a not-yet-interned dot_sl does — correctness NEVER depends on this cell being populated.  This file is OUTSIDE test_gate_pl_no_new_global.sh's policed PL_FILES set (gc_heap.c
+ * precedent, s145), so the Prolog no-new-global floor is untouched — declared on purpose, not by accident. */
+int g_plw_cellws_on = -1;
+int rt_pl_cellws_on(void) { if (g_plw_cellws_on < 0) { const char *e = getenv("SCRIP_PL_WS_RECLAIM"); g_plw_cellws_on = e ? (atoi(e) != 0) : 0; } return g_plw_cellws_on; }
 static void rt_pl_cellws_lazy_init(void) {
     extern void *rt_slab_region(size_t);
     if (g_pl_cellws_base) return;
