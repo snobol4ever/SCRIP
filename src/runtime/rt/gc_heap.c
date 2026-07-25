@@ -24,18 +24,24 @@ _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title uni
  * become macros over its fields — every existing reference in this TU compiles unchanged, and exactly one new symbol crosses the .so boundary (contract §3: sanctioned exported cell, named in the rung's
  * FINDING; gc_heap.c is outside the Prolog no_new_global gate's policed set, so the floor is untouched but the addition is declared here on purpose).  `armed` mirrors (g_alloc_detax == 1 && g_ah_on <= 0)
  * so the inline tests ONE byte instead of re-deriving the predicate; it is recomputed wherever g_alloc_detax is.  Layout is _Static_assert-anchored below and baked by the template (contract §6). */
-typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; } rt_hp_fr_t;
-rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0 };
-_Static_assert(sizeof(rt_hp_fr_t) == 32, "PL-SINK-3 bakes g_hp_fr layout");
+/* RTX-2 ALLOC (s163) — the cell gains TWO MORE fields so the asm port of rt_gcheap_alloc can decide the ZERO-ELISION question without a call: `virgin` is the HP-2 high-water mark (a block carved at or
+ * above it is untouched mmap-fresh memory and needs no memset) and `zfull` is the resolved SCRIP_ZSKIP_OFF latch (-1 unresolved / 0 elide / 1 force-full).  Both were previously a file-static and a
+ * FUNCTION-static inside rt_gcheap_carve; promoting them is the same sanctioned move PL-SINK-3 made above and g_plw_cellws_on made in rt_arena.c — semantics are UNCHANGED, the resolving read still
+ * happens in carve, and the asm treats anything but 0 as "defer to C".  APPENDED at the tail on purpose: offsets 0/8/16/24 are baked into bb_call_fn.cpp's sink_carve48 and MUST NOT MOVE. */
+typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; } rt_hp_fr_t;
+rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0 };
+_Static_assert(sizeof(rt_hp_fr_t) == 48, "RTX-2 extends the PL-SINK-3 cell; 0/8/16/24 stay put");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, top)    ==  0, "PL-SINK-3 bakes g_hp_fr.top @0");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, end)    ==  8, "PL-SINK-3 bakes g_hp_fr.end @8");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, blocks) == 16, "PL-SINK-3 bakes g_hp_fr.blocks @16");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, armed)  == 24, "PL-SINK-3 bakes g_hp_fr.armed @24");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, virgin) == 32, "RTX-2 bakes g_hp_fr.virgin @32");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, zfull)  == 40, "RTX-2 bakes g_hp_fr.zfull @40");
 #define g_hp_top    (g_hp_fr.top)
 #define g_hp_end    (g_hp_fr.end)
 #define g_hp_blocks (g_hp_fr.blocks)
+#define g_hp_virgin (g_hp_fr.virgin)
 static char *g_hp_arena = (char *)0;
-static char *g_hp_virgin = (char *)0;
 static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
 static char *g_wsi_base = (char *)0;
@@ -148,8 +154,8 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     rt_hblk_t *h = (rt_hblk_t *)at;
     h->fwd = 0; h->size = (uint32_t)total; h->type = type; h->flags = HBF_TTL;
     uint64_t pay = total - sizeof(rt_hblk_t);
-    static int zfull = -1;
-    if (zfull < 0) { const char *e = getenv("SCRIP_ZSKIP_OFF"); zfull = (e && *e && *e != '0') ? 1 : 0; }
+    if (g_hp_fr.zfull < 0) { const char *e = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (e && *e && *e != '0') ? 1 : 0; }
+    { const int zfull = g_hp_fr.zfull;
     /* HP-2: mmap-fresh anonymous pages are ALREADY zero, so re-zeroing a block carved above the high-water mark is pure redundant write traffic. Skip it for fully-virgin blocks only; anything at or below
      * g_hp_virgin may be GC-recycled (the g_hp_win fill window always is) and MUST still be zeroed. Straddling blocks take the conservative memset. SCRIP_ZSKIP_OFF=1 forces full zeroing (A/B). */
     int fresh = !zfull && at >= g_hp_virgin;
@@ -158,7 +164,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     else if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
     else memset((void *)(h + 1), 0, (size_t)pay);
     g_hp_blocks += 1;
-    return (void *)(h + 1);
+    return (void *)(h + 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_on = -1; static int g_ah_reg = 0;
@@ -188,7 +194,7 @@ void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_alloc_detax = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
+void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
     if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (g_hp_top + tf <= g_hp_end) { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
     if (g_ah_on > 0) { unsigned t = (unsigned)type & 511u; g_ah_tn[t] += 1; g_ah_tb[t] += (long)payload_bytes; }
@@ -223,7 +229,7 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *rt_str_alloc(long n)
+char *c_rt_str_alloc(long n)
 {
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)DT_S, 0);
     /* THE DT_S entry point (GC-5 strings row, landed with GC-0 as the Lon-directed proof family):
