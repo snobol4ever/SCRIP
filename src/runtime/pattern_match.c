@@ -989,6 +989,13 @@ long rt_match_value_open(DESCR_t *pval)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _list_frame_idx(DATBLK_t *ty, int *gi, int *fsi, int *fei) {
+    static DATBLK_t *ck; static int cg = -1, cfs = -1, cfe = -1;
+    if (ty != ck) { ck = ty; cg = -1; cfs = -1; cfe = -1; for (int i = 0; i < ty->nfields; i++) { const char *f = ty->fields[i]; if (cg < 0 && strcasecmp(f, "gen_type") == 0) cg = i; else if (cfs < 0 && strcasecmp(f, "frame_size") == 0) cfs = i; else if (cfe < 0 && strcasecmp(f, "frame_elems") == 0) cfe = i; } }
+    *gi = cg; *fsi = cfs; *fei = cfe;
+    return (cg >= 0 && cfs >= 0 && cfe >= 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
@@ -1010,10 +1017,12 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
         return NAMETRAP(vc);
     }
     if (base.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(base, "gen_type");
+        DATBLK_t *ty = base.u ? base.u->type : NULL;
+        int gi = -1, fsi = -1, fei = -1; int cached = ty && _list_frame_idx(ty, &gi, &fsi, &fei);
+        DESCR_t tag = cached ? base.u->fields[gi] : FIELD_GET_fn(base, "gen_type");
         if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int n = (int)FIELD_GET_fn(base, "frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(base, "frame_elems");
+            int n = (int)(cached ? base.u->fields[fsi].i : FIELD_GET_fn(base, "frame_size").i);
+            DESCR_t ea = cached ? base.u->fields[fei] : FIELD_GET_fn(base, "frame_elems");
             DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
