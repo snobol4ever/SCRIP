@@ -67,6 +67,13 @@ PL_FILES=$(ls \
 #                        cells; the boxes drive control, this is a data arena (the direct sibling of g_pl_trail's area).
 # g_pb_fresh_ctr         LOWER-TIME fresh bound-var NAME counter ("_$B%d") in prolog_lower.c. Compile-time-only, like
 #                        g_uinfix / g_pl_nl_* — never touched at runtime; a monotonic name source, not a §10 spine.
+# g_pl_disj_ctr          LOWER-TIME aux-predicate NAME counter ("$disj%d") in lower_prolog.c — the exact sibling of
+#                        g_pb_fresh_ctr. Minted by the cut-free (A;B;C) -> aux-predicate transform (762aafc5) when a
+#                        clause-internal disjunction is lifted into a synthetic TT_CHOICE; the name lands in
+#                        g_stage2.resolve_pred_table (itself SANCTIONED compile/emit-time, freed before run). A static
+#                        int in one lower file, never read at runtime, holds no control/value state — not a §10 spine.
+#                        Allowlisted 2026-07-25: un-listed pre-existing red since 762aafc5 (2026-07-19, 229 commits),
+#                        same silent-red class as g_pl_functor_slot_ctr. Gate FAILed at pristine HEAD 04eeaa8f.
 # g_pl_functor_slot_ctr  functor/3 fresh-var PRINT-ID counter (unification.c). A single monotonic int source for naming
 #                        the vars functor(F,N,T) creates so the writer can print them; write-side metadata, NOT a control
 #                        stack. Added by PL-ISO-5 (cce2b25e); allowlisted 2026-07-13 (was an un-listed pre-existing red).
@@ -105,6 +112,7 @@ g_uinfix
 g_uinfix_n
 g_uinfix_cap
 g_pb_fresh_ctr
+g_pl_disj_ctr
 g_pl_functor_slot_ctr
 g_pl_copy_slot_ctr
 g_pl_copy_slot_mode
