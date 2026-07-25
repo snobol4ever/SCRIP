@@ -1628,6 +1628,30 @@ static int pl_read_apply_opts(DESCR_t optlist, DESCR_t tval, DESCR_t *bv, char (
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
+    if (!strcmp(fn, "where") && nargs == 1) {
+        extern void  fh_ensure_init(void);
+        extern FILE *fh_get(int);
+        if (!IS_INT_fn(args[0]) && !IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
+        fh_ensure_init();
+        FILE *fp = fh_get((int)args[0].i);
+        if (!fp) { *out = FAILDESCR; return 1; }
+        long pos = ftell(fp);
+        if (pos < 0) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(pos + 1);
+        return 1;
+    }
+    if (!strcmp(fn, "seek") && (nargs == 1 || nargs == 2)) {
+        extern void  fh_ensure_init(void);
+        extern FILE *fh_get(int);
+        if (!IS_INT_fn(args[0]) && !IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
+        fh_ensure_init();
+        FILE *fp = fh_get((int)args[0].i);
+        if (!fp) { *out = FAILDESCR; return 1; }
+        long o = (nargs == 2 && IS_INT_fn(args[1])) ? (long)args[1].i : 1L;
+        int rc = (o > 0) ? fseek(fp, o - 1, SEEK_SET) : fseek(fp, o, SEEK_END);
+        if (rc != 0) { *out = FAILDESCR; return 1; }
+        *out = args[0]; return 1;
+    }
     if (!fn) return 0;
     extern int fh_capture_begin(char **, size_t *, int *); extern void fh_capture_end(int, int);
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
@@ -3324,30 +3348,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         FILE *fp = fh_get(idx);
         if (fp) { fclose(fp); fh_free(idx); }
         *out = INTVAL(0); return 1;
-    }
-    if (!strcmp(fn, "where") && nargs == 1) {
-        extern void  fh_ensure_init(void);
-        extern FILE *fh_get(int);
-        if (!IS_INT_fn(args[0]) && !IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
-        fh_ensure_init();
-        FILE *fp = fh_get((int)args[0].i);
-        if (!fp) { *out = FAILDESCR; return 1; }
-        long pos = ftell(fp);
-        if (pos < 0) { *out = FAILDESCR; return 1; }
-        *out = INTVAL(pos + 1);
-        return 1;
-    }
-    if (!strcmp(fn, "seek") && (nargs == 1 || nargs == 2)) {
-        extern void  fh_ensure_init(void);
-        extern FILE *fh_get(int);
-        if (!IS_INT_fn(args[0]) && !IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
-        fh_ensure_init();
-        FILE *fp = fh_get((int)args[0].i);
-        if (!fp) { *out = FAILDESCR; return 1; }
-        long o = (nargs == 2 && IS_INT_fn(args[1])) ? (long)args[1].i : 1L;
-        int rc = (o > 0) ? fseek(fp, o - 1, SEEK_SET) : fseek(fp, o, SEEK_END);
-        if (rc != 0) { *out = FAILDESCR; return 1; }
-        *out = args[0]; return 1;
     }
     if (!strcmp(fn, "slurp") && nargs == 1) {
         extern void  fh_ensure_init(void);
