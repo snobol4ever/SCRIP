@@ -106,6 +106,55 @@ std::string bb_match_arbno() {
     if (!PLATFORM_X86) return std::string();
     return _.op_tail
              ? bb_match_arbno_tail()
+         : (_.op_arbno_dt && _.op_arbno_dt_susp == 0)
+             /* PS-3 SLICE 2 (s155) RECORD-CARRY DEFER-TAIL — the susp-free form; uniformity gate + recursion barrier DISSOLVED (the FINDING-2026-07-25 slice-2 design, pad ruling A).  The s152 arm's ONE
+              * size-dependent datum was the element entry cursor, stack-parked BELOW the blob and read back over it at [rsp+susp] — requiring the registry-uniform compile-time SUSP.  Here the entry
+              * cursor lives in the flat quad FR(off+4) while the element is IN FLIGHT (β reads it there and leaves it untouched; only ONE element is ever in flight per activation, and recursion is safe
+              * because FR is per-activation by the pinned-rbp contract), and at yield-accept it rides a 16B CARRY RECORD pushed ON TOP of the blob's own frontier record: {[rsp+0]=&L(4) glue,
+              * [rsp+8]=entry cursor} — a JUMPABLE record, so the universal retreat `jmp [rsp+0]` composes: L(4) restores the cursor into FR(off+4), pops itself, and falls through to the blob's record.
+              * The exhaust needs NO arithmetic at all: the blob's ω is the ABSOLUTE `lea rsp,[rbp+kt]` self-release (xa_flat epilogue, pat arm), landing rsp exactly on the previous element's carry
+              * record (or the ARBNO frontier at elem0) — pop = pointer restore, never a size add.  ANY arriving blob admits: unregistered, non-uniform, recursive (*group), even the slow rt_defer path
+              * (whose own {L6} exhaust record is 16B and self-popping — the carry composes over it identically).  σ/count/exhaust bookkeeping mirrors the s152 arm move-for-move. */
+             ? x86("comment", "IR_MATCH_ARBNO_DT (PS-3 s155 record-carry: susp-free, recursion-safe)")
+             + x86_alpha()
+             + x86("mov", FR(_.op_off), "r14d")
+             + x86("mov", FR(_.op_off + 4), "r14d")
+             + x86("mov", FR(_.op_off + 8), 0L)
+             + x86("mov", FRQ(_.op_off + 24), "rsp")
+             + x86_gamma()
+             + x86_beta()
+             + x86("mov", "r14d", FR(_.op_off + 4))
+             + x86("jmp", PAIR(0))
+             + x86("def", PAIR(2))
+             + x86("mov", "eax", FR(_.op_off + 4))
+             + x86("cmp", "r14d", "eax")
+             + x86("je",  PAIR(1))
+             + x86("mov", "rcx", "rax")
+             + x86_lea_id("rax", 4)
+             + x86("sub", "rsp", 16L)
+             + x86("mov", trq(0), "rax")
+             + x86("mov", trq(8), "rcx")
+             + x86("mov", "eax", FR(_.op_off + 8))
+             + x86("add", "eax", 1L)
+             + x86("mov", FR(_.op_off + 8), "eax")
+             + x86("mov", FR(_.op_off + 4), "r14d")
+             + x86_gamma()
+             + x86("def", L(4))
+             + x86("mov", "rax", trq(8))
+             + x86("mov", FR(_.op_off + 4), "eax")
+             + x86("add", "rsp", 16L)
+             + x86_jmp_mem("rsp", 0)
+             + x86("def", PAIR(3))
+             + x86("mov", "ecx", FR(_.op_off + 8))
+             + x86("test", "ecx", "ecx")
+             + x86("jz",  L(2))
+             + x86("sub", "ecx", 1L)
+             + x86("mov", FR(_.op_off + 8), "ecx")
+             + x86("jmp", PAIR(1))
+             + x86("def", L(2))
+             + x86("mov", "r14d", FR(_.op_off))
+             + x86("mov", "rsp", FRQ(_.op_off + 24))
+             + x86_omega()
          : _.op_arbno_dt
              /* PS-3 (s152) DEFER-TAIL (Lon directive: solve ARBNO(*P); ARCH-SNOBOL4 §ARBNO eradication ruling).  The body is ONE write-once prologue-bound defer: its blob SELF-allocates, γ-suspends
               * leaving the 16B {res,rbp} frontier record at [rsp+0] (t1.s ground truth), β = jmp [rsp+0] self-pops, ω restores rsp to the blob's entry frontier sweeping every interior carve (lea
