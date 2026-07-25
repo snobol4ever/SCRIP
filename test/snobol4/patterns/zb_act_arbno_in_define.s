@@ -485,10 +485,22 @@ main_α_body:
  jmp .Lx27_2
 .Lx27_5:
  add rsp, 32
+ lea r11, [rip + g_gc_pending]
+ mov eax, dword ptr [r11 + 0]
+ test eax, eax
+ jne .Lx27_20
+ mov rax, qword ptr [rbp + 560]
+ mov rdx, qword ptr [rbp + 568]
+ lea r10, [rip + g_call_args]
+ mov qword ptr [r10 + 0], rax
+ mov qword ptr [r10 + 8], rdx
+ jmp .Lx27_21
+.Lx27_20:
  mov edi, 0
  mov rsi, qword ptr [rbp + 560]
  mov rdx, qword ptr [rbp + 568]
  call rt_arg_stage@PLT
+.Lx27_21:
  mov rdi, qword ptr [rip + .Lx27_0]
  mov esi, 1
  call rt_proc_call_open@PLT
