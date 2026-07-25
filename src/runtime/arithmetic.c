@@ -206,6 +206,16 @@ static int operand_is_real_str(DESCR_t v) {
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op);
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    if (a.v == DT_I && b.v == DT_I) {
+        switch (op) {
+            case BINOP_ADD: return INTVAL(a.i + b.i);
+            case BINOP_SUB: return INTVAL(a.i - b.i);
+            case BINOP_MUL: return INTVAL(a.i * b.i);
+            case BINOP_DIV: if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i / b.i); break;
+            case BINOP_MOD: if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i % b.i); break;
+            default: break;
+        }
+    }
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl(a, b, op);
     int my = g_core_errjmp_n;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }

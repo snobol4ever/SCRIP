@@ -5010,17 +5010,22 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_ws_strdup(sv); *out = d; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long g_bidprof[1024]; int g_bidprof_on = -1;
+static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_bidprof[i]); }
+void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_bidprof_on) atexit(bidprof_dump); }
+int g_bidjmp_on = 1;
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
-        DATBLK_t *idb = args[0].u->type;
-        for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && !strcmp(idb->fields[fi], fn)) {
+        DATBLK_t *idb = args[0].u->type; const char _f0 = fn ? fn[0] : 0;
+        for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) {
             extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
             *out = dat_field_get(fn, args[0]); return 1;
         }
     }
     if (!fn || !out) return 0;
     const int _bid = bid_of(fn, (unsigned)strlen(fn));
+    { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
     dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0;
     if (!dtax_off()) { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; }
       if (!*_q && _dxl) { _dx = &g_dtax[_dxh & 255u];
@@ -5070,6 +5075,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         case (8u<<8)|'S': if ((_bid == BID_SNOx24NAME) && nargs == 1) _r = bn_sno_name(args, nargs, out); else if ((_bid == BID_SNOx24NRET)) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 1; *out = NULVCL; _r = 1; } break;
         default: break; }
         if (_r >= 0) return _r; } }
+    if (g_bidjmp_on) switch (_bid) { case BID___rk_bool: goto L_bidjmp_5076; case BID___rk_defined: goto L_bidjmp_5087; case BID___rk_dor: goto L_bidjmp_5090; case BID___rk_bool_val: goto L_bidjmp_5093; case BID___pas_chr: goto L_bidjmp_5103; case BID___pas_chrlit: goto L_bidjmp_5109; case BID___pas_enum_name: goto L_bidjmp_5112; case BID___pas_read_i: goto L_bidjmp_5121; case BID___pas_read_c: goto L_bidjmp_5124; case BID___pas_readln: goto L_bidjmp_5127; case BID___pas_eof: goto L_bidjmp_5130; case BID___pas_eoln: goto L_bidjmp_5135; case BID___pas_getbufch: goto L_bidjmp_5149; case BID___pas_trunc: goto L_bidjmp_5152; case BID___pas_abs: goto L_bidjmp_5156; case BID___pas_writeln: goto L_bidjmp_5171; case BID___pas_write: goto L_bidjmp_5171; case BID_write: goto L_bidjmp_5209; case BID_writes: goto L_bidjmp_5209; case BID_integer: goto L_bidjmp_5232; case BID_real: goto L_bidjmp_5264; case BID_string: goto L_bidjmp_5273; case BID_numeric: goto L_bidjmp_5283; case BID_cset: goto L_bidjmp_5320; case BID_ord: goto L_bidjmp_5330; case BID_image: goto L_bidjmp_5336; case BID_args: goto L_bidjmp_5339; case BID_proc: goto L_bidjmp_5385; case BID_repl: goto L_bidjmp_5524; case BID_reverse: goto L_bidjmp_5531; case BID_map: goto L_bidjmp_5537; case BID_trim: goto L_bidjmp_5567; case BID_getenv: goto L_bidjmp_5576; case BID_collect: goto L_bidjmp_5584; case BID_left: goto L_bidjmp_5585; case BID_right: goto L_bidjmp_5613; case BID_center: goto L_bidjmp_5639; case BID_detab: goto L_bidjmp_5671; case BID_entab: goto L_bidjmp_5704; case BID_abs: goto L_bidjmp_5747; case BID_max: goto L_bidjmp_5754; case BID_min: goto L_bidjmp_5765; case BID_sqrt: goto L_bidjmp_5777; case BID_atan: goto L_bidjmp_5791; case BID_log: goto L_bidjmp_5797; case BID_dtor: goto L_bidjmp_5803; case BID_rtod: goto L_bidjmp_5804; case BID_iand: goto L_bidjmp_5805; case BID_ior: goto L_bidjmp_5806; case BID_ixor: goto L_bidjmp_5807; case BID_ishift: goto L_bidjmp_5808; case BID_icom: goto L_bidjmp_5809; case BID_copy: goto L_bidjmp_5811; case BID_list: goto L_bidjmp_5840; case BID_table: goto L_bidjmp_5864; case BID_read: goto L_bidjmp_5874; case BID_reads: goto L_bidjmp_5883; case BID_runerr: goto L_bidjmp_5894; case BID_stop: goto L_bidjmp_5895; case BID_ICN_SCAN_PUSH: goto L_bidjmp_5900; case BID_ICN_SCAN_POP: goto L_bidjmp_5912; case BID_any: goto L_bidjmp_5920; case BID_many: goto L_bidjmp_5938; case BID_upto: goto L_bidjmp_5958; case BID_tab: goto L_bidjmp_5978; case BID_move: goto L_bidjmp_5991; case BID_pos: goto L_bidjmp_6004; case BID_match: goto L_bidjmp_6012; case BID_bal: goto L_bidjmp_6033; case BID_find: goto L_bidjmp_6067; case BID_NONNULL: goto L_bidjmp_6081; case BID_ICN_CASE_EQ: goto L_bidjmp_6088; case BID_ICN_SWAP_TOP2: goto L_bidjmp_6104; case BID_ICN_NULL: goto L_bidjmp_6108; case BID_insert: goto L_bidjmp_6115; case BID_delete: goto L_bidjmp_6124; case BID_member: goto L_bidjmp_6132; case BID_key: goto L_bidjmp_6140; case BID___apply__: goto L_bidjmp_6149; case BID_push: goto L_bidjmp_6162; case BID_put: goto L_bidjmp_6182; case BID_get: goto L_bidjmp_6206; case BID_pop: goto L_bidjmp_6221; case BID_pull: goto L_bidjmp_6236; case BID_sort: goto L_bidjmp_6249; case BID_FIELD_GET: goto L_bidjmp_6322; case BID_FIELD_SET: goto L_bidjmp_6330; case BID_MAKELIST: goto L_bidjmp_6341; case BID_RECORD_REGISTER: goto L_bidjmp_6345; case BID_RECORD_MAKE: goto L_bidjmp_6351; case BID_open: goto L_bidjmp_6361; case BID_remove: goto L_bidjmp_6376; case BID_close: goto L_bidjmp_6381; case BID_IDENTICAL: goto L_bidjmp_6411; case BID_set: goto L_bidjmp_6423; case BID_ASGN: goto L_bidjmp_6439; case BID_name: goto L_bidjmp_6446; case BID_variable: goto L_bidjmp_6462; case BID_SNOx24NAME: goto L_bidjmp_6468; case BID_ARRAY: goto L_bidjmp_6469; case BID_TABLE: goto L_bidjmp_6479; case BID_ITEM: goto L_bidjmp_6484; case BID_PROTOTYPE: goto L_bidjmp_6490; case BID_CONVERT: goto L_bidjmp_6499; case BID_DATA: goto L_bidjmp_6521; case BID_SNOx24KWSET: goto L_bidjmp_6528; case BID_SNOx24STMT: goto L_bidjmp_6534; case BID_SNOx24MKEXPR: goto L_bidjmp_6540; case BID_SNOx24PBK: goto L_bidjmp_6545; case BID_SNOx24PBN: goto L_bidjmp_6546; case BID_SNOx24PB0: goto L_bidjmp_6547; case BID_SNOx24PBC: goto L_bidjmp_6548; case BID_SNOx24PCUR: goto L_bidjmp_6549; case BID_SNOx24PBALT: goto L_bidjmp_6550; case BID_SNOx24PARB: goto L_bidjmp_6551; case BID_SNOx24PFEN: goto L_bidjmp_6552; case BID_SNOx24PDEF: goto L_bidjmp_6553; case BID_SNOx24MKPAT: goto L_bidjmp_6554; case BID_OPSYN: goto L_bidjmp_6563; case BID_CODE: goto L_bidjmp_6567; case BID_EVAL: goto L_bidjmp_6572; case BID_VALUE: goto L_bidjmp_6581; case BID_SNOx24NRET: goto L_bidjmp_6587; case BID_SNOx24WANTNM: goto L_bidjmp_6588; case BID_APPLY: goto L_bidjmp_6589; default: break; }
+    L_bidjmp_5076: ;
     if ((_bid == BID___rk_bool) && nargs == 1) {
         DESCR_t v = args[0];
         int t = 0;
@@ -5081,12 +5088,15 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!t) { *out = FAILDESCR; return 1; }
         *out = v; return 1;
     }
+    L_bidjmp_5087: ;
     if ((_bid == BID___rk_defined) && nargs == 1) {
         DESCR_t v = args[0]; int t = (!IS_FAIL_fn(v)) && (v.v != DT_SNUL); *out = t ? INTVAL(1) : FAILDESCR; return 1;
     }
+    L_bidjmp_5090: ;
     if ((_bid == BID___rk_dor) && nargs == 2) {
         DESCR_t a = args[0]; int def = (!IS_FAIL_fn(a)) && (a.v != DT_SNUL); *out = def ? a : args[1]; return 1;
     }
+    L_bidjmp_5093: ;
     if ((_bid == BID___rk_bool_val) && nargs == 1) {
         DESCR_t v = args[0];
         int t = 0;
@@ -5097,15 +5107,18 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0' && !(s[0]=='0' && s[1]=='\0')); }
         *out = INTVAL(t); return 1;
     }
+    L_bidjmp_5103: ;
     if ((_bid == BID___pas_chr) && nargs == 1) {
         long long cv = IS_INT_fn(args[0]) ? args[0].i : 0;
         if (cv < 0) cv = 0; if (cv > 255) cv = 255;
         char *s = (char *)rt_ws_alloc(2); s[0] = (char)(unsigned char)cv; s[1] = '\0';
         *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
     }
+    L_bidjmp_5109: ;
     if ((_bid == BID___pas_chrlit) && nargs == 1) {
         *out = IS_INT_fn(args[0]) ? args[0] : INTVAL(0); return 1;
     }
+    L_bidjmp_5112: ;
     if ((_bid == BID___pas_enum_name) && nargs == 2) {
         long long ord = IS_INT_fn(args[0]) ? args[0].i : (IS_REAL_fn(args[0]) ? (long long)args[0].r : 0);
         const char *csv = VARVAL_fn(args[1]); if (!csv) csv = "";
@@ -5115,20 +5128,25 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         size_t L = (size_t)(p - st); char *s = (char *)rt_ws_alloc(L + 1); memcpy(s, st, L); s[L] = '\0';
         *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
     }
+    L_bidjmp_5121: ;
     if ((_bid == BID___pas_read_i) && nargs == 0) {
         long long v = 0; scanf(" %lld", &v); *out = INTVAL(v); return 1;
     }
+    L_bidjmp_5124: ;
     if ((_bid == BID___pas_read_c) && nargs == 0) {
         int c = getchar(); if (c == EOF) c = 26; *out = INTVAL((long long)(unsigned char)c); return 1;
     }
+    L_bidjmp_5127: ;
     if ((_bid == BID___pas_readln) && nargs == 0) {
         int c; while ((c = getchar()) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1;
     }
+    L_bidjmp_5130: ;
     if ((_bid == BID___pas_eof) && nargs == 0) {
         int c = getchar();
         if (c == EOF) { *out = INTVAL(1); return 1; }
         ungetc(c, stdin); *out = INTVAL(0); return 1;
     }
+    L_bidjmp_5135: ;
     if ((_bid == BID___pas_eoln) && nargs == 0) {
         int c = getchar();
         if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, stdin); *out = INTVAL(1); return 1; }
@@ -5143,13 +5161,16 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if ((_bid == BID___pas_eoln_f)) { int c = fgetc(f); if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, f); *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
         { int c = fgetc(f); if (c == EOF) { *out = INTVAL((long long)' '); return 1; } ungetc(c, f); *out = INTVAL((long long)(unsigned char)c); return 1; }
     }
+    L_bidjmp_5149: ;
     if ((_bid == BID___pas_getbufch) && nargs == 0) {
         int c = getchar(); if (c == EOF) { *out = INTVAL((long long)' '); return 1; } ungetc(c, stdin); *out = INTVAL((long long)(unsigned char)c); return 1;
     }
+    L_bidjmp_5152: ;
     if ((_bid == BID___pas_trunc) && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
         *out = INTVAL((long long)d); return 1;
     }
+    L_bidjmp_5156: ;
     if ((_bid == BID___pas_abs) && nargs == 1) {
         if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d < 0 ? -d : d; *out = r; return 1; }
         long long v = IS_INT_fn(args[0]) ? args[0].i : 0; *out = INTVAL(v < 0 ? -v : v); return 1;
@@ -5165,6 +5186,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         else                                 r = atan(d);
         DESCR_t rv; rv.v = DT_R; rv.r = r; *out = rv; return 1;
     }
+    L_bidjmp_5171: ;
     if ((_bid == BID___pas_writeln) || (_bid == BID___pas_write)) {
         int nl = (fn[6] == 'w' && fn[7] == 'r' && fn[8] == 'i' && fn[9] == 't' && fn[10] == 'e' && fn[11] == 'l');
         int _start = 0;
@@ -5203,6 +5225,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (nl) fputc('\n', _dest);
         *out = NULVCL; return 1;
     }
+    L_bidjmp_5209: ;
     if ((_bid == BID_write) || (_bid == BID_writes)) {
         { DESCR_t _wv = NV_GET_fn(fn);
           int _is_self_default = (_wv.v == DT_E && _wv.slen == 0xFFFFFFFEu && _wv.s && !strcmp(_wv.s, fn));
@@ -5226,6 +5249,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = nargs > start ? args[nargs-1] : (nargs > 0 ? args[0] : NULVCL);
         return 1;
     }
+    L_bidjmp_5232: ;
     if ((_bid == BID_integer) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_INT_fn(av))  { *out = av; return 1; }
@@ -5258,6 +5282,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (end != s && (*end=='\0'||*end==' ')) { *out = INTVAL((long long)rv); return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_5264: ;
     if ((_bid == BID_real) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_REAL_fn(av)) { *out = av; return 1; }
@@ -5267,6 +5292,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (end != s && (*end=='\0'||*end==' ')) { *out = REALVAL(rv); return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_5273: ;
     if ((_bid == BID_string) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_CSET_fn(av)) { *out = rt_str_coerce(av); return 1; }
@@ -5277,6 +5303,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         else { *out = NULVCL; return 1; }
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5283: ;
     if ((_bid == BID_numeric) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_INT_fn(av)||IS_REAL_fn(av)) { *out = av; return 1; }
@@ -5314,6 +5341,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         char *buf = rt_ws_alloc(2); buf[0]=(char)(n&0xFF); buf[1]='\0';
         *out = BSTRVAL(buf, 1); return 1;
     }
+    L_bidjmp_5320: ;
     if ((_bid == BID_cset) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_CSET_fn(av)) { *out = av; return 1; }
@@ -5324,15 +5352,18 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         else { raw = VARVAL_fn(av); if (!raw) raw = ""; }
         *out = CSETVAL(cset_canonical(raw)); return 1;
     }
+    L_bidjmp_5330: ;
     if ((_bid == BID_ord) && nargs == 1) {
         DESCR_t av = args[0];
         const char *s = VARVAL_fn(av); if (!s||!*s) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
     }
     if (((_bid == BID_type) || (_bid == BID_DATATYPE)) && nargs == 1) return bn_type_datatype(fn, args, nargs, out); 
+    L_bidjmp_5336: ;
     if ((_bid == BID_image) && nargs == 0) {
         *out = STRVAL("&null"); return 1;
     }
+    L_bidjmp_5339: ;
     if ((_bid == BID_args) && nargs == 1) {
         DESCR_t a = args[0];
         if (a.v == DT_E && a.slen == 0xFFFFFFFEu) {
@@ -5379,6 +5410,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_5385: ;
     if ((_bid == BID_proc) && (nargs == 2 || nargs == 1)) {
         const char *pname = VARVAL_fn(args[0]);
         int arity = (nargs >= 2) ? (int)to_int(args[1]) : -1;
@@ -5518,6 +5550,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             { *out = one_out; return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_5524: ;
     if ((_bid == BID_repl) && nargs == 2) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int n=(int)to_int(args[1]); if(n<0)n=0;
@@ -5525,12 +5558,14 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         for(int i=0;i<n;i++) memcpy(buf+i*sl,s,sl); buf[sl*n]='\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5531: ;
     if ((_bid == BID_reverse) && nargs == 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int sl=(int)strlen(s); char *buf=rt_ws_alloc(sl+1);
         for(int i=0;i<sl;i++) buf[i]=s[sl-1-i]; buf[sl]='\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5537: ;
     if ((_bid == BID_map) && nargs >= 1 && nargs <= 3) {
         static const char *UCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         static const char *LCASE = "abcdefghijklmnopqrstuvwxyz";
@@ -5561,6 +5596,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         buf[sl]='\0'; *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5567: ;
     if ((_bid == BID_trim) && (nargs == 1 || nargs == 2)) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         const char *cset = " ";
@@ -5570,6 +5606,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         char *buf=rt_ws_alloc(sl+1); memcpy(buf,s,sl); buf[sl]='\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5576: ;
     if ((_bid == BID_getenv) && nargs == 1) {
         const char *name = VARVAL_fn(args[0]);
         if (!name) { *out = FAILDESCR; return 1; }
@@ -5578,7 +5615,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         size_t vl = strlen(val); char *buf = rt_ws_alloc(vl+1); memcpy(buf, val, vl); buf[vl] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5584: ;
     if ((_bid == BID_collect) && nargs <= 2) { extern long rt_gc_collect(void); rt_gc_collect(); *out = NULVCL; return 1; }
+    L_bidjmp_5585: ;
     if ((_bid == BID_left) && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int sl=(int)strlen(s);
@@ -5607,6 +5646,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         buf[n]='\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5613: ;
     if ((_bid == BID_right) && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int sl=(int)strlen(s);
@@ -5633,6 +5673,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         buf[n]='\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5639: ;
     if ((_bid == BID_center) && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int sl=(int)strlen(s);
@@ -5665,6 +5706,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = STRVAL(buf); return 1;
     }
     if (((_bid == BID_detab) || (_bid == BID_entab)) && nargs == 0) { core_icn_error(103, NULVCL); *out = FAILDESCR; return 1; }
+    L_bidjmp_5671: ;
     if ((_bid == BID_detab) && nargs >= 1) {
         if (args[0].v == DT_I || args[0].v == DT_R) { *out = FAILDESCR; return 1; }
         if (args[0].v == DT_A || args[0].v == DT_T || args[0].v == DT_DATA) { core_icn_error(103, args[0]); *out = FAILDESCR; return 1; }
@@ -5698,6 +5740,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         buf[bi]='\0'; *out=STRVAL(buf); return 1;
     }
+    L_bidjmp_5704: ;
     if ((_bid == BID_entab) && nargs >= 1) {
         if (args[0].v == DT_I || args[0].v == DT_R) { *out = FAILDESCR; return 1; }
         if (args[0].v == DT_A || args[0].v == DT_T || args[0].v == DT_DATA) { core_icn_error(103, args[0]); *out = FAILDESCR; return 1; }
@@ -5741,6 +5784,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         buf[bi]='\0'; *out=STRVAL(buf); return 1;
     }
+    L_bidjmp_5747: ;
     if ((_bid == BID_abs) && nargs == 1) {
         extern void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes);
         DESCR_t av = args[0]; DESCR_t nv;
@@ -5748,6 +5792,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_REAL_fn(nv)) { *out = REALVAL(fabs(nv.r)); return 1; }
         *out = INTVAL(nv.i < 0 ? -nv.i : nv.i); return 1;
     }
+    L_bidjmp_5754: ;
     if ((_bid == BID_max) && nargs >= 2) {
         DESCR_t best = args[0];
         for (int _j = 1; _j < nargs; _j++) {
@@ -5759,6 +5804,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = best; return 1;
     }
+    L_bidjmp_5765: ;
     if ((_bid == BID_min) && nargs >= 2) {
         DESCR_t best = args[0];
         for (int _j = 1; _j < nargs; _j++) {
@@ -5771,6 +5817,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = best; return 1;
     }
 #define TONUM(av) (IS_REAL_fn(av) ? (av).r : IS_INT_fn(av) ? (double)(av).i : ((av).v==DT_S && (av).s ? strtod((av).s,NULL) : 0.0))
+    L_bidjmp_5777: ;
     if ((_bid == BID_sqrt) && nargs >= 1) {
         DESCR_t av = args[0];
         double v = TONUM(av);
@@ -5785,26 +5832,36 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     MATH1("acos", acos)
     MATH1("exp",  exp)
 #undef MATH1
+    L_bidjmp_5791: ;
     if ((_bid == BID_atan) && nargs >= 1) {
         double v = TONUM(args[0]);
         if (nargs >= 2 && args[1].v != DT_SNUL) { double v2 = TONUM(args[1]); *out = REALVAL(atan2(v,v2)); }
         else *out = REALVAL(atan(v));
         return 1;
     }
+    L_bidjmp_5797: ;
     if ((_bid == BID_log) && nargs >= 1) {
         double v = TONUM(args[0]);
         if (nargs >= 2 && args[1].v != DT_SNUL) { double base = TONUM(args[1]); *out = REALVAL(log(v)/log(base)); }
         else *out = REALVAL(log(v));
         return 1;
     }
+    L_bidjmp_5803: ;
     if ((_bid == BID_dtor) && nargs >= 1) { double v=TONUM(args[0]); *out=REALVAL(v*3.14159265358979323846/180.0); return 1; }
+    L_bidjmp_5804: ;
     if ((_bid == BID_rtod) && nargs >= 1) { double v=TONUM(args[0]); *out=REALVAL(v*180.0/3.14159265358979323846); return 1; }
+    L_bidjmp_5805: ;
     if ((_bid == BID_iand)  && nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(a&b); return 1; }
+    L_bidjmp_5806: ;
     if ((_bid == BID_ior)   && nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(a|b); return 1; }
+    L_bidjmp_5807: ;
     if ((_bid == BID_ixor)  && nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(a^b); return 1; }
+    L_bidjmp_5808: ;
     if ((_bid == BID_ishift)&& nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(b>=0?a<<b:a>>(-b)); return 1; }
+    L_bidjmp_5809: ;
     if ((_bid == BID_icom)  && nargs==1) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r; *out=INTVAL(~a); return 1; }
 #undef TONUM
+    L_bidjmp_5811: ;
     if ((_bid == BID_copy) && nargs == 1) {
         DESCR_t src = args[0];
         if (src.v == DT_T && src.tbl) {
@@ -5834,6 +5891,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = src; return 1;
     }
+    L_bidjmp_5840: ;
     if ((_bid == BID_list) && nargs >= 0) {
         int n = 0;
         DESCR_t init = NULVCL;
@@ -5858,6 +5916,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
         return 1;
     }
+    L_bidjmp_5864: ;
     if ((_bid == BID_table) && nargs <= 2) {
         TBBLK_t *tbl = table_new();
         if (nargs == 1) {
@@ -5868,6 +5927,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = tbl;
         *out = d; return 1;
     }
+    L_bidjmp_5874: ;
     if ((_bid == BID_read) && nargs == 0) {
         char buf[4096];
         if (!fgets(buf, sizeof buf, stdin)) { *out = FAILDESCR; return 1; }
@@ -5877,6 +5937,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         char *r = rt_ws_alloc(len + 1); memcpy(r, buf, len + 1);
         *out = STRVAL(r); return 1;
     }
+    L_bidjmp_5883: ;
     if ((_bid == BID_reads) && nargs == 1 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0]))) {
         DESCR_t nd = args[0];
         int n = (int)to_int(nd);
@@ -5888,12 +5949,15 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
         *out = r; return 1;
     }
+    L_bidjmp_5894: ;
     if ((_bid == BID_runerr) && nargs >= 1) { long long _ec = IS_INT_fn(args[0]) ? (long long)args[0].i : 500; fprintf(stderr, "Run-time error %lld\n", _ec); if (nargs >= 2) { DESCR_t _im = FAILDESCR; if (try_call_builtin_by_name("image", args + 1, 1, &_im) && !IS_FAIL_fn(_im)) { const char *_is = VARVAL_fn(_im); fprintf(stderr, "offending value: %s\n", _is ? _is : ""); } } exit(1); }   /* fmisc.r runerr(i,x): error termination — abnormal path, exits 1 (unlike stop's held rc-0) */
+    L_bidjmp_5895: ;
     if ((_bid == BID_stop)) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(0); }   /* fmisc.r stop(): write args to &errout then exit (status kept 0 this session — rc-flip audited separately) */
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;
     extern ScanEntry   scan_stack[];
+    L_bidjmp_5900: ;
     if ((_bid == BID_ICN_SCAN_PUSH) && nargs == 1) {
         const char *s;
         if (IS_REAL_fn(args[0])) { char _rb[64]; real_str(args[0].r,_rb,sizeof _rb); s = rt_ws_strdup(_rb); }
@@ -5906,6 +5970,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         scan_subj = rt_ws_strdup(s); scan_pos = 1;
         *out = args[0]; return 1;
     }
+    L_bidjmp_5912: ;
     if ((_bid == BID_ICN_SCAN_POP) && nargs == 1) {
         if (scan_depth > 0) {
             scan_depth--;
@@ -5914,6 +5979,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = args[0]; return 1;
     }
+    L_bidjmp_5920: ;
     if ((_bid == BID_any) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
         if (nargs >= 2) {
@@ -5932,6 +5998,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (p0 < 0 || p0 >= slen || !strchr(cv, scan_subj[p0])) { *out = FAILDESCR; return 1; }
         *out = INTVAL(p0 + 2); return 1;
     }
+    L_bidjmp_5938: ;
     if ((_bid == BID_many) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
         if (nargs >= 2) {
@@ -5952,6 +6019,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         while (p0 < slen && strchr(cv, scan_subj[p0])) p0++;
         *out = INTVAL(p0 + 1); return 1;
     }
+    L_bidjmp_5958: ;
     if ((_bid == BID_upto) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
         if (nargs >= 2) {
@@ -5972,6 +6040,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (p0 >= slen) { *out = FAILDESCR; return 1; }
         *out = INTVAL(p0 + 1); return 1;
     }
+    L_bidjmp_5978: ;
     if ((_bid == BID_tab) && nargs == 1 && scan_pos > 0) {
         if (!scan_subj) { *out = FAILDESCR; return 1; }
         int slen = (int)strlen(scan_subj);
@@ -5985,6 +6054,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         memcpy(buf, scan_subj + lo - 1, len); buf[len] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_5991: ;
     if ((_bid == BID_move) && nargs == 1 && scan_pos > 0) {
         if (!scan_subj) { *out = FAILDESCR; return 1; }
         int slen = (int)strlen(scan_subj);
@@ -5998,6 +6068,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         memcpy(buf, scan_subj + lo - 1, len); buf[len] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    L_bidjmp_6004: ;
     if ((_bid == BID_pos) && nargs == 1 && scan_pos > 0) {
         if (!scan_subj) { *out = FAILDESCR; return 1; }
         int slen = (int)strlen(scan_subj);
@@ -6006,6 +6077,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (target < 1 || target > slen + 1 || target != scan_pos) { *out = FAILDESCR; return 1; }
         *out = INTVAL(target); return 1;
     }
+    L_bidjmp_6012: ;
     if ((_bid == BID_match) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *pat = VARVAL_fn(args[0]); if (!pat) { *out = FAILDESCR; return 1; }
         if (nargs >= 2) {
@@ -6027,6 +6099,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (p0 + plen > slen || strncmp(scan_subj + p0, pat, plen) != 0) { *out = FAILDESCR; return 1; }
         *out = INTVAL(scan_pos + plen); return 1;
     }
+    L_bidjmp_6033: ;
     if ((_bid == BID_bal) && (scan_pos > 0 || nargs >= 4)) {
         const char *c1 = 0; int c1len = 0; int c1any = 0;
         if (nargs < 1 || IS_FAIL_fn(args[0]) || args[0].v == DT_SNUL) c1any = 1;
@@ -6061,6 +6134,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = FAILDESCR;
         return 1;
     }
+    L_bidjmp_6067: ;
     if ((_bid == BID_find) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *needle = VARVAL_fn(args[0]); if (!needle) { *out = FAILDESCR; return 1; }
         const char *hay    = (nargs >= 2) ? VARVAL_fn(args[1]) : (const char *)0; if (!hay) hay = scan_subj ? scan_subj : "";
@@ -6075,6 +6149,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6081: ;
     if ((_bid == BID_NONNULL) && nargs == 1) {
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v))  { *out = FAILDESCR; return 1; }
@@ -6082,6 +6157,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (v.v == DT_S && (!v.s || v.s[0]=='\0')) { *out = FAILDESCR; return 1; }
         *out = v; return 1;
     }
+    L_bidjmp_6088: ;
     if ((_bid == BID_ICN_CASE_EQ) && nargs == 2) {
         DESCR_t topic = args[0], val = args[1];
         if (IS_FAIL_fn(topic) || IS_FAIL_fn(val)) { *out = FAILDESCR; return 1; }
@@ -6098,10 +6174,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = eq ? val : FAILDESCR; return 1;
     }
+    L_bidjmp_6104: ;
     if ((_bid == BID_ICN_SWAP_TOP2) && nargs == 2) {
         *out = args[0];
         return 1;
     }
+    L_bidjmp_6108: ;
     if ((_bid == BID_ICN_NULL) && nargs == 1) {
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v))  { *out = FAILDESCR; return 1; }
@@ -6109,6 +6187,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (v.v == DT_S && (!v.s || v.s[0]=='\0')) { *out = NULVCL; return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6115: ;
     if ((_bid == BID_insert) && nargs >= 1) {
         DESCR_t td = args[0];
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
@@ -6118,6 +6197,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         table_set_descr(td.tbl, ks, kd, vd);
         *out = td; return 1;
     }
+    L_bidjmp_6124: ;
     if ((_bid == BID_delete) && nargs >= 1) {
         DESCR_t td = args[0];
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
@@ -6126,6 +6206,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         table_delete(td.tbl, ks);
         *out = td; return 1;
     }
+    L_bidjmp_6132: ;
     if ((_bid == BID_member) && nargs >= 1) {
         DESCR_t td = args[0];
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
@@ -6134,6 +6215,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!table_has(td.tbl,ks)) { *out=FAILDESCR; return 1; }
         *out = table_get(td.tbl, ks); return 1;
     }
+    L_bidjmp_6140: ;
     if ((_bid == BID_key) && nargs == 1) {
         DESCR_t td = args[0];
         if (td.v != DT_T || !td.tbl) { *out=FAILDESCR; return 1; }
@@ -6143,6 +6225,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6149: ;
     if ((_bid == BID___apply__) && nargs == 2) {
         DESCR_t callee = args[0]; DESCR_t lv = args[1];
         if (lv.v == DT_DATA) {
@@ -6156,6 +6239,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         { DESCR_t a1 = lv; *out = rt_call_value(callee, &a1, 1); return 1; }
     }
+    L_bidjmp_6162: ;
     if ((_bid == BID_push) && nargs >= 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
@@ -6176,6 +6260,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = ld; return 1;
     }
+    L_bidjmp_6182: ;
     if ((_bid == BID_put) && nargs >= 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
@@ -6200,6 +6285,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = ld; return 1;
     }
+    L_bidjmp_6206: ;
     if ((_bid == BID_get) && nargs == 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
@@ -6215,6 +6301,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         { DESCR_t capd=FIELD_GET_fn(ld,"frame_cap"); if(capd.v==DT_I&&capd.i>0) FIELD_SET_fn(ld,"frame_cap",INTVAL(capd.i-1)); }
         *out = ret; return 1;
     }
+    L_bidjmp_6221: ;
     if ((_bid == BID_pop) && nargs == 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
@@ -6230,6 +6317,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         { DESCR_t capd=FIELD_GET_fn(ld,"frame_cap"); if(capd.v==DT_I&&capd.i>0) FIELD_SET_fn(ld,"frame_cap",INTVAL(capd.i-1)); }
         *out = ret; return 1;
     }
+    L_bidjmp_6236: ;
     if ((_bid == BID_pull) && nargs == 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
@@ -6243,6 +6331,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
         *out = ret; return 1;
     }
+    L_bidjmp_6249: ;
     if ((_bid == BID_sort) && nargs >= 1 && args[0].v == DT_T && args[0].tbl) {
         /* fsort.r table sort: i=1,2 -> list of [key,val] pairs; i=3,4 -> flat k,v,k,v; odd sorts by key, even by value. Default i=1. */
         TBBLK_t *tb = args[0].tbl;
@@ -6316,6 +6405,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         FIELD_SET_fn(res,"frame_cap",INTVAL(n));
         *out=res; return 1;
     }
+    L_bidjmp_6322: ;
     if ((_bid == BID_FIELD_GET) && nargs == 2) {
         DESCR_t obj  = args[0];
         DESCR_t fname_d = args[1];
@@ -6324,6 +6414,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
         *out = dat_field_get(fname, obj); return 1;
     }
+    L_bidjmp_6330: ;
     if ((_bid == BID_FIELD_SET) && nargs == 3) {
         DESCR_t val    = args[0];
         DESCR_t obj    = args[1];
@@ -6335,16 +6426,19 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (cell) { *cell = val; *out = val; return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6341: ;
     if ((_bid == BID_MAKELIST)) {
         extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
         *out = rt_make_list(args, nargs); return 1;
     }
+    L_bidjmp_6345: ;
     if ((_bid == BID_RECORD_REGISTER) && nargs >= 1) {
         extern void record_register(const char *spec);
         const char *spec = VARVAL_fn(args[0]);
         if (spec && *spec) record_register(spec);
         *out = NULVCL; return 1;
     }
+    L_bidjmp_6351: ;
     if ((_bid == BID_RECORD_MAKE) && nargs >= 1) {
         const char *rname = VARVAL_fn(args[0]);
         if (!rname || !*rname) { *out=FAILDESCR; return 1; }
@@ -6355,6 +6449,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         for (int _j=0;_j<nf&&_j<FRAME_SLOT_MAX;_j++) fargs[_j]=args[1+_j];
         *out = dat_construct(_dt, fargs, nf); return 1;
     }
+    L_bidjmp_6361: ;
     if ((_bid == BID_open) && (nargs == 1 || nargs == 2)) {
         const char *path = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
         if (!path) { *out = FAILDESCR; return 1; }
@@ -6370,11 +6465,13 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_ws_strdup(path);
         *out = FHVAL(idx); return 1;
     }
+    L_bidjmp_6376: ;
     if ((_bid == BID_remove) && nargs == 1) {
         const char *_rp = VARVAL_fn(args[0]); if (!_rp) _rp = "";
         if (unlink(_rp) == 0) { *out = NULVCL; return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6381: ;
     if ((_bid == BID_close) && nargs == 1) {
         if (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) {
             int idx = (int)args[0].i;
@@ -6405,6 +6502,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
         *out = r; return 1;
     }
+    L_bidjmp_6411: ;
     if ((_bid == BID_IDENTICAL) && nargs == 2) {
         DESCR_t a = args[0], b = args[1];
         int same = (a.v == b.v);
@@ -6417,6 +6515,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = same ? b : FAILDESCR; return 1;
     }
+    L_bidjmp_6423: ;
     if ((_bid == BID_set) && nargs <= 1) {
         TBBLK_t *tbl = table_new();
         tbl->is_set = 1;
@@ -6433,6 +6532,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = TABLE_VAL(tbl); return 1;
     }
+    L_bidjmp_6439: ;
     if ((_bid == BID_ASGN) && nargs == 2) {
         DESCR_t rhs = args[0];
         if (IS_FAIL_fn(rhs)) { *out = FAILDESCR; return 1; }
@@ -6440,6 +6540,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (lref.v == DT_S && lref.s) NV_SET_fn(lref.s, rhs);
         *out = rhs; return 1;
     }
+    L_bidjmp_6446: ;
     if ((_bid == BID_name) && nargs == 1) {
         DESCR_t a = args[0];
         if (a.v == DT_N && a.slen == 0 && a.s && *a.s) { *out = STRVAL(rt_ws_strdup_c(a.s)); return 1; }
@@ -6456,13 +6557,16 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6462: ;
     if ((_bid == BID_variable) && nargs == 1) {
         const char *vname = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
         if (!vname) { *out = FAILDESCR; return 1; }
         DESCR_t v = NV_GET_fn(vname);
         *out = IS_FAIL_fn(v) ? FAILDESCR : v; return 1;
     }
+    L_bidjmp_6468: ;
     if ((_bid == BID_SNOx24NAME) && nargs == 1) return bn_sno_name(args, nargs, out); 
+    L_bidjmp_6469: ;
     if ((_bid == BID_ARRAY) && nargs >= 1) {
         extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
         DESCR_t init = (nargs >= 2) ? args[1] : NULVCL;
@@ -6473,17 +6577,20 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_ws_strdup(proto);
         *out = r; return 1;
     }
+    L_bidjmp_6479: ;
     if ((_bid == BID_TABLE) && nargs <= 3) {
         TBBLK_t *tb = table_new();
         DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_T; d.slen = 0; d.tbl = tb;
         *out = d; return 1;
     }
+    L_bidjmp_6484: ;
     if ((_bid == BID_ITEM) && nargs >= 2) {
         extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx); extern DESCR_t rt_deref(DESCR_t v);
         DESCR_t cur = args[0];
         for (int k = 1; k < nargs; k++) { cur = rt_subscript_var(cur, args[k]); if (IS_FAIL_fn(cur)) { *out = FAILDESCR; return 1; } }
         *out = rt_deref(cur); return 1;
     }
+    L_bidjmp_6490: ;
     if ((_bid == BID_PROTOTYPE) && nargs == 1) {
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *a = (ARBLK_t *)args[0].arr;
@@ -6493,6 +6600,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6499: ;
     if ((_bid == BID_CONVERT) && nargs == 2) {
         char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
         char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
@@ -6515,6 +6623,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_ws_strdup_c(sv ? sv : "")); return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6521: ;
     if ((_bid == BID_DATA) && nargs == 1) {
         extern DatType *dat_register(const char *spec);
         const char *sp = VARVAL_fn(args[0]); if (!sp || !*sp) { *out = FAILDESCR; return 1; }
@@ -6522,32 +6631,45 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (!dat_find_type(nb)) dat_register(sp);
         *out = NULVCL; return 1;
     }
+    L_bidjmp_6528: ;
     if ((_bid == BID_SNOx24KWSET) && nargs == 2) {
         extern void rt_keyword_write_snobol4(const char *sval, DESCR_t v);
         char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
         rt_keyword_write_snobol4(kn ? kn : "", args[1]);
         *out = args[1]; return 1;
     }
+    L_bidjmp_6534: ;
     if ((_bid == BID_SNOx24STMT) && nargs == 1) {
         extern void rt_stmt_enter(long stno);
         long n = IS_INT(args[0]) ? (long)args[0].i : 0;
         rt_stmt_enter(n);
         *out = NULVCL; return 1;
     }
+    L_bidjmp_6540: ;
     if ((_bid == BID_SNOx24MKEXPR) && nargs == 1) {
         const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
         DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = rt_ws_strdup(nm);
         *out = xd; return 1;
     }
+    L_bidjmp_6545: ;
     if ((_bid == BID_SNOx24PBK) && nargs == 2) { extern DESCR_t pat_mk_cset(int, const char *); *out = pat_mk_cset((int)to_int(args[0]), VARVAL_fn(args[1])); return 1; }
+    L_bidjmp_6546: ;
     if ((_bid == BID_SNOx24PBN) && nargs == 2) { extern DESCR_t pat_mk_num(int, int64_t); *out = pat_mk_num((int)to_int(args[0]), to_int(args[1])); return 1; }
+    L_bidjmp_6547: ;
     if ((_bid == BID_SNOx24PB0) && nargs == 1) { extern DESCR_t pat_mk_nil(int); *out = pat_mk_nil((int)to_int(args[0])); return 1; }
+    L_bidjmp_6548: ;
     if ((_bid == BID_SNOx24PBC) && nargs == 3) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); *out = pat_mk_capt((int)to_int(args[0]), VARVAL_fn(args[1]), args[2]); return 1; }
+    L_bidjmp_6549: ;
     if ((_bid == BID_SNOx24PCUR) && nargs == 1) { extern DESCR_t pat_mk_cursor(const char *); *out = pat_mk_cursor(VARVAL_fn(args[0])); return 1; }
+    L_bidjmp_6550: ;
     if ((_bid == BID_SNOx24PBALT) && nargs == 2) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); *out = pat_alt(args[0], args[1]); return 1; }
+    L_bidjmp_6551: ;
     if ((_bid == BID_SNOx24PARB) && nargs == 1) { extern DESCR_t pat_arbno(DESCR_t); *out = pat_arbno(args[0]); return 1; }
+    L_bidjmp_6552: ;
     if ((_bid == BID_SNOx24PFEN) && nargs == 1) { extern DESCR_t pat_fence_p(DESCR_t); *out = pat_fence_p(args[0]); return 1; }
+    L_bidjmp_6553: ;
     if ((_bid == BID_SNOx24PDEF) && nargs == 1) { extern DESCR_t pat_defer(const char *); *out = pat_defer(VARVAL_fn(args[0])); return 1; }
+    L_bidjmp_6554: ;
     if ((_bid == BID_SNOx24MKPAT) && nargs == 1) {
         extern void *rt_proc_get_fn(const char *name);
         const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
@@ -6557,15 +6679,18 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));   /* PS-1b (s151): zstatic now real on the live SNO$MKPAT path -- registered at emit from emit_graph_zstatic (mode-3 direct, mode-4 printed startup), no longer the placeholder 0 */
         *out = pd; return 1;
     }
+    L_bidjmp_6563: ;
     if ((_bid == BID_OPSYN) && nargs >= 2) {
         extern DESCR_t opsyn(DESCR_t, DESCR_t, DESCR_t);
         *out = opsyn(args[0], args[1], nargs > 2 ? args[2] : NULVCL); return 1;
     }
+    L_bidjmp_6567: ;
     if ((_bid == BID_CODE) && nargs == 1) {
         extern DESCR_t code(const char *);
         const char *cs = VARVAL_fn(args[0]);
         *out = cs ? code(cs) : FAILDESCR; return 1;
     }
+    L_bidjmp_6572: ;
     if ((_bid == BID_EVAL) && nargs == 1) {
         extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
         DESCR_t av = args[0];
@@ -6575,14 +6700,18 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (av.v == DT_S) { extern DESCR_t EVAL_fn(DESCR_t); *out = EVAL_fn(av); return 1; }
         *out = FAILDESCR; return 1;
     }
+    L_bidjmp_6581: ;
     if ((_bid == BID_VALUE) && nargs == 1) {
         extern DESCR_t NV_GET_fn(const char *); extern DESCR_t rt_deref(DESCR_t);
         if (args[0].v == DT_N) { *out = rt_deref(args[0]); return 1; }
         const char *nm = VARVAL_fn(args[0]); if (!nm || !*nm) { *out = FAILDESCR; return 1; }
         *out = NV_GET_fn(nm); return 1;
     }
+    L_bidjmp_6587: ;
     if ((_bid == BID_SNOx24NRET)) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 1; *out = NULVCL; return 1; }
+    L_bidjmp_6588: ;
     if ((_bid == BID_SNOx24WANTNM)) { extern int rt_g_want_name; rt_g_want_name = 1; *out = NULVCL; return 1; }
+    L_bidjmp_6589: ;
     if ((_bid == BID_APPLY) && nargs >= 1) {
         const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
         if (!pn || !*pn) { *out = FAILDESCR; return 1; }
