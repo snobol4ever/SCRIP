@@ -35,5 +35,5 @@ for f in "${ALL[@]}"; do head -1 "$f" 2>/dev/null | grep -q '\.intel_syntax' && 
 LOCAL='^(proc_|xchain|snoch|xcat|alt[0-9]|dol[0-9]|smatch|xscan|xgvarg|xcap|fn_|P_|L_|Ln_|s_|g_|m_|a_|arb[0-9]|ucall|flat_|main_|vowelinstem|stemmer|cons_|cvc_|doublec_|record_register|execute_code_dyn|comm_stno|qword|r[0-9a-z]{1,3}$|scan_retry)'
 printf '# RTX symbol inventory — generated %s from %d LIVE .s artifacts (of %d found) under %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${#FILES[@]}" "${#ALL[@]}" "$CORPUS"
 printf '# count symbol   (count = static call/jmp sites across all artifacts, NOT dynamic weight)\n'
-grep -ohE '(call|jmp)[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' "${FILES[@]}" 2>/dev/null \
-  | awk '{print $2}' | grep -vE "$LOCAL" | sort | uniq -c | sort -rn
+grep -ohE '(call|jmp)[[:space:]]+[A-Za-z_][^[:space:],;()#]*' "${FILES[@]}" 2>/dev/null \
+  | awk '{print $2}' | sed -e 's/[@]PLT$//' | grep -vE "$LOCAL" | sort | uniq -c | sort -rn
