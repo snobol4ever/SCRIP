@@ -251,7 +251,7 @@ int pl_builtin_is_known(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_is_truthy(DESCR_t v) {
+int c_rt_is_truthy(DESCR_t v) {
     if (IS_FAIL_fn(v)) return 0;
     if (IS_INT_fn(v))  return v.i != 0;
     if (IS_REAL_fn(v)) return v.r != 0.0;
