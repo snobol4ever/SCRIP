@@ -40,19 +40,19 @@ xchain0_n0_af:
  mov eax, r14d
  add eax, 5
  cmp eax, r15d
- jg xchain0_n0_af
+ jg proc_PAT$0_ω
  movsxd rcx, r14d
  mov edx, dword ptr [r13+rcx]
  cmp edx, 1701344288
- jne xchain0_n0_af
+ jne proc_PAT$0_ω
  movzx eax, byte ptr [r13+rcx+4]
  cmp eax, 32
- jne xchain0_n0_af
+ jne proc_PAT$0_ω
  add r14d, 5
  jmp xchain0_n2_α
  xchain0_n1_β:
  sub r14d, 5
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 # IR_MATCH_CAPTURE_SAVE fc cell
  xchain0_n2_α:
  sub rsp, 16
@@ -87,7 +87,7 @@ xchain0_n4_s0:
 xchain0_n4_s1:
  jmp xchain0_n4_as
 xchain0_n4_as:
- jmp xchain0_n0_as
+ jmp proc_PAT$0_γ
  xchain0_n4_β:
  mov eax, dword ptr [rsp + 4]
  cmp eax, 0

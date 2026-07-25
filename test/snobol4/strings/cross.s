@@ -301,7 +301,7 @@ xchain0_n13_af:
  call rt_at_cursor@PLT
  jmp xchain0_n16_α
  xchain0_n15_β:
- jmp xchain0_n13_af
+ jmp xchain0_n12_β
 # IR_MATCH_CAPTURE_SAVE fc cell
  xchain0_n16_α:
  sub rsp, 16
@@ -321,7 +321,7 @@ xchain0_n13_af:
  sub edx, eax
  mov qword ptr [r12 + 16], rdx
  add r12, 24
- jmp xchain0_n13_as
+ jmp xchain0_n14_α
  xchain0_n17_β:
  sub r12, 24
  jmp xchain0_n19_β
@@ -508,7 +508,7 @@ xchain0_n25_af:
  call rt_at_cursor@PLT
  jmp xchain0_n28_α
  xchain0_n27_β:
- jmp xchain0_n25_af
+ jmp xchain0_n24_β
 # IR_MATCH_DEFER (ZS-2 jmp-entry)
  xchain0_n28_α:
  mov rax, qword ptr [1879052352]
@@ -531,7 +531,7 @@ xchain0_n25_af:
  lea rdx, [rip + .Lx41_5]
  jmp rax
 .Lx41_4:
- jmp xchain0_n25_as
+ jmp xchain0_n26_α
 .Lx41_5:
  jmp xchain0_n27_β
 .Lx41_0:
@@ -574,7 +574,7 @@ xchain0_n25_af:
  lea rax, [rip + .Lx41_6]
  sub rsp, 8
  push rax
- jmp xchain0_n25_as
+ jmp xchain0_n26_α
 .Lx41_6:
  add rsp, 16
  jmp xchain0_n27_β
@@ -846,21 +846,21 @@ xchain0_n42_af:
  xchain0_n45_α:
  mov rax, qword ptr [rbp + 1160]
  cmp r14d, eax
- jne xchain0_n42_af
+ jne xchain0_n40_β
  jmp xchain0_n46_α
  xchain0_n45_β:
- jmp xchain0_n42_af
+ jmp xchain0_n40_β
 # IR_MATCH_LEN
  xchain0_n46_α:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n42_af
+ jg xchain0_n40_β
  add r14d, 1
- jmp xchain0_n42_as
+ jmp xchain0_n44_α
  xchain0_n46_β:
  sub r14d, 1
- jmp xchain0_n42_af
+ jmp xchain0_n40_β
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n47_α:
  mov eax, dword ptr [rsp + 0]

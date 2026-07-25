@@ -196,7 +196,7 @@ xchain0_n5_af:
  mov qword ptr [rbp + 248], rax
  jmp xchain0_n9_α
  xchain0_n8_β:
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 .Lx12_0:
  .quad 2
 # IR_MATCH_RPOS
@@ -205,10 +205,10 @@ xchain0_n5_af:
  mov ecx, r15d
  sub ecx, eax
  cmp r14d, ecx
- jne xchain0_n5_af
+ jne xchain0_n3_β
  jmp xchain0_n10_α
  xchain0_n9_β:
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 # IR_MATCH_CAPTURE_SAVE fc cell
  xchain0_n10_α:
  sub rsp, 16
@@ -216,7 +216,7 @@ xchain0_n5_af:
  jmp xchain0_n13_α
  xchain0_n10_β:
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n11_α:
  mov eax, dword ptr [rsp + 0]
@@ -228,7 +228,7 @@ xchain0_n5_af:
  sub edx, eax
  mov qword ptr [r12 + 16], rdx
  add r12, 24
- jmp xchain0_n5_as
+ jmp xchain0_n7_α
  xchain0_n11_β:
  sub r12, 24
  jmp xchain0_n13_β
@@ -248,14 +248,14 @@ xchain0_n5_af:
  cmp eax, r15d
  jle .Lx19_240
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 .Lx19_240:
  add r14d, 2
  jmp xchain0_n11_α
  xchain0_n13_β:
  sub r14d, 2
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 # IR_ASSIGN global
  xchain0_n14_α:
  mov rsi, qword ptr [rbp + 432]

@@ -46,17 +46,17 @@ xchain0_n0_af:
  mov qword ptr [rbp + 56], rax
  jmp xchain0_n2_α
  xchain0_n1_β:
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 .Lx3_0:
  .quad 0
 # IR_MATCH_POS
  xchain0_n2_α:
  mov rax, 0
  cmp r14d, eax
- jne xchain0_n0_af
+ jne proc_PAT$0_ω
  jmp xchain0_n3_α
  xchain0_n2_β:
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 # IR_MATCH_CAPTURE_SAVE fc cell
  xchain0_n3_α:
  sub rsp, 16
@@ -64,7 +64,7 @@ xchain0_n0_af:
  jmp xchain0_n11_α
  xchain0_n3_β:
  add rsp, 16
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n4_α:
  mov eax, dword ptr [rsp + 16]
@@ -140,7 +140,7 @@ xchain0_n8_af:
  sub edx, eax
  mov qword ptr [r12 + 16], rdx
  add r12, 24
- jmp xchain0_n0_as
+ jmp proc_PAT$0_γ
  xchain0_n10_β:
  sub r12, 24
  jmp xchain0_n17_β
@@ -153,7 +153,7 @@ xchain0_n8_af:
  jl .Lx22_237
  add rsp, 16
  add rsp, 16
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 .Lx22_237:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -163,7 +163,7 @@ xchain0_n8_af:
  jl .Lx22_238
  add rsp, 16
  add rsp, 16
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 .Lx22_238:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -173,7 +173,7 @@ xchain0_n8_af:
  jl .Lx22_239
  add rsp, 16
  add rsp, 16
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 .Lx22_239:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -183,7 +183,7 @@ xchain0_n8_af:
  jl .Lx22_240
  add rsp, 16
  add rsp, 16
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 .Lx22_240:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -198,22 +198,22 @@ xchain0_n8_af:
  mov r14d, dword ptr [rsp + 0]
  add rsp, 16
  add rsp, 16
- jmp xchain0_n0_af
+ jmp proc_PAT$0_ω
 # IR_MATCH_LIT
  xchain0_n12_α:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n5_af
+ jg xchain0_n4_β
  movsxd rcx, r14d
  movzx eax, byte ptr [r13+rcx]
  cmp eax, 32
- jne xchain0_n5_af
+ jne xchain0_n4_β
  add r14d, 1
  jmp xchain0_n13_α
  xchain0_n12_β:
  sub r14d, 1
- jmp xchain0_n5_af
+ jmp xchain0_n4_β
 # IR_MATCH_SPAN
  xchain0_n13_α:
  sub rsp, 16
@@ -260,7 +260,7 @@ xchain0_n8_af:
 .Lx26_240:
  mov dword ptr [rsp + 4], r14d
  mov r14d, ecx
- jmp xchain0_n5_as
+ jmp xchain0_n6_α
  xchain0_n13_β:
  xchain0_n13_β:
  mov r14d, dword ptr [rsp + 4]
@@ -291,16 +291,16 @@ xchain0_n8_af:
  mov eax, r14d
  add eax, 1
  cmp eax, r15d
- jg xchain0_n8_af
+ jg xchain0_n7_β
  movsxd rcx, r14d
  movzx eax, byte ptr [r13+rcx]
  cmp eax, 32
- jne xchain0_n8_af
+ jne xchain0_n7_β
  add r14d, 1
  jmp xchain0_n16_α
  xchain0_n15_β:
  sub r14d, 1
- jmp xchain0_n8_af
+ jmp xchain0_n7_β
 # IR_MATCH_SPAN
  xchain0_n16_α:
  sub rsp, 16
@@ -355,7 +355,7 @@ xchain0_n8_af:
 .Lx32_240:
  mov dword ptr [rsp + 4], r14d
  mov r14d, ecx
- jmp xchain0_n8_as
+ jmp xchain0_n9_α
  xchain0_n16_β:
  xchain0_n16_β:
  mov r14d, dword ptr [rsp + 4]

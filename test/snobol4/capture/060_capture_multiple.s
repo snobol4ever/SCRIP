@@ -198,7 +198,7 @@ xchain0_n5_af:
  jmp xchain0_n14_α
  xchain0_n8_β:
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n9_α:
  mov eax, dword ptr [rsp + 16]
@@ -244,7 +244,7 @@ xchain0_n5_af:
  sub edx, eax
  mov qword ptr [r12 + 16], rdx
  add r12, 24
- jmp xchain0_n5_as
+ jmp xchain0_n7_α
  xchain0_n12_β:
  sub r12, 24
  jmp xchain0_n15_β
@@ -266,7 +266,7 @@ xchain0_n5_af:
  jl .Lx23_237
  add rsp, 16
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 .Lx23_237:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -276,7 +276,7 @@ xchain0_n5_af:
  jl .Lx23_238
  add rsp, 16
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 .Lx23_238:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -286,7 +286,7 @@ xchain0_n5_af:
  jl .Lx23_239
  add rsp, 16
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 .Lx23_239:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -296,7 +296,7 @@ xchain0_n5_af:
  jl .Lx23_240
  add rsp, 16
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 .Lx23_240:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -311,7 +311,7 @@ xchain0_n5_af:
  mov r14d, dword ptr [rsp + 0]
  add rsp, 16
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 # IR_MATCH_REM
  xchain0_n15_α:
  sub rsp, 16
