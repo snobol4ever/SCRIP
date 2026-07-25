@@ -14,6 +14,7 @@ void bb_slot_register(IR_t * nd, int off);
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 extern "C" char g_pl_trail[];
+extern "C" uint32_t g_plw_dot_sl;
 /* PL-SINK-1 (2026-07-24) — EMITTED $unify FAST PATH.  The data-plane leaves measured 86% of Prolog wall live in C (s141 FINDING §ARCHITECTURAL VERDICT); this sinks the hot arms of plw_unify_cells
  * (by_name_dispatch.c) into the box itself: deref chase (DT_PLVAR chain), ptr-equal, one-side bind (inline trail push + 16-byte cell copy), int==int, and a bit-identical-descr shortcut.  Every arm the
  * fast path cannot decide EXACTLY (DT_N entry forms, both-unbound join/VVB, compound recursion, floats/NaN, non-identical atoms → rt_descr_equal, trail uninitialized/full → area grow) falls into the
@@ -157,6 +158,85 @@ static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym)
     s += x86_deflabel_id(54);
     return s;
 }
+/* PL-SINK-2 (2026-07-25) — EMITTED $unify_lst(Subject,Head,Tail) READ-MODE FAST PATH.  Mirrors dop_unify_lst (by_name_dispatch.c) arm-for-arm; rt_pl_dop_unify_lst stays the slow-path oracle, entered with
+ * UNMODIFIED rdi=args (esi=3), so every deferred shape is bit-identical by construction (contract §1 WHOLE-ARM-OR-DEFER).  INLINE ARM = the nrev input-list destructuring hot spot: bound './2 subject, BOTH
+ * H and T deref to DISTINCT unbound cells -> double bind (H<-kids[0], T<-kids[1]) with a single 2-entry trail push.  DEFERRED to slow: unbound subject (WRITE mode allocates kids -> SINK-3), H/T aliasing (the
+ * C's sequential deref sees H's bind when tc==hc; a double-bind would diverge), and any BOUND H or T arm (int-eq / bit-ident / recursive-unify arms are SINK-2's follow-on; deferring them is zero-partial-state).
+ * dot_sl (intern(".")<<16|2) is RUNTIME-assigned and UN-BAKEABLE (contract §3): RIPSEAL-load the exported g_plw_dot_sl cell (the leaf fills it on first slow hit); ==0 -> SLOW so a not-yet-interned run defers to
+ * the leaf (which interns + answers) rather than mis-failing a real cons.  Layout (DESCR 16B q0@0/slen@4/p@8, trail base@0/cap@24[bytes]/top@32[count], 24B entries) reuses SINK-1's _Static_asserts beside
+ * plw_bind.  Internal label ids 60..77 (SINK-1 owns 40..58; marshal owns idx*2 <= 5). */
+static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * usym) {
+    std::string s = x86("comment", "PL-SINK-2 inline $unify_lst READ-mode fast path: bound './2 subject + both-unbound-distinct H,T -> double bind; rt_pl_dop_unify_lst is the slow-path oracle (unmodified args)");
+    s += x86("lea", "rdi", FRQ(argbase));
+    s += x86("lea", "r8",  FRQ(argbase));
+    s += sink_deref("r8", 60, 61, 62);
+    s += sink_unb("r8", 72, 74);
+    s += x86_deflabel_id(74);
+    s += x86("mov", "ecx", "dword ptr [r8 + 0]");
+    s += x86("cmp", "ecx", (long)14);
+    s += x86_jcc_id("jne", 73);
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
+    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("test", "eax", "eax");
+    s += x86_jcc_id("je", 72);
+    s += x86("mov", "edx", "dword ptr [r8 + 4]");
+    s += x86("cmp", "eax", "edx");
+    s += x86_jcc_id("jne", 73);
+    s += x86("lea", "r9",  FRQ(argbase + 16));
+    s += sink_deref("r9", 64, 65, 66);
+    s += x86("lea", "rcx", FRQ(argbase + 32));
+    s += sink_deref("rcx", 68, 69, 70);
+    s += x86("cmp", "r9", "rcx");
+    s += x86_jcc_id("je", 72);
+    s += sink_unb("r9", 75, 72);
+    s += x86_deflabel_id(75);
+    s += sink_unb("rcx", 76, 72);
+    s += x86_deflabel_id(76);
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
+    s += x86("mov", "r11", "[r10 + 0]");
+    s += x86("test", "r11", "r11")   + x86_jcc_id("je", 72);
+    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("mov32", "esi", (long)24);
+    s += x86("imul", "rsi", "rax");
+    s += x86("mov", "rax", "[r10 + 24]");
+    s += x86("sub", "rax", (long)48);
+    s += x86("cmp", "rsi", "rax")    + x86_jcc_id("ja", 72);
+    s += x86("add", "r11", "rsi");
+    s += x86("mov", "[r11 + 0]", "r9");
+    s += x86("mov", "rax", "[r9 + 0]");
+    s += x86("mov", "[r11 + 8]", "rax");
+    s += x86("mov", "rax", "[r9 + 8]");
+    s += x86("mov", "[r11 + 16]", "rax");
+    s += x86("mov", "[r11 + 24]", "rcx");
+    s += x86("mov", "rax", "[rcx + 0]");
+    s += x86("mov", "[r11 + 32]", "rax");
+    s += x86("mov", "rax", "[rcx + 8]");
+    s += x86("mov", "[r11 + 40]", "rax");
+    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("add", "eax", (long)2);
+    s += x86("mov", "dword ptr [r10 + 32]", "eax");
+    s += x86("mov", "r10", "[r8 + 8]");
+    s += x86("mov", "rax", "[r10 + 0]");
+    s += x86("mov", "[r9 + 0]", "rax");
+    s += x86("mov", "rax", "[r10 + 8]");
+    s += x86("mov", "[r9 + 8]", "rax");
+    s += x86("mov", "rax", "[r10 + 16]");
+    s += x86("mov", "[rcx + 0]", "rax");
+    s += x86("mov", "rax", "[r10 + 24]");
+    s += x86("mov", "[rcx + 8]", "rax");
+    s += x86("mov", "rax", "[r8 + 0]");
+    s += x86("mov", "rdx", "[r8 + 8]");
+    s += x86_jmp_id(77);
+    s += x86_deflabel_id(73);
+    s += x86("mov32", "eax", (long)99);
+    s += x86("mov32", "edx", (long)0);
+    s += x86_jmp_id(77);
+    s += x86_deflabel_id(72);
+    s += x86("mov32", "esi", (long)3);
+    s += x86("call", usym, ufp);
+    s += x86_deflabel_id(77);
+    return s;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_result_slot(IR_t * nd) {
     { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
@@ -210,6 +290,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
         }
     } else if (dfp && nargs == 2 && !strcmp(fn, "$unify") && !getenv("SCRIP_NO_SINK")) {
         s += sink_unify2_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
+    } else if (dfp && nargs == 3 && !strcmp(fn, "$unify_lst") && !getenv("SCRIP_NO_SINK")) {
+        s += sink_unify_lst_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
     } else if (dfp) {
         s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf: ") + dsym + " (no by-name dispatch)").c_str());
         s += x86("lea", "rdi", FRQ(argbase));

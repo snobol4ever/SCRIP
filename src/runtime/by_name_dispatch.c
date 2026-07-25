@@ -102,6 +102,7 @@ static inline __attribute__((always_inline)) DESCR_t *plw_cell_deref(DESCR_t *c)
 extern void *rt_plj_alloc(size_t);
 _Static_assert(sizeof(pl_trail_ent_t) == 24 && sizeof(DESCR_t) == 16 && offsetof(DESCR_t, slen) == 4, "PL-SINK-1: cell/trail-entry layout is baked into bb_call_fn.cpp sink_* emitters — update both together");
 _Static_assert(offsetof(pl_trail_t, area) == 0 && offsetof(pl_area_t, base) == 0 && offsetof(pl_area_t, cap) == 24 && offsetof(pl_trail_t, top) == 32, "PL-SINK-1: pl_trail_t field offsets are baked into bb_call_fn.cpp sink_trailpush — update both together");
+uint32_t g_plw_dot_sl = 0;
 static void plw_bind(DESCR_t *cell, DESCR_t word) { pl_trail_push(&g_pl_trail, cell); *cell = word; }
 /* PL-REGAIN-5 slice B (2026-07-19) — VAR-VAR DIRECT BIND, stack-stack only.  Canonical rule (gprolog unify.c:68 `if (u_adr > v_adr) Bind_UV(u_adr, REF(v_adr))`; SWI pl-prims.c "always point downwards"):
  * the SHORTER-LIVED cell forwards to the LONGER-LIVED one, no fresh join cell.  gprolog's stacks grow UP (younger=higher), ours grows DOWN, so the law inverts to LOWER(younger frame)→HIGHER(older frame).
@@ -1393,7 +1394,7 @@ static int dop_unify(DESCR_t *args, int nargs, DESCR_t *out) {
 static int dop_unify_lst(DESCR_t *args, int nargs, DESCR_t *out) {
     (void)nargs;
     extern int prolog_atom_intern(const char *);
-    static uint32_t dot_sl = 0; if (!dot_sl) dot_sl = (((uint32_t)prolog_atom_intern(".")) << 16) | 2u;
+    static uint32_t dot_sl = 0; if (!dot_sl) { dot_sl = (((uint32_t)prolog_atom_intern(".")) << 16) | 2u; g_plw_dot_sl = dot_sl; }
     DESCR_t t0 = args[0];
     DESCR_t *c = plw_cell_deref(plw_entry(&t0));
     if (plw_unbound_tag(c)) {
