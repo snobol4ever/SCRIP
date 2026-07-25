@@ -192,22 +192,22 @@ xchain0_n5_af:
  mov eax, r14d
  add eax, 3
  cmp eax, r15d
- jg xchain0_n5_af
+ jg xchain0_n3_β
  movsxd rcx, r14d
  movzx eax, byte ptr [r13+rcx]
  cmp eax, 97
- jne xchain0_n5_af
+ jne xchain0_n3_β
  movzx eax, byte ptr [r13+rcx+1]
  cmp eax, 98
- jne xchain0_n5_af
+ jne xchain0_n3_β
  movzx eax, byte ptr [r13+rcx+2]
  cmp eax, 99
- jne xchain0_n5_af
+ jne xchain0_n3_β
  add r14d, 3
  jmp xchain0_n9_α
  xchain0_n8_β:
  sub r14d, 3
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
  xchain0_n9_α:
  jmp xchain0_n8_β
 xchain0_n9_β:

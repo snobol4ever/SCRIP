@@ -936,7 +936,7 @@ xchain0_n51_af:
  jmp xchain0_n60_α
  xchain0_n54_β:
  add rsp, 16
- jmp xchain0_n51_af
+ jmp xchain0_n49_β
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n55_α:
  mov eax, dword ptr [rsp + 16]
@@ -986,7 +986,7 @@ xchain0_n51_af:
  sub edx, eax
  mov qword ptr [r12 + 16], rdx
  add r12, 24
- jmp xchain0_n51_as
+ jmp xchain0_n53_α
  xchain0_n58_β:
  sub r12, 24
  jmp xchain0_n61_β
@@ -1011,7 +1011,7 @@ xchain0_n51_af:
  jl .Lx71_237
  add rsp, 16
  add rsp, 16
- jmp xchain0_n51_af
+ jmp xchain0_n49_β
 .Lx71_237:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -1021,7 +1021,7 @@ xchain0_n51_af:
  jl .Lx71_238
  add rsp, 16
  add rsp, 16
- jmp xchain0_n51_af
+ jmp xchain0_n49_β
 .Lx71_238:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -1031,7 +1031,7 @@ xchain0_n51_af:
  jl .Lx71_239
  add rsp, 16
  add rsp, 16
- jmp xchain0_n51_af
+ jmp xchain0_n49_β
 .Lx71_239:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -1041,7 +1041,7 @@ xchain0_n51_af:
  jl .Lx71_240
  add rsp, 16
  add rsp, 16
- jmp xchain0_n51_af
+ jmp xchain0_n49_β
 .Lx71_240:
  movzx esi, byte ptr [r13+rcx]
  cmp esi, 32
@@ -1056,7 +1056,7 @@ xchain0_n51_af:
  mov r14d, dword ptr [rsp + 0]
  add rsp, 16
  add rsp, 16
- jmp xchain0_n51_af
+ jmp xchain0_n49_β
 # IR_MATCH_REM
  xchain0_n61_α:
  sub rsp, 16

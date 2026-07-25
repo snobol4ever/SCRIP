@@ -200,7 +200,7 @@ xchain0_n5_af:
  jmp xchain0_n15_α
  xchain0_n8_β:
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
  xchain0_n9_α:
  mov eax, dword ptr [rsp + 0]
@@ -258,7 +258,7 @@ xchain0_n5_af:
  sub edx, eax
  mov qword ptr [r12 + 16], rdx
  add r12, 24
- jmp xchain0_n5_as
+ jmp xchain0_n7_α
  xchain0_n13_β:
  sub r12, 24
  jmp xchain0_n17_β
@@ -278,14 +278,14 @@ xchain0_n5_af:
  cmp eax, r15d
  jle .Lx25_240
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 .Lx25_240:
  add r14d, 2
  jmp xchain0_n9_α
  xchain0_n15_β:
  sub r14d, 2
  add rsp, 16
- jmp xchain0_n5_af
+ jmp xchain0_n3_β
 # IR_MATCH_LEN
  xchain0_n16_α:
  mov eax, r14d
