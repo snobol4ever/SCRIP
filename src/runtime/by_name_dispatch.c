@@ -5014,6 +5014,43 @@ long g_bidprof[1024]; int g_bidprof_on = -1;
 static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_bidprof[i]); }
 void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_bidprof_on) atexit(bidprof_dump); }
 int g_bidjmp_on = 1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
+    if (v.v == DT_S)    return v.s ? v.s : "";
+    if (v.v == DT_SNUL) return "";
+    if (v.v == DT_I)    { snprintf(buf, (size_t)bufsz, "%lld", (long long)v.i); return buf; }
+    { const char *s = VARVAL_fn(v); return s ? s : ""; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_descr_cmp(DESCR_t a, DESCR_t b) {
+    if (IS_INT_fn(a) && IS_INT_fn(b)) return (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0;
+    { char ba[64], bb[64]; const char *sa = sort_key_cstr(a, ba, (int)sizeof ba), *sb = sort_key_cstr(b, bb, (int)sizeof bb); return strcmp(sa, sb); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t sort_field_of(DESCR_t v, int field_idx) {
+    if (field_idx >= 0 && v.v == DT_DATA && v.u) { DATINST_t *ia = (DATINST_t *)v.u; if (ia->type && field_idx < ia->type->nfields) return ia->fields[field_idx]; }
+    return v;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sort_msort_descr(DESCR_t *a, DESCR_t *tmp, int n, int field_idx) {
+    if (n < 2) return;
+    { int m = n / 2, i = 0, j = n / 2, k = 0, t;
+      sort_msort_descr(a, tmp, m, field_idx); sort_msort_descr(a + m, tmp + m, n - m, field_idx);
+      while (i < m && j < n) { if (sort_descr_cmp(sort_field_of(a[j], field_idx), sort_field_of(a[i], field_idx)) < 0) tmp[k++] = a[j++]; else tmp[k++] = a[i++]; }
+      while (i < m) tmp[k++] = a[i++];
+      while (j < n) tmp[k++] = a[j++];
+      for (t = 0; t < n; t++) a[t] = tmp[t]; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
+    if (n < 2) return;
+    { int m = n / 2, i = 0, j = n / 2, k = 0, t;
+      sort_msort_pairs(a, tmp, m, by_val); sort_msort_pairs(a + m, tmp + m, n - m, by_val);
+      while (i < m && j < n) { DESCR_t x = by_val ? a[i]->val : a[i]->key_descr, y = by_val ? a[j]->val : a[j]->key_descr; if (sort_descr_cmp(y, x) < 0) tmp[k++] = a[j++]; else tmp[k++] = a[i++]; }
+      while (i < m) tmp[k++] = a[i++];
+      while (j < n) tmp[k++] = a[j++];
+      for (t = 0; t < n; t++) a[t] = tmp[t]; }
+}
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
@@ -6342,19 +6379,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         TBPAIR_t **ent = rt_ws_alloc((n>0?n:1)*sizeof(TBPAIR_t*));
         { int _k = 0; for (int _bi = 0; _bi < TABLE_BUCKETS; _bi++) for (TBPAIR_t *e = tb->buckets[_bi]; e; e = e->next) ent[_k++] = e; }
         int by_val = (i_mode % 2 == 0);
-        for (int _i = 1; _i < n; _i++) {
-            TBPAIR_t *kp = ent[_i]; int _j = _i - 1;
-            while (_j >= 0) {
-                DESCR_t a = by_val ? ent[_j]->val : ent[_j]->key_descr;
-                DESCR_t b = by_val ? kp->val      : kp->key_descr;
-                int cmp;
-                if (IS_INT_fn(a) && IS_INT_fn(b)) cmp = (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0;
-                else { const char *sa = VARVAL_fn(a), *sb = VARVAL_fn(b); cmp = strcmp(sa?sa:"", sb?sb:""); }
-                if (cmp <= 0) break;
-                ent[_j+1] = ent[_j]; _j--;
-            }
-            ent[_j+1] = kp;
-        }
+        { TBPAIR_t **_tmp = rt_ws_alloc((n>0?n:1)*sizeof(TBPAIR_t*)); sort_msort_pairs(ent, _tmp, n, by_val); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         if (tb->is_set) {
             DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
@@ -6383,22 +6408,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         DESCR_t *sorted=rt_ws_alloc(n*sizeof(DESCR_t));
         memcpy(sorted,arr,n*sizeof(DESCR_t));
         int field_idx=((_bid == BID_sortf)&&nargs==2)?(int)to_int(args[1])-1:-1;
-        for(int _i=1;_i<n;_i++){
-            DESCR_t key=sorted[_i]; int _j=_i-1;
-            while(_j>=0){
-                DESCR_t a=sorted[_j],b=key;
-                if(field_idx>=0){
-                    if(a.v==DT_DATA&&a.u){DATINST_t*_ia=(DATINST_t*)a.u;if(_ia->type&&field_idx<_ia->type->nfields)a=_ia->fields[field_idx];}
-                    if(b.v==DT_DATA&&b.u){DATINST_t*_ib=(DATINST_t*)b.u;if(_ib->type&&field_idx<_ib->type->nfields)b=_ib->fields[field_idx];}
-                }
-                int cmp;
-                if(IS_INT_fn(a)&&IS_INT_fn(b)) cmp=(a.i>b.i)?1:(a.i<b.i)?-1:0;
-                else{const char*sa=VARVAL_fn(a),*sb=VARVAL_fn(b);cmp=strcmp(sa?sa:"",sb?sb:"");}
-                if(cmp<=0) break;
-                sorted[_j+1]=sorted[_j];_j--;
-            }
-            sorted[_j+1]=key;
-        }
+        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(sorted, _tmp, n, field_idx); }
         DESCR_t res=ld;
         FIELD_SET_fn(res,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=sorted});
         FIELD_SET_fn(res,"frame_size",INTVAL(n));
