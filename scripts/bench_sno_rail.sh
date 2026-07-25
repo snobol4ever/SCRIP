@@ -16,8 +16,10 @@ D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"; SODIR="${SODIR:-/tmp}
 MIN_MS="${MIN_MS:-800}"; NMAX="${NMAX:-16384}"; R="${R:-5}"
 SO_A="${SO_A:-/tmp/rt_o0.so}"; SO_B="${SO_B:-}"   # SO_B empty = single-config mode
 DEMO="${1:?usage: bench_sno_rail.sh <demo-stem e.g. json-match>}"
-case $DEMO in claws5-match) IN=$D/CLAWS5inTASA.dat;; treebank-match) IN=$D/VBGinTASA.dat;;
-  json-match) IN=$D/twitter.json;; calculator-1-match|calculator-2-match) IN=$D/calculator.input;;
+case $DEMO in claws5-match|claws5-match-fence) IN=$D/CLAWS5inTASA.dat;;
+  treebank-match|treebank-match-fence) IN=$D/VBGinTASA.dat;;
+  json-match|json-match-fence) IN=$D/twitter.json;;
+  calculator-1-match|calculator-2-match|calculator-1-match-fence|calculator-2-match-fence) IN=$D/calculator.input;;
   *) echo "unknown demo $DEMO"; exit 1;; esac
 gen() { python3 - "$D/$DEMO.sno" "$2" "$1" << 'PY'
 import re, sys
