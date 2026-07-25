@@ -27,6 +27,8 @@ void rt_gen_spine_resume_enter(void);
 int  rt_proc_is_generator(const char *name);
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
+extern "C" DESCR_t g_call_args[];
+extern "C" int g_gc_pending;
 int  rt_proc_is_registered(const char *name);
 long rt_proc_call_open_slim(const char *name, int np, int nargs);
 int  rt_pl_dc_ok(const char *name, int nargs);
@@ -43,6 +45,30 @@ int  bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 }
 #include "x86_asm.h"
+/* PL-STAGE-1 (2026-07-25) - INLINE ARG INSTALL, the REGAIN-1 "slice B" parked since s100.  rt_arg_stage(idx,v) is `rt_gc_point(&v,0); g_call_args[idx] = v;` and rt_gc_point_arr's FIRST act is
+ * `if (!g_gc_pending) return;` - so on every call where no collection is pending (the overwhelming majority) the runtime spends THREE nested -O0 call frames to perform ONE 16-byte store.  nrev stages
+ * ~25M args and the sampled leaf profile put the proc-call spine at ~36% of non-GC time.  This emits the store inline and calls the C leaf ONLY when g_gc_pending is set (there the collector may adjust v
+ * under the shield, so the leaf must own it).  Bit-identical by construction: the tested predicate is the leaf's own first branch, the bounds test 0 <= idx < CALL_ARGS_MAX is decided at EMIT time
+ * (out-of-range keeps the plain call), and the fast arm reproduces the leaf's only other effect.  THE s100 BLOCKER IS STALE: that note parked this on "g_call_args residency (.so data, movabs-forbidden)",
+ * which is precisely what SINK-1 solved - the dual-medium RIPSEAL load x86("lea", r, "[rip + __]", &sym, "sym") emits a rip-relative symbol in TEXT and the live address in BINARY.  Two internal labels per
+ * staged arg based at 20 (this box uses L(1)..L(7)); capped at 8 args so the pair range stays 20..35.  Kill switch: SCRIP_NO_SINK=1 at emit time. */
+static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
+    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+    if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
+    return x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
+         + x86("mov", "eax", "dword ptr [r11 + 0]")
+         + x86("test", "eax", "eax")
+         + x86("jne", L(20 + i * 2))
+         + x86("mov", "rax", FRQ(slot))
+         + x86("mov", "rdx", FRQ(slot + 8))
+         + x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+         + x86("mov", (std::string("[r10 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
+         + x86("mov", (std::string("[r10 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
+         + x86("jmp", L(21 + i * 2))
+         + x86("def", L(20 + i * 2))
+         + slow
+         + x86("def", L(21 + i * 2));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * bb_chain_terminal_staged(IR_t * entry) { IR_t * n = entry; int guard = 0;
     while (n && n->γ.node && n->γ.node->op != IR_SUCCEED && n->γ.node->op != IR_FAIL && guard++ < 4096) n = n->γ.node;
@@ -214,7 +240,7 @@ static std::string bcps_det_arm() {
             : std::string(""))
          + (det_fuse || dc ? std::string("") : FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
-        return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+        return stage_arg_inline(i, slot, stage_fp);
     }))
          + (dc ? std::string("")
             : det_fuse
@@ -336,7 +362,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("mov", FRQ(act), 0L)
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
-        return x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+        return stage_arg_inline(i, slot, stage_fp);
     })
          + x86_ro_load_q("rdi", 0)
          + x86("mov32", "esi", (long)_.op_ival)
@@ -397,7 +423,7 @@ static std::string bcps_bin_gen_arm() {
          + x86_scan_sync_out()
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
-        return x86("mov32", "edi", (long)i) + x86_frame_load64("rsi", slot) + x86_frame_load64("rdx", slot + 8) + x86("call", "rt_arg_stage", stage_fp);
+        return stage_arg_inline(i, slot, stage_fp);
     })
          + x86("mov", "rdi", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""))
          + x86("mov32", "esi", (long)_.op_ival)

@@ -14,6 +14,7 @@ void bb_slot_register(IR_t * nd, int off);
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 extern "C" char g_pl_trail[];
+extern "C" char g_hp_fr[];
 extern "C" uint32_t g_plw_dot_sl;
 /* PL-SINK-1 (2026-07-24) — EMITTED $unify FAST PATH.  The data-plane leaves measured 86% of Prolog wall live in C (s141 FINDING §ARCHITECTURAL VERDICT); this sinks the hot arms of plw_unify_cells
  * (by_name_dispatch.c) into the box itself: deref chase (DT_PLVAR chain), ptr-equal, one-side bind (inline trail push + 16-byte cell copy), int==int, and a bit-identical-descr shortcut.  Every arm the
@@ -82,6 +83,72 @@ static std::string sink_cp16(const char * dst, const char * src) {
          + x86("mov", (std::string("[") + dst + " + 0]").c_str(), "rax")
          + x86("mov", "rax", (std::string("[") + src + " + 8]").c_str())
          + x86("mov", (std::string("[") + dst + " + 8]").c_str(), "rax");
+}
+/* PL-SINK-3 (2026-07-25) — THE CARVE.  sink_tp_nc is sink_trailpush MINUS the base-null and room tests: the WRITE arm pre-reserves room for its THREE worst-case entries (H, T, subject) in ONE check before
+ * any mutation, so the per-push tests are provably dominated and re-emitting them would be dead code on the hot path.  Requires r10 = &g_pl_trail (caller loads it); clobbers rax/rsi/r11; reads creg. */
+static std::string sink_tp_nc(const char * creg) {
+    return x86("mov", "r11", "[r10 + 0]")
+         + x86("mov", "eax", "dword ptr [r10 + 32]")
+         + x86("mov32", "esi", (long)24)
+         + x86("imul", "rsi", "rax")
+         + x86("add", "r11", "rsi")
+         + x86("mov", "[r11 + 0]", creg)
+         + x86("mov", "rax", (std::string("[") + creg + " + 0]").c_str())
+         + x86("mov", "[r11 + 8]", "rax")
+         + x86("mov", "rax", (std::string("[") + creg + " + 8]").c_str())
+         + x86("mov", "[r11 + 16]", "rax")
+         + x86("mov", "eax", "dword ptr [r10 + 32]")
+         + x86("add", "eax", (long)1)
+         + x86("mov", "dword ptr [r10 + 32]", "eax");
+}
+/* Inline rt_gcheap_alloc's DETAX fast path (gc_heap.c ~:170) for EXACTLY one shape: HB_PLJ, 32-byte payload (two DESCR_t kids) => total 48.  armed==0 or top+48 > end -> SLOW, so the C keeps sole ownership
+ * of init / grow / collect / the fill window (contract §4).  The carve's payload memset is SKIPPED because the WRITE arm overwrites all 32 payload bytes unconditionally (both kid arms write a full 16-byte
+ * DESCR) — bit-identical by construction, and the one per-alloc lever s141 measured as safe-and-free here precisely because we are the sole writer.  Leaves rdx = kids, clobbers rax/r10/r11. */
+static std::string sink_carve48(int lslow) {
+    return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_hp_fr, "g_hp_fr")
+         + x86("mov", "eax", "dword ptr [r10 + 24]")
+         + x86("test", "eax", "eax")            + x86_jcc_id("je", lslow)
+         + x86("mov", "r11", "[r10 + 0]")
+         + x86("mov", "rax", "[r10 + 8]")
+         + x86("sub", "rax", (long)48)
+         + x86("cmp", "r11", "rax")             + x86_jcc_id("ja", lslow);
+}
+static std::string sink_carve48_take(void) {
+    return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_hp_fr, "g_hp_fr")
+         + x86("mov", "r11", "[r10 + 0]")
+         + x86("mov", "[r11 + 0]", (long)0)
+         + x86("mov", "dword ptr [r11 + 8]", (long)48)
+         + x86("mov", "dword ptr [r11 + 12]", (long)(209 | (1 << 16)))
+         + x86("lea", "rdx", "[r11 + 16]")
+         + x86("mov", "rax", "r11")
+         + x86("add", "rax", (long)48)
+         + x86("mov", "[r10 + 0]", "rax")
+         + x86("mov", "rax", "[r10 + 16]")
+         + x86("add", "rax", (long)1)
+         + x86("mov", "[r10 + 16]", "rax");
+}
+/* One kid of plw_mkc_kids (by_name_dispatch.c :1335), ar==2.  creg = the already-derefed source cell; koff = 0 or 16 into rdx=kids.  UNBOUND source -> seed kids[i] as a SELF-PLVAR and forward the source to
+ * &kids[i] (gprolog write-mode Pl_Unify_Variable's shape: *S itself is the fresh REF).  BOUND source -> kids[i] = *F.  Both arms are TOTAL — no sub-shape defers — which is why the carve above can safely
+ * precede them (contract §1: nothing after the first mutation can reach SLOW).  Requires the 3-entry trail reservation already checked. */
+static std::string sink_kid(const char * creg, int koff, int lunb, int lbnd, int ljoin) {
+    std::string s = sink_unb(creg, lunb, lbnd);
+    s += x86_deflabel_id(lunb);
+    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str(), (long)13);
+    s += x86("lea", "rax", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str());
+    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff + 8) + "]").c_str(), "rax");
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
+    s += sink_tp_nc(creg);
+    s += x86("mov", (std::string("[") + creg + " + 0]").c_str(), (long)13);
+    s += x86("lea", "rax", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str());
+    s += x86("mov", (std::string("[") + creg + " + 8]").c_str(), "rax");
+    s += x86_jmp_id(ljoin);
+    s += x86_deflabel_id(lbnd);
+    s += x86("mov", "rax", (std::string("[") + creg + " + 0]").c_str());
+    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str(), "rax");
+    s += x86("mov", "rax", (std::string("[") + creg + " + 8]").c_str());
+    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff + 8) + "]").c_str(), "rax");
+    s += x86_deflabel_id(ljoin);
+    return s;
 }
 static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym) {
     std::string s = x86("comment", "PL-SINK-1 inline $unify fast path: deref/bind/trail/int-eq emitted; rt_pl_dop_unify stays the slow-path oracle (bit-identical fallback, unmodified args)");
@@ -170,7 +237,7 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86("lea", "rdi", FRQ(argbase));
     s += x86("lea", "r8",  FRQ(argbase));
     s += sink_deref("r8", 60, 61, 62);
-    s += sink_unb("r8", 72, 74);
+    s += sink_unb("r8", 80, 74);
     s += x86_deflabel_id(74);
     s += x86("mov", "ecx", "dword ptr [r8 + 0]");
     s += x86("cmp", "ecx", (long)14);
@@ -226,6 +293,44 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86("mov", "[rcx + 8]", "rax");
     s += x86("mov", "rax", "[r8 + 0]");
     s += x86("mov", "rdx", "[r8 + 8]");
+    s += x86_jmp_id(77);
+    /* PL-SINK-3 WRITE ARM (unbound subject) — dop_unify_lst's first branch inlined: kids = plw_mkc_kids(args+1, 2); w = {DT_PLREF, dot_sl, kids}; plw_bind(subject, w).  ALL FOUR DEFERRAL TESTS RUN BEFORE
+     * ANY MUTATION (contract §1): dot_sl interned, carve armed + 48 bytes of room, trail live + room for THREE entries.  Past that point every remaining step is total, so no partial state can reach SLOW.
+     * H and T are derefed SEQUENTIALLY, each immediately before its own bind — which is exactly the C's order, so the ALIASING case SINK-2 had to defer (H and T the same cell) falls out correct for free:
+     * the second deref observes the first bind and chases into kids[0], producing the C's chain rather than a double bind.  Labels 80..94. */
+    s += x86_deflabel_id(80);
+    s += x86("comment", "PL-SINK-3 inline $unify_lst WRITE mode: carve 2 kids off the PLJ frontier, join unbound args, bind subject to the './2 cell");
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
+    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("test", "eax", "eax");
+    s += x86_jcc_id("je", 72);
+    s += sink_carve48(72);
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
+    s += x86("mov", "r11", "[r10 + 0]");
+    s += x86("test", "r11", "r11");
+    s += x86_jcc_id("je", 72);
+    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("mov32", "esi", (long)24);
+    s += x86("imul", "rsi", "rax");
+    s += x86("mov", "rax", "[r10 + 24]");
+    s += x86("sub", "rax", (long)72);
+    s += x86("cmp", "rsi", "rax");
+    s += x86_jcc_id("ja", 72);
+    s += sink_carve48_take();
+    s += x86("lea", "r9", FRQ(argbase + 16));
+    s += sink_deref("r9", 81, 82, 83);
+    s += sink_kid("r9", 0, 85, 86, 87);
+    s += x86("lea", "rcx", FRQ(argbase + 32));
+    s += sink_deref("rcx", 88, 89, 90);
+    s += sink_kid("rcx", 16, 92, 93, 94);
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
+    s += sink_tp_nc("r8");
+    s += x86("mov", "dword ptr [r8 + 0]", (long)14);
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
+    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("mov", "dword ptr [r8 + 4]", "eax");
+    s += x86("mov", "[r8 + 8]", "rdx");
+    s += x86("mov", "rax", "[r8 + 0]");
     s += x86_jmp_id(77);
     s += x86_deflabel_id(73);
     s += x86("mov32", "eax", (long)99);
