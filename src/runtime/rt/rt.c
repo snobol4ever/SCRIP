@@ -346,7 +346,7 @@ int rt_k_level = 1;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int jmp_entry; int redefined;   /* NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate. */
+    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int jmp_entry; int redefined; int zstatic;   /* NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate.  PS-1b (s151): zstatic = 1 iff this proc's blob graph was DEFER/VALUE-free with a known region (emit-side emit_graph_zstatic); default 0 = conservative, so an unregistered proc reads as chain-path safe. */
 } rt_proc_t;
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
@@ -391,7 +391,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0; p->zstatic = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_result_name(const char *name, const char *rname)
@@ -512,6 +512,18 @@ long rt_fn_frame_bytes_known(void *fn)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_zstatic(const char *name, int bit)
+{
+    if (!name) return;
+    int i = rt_proc_hash_lookup(name); if (i >= 0) g_rt_gen_procs[i].zstatic = bit ? 1 : 0;
+}
+long rt_fn_zstatic_known(void *fn)
+{
+    if (!fn) return 0;
+    for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn) return (long)g_rt_gen_procs[i].zstatic;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_generator(const char *name, int is_gen)
 {
     if (!name) return;
@@ -547,7 +559,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->jmp_entry = 0; p->zstatic = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
