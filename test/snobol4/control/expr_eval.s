@@ -4538,6 +4538,9 @@ proc_startup:
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname4]
   mov esi, 1
+  call rt_proc_set_zstatic@PLT
+  lea rdi, [rip + .Lstartup_pname4]
+  mov esi, 1
   call rt_proc_set_jmpentry@PLT
   .section .rodata
   .Lstartup_pname5: .string "PAT$1"
@@ -4586,6 +4589,9 @@ proc_startup:
   call rt_proc_set_frame_bytes@PLT
   lea rdi, [rip + .Lstartup_pname7]
   mov esi, 1
+  call rt_proc_set_zstatic@PLT
+  lea rdi, [rip + .Lstartup_pname7]
+  mov esi, 1
   call rt_proc_set_jmpentry@PLT
   .section .rodata
   .Lstartup_pname8: .string "PAT$4"
@@ -4600,6 +4606,9 @@ proc_startup:
   lea rdi, [rip + .Lstartup_pname8]
   mov esi, 112
   call rt_proc_set_frame_bytes@PLT
+  lea rdi, [rip + .Lstartup_pname8]
+  mov esi, 1
+  call rt_proc_set_zstatic@PLT
   lea rdi, [rip + .Lstartup_pname8]
   mov esi, 1
   call rt_proc_set_jmpentry@PLT
