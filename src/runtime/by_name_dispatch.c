@@ -17,6 +17,7 @@ static inline size_t sv_len(DESCR_t arg, const char *coerced) {
 #include "builtin_ids.h"
 #include "pattern_match.h"
 #include "rt/rt.h"
+#include "rt/rt_list_view.h"
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -6282,6 +6283,16 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_push) && nargs >= 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
+        { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) {
+            int _nv2 = (nargs > 1) ? nargs - 1 : 1;
+            for (int _pi = 0; _pi < _nv2; _pi++) {
+                DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
+                DESCR_t *_nb=rt_ws_alloc((_n+1)*sizeof(DESCR_t));
+                _nb[0]=_vd;
+                if(_a&&_n>0) memcpy(_nb+1,_a,_n*sizeof(DESCR_t));
+                _a=_nb; _n++;
+                rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_nb}); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_n); }
+            *out = ld; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         int _nv = (nargs > 1) ? nargs - 1 : 1;
@@ -6303,6 +6314,18 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_put) && nargs >= 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
+        { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) {
+            int _nv2 = (nargs > 1) ? nargs - 1 : 1;
+            for (int _pi = 0; _pi < _nv2; _pi++) {
+                DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
+                long _c = rt_lv_cap(ld);
+                if(_a && _c>=0 && _n<_c){ _a[_n]=_vd; _n++; rt_lv_set_size(ld,_n); continue; }
+                long _ncap=(_n>0)?(long)_n*2:8; if(_ncap<_n+1)_ncap=_n+1;
+                DESCR_t *_nb=rt_ws_alloc(_ncap*sizeof(DESCR_t));
+                if(_a&&_n>0) memcpy(_nb,_a,_n*sizeof(DESCR_t));
+                _nb[_n]=_vd; _a=_nb; _n++;
+                rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_nb}); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_ncap); }
+            *out = ld; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         int _nv = (nargs > 1) ? nargs - 1 : 1;
@@ -6328,6 +6351,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_get) && nargs == 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
+        { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) {
+            if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
+            DESCR_t _r=_a[0]; rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_a+1}); rt_lv_set_size(ld,_n-1);
+            { long _c=rt_lv_cap(ld); if(_c>0) rt_lv_set_cap(ld,_c-1); }
+            *out=_r; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
@@ -6344,6 +6372,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_pop) && nargs == 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
+        { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) {
+            if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
+            DESCR_t _r=_a[0]; rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_a+1}); rt_lv_set_size(ld,_n-1);
+            { long _c=rt_lv_cap(ld); if(_c>0) rt_lv_set_cap(ld,_c-1); }
+            *out=_r; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
@@ -6360,6 +6393,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_pull) && nargs == 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
+        { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) {
+            if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
+            DESCR_t _r=_a[_n-1]; rt_lv_set_size(ld,_n-1); *out=_r; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
