@@ -15,7 +15,7 @@ static int so_is_list(DESCR_t v) {
     return t.v == DT_S && t.s && !strcmp(t.s, "list");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t str_concat_d(DESCR_t a, DESCR_t b) {
+DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     { extern void rt_gc_point_arr(DESCR_t *, int, const char **); DESCR_t sh[2]; sh[0] = a; sh[1] = b; rt_gc_point_arr(sh, 2, (const char **)0); a = sh[0]; b = sh[1]; }
     if (a.v == DT_P || b.v == DT_P || a.v == DT_X || b.v == DT_X) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return pat_cat(a, b); }
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);

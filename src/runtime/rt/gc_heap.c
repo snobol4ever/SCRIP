@@ -61,9 +61,15 @@ int g_gc_pending;
  * decline unless at most ONE slot references the buffer (the accumulator itself). Residual, documented: a DESCR copy held only in a suspended ζ frame with ZERO allocations in between is invisible to
  * both layers — same exposure class as the pre-existing in-flight-args stress hole (212 m4). Right-operand reads are safe: read window [bsp,bsp+bl) never overlaps the write window [buf+al,..) even
  * when b aliases a (suffix/whole), because bl excludes the old NUL at buf+al. */
-static char *g_sxt_owner = (char *)0;
-static long  g_sxt_len = 0;
-static int   g_sxt_gva_n = 0;
+typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
+__attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.S bakes g_sxt_fr.owner @0");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, len)   ==  8, "rtx_str.S bakes g_sxt_fr.len @8");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, gva_n) == 16, "rtx_str.S bakes g_sxt_fr.gva_n @16");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, off)   == 20, "rtx_str.S bakes g_sxt_fr.off @20");
+#define g_sxt_owner (g_sxt_fr.owner)
+#define g_sxt_len   (g_sxt_fr.len)
+#define g_sxt_gva_n (g_sxt_fr.gva_n)
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
 void rt_sxt_break(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }
 void rt_sxt_note(char *s, long len)
@@ -76,9 +82,8 @@ void rt_sxt_note(char *s, long len)
 }
 long rt_sxt_match(const char *s)
 {
-    static int off = -1;
-    if (off < 0) { const char *e = getenv("SCRIP_SXT_OFF"); off = (e && *e && *e != '0') ? 1 : 0; }
-    if (off) return -1;
+    if (g_sxt_fr.off < 0) { const char *e = getenv("SCRIP_SXT_OFF"); g_sxt_fr.off = (e && *e && *e != '0') ? 1 : 0; }
+    if (g_sxt_fr.off) return -1;
     return (s && s == g_sxt_owner) ? g_sxt_len : -1;
 }
 char *rt_sxt_extend(char *s, long al, long bl)
