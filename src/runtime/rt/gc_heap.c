@@ -163,8 +163,11 @@ void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes)
         if (g_ah_ra[i].ra == ra && g_ah_ra[i].type == type) { g_ah_ra[i].n += 1; g_ah_ra[i].b += (long)bytes; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_alloc_detax = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
+    if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (g_hp_top + tf <= g_hp_end) { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
     if (g_ah_on > 0) { unsigned t = (unsigned)type & 511u; g_ah_tn[t] += 1; g_ah_tb[t] += (long)payload_bytes; }
     /* Allocation order: (1) main bump at g_hp_top; (2) the FILL WINDOW — a secondary bump region installed by the collector inside the largest HB_FILL gap, needed when a conservative pin holds the
      * heap TOP at exhaustion time (the pinned block is near-always the allocating expression's own in-flight operand, so the top cannot retreat and all reclaimed space lands BELOW it — discovered by
@@ -180,6 +183,7 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
     if (stress_n > 0 && ++stress_c >= stress_n) { stress_c = 0; g_gc_pending = 1; }
     { static long since = 0, budget = -1;
       if (budget < 0) { const char *e = getenv("SCRIP_GC_BUDGET_MB"); long mb = e ? atol(e) : 0; budget = mb > 0 ? (mb << 20) : 0; }
+      if (!g_alloc_detax) g_alloc_detax = (stress_n == 0 && budget == 0 && g_ah_on <= 0 && g_hp_arena && g_hp_report_reg) ? 1 : -1;
       if (budget) { since += (long)total; if (since >= budget && (g_hp_top - g_hp_arena) * 2 >= (g_hp_end - g_hp_arena)) { since = 0; g_gc_pending = 2; } } }
     if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) rt_gc_collect();
     if (g_hp_top + total <= g_hp_end) { r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
@@ -282,8 +286,9 @@ void *rt_plj_alloc(size_t n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_agg_alloc(int kind, size_t n)
 {
-    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)(HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind))), (uint64_t)n);
-    return rt_gcheap_alloc((uint16_t)(HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind))), (uint64_t)(n ? n : 1));
+    uint16_t ty = (uint16_t)(HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind)));
+    if (g_alloc_detax != 1 && rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), ty, (uint64_t)n);
+    return rt_gcheap_alloc(ty, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_ws_strdup_c(const char *s)

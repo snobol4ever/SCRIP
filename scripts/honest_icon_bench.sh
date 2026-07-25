@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# honest_icon_bench.sh — like test_icon_bench_corpus.sh but it DIFFS OUTPUT.
+# The stock runner grades on (rc==0 && output non-empty), which cannot distinguish
+# "ran the workload fast" from "skipped the workload". This one compares against iconx.
+#
+# Usage: SCRIPDIR=/path/to/SCRIP bash honest_icon_bench.sh [prog ...]
+set -u
+SCRIPDIR="${SCRIPDIR:-/home/claude/work/SCRIP}"
+SCRIP="$SCRIPDIR/scrip"
+RTDIR="$SCRIPDIR/out"
+ICONM="${ICONM:-/home/claude/work/icon-master/icon-master}"
+ICONT="$ICONM/bin/icont"; ICONX="$ICONM/bin/iconx"
+CORPUS_SRC="${CORPUS_SRC:-/home/claude/work/corpus/benchmarks/icon}"
+REPS="${REPS:-3}"
+WORK="$(mktemp -d /tmp/honest_bench_XXXXXX)"
+export PATH="$ICONM/bin:$PATH"
+
+mkdir -p "$WORK/corpus"
+cp "$CORPUS_SRC"/*.icn "$CORPUS_SRC"/*.dat "$WORK/corpus/" 2>/dev/null
+CORPUS="$WORK/corpus"
+( cd "$CORPUS" && "$ICONT" -c options.icn post.icn shuffle.icn >/dev/null 2>&1 )
+IPXIN="$WORK/ipxref_input.icn"; cat "$CORPUS"/*.icn > "$IPXIN"
+( cd "$CORPUS" && "$ICONT" -s -o micro.icx micro.icn >/dev/null 2>&1 && \
+  "$ICONX" micro.icx 0.02 > "$WORK/micsum_input.txt" 2>/dev/null )
+
+declare -A STDIN ARGS LINKDEPS
+STDIN[concord]="$CORPUS/concord.dat"; ARGS[concord]=""
+STDIN[deal]="";                       ARGS[deal]="-h 1000"
+STDIN[geddump]="$CORPUS/geddump.dat"; ARGS[geddump]=""
+STDIN[ipxref]="$IPXIN";               ARGS[ipxref]=""
+STDIN[micro]="";                      ARGS[micro]="0.05"
+STDIN[micsum]="$WORK/micsum_input.txt"; ARGS[micsum]=""
+STDIN[queens]="";                     ARGS[queens]="-n10"
+STDIN[rsg]="$CORPUS/rsg.dat";         ARGS[rsg]=""
+STDIN[tgrlink]="";                    ARGS[tgrlink]="$CORPUS/tgrlink.dat"
+STDIN[version]="";                    ARGS[version]=""
+LINKDEPS[concord]="options.icn post.icn"
+LINKDEPS[deal]="options.icn post.icn shuffle.icn"
+LINKDEPS[ipxref]="options.icn post.icn"
+LINKDEPS[queens]="options.icn post.icn"
+LINKDEPS[rsg]="options.icn post.icn"
+LINKDEPS[tgrlink]="options.icn"
+
+progs="${*:-concord deal geddump ipxref micsum queens rsg tgrlink version}"
+
+# post.icn's banner lines are nondeterministic across engines (&version/&host/&features/
+# storage/collections/elapsed time). Strip them so the diff compares REAL PROGRAM OUTPUT.
+strip_banner() {
+  grep -avE '^(Icon Version|icon version|SCRIP|.*elapsed time =|regions|storage|collections|static|string|block|total|Linux|linux|.*/.*|Version|.*features.*)$' "$1" 2>/dev/null \
+    | grep -avE '^\s*[0-9]+\s*$' | sed '/^$/d'
+}
+
+printf "%-9s | %-22s | %-24s | %-7s | %s\n" "PROGRAM" "ICONX (oracle)" "SCRIP m4" "SPEEDUP" "OUTPUT vs ORACLE"
+printf -- "----------+------------------------+--------------------------+---------+------------------\n"
+
+for name in $progs; do
+  icn="$CORPUS/$name.icn"
+  sin="${STDIN[$name]:-}"; [ -z "$sin" ] && sin=/dev/null
+  read -ra a <<< "${ARGS[$name]}"
+  read -ra ld <<< "${LINKDEPS[$name]:-}"
+
+  # ---- oracle ----
+  o="?"; obest=999999
+  ( cd "$CORPUS" && "$ICONT" -s -o "$WORK/$name.icx" "$name.icn" ) >/dev/null 2>&1
+  if [ -f "$WORK/$name.icx" ]; then
+    for r in $(seq $REPS); do
+      t0=$(date +%s%N); timeout 60 "$ICONX" "$WORK/$name.icx" "${a[@]}" >"$WORK/$name.orc.out" 2>/dev/null <"$sin"; rc=$?
+      t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 )); [ $ms -lt $obest ] && obest=$ms
+    done
+    [ $rc -eq 0 ] && o="OK ${obest}ms $(wc -l <"$WORK/$name.orc.out")L" || o="rc=$rc"
+  else o="COMPILEFAIL"; fi
+
+  # ---- SCRIP m4 ----
+  m="?"; mbest=999999; verdict="-"
+  ( cd "$CORPUS" && timeout 60 "$SCRIP" --compile --target=x86 "$name.icn" "${ld[@]}" \
+      >"$WORK/$name.s" 2>"$WORK/$name.cerr" )
+  if [ -s "$WORK/$name.s" ] && gcc -no-pie "$WORK/$name.s" -L"$RTDIR" -lscrip_rt \
+        -Wl,-rpath,"$RTDIR" -o "$WORK/$name.bin" 2>"$WORK/$name.lerr"; then
+    for r in $(seq $REPS); do
+      t0=$(date +%s%N); timeout 60 "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>/dev/null <"$sin"; rc=$?
+      t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 )); [ $ms -lt $mbest ] && mbest=$ms
+    done
+    if [ $rc -eq 0 ]; then
+      m="OK ${mbest}ms $(wc -l <"$WORK/$name.m4.out")L"
+    elif [ $rc -eq 124 ]; then m="TIMEOUT"; else m="RUNFAIL rc=$rc"; fi
+  else
+    m="EMITFAIL: $(grep -m1 -oE 'FATAL[^\n]{0,40}' "$WORK/$name.cerr" | head -c40)"
+  fi
+
+  # ---- the honest part: compare real program output ----
+  if [ -f "$WORK/$name.orc.out" ] && [ -f "$WORK/$name.m4.out" ]; then
+    strip_banner "$WORK/$name.orc.out" > "$WORK/$name.orc.clean"
+    strip_banner "$WORK/$name.m4.out"  > "$WORK/$name.m4.clean"
+    ol=$(wc -l <"$WORK/$name.orc.clean"); ml=$(wc -l <"$WORK/$name.m4.clean")
+    if cmp -s "$WORK/$name.orc.clean" "$WORK/$name.m4.clean"; then verdict="IDENTICAL ($ol L)"
+    else verdict="DIVERGE orc=${ol}L scrip=${ml}L"; fi
+  fi
+
+  sp="-"
+  if [ $obest -lt 999999 ] && [ $mbest -lt 999999 ] && [ $mbest -gt 0 ]; then
+    sp=$(awk "BEGIN{printf \"%.2fx\", $obest/$mbest}")
+  fi
+  printf "%-9s | %-22s | %-24s | %-7s | %s\n" "$name" "$o" "$m" "$sp" "$verdict"
+done
+echo "workdir: $WORK"
