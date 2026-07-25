@@ -351,6 +351,49 @@ dropped pending re-measurement on current hardware. Re-grounding headline claims
 stays tracked under REC-COV / RC-5. (Attribution here is from the commit log
 since 2026-07-10, not a controlled bisect.)
 
+### Demo suite: SCRIP vs SPITBOL — the measurement rail (2026-07-24, HEAD `a0b9aa41`)
+
+The five pattern/eval demos (`corpus/programs/snobol4/demo/*-match.sno`) measured on
+the **rail protocol** (`scripts/bench_sno_rail.sh`, s147): the bench loop times
+**itself in-program** (`TIME()` delta around the match loop only — process startup,
+dynamic link, and pattern-blob compile are excluded *exactly*, no floor estimation),
+and the iteration count **auto-ranges ×4 per engine until the compute window ≥ 800 ms**
+(cap 16384) — the Van Roy Prolog rail's adequacy rule. 5 interleaved rounds, medians.
+Oracle = official SPITBOL x64 (`sbl -b`); byte-identity checked per demo
+(timing lines stripped). **Ratio = scrip ÷ sbl per-iteration; lower is faster.**
+
+| Demo | sbl µs/iter | SCRIP m4 µs/iter (RT `-O0`) | ratio | RT `-O2` sinks | ratio |
+|------|------------:|----------------------------:|------:|---------------:|------:|
+| claws5 | 261 | 188 | **0.72** | 174 | **0.67** |
+| json | 2,199 | 1,562 | **0.71** | 1,481 | **0.67** |
+| calculator-1 | 46,969 | 99,000 | 2.11 | 95,250 | 2.03 |
+| treebank | 702 | 1,915 | 2.73 | 1,891 | 2.69 |
+| calculator-2 | 734 | 2,602 | 3.54 | 2,342 | 3.19 |
+
+**Headline:** with valid measurement, **claws5 and json both beat SPITBOL ~1.4×**
+(0.67–0.72); treebank is 2.7× slower, calculator-1 2.1×, calculator-2 3.2–3.5×.
+Remaining gap is emitted-code shape (δ-seam traffic, ARBNO chain, branch-chain
+Σ-pop), per the SLOT-ELIDE attribution result (C runtime ≈ 2% of hot path).
+
+**Variance postmortem — why the earlier fixed-N wall grids were retracted.** A full
+day of fixed-N wall-clock measurements (windows 3–80 ms) swung treebank 1.42→3.90
+and showed claws5 as 1.1–2.0× *slower*, while calculator-1 — the only demo whose
+window exceeded ~2 s — held 1.96–2.11 across every condition. Sub-second wall
+windows on a shared host are dominated by startup + load noise; the rail's
+self-timing + window-adequacy rule fixes both. The claws5 verdict *inverted*
+(slower → 1.4× faster) once startup was excluded — the cautionary example.
+
+**RT `-O2` is retired (2026-07-24 ruling).** Two independent measurements: a
+same-binary `.so`-swap A/B and the rail's dual-config columns above both put the
+runtime-sink `-O2` effect at a uniform ~3–10% — real but incapable of moving a
+2–3× ratio, consistent with the C runtime being ≈ 2% of hot-path cost. `-O2` was
+scoped to the **runtime sinks only** (`runtime/{rt,core,builtins}`, 96 objects);
+the emit templates (`src/templates/*.cpp`, 118 objects) stay `-O0` always — they
+run at *compile* time (and EVAL/CODE JIT), never in the match hot path, and
+dominate `.so` build time. Forward plan: the C runtime is to be replaced by a
+hand-written **x86 ASM runtime**, optimal for mode 3 and mode 4 alike — no C
+compiler, no opt level, in the runtime at all.
+
 ## SNOBOL4 Benchmark — SCRIP vs SPITBOL vs CSNOBOL4
 
 The SNOBOL4 frontend is measured against the two reference engines — **SPITBOL x64**
