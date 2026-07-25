@@ -6551,7 +6551,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
         void *pf = rt_proc_get_fn(nm);
         if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
-        extern void *dtp_wrap_fn(void *); DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn(pf);
+        extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t); extern long rt_fn_frame_bytes_known(void *);
+        DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), 0);
         *out = pd; return 1;
     }
     if (!strcmp(fn,"OPSYN") && nargs >= 2) {
