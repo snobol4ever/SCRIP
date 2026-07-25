@@ -200,6 +200,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_rk_gcc.cpp \
     $(SRC)/runtime/rt_gram_trampoline.S \
     $(SRC)/runtime/rt/rt_sg_scan.S \
+    $(SRC)/runtime/rt/rt_asm_helpers.S \
     $(SRC)/templates/xa_stubs.cpp \
     $(SRC)/templates/xa_macro_library.cpp \
     $(SRC)/templates/xa_bb_macro_library.cpp \
@@ -455,6 +456,7 @@ scrip:
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_rk_gcc.cpp -o $(OBJ)/bb_rk_gcc.o
 	$(CC) -c $(SRC)/runtime/rt_gram_trampoline.S -o $(OBJ)/rt_gram_trampoline.o
 	$(CC) -c $(SRC)/runtime/rt/rt_sg_scan.S -o $(OBJ)/rt_sg_scan.o
+	$(CC) -c $(SRC)/runtime/rt/rt_asm_helpers.S -o $(OBJ)/rt_asm_helpers.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_move.cpp  -o $(OBJ)/bb_scan_move.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_upto.cpp  -o $(OBJ)/bb_scan_upto.o
 	$(CXX) $(CXXRT) -c $(SRC)/templates/bb_scan_any.cpp   -o $(OBJ)/bb_scan_any.o

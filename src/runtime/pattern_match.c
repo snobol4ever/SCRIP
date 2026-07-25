@@ -1171,7 +1171,7 @@ DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_deref(DESCR_t d) {
+DESCR_t rt_deref_slow(DESCR_t d) {
     if (d.v == DT_N && d.slen == 0 && d.s && *d.s) { extern DESCR_t NV_GET_fn(const char *); return NV_GET_fn(d.s); }
     if (d.v == DT_N && d.slen == 1 && d.ptr) return *(DESCR_t *)d.ptr;
     if (!IS_NAMETRAP_fn(d)) return d;
