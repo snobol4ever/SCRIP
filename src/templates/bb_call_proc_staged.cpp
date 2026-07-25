@@ -356,6 +356,20 @@ static std::string bcps_spine_gen_arm() {
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    /* PL-GENIDX-1 (2026-07-25) — EMIT-TIME-RESOLVED CALLEE FOR THE *GENERATOR* SITE.  PL-REGAIN-1 slice A (s100) gave the DET arm an index-based open (no FNV hash, no strcmp, and the fused leaf returns
+     * the fn pointer so the separate rt_proc_open_fn crossing dies).  THE GENERATOR ARM NEVER GOT IT — and every nondet Prolog predicate (`app/3`, `nrev/2`, every multi-clause pred) is dispatched HERE,
+     * so the whole Prolog hot corpus was re-hashing its callee's NAME STRING on every one of ~10M calls.  Measured: 6/6 nrev call sites emitted the name path, 0 the index path; rt_proc_fnv +
+     * rt_proc_hash_lookup + rt_proc_find held ~15-20% of leaf samples in the mode-4 profile.
+     * Eligibility is IDENTICAL to the det arm's and emit-time-static (!is_dyn, literal target, registered => index >= 0); the rt table is fully populated before any emission in BOTH media and registration
+     * order is identical in-process and in the mode-4 startup bake, so the index is stable in both.  SEMANTIC EQUIVALENCE, checked not assumed: (a) ONE-POP LAW — rt_proc_call_open and
+     * rt_proc_call_open_det BOTH reach rt_proc_call_prologue_lex exactly once, which is the sole pusher of the pcall record (g_pcall_top++), so the epilogue_γ/ω single pop still balances; (b) the SUCCESS
+     * TEST is preserved — the name leaf returns fbytes (>= PROC_FRAME_QWORDS*8, never 0) and the index leaf returns p->fn (non-null by its own guard), so `test rax,rax; je L(1)` means "opened" on both;
+     * (c) a runtime dyn_scope mismatch makes the index leaf return 0 into that SAME side-effect-free FAIL arm, exactly as the det arm already accepts.  Hatch: SCRIP_NO_GENIDX=1 restores the name path
+     * byte-for-byte for A/B. */
+    int   gi_off; { static int c = -1; if (c < 0) { const char *e = getenv("SCRIP_NO_GENIDX"); c = (e && *e == '1') ? 1 : 0; } gi_off = c; }
+    int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
+    long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
+    uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()
@@ -364,12 +378,16 @@ static std::string bcps_spine_gen_arm() {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return stage_arg_inline(i, slot, stage_fp);
     })
-         + x86_ro_load_q("rdi", 0)
-         + x86("mov32", "esi", (long)_.op_ival)
-         + x86("call", "rt_proc_call_open", open_fp)
+         + (gi_idx >= 0
+            ? x86("mov32", "edi", (long)gi_idx)
+            + x86("mov32", "esi", (long)_.op_ival)
+            + x86("call", "rt_proc_call_open_det", (uint64_t)gidet_fp)
+            : x86_ro_load_q("rdi", 0)
+            + x86("mov32", "esi", (long)_.op_ival)
+            + x86("call", "rt_proc_call_open", open_fp))
          + x86("test", "rax", "rax")
          + x86("je", L(1))
-         + x86("call", "rt_proc_open_fn", openfn_fp)
+         + (gi_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
          + x86_lea_id("rcx", 3)
          + x86_lea_id("rdx", 4)
          + x86_jmp_reg("rax")
