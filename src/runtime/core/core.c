@@ -1838,9 +1838,15 @@ char *VARVAL_fn(DESCR_t v) {
     switch (v.v) {
         case DT_SNUL:    return rt_ws_strdup_c("");
         case DT_S:     return v.s ? v.s : rt_ws_strdup_c("");
-        case DT_I:
-            snprintf(buf, sizeof(buf), "%" PRId64, v.i);
-            return rt_ws_strdup_c(buf);
+        case DT_I: {
+            int64_t _x = v.i; int _p = (int)sizeof(buf);
+            buf[--_p] = 0;
+            if (_x == 0) buf[--_p] = '0';
+            else { uint64_t _u = (_x < 0) ? (uint64_t)(-(_x + 1)) + 1u : (uint64_t)_x;
+                   while (_u) { buf[--_p] = (char)('0' + (int)(_u % 10u)); _u /= 10u; }
+                   if (_x < 0) buf[--_p] = '-'; }
+            return rt_ws_strdup_c(buf + _p);
+        }
         case DT_R: {
             /* SPITBOL standard representation via the one authority (string_ops.c). */
             extern const char *real_str(double r, char *b, int bufsz);
