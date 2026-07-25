@@ -35,6 +35,7 @@ _Static_assert(__builtin_offsetof(rt_hp_fr_t, armed)  == 24, "PL-SINK-3 bakes g_
 #define g_hp_end    (g_hp_fr.end)
 #define g_hp_blocks (g_hp_fr.blocks)
 static char *g_hp_arena = (char *)0;
+static char *g_hp_virgin = (char *)0;
 static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
 static char *g_wsi_base = (char *)0;
@@ -125,12 +126,17 @@ static void rt_gcheap_report(void)
 static void rt_gcheap_init(void)
 {
     long mb = (long)ZC_HEAP_MB;
+    { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) mb = v; } }
     /* TR-2: slab-pool backing (was private mmap). Contiguity is load-bearing here —
      * the linear TITLE WALK (rt_gcheap_verify / mark-sweep) strides block-to-block
      * across the whole region by size header, which only works on one contiguous span. */
     g_hp_arena = (char *)rt_slab_region((size_t)mb << 20);
     if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower ZC_HEAP_MB\n", mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
+    /* HP-1: the arena is bump-filled through VIRGIN memory, so every 4K page costs a minor fault + a kernel zero-fill; tgrlink touched 61MB = 14,999 faults vs iconx's 607. THP is [madvise] here, so opt the
+     * 2MB-aligned interior in explicitly: 61MB then costs ~30 huge-page faults. Alignment is required — an unaligned range silently declines to back with hugepages. SCRIP_NOHUGE=1 restores 4K (A/B). */
+    { const char *nh = getenv("SCRIP_NOHUGE"); if (!(nh && *nh && *nh != '0')) { uintptr_t a = ((uintptr_t)g_hp_arena + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)g_hp_end) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); } }
+    g_hp_virgin = g_hp_arena;
     gc_static_segs_init();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -144,7 +150,12 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     uint64_t pay = total - sizeof(rt_hblk_t);
     static int zfull = -1;
     if (zfull < 0) { const char *e = getenv("SCRIP_ZSKIP_OFF"); zfull = (e && *e && *e != '0') ? 1 : 0; }
-    if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
+    /* HP-2: mmap-fresh anonymous pages are ALREADY zero, so re-zeroing a block carved above the high-water mark is pure redundant write traffic. Skip it for fully-virgin blocks only; anything at or below
+     * g_hp_virgin may be GC-recycled (the g_hp_win fill window always is) and MUST still be zeroed. Straddling blocks take the conservative memset. SCRIP_ZSKIP_OFF=1 forces full zeroing (A/B). */
+    int fresh = !zfull && at >= g_hp_virgin;
+    if (at >= g_hp_virgin && at + total > g_hp_virgin) g_hp_virgin = at + total;
+    if (fresh) { }
+    else if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
     else memset((void *)(h + 1), 0, (size_t)pay);
     g_hp_blocks += 1;
     return (void *)(h + 1);
