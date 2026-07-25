@@ -39,8 +39,9 @@ static std::string fence_release(int off) {
  * `rsp=rbp` bulk-free ("post-carve frontier: every element grant sits below", emit.cpp ~2070).  Retention drops O(activations) → O(depth): each committed sub-match's retained frame dies at the next
  * enclosing fence commit instead of at the match bracket.  na_s also REWRITES the watermark quad := rbp (the new floor), so a post-commit na_f arrival (the ARBNO in-body abandon route) restores to the
  * floor, never below it into whacked-and-reused bytes.  cstack/FORTH ports only — the arena ports keep the s133 own-span release (their activation floor is not plumbed; correct, unoptimized). */
+static int fence_whack_on() { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_FENCE_WHACK"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
 static std::string fence_whack_commit(int off) {
-    if (x86_port_cstack()) return x86("mov", "rsp", "rbp") + x86("mov", FRQ(off), "rbp");
+    if (x86_port_cstack() && fence_whack_on()) return x86("mov", "rsp", "rbp") + x86("mov", FRQ(off), "rbp");
     return fence_release(off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -52,7 +53,7 @@ std::string bb_match_fence1() {
                            * anchor idiom) stays node-free in the lowerer: zero left context, nothing to whack. */
         return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — whack the activation's dynamic zeta to the rbp floor — then gamma; beta abandons to omega)")
              + x86_alpha()
-             + IF(x86_port_cstack(), x86("mov", "rsp", "rbp"))
+             + IF(x86_port_cstack() && fence_whack_on(), x86("mov", "rsp", "rbp"))
              + x86_gamma()
              + x86_beta()
              + x86_omega();
