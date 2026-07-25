@@ -97,8 +97,15 @@ int bb_emit_end(void)
     return bb_emit_pos;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static bb_label_t *g_lblfold_from[4096]; static bb_label_t *g_lblfold_to[4096]; static int g_lblfold_n = 0;
+static int seq_fold_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_SEQ_FOLD"); on = (e && *e == '0') ? 0 : 1; } return on; }
+extern "C" void bb_label_alias_reset(void) { g_lblfold_n = 0; }
+extern "C" void bb_label_alias(bb_label_t *stub, bb_label_t *tgt) { if (!seq_fold_on() || !stub || !tgt || stub == tgt || g_lblfold_n >= 4096) return; g_lblfold_from[g_lblfold_n] = stub; g_lblfold_to[g_lblfold_n] = tgt; g_lblfold_n++; }
+extern "C" bb_label_t *bb_label_fold(bb_label_t *l) { if (!seq_fold_on() || !l) return l; for (int hop = 0; hop < 16; hop++) { int hit = 0; for (int i = 0; i < g_lblfold_n; i++) if (g_lblfold_from[i] == l) { l = g_lblfold_to[i]; hit = 1; break; } if (!hit) break; } return l; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_emit_patch_rel32(bb_label_t *lbl)
 {
+    lbl = bb_label_fold(lbl);
     if (!MEDIUM_BINARY) {
         fprintf(stderr,
                 "bb_emit_patch_rel32: TEXT-mode reach (target='%s') — "
@@ -150,6 +157,7 @@ void emitter_init_binary(bb_buf_t buf, int size)
 {
     g_is_text = 0; g_emit_text_mode = TEXT_MODE_INVOCATION; g_emit_pos = 0;
     bb_emit_overflow = 0;
+    bb_label_alias_reset();
     bb_emit_mode = EMIT_BINARY_WIRED;
     g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_BINARY;
     bb_emit_begin(buf, size);
@@ -158,6 +166,7 @@ void emitter_init_binary(bb_buf_t buf, int size)
 void emitter_init_text(FILE *out, int mode)
 {
     g_is_text = 1; g_emit_text_mode = mode; g_emit_pos = 0;
+    bb_label_alias_reset();
     bb_emit_mode = EMIT_TEXT;
     g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_TEXT;
     bb_emit_out  = out ? out : stdout;
@@ -187,6 +196,7 @@ void emit_label_define_bb(bb_label_t *lbl)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_jmp_label(bb_label_t *target, jmp_kind_t kind)
 {
+    target = bb_label_fold(target);
     static const char    *mn[]    = {"jmp","je","jne","jl","jge","jg"};
     static const uint8_t  ops[6][2] = {{0xE9,0x00},{0x0F,0x84},{0x0F,0x85},{0x0F,0x8C},{0x0F,0x8D},{0x0F,0x8F}};
     int k = (int)kind < 6 ? (int)kind : 0;
@@ -987,8 +997,9 @@ extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
     g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; \
-    g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
-    g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
+    bb_label_t *_fs__=bb_label_fold((s)), *_ff__=bb_label_fold((f)); \
+    g_emit.lbl_α=(a)->name; g_emit.lbl_γ=_fs__->name; g_emit.lbl_ω=_ff__->name; g_emit.lbl_β=(b)->name; \
+    g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=_fs__; g_emit.lbl_ω_p=_ff__; g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
 #define DRIVE_PAIR_RESET()      do { g_emit.xa_bb_emit_pair_n = 0; } while(0)
 #define DRIVE_PAIR_JMP(tgt)     do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=NULL; g_emit.xa_bb_emit_pair_jmp[_i]=(tgt); } while(0)
@@ -1098,6 +1109,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }   /* CV10: arm-value slots delivered to bb_scan_sequence (op_parts channel, IR_ALT precedent; 32-arm cap) */
     if (nd->op == IR_DISJUNCTION) { for (int j = 0; j < N && j < 32; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0; while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }   /* conjunction value = operands[0] (its own drive's alias source); chase STRUCTURALLY — bb_slot_register aliasing happens at the conj's OWN drive, later in chain order than this dj, so slot lookups here are pre-alias-stale (rung37 empty-value bug) */ int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs; } g_emit.op_parts_n = N; }   /* MOVE_LABEL-ERAD option B: per-arm RESULT slots (trailing operands) for the σ-glue's alt_i-dispatched copy into the disjunction's own value slot; -1 = valueless arm, glue copies nothing (value stays as α zeroed it) */
+    if (nd->op == IR_MATCH_SEQUENCE && x86_port_mode() != ZC_PORT_INSTRUMENTED && x86_port_mode() != ZC_PORT_ALLOC && (fc_seq_on(nd) || (seq_static_on(nd) && g_seq_static_cur))) { if (na_s[i]) bb_label_alias(na_s[i], bb_label_fold(node_γ)); if (na_f[i]) bb_label_alias(na_f[i], bb_label_fold(node_ω)); }   /* HEAT-1 H1b: FC/SEQ-STATIC arms emit as: jmp γ / af: jmp ω (bb_match_sequence.cpp) — pure trampolines; alias them so every later consumer jmp retargets to the final label (bb_label_fold at the jmp funnels, fixpoint chase, stubs still emitted for earlier consumers, SCRIP_SEQ_FOLD=0 kill-switch) */
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
