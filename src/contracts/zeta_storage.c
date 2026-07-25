@@ -244,7 +244,7 @@ static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_N
  * ALTERNATE/SEQUENCE (entry-cursor+index quads), FENCE1 (watermark quad), DEFER/VALUE (pad quads; sealed DEFER's watermark IS the pad quad via zls_off).  EXCLUDED: HEAD (RELEASE/REPLACE cross-box flat
  * reads), ARBNO (body-window geometry + COLLECTION), ARB (zls2 save-slot), ASSIGN_SAVE (COND cross-reads), SCAN_* (Icon scans use the front quad as the value DESCR -- "the value DESCR is the box
  * result slot at [base]"), INITIAL.  Same SCRIP_SLOT_ELIDE=0 kill-switch reverts to zls_grant wholesale. */
-static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE; }
+static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_CALL_BUILTIN_PROLOG; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
