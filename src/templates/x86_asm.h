@@ -1798,7 +1798,7 @@ inline std::string x86_bomb(const char * msg) {
          + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : std::string(" ud2\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline bb_label_t * x86_pair_tgt(int idx) { return g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx] : g_emit.xa_bb_emit_pair_define[idx]; }   /* ZB-FC-3a: a jmp to a DEFINE-only pair (the sigma pad stubs' jmp na_s) targets the define label -- previously '??'/skipped patch = silent SEGV class */
+inline bb_label_t * x86_pair_tgt(int idx) { return bb_label_fold(g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx] : g_emit.xa_bb_emit_pair_define[idx]); }   /* ZB-FC-3a: a jmp to a DEFINE-only pair (the sigma pad stubs' jmp na_s) targets the define label -- previously '??'/skipped patch = silent SEGV class */
 inline std::string x86_pair_jmp(int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
     return std::string(" jmp ") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
