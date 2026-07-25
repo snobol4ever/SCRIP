@@ -88,7 +88,15 @@ for name in $progs; do
   fi
 
   # ---- the honest part: compare real program output ----
-  if [ -f "$WORK/$name.orc.out" ] && [ -f "$WORK/$name.m4.out" ]; then
+  # A post.icn-linked program runs this pass with output SUPPRESSED (write := 1), so its stdout is
+  # a banner, not program output, and NO honest correctness verdict can be drawn from it here. The
+  # banner carries per-run timings/storage stats that survive strip_banner, so such programs always
+  # printed DIVERGE — a false red on concord/deal/ipxref/queens, all four of which are byte-identical
+  # to the oracle when measured properly. Correctness for these lives in honest_icon_correctness.sh
+  # (OUTPUT=1); this runner reports timing only.
+  if [ -n "${LINKDEPS[$name]:-}" ] && [[ " ${LINKDEPS[$name]} " == *" post.icn "* ]]; then
+    verdict="n/a (output suppressed - use honest_icon_correctness.sh)"
+  elif [ -f "$WORK/$name.orc.out" ] && [ -f "$WORK/$name.m4.out" ]; then
     strip_banner "$WORK/$name.orc.out" > "$WORK/$name.orc.clean"
     strip_banner "$WORK/$name.m4.out"  > "$WORK/$name.m4.clean"
     ol=$(wc -l <"$WORK/$name.orc.clean"); ml=$(wc -l <"$WORK/$name.m4.clean")
@@ -103,3 +111,9 @@ for name in $progs; do
   printf "%-9s | %-22s | %-24s | %-7s | %s\n" "$name" "$o" "$m" "$sp" "$verdict"
 done
 echo "workdir: $WORK"
+echo
+echo "SPEEDUP IS MEANINGLESS WITHOUT A CORRECTNESS VERDICT. A program that short-circuits its"
+echo "workload looks FAST. Measured case (s164): rsg reported 2.83-3.40x while emitting 1000 blank"
+echo "lines instead of the oracle's 5000 sentences - it was not fast, it was not working. Read a"
+echo "speedup here ONLY for a program honest_icon_correctness.sh reports IDENTICAL; as of s165 that"
+echo "is concord deal ipxref queens tgrlink micsum. geddump and rsg DIVERGE - their times are void."
