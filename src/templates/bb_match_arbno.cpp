@@ -106,6 +106,48 @@ std::string bb_match_arbno() {
     if (!PLATFORM_X86) return std::string();
     return _.op_tail
              ? bb_match_arbno_tail()
+         : _.op_arbno_dt
+             /* PS-3 (s152) DEFER-TAIL (Lon directive: solve ARBNO(*P); ARCH-SNOBOL4 §ARBNO eradication ruling).  The body is ONE write-once prologue-bound defer: its blob SELF-allocates, γ-suspends
+              * leaving the 16B {res,rbp} frontier record at [rsp+0] (t1.s ground truth), β = jmp [rsp+0] self-pops, ω restores rsp to the blob's entry frontier sweeping every interior carve (lea
+              * rsp,[rbp+K]).  So the blob IS the iteration frame: no link cell, no view repoint, no element window -- the chain ceremony deletes wholesale.  The ONLY per-element datum is the entry
+              * cursor (σ's null-progress baseline survives a resume-and-re-yield only per-element; the flat yield quad is clobbered by the first yield), stored in a 16B header ABOVE the blob carve
+              * and read from the uniform yield depth at [rsp + op_arbno_dt_susp] -- the compile-time ζ size align16(32+fb)+fp+16 from the emit_patzeta registry, constant across yields by the UNIFORM
+              * license (no interior ARBNO/DEFER/VALUE).  Cursor bookkeeping, counter dance, and exhaust restore mirror the chain arm verbatim (same flat header quads); φ pops the 16B header only --
+              * the exhausted blob already released itself -- landing exactly on the previous frontier for PAIR(1)'s jmp [rsp+0]. */
+             ? x86("comment", "IR_MATCH_ARBNO_DT (PS-3 defer-tail: blob-owned frames, zero linkage)")
+             + x86_alpha()
+             + x86("mov", FR(_.op_off), "r14d")
+             + x86("mov", FR(_.op_off + 4), "r14d")
+             + x86("mov", FR(_.op_off + 8), 0L)
+             + x86("mov", FRQ(_.op_off + 24), "rsp")
+             + x86_gamma()
+             + x86_beta()
+             + x86("mov", "r14d", FR(_.op_off + 4))
+             + x86("sub", "rsp", 16L)
+             + x86("mov", trq(0), "r14")
+             + x86("mov", trq(8), 0L)
+             + x86("jmp", PAIR(0))
+             + x86("def", PAIR(2))
+             + x86("mov", "eax", trd(_.op_arbno_dt_susp))
+             + x86("cmp", "r14d", "eax")
+             + x86("je",  PAIR(1))
+             + x86("mov", "eax", FR(_.op_off + 8))
+             + x86("add", "eax", 1L)
+             + x86("mov", FR(_.op_off + 8), "eax")
+             + x86("mov", FR(_.op_off + 4), "r14d")
+             + x86_gamma()
+             + x86("def", PAIR(3))
+             + x86("add", "rsp", 16L)
+             + x86("mov", "ecx", FR(_.op_off + 8))
+             + x86("test", "ecx", "ecx")
+             + x86("jz",  L(2))
+             + x86("sub", "ecx", 1L)
+             + x86("mov", FR(_.op_off + 8), "ecx")
+             + x86("jmp", PAIR(1))
+             + x86("def", L(2))
+             + x86("mov", "r14d", FR(_.op_off))
+             + x86("mov", "rsp", FRQ(_.op_off + 24))
+             + x86_omega()
          : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
