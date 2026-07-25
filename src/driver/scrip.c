@@ -734,6 +734,7 @@ int main(int argc, char **argv)
             int *proc_pidx_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_ispat_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
+            int *proc_zstatic_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -755,6 +756,7 @@ int main(int argc, char **argv)
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = g_last_flat_frame_bytes; }
+                { extern int g_last_flat_zstatic; proc_zstatic_buf[n_procs] = g_last_flat_zstatic; }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
                 proc_names_buf[n_procs++] = pname;
@@ -1018,6 +1020,11 @@ int main(int argc, char **argv)
                         printf("  mov esi, %d\n", proc_fb_buf[i]);
                         printf("  call rt_proc_set_frame_bytes@PLT\n");
                     }
+                    if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {   /* PS-1b (s151): mode-4 printed twin of the m3 rt_proc_set_zstatic — only for PAT$ procs (the SNO$MKPAT consumer set) and only when statically proven; unregistered stays the conservative 0 */
+                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        printf("  mov esi, 1\n");
+                        printf("  call rt_proc_set_zstatic@PLT\n");
+                    }
                     if (pe->is_variadic) {
                         printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                         printf("  mov esi, 1\n");
@@ -1041,7 +1048,7 @@ int main(int argc, char **argv)
                 printf("  add rsp, 8\n");
                 printf("  ret\n");
             }
-            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf);
+            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
             if (n_gva_icn > 0) {
                 printf("  .section .rodata\n");
                 for (int k = 0; k < n_gva_icn; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1360,6 +1367,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
+                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 in-process twin of the m4 printed rt_proc_set_zstatic — makes SNO$MKPAT-minted DT_P carry real zstatic in --run */
                 { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }   /* PL-DC s108: seal registration — the fixed slot the m3 sites call through */
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }
@@ -1460,6 +1468,7 @@ int main(int argc, char **argv)
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
+                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 twin (second proc loop — block/EVAL-thunk phase) */
             }
             g_frame_active = 0;
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;

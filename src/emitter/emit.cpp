@@ -451,6 +451,7 @@ const char *child_cache_get_lbl(bb_box_fn fn);
 int g_flat_node_id   = 0;
 static int g_seq_static_cur = 0;
 int g_last_flat_frame_bytes = 0;
+int g_last_flat_zstatic = 0;   /* PS-1b (s151): 1 iff the just-emitted graph is DEFER/VALUE-free AND its zls region was known (not the 4096 fallback) -- the emit-side twin of bb_graph_zstatic, captured per-proc by the driver into proc_zstatic_buf and registered so SNO$MKPAT-minted DT_P carry a trustworthy zstatic; default 0 = conservative (chain path). */
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
 static bb_slotmap_ent_t *g_bb_slotmap = NULL;
 static int g_bb_slotmap_n = 0;
@@ -2297,6 +2298,7 @@ extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.f
  * are ADMITTED with flat_gen (GENP-SPINE s92): same lexprep prologue, but the γ epilogue RETAINS the activation on the spine (suspend record) — see emit.h flat_gen.  LBL__ main-program pseudo-procs are dyn_scope=0 but take no args and
  * are entered only through rt_chain_enter (rt_goto_transfer arm 4), which IS the jmp transfer — they arm with flat_lex=0 (no pcall record exists for lexprep to read). */
 static int emit_graph_has_suspend(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
+static int emit_graph_zstatic(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && (c->op == IR_MATCH_DEFER || c->op == IR_MATCH_VALUE)) return 0; } return 1; }   /* PS-1b (s151): exact emit-side mirror of runtime bb_graph_zstatic -- a DEFER/VALUE node is the only transfer into an arriving blob of unknown extent, so its absence is what makes the frame sound for ARBNO stride arithmetic; the region-known conjunct is applied at the capture site via flat_layout_unknown. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_generator, IR_graph_t *g) {
     if (pname && strncmp(pname, "gram__", 6) == 0) return 0;   /* NCB-1d EXCLUSION: Raku grammar boxes speak the SCAN-ENTRY protocol (rk_gram_enter_box trampoline — subject triad r13/r14/r15, esi entry selector, call/ret, spec_t in rax:rdx), not the proc-call protocol; they keep the outermost call-regime body.  Name-keyed like the LBL__ gate below. */
@@ -2321,6 +2323,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     g_flat_chain_set_n = 0;
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }   /* ICN-SCAN-SUSPEND-SYNC: scan regions are intragraph; without an emitted IR_SCAN leave box the flag leaked into later graphs, emitting sync brackets at non-scan call sites (r15.s main α garbage publish) */
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
+    g_last_flat_zstatic = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_zstatic(g_emit_cfg) : 0;   /* PS-1b: region-known (arm cleared flat_layout_unknown) AND DEFER/VALUE-free; read only for PAT$ procs downstream, garbage-safe for non-pat emissions because the driver gates the registration on proc_ispat_buf. */
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); return rc == 0 ? (bb_box_fn)1 : NULL; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;

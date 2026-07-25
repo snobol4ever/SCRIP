@@ -141,6 +141,8 @@ int rt_proc_index_of(const char *name);
 void rt_proc_table_fill(int64_t *tab, const char **names, int n);
 void rt_proc_set_frame(const char *name, int nslots, int decl_level);
 void rt_proc_set_frame_bytes(const char *name, int bytes);
+void rt_proc_set_zstatic(const char *name, int bit);
+long rt_fn_zstatic_known(void *fn);
 int  rt_proc_frame_nslots(const char *name);
 int  rt_proc_decl_level(const char *name);
 void rt_proc_set_byref(const char *name, uint64_t mask);
