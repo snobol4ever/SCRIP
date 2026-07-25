@@ -37,9 +37,19 @@ LINKDEPS[queens]="options.icn post.icn"
 LINKDEPS[rsg]="options.icn post.icn"
 LINKDEPS[tgrlink]="options.icn"
 
-# extract the true program-output window
+# extract the true program-output window.
+# Programs linked with post.icn bracket their real output between the marker line and the
+# elapsed-time line. Programs WITHOUT post.icn (geddump, micsum, tgrlink — see LINKDEPS above)
+# never emit the marker, so the awk window came back EMPTY for them; two empty windows then
+# compared equal and printed IDENTICAL. That false green reported geddump — a KNOWN live defect
+# diverging 12568L vs 13645L — as a pass. When the marker is absent the whole file IS the
+# program output, so fall back to it rather than silently yielding nothing.
 window() {
-  awk '/\*\*\* Benchmarking with output \*\*\*/{f=1;next} / elapsed time = /{f=0} f' "$1"
+  if grep -q '\*\*\* Benchmarking with output \*\*\*' "$1" 2>/dev/null; then
+    awk '/\*\*\* Benchmarking with output \*\*\*/{f=1;next} / elapsed time = /{f=0} f' "$1"
+  else
+    cat "$1"
+  fi
 }
 
 progs="${*:-concord deal geddump ipxref micsum queens rsg tgrlink}"
@@ -65,7 +75,8 @@ for name in $progs; do
   window "$WORK/$name.orc" > "$WORK/$name.orc.w"
   window "$WORK/$name.scr" > "$WORK/$name.scr.w"
   ol=$(wc -l <"$WORK/$name.orc.w"); sl=$(wc -l <"$WORK/$name.scr.w")
-  if cmp -s "$WORK/$name.orc.w" "$WORK/$name.scr.w"; then v="IDENTICAL"; d="-"
+  if [ "$ol" -eq 0 ] && [ "$sl" -eq 0 ]; then v="NO-OUTPUT"; d="both empty - NOT a pass, harness or program produced nothing"
+  elif cmp -s "$WORK/$name.orc.w" "$WORK/$name.scr.w"; then v="IDENTICAL"; d="-"
   else v="DIVERGE"; d="$(diff "$WORK/$name.orc.w" "$WORK/$name.scr.w" | head -2 | tr '\n' ' ' | cut -c1-40)"; fi
   printf "%-9s | %-9s | %-9s | %-9s | %s\n" "$name" "$ol" "$sl" "$v" "$d"
 done
