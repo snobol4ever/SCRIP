@@ -67,6 +67,15 @@ sbl AND scrip (m3 `--run` + m4 `--compile`).
 
 ## SESSION HISTORY (newest at top)
 
+### s149 (2026-07-24, Lon + Claude Opus) — DEFER-BIND ladder minted (design session; no rail change)
+Lon eureka: bind defer-of-VAR sites to the current value, fix up all sites on write (GOT/inline-cache
+model). Code verification found the s142 site diet ALREADY LIVE on the 3 slow demos (cells in the
+emitted `.s`) but write-once + static-seal-licensed, cells anonymous (no name→cell registry), and the
+remaining demo wall confirmed CALLEE-side (PAT$ α = `sub rsp,96` + 3 saves + rbp seed + zero-fills).
+Ladder: **DB-1** dynamic license (registry+barrier; ~no rail delta expected — coverage rung),
+**DB-2** callee α diet (the speed rung), **DB-3** ARBNO static-extent verdict (calc-2's real fix).
+Full ladder: `GOAL-SNOBOL4-BB.md` head.
+
 ### s148 (2026-07-24, Claude Opus) — FENCE is the structural lever; the whack is memory-not-time
 Full write-up: `.github/FINDING-2026-07-24-CLAUDE-SN4-HEAT-0F-FENCE-IS-STRUCTURAL-WHACK-IS-MEMORY-NOT-TIME.md`.
 
