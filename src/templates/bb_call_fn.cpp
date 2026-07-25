@@ -16,6 +16,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 extern "C" char g_pl_trail[];
 extern "C" char g_hp_fr[];
 extern "C" uint32_t g_plw_dot_sl;
+extern "C" int g_plw_cellws_on;
+extern "C" int g_zeta_mode;
 /* PL-SINK-1 (2026-07-24) — EMITTED $unify FAST PATH.  The data-plane leaves measured 86% of Prolog wall live in C (s141 FINDING §ARCHITECTURAL VERDICT); this sinks the hot arms of plw_unify_cells
  * (by_name_dispatch.c) into the box itself: deref chase (DT_PLVAR chain), ptr-equal, one-side bind (inline trail push + 16-byte cell copy), int==int, and a bit-identical-descr shortcut.  Every arm the
  * fast path cannot decide EXACTLY (DT_N entry forms, both-unbound join/VVB, compound recursion, floats/NaN, non-identical atoms → rt_descr_equal, trail uninitialized/full → area grow) falls into the
@@ -342,6 +344,39 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86_deflabel_id(77);
     return s;
 }
+/* PL-SINK-8 (2026-07-25) — EMITTED $trail_mark FAST PATH.  The leaf is one load (`return t->top`) wrapped in a ceremony that measured ~12% of Prolog wall (s145 45-sample profile): rt_pl_dop_trail_mark saves
+ * and restores g_plw_unwind_floor, calls rt_gc_point_arr, then calls plw_zh_mark_push -> plw_cw_mark_push -> rt_pl_cellws_on and rt_zeta_mode, EVERY ONE of which early-returns in the default configuration.
+ * That default is the whole rung: the cellws island is off unless SCRIP_PL_WS_RECLAIM=1, and the zh pair stack is live only under --zeta=zh, so in the shipped configuration the entire zh/cw push is a
+ * PROVEN NO-OP and the leaf's observable effect is exactly `{DT_I, 0, (long long)g_pl_trail.top}`.  The inline arm proves that precondition at runtime rather than baking it (contract §3 — both cells are
+ * runtime state, and --zeta= is a CLI flag the m4 compile cannot see): read g_plw_cellws_on (-1 unresolved / 0 off / 1 on) and reject anything but 0, so an UNRESOLVED cell defers to the leaf exactly like a
+ * not-yet-interned dot_sl (correctness never depends on the cell being populated); then read g_zeta_mode LIVE and reject ZH(2).  Either guard failing -> SLOW with UNMODIFIED rdi=args, esi=0, bit-identical
+ * by construction (contract §1: the guards run BEFORE any state is touched, and this arm never touches any).  The GC safepoint and unwind floor stay in the leaf per contract §4 — this arm allocates nothing,
+ * writes nothing and cannot throw, so it is the same non-allocating class as SINK-1; skipping a safepoint only defers collection to the next one, and with zero args there is nothing to protect.  Result is
+ * built in the rax:rdx return pair the call convention already uses: rax = q0 = {v=DT_I(6), slen=0}, rdx = the payload.  `top` is a 32-bit signed int widened by the C's (long long) cast, so the widening is
+ * movsxd (via eax) and NOT a bare 32-bit mov — provably identical here since top is a count that only ever rises from 0 or resets to an earlier mark, but written exactly rather than resting on that proof.
+ * Internal label ids 100..101 (SINK-1 owns 40..58, SINK-2 60..77, SINK-3 80..99; marshal owns idx*2, unused at nargs==0). */
+static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * usym) {
+    std::string s = x86("comment", "PL-SINK-8 inline $trail_mark fast path: guards prove the zh/cw mark push is a no-op, then mark = g_pl_trail.top; rt_pl_dop_trail_mark is the slow-path oracle (unmodified args)");
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_cellws_on, "g_plw_cellws_on");
+    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("test", "eax", "eax");
+    s += x86_jcc_id("jne", 100);
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_zeta_mode, "g_zeta_mode");
+    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("cmp", "eax", (long)2);
+    s += x86_jcc_id("je", 100);
+    s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
+    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("movsxd", "rdx", "eax");
+    s += x86("mov32", "eax", (long)6);
+    s += x86_jmp_id(101);
+    s += x86_deflabel_id(100);
+    s += x86("lea", "rdi", FRQ(argbase));
+    s += x86("mov32", "esi", (long)0);
+    s += x86("call", usym, ufp);
+    s += x86_deflabel_id(101);
+    return s;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_result_slot(IR_t * nd) {
     { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
@@ -397,6 +432,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += sink_unify2_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
     } else if (dfp && nargs == 3 && !strcmp(fn, "$unify_lst") && !getenv("SCRIP_NO_SINK")) {
         s += sink_unify_lst_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
+    } else if (dfp && nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
+        s += sink_trail_mark_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
     } else if (dfp) {
         s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf: ") + dsym + " (no by-name dispatch)").c_str());
         s += x86("lea", "rdi", FRQ(argbase));
