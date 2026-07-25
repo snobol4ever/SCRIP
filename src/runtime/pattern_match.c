@@ -17,6 +17,16 @@
          abort(); } while (0)
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DATBLK_t *g_lf_type;
+static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
+    if (o.v != DT_DATA || !o.u) return 0;
+    DATBLK_t *t = o.u->type;
+    if (t != g_lf_type) { if (!t || t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0; g_lf_type = t; }
+    DESCR_t gt = o.u->fields[2]; if (gt.v != DT_S || !gt.s || strcmp(gt.s, "list") != 0) return 0;
+    DESCR_t ea = o.u->fields[0]; *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL; *n = (int)o.u->fields[1].i;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct dtp_rcp { int tt; const char *s; uint32_t slen; int64_t ival; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
 typedef struct DTP { void *fn; dtp_rcp_t *rcp; } DTP_t;
 _Static_assert(__builtin_offsetof(DTP_t, fn) == 0, "bb_match_defer inline cache reads DTP_t.fn at offset 0");
@@ -227,11 +237,8 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         return STRVAL(buf);
     }
     if (arr.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(arr, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {
-            int n = (int)FIELD_GET_fn(arr,"frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(arr,"frame_elems");
-            DESCR_t *elems = (ea.v==DT_DATA) ? (DESCR_t*)ea.ptr : NULL;
+        DESCR_t *elems; int n;
+        if (rt_list_view(arr, &elems, &n)) {
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
@@ -275,11 +282,8 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         return 1;
     }
     if (arr.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(arr, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int n = (int)FIELD_GET_fn(arr, "frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(arr, "frame_elems");
-            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+        DESCR_t *elems; int n;
+        if (rt_list_view(arr, &elems, &n)) {
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return 0;
@@ -341,11 +345,8 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     if (arr.v == DT_A)
         return array_get2(arr.arr, (int)to_int(i), (int)to_int(j));
     if (arr.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(arr, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {
-            int n = (int)FIELD_GET_fn(arr,"frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(arr,"frame_elems");
-            DESCR_t *elems = (ea.v==DT_DATA) ? (DESCR_t*)ea.ptr : NULL;
+        DESCR_t *elems; int n;
+        if (rt_list_view(arr, &elems, &n)) {
             int ii = (int)to_int(i), jj = (int)to_int(j);
             if (ii < -n || ii > n + 1) return FAILDESCR;
             if (jj < -n || jj > n + 1) return FAILDESCR;
@@ -989,13 +990,6 @@ long rt_match_value_open(DESCR_t *pval)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int _list_frame_idx(DATBLK_t *ty, int *gi, int *fsi, int *fei) {
-    static DATBLK_t *ck; static int cg = -1, cfs = -1, cfe = -1;
-    if (ty != ck) { ck = ty; cg = -1; cfs = -1; cfe = -1; for (int i = 0; i < ty->nfields; i++) { const char *f = ty->fields[i]; if (cg < 0 && strcasecmp(f, "gen_type") == 0) cg = i; else if (cfs < 0 && strcasecmp(f, "frame_size") == 0) cfs = i; else if (cfe < 0 && strcasecmp(f, "frame_elems") == 0) cfe = i; } }
-    *gi = cg; *fsi = cfs; *fei = cfe;
-    return (cg >= 0 && cfs >= 0 && cfe >= 0);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
@@ -1017,13 +1011,8 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
         return NAMETRAP(vc);
     }
     if (base.v == DT_DATA) {
-        DATBLK_t *ty = base.u ? base.u->type : NULL;
-        int gi = -1, fsi = -1, fei = -1; int cached = ty && _list_frame_idx(ty, &gi, &fsi, &fei);
-        DESCR_t tag = cached ? base.u->fields[gi] : FIELD_GET_fn(base, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int n = (int)(cached ? base.u->fields[fsi].i : FIELD_GET_fn(base, "frame_size").i);
-            DESCR_t ea = cached ? base.u->fields[fei] : FIELD_GET_fn(base, "frame_elems");
-            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+        DESCR_t *elems; int n;
+        if (rt_list_view(base, &elems, &n)) {
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
@@ -1058,11 +1047,8 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
     DESCR_t bvar = obj;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
     if (obj.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(obj, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int n = (int)FIELD_GET_fn(obj, "frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(obj, "frame_elems");
-            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+        DESCR_t *elems; int n;
+        if (rt_list_view(obj, &elems, &n)) {
             if (!elems || idx < 0 || idx >= n) return FAILDESCR;
             VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[idx]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
@@ -1120,11 +1106,8 @@ DESCR_t rt_random_var(DESCR_t base) {
         return (DESCR_t){ .v = DT_S, .slen = 1, .s = one };
     }
     if (base.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(base, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int n = (int)FIELD_GET_fn(base, "frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(base, "frame_elems");
-            DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+        DESCR_t *elems; int n;
+        if (rt_list_view(base, &elems, &n)) {
             if (!elems || n <= 0) return FAILDESCR;
             long i = (long)(rval * (double)n);
             VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[i]; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
