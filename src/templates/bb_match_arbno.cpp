@@ -56,7 +56,7 @@ static std::string bb_match_arbno_tail() {
          + x86_alpha()
          + x86("sub", "rsp", (long)KA)
          + x86("mov", "eax", 0L)
-         + tail_zero(FPB, FPB + HDRB, "rax")
+         + tail_zero(_.op_tail_dfr ? 0 : FPB, FPB + HDRB, "rax")   /* PS-3 s153: defer-bearing candidates zero the PHANTOM FPB pad too -- the guarded defer β's zero-discriminator must be deterministic (dirty stack otherwise); defer-free candidates keep [FPB, FPB+HDRB) byte-verbatim */
          + tail_cap_zero8(HDRA + 32, NCAP, "rax")
          + x86("mov", trd(HDRA + 0), "r14d")
          + x86("mov", trd(HDRA + 4), "r14d")

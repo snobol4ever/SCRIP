@@ -457,6 +457,9 @@ int g_last_flat_uniform = 0;   /* PS-3 (s152): 1 iff the just-emitted graph's su
 extern "C" int zls_g_fp_total(IR_graph_t *);
 extern "C" int zls_node_has_fields(const IR_t *);
 extern "C" int emit_patzeta_lookup(const char *, int *);
+extern "C" void zls_fct_finalize(IR_graph_t *, int);   /* PS-3 s153: late fct finalize (defer-bearing tail candidates resolve at emit_chain entry, registry fed) */
+extern "C" int fc_tail_defer_susp_g(IR_graph_t *, const IR_t *);   /* PS-3 s153: priced tail-leaf defer query -> arms the zero-guarded β */
+extern "C" int fc_tail_dfr(const IR_t *);   /* PS-3 s153: candidate carries priced defer leaves -> tail α zeroes the phantom pad */
 extern "C" int sno_name_prologue_bound(const char *);
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
 static bb_slotmap_ent_t *g_bb_slotmap = NULL;
@@ -860,10 +863,10 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;     /* SN4-PAT @ cursor-position capture */
     case IR_MATCH_ARB:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_arb()); } return 0;     /* SN4-PAT-3 + ZB-FC-4 fixed-cell grant (ex-zls2, Lon s50 S14) */
     case IR_MATCH_BAL:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_bal()); } return 0;                                                                                                            /* SN4-BAL (s34): generator over paren-balanced extents; no ZLS2 grant (in-frame, SPAN shape) */
-    case IR_MATCH_DEFER:          { bb_prepare(nd); g_emit.op_seal = nd->seal; if (nd->seal == 1) g_emit.op_off = drive_value_slot(nd); bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var; s137 OVER-SEAL: seal state written HERE (post-prologue, both drive paths) from IR_t.seal — op_off repointed at the defer.pad quad (the α rsp watermark) only when FULL-sealed (==1); s142: seal==2 = write-once class, entry-cell only, no pad */
+    case IR_MATCH_DEFER:          { bb_prepare(nd); g_emit.op_seal = nd->seal; if (nd->seal == 1) g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = g_emit_cfg ? fc_tail_defer_susp_g(g_emit_cfg, nd) : -1; bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var; s137 OVER-SEAL: seal state written HERE (post-prologue, both drive paths) from IR_t.seal — op_off repointed at the defer.pad quad (the α rsp watermark) only when FULL-sealed (==1); s142: seal==2 = write-once class, entry-cell only, no pad; s153: op_defer_leaf_susp arms the ZERO-GUARDED β for priced tail-candidate leaves (the ε-resume phantom-pad convention) */
     case IR_MATCH_VALUE:          { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;  /* SN4 kill-manufactured-names: match operand[0]'s pattern value (op_a_slot), no name */
     case IR_MATCH_ARBNO:          { extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); extern int fc_tail_ncap(const IR_t *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
-                                    if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; }
+                                    if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; g_emit.op_tail_dfr = fc_tail_dfr(nd); }
                                     else { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; int _chain = (x86_port_mode() == ZC_PORT_FORTH); g_emit.op_arbno_chain = _chain; g_emit.op_sb = (_sp + (_chain ? 24 : 16) + 15) & ~15; if (_chain) g_emit.op_arbno_nzq = zls_arbno_zq(nd, g_emit.op_arbno_zq, 8); } else { g_emit.op_sa = -1; g_emit.op_sb = -1; g_emit.op_arbno_chain = 0; } }
                                     /* PS-3 (s152) DEFER-TAIL candidacy (decided ENTIRELY here, emit drive time -- LOWER untouched, so a decline is byte-identical chain): body bracket must be EXACTLY one
                                      * WRITE-ONCE defer (seal==2, s142 class: wrcount==1 + fz-safe, so mid-match reassignment cannot exist) whose bound name is PROLOGUE-DOMINATED (assignment executes
@@ -983,7 +986,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
@@ -2348,6 +2351,7 @@ extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
     emit_chain_operand_refs(entry);
+    if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);   /* PS-3 s153 LATE fct finalize: defer-bearing tail candidates were left PENDING by the early pass (drive_slots_all runs before any proc registers its patzeta ζ terms); HERE every earlier-emitted PAT$ is registered, so the SUSP license resolves -- price or decline-to-chain -- before this graph's first node emits (fc_tail_head is consulted at IR_MATCH_HEAD). */
     g_bb_slotmap_n = 0;
     g_flat_chain_set_n = 0;
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }   /* ICN-SCAN-SUSPEND-SYNC: scan regions are intragraph; without an emitted IR_SCAN leave box the flag leaked into later graphs, emitting sync brackets at non-scan call sites (r15.s main α garbage publish) */

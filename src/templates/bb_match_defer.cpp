@@ -157,5 +157,17 @@ std::string bb_match_defer() {
          + x86_beta()
          + ((_.op_seal == 1 && x86_port_cstack())
               ? (x86("mov", "rsp", FRQ(_.op_off)) + x86_omega())
-              : (rspd_snap(&g_rspd_beta, "g_rspd_beta") + x86_jmp_mem("rsp", 0)));
+              : (_.op_defer_leaf_susp > 0
+                   ? (rspd_snap(&g_rspd_beta, "g_rspd_beta")   /* PS-3 s153 ZERO-GUARDED β (priced tail-candidate leaf only): the ε-resume cascade re-enters every body box's β on the PHANTOM FPB pad,
+                                                                * which is zeros -- granted leaves read a zero cell and fail benignly, but the raw `jmp [rsp+0]` is a jump through NULL (t3 rip=0).
+                                                                * Guarded: a real γ-record resumes the blob as ever; zero = the phantom share -> pop this leaf's SUSP and ω-transit (exhausted-leaf
+                                                                * behavior), consuming the pad exactly as granted leaves consume theirs -- the fail glue then reads the ε header at the exact depth. */
+                      + x86("mov",  "rax", RDQ("rsp", 0))
+                      + x86("test", "rax", "rax")
+                      + x86("jne",  L(12))
+                      + x86("add",  "rsp", (long)_.op_defer_leaf_susp)
+                      + x86_omega()
+                      + x86("def",  L(12))
+                      + x86_jmp_reg("rax"))
+                   : (rspd_snap(&g_rspd_beta, "g_rspd_beta") + x86_jmp_mem("rsp", 0))));
 }
