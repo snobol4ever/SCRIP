@@ -19,12 +19,24 @@
  * full residency or GC_add_roots registration. Nothing here frees, so dangling is impossible; garbage simply
  * accumulates until GC-1..3 land — the SIL way: bump until exhaustion, then storage regeneration (§6a). */
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
+/* PL-SINK-3 (2026-07-25) — THE CARVE FRONTIER, EXPORTED.  The emitted $unify_lst WRITE arm (src/templates/bb_call_fn.cpp, sink_mkcons_str) inlines rt_gcheap_alloc's DETAX fast path (line ~170 below):
+ * armed && top + total <= end -> carve at top, bump, done.  That path needs top/end/blocks as ADDRESSABLE storage, so the three former file-statics move into ONE exported struct and the old spellings
+ * become macros over its fields — every existing reference in this TU compiles unchanged, and exactly one new symbol crosses the .so boundary (contract §3: sanctioned exported cell, named in the rung's
+ * FINDING; gc_heap.c is outside the Prolog no_new_global gate's policed set, so the floor is untouched but the addition is declared here on purpose).  `armed` mirrors (g_alloc_detax == 1 && g_ah_on <= 0)
+ * so the inline tests ONE byte instead of re-deriving the predicate; it is recomputed wherever g_alloc_detax is.  Layout is _Static_assert-anchored below and baked by the template (contract §6). */
+typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; } rt_hp_fr_t;
+rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0 };
+_Static_assert(sizeof(rt_hp_fr_t) == 32, "PL-SINK-3 bakes g_hp_fr layout");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, top)    ==  0, "PL-SINK-3 bakes g_hp_fr.top @0");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, end)    ==  8, "PL-SINK-3 bakes g_hp_fr.end @8");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, blocks) == 16, "PL-SINK-3 bakes g_hp_fr.blocks @16");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, armed)  == 24, "PL-SINK-3 bakes g_hp_fr.armed @24");
+#define g_hp_top    (g_hp_fr.top)
+#define g_hp_end    (g_hp_fr.end)
+#define g_hp_blocks (g_hp_fr.blocks)
 static char *g_hp_arena = (char *)0;
-static char *g_hp_top = (char *)0;
-static char *g_hp_end = (char *)0;
 static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
-static long  g_hp_blocks = 0;
 static char *g_wsi_base = (char *)0;
 static char *g_wsi_ws = (char *)0;
 static char *g_wsi_wss = (char *)0;
@@ -184,6 +196,7 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
     { static long since = 0, budget = -1;
       if (budget < 0) { const char *e = getenv("SCRIP_GC_BUDGET_MB"); long mb = e ? atol(e) : 0; budget = mb > 0 ? (mb << 20) : 0; }
       if (!g_alloc_detax) g_alloc_detax = (stress_n == 0 && budget == 0 && g_ah_on <= 0 && g_hp_arena && g_hp_report_reg) ? 1 : -1;
+      g_hp_fr.armed = (g_alloc_detax == 1 && g_ah_on <= 0) ? 1 : 0;
       if (budget) { since += (long)total; if (since >= budget && (g_hp_top - g_hp_arena) * 2 >= (g_hp_end - g_hp_arena)) { since = 0; g_gc_pending = 2; } } }
     if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) rt_gc_collect();
     if (g_hp_top + total <= g_hp_end) { r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
