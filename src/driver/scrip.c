@@ -757,6 +757,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = g_last_flat_frame_bytes; }
                 { extern int g_last_flat_zstatic; proc_zstatic_buf[n_procs] = g_last_flat_zstatic; }
+                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
                 proc_names_buf[n_procs++] = pname;
@@ -1368,6 +1369,7 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 in-process twin of the m4 printed rt_proc_set_zstatic — makes SNO$MKPAT-minted DT_P carry real zstatic in --run */
+                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
                 { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }   /* PL-DC s108: seal registration — the fixed slot the m3 sites call through */
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }
@@ -1469,6 +1471,7 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 twin (second proc loop — block/EVAL-thunk phase) */
+                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
             }
             g_frame_active = 0;
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;

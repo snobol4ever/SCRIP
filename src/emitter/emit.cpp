@@ -452,6 +452,12 @@ int g_flat_node_id   = 0;
 static int g_seq_static_cur = 0;
 int g_last_flat_frame_bytes = 0;
 int g_last_flat_zstatic = 0;   /* PS-1b (s151): 1 iff the just-emitted graph is DEFER/VALUE-free AND its zls region was known (not the 4096 fallback) -- the emit-side twin of bb_graph_zstatic, captured per-proc by the driver into proc_zstatic_buf and registered so SNO$MKPAT-minted DT_P carry a trustworthy zstatic; default 0 = conservative (chain path). */
+int g_last_flat_fp = 0;        /* PS-3 (s152): the just-emitted graph's total FORTH port-cell footprint (fct_fp_range over the whole graph, ALT = 16+fpmax per S10d) -- the interior-cell term of the DT_P suspension ζ size; fed with frame_bytes into emit_patzeta_register by the driver proc loops, both modes. */
+int g_last_flat_uniform = 0;   /* PS-3 (s152): 1 iff the just-emitted graph's suspension footprint is the SAME every activation -- zstatic (no DEFER/VALUE) AND no interior ARBNO (retained elements = variable-count carve, the s152 strengthening over PS-1b's predicate) AND region known.  The license for the ARBNO defer-tail constant. */
+extern "C" int zls_g_fp_total(IR_graph_t *);
+extern "C" int zls_node_has_fields(const IR_t *);
+extern "C" int emit_patzeta_lookup(const char *, int *);
+extern "C" int sno_name_prologue_bound(const char *);
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
 static bb_slotmap_ent_t *g_bb_slotmap = NULL;
 static int g_bb_slotmap_n = 0;
@@ -859,7 +865,29 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ARBNO:          { extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); extern int fc_tail_ncap(const IR_t *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
                                     if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; }
                                     else { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; int _chain = (x86_port_mode() == ZC_PORT_FORTH); g_emit.op_arbno_chain = _chain; g_emit.op_sb = (_sp + (_chain ? 24 : 16) + 15) & ~15; if (_chain) g_emit.op_arbno_nzq = zls_arbno_zq(nd, g_emit.op_arbno_zq, 8); } else { g_emit.op_sa = -1; g_emit.op_sb = -1; g_emit.op_arbno_chain = 0; } }
-                                    bb_emit_x86(bb_match_arbno()); } return 0;   /* SN4-NARY-ARBNO: one node, flat-driven; R12-EXIT-1 carry-the-tail (rsp elements, op_sa = HDRB) or heap COLLECTION / ZB-FC-4 chain; geometry staged here */
+                                    /* PS-3 (s152) DEFER-TAIL candidacy (decided ENTIRELY here, emit drive time -- LOWER untouched, so a decline is byte-identical chain): body bracket must be EXACTLY one
+                                     * WRITE-ONCE defer (seal==2, s142 class: wrcount==1 + fz-safe, so mid-match reassignment cannot exist) whose bound name is PROLOGUE-DOMINATED (assignment executes
+                                     * before any label/goto ⇒ before any match ⇒ the slow defer path with its foreign frontier shape is unreachable) plus inert LIT_STRING/GOTO wiring, none of it
+                                     * window-bearing; the target PAT$ must have registered a UNIFORM suspension footprint (the ζ size: align16(32+fb)+fp+16).  Fence-seal marker (operands[3]==nd)
+                                     * declines v1.  SCRIP_ARBNO_LATCH=1 arms (opt-in this slice until monitor-proven); the chain staging above stays live -- the template selects dt first. */
+                                    if (g_emit.op_arbno_chain && g_emit.op_off >= 0 && !(nd->n_operands > 3 && nd->operands[3] == nd) && g_emit_cfg && nd->n_operands >= 3) {
+                                        static int _dtl = -1; if (_dtl < 0) { const char * _e = getenv("SCRIP_ARBNO_LATCH"); _dtl = _e ? (atoi(_e) != 0) : 0; }
+                                        if (_dtl) {
+                                            int _i0 = -1, _i1 = -1; for (int _j = 0; _j < g_emit_cfg->n; _j++) { if (g_emit_cfg->all[_j] == nd->operands[1]) _i0 = _j; if (g_emit_cfg->all[_j] == nd->operands[2]) _i1 = _j; }
+                                            if (_i0 > _i1) { int _t = _i0; _i0 = _i1; _i1 = _t; }
+                                            IR_t * _dn = NULL; int _ok = (_i0 >= 0 && _i1 >= 0);
+                                            for (int _j = _i0; _ok && _j <= _i1; _j++) { IR_t * _x = g_emit_cfg->all[_j]; if (!_x) continue;
+                                                if (_x->op == IR_MATCH_DEFER) { if (_dn || _x->seal != 2) _ok = 0; else _dn = _x; }
+                                                else if (_x->op == IR_LIT_STRING || _x->op == IR_GOTO) { }   /* inert wiring: the fz procname literal + gotos; a granted quad on them is dead weight (never read per-iteration -- the SLOT-ELIDE census class), so fields do NOT decline (s152 fix: the op whitelist is the gate) */
+                                                else _ok = 0; }
+                                            const char * _pn = NULL;
+                                            if (_ok && _dn) for (int _j = 0; _j < _dn->n_operands; _j++) { IR_t * _o = _dn->operands[_j]; if (_o && _o->op == IR_LIT_STRING && IR_LIT(_o).sval && !strncmp(IR_LIT(_o).sval, "PAT$", 4)) { _pn = IR_LIT(_o).sval; break; } }
+                                            int _susp = 0;
+                                            if (getenv("SCRIP_DT_DIAG")) fprintf(stderr, "[DT] arbno: ok=%d pn=%s var=%s pro=%d uni=%d\n", _ok, _pn ? _pn : "-", (_dn && IR_LIT(_dn).sval) ? IR_LIT(_dn).sval : "-", (_dn && IR_LIT(_dn).sval) ? sno_name_prologue_bound(IR_LIT(_dn).sval) : -1, _pn ? emit_patzeta_lookup(_pn, &_susp) : -1);   /* PS-3 first-failing-gate diag (SCRIP_TAIL_DIAG precedent) */
+                                            if (_ok && _dn && _pn && IR_LIT(_dn).sval && sno_name_prologue_bound(IR_LIT(_dn).sval) && emit_patzeta_lookup(_pn, &_susp)) { g_emit.op_arbno_dt = 1; g_emit.op_arbno_dt_susp = _susp; }
+                                        }
+                                    }
+                                    bb_emit_x86(bb_match_arbno()); } return 0;   /* SN4-NARY-ARBNO: one node, flat-driven; R12-EXIT-1 carry-the-tail (rsp elements, op_sa = HDRB) or heap COLLECTION / ZB-FC-4 chain / PS-3 defer-tail; geometry staged here */
     case IR_MATCH_HEAD:           { extern int fc_tail_head(const IR_t *); int _th = (ZC_FRAME == ZC_FRAME_RSP && fc_tail_head(nd)); if (fc_head_fp(nd) >= 0 || _th) { g_emit.op_fc_wbytes = 24; g_emit.op_fc_base = g_emit.op_off; } if (_th) g_emit.op_tail = 1; bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 + ZB-FC-3d self-cell WINDOW + R12-EXIT-1 tail statements self-push too (bracket source) */
     case IR_MATCH_RELEASE:        { IR_t * _hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; extern int fc_tail_release(const IR_t *, int *); int _br = -1;
                                     if (ZC_FRAME == ZC_FRAME_RSP && _hd && fc_tail_release(_hd, &_br)) { g_emit.op_tail = 1; g_emit.op_fc_disp = _br; }
@@ -955,7 +983,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
@@ -2299,6 +2327,7 @@ extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.f
  * are entered only through rt_chain_enter (rt_goto_transfer arm 4), which IS the jmp transfer — they arm with flat_lex=0 (no pcall record exists for lexprep to read). */
 static int emit_graph_has_suspend(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
 static int emit_graph_zstatic(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && (c->op == IR_MATCH_DEFER || c->op == IR_MATCH_VALUE)) return 0; } return 1; }   /* PS-1b (s151): exact emit-side mirror of runtime bb_graph_zstatic -- a DEFER/VALUE node is the only transfer into an arriving blob of unknown extent, so its absence is what makes the frame sound for ARBNO stride arithmetic; the region-known conjunct is applied at the capture site via flat_layout_unknown. */
+static int emit_graph_uniform(IR_graph_t *g) { if (!emit_graph_zstatic(g)) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && c->op == IR_MATCH_ARBNO) return 0; } return 1; }   /* PS-3 (s152): the STRICT ζ-uniformity predicate -- an interior ARBNO retains a VARIABLE count of element carves across γ-suspension (measured design fact, t1.s: interior cells stay carved on the hit path), so its presence breaks the constant-footprint claim even when zstatic==1.  zstatic gates the STAMP; uniform gates the STRIDE. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_generator, IR_graph_t *g) {
     if (pname && strncmp(pname, "gram__", 6) == 0) return 0;   /* NCB-1d EXCLUSION: Raku grammar boxes speak the SCAN-ENTRY protocol (rk_gram_enter_box trampoline — subject triad r13/r14/r15, esi entry selector, call/ret, spec_t in rax:rdx), not the proc-call protocol; they keep the outermost call-regime body.  Name-keyed like the LBL__ gate below. */
@@ -2324,6 +2353,8 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }   /* ICN-SCAN-SUSPEND-SYNC: scan regions are intragraph; without an emitted IR_SCAN leave box the flag leaked into later graphs, emitting sync brackets at non-scan call sites (r15.s main α garbage publish) */
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     g_last_flat_zstatic = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_zstatic(g_emit_cfg) : 0;   /* PS-1b: region-known (arm cleared flat_layout_unknown) AND DEFER/VALUE-free; read only for PAT$ procs downstream, garbage-safe for non-pat emissions because the driver gates the registration on proc_ispat_buf. */
+    g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? zls_g_fp_total(g_emit_cfg) : 0;   /* PS-3 (s152): interior port-cell term of the DT_P suspension ζ size, same lifecycle as zstatic */
+    g_last_flat_uniform = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_uniform(g_emit_cfg) : 0;   /* PS-3 (s152): the stride license -- zstatic AND ARBNO-free AND region-known */
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); return rc == 0 ? (bb_box_fn)1 : NULL; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
     if (!buf) return NULL;

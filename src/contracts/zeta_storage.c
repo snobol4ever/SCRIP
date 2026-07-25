@@ -797,3 +797,24 @@ int fc_tail_head(const IR_t * head) {
  * tables before lowering: emission consults them only for the graph lowered SINCE the reset, and all pre-reset graphs are already emitted (mode-3 emits main wholesale before run).  The zls tables
  * share the pointer-keying and are NOT reset here (bb_compile_pat_tree's zls_reset is the existing precedent; the zls lifecycle question routes to GC-W-1's frame-map design). */
 void fc_tables_reset(void) { fcl_n = 0; fct_n = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* emit_patzeta_* -- PS-3 (s152, Lon directive: "implement ZETA size calculation for DT_P type DESCR_t").  The compile-time ζ size of an ACTIVATED DT_P is its blob's suspension footprint: entry carve
+ * align16(32 + frame_bytes) PLUS the interior FORTH port cells suspended at γ (S10c law -- measured in t1.s: SPAN's 16 stays carved on the hit path) PLUS the 16B γ-frontier record {res-addr, saved
+ * rbp} the jmp-entry epilogue pushes (proc_PAT$_γ: push rbp; push res).  frame_bytes alone (the PS-1b registry payload) is therefore NOT the ζ size -- the fp term is the fct_fp_range sum over the
+ * whole graph (ALT arms enter as 16+fpmax, the S10d pad making the yield depth uniform).  UNIFORM means the footprint is the SAME every activation: region known AND no interior ARBNO (its retained
+ * elements vary per activation -- a variable-count carve zstatic never sees, the s152 strengthening) AND no interior DEFER/VALUE (the PS-1b zstatic predicate).  Name-keyed, fed by the driver proc
+ * loops in BOTH modes BEFORE main emission (MODE34-IDENTICAL), append-only across runtime compiles (names are unique per process; never reset -- the fc_tables_reset lifecycle note applies). */
+static struct { const char * name; int fb; int fp; int uni; } pz[512];
+static int pz_n = 0;
+void emit_patzeta_register(const char * name, int frame_bytes, int fp_total, int uniform) {
+    if (!name || pz_n >= (int)(sizeof pz / sizeof *pz)) return;
+    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { pz[i].fb = frame_bytes; pz[i].fp = fp_total; pz[i].uni = uniform; return; }
+    pz[pz_n].name = name; pz[pz_n].fb = frame_bytes; pz[pz_n].fp = fp_total; pz[pz_n].uni = uniform; pz_n++;
+}
+int emit_patzeta_lookup(const char * name, int * susp) {
+    if (!name) return 0;
+    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (susp) *susp = (((32 + pz[i].fb + 15) & ~15) + pz[i].fp + 16); return pz[i].uni; }
+    return 0;
+}
+int zls_g_fp_total(IR_graph_t * g) { return g ? fct_fp_range(g, 0, g->n) : 0; }
+int zls_node_has_fields(const IR_t * nd) { if (!nd) return 0; for (int f = 0; f < zf_n; f++) if (zf[f].nd == nd) return 1; return 0; }

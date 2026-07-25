@@ -977,8 +977,18 @@ static void sno_fz_mark_defer(IR_graph_t * g, IR_t * nd, const char * nm) {
     for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm)) {
         IR_t * pl = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(pl).sval = (char *) g_sno_fz[i].procname; ir_operand_push(nd, pl); return; }
 }
+/* sno_prologue_* -- PS-3 (s152) ORDER-DOMINANCE license: a pattern name is PROLOGUE-BOUND when its (single, seal==2) assignment sits in the unconditional entry corridor -- the statement run from
+ * entry_idx up to the FIRST statement bearing any goto part (named or computed).  Every execution enters at entry and falls through the corridor before anything else can run, so no match statement
+ * can ever observe the name unassigned ⇒ the defer site's SLOW path (whose frontier shape differs from the blob contract) is structurally unreachable.  Labels do NOT break the license (a label lets
+ * control RETURN to the corridor, not skip its first pass); an in-corridor END exits the program, leaving later statements unreachable from the corridor -- both sound.  Function-graph builds
+ * (result_name != NULL) never record: a write inside a DEFINE body dominates nothing. */
+static const char * g_sno_pro[128];
+static int g_sno_npro = 0;
+static void sno_prologue_add(const char * nm) { if (!nm || g_sno_npro >= 128) return; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return; g_sno_pro[g_sno_npro++] = nm; }
+int sno_name_prologue_bound(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fz_build_table(const tree_t ** st, int nst) {
-    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0;
+    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0;
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i]; if (!s) continue;
         const tree_t * subj = lc_stmt_subj(s); const tree_t * pat = sfind_expr(s, ":pat"); const tree_t * repl = sfind_expr(s, ":repl"); int has_eq = sfind(s, ":eq") != NULL;
@@ -1836,8 +1846,11 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), failnd);
     if (!bb_label_landing("NRETURN")) { IR_t * nrl = lc_build(g, IR_LIT_STRING, NULL, failnd); IR_LIT(nrl).sval = (char *) ""; IR_t * nnd = lc_build(g, IR_CALL, exitnd, failnd); IR_LIT(nnd).sval = (char *) "SNO$NRET"; lc_γ_to(nrl, nnd); ir_operand_push(nnd, nrl); bb_label_registry_add(lp_strdup("NRETURN"), nrl); }
     g->entry = (nst > 0) ? anchor[entry_idx] : exitnd;
+    int _pro_open = 0, _pro_close = 0;   /* PS-3 (s152) prologue corridor: open at entry_idx, closed AFTER the first goto-bearing statement (its own assignment still executes first, so it records) */
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i];
+        if (i == entry_idx) _pro_open = 1;
+        if (_pro_close) _pro_open = 0;
         { extern void zls_group_mark(const IR_graph_t *, const char *); const char * mlbl = sfind_str(s, ":lbl"); if (mlbl && mlbl[0]) zls_group_mark(g, lp_strdup(mlbl)); }
         IR_t * next = (i + 1 < nst) ? anchor[i + 1] : exitnd;
         if (sfind(s, ":end")) { lc_γ_to(anchor[i], exitnd); continue; }
@@ -1852,6 +1865,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * sJ = lc_build(g, IR_GOTO, sT, NULL);
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);
         if (is_def && is_def[i]) { lc_γ_to(anchor[i], sJ); continue; }
+        if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;   /* PS-3 (s152): any goto part ends the unconditional corridor for SUBSEQUENT statements */
         const tree_t * subj = lc_stmt_subj(s);
         const tree_t * pat  = sfind_expr(s, ":pat");
         int has_eq = sfind(s, ":eq") != NULL;
@@ -1890,6 +1904,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         tree_t * repl = sfind_expr(s, ":repl");
         if (subj->t == TT_VAR && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) {
             sno_reg_var(subj->v.sval);
+            if (_pro_open && !result_name) sno_prologue_add(subj->v.sval);   /* PS-3 (s152): corridor pattern assignment = order-dominance license for the defer-tail arm */
             const char * bn = NULL;
             for (int fzi = 0; fzi < g_sno_nfz; fzi++) if (g_sno_fz[fzi].pat == repl) { bn = g_sno_fz[fzi].procname; break; }
             if (!bn) bn = sno_pat_collect(repl);
