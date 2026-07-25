@@ -4957,6 +4957,7 @@ static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t 
 extern unsigned rt_dtax_gen;
 typedef struct { unsigned gen; unsigned char len; signed char kind; short nf; char nm[14]; void *ctor; const char *syn; } dtax_ent_t;
 static dtax_ent_t g_dtax[256];
+static dtax_ent_t g_dtax_bid[1025];
 static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dtx4(dtax_ent_t *e, unsigned char l, const char *nm, void *h) { if (!e || !l) return; e->gen = rt_dtax_gen; e->len = l; e->kind = 4; e->nf = 0; memcpy(e->nm, nm, l); e->ctor = h; e->syn = 0; }
@@ -5061,11 +5062,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
     }
     if (!fn || !out) return 0;
-    const int _bid = bid_of(fn, (unsigned)strlen(fn));
+    const size_t _fnlen = strlen(fn);
+    const int _bid = bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
     dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0;
-    if (!dtax_off()) { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; }
-      if (!*_q && _dxl) { _dx = &g_dtax[_dxh & 255u];
+    if (!dtax_off()) { if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) { _dxl = (unsigned char)_fnlen; _dx = &g_dtax_bid[_bid]; } else { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; } if (!(!*_q && _dxl)) _dxl = 0; else _dx = &g_dtax[_dxh & 255u]; }
+      if (_dx) {
         if (_dx->gen == rt_dtax_gen && _dx->len == _dxl && !memcmp(_dx->nm, fn, _dxl)) {
           if (_dx->kind == 4 && _dx->ctor) return ((int (*)(DESCR_t *, int, DESCR_t *))_dx->ctor)(args, nargs, out);
           if (_dx->kind == 5 && _dx->ctor) return ((int (*)(DESCR_t *, int, DESCR_t *, int))_dx->ctor)(args, nargs, out, (int)_dx->nf);
@@ -5086,7 +5088,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
           *out = dat_construct(_udt, _fv, _nf); return 1;
       }
       if (!_udt && _dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 3; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; } }
-    { size_t _fl = strlen(fn);
+    { size_t _fl = _fnlen;
       if (_fl >= 2 && _fl <= 8) { int _r = -1;
         switch (((unsigned)_fl << 8) | (unsigned char)fn[0]) {
         case (2u<<8)|'E': if (fn[1]=='Q') { dtx5(_dx, _dxl, fn, (void *)bn_numrel, 0); _r = bn_numrel(args, nargs, out, 0); } break;
