@@ -378,6 +378,77 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-SINK-4 (2026-07-25) — EMITTED $ix_g SPECIALIZED INDEX GUARD.  Measured the HOTTEST un-sunk dop leaf by DYNAMIC count (PLT interposition; perf/gdb are absent in this container): nrev 1022 calls vs
+ * unify 31 and mkc 30, qsort 649 vs 448/100 — and static site counts INVERT that ranking (mkc has 51 sites in qsort to ix_g's 5), so site counts must never be used to pick a rung.  rt_pl_dop_ix_g has NO
+ * wrapper fast path and does NOT go through dop_call (no setjmp ceremony), so unlike the s147-falsified SINK-6/7 the cost really is the call + leaf body.  kk (index kind) and the key are EMIT-TIME LITs
+ * (lower_prolog.c:837 builds args[1] as LIT_INTEGER kk|kar<<8 and args[2] as LIT int/string), so this emits a guard SPECIALIZED PER kk rather than the leaf's general switch.  Arms mirror dop_ix_g
+ * (:1425) tag-for-tag; anything not inline-decidable falls into the UNTOUCHED leaf with UNMODIFIED rdi=args (esi=3), bit-identical by construction (contract §1).  MEASURED: args[0] is DT_N in 100% of
+ * calls, the contract §2 trap that made SINK-1's first cut a NET LOSS — sink_deref is reused VERBATIM so the name-ref chase is faithful.  kk==3 reuses SINK-2's exported g_plw_dot_sl (==0 -> SLOW, so a
+ * not-yet-interned run defers rather than mis-failing); kk==2 inlines the hot PLREF->FAIL / DT_I->OK tag arms and defers ONLY the atom-vs-atom strcmp; kk==1 compares against the emit-time imm; kk==4
+ * (functor) takes NO sink here — it needs a per-site intern cache (contract §3) and is the follow-on rung.  NO NEW GLOBALS: the no_new_global floor does not move.  Internal label ids 110..120 (SINK-1
+ * 40..58, SINK-2 60..77, SINK-3 80..99, SINK-8 100..101).  Kill switches: SCRIP_NO_SINK (family) + SCRIP_NO_SINK4 (this rung, per the s146 isolation amendment — the family switch CANNOT measure a rung). */
+static std::string sink_ix_g_str(int argbase, uint64_t ufp, const char * usym, int kk, long long kival) {
+    std::string s = x86("comment", "PL-SINK-4 inline $ix_g specialized guard (kk emit-time constant); rt_pl_dop_ix_g stays the slow-path oracle (unmodified args)");
+    s += x86("lea", "rdi", FRQ(argbase));
+    s += x86("lea", "r8",  FRQ(argbase));
+    s += sink_deref("r8", 110, 111, 112);
+    s += sink_unb("r8", 114, 118);
+    s += x86_deflabel_id(118);
+    s += x86("mov", "eax", "dword ptr [r8 + 0]");
+    if (kk == 3) {
+        s += x86("cmp", "eax", (long)14) + x86_jcc_id("jne", 119);
+        s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
+        s += x86("mov", "edx", "dword ptr [r10 + 0]");
+        s += x86("cmp", "edx", (long)0)  + x86_jcc_id("je", 116);
+        s += x86("mov", "esi", "dword ptr [r8 + 4]");
+        s += x86("cmp", "esi", "edx")    + x86_jcc_id("jne", 115);
+        s += x86_jmp_id(114);
+        s += x86_deflabel_id(119);
+        s += x86("cmp", "eax", (long)6)  + x86_jcc_id("jne", 120);
+        s += x86("mov", "esi", "dword ptr [r8 + 4]");
+        s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
+        s += x86_jmp_id(115);
+        s += x86_deflabel_id(120);
+        s += x86("cmp", "eax", (long)1)  + x86_jcc_id("jne", 114);
+        s += x86("mov", "esi", "dword ptr [r8 + 4]");
+        s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
+        s += x86("mov", "rdx", "[r8 + 8]");
+        s += x86("test", "rdx", "rdx")   + x86_jcc_id("je", 114);
+        s += x86_jmp_id(115);
+    } else if (kk == 2) {
+        s += x86("cmp", "eax", (long)14) + x86_jcc_id("je", 115);
+        s += x86("cmp", "eax", (long)6)  + x86_jcc_id("je", 114);
+        s += x86("cmp", "eax", (long)1)  + x86_jcc_id("jne", 114);
+        s += x86("mov", "esi", "dword ptr [r8 + 4]");
+        s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
+        s += x86("mov", "rdx", "[r8 + 8]");
+        s += x86("test", "rdx", "rdx")   + x86_jcc_id("je", 114);
+        s += x86_jmp_id(116);
+    } else {
+        s += x86("cmp", "eax", (long)14) + x86_jcc_id("je", 115);
+        s += x86("cmp", "eax", (long)6)  + x86_jcc_id("jne", 114);
+        s += x86("mov", "esi", "dword ptr [r8 + 4]");
+        s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
+        s += x86_movabs_r64("rdx", (uint64_t)kival);
+        s += x86("mov", "rsi", "[r8 + 8]");
+        s += x86("cmp", "rsi", "rdx")    + x86_jcc_id("jne", 115);
+        s += x86_jmp_id(114);
+    }
+    s += x86_deflabel_id(114);
+    s += x86("mov32", "eax", (long)6);
+    s += x86("mov32", "edx", (long)1);
+    s += x86_jmp_id(117);
+    s += x86_deflabel_id(115);
+    s += x86("mov32", "eax", (long)99);
+    s += x86("mov32", "edx", (long)0);
+    s += x86_jmp_id(117);
+    s += x86_deflabel_id(116);
+    s += x86("mov32", "esi", (long)3);
+    s += x86("call", usym, ufp);
+    s += x86_deflabel_id(117);
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_result_slot(IR_t * nd) {
     { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
     return -1;
@@ -408,6 +479,17 @@ std::string bb_call_fn_str(IR_t * pBB) {
             else if (lf->op == IR_LIT_STRING && IR_LIT(lf).sval) { cui = i; csval = IR_LIT(lf).sval; }
         }
     }
+    int ix_kk = 0; long long ix_kival = 0;
+    if (dfp && nargs == 3 && !strcmp(fn, "$ix_g")) {
+        IR_t * a1 = (subs && subs[1]) ? subs[1]->entry : ir_call_arg(pBB, 1);
+        IR_t * a2 = (subs && subs[2]) ? subs[2]->entry : ir_call_arg(pBB, 2);
+        if (a1 && a1->op == IR_LIT_INTEGER) {
+            int kk = (int)(((long long)IR_LIT(a1).ival) & 0xFF);
+            if (kk == 3) ix_kk = 3;
+            else if (kk == 2) ix_kk = 2;
+            else if (kk == 1 && a2 && a2->op == IR_LIT_INTEGER) { ix_kk = 1; ix_kival = (long long)IR_LIT(a2).ival; }
+        }
+    }
     if (cui >= 0) {
         int vi = 1 - cui;
         s += marshal_call_arg((subs && subs[vi]) ? subs[vi]->entry : ir_call_arg(pBB, vi), (subs && subs[vi]) ? subs[vi] : NULL, argbase, _.node, vi);
@@ -434,6 +516,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += sink_unify_lst_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
     } else if (dfp && nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
         s += sink_trail_mark_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
+    } else if (dfp && nargs == 3 && !strcmp(fn, "$ix_g") && ix_kk > 0 && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK4")) {
+        s += sink_ix_g_str(argbase, (uint64_t)(uintptr_t)dfp, dsym, ix_kk, ix_kival);
     } else if (dfp) {
         s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf: ") + dsym + " (no by-name dispatch)").c_str());
         s += x86("lea", "rdi", FRQ(argbase));
