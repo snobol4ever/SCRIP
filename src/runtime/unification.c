@@ -892,6 +892,156 @@ int rt_pl_numbervars1_cell(void *term_cell) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_get_print_stream_cell(void *stream_cell) {
+    extern pl_trail_t g_pl_trail; extern int fh_current_output(void);
+    int stream_id = prolog_atom_intern("$stream");
+    pl_cell_t *arg = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *arg = pl_make_int(fh_current_output());
+    pl_cell_t sc = pl_make_compound(stream_id, 1, arg);
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify((pl_cell_t *)stream_cell, &sc, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_distinct_vars_walk(pl_cell_t *c, pl_cell_t **pool, int *counts, int *pool_n, int cap) {
+    pl_cell_t *d = pl_deref(c);
+    if (pl_cell_unbound(d)) {
+        for (int i = 0; i < *pool_n; i++) if (pool[i] == d) { counts[i]++; return; }
+        if (*pool_n < cap) { pool[*pool_n] = d; counts[*pool_n] = 1; (*pool_n)++; }
+        return;
+    }
+    if ((int)d->v == DT_PLREF) { int ar = pl_arity(d); pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(d); for (int i = 0; i < ar; i++) pl_distinct_vars_walk(&aa[i], pool, counts, pool_n, cap); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_atom_text(pl_cell_t *d) {
+    if ((int)d->v == DT_S || d->v == DT_SNUL) return d->s ? d->s : "";
+    if ((int)d->v == DT_A) { const char *nm = prolog_atom_name((int)d->i); return nm ? nm : ""; }
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_is_nil(pl_cell_t *d) { const char *s = pl_atom_text(d); return s && !strcmp(s, "[]"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t pl_nil_cell(void) { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(nm ? strlen(nm) : 0); c.s = nm ? nm : "[]"; return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_name_singleton_vars_cell(void *term_cell) {
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *pool[8192]; int counts[8192]; int pn = 0;
+    pl_distinct_vars_walk((pl_cell_t *)term_cell, pool, counts, &pn, 8192);
+    int varname_id = prolog_atom_intern("$VARNAME"); int underscore_id = prolog_atom_intern("_");
+    for (int i = 0; i < pn; i++) {
+        if (counts[i] != 1) continue;
+        pl_cell_t *arg = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *arg = pl_make_atom(underscore_id);
+        pl_bind(pool[i], pl_make_compound(varname_id, 1, arg), &g_pl_trail);
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_name_query_vars_cell(void *list_cell, void *rest_cell) {
+    extern pl_trail_t g_pl_trail; extern void rt_pl_iso_throw_instantiation(void); extern void rt_pl_iso_throw_type(const char *, DESCR_t);
+    int dot_id = prolog_atom_intern("."); int varname_id = prolog_atom_intern("$VARNAME");
+    pl_cell_t *rest_pairs[8192]; int nr = 0;
+    pl_cell_t *cur = (pl_cell_t *)list_cell;
+    for (;;) {
+        pl_cell_t *d = pl_deref(cur);
+        if (pl_cell_unbound(d)) { rt_pl_iso_throw_instantiation(); return 0; }
+        if (pl_is_nil(d)) break;
+        if ((int)d->v != DT_PLREF || pl_arity(d) != 2 || plc_functor(d) != dot_id) { rt_pl_iso_throw_type("list", *d); return 0; }
+        pl_cell_t *kids = (pl_cell_t *)pl_compound_heap(d);
+        pl_cell_t *pair = pl_deref(&kids[0]);
+        int bound_ok = 0;
+        if ((int)pair->v == DT_PLREF && pl_arity(pair) == 2) {
+            const char *fn = prolog_atom_name(plc_functor(pair));
+            if (fn && !strcmp(fn, "=")) {
+                pl_cell_t *pk = (pl_cell_t *)pl_compound_heap(pair);
+                pl_cell_t *nm = pl_deref(&pk[0]); pl_cell_t *vr = pl_deref(&pk[1]);
+                const char *nm_txt = pl_atom_text(nm);
+                if (nm_txt && pl_cell_unbound(vr)) {
+                    pl_cell_t *arg = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *arg = *nm;
+                    pl_bind(vr, pl_make_compound(varname_id, 1, arg), &g_pl_trail);
+                    bound_ok = 1;
+                }
+            }
+        }
+        if (!bound_ok && nr < 8192) rest_pairs[nr++] = &kids[0];
+        cur = &kids[1];
+    }
+    pl_cell_t result = pl_nil_cell();
+    for (int i = nr - 1; i >= 0; i--) {
+        pl_cell_t *blk = (pl_cell_t *)rt_ws_alloc(2 * sizeof(pl_cell_t));
+        blk[0] = *rest_pairs[i]; blk[1] = result;
+        result = pl_make_compound(dot_id, 2, blk);
+    }
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify((pl_cell_t *)rest_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_namevars_letters(long n, char *buf, size_t cap) {
+    long letter = n % 26, block = n / 26;
+    if (block == 0) snprintf(buf, cap, "%c", (int)('A' + letter));
+    else snprintf(buf, cap, "%c%ld", (int)('A' + letter), block);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_bind_variables_cell(void *term_cell, void *options_cell) {
+    extern pl_trail_t g_pl_trail; extern void rt_pl_iso_throw_instantiation(void);
+    extern void rt_pl_iso_throw_type(const char *, DESCR_t); extern void rt_pl_iso_throw_domain(const char *, DESCR_t);
+    int dot_id = prolog_atom_intern("."); int var_id = prolog_atom_intern("$VAR"); int varname_id = prolog_atom_intern("$VARNAME");
+    int use_namevars = 0; long from_n = 0; pl_cell_t *next_var = (pl_cell_t *)0; pl_cell_t *exclude_list = (pl_cell_t *)0;
+    pl_cell_t *cur = (pl_cell_t *)options_cell;
+    for (;;) {
+        pl_cell_t *d = pl_deref(cur);
+        if (pl_cell_unbound(d)) { rt_pl_iso_throw_instantiation(); return 0; }
+        if (pl_is_nil(d)) break;
+        if ((int)d->v != DT_PLREF || pl_arity(d) != 2 || plc_functor(d) != dot_id) { rt_pl_iso_throw_type("list", *d); return 0; }
+        pl_cell_t *kids = (pl_cell_t *)pl_compound_heap(d);
+        pl_cell_t *opt = pl_deref(&kids[0]);
+        if (pl_cell_unbound(opt)) { rt_pl_iso_throw_instantiation(); return 0; }
+        const char *opt_txt = pl_atom_text(opt);
+        if (opt_txt) {
+            if (!strcmp(opt_txt, "numbervars")) use_namevars = 0;
+            else if (!strcmp(opt_txt, "namevars")) use_namevars = 1;
+            else { rt_pl_iso_throw_domain("var_binding_option", *opt); return 0; }
+        } else if ((int)opt->v == DT_PLREF && pl_arity(opt) == 1) {
+            const char *f = prolog_atom_name(plc_functor(opt)); pl_cell_t *oa = (pl_cell_t *)pl_compound_heap(opt); pl_cell_t *av = pl_deref(&oa[0]);
+            if (f && !strcmp(f, "from")) { if (pl_cell_unbound(av)) { rt_pl_iso_throw_instantiation(); return 0; } if ((int)av->v != DT_I) { rt_pl_iso_throw_domain("var_binding_option", *opt); return 0; } from_n = (long)av->i; }
+            else if (f && !strcmp(f, "next")) { if (!pl_cell_unbound(av) && (int)av->v != DT_I) { rt_pl_iso_throw_domain("var_binding_option", *opt); return 0; } next_var = &oa[0]; }
+            else if (f && !strcmp(f, "exclude")) { exclude_list = &oa[0]; }
+            else { rt_pl_iso_throw_domain("var_binding_option", *opt); return 0; }
+        } else { rt_pl_iso_throw_domain("var_binding_option", *opt); return 0; }
+        cur = &kids[1];
+    }
+    long used[8192]; int nused = 0;
+    if (exclude_list) {
+        pl_cell_t *ecur = exclude_list;
+        for (;;) {
+            pl_cell_t *ed = pl_deref(ecur);
+            if (pl_is_nil(ed)) break;
+            if ((int)ed->v != DT_PLREF || pl_arity(ed) != 2 || plc_functor(ed) != dot_id) break;
+            pl_cell_t *ekids = (pl_cell_t *)pl_compound_heap(ed);
+            pl_cell_t *el = pl_deref(&ekids[0]);
+            if ((int)el->v == DT_PLREF && pl_arity(el) == 1 && plc_functor(el) == var_id) {
+                pl_cell_t *ea = (pl_cell_t *)pl_compound_heap(el); pl_cell_t *ev = pl_deref(&ea[0]);
+                if ((int)ev->v == DT_I && nused < 8192) used[nused++] = (long)ev->i;
+            }
+            ecur = &ekids[1];
+        }
+    }
+    pl_cell_t *pool[8192]; int dummy_counts[8192]; int pn = 0;
+    pl_distinct_vars_walk((pl_cell_t *)term_cell, pool, dummy_counts, &pn, 8192);
+    long n = from_n;
+    for (int i = 0; i < pn; i++) {
+        for (;;) { int clash = 0; for (int k = 0; k < nused; k++) if (used[k] == n) { clash = 1; break; } if (!clash) break; n++; }
+        pl_cell_t *arg = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t));
+        if (use_namevars) { char nb[32]; pl_namevars_letters(n, nb, sizeof nb); *arg = pl_make_atom(prolog_atom_intern(nb)); pl_bind(pool[i], pl_make_compound(varname_id, 1, arg), &g_pl_trail); }
+        else { *arg = pl_make_int(n); pl_bind(pool[i], pl_make_compound(var_id, 1, arg), &g_pl_trail); }
+        n++;
+    }
+    if (next_var) {
+        int mark = pl_trail_mark(&g_pl_trail); pl_cell_t nv = pl_make_int(n);
+        if (!pl_unify(next_var, &nv, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_acyclic_walk(pl_cell_t *c, pl_cell_t ***ppath, int *pdepth, int *pcap)
 {
     int base = *pdepth, ret = 1;
