@@ -1587,6 +1587,7 @@ call_expr
 arg_list
     : expr              { $$=exprlist_append(exprlist_new(),$1); }
     | arg_list ',' expr { $$=exprlist_append($1,$3); }
+    | arg_list ','      { $$=$1; }
     ;
 atom
     : LIT_INT         { tree_t *e=ast_node_new(TT_ILIT); e->v.ival=$1; $$=e; }

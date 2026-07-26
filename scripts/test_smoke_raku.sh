@@ -3437,6 +3437,37 @@ $s = 2;
 say $s;
 EOF
 
+raku "trailing_comma_decl" "1,2,3" << 'EOF'
+my @a = 1,2,3,;
+say @a.join(",");
+EOF
+
+raku "trailing_comma_no_extra_elem" "3" << 'EOF'
+my @a = 1,2,3,;
+say @a.elems;
+EOF
+
+raku "trailing_comma_paren" "4,5,6" << 'EOF'
+my @b = (4,5,6,);
+say @b.join(",");
+EOF
+
+raku "trailing_comma_call_args" "7" << 'EOF'
+sub f($x,$y) { return $x+$y }
+say f(3,4,);
+EOF
+
+raku "trailing_comma_subscript" "1,3" << 'EOF'
+my @c = 1,2,3;
+say @c[0,2,].join(",");
+EOF
+
+raku "trailing_comma_reassign" "8,9" << 'EOF'
+my @a = 1;
+@a = 8,9,;
+say @a.join(",");
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
