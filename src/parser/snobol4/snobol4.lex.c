@@ -1,3 +1,6 @@
+#line 2 "snobol4.lex.c"
+
+#line 4 "snobol4.lex.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -664,6 +667,8 @@ static const flex_int16_t yy_chk[724] =
 #define yymore() yymore_used_but_not_detected
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
+#line 1 "snobol4.l"
+#line 2 "snobol4.l"
 #include "scrip_cc.h"
 #include "snobol4.h"
 #include "snobol4.tab.h"
@@ -673,7 +678,6 @@ static const flex_int16_t yy_chk[724] =
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_error(int, const char *, ...);
 char *inc_dirs[64];
 int   n_inc = 0;
@@ -690,8 +694,16 @@ static int   lineno = 1;
 static int   g_stmt_lineno = 1;
 static char  strbuf[65536];
 static int   strpos;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int   gt_depth;
 int snobol4_get_stmt_lineno(void) { return g_stmt_lineno; }
+static Token mktok(int k, const char *sv, long iv, double dv) {
+    Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
+    return t;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+#line 705 "snobol4.lex.c"
+
+#line 707 "snobol4.lex.c"
 
 #define INITIAL 0
 #define LABEL 1
@@ -964,6 +976,9 @@ YY_DECL
 		}
 
 	{
+#line 47 "snobol4.l"
+
+#line 982 "snobol4.lex.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -1019,19 +1034,23 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
+#line 48 "snobol4.l"
 { lineno++; return T_STMT_END; }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
+#line 49 "snobol4.l"
 { BEGIN(SKIP); }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
+#line 50 "snobol4.l"
 { g_stmt_lineno = lineno; BEGIN(BODY_START); }
 	YY_BREAK
 case 4:
 /* rule 4 can match eol */
 YY_RULE_SETUP
+#line 51 "snobol4.l"
 {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
@@ -1052,9 +1071,11 @@ YY_RULE_SETUP
     }
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
+#line 71 "snobol4.l"
 {
     char *q1 = strchr(yytext,'"'); char *q2 = strrchr(yytext,'"');
     lineno++;
@@ -1075,9 +1096,11 @@ YY_RULE_SETUP
     }
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 6:
 /* rule 6 can match eol */
 YY_RULE_SETUP
+#line 91 "snobol4.l"
 {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
@@ -1098,45 +1121,57 @@ YY_RULE_SETUP
     }
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 7:
 /* rule 7 can match eol */
 YY_RULE_SETUP
+#line 111 "snobol4.l"
 {
     lineno++;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 8:
 YY_RULE_SETUP
+#line 115 "snobol4.l"
 {
     BEGIN(BODY_START);
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 9:
 YY_RULE_SETUP
+#line 119 "snobol4.l"
 {
     strbuf[0] = yytext[0]; strpos = 1;
     BEGIN(LABEL);
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 10:
 YY_RULE_SETUP
+#line 124 "snobol4.l"
 {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
     memcpy(strbuf+strpos, yytext, take); strpos += take;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 11:
 YY_RULE_SETUP
+#line 130 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     BEGIN(BODY_START);
     return T_LABEL;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 12:
 /* rule 12 can match eol */
 YY_RULE_SETUP
+#line 136 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     lineno++;
@@ -1144,28 +1179,35 @@ YY_RULE_SETUP
     return T_LABEL;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 13:
 YY_RULE_SETUP
-{ BEGIN(INITIAL); return T_STMT_END; }
+#line 143 "snobol4.l"
+{ yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 14:
 /* rule 14 can match eol */
 YY_RULE_SETUP
+#line 144 "snobol4.l"
 { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
+#line 145 "snobol4.l"
 { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
+#line 146 "snobol4.l"
 { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case YY_STATE_EOF(LABEL_DONE):
+#line 147 "snobol4.l"
 { BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
+#line 148 "snobol4.l"
 {
     yyless(0);
     strbuf[strpos] = '\0';
@@ -1173,174 +1215,210 @@ YY_RULE_SETUP
     return T_LABEL;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 18:
 YY_RULE_SETUP
+#line 155 "snobol4.l"
 { }
 	YY_BREAK
 case 19:
 /* rule 19 can match eol */
 YY_RULE_SETUP
+#line 156 "snobol4.l"
 { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
+#line 157 "snobol4.l"
 { BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
+#line 158 "snobol4.l"
 { yyless(0); BEGIN(BODY); }
 	YY_BREAK
 case 22:
 /* rule 22 can match eol */
 YY_RULE_SETUP
+#line 159 "snobol4.l"
 { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
+#line 160 "snobol4.l"
 { BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 24:
 /* rule 24 can match eol */
 YY_RULE_SETUP
+#line 161 "snobol4.l"
 { BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 25:
 /* rule 25 can match eol */
 YY_RULE_SETUP
-{ for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; BEGIN(GT); }
+#line 162 "snobol4.l"
+{ for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; BEGIN(GT); }
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
+#line 163 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); return T_KEYWORD; }
 	YY_BREAK
 case 27:
 /* rule 27 can match eol */
 YY_RULE_SETUP
+#line 164 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 	YY_BREAK
 case 28:
 /* rule 28 can match eol */
 YY_RULE_SETUP
+#line 165 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 	YY_BREAK
 case 29:
 /* rule 29 can match eol */
 YY_RULE_SETUP
+#line 166 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 	YY_BREAK
 case 30:
 /* rule 30 can match eol */
 YY_RULE_SETUP
+#line 167 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 	YY_BREAK
 case 31:
 /* rule 31 can match eol */
 YY_RULE_SETUP
+#line 168 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PLUS;        }
 	YY_BREAK
 case 32:
 /* rule 32 can match eol */
 YY_RULE_SETUP
+#line 169 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2MINUS;     }
 	YY_BREAK
 case 33:
 /* rule 33 can match eol */
 YY_RULE_SETUP
+#line 170 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2STAR;  }
 	YY_BREAK
 case 34:
 /* rule 34 can match eol */
 YY_RULE_SETUP
+#line 171 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2SLASH;        }
 	YY_BREAK
 case 35:
 /* rule 35 can match eol */
 YY_RULE_SETUP
+#line 172 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2DOLLAR;}
 	YY_BREAK
 case 36:
 /* rule 36 can match eol */
 YY_RULE_SETUP
+#line 173 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2DOT;     }
 	YY_BREAK
 case 37:
 /* rule 37 can match eol */
 YY_RULE_SETUP
+#line 174 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PIPE;     }
 	YY_BREAK
 case 38:
 /* rule 38 can match eol */
 YY_RULE_SETUP
+#line 175 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2EQUAL;      }
 	YY_BREAK
 case 39:
 /* rule 39 can match eol */
 YY_RULE_SETUP
+#line 176 "snobol4.l"
 { return T_2EQUAL; }
 	YY_BREAK
 case 40:
 /* rule 40 can match eol */
 YY_RULE_SETUP
+#line 177 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2QUEST;           }
 	YY_BREAK
 case 41:
 /* rule 41 can match eol */
 YY_RULE_SETUP
+#line 178 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2AMP;       }
 	YY_BREAK
 case 42:
 /* rule 42 can match eol */
 YY_RULE_SETUP
+#line 179 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2AT;         }
 	YY_BREAK
 case 43:
 /* rule 43 can match eol */
 YY_RULE_SETUP
+#line 180 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2POUND;           }
 	YY_BREAK
 case 44:
 /* rule 44 can match eol */
 YY_RULE_SETUP
+#line 181 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PERCENT;         }
 	YY_BREAK
 case 45:
 /* rule 45 can match eol */
 YY_RULE_SETUP
+#line 182 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2TILDE;           }
 	YY_BREAK
 case 46:
 /* rule 46 can match eol */
 YY_RULE_SETUP
+#line 183 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LPAREN; }
 	YY_BREAK
 case 47:
 /* rule 47 can match eol */
 YY_RULE_SETUP
+#line 184 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LBRACK; }
 	YY_BREAK
 case 48:
 /* rule 48 can match eol */
 YY_RULE_SETUP
+#line 185 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LANGLE; }
 	YY_BREAK
 case 49:
 /* rule 49 can match eol */
 YY_RULE_SETUP
+#line 186 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RPAREN; }
 	YY_BREAK
 case 50:
 /* rule 50 can match eol */
 YY_RULE_SETUP
+#line 187 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
 	YY_BREAK
 case 51:
 /* rule 51 can match eol */
 YY_RULE_SETUP
+#line 188 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RANGLE; }
 	YY_BREAK
 case 52:
 /* rule 52 can match eol */
 YY_RULE_SETUP
+#line 189 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
 	YY_BREAK
 case 53:
@@ -1348,168 +1426,211 @@ case 53:
 yyg->yy_c_buf_p = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
+#line 190 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_FUNCTION; }
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
+#line 191 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 	YY_BREAK
 case 55:
+#line 193 "snobol4.l"
 case 56:
 YY_RULE_SETUP
+#line 193 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_REAL; }
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
+#line 194 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
+#line 195 "snobol4.l"
 { strpos=0; BEGIN(STR1); }
 	YY_BREAK
 case 59:
 YY_RULE_SETUP
+#line 196 "snobol4.l"
 { strpos=0; BEGIN(STR2); }
 	YY_BREAK
 case 60:
 YY_RULE_SETUP
+#line 197 "snobol4.l"
 { return T_2CARET;  }
 	YY_BREAK
 case 61:
 YY_RULE_SETUP
+#line 198 "snobol4.l"
 { return T_2CARET;  }
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
+#line 199 "snobol4.l"
 { return T_1PLUS;         }
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
+#line 200 "snobol4.l"
 { return T_1MINUS;        }
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
+#line 201 "snobol4.l"
 { return T_1STAR;     }
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
+#line 202 "snobol4.l"
 { return T_1SLASH;        }
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
+#line 203 "snobol4.l"
 { return T_1PERCENT;      }
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
+#line 204 "snobol4.l"
 { return T_1AT;      }
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
+#line 205 "snobol4.l"
 { return T_1TILDE;        }
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
+#line 206 "snobol4.l"
 { return T_1DOLLAR;  }
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
+#line 207 "snobol4.l"
 { return T_1DOT;       }
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
+#line 208 "snobol4.l"
 { return T_1BANG;  }
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
+#line 209 "snobol4.l"
 { return T_1POUND;        }
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
+#line 210 "snobol4.l"
 { return T_1PIPE; }
 	YY_BREAK
 case 74:
 YY_RULE_SETUP
+#line 211 "snobol4.l"
 { return T_1EQUAL;        }
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
+#line 212 "snobol4.l"
 { return T_1QUEST;}
 	YY_BREAK
 case 76:
 YY_RULE_SETUP
+#line 213 "snobol4.l"
 { return T_1AMP;    }
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
+#line 214 "snobol4.l"
 { sno_error(lineno,"unexpected char '%s'",yytext); }
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
+#line 215 "snobol4.l"
 {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
     memcpy(strbuf+strpos, yytext, take); strpos += take;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 79:
 YY_RULE_SETUP
+#line 221 "snobol4.l"
 {
     if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '\'';
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 80:
 YY_RULE_SETUP
+#line 225 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     BEGIN(BODY);
     return T_STR;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 81:
 /* rule 81 can match eol */
 YY_RULE_SETUP
+#line 231 "snobol4.l"
 {
     sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 82:
 YY_RULE_SETUP
+#line 235 "snobol4.l"
 {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
     memcpy(strbuf+strpos, yytext, take); strpos += take;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 83:
 YY_RULE_SETUP
+#line 241 "snobol4.l"
 {
     if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '"';
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 84:
 YY_RULE_SETUP
+#line 245 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     BEGIN(BODY);
     return T_STR;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 85:
 /* rule 85 can match eol */
 YY_RULE_SETUP
+#line 251 "snobol4.l"
 {
     sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 86:
 YY_RULE_SETUP
-{ return T_CONCAT; }
+#line 255 "snobol4.l"
+{ if (gt_depth > 0) return T_CONCAT; }
 	YY_BREAK
 case 87:
 *yy_cp = yyg->yy_hold_char; /* undo effects of setting up yytext */
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
+#line 256 "snobol4.l"
 { return T_GOTO_S; }
 	YY_BREAK
 case 88:
@@ -1517,6 +1638,7 @@ case 88:
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
+#line 257 "snobol4.l"
 { return T_GOTO_S; }
 	YY_BREAK
 case 89:
@@ -1524,6 +1646,7 @@ case 89:
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
+#line 258 "snobol4.l"
 { return T_GOTO_F; }
 	YY_BREAK
 case 90:
@@ -1531,37 +1654,46 @@ case 90:
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
+#line 259 "snobol4.l"
 { return T_GOTO_F; }
 	YY_BREAK
 case 91:
 YY_RULE_SETUP
-{ return T_GOTO_LPAREN; }
+#line 260 "snobol4.l"
+{ gt_depth++; return T_GOTO_LPAREN; }
 	YY_BREAK
 case 92:
 YY_RULE_SETUP
-{ return T_GOTO_RPAREN; }
+#line 261 "snobol4.l"
+{ if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
 	YY_BREAK
 case 93:
 YY_RULE_SETUP
-{ return T_GOTO_LPAREN; }
+#line 262 "snobol4.l"
+{ gt_depth++; return T_GOTO_LPAREN; }
 	YY_BREAK
 case 94:
 YY_RULE_SETUP
-{ return T_GOTO_RPAREN; }
+#line 263 "snobol4.l"
+{ if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
 	YY_BREAK
 case 95:
 YY_RULE_SETUP
+#line 264 "snobol4.l"
 { return T_1DOLLAR; }
 	YY_BREAK
 case 96:
 YY_RULE_SETUP
+#line 265 "snobol4.l"
 {
     strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1);
     return T_IDENT;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 97:
 YY_RULE_SETUP
+#line 270 "snobol4.l"
 {
     int len = yyleng - 2;
     if (len < 0) len = 0;
@@ -1570,26 +1702,32 @@ YY_RULE_SETUP
     return T_STR;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 98:
 YY_RULE_SETUP
+#line 278 "snobol4.l"
 { BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 99:
 /* rule 99 can match eol */
 YY_RULE_SETUP
+#line 279 "snobol4.l"
 { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 100:
 YY_RULE_SETUP
+#line 280 "snobol4.l"
 { }
 	YY_BREAK
 case 101:
 YY_RULE_SETUP
+#line 281 "snobol4.l"
 { }
 	YY_BREAK
 case 102:
 /* rule 102 can match eol */
 YY_RULE_SETUP
+#line 282 "snobol4.l"
 { lineno++; BEGIN(INITIAL); }
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
@@ -1601,15 +1739,19 @@ case YY_STATE_EOF(STR1):
 case YY_STATE_EOF(STR2):
 case YY_STATE_EOF(SKIP):
 case YY_STATE_EOF(INCL):
+#line 283 "snobol4.l"
 {
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);
     if (!YY_CURRENT_BUFFER) return T_EOF;
 }
 	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 103:
 YY_RULE_SETUP
+#line 288 "snobol4.l"
 ECHO;
 	YY_BREAK
+#line 1755 "snobol4.lex.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -1946,7 +2088,122 @@ static int yy_get_next_buffer (yyscan_t yyscanner)
 	return yy_is_jam ? 0 : yy_current_state;
 }
 
+#ifndef YY_NO_UNPUT
 
+    static void yyunput (int c, char * yy_bp , yyscan_t yyscanner)
+{
+	char *yy_cp;
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+
+    yy_cp = yyg->yy_c_buf_p;
+
+	/* undo effects of setting up yytext */
+	*yy_cp = yyg->yy_hold_char;
+
+	if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
+		{ /* need to shift things up to make room */
+		/* +2 for EOB chars. */
+		int number_to_move = yyg->yy_n_chars + 2;
+		char *dest = &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[
+					YY_CURRENT_BUFFER_LVALUE->yy_buf_size + 2];
+		char *source =
+				&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move];
+
+		while ( source > YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
+			*--dest = *--source;
+
+		yy_cp += (int) (dest - source);
+		yy_bp += (int) (dest - source);
+		YY_CURRENT_BUFFER_LVALUE->yy_n_chars =
+			yyg->yy_n_chars = (int) YY_CURRENT_BUFFER_LVALUE->yy_buf_size;
+
+		if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
+			YY_FATAL_ERROR( "flex scanner push-back overflow" );
+		}
+
+	*--yy_cp = (char) c;
+
+	yyg->yytext_ptr = yy_bp;
+	yyg->yy_hold_char = *yy_cp;
+	yyg->yy_c_buf_p = yy_cp;
+}
+
+#endif
+
+#ifndef YY_NO_INPUT
+#ifdef __cplusplus
+    static int yyinput (yyscan_t yyscanner)
+#else
+    static int input  (yyscan_t yyscanner)
+#endif
+
+{
+	int c;
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+
+	*yyg->yy_c_buf_p = yyg->yy_hold_char;
+
+	if ( *yyg->yy_c_buf_p == YY_END_OF_BUFFER_CHAR )
+		{
+		/* yy_c_buf_p now points to the character we want to return.
+		 * If this occurs *before* the EOB characters, then it's a
+		 * valid NUL; if not, then we've hit the end of the buffer.
+		 */
+		if ( yyg->yy_c_buf_p < &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[yyg->yy_n_chars] )
+			/* This was really a NUL. */
+			*yyg->yy_c_buf_p = '\0';
+
+		else
+			{ /* need more input */
+			int offset = (int) (yyg->yy_c_buf_p - yyg->yytext_ptr);
+			++yyg->yy_c_buf_p;
+
+			switch ( yy_get_next_buffer( yyscanner ) )
+				{
+				case EOB_ACT_LAST_MATCH:
+					/* This happens because yy_g_n_b()
+					 * sees that we've accumulated a
+					 * token and flags that we need to
+					 * try matching the token before
+					 * proceeding.  But for input(),
+					 * there's no matching to consider.
+					 * So convert the EOB_ACT_LAST_MATCH
+					 * to EOB_ACT_END_OF_FILE.
+					 */
+
+					/* Reset buffer status. */
+					yyrestart( yyin , yyscanner);
+
+					/*FALLTHROUGH*/
+
+				case EOB_ACT_END_OF_FILE:
+					{
+					if ( yywrap( yyscanner ) )
+						return 0;
+
+					if ( ! yyg->yy_did_buffer_switch_on_eof )
+						YY_NEW_FILE;
+#ifdef __cplusplus
+					return yyinput(yyscanner);
+#else
+					return input(yyscanner);
+#endif
+					}
+
+				case EOB_ACT_CONTINUE_SCAN:
+					yyg->yy_c_buf_p = yyg->yytext_ptr + offset;
+					break;
+				}
+			}
+		}
+
+	c = *(unsigned char *) yyg->yy_c_buf_p;	/* cast for 8-bit char's */
+	*yyg->yy_c_buf_p = '\0';	/* preserve yytext */
+	yyg->yy_hold_char = *++yyg->yy_c_buf_p;
+
+	return c;
+}
+#endif	/* ifndef YY_NO_INPUT */
 
 /** Immediately switch to a different input stream.
  * @param input_file A readable stream.
@@ -2263,6 +2520,11 @@ YY_BUFFER_STATE yy_scan_buffer  (char * base, yy_size_t  size , yyscan_t yyscann
  * @note If you want to scan bytes that may contain NUL values, then use
  *       yy_scan_bytes() instead.
  */
+YY_BUFFER_STATE yy_scan_string (const char * yystr , yyscan_t yyscanner)
+{
+    
+	return yy_scan_bytes( yystr, (int) strlen(yystr) , yyscanner);
+}
 
 /** Setup the input buffer state to scan the given bytes. The next call to yylex() will
  * scan from a @e copy of @a bytes.
@@ -2327,7 +2589,20 @@ YY_BUFFER_STATE yy_scan_bytes  (const char * yybytes, int  _yybytes_len , yyscan
 	BEGIN(_new_state);
 }
 
+    static void yy_pop_state  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+	if ( --yyg->yy_start_stack_ptr < 0 )
+		YY_FATAL_ERROR( "start-condition stack underflow" );
 
+	BEGIN(yyg->yy_start_stack[yyg->yy_start_stack_ptr]);
+}
+
+    static int yy_top_state  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+	return yyg->yy_start_stack[yyg->yy_start_stack_ptr - 1];
+}
 
 #ifndef YY_EXIT_FAILURE
 #define YY_EXIT_FAILURE 2
@@ -2355,7 +2630,152 @@ static void yynoreturn yy_fatal_error (const char* msg , yyscan_t yyscanner)
 		yyg->yy_hold_char = *yyg->yy_c_buf_p; \
 		*yyg->yy_c_buf_p = '\0'; \
 		yyleng = yyless_macro_arg; \
-		}
+		} \
+	while ( 0 )
+
+/* Accessor  methods (get/set functions) to struct members. */
+
+/** Get the user-defined data for this scanner.
+ * @param yyscanner The scanner object.
+ */
+YY_EXTRA_TYPE yyget_extra  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    return yyextra;
+}
+
+/** Get the current line number.
+ * @param yyscanner The scanner object.
+ */
+int yyget_lineno  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+
+        if (! YY_CURRENT_BUFFER)
+            return 0;
+    
+    return yylineno;
+}
+
+/** Get the current column number.
+ * @param yyscanner The scanner object.
+ */
+int yyget_column  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+
+        if (! YY_CURRENT_BUFFER)
+            return 0;
+    
+    return yycolumn;
+}
+
+/** Get the input stream.
+ * @param yyscanner The scanner object.
+ */
+FILE *yyget_in  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    return yyin;
+}
+
+/** Get the output stream.
+ * @param yyscanner The scanner object.
+ */
+FILE *yyget_out  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    return yyout;
+}
+
+/** Get the length of the current token.
+ * @param yyscanner The scanner object.
+ */
+int yyget_leng  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    return yyleng;
+}
+
+/** Get the current token.
+ * @param yyscanner The scanner object.
+ */
+
+char *yyget_text  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    return yytext;
+}
+
+/** Set the user-defined data. This data is never touched by the scanner.
+ * @param user_defined The data to be associated with this scanner.
+ * @param yyscanner The scanner object.
+ */
+void yyset_extra (YY_EXTRA_TYPE  user_defined , yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    yyextra = user_defined ;
+}
+
+/** Set the current line number.
+ * @param _line_number line number
+ * @param yyscanner The scanner object.
+ */
+void yyset_lineno (int  _line_number , yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+
+        /* lineno is only valid if an input buffer exists. */
+        if (! YY_CURRENT_BUFFER )
+           YY_FATAL_ERROR( "yyset_lineno called with no buffer" );
+    
+    yylineno = _line_number;
+}
+
+/** Set the current column.
+ * @param _column_no column number
+ * @param yyscanner The scanner object.
+ */
+void yyset_column (int  _column_no , yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+
+        /* column is only valid if an input buffer exists. */
+        if (! YY_CURRENT_BUFFER )
+           YY_FATAL_ERROR( "yyset_column called with no buffer" );
+    
+    yycolumn = _column_no;
+}
+
+/** Set the input stream. This does not discard the current
+ * input buffer.
+ * @param _in_str A readable stream.
+ * @param yyscanner The scanner object.
+ * @see yy_switch_to_buffer
+ */
+void yyset_in (FILE *  _in_str , yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    yyin = _in_str ;
+}
+
+void yyset_out (FILE *  _out_str , yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    yyout = _out_str ;
+}
+
+int yyget_debug  (yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    return yy_flex_debug;
+}
+
+void yyset_debug (int  _bdebug , yyscan_t yyscanner)
+{
+    struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
+    yy_flex_debug = _bdebug ;
+}
 
 /* Accessor methods for yylval and yylloc */
 
@@ -2385,6 +2805,39 @@ int yylex_init(yyscan_t* ptr_yy_globals)
     return yy_init_globals ( *ptr_yy_globals );
 }
 
+/* yylex_init_extra has the same functionality as yylex_init, but follows the
+ * convention of taking the scanner as the last argument. Note however, that
+ * this is a *pointer* to a scanner, as it will be allocated by this call (and
+ * is the reason, too, why this function also must handle its own declaration).
+ * The user defined value in the first argument will be available to yyalloc in
+ * the yyextra field.
+ */
+int yylex_init_extra( YY_EXTRA_TYPE yy_user_defined, yyscan_t* ptr_yy_globals )
+{
+    struct yyguts_t dummy_yyguts;
+
+    yyset_extra (yy_user_defined, &dummy_yyguts);
+
+    if (ptr_yy_globals == NULL){
+        errno = EINVAL;
+        return 1;
+    }
+
+    *ptr_yy_globals = (yyscan_t) yyalloc ( sizeof( struct yyguts_t ), &dummy_yyguts );
+
+    if (*ptr_yy_globals == NULL){
+        errno = ENOMEM;
+        return 1;
+    }
+
+    /* By setting to 0xAA, we expose bugs in
+    yy_init_globals. Leave at 0x00 for releases. */
+    memset(*ptr_yy_globals,0x00,sizeof(struct yyguts_t));
+
+    yyset_extra (yy_user_defined, *ptr_yy_globals);
+
+    return yy_init_globals ( *ptr_yy_globals );
+}
 
 static int yy_init_globals (yyscan_t yyscanner)
 {
@@ -2507,7 +2960,9 @@ void yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#line 288 "snobol4.l"
+
+/*--------------------------------------------------------------------------------------------------------------------*/
 void sno_error(int ln, const char *fmt, ...) {
     va_list ap;
     if (sno_err_quiet) {
@@ -2520,11 +2975,13 @@ void sno_error(int ln, const char *fmt, ...) {
     fputc('\n',stderr);
     sno_nerrors++;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void sno_add_include_dir(const char *d) {
     if (n_inc < 64) inc_dirs[n_inc++] = (char *)d;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void flex_lex_open(Lex *lx, FILE *f, const char *fname) {
     yyscan_t sc;
     yylex_init(&sc);
@@ -2534,7 +2991,8 @@ void flex_lex_open(Lex *lx, FILE *f, const char *fname) {
     lx->_extra   = NULL;
     (void)fname;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 Token flex_lex_next(Lex *lx) {
     yyscan_t sc = (yyscan_t)lx->_scanner;
     for (;;) {
@@ -2572,14 +3030,16 @@ Token flex_lex_next(Lex *lx) {
         }
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void flex_lex_destroy(Lex *lx) {
     if (lx->_scanner) {
         yylex_destroy((yyscan_t)lx->_scanner);
         lx->_scanner = NULL;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void lex_open_str(Lex *lx, const char *s, int len, int ln) {
     yyscan_t sc;
     yylex_init(&sc);
@@ -2589,7 +3049,8 @@ void lex_open_str(Lex *lx, const char *s, int len, int ln) {
     lx->_scanner = sc;
     lx->_extra   = NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 void lex_open_str_initial(Lex *lx, const char *s, int len, int ln) {
     yyscan_t sc;
     yylex_init(&sc);
@@ -2598,16 +3059,26 @@ void lex_open_str_initial(Lex *lx, const char *s, int len, int ln) {
     lx->_scanner = sc;
     lx->_extra   = NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 Token lex_next(Lex *lx) {
     if (lx->peeked) { lx->peeked=0; return lx->peek; }
     return flex_lex_next(lx);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern CODE_t *parse_program_tokens(Lex *stream);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+Token lex_peek(Lex *lx) {
+    if (!lx->peeked) { lx->peek=lex_next(lx); lx->peeked=1; }
+    return lx->peek;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+int  lex_at_end(Lex *lx) { return lex_peek(lx).kind==T_EOF; }
+/*--------------------------------------------------------------------------------------------------------------------*/
+void lex_destroy(Lex *lx) { flex_lex_destroy(lx); }
+/*--------------------------------------------------------------------------------------------------------------------*/
 extern CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
 tree_t *sno_parse_ast(FILE *f, const char *fname, CODE_t **code_out) {
     Lex lx; memset(&lx,0,sizeof lx);
     flex_lex_open(&lx,f,fname);
@@ -2617,4 +3088,7 @@ tree_t *sno_parse_ast(FILE *f, const char *fname, CODE_t **code_out) {
     if (code_out) *code_out = prog;
     return ast;
 }
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+void sno_reset(void) { sno_nerrors = 0; n_inc = 0; }
 

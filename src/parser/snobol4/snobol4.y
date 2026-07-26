@@ -11,6 +11,7 @@
 typedef struct { CODE_t *prog; tree_t **result; tree_t *ast_prog; } PP;
 static void     sno4_stmt_commit_go(void*,Token,tree_t*,tree_t*,int,tree_t*,tree_t*,tree_t*,tree_t*);
 static Lex     *g_lx;
+static int      g_err_lineno;
 #define TAL_MAX 512
 #define TAL_DEPTH 64
 static tree_t *g_tal[TAL_MAX];
@@ -218,13 +219,13 @@ goto_expr  : goto_atom                                                          
            ;
 %%
 int snobol4_lex(YYSTYPE *yylval_param, void *yyparse_param) {
-    (void)yyparse_param; Token t=lex_next(g_lx); yylval_param->tok=t;
+    (void)yyparse_param; Token t=lex_next(g_lx); yylval_param->tok=t; if (t.lineno) g_err_lineno=t.lineno;
     if (getenv("SNO_TOK_TRACE"))
         fprintf(stderr,"[TOK %d sval=%s ival=%ld]\n",t.kind,t.sval?t.sval:"",t.ival);
     return t.kind;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
-void snobol4_error(void *p,const char *msg){(void)p;sno_error(g_lx?g_lx->lineno:0,"parse error: %s",msg);}
+void snobol4_error(void *p,const char *msg){(void)p;sno_error(g_err_lineno,"parse error: %s",msg);}
 static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,int has_eq,tree_t *repl,tree_t *gu,tree_t *gs,tree_t *gf){
     PP *pp=(PP*)param;
     STMT_t *s=stmt_new();
