@@ -32,6 +32,7 @@ static std::string xa_wired_base(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, bool is_def) {
+    if (site < 0) { bb_emit_x86(out); return; }   /* XA-FLAT-CONVERT sentinel: site<0 means the arm already returned an in-band record stream (L/J/D/E/F/X tags) instead of raw spliced bytes, so it routes to the ordinary bb_emit_x86 tag walker every other template uses.  External-label patching that this file used to do by hand-counted offset is carried by the 'X' record (x86_jmp_ext/x86_jcc_ext).  Lets each arm convert independently; when the last one flips, this branch and the raw splicer below both die. */
     if (!MEDIUM_BINARY) { if (!out.empty()) emit_text_n(out.data(), out.size()); return; }
     int pos = 0;
     if (lbl) {
@@ -137,6 +138,10 @@ static std::string xaf_anchor_enter_bin(void) {
     if (!x86_port_cstack()) return std::string();
     return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x89);
 }
+static std::string xaf_anchor_enter_x86(void) {
+    if (!x86_port_cstack()) return std::string();
+    return x86("mov", (std::string("qword ptr [") + x86_zr() + " + " + std::to_string(xaf_anchor_off()) + "]").c_str(), "rsp");
+}   /* XA-FLAT-CONVERT: x86() twin of xaf_anchor_enter_bin — same store (anchor slot <- rsp), frame-register-agnostic via x86_zr() so ZC_FRAME_RSP and ZC_FRAME_RBP both encode correctly, and medium-invisible because the encoder switches internally. */
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
     if (ZC_FRAME == ZC_FRAME_RSP) return bytes(3, "\x48\x8B\xA5") + u32le((uint32_t)xaf_anchor_off());   /* mov rsp, [rbp + off] — FZ-E stratum 2 (s90): the anchor is a FRAME slot (U3 role split); the U5 zr→rsp seal made this read rsp-relative, valid only at depth 0 — SN4's LIFO balance masked it, Icon's retained scan-suspension cells (element cells left below rsp for β-backtrack) arrive DEEP and loaded garbage → rsp=heap → jmp 0 (sa2 bracketing).  Enter stays rsp-based: the prologue IS depth 0 (and in the outermost arm it precedes the rbp seed). */
@@ -247,25 +252,25 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                         return rg;
                     }
                     int K = xaf_outer_frame_k();
-                    std::string r = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)K)
-                                  + bytes(3, "\x48\x89\xE7")
-                                  + bytes(1, "\xB9") + u32le((uint32_t)K)
-                                  + bytes(2, "\x31\xC0")
-                                  + bytes(2, "\xF3\xAA")
-                                  + xaf_anchor_enter_bin()
-                                  + (x86_port_mode() == ZC_PORT_HEAP ? bytes(4, "\x48\x8B\x1C\x25") + u32le((uint32_t)RT_WS_TOP) : std::string()) /* REG-4b OUTER SEED, byte twin of TEXT's mov rbx, qword ptr [RT_WS_TOP]: outermost graphs only — jmp-entry blobs inherit rbx live */
-                                  + bytes(4, "\x4C\x8B\x24\x25") + u32le((uint32_t)RT_CAS_TOP) /* REG-6 OUTER SEED, byte twin of TEXT's mov r12, qword ptr [RT_CAS_TOP] (byte-verified vs as s80): r12 = live pend/dcap top for the whole graph — jmp-entry blobs/EVAL fragments inherit it via the callee-saved contract; cell pre-warmed by rt_pin_init's chained rt_dcap_lazy_init.  UNGATED: the pend stack is live in every port mode.  No epilogue publish: the pump takes the top BY ARGUMENT (rsi) and LIFO balance means top==base at every graph exit, so the cell stays truthful without one. */
-                                  + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(K - 8)) /* CALLER-RBP SAVE (ABI fix, mode-3): store caller rbp at [rsp+K-8] header slot before the seed clobbers rbp; restored before every ret.  The mode-3 caller (scrip main) is a canary-protected C fn that relies on rbp being preserved; mode-4's caller (main: wrapper) does not, so this was latent until the exit-code sweep. */
-                                  + bytes(3, "\x48\x89\xE5") /* REG-7 U1 OUTER SEED, byte twin of TEXT's mov rbp, rsp (48 89 E5, byte-verified vs as s82): rbp = the activation FLAT BASE (REG-MAP law 1) — rsp == flat base here by LIFO balance, the frame view every FR/FRQ consumer flips to at U3.  DEAD WEIGHT until U3; jmp-entry blobs get their own save/seed/restore at U2 (pat blobs already have it, s79).  Bare clobber safe by the same callee-saved dance contract the rbx/r12 seeds above ride. */
-                                  + (g_flat_outer_nparams >= 1 ? bytes(1, "\x56") + bytes(4, "\x48\x83\xEC\x08") /* ICNBENCH-ARGS-RSP (closes the R12-ERAD main(args) FENCE): push rsi (entry selector survives the call) + sub rsp,8 (base ≡ 0 mod 16 → call-parity 0 kept) */
-                                                              + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_main_args_fetch) /* movabs rax, rt_main_args_fetch — raw bytes per the lexprep precedent above (legacy raw-byte family, no L-record) */
-                                                              + bytes(2, "\xFF\xD0") /* call rax — staged args DESCR returns in rax:rdx */
-                                                              + bytes(4, "\x48\x83\xC4\x08") + bytes(1, "\x5E") /* add rsp,8 + pop rsi */
-                                                              + bytes(4, "\x48\x89\x45\x10") + bytes(4, "\x48\x89\x55\x18") /* mov [rbp+16],rax + mov [rbp+24],rdx — param-0 slot; runs on β re-entry too (rep stosb rezeroed the frame) */
+                    std::string r = x86("sub", "rsp", (long)K)
+                                  + x86("mov", "rdi", "rsp")
+                                  + x86("mov", "ecx", (long)K)
+                                  + x86("xor", "eax", "eax")
+                                  + x86("rep_stosb")
+                                  + xaf_anchor_enter_x86()
+                                  + (x86_port_mode() == ZC_PORT_HEAP ? x86("mov", "rbx", (std::string("qword ptr [") + std::to_string((unsigned long)RT_WS_TOP) + "]").c_str()) : std::string()) /* REG-4b OUTER SEED: outermost graphs only — jmp-entry blobs inherit rbx live */
+                                  + x86("mov", "r12", (std::string("qword ptr [") + std::to_string((unsigned long)RT_CAS_TOP) + "]").c_str()) /* REG-6 OUTER SEED: r12 = live pend/dcap top for the whole graph — jmp-entry blobs/EVAL fragments inherit it via the callee-saved contract.  UNGATED: the pend stack is live in every port mode. */
+                                  + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(K - 8) + "]").c_str(), "rbp") /* CALLER-RBP SAVE (ABI fix, mode-3): store caller rbp at [rsp+K-8] header slot before the seed clobbers rbp; restored before every ret. */
+                                  + x86("mov", "rbp", "rsp") /* REG-7 U1 OUTER SEED: rbp = the activation FLAT BASE (REG-MAP law 1) — rsp == flat base here by LIFO balance. */
+                                  + (g_flat_outer_nparams >= 1 ? x86("push", "rsi") + x86("sub", "rsp", (long)8) /* ICNBENCH-ARGS-RSP: push rsi (entry selector survives the call) + sub rsp,8 (base = 0 mod 16 -> call-parity 0 kept) */
+                                                              + x86("movabs", "rax", (unsigned long)(uintptr_t)(void *)&rt_main_args_fetch)
+                                                              + x86("call", "rax") /* staged args DESCR returns in rax:rdx */
+                                                              + x86("add", "rsp", (long)8) + x86("pop", "rsi")
+                                                              + x86("mov", "qword ptr [rbp + 16]", "rax") + x86("mov", "qword ptr [rbp + 24]", "rdx") /* param-0 slot; runs on beta re-entry too (rep stosb rezeroed the frame) */
                                                               : std::string())
-                                  + bytes(3, "\x83\xFE\x00")
-                                  + bytes(2, "\x0F\x85") + u32le(0);
-                    out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
+                                  + x86("cmp", "esi", (long)0)
+                                  + x86("jne", "extlbl", (unsigned long)(uintptr_t)g_emit.flat_β_p);
+                    out_site = -1; out_lbl = nullptr; out_def = false;   /* XA-FLAT-CONVERT slice A: record stream, patch site discovered by bb_emit_x86 via the 'X' record — the hand-counted r.size()-4 is retired here. */
                     return r;
                 }
                 std::string disp;
@@ -281,10 +286,10 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
                 return r;
             }
-            out_site = 9; out_lbl = g_emit.flat_β_p; out_def = false;
-            return bytes(4, "\x48\x83\xEC\x08")
-                 + bytes(3, "\x83\xFE\x00")
-                 + bytes(2, "\x0F\x85") + u32le(0);
+            out_site = -1; out_lbl = nullptr; out_def = false;   /* XA-FLAT-CONVERT slice A: first arm off the raw-byte family.  The hand-counted out_site=9 (4+3+2 bytes before the rel32) is gone — the 'X' record carries the flat_β_p pointer and bb_emit_x86 discovers the patch site as it walks, so the offset cannot drift when an encoder picks a different short form. */
+            return x86("sub", "rsp", (long)8)
+                 + x86("cmp", "esi", (long)0)
+                 + x86("jne", "extlbl", (unsigned long)(uintptr_t)g_emit.flat_β_p);
         }
         if (MEDIUM_TEXT) {
             if (!g_is_text) return std::string();
