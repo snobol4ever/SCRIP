@@ -193,6 +193,12 @@ static tree_t *rk_arr_index(const char *arr, tree_t *idx) {
     tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, var_node(arr)); ast_push(c, idx); return c;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_arr_pick(const char *arr, tree_t *i0, ExprList *rest) {
+    tree_t *call = make_call("__rk_arr_pick"); expr_add_child(call, var_node(arr)); expr_add_child(call, i0);
+    if (rest) { for (int i = 0; i < rest->count; i++) expr_add_child(call, rest->items[i]); exprlist_free(rest); }
+    return call;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_end_index(const char *arr, tree_t *off, tree_e op) {
     tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, var_node(arr)); ast_push(el, leaf_sval(TT_QLIT, "elems"));
     tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, var_node(arr)); ast_push(c, expr_binary(op, el, off)); return c;
@@ -1602,6 +1608,8 @@ atom
           ast_push(c, leaf_sval(TT_QLIT, $1)); $$ = c; }
     | VAR_ARRAY '[' expr ']'
         { $$ = rk_arr_index($1, $3); }
+    | VAR_ARRAY '[' expr ',' arg_list ']'
+        { $$ = rk_arr_pick($1, $3, $5); }
     | VAR_ARRAY '[' '*' '-' expr ']'
         { $$ = rk_arr_end_index($1, $5, TT_SUB); }
     | VAR_ARRAY '[' '*' '+' expr ']'

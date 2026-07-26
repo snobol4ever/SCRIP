@@ -3349,6 +3349,52 @@ my @a = 10,20,30,40;
 say @a[1];
 EOF
 
+raku "pick_three" "10,30,50" << 'EOF'
+my @a = 10,20,30,40,50;
+say @a[0,2,4].join(",");
+EOF
+
+raku "pick_two" "20,40" << 'EOF'
+my @a = 10,20,30,40,50;
+say @a[1,3].join(",");
+EOF
+
+raku "pick_order_preserved" "30,10" << 'EOF'
+my @a = 10,20,30,40,50;
+say @a[2,0].join(",");
+EOF
+
+raku "pick_repeats" "10,10,10" << 'EOF'
+my @a = 10,20,30;
+say @a[0,0,0].join(",");
+EOF
+
+raku "pick_strings" "d-b" << 'EOF'
+my @s = "a","b","c","d";
+say @s[3,1].join("-");
+EOF
+
+raku "pick_elems" "2" << 'EOF'
+my @a = 10,20,30,40,50;
+say @a[0,2].elems;
+EOF
+
+raku "pick_var_index" "20,40" << 'EOF'
+my @a = 10,20,30,40,50;
+my $i = 1;
+say @a[$i,3].join(",");
+EOF
+
+raku "pick_range_slice_unaffected" "20,30" << 'EOF'
+my @a = 10,20,30,40,50;
+say @a[1..2].join(",");
+EOF
+
+raku "pick_on_range_array" "1,3,5" << 'EOF'
+my @r = 1..5;
+say @r[0,2,4].join(",");
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
