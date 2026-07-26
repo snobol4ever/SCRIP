@@ -213,6 +213,10 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
                 zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
                 return 2 + nd->n_operands;
             }
+            { const char * cmn = IR_LIT(nd).sval; if (cmn && (!strcmp(cmn, "tab") || !strcmp(cmn, "move"))) {
+                zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_RAW, 0, "scan.saved_delta — ICN-BYNAME-CURSOR-RESTORE: a cursor-mover (tab/move, and =s == tab(match(s))) reached by-name through rt_call_arr has no inline bb_scan_tab body, so it also had no saved-δ slot and its β degenerated to a bare jmp ω — the backtrack never restored &pos. This quad is that slot; bb_call_byname_str writes r14 here at α and reloads it in β, mirroring bb_scan_tab's restore-δ-and-FAIL port. Same extra-quad shape as callgen.act above.", nd);
+                zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "scan.saved_delta pad (unused)", nd);
+                return 2 + nd->n_operands; } }
             return 1 + nd->n_operands;
         }
         return 0;   /* SN4-FRAME-DIET (s174): the default-arm phantom is DELETED -- every armless value producer (LIT/VAR/binop class) burned result+16 with no registered field and no reader; audit: every template consuming [op_off+16] (bb_scan_*, bb_match_head/arbno/release/replace, bb_disjunction, bb_call_value, bb_create, bb_limit, bb_repalt, bb_rev_swap, bb_to*, bb_move_label, bb_indirect_goto, bb_keyword_icon, bb_gen_scan, bb_make_list) owns an explicit arm above, so no default-class kind reads past its result quad */
