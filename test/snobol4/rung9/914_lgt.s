@@ -44,25 +44,115 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rbp + 64], 1
-                        mov              rax, qword ptr [rip + .Lx27_0]
+                        mov              rax, qword ptr [rip + .Lx33_0]
                         mov              qword ptr [rbp + 72], rax
-                                                                                        jmp   n1_lit_string_α
-.Lx27_0:
-                        .quad            .Lx27_0_s
-.Lx27_0_s:
+                                                                                        jmp   n7_lit_string_α
+.Lx33_0:
+                        .quad            .Lx33_0_s
+.Lx33_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_lit_string_α:
-                        mov              qword ptr [rbp + 80], 1
-                        mov              rax, qword ptr [rip + .Lx28_0]
-                        mov              qword ptr [rbp + 88], rax
-                                                                                        jmp   n2_call_α
-.Lx28_0:
-                        .quad            .Lx28_0_s
-.Lx28_0_s:
-                        .string          "xyz"
+n1_goto_α:
+                                                                                        jmp   n8_lit_string_α
+n1_goto_β:
+                                                                                        jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-n2_call_α:
+n2_goto_α:
+                                                                                        jmp   n9_lit_string_α
+n2_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n3_goto_α:
+                                                                                        jmp   n10_lit_string_α
+n3_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n4_goto_α:
+                                                                                        jmp   n11_lit_string_α
+n4_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n5_goto_α:
+                                                                                        jmp   n12_lit_string_α
+n5_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n6_goto_α:
+                                                                                        jmp   main_γ
+n6_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n7_lit_string_α:
+                        mov              qword ptr [rbp + 80], 1
+                        mov              rax, qword ptr [rip + .Lx40_0]
+                        mov              qword ptr [rbp + 88], rax
+                                                                                        jmp   n13_call_α
+.Lx40_0:
+                        .quad            .Lx40_0_s
+.Lx40_0_s:
+                        .string          "xyz"
+#=======================================================================================================================
+#         lgt('abc', 'abc')          :f(e002)
+#-----------------------------------------------------------------------------------------------------------------------
+n8_lit_string_α:
+                        mov              qword ptr [rbp + 192], 1
+                        mov              rax, qword ptr [rip + .Lx41_0]
+                        mov              qword ptr [rbp + 200], rax
+                                                                                        jmp   n14_lit_string_α
+.Lx41_0:
+                        .quad            .Lx41_0_s
+.Lx41_0_s:
+                        .string          "abc"
+#=======================================================================================================================
+#         lgt('xyz', 'abc')          :s(e003)
+#-----------------------------------------------------------------------------------------------------------------------
+n9_lit_string_α:
+                        mov              qword ptr [rbp + 320], 1
+                        mov              rax, qword ptr [rip + .Lx42_0]
+                        mov              qword ptr [rbp + 328], rax
+                                                                                        jmp   n15_lit_string_α
+.Lx42_0:
+                        .quad            .Lx42_0_s
+.Lx42_0_s:
+                        .string          "xyz"
+#=======================================================================================================================
+#         lgt('', 'abc')             :f(e004)
+#-----------------------------------------------------------------------------------------------------------------------
+n10_lit_string_α:
+                        mov              qword ptr [rbp + 448], 1
+                        mov              rax, qword ptr [rip + .Lx43_0]
+                        mov              qword ptr [rbp + 456], rax
+                                                                                        jmp   n16_lit_string_α
+.Lx43_0:
+                        .quad            .Lx43_0_s
+.Lx43_0_s:
+                        .string          ""
+#=======================================================================================================================
+#         lgt('abc', '')             :s(e005)
+#-----------------------------------------------------------------------------------------------------------------------
+n11_lit_string_α:
+                        mov              qword ptr [rbp + 576], 1
+                        mov              rax, qword ptr [rip + .Lx44_0]
+                        mov              qword ptr [rbp + 584], rax
+                                                                                        jmp   n17_lit_string_α
+.Lx44_0:
+                        .quad            .Lx44_0_s
+.Lx44_0_s:
+                        .string          "abc"
+#=======================================================================================================================
+#         output = 'PASS 914_lgt (5/5)'
+#-----------------------------------------------------------------------------------------------------------------------
+n12_lit_string_α:
+                        mov              qword ptr [rbp + 656], 1
+                        mov              rax, qword ptr [rip + .Lx45_0]
+                        mov              qword ptr [rbp + 664], rax
+                                                                                        jmp   n18_assign_α
+.Lx45_0:
+                        .quad            .Lx45_0_s
+.Lx45_0_s:
+                        .string          "PASS 914_lgt (5/5)"
+#-----------------------------------------------------------------------------------------------------------------------
+n13_call_α:
                         mov              rax, qword ptr [rbp + 64]
                         mov              qword ptr [rbp + 16], rax
                         mov              rax, qword ptr [rbp + 72]
@@ -72,65 +162,83 @@ n2_call_α:
                         mov              rax, qword ptr [rbp + 88]
                         mov              qword ptr [rbp + 40], rax
                         .section         .rodata
-.Lbynamefn3:            .string          "lgt"
+.Lbynamefn14:           .string          "lgt"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn3]
+                        lea              rdi, [rip + .Lbynamefn14]
                         lea              rsi, [rbp + 16]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 0], rax
                         mov              qword ptr [rbp + 8], rdx
                         cmp              eax, 99
-                                                                                        je    n4_lit_string_α
-                                                                                        jmp   n3_lit_string_α
-n2_call_β:
-                                                                                        jmp   n4_lit_string_α
+                                                                                        je    n8_lit_string_α
+                                                                                        jmp   n19_lit_string_α
+n13_call_β:
+                                                                                        jmp   n8_lit_string_α
+#-----------------------------------------------------------------------------------------------------------------------
+n14_lit_string_α:
+                        mov              qword ptr [rbp + 208], 1
+                        mov              rax, qword ptr [rip + .Lx47_0]
+                        mov              qword ptr [rbp + 216], rax
+                                                                                        jmp   n20_call_α
+.Lx47_0:
+                        .quad            .Lx47_0_s
+.Lx47_0_s:
+                        .string          "abc"
+#-----------------------------------------------------------------------------------------------------------------------
+n15_lit_string_α:
+                        mov              qword ptr [rbp + 336], 1
+                        mov              rax, qword ptr [rip + .Lx48_0]
+                        mov              qword ptr [rbp + 344], rax
+                                                                                        jmp   n21_call_α
+.Lx48_0:
+                        .quad            .Lx48_0_s
+.Lx48_0_s:
+                        .string          "abc"
+#-----------------------------------------------------------------------------------------------------------------------
+n16_lit_string_α:
+                        mov              qword ptr [rbp + 464], 1
+                        mov              rax, qword ptr [rip + .Lx49_0]
+                        mov              qword ptr [rbp + 472], rax
+                                                                                        jmp   n22_call_α
+.Lx49_0:
+                        .quad            .Lx49_0_s
+.Lx49_0_s:
+                        .string          "abc"
+#-----------------------------------------------------------------------------------------------------------------------
+n17_lit_string_α:
+                        mov              qword ptr [rbp + 592], 1
+                        mov              rax, qword ptr [rip + .Lx50_0]
+                        mov              qword ptr [rbp + 600], rax
+                                                                                        jmp   n23_call_α
+.Lx50_0:
+                        .quad            .Lx50_0_s
+.Lx50_0_s:
+                        .string          ""
+#-----------------------------------------------------------------------------------------------------------------------
+n18_assign_α:
+                        mov              rax, qword ptr [rbp + 656]
+                        mov              rdx, qword ptr [rbp + 664]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 640], rax
+                        mov              qword ptr [rbp + 648], rdx
+                                                                                        jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 914/001: lgt(abc,xyz) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_string_α:
+n19_lit_string_α:
                         mov              qword ptr [rbp + 112], 1
-                        mov              rax, qword ptr [rip + .Lx30_0]
+                        mov              rax, qword ptr [rip + .Lx52_0]
                         mov              qword ptr [rbp + 120], rax
-                                                                                        jmp   n5_assign_α
-.Lx30_0:
-                        .quad            .Lx30_0_s
-.Lx30_0_s:
+                                                                                        jmp   n24_assign_α
+.Lx52_0:
+                        .quad            .Lx52_0_s
+.Lx52_0_s:
                         .string          "FAIL 914/001: lgt(abc,xyz) should fail"
-#=======================================================================================================================
-#         lgt('abc', 'abc')          :f(e002)
 #-----------------------------------------------------------------------------------------------------------------------
-n4_lit_string_α:
-                        mov              qword ptr [rbp + 192], 1
-                        mov              rax, qword ptr [rip + .Lx31_0]
-                        mov              qword ptr [rbp + 200], rax
-                                                                                        jmp   n6_lit_string_α
-.Lx31_0:
-                        .quad            .Lx31_0_s
-.Lx31_0_s:
-                        .string          "abc"
-#-----------------------------------------------------------------------------------------------------------------------
-n5_assign_α:
-                        mov              rax, qword ptr [rbp + 112]
-                        mov              rdx, qword ptr [rbp + 120]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n6_lit_string_α:
-                        mov              qword ptr [rbp + 208], 1
-                        mov              rax, qword ptr [rip + .Lx33_0]
-                        mov              qword ptr [rbp + 216], rax
-                                                                                        jmp   n7_call_α
-.Lx33_0:
-                        .quad            .Lx33_0_s
-.Lx33_0_s:
-                        .string          "abc"
-#-----------------------------------------------------------------------------------------------------------------------
-n7_call_α:
+n20_call_α:
                         mov              rax, qword ptr [rbp + 192]
                         mov              qword ptr [rbp + 144], rax
                         mov              rax, qword ptr [rbp + 200]
@@ -140,10 +248,10 @@ n7_call_α:
                         mov              rax, qword ptr [rbp + 216]
                         mov              qword ptr [rbp + 168], rax
                         .section         .rodata
-.Lbynamefn8:            .string          "lgt"
+.Lbynamefn21:           .string          "lgt"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn8]
+                        lea              rdi, [rip + .Lbynamefn21]
                         lea              rsi, [rbp + 144]
                         mov              edx, 2
                         call             rt_call_arr@PLT
@@ -151,54 +259,11 @@ n7_call_α:
                         mov              qword ptr [rbp + 136], rdx
                         cmp              eax, 99
                                                                                         je    n9_lit_string_α
-                                                                                        jmp   n8_lit_string_α
-n7_call_β:
+                                                                                        jmp   n25_lit_string_α
+n20_call_β:
                                                                                         jmp   n9_lit_string_α
-#=======================================================================================================================
-#         output = 'FAIL 914/002: lgt(abc,abc) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n8_lit_string_α:
-                        mov              qword ptr [rbp + 240], 1
-                        mov              rax, qword ptr [rip + .Lx35_0]
-                        mov              qword ptr [rbp + 248], rax
-                                                                                        jmp   n10_assign_α
-.Lx35_0:
-                        .quad            .Lx35_0_s
-.Lx35_0_s:
-                        .string          "FAIL 914/002: lgt(abc,abc) should fail"
-#=======================================================================================================================
-#         lgt('xyz', 'abc')          :s(e003)
-#-----------------------------------------------------------------------------------------------------------------------
-n9_lit_string_α:
-                        mov              qword ptr [rbp + 320], 1
-                        mov              rax, qword ptr [rip + .Lx36_0]
-                        mov              qword ptr [rbp + 328], rax
-                                                                                        jmp   n11_lit_string_α
-.Lx36_0:
-                        .quad            .Lx36_0_s
-.Lx36_0_s:
-                        .string          "xyz"
-#-----------------------------------------------------------------------------------------------------------------------
-n10_assign_α:
-                        mov              rax, qword ptr [rbp + 240]
-                        mov              rdx, qword ptr [rbp + 248]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 224], rax
-                        mov              qword ptr [rbp + 232], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n11_lit_string_α:
-                        mov              qword ptr [rbp + 336], 1
-                        mov              rax, qword ptr [rip + .Lx38_0]
-                        mov              qword ptr [rbp + 344], rax
-                                                                                        jmp   n12_call_α
-.Lx38_0:
-                        .quad            .Lx38_0_s
-.Lx38_0_s:
-                        .string          "abc"
-#-----------------------------------------------------------------------------------------------------------------------
-n12_call_α:
+n21_call_α:
                         mov              rax, qword ptr [rbp + 320]
                         mov              qword ptr [rbp + 272], rax
                         mov              rax, qword ptr [rbp + 328]
@@ -208,65 +273,22 @@ n12_call_α:
                         mov              rax, qword ptr [rbp + 344]
                         mov              qword ptr [rbp + 296], rax
                         .section         .rodata
-.Lbynamefn13:           .string          "lgt"
+.Lbynamefn22:           .string          "lgt"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn13]
+                        lea              rdi, [rip + .Lbynamefn22]
                         lea              rsi, [rbp + 272]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 256], rax
                         mov              qword ptr [rbp + 264], rdx
                         cmp              eax, 99
-                                                                                        je    n14_lit_string_α
-                                                                                        jmp   n13_lit_string_α
-n12_call_β:
-                                                                                        jmp   n14_lit_string_α
-#=======================================================================================================================
-#         lgt('', 'abc')             :f(e004)
+                                                                                        je    n26_lit_string_α
+                                                                                        jmp   n10_lit_string_α
+n21_call_β:
+                                                                                        jmp   n26_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n13_lit_string_α:
-                        mov              qword ptr [rbp + 448], 1
-                        mov              rax, qword ptr [rip + .Lx40_0]
-                        mov              qword ptr [rbp + 456], rax
-                                                                                        jmp   n15_lit_string_α
-.Lx40_0:
-                        .quad            .Lx40_0_s
-.Lx40_0_s:
-                        .string          ""
-#=======================================================================================================================
-#         output = 'FAIL 914/003: lgt(xyz,abc) should succeed' :(end)
-#-----------------------------------------------------------------------------------------------------------------------
-n14_lit_string_α:
-                        mov              qword ptr [rbp + 368], 1
-                        mov              rax, qword ptr [rip + .Lx41_0]
-                        mov              qword ptr [rbp + 376], rax
-                                                                                        jmp   n16_assign_α
-.Lx41_0:
-                        .quad            .Lx41_0_s
-.Lx41_0_s:
-                        .string          "FAIL 914/003: lgt(xyz,abc) should succeed"
-#-----------------------------------------------------------------------------------------------------------------------
-n15_lit_string_α:
-                        mov              qword ptr [rbp + 464], 1
-                        mov              rax, qword ptr [rip + .Lx42_0]
-                        mov              qword ptr [rbp + 472], rax
-                                                                                        jmp   n17_call_α
-.Lx42_0:
-                        .quad            .Lx42_0_s
-.Lx42_0_s:
-                        .string          "abc"
-#-----------------------------------------------------------------------------------------------------------------------
-n16_assign_α:
-                        mov              rax, qword ptr [rbp + 368]
-                        mov              rdx, qword ptr [rbp + 376]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 352], rax
-                        mov              qword ptr [rbp + 360], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n17_call_α:
+n22_call_α:
                         mov              rax, qword ptr [rbp + 448]
                         mov              qword ptr [rbp + 400], rax
                         mov              rax, qword ptr [rbp + 456]
@@ -276,65 +298,22 @@ n17_call_α:
                         mov              rax, qword ptr [rbp + 472]
                         mov              qword ptr [rbp + 424], rax
                         .section         .rodata
-.Lbynamefn18:           .string          "lgt"
+.Lbynamefn23:           .string          "lgt"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn18]
+                        lea              rdi, [rip + .Lbynamefn23]
                         lea              rsi, [rbp + 400]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 384], rax
                         mov              qword ptr [rbp + 392], rdx
                         cmp              eax, 99
-                                                                                        je    n19_lit_string_α
-                                                                                        jmp   n18_lit_string_α
-n17_call_β:
-                                                                                        jmp   n19_lit_string_α
-#=======================================================================================================================
-#         output = 'FAIL 914/004: lgt(null,abc) should fail'  :(end)
+                                                                                        je    n11_lit_string_α
+                                                                                        jmp   n27_lit_string_α
+n22_call_β:
+                                                                                        jmp   n11_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n18_lit_string_α:
-                        mov              qword ptr [rbp + 496], 1
-                        mov              rax, qword ptr [rip + .Lx45_0]
-                        mov              qword ptr [rbp + 504], rax
-                                                                                        jmp   n20_assign_α
-.Lx45_0:
-                        .quad            .Lx45_0_s
-.Lx45_0_s:
-                        .string          "FAIL 914/004: lgt(null,abc) should fail"
-#=======================================================================================================================
-#         lgt('abc', '')             :s(e005)
-#-----------------------------------------------------------------------------------------------------------------------
-n19_lit_string_α:
-                        mov              qword ptr [rbp + 576], 1
-                        mov              rax, qword ptr [rip + .Lx46_0]
-                        mov              qword ptr [rbp + 584], rax
-                                                                                        jmp   n21_lit_string_α
-.Lx46_0:
-                        .quad            .Lx46_0_s
-.Lx46_0_s:
-                        .string          "abc"
-#-----------------------------------------------------------------------------------------------------------------------
-n20_assign_α:
-                        mov              rax, qword ptr [rbp + 496]
-                        mov              rdx, qword ptr [rbp + 504]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 480], rax
-                        mov              qword ptr [rbp + 488], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n21_lit_string_α:
-                        mov              qword ptr [rbp + 592], 1
-                        mov              rax, qword ptr [rip + .Lx48_0]
-                        mov              qword ptr [rbp + 600], rax
-                                                                                        jmp   n22_call_α
-.Lx48_0:
-                        .quad            .Lx48_0_s
-.Lx48_0_s:
-                        .string          ""
-#-----------------------------------------------------------------------------------------------------------------------
-n22_call_α:
+n23_call_α:
                         mov              rax, qword ptr [rbp + 576]
                         mov              qword ptr [rbp + 528], rax
                         mov              rax, qword ptr [rbp + 584]
@@ -344,55 +323,106 @@ n22_call_α:
                         mov              rax, qword ptr [rbp + 600]
                         mov              qword ptr [rbp + 552], rax
                         .section         .rodata
-.Lbynamefn23:           .string          "lgt"
+.Lbynamefn24:           .string          "lgt"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn23]
+                        lea              rdi, [rip + .Lbynamefn24]
                         lea              rsi, [rbp + 528]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 512], rax
                         mov              qword ptr [rbp + 520], rdx
                         cmp              eax, 99
-                                                                                        je    n24_lit_string_α
-                                                                                        jmp   n23_lit_string_α
-n22_call_β:
-                                                                                        jmp   n24_lit_string_α
-#=======================================================================================================================
-#         output = 'PASS 914_lgt (5/5)'
+                                                                                        je    n28_lit_string_α
+                                                                                        jmp   n12_lit_string_α
+n23_call_β:
+                                                                                        jmp   n28_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n23_lit_string_α:
-                        mov              qword ptr [rbp + 656], 1
-                        mov              rax, qword ptr [rip + .Lx50_0]
-                        mov              qword ptr [rbp + 664], rax
-                                                                                        jmp   n25_assign_α
-.Lx50_0:
-                        .quad            .Lx50_0_s
-.Lx50_0_s:
-                        .string          "PASS 914_lgt (5/5)"
+n24_assign_α:
+                        mov              rax, qword ptr [rbp + 112]
+                        mov              rdx, qword ptr [rbp + 120]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                                                                                        jmp   main_γ
+#=======================================================================================================================
+#         output = 'FAIL 914/002: lgt(abc,abc) should fail'   :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n25_lit_string_α:
+                        mov              qword ptr [rbp + 240], 1
+                        mov              rax, qword ptr [rip + .Lx58_0]
+                        mov              qword ptr [rbp + 248], rax
+                                                                                        jmp   n29_assign_α
+.Lx58_0:
+                        .quad            .Lx58_0_s
+.Lx58_0_s:
+                        .string          "FAIL 914/002: lgt(abc,abc) should fail"
+#=======================================================================================================================
+#         output = 'FAIL 914/003: lgt(xyz,abc) should succeed' :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n26_lit_string_α:
+                        mov              qword ptr [rbp + 368], 1
+                        mov              rax, qword ptr [rip + .Lx59_0]
+                        mov              qword ptr [rbp + 376], rax
+                                                                                        jmp   n30_assign_α
+.Lx59_0:
+                        .quad            .Lx59_0_s
+.Lx59_0_s:
+                        .string          "FAIL 914/003: lgt(xyz,abc) should succeed"
+#=======================================================================================================================
+#         output = 'FAIL 914/004: lgt(null,abc) should fail'  :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n27_lit_string_α:
+                        mov              qword ptr [rbp + 496], 1
+                        mov              rax, qword ptr [rip + .Lx60_0]
+                        mov              qword ptr [rbp + 504], rax
+                                                                                        jmp   n31_assign_α
+.Lx60_0:
+                        .quad            .Lx60_0_s
+.Lx60_0_s:
+                        .string          "FAIL 914/004: lgt(null,abc) should fail"
 #=======================================================================================================================
 #         output = 'FAIL 914/005: lgt(abc,null) should succeed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n24_lit_string_α:
+n28_lit_string_α:
                         mov              qword ptr [rbp + 624], 1
-                        mov              rax, qword ptr [rip + .Lx51_0]
+                        mov              rax, qword ptr [rip + .Lx61_0]
                         mov              qword ptr [rbp + 632], rax
-                                                                                        jmp   n26_assign_α
-.Lx51_0:
-                        .quad            .Lx51_0_s
-.Lx51_0_s:
+                                                                                        jmp   n32_assign_α
+.Lx61_0:
+                        .quad            .Lx61_0_s
+.Lx61_0_s:
                         .string          "FAIL 914/005: lgt(abc,null) should succeed"
 #-----------------------------------------------------------------------------------------------------------------------
-n25_assign_α:
-                        mov              rax, qword ptr [rbp + 656]
-                        mov              rdx, qword ptr [rbp + 664]
+n29_assign_α:
+                        mov              rax, qword ptr [rbp + 240]
+                        mov              rdx, qword ptr [rbp + 248]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 640], rax
-                        mov              qword ptr [rbp + 648], rdx
+                        mov              qword ptr [rbp + 224], rax
+                        mov              qword ptr [rbp + 232], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-n26_assign_α:
+n30_assign_α:
+                        mov              rax, qword ptr [rbp + 368]
+                        mov              rdx, qword ptr [rbp + 376]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 352], rax
+                        mov              qword ptr [rbp + 360], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n31_assign_α:
+                        mov              rax, qword ptr [rbp + 496]
+                        mov              rdx, qword ptr [rbp + 504]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 480], rax
+                        mov              qword ptr [rbp + 488], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n32_assign_α:
                         mov              rax, qword ptr [rbp + 624]
                         mov              rdx, qword ptr [rbp + 632]
                         mov              qword ptr [1879052288], rax

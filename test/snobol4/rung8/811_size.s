@@ -44,164 +44,117 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rbp + 112], 1
-                        mov              rax, qword ptr [rip + .Lx20_0]
+                        mov              rax, qword ptr [rip + .Lx24_0]
                         mov              qword ptr [rbp + 120], rax
-                                                                                        jmp   n1_call_α
-.Lx20_0:
-                        .quad            .Lx20_0_s
-.Lx20_0_s:
+                                                                                        jmp   n5_call_α
+.Lx24_0:
+                        .quad            .Lx24_0_s
+.Lx24_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_call_α:
+n1_goto_α:
+                                                                                        jmp   n6_lit_integer_α
+n1_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n2_goto_α:
+                                                                                        jmp   n7_lit_string_α
+n2_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n3_goto_α:
+                                                                                        jmp   n8_lit_string_α
+n3_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n4_goto_α:
+                                                                                        jmp   main_γ
+n4_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n5_call_α:
                         mov              rax, qword ptr [rbp + 112]
                         mov              qword ptr [rbp + 80], rax
                         mov              rax, qword ptr [rbp + 120]
                         mov              qword ptr [rbp + 88], rax
                         .section         .rodata
-.Lbynamefn2:            .string          "size"
+.Lbynamefn6:            .string          "size"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn2]
+                        lea              rdi, [rip + .Lbynamefn6]
                         lea              rsi, [rbp + 80]
                         mov              edx, 1
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 64], rax
                         mov              qword ptr [rbp + 72], rdx
                         cmp              eax, 99
-                                                                                        je    n3_lit_integer_α
-                                                                                        jmp   n2_lit_integer_α
-n1_call_β:
-                                                                                        jmp   n3_lit_integer_α
-#-----------------------------------------------------------------------------------------------------------------------
-n2_lit_integer_α:
-                        mov              qword ptr [rbp + 128], 6
-                        mov              rax, qword ptr [rip + .Lx22_0]
-                        mov              qword ptr [rbp + 136], rax
-                                                                                        jmp   n4_call_α
-.Lx22_0:
-                        .quad            3
+                                                                                        je    n6_lit_integer_α
+                                                                                        jmp   n9_lit_integer_α
+n5_call_β:
+                                                                                        jmp   n6_lit_integer_α
 #=======================================================================================================================
 #         differ(size(12), 2)                   :f(e002)
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_integer_α:
+n6_lit_integer_α:
                         mov              qword ptr [rbp + 288], 6
-                        mov              rax, qword ptr [rip + .Lx23_0]
+                        mov              rax, qword ptr [rip + .Lx30_0]
                         mov              qword ptr [rbp + 296], rax
-                                                                                        jmp   n5_call_α
-.Lx23_0:
+                                                                                        jmp   n10_call_α
+.Lx30_0:
                         .quad            12
+#=======================================================================================================================
+#         differ(size(''), 0)                   :f(e003)
 #-----------------------------------------------------------------------------------------------------------------------
-n4_call_α:
-                        mov              rax, qword ptr [rbp + 64]
-                        mov              qword ptr [rbp + 16], rax
-                        mov              rax, qword ptr [rbp + 72]
-                        mov              qword ptr [rbp + 24], rax
-                        mov              rax, qword ptr [rbp + 128]
-                        mov              qword ptr [rbp + 32], rax
-                        mov              rax, qword ptr [rbp + 136]
-                        mov              qword ptr [rbp + 40], rax
-                        .section         .rodata
-.Lbynamefn5:            .string          "differ"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn5]
-                        lea              rsi, [rbp + 16]
-                        mov              edx, 2
-                        call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
-                        cmp              eax, 99
-                                                                                        je    n3_lit_integer_α
-                                                                                        jmp   n6_lit_string_α
-n4_call_β:
-                                                                                        jmp   n3_lit_integer_α
+n7_lit_string_α:
+                        mov              qword ptr [rbp + 464], 1
+                        mov              rax, qword ptr [rip + .Lx31_0]
+                        mov              qword ptr [rbp + 472], rax
+                                                                                        jmp   n11_call_α
+.Lx31_0:
+                        .quad            .Lx31_0_s
+.Lx31_0_s:
+                        .string          ""
+#=======================================================================================================================
+#         output = 'PASS 811_size (3/3)'
 #-----------------------------------------------------------------------------------------------------------------------
-n5_call_α:
+n8_lit_string_α:
+                        mov              qword ptr [rbp + 544], 1
+                        mov              rax, qword ptr [rip + .Lx32_0]
+                        mov              qword ptr [rbp + 552], rax
+                                                                                        jmp   n12_assign_α
+.Lx32_0:
+                        .quad            .Lx32_0_s
+.Lx32_0_s:
+                        .string          "PASS 811_size (3/3)"
+#-----------------------------------------------------------------------------------------------------------------------
+n9_lit_integer_α:
+                        mov              qword ptr [rbp + 128], 6
+                        mov              rax, qword ptr [rip + .Lx33_0]
+                        mov              qword ptr [rbp + 136], rax
+                                                                                        jmp   n13_call_α
+.Lx33_0:
+                        .quad            3
+#-----------------------------------------------------------------------------------------------------------------------
+n10_call_α:
                         mov              rax, qword ptr [rbp + 288]
                         mov              qword ptr [rbp + 256], rax
                         mov              rax, qword ptr [rbp + 296]
                         mov              qword ptr [rbp + 264], rax
                         .section         .rodata
-.Lbynamefn6:            .string          "size"
+.Lbynamefn11:           .string          "size"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn6]
+                        lea              rdi, [rip + .Lbynamefn11]
                         lea              rsi, [rbp + 256]
                         mov              edx, 1
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 240], rax
                         mov              qword ptr [rbp + 248], rdx
                         cmp              eax, 99
-                                                                                        je    n8_lit_string_α
-                                                                                        jmp   n7_lit_integer_α
-n5_call_β:
-                                                                                        jmp   n8_lit_string_α
-#=======================================================================================================================
-#         output = 'FAIL 811/001: size of 3-char string'  :(end)
-#-----------------------------------------------------------------------------------------------------------------------
-n6_lit_string_α:
-                        mov              qword ptr [rbp + 160], 1
-                        mov              rax, qword ptr [rip + .Lx26_0]
-                        mov              qword ptr [rbp + 168], rax
-                                                                                        jmp   n9_assign_α
-.Lx26_0:
-                        .quad            .Lx26_0_s
-.Lx26_0_s:
-                        .string          "FAIL 811/001: size of 3-char string"
-#-----------------------------------------------------------------------------------------------------------------------
-n7_lit_integer_α:
-                        mov              qword ptr [rbp + 304], 6
-                        mov              rax, qword ptr [rip + .Lx27_0]
-                        mov              qword ptr [rbp + 312], rax
-                                                                                        jmp   n10_call_α
-.Lx27_0:
-                        .quad            2
-#=======================================================================================================================
-#         differ(size(''), 0)                   :f(e003)
-#-----------------------------------------------------------------------------------------------------------------------
-n8_lit_string_α:
-                        mov              qword ptr [rbp + 464], 1
-                        mov              rax, qword ptr [rip + .Lx28_0]
-                        mov              qword ptr [rbp + 472], rax
-                                                                                        jmp   n11_call_α
-.Lx28_0:
-                        .quad            .Lx28_0_s
-.Lx28_0_s:
-                        .string          ""
-#-----------------------------------------------------------------------------------------------------------------------
-n9_assign_α:
-                        mov              rax, qword ptr [rbp + 160]
-                        mov              rdx, qword ptr [rbp + 168]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 144], rax
-                        mov              qword ptr [rbp + 152], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n10_call_α:
-                        mov              rax, qword ptr [rbp + 240]
-                        mov              qword ptr [rbp + 192], rax
-                        mov              rax, qword ptr [rbp + 248]
-                        mov              qword ptr [rbp + 200], rax
-                        mov              rax, qword ptr [rbp + 304]
-                        mov              qword ptr [rbp + 208], rax
-                        mov              rax, qword ptr [rbp + 312]
-                        mov              qword ptr [rbp + 216], rax
-                        .section         .rodata
-.Lbynamefn11:           .string          "differ"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn11]
-                        lea              rsi, [rbp + 192]
-                        mov              edx, 2
-                        call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 176], rax
-                        mov              qword ptr [rbp + 184], rdx
-                        cmp              eax, 99
-                                                                                        je    n8_lit_string_α
-                                                                                        jmp   n12_lit_string_α
+                                                                                        je    n7_lit_string_α
+                                                                                        jmp   n14_lit_integer_α
 n10_call_β:
-                                                                                        jmp   n8_lit_string_α
+                                                                                        jmp   n7_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_call_α:
                         mov              rax, qword ptr [rbp + 464]
@@ -219,53 +172,99 @@ n11_call_α:
                         mov              qword ptr [rbp + 416], rax
                         mov              qword ptr [rbp + 424], rdx
                         cmp              eax, 99
-                                                                                        je    n14_lit_string_α
-                                                                                        jmp   n13_lit_integer_α
+                                                                                        je    n8_lit_string_α
+                                                                                        jmp   n15_lit_integer_α
 n11_call_β:
-                                                                                        jmp   n14_lit_string_α
-#=======================================================================================================================
-#         output = 'FAIL 811/002: size of integer 12 = 2 digits' :(end)
+                                                                                        jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n12_lit_string_α:
-                        mov              qword ptr [rbp + 336], 1
-                        mov              rax, qword ptr [rip + .Lx32_0]
-                        mov              qword ptr [rbp + 344], rax
-                                                                                        jmp   n15_assign_α
-.Lx32_0:
-                        .quad            .Lx32_0_s
-.Lx32_0_s:
-                        .string          "FAIL 811/002: size of integer 12 = 2 digits"
-#-----------------------------------------------------------------------------------------------------------------------
-n13_lit_integer_α:
-                        mov              qword ptr [rbp + 480], 6
-                        mov              rax, qword ptr [rip + .Lx33_0]
-                        mov              qword ptr [rbp + 488], rax
-                                                                                        jmp   n16_call_α
-.Lx33_0:
-                        .quad            0
-#=======================================================================================================================
-#         output = 'PASS 811_size (3/3)'
-#-----------------------------------------------------------------------------------------------------------------------
-n14_lit_string_α:
-                        mov              qword ptr [rbp + 544], 1
-                        mov              rax, qword ptr [rip + .Lx34_0]
-                        mov              qword ptr [rbp + 552], rax
-                                                                                        jmp   n17_assign_α
-.Lx34_0:
-                        .quad            .Lx34_0_s
-.Lx34_0_s:
-                        .string          "PASS 811_size (3/3)"
-#-----------------------------------------------------------------------------------------------------------------------
-n15_assign_α:
-                        mov              rax, qword ptr [rbp + 336]
-                        mov              rdx, qword ptr [rbp + 344]
+n12_assign_α:
+                        mov              rax, qword ptr [rbp + 544]
+                        mov              rdx, qword ptr [rbp + 552]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 320], rax
-                        mov              qword ptr [rbp + 328], rdx
+                        mov              qword ptr [rbp + 528], rax
+                        mov              qword ptr [rbp + 536], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-n16_call_α:
+n13_call_α:
+                        mov              rax, qword ptr [rbp + 64]
+                        mov              qword ptr [rbp + 16], rax
+                        mov              rax, qword ptr [rbp + 72]
+                        mov              qword ptr [rbp + 24], rax
+                        mov              rax, qword ptr [rbp + 128]
+                        mov              qword ptr [rbp + 32], rax
+                        mov              rax, qword ptr [rbp + 136]
+                        mov              qword ptr [rbp + 40], rax
+                        .section         .rodata
+.Lbynamefn14:           .string          "differ"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lbynamefn14]
+                        lea              rsi, [rbp + 16]
+                        mov              edx, 2
+                        call             rt_call_arr@PLT
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
+                        cmp              eax, 99
+                                                                                        je    n6_lit_integer_α
+                                                                                        jmp   n16_lit_string_α
+n13_call_β:
+                                                                                        jmp   n6_lit_integer_α
+#-----------------------------------------------------------------------------------------------------------------------
+n14_lit_integer_α:
+                        mov              qword ptr [rbp + 304], 6
+                        mov              rax, qword ptr [rip + .Lx38_0]
+                        mov              qword ptr [rbp + 312], rax
+                                                                                        jmp   n17_call_α
+.Lx38_0:
+                        .quad            2
+#-----------------------------------------------------------------------------------------------------------------------
+n15_lit_integer_α:
+                        mov              qword ptr [rbp + 480], 6
+                        mov              rax, qword ptr [rip + .Lx39_0]
+                        mov              qword ptr [rbp + 488], rax
+                                                                                        jmp   n18_call_α
+.Lx39_0:
+                        .quad            0
+#=======================================================================================================================
+#         output = 'FAIL 811/001: size of 3-char string'  :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n16_lit_string_α:
+                        mov              qword ptr [rbp + 160], 1
+                        mov              rax, qword ptr [rip + .Lx40_0]
+                        mov              qword ptr [rbp + 168], rax
+                                                                                        jmp   n19_assign_α
+.Lx40_0:
+                        .quad            .Lx40_0_s
+.Lx40_0_s:
+                        .string          "FAIL 811/001: size of 3-char string"
+#-----------------------------------------------------------------------------------------------------------------------
+n17_call_α:
+                        mov              rax, qword ptr [rbp + 240]
+                        mov              qword ptr [rbp + 192], rax
+                        mov              rax, qword ptr [rbp + 248]
+                        mov              qword ptr [rbp + 200], rax
+                        mov              rax, qword ptr [rbp + 304]
+                        mov              qword ptr [rbp + 208], rax
+                        mov              rax, qword ptr [rbp + 312]
+                        mov              qword ptr [rbp + 216], rax
+                        .section         .rodata
+.Lbynamefn18:           .string          "differ"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lbynamefn18]
+                        lea              rsi, [rbp + 192]
+                        mov              edx, 2
+                        call             rt_call_arr@PLT
+                        mov              qword ptr [rbp + 176], rax
+                        mov              qword ptr [rbp + 184], rdx
+                        cmp              eax, 99
+                                                                                        je    n7_lit_string_α
+                                                                                        jmp   n20_lit_string_α
+n17_call_β:
+                                                                                        jmp   n7_lit_string_α
+#-----------------------------------------------------------------------------------------------------------------------
+n18_call_α:
                         mov              rax, qword ptr [rbp + 416]
                         mov              qword ptr [rbp + 368], rax
                         mov              rax, qword ptr [rbp + 424]
@@ -275,43 +274,64 @@ n16_call_α:
                         mov              rax, qword ptr [rbp + 488]
                         mov              qword ptr [rbp + 392], rax
                         .section         .rodata
-.Lbynamefn17:           .string          "differ"
+.Lbynamefn19:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn17]
+                        lea              rdi, [rip + .Lbynamefn19]
                         lea              rsi, [rbp + 368]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 352], rax
                         mov              qword ptr [rbp + 360], rdx
                         cmp              eax, 99
-                                                                                        je    n14_lit_string_α
-                                                                                        jmp   n18_lit_string_α
-n16_call_β:
-                                                                                        jmp   n14_lit_string_α
+                                                                                        je    n8_lit_string_α
+                                                                                        jmp   n21_lit_string_α
+n18_call_β:
+                                                                                        jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n17_assign_α:
-                        mov              rax, qword ptr [rbp + 544]
-                        mov              rdx, qword ptr [rbp + 552]
+n19_assign_α:
+                        mov              rax, qword ptr [rbp + 160]
+                        mov              rdx, qword ptr [rbp + 168]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 528], rax
-                        mov              qword ptr [rbp + 536], rdx
+                        mov              qword ptr [rbp + 144], rax
+                        mov              qword ptr [rbp + 152], rdx
                                                                                         jmp   main_γ
+#=======================================================================================================================
+#         output = 'FAIL 811/002: size of integer 12 = 2 digits' :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n20_lit_string_α:
+                        mov              qword ptr [rbp + 336], 1
+                        mov              rax, qword ptr [rip + .Lx44_0]
+                        mov              qword ptr [rbp + 344], rax
+                                                                                        jmp   n22_assign_α
+.Lx44_0:
+                        .quad            .Lx44_0_s
+.Lx44_0_s:
+                        .string          "FAIL 811/002: size of integer 12 = 2 digits"
 #=======================================================================================================================
 #         output = 'FAIL 811/003: size of null = 0'       :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n18_lit_string_α:
+n21_lit_string_α:
                         mov              qword ptr [rbp + 512], 1
-                        mov              rax, qword ptr [rip + .Lx38_0]
+                        mov              rax, qword ptr [rip + .Lx45_0]
                         mov              qword ptr [rbp + 520], rax
-                                                                                        jmp   n19_assign_α
-.Lx38_0:
-                        .quad            .Lx38_0_s
-.Lx38_0_s:
+                                                                                        jmp   n23_assign_α
+.Lx45_0:
+                        .quad            .Lx45_0_s
+.Lx45_0_s:
                         .string          "FAIL 811/003: size of null = 0"
 #-----------------------------------------------------------------------------------------------------------------------
-n19_assign_α:
+n22_assign_α:
+                        mov              rax, qword ptr [rbp + 336]
+                        mov              rdx, qword ptr [rbp + 344]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 320], rax
+                        mov              qword ptr [rbp + 328], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n23_assign_α:
                         mov              rax, qword ptr [rbp + 512]
                         mov              rdx, qword ptr [rbp + 520]
                         mov              qword ptr [1879052288], rax

@@ -42,21 +42,149 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_integer_α:
                         mov              qword ptr [rbp + 64], 6
-                        mov              rax, qword ptr [rip + .Lx49_0]
+                        mov              rax, qword ptr [rip + .Lx59_0]
                         mov              qword ptr [rbp + 72], rax
-                                                                                        jmp   n1_lit_integer_α
-.Lx49_0:
+                                                                                        jmp   n11_lit_integer_α
+.Lx59_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
-n1_lit_integer_α:
+n1_goto_α:
+                                                                                        jmp   n12_lit_integer_α
+n1_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n2_goto_α:
+                                                                                        jmp   n13_lit_integer_α
+n2_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n3_goto_α:
+                                                                                        jmp   n14_lit_integer_α
+n3_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n4_goto_α:
+                                                                                        jmp   n15_lit_integer_α
+n4_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n5_goto_α:
+                                                                                        jmp   n16_lit_integer_α
+n5_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n6_goto_α:
+                                                                                        jmp   n17_lit_integer_α
+n6_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n7_goto_α:
+                                                                                        jmp   n18_lit_integer_α
+n7_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n8_goto_α:
+                                                                                        jmp   n19_lit_integer_α
+n8_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n9_goto_α:
+                                                                                        jmp   n20_lit_string_α
+n9_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n10_goto_α:
+                                                                                        jmp   main_γ
+n10_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n11_lit_integer_α:
                         mov              qword ptr [rbp + 80], 6
-                        mov              rax, qword ptr [rip + .Lx50_0]
+                        mov              rax, qword ptr [rip + .Lx70_0]
                         mov              qword ptr [rbp + 88], rax
-                                                                                        jmp   n2_call_α
-.Lx50_0:
+                                                                                        jmp   n21_call_α
+.Lx70_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
-n2_call_α:
+n12_lit_integer_α:
+                        mov              qword ptr [rbp + 192], 6
+                        mov              rax, qword ptr [rip + .Lx71_0]
+                        mov              qword ptr [rbp + 200], rax
+                                                                                        jmp   n22_lit_integer_α
+.Lx71_0:
+                        .quad            1
+#-----------------------------------------------------------------------------------------------------------------------
+n13_lit_integer_α:
+                        mov              qword ptr [rbp + 320], 6
+                        mov              rax, qword ptr [rip + .Lx72_0]
+                        mov              qword ptr [rbp + 328], rax
+                                                                                        jmp   n23_lit_integer_α
+.Lx72_0:
+                        .quad            6
+#-----------------------------------------------------------------------------------------------------------------------
+n14_lit_integer_α:
+                        mov              qword ptr [rbp + 448], 6
+                        mov              rax, qword ptr [rip + .Lx73_0]
+                        mov              qword ptr [rbp + 456], rax
+                                                                                        jmp   n24_lit_integer_α
+.Lx73_0:
+                        .quad            2
+#=======================================================================================================================
+#         differ(2 ** 3, 8)                   :f(e005)
+#-----------------------------------------------------------------------------------------------------------------------
+n15_lit_integer_α:
+                        mov              qword ptr [rbp + 592], 6
+                        mov              rax, qword ptr [rip + .Lx74_0]
+                        mov              qword ptr [rbp + 600], rax
+                                                                                        jmp   n25_lit_integer_α
+.Lx74_0:
+                        .quad            2
+#-----------------------------------------------------------------------------------------------------------------------
+n16_lit_integer_α:
+                        mov              qword ptr [rbp + 736], 6
+                        mov              rax, qword ptr [rip + .Lx75_0]
+                        mov              qword ptr [rbp + 744], rax
+                                                                                        jmp   n26_lit_integer_α
+.Lx75_0:
+                        .quad            5
+#-----------------------------------------------------------------------------------------------------------------------
+n17_lit_integer_α:
+                        mov              qword ptr [rbp + 864], 6
+                        mov              rax, qword ptr [rip + .Lx76_0]
+                        mov              qword ptr [rbp + 872], rax
+                                                                                        jmp   n27_lit_integer_α
+.Lx76_0:
+                        .quad            1
+#-----------------------------------------------------------------------------------------------------------------------
+n18_lit_integer_α:
+                        mov              qword ptr [rbp + 992], 6
+                        mov              rax, qword ptr [rip + .Lx77_0]
+                        mov              qword ptr [rbp + 1000], rax
+                                                                                        jmp   n28_lit_integer_α
+.Lx77_0:
+                        .quad            1
+#-----------------------------------------------------------------------------------------------------------------------
+n19_lit_integer_α:
+                        mov              qword ptr [rbp + 1120], 6
+                        mov              rax, qword ptr [rip + .Lx78_0]
+                        mov              qword ptr [rbp + 1128], rax
+                                                                                        jmp   n29_lit_integer_α
+.Lx78_0:
+                        .quad            5
+#=======================================================================================================================
+#         output = 'PASS 410_arith_int (9/9)'
+#-----------------------------------------------------------------------------------------------------------------------
+n20_lit_string_α:
+                        mov              qword ptr [rbp + 1200], 1
+                        mov              rax, qword ptr [rip + .Lx79_0]
+                        mov              qword ptr [rbp + 1208], rax
+                                                                                        jmp   n30_assign_α
+.Lx79_0:
+                        .quad            .Lx79_0_s
+.Lx79_0_s:
+                        .string          "PASS 410_arith_int (9/9)"
+#-----------------------------------------------------------------------------------------------------------------------
+n21_call_α:
                         mov              rax, qword ptr [rbp + 64]
                         mov              qword ptr [rbp + 16], rax
                         mov              rax, qword ptr [rbp + 72]
@@ -66,59 +194,107 @@ n2_call_α:
                         mov              rax, qword ptr [rbp + 88]
                         mov              qword ptr [rbp + 40], rax
                         .section         .rodata
-.Lbynamefn3:            .string          "differ"
+.Lbynamefn22:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn3]
+                        lea              rdi, [rip + .Lbynamefn22]
                         lea              rsi, [rbp + 16]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 0], rax
                         mov              qword ptr [rbp + 8], rdx
                         cmp              eax, 99
-                                                                                        je    n4_lit_integer_α
-                                                                                        jmp   n3_lit_string_α
-n2_call_β:
-                                                                                        jmp   n4_lit_integer_α
+                                                                                        je    n12_lit_integer_α
+                                                                                        jmp   n31_lit_string_α
+n21_call_β:
+                                                                                        jmp   n12_lit_integer_α
+#-----------------------------------------------------------------------------------------------------------------------
+n22_lit_integer_α:
+                        mov              qword ptr [rbp + 208], 6
+                        mov              rax, qword ptr [rip + .Lx81_0]
+                        mov              qword ptr [rbp + 216], rax
+                                                                                        jmp   n32_call_α
+.Lx81_0:
+                        .quad            1
+#-----------------------------------------------------------------------------------------------------------------------
+n23_lit_integer_α:
+                        mov              qword ptr [rbp + 336], 6
+                        mov              rax, qword ptr [rip + .Lx82_0]
+                        mov              qword ptr [rbp + 344], rax
+                                                                                        jmp   n33_call_α
+.Lx82_0:
+                        .quad            6
+#-----------------------------------------------------------------------------------------------------------------------
+n24_lit_integer_α:
+                        mov              qword ptr [rbp + 464], 6
+                        mov              rax, qword ptr [rip + .Lx83_0]
+                        mov              qword ptr [rbp + 472], rax
+                                                                                        jmp   n34_call_α
+.Lx83_0:
+                        .quad            2
+#-----------------------------------------------------------------------------------------------------------------------
+n25_lit_integer_α:
+                        mov              qword ptr [rbp + 608], 6
+                        mov              rax, qword ptr [rip + .Lx84_0]
+                        mov              qword ptr [rbp + 616], rax
+                                                                                        jmp   n35_binop_α
+.Lx84_0:
+                        .quad            3
+#-----------------------------------------------------------------------------------------------------------------------
+n26_lit_integer_α:
+                        mov              qword ptr [rbp + 752], 6
+                        mov              rax, qword ptr [rip + .Lx85_0]
+                        mov              qword ptr [rbp + 760], rax
+                                                                                        jmp   n36_call_α
+.Lx85_0:
+                        .quad            5
+#-----------------------------------------------------------------------------------------------------------------------
+n27_lit_integer_α:
+                        mov              qword ptr [rbp + 880], 6
+                        mov              rax, qword ptr [rip + .Lx86_0]
+                        mov              qword ptr [rbp + 888], rax
+                                                                                        jmp   n37_call_α
+.Lx86_0:
+                        .quad            1
+#-----------------------------------------------------------------------------------------------------------------------
+n28_lit_integer_α:
+                        mov              qword ptr [rbp + 1008], 6
+                        mov              rax, qword ptr [rip + .Lx87_0]
+                        mov              qword ptr [rbp + 1016], rax
+                                                                                        jmp   n38_call_α
+.Lx87_0:
+                        .quad            1
+#-----------------------------------------------------------------------------------------------------------------------
+n29_lit_integer_α:
+                        mov              qword ptr [rbp + 1136], 6
+                        mov              rax, qword ptr [rip + .Lx88_0]
+                        mov              qword ptr [rbp + 1144], rax
+                                                                                        jmp   n39_call_α
+.Lx88_0:
+                        .quad            5
+#-----------------------------------------------------------------------------------------------------------------------
+n30_assign_α:
+                        mov              rax, qword ptr [rbp + 1200]
+                        mov              rdx, qword ptr [rbp + 1208]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 1184], rax
+                        mov              qword ptr [rbp + 1192], rdx
+                                                                                        jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 410/001: 3+2'                   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_string_α:
+n31_lit_string_α:
                         mov              qword ptr [rbp + 112], 1
-                        mov              rax, qword ptr [rip + .Lx52_0]
+                        mov              rax, qword ptr [rip + .Lx90_0]
                         mov              qword ptr [rbp + 120], rax
-                                                                                        jmp   n5_assign_α
-.Lx52_0:
-                        .quad            .Lx52_0_s
-.Lx52_0_s:
+                                                                                        jmp   n40_assign_α
+.Lx90_0:
+                        .quad            .Lx90_0_s
+.Lx90_0_s:
                         .string          "FAIL 410/001: 3+2"
 #-----------------------------------------------------------------------------------------------------------------------
-n4_lit_integer_α:
-                        mov              qword ptr [rbp + 192], 6
-                        mov              rax, qword ptr [rip + .Lx53_0]
-                        mov              qword ptr [rbp + 200], rax
-                                                                                        jmp   n6_lit_integer_α
-.Lx53_0:
-                        .quad            1
-#-----------------------------------------------------------------------------------------------------------------------
-n5_assign_α:
-                        mov              rax, qword ptr [rbp + 112]
-                        mov              rdx, qword ptr [rbp + 120]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n6_lit_integer_α:
-                        mov              qword ptr [rbp + 208], 6
-                        mov              rax, qword ptr [rip + .Lx55_0]
-                        mov              qword ptr [rbp + 216], rax
-                                                                                        jmp   n7_call_α
-.Lx55_0:
-                        .quad            1
-#-----------------------------------------------------------------------------------------------------------------------
-n7_call_α:
+n32_call_α:
                         mov              rax, qword ptr [rbp + 192]
                         mov              qword ptr [rbp + 144], rax
                         mov              rax, qword ptr [rbp + 200]
@@ -128,59 +304,22 @@ n7_call_α:
                         mov              rax, qword ptr [rbp + 216]
                         mov              qword ptr [rbp + 168], rax
                         .section         .rodata
-.Lbynamefn8:            .string          "differ"
+.Lbynamefn33:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn8]
+                        lea              rdi, [rip + .Lbynamefn33]
                         lea              rsi, [rbp + 144]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 128], rax
                         mov              qword ptr [rbp + 136], rdx
                         cmp              eax, 99
-                                                                                        je    n9_lit_integer_α
-                                                                                        jmp   n8_lit_string_α
-n7_call_β:
-                                                                                        jmp   n9_lit_integer_α
-#=======================================================================================================================
-#         output = 'FAIL 410/002: 3-2'                   :(end)
+                                                                                        je    n13_lit_integer_α
+                                                                                        jmp   n41_lit_string_α
+n32_call_β:
+                                                                                        jmp   n13_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-n8_lit_string_α:
-                        mov              qword ptr [rbp + 240], 1
-                        mov              rax, qword ptr [rip + .Lx57_0]
-                        mov              qword ptr [rbp + 248], rax
-                                                                                        jmp   n10_assign_α
-.Lx57_0:
-                        .quad            .Lx57_0_s
-.Lx57_0_s:
-                        .string          "FAIL 410/002: 3-2"
-#-----------------------------------------------------------------------------------------------------------------------
-n9_lit_integer_α:
-                        mov              qword ptr [rbp + 320], 6
-                        mov              rax, qword ptr [rip + .Lx58_0]
-                        mov              qword ptr [rbp + 328], rax
-                                                                                        jmp   n11_lit_integer_α
-.Lx58_0:
-                        .quad            6
-#-----------------------------------------------------------------------------------------------------------------------
-n10_assign_α:
-                        mov              rax, qword ptr [rbp + 240]
-                        mov              rdx, qword ptr [rbp + 248]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 224], rax
-                        mov              qword ptr [rbp + 232], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n11_lit_integer_α:
-                        mov              qword ptr [rbp + 336], 6
-                        mov              rax, qword ptr [rip + .Lx60_0]
-                        mov              qword ptr [rbp + 344], rax
-                                                                                        jmp   n12_call_α
-.Lx60_0:
-                        .quad            6
-#-----------------------------------------------------------------------------------------------------------------------
-n12_call_α:
+n33_call_α:
                         mov              rax, qword ptr [rbp + 320]
                         mov              qword ptr [rbp + 272], rax
                         mov              rax, qword ptr [rbp + 328]
@@ -190,10 +329,10 @@ n12_call_α:
                         mov              rax, qword ptr [rbp + 344]
                         mov              qword ptr [rbp + 296], rax
                         .section         .rodata
-.Lbynamefn13:           .string          "differ"
+.Lbynamefn34:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn13]
+                        lea              rdi, [rip + .Lbynamefn34]
                         lea              rsi, [rbp + 272]
                         mov              edx, 2
                         call             rt_call_arr@PLT
@@ -201,48 +340,11 @@ n12_call_α:
                         mov              qword ptr [rbp + 264], rdx
                         cmp              eax, 99
                                                                                         je    n14_lit_integer_α
-                                                                                        jmp   n13_lit_string_α
-n12_call_β:
+                                                                                        jmp   n42_lit_string_α
+n33_call_β:
                                                                                         jmp   n14_lit_integer_α
-#=======================================================================================================================
-#         output = 'FAIL 410/003: 3*2'                   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n13_lit_string_α:
-                        mov              qword ptr [rbp + 368], 1
-                        mov              rax, qword ptr [rip + .Lx62_0]
-                        mov              qword ptr [rbp + 376], rax
-                                                                                        jmp   n15_assign_α
-.Lx62_0:
-                        .quad            .Lx62_0_s
-.Lx62_0_s:
-                        .string          "FAIL 410/003: 3*2"
-#-----------------------------------------------------------------------------------------------------------------------
-n14_lit_integer_α:
-                        mov              qword ptr [rbp + 448], 6
-                        mov              rax, qword ptr [rip + .Lx63_0]
-                        mov              qword ptr [rbp + 456], rax
-                                                                                        jmp   n16_lit_integer_α
-.Lx63_0:
-                        .quad            2
-#-----------------------------------------------------------------------------------------------------------------------
-n15_assign_α:
-                        mov              rax, qword ptr [rbp + 368]
-                        mov              rdx, qword ptr [rbp + 376]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 352], rax
-                        mov              qword ptr [rbp + 360], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n16_lit_integer_α:
-                        mov              qword ptr [rbp + 464], 6
-                        mov              rax, qword ptr [rip + .Lx65_0]
-                        mov              qword ptr [rbp + 472], rax
-                                                                                        jmp   n17_call_α
-.Lx65_0:
-                        .quad            2
-#-----------------------------------------------------------------------------------------------------------------------
-n17_call_α:
+n34_call_α:
                         mov              rax, qword ptr [rbp + 448]
                         mov              qword ptr [rbp + 400], rax
                         mov              rax, qword ptr [rbp + 456]
@@ -252,61 +354,22 @@ n17_call_α:
                         mov              rax, qword ptr [rbp + 472]
                         mov              qword ptr [rbp + 424], rax
                         .section         .rodata
-.Lbynamefn18:           .string          "differ"
+.Lbynamefn35:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn18]
+                        lea              rdi, [rip + .Lbynamefn35]
                         lea              rsi, [rbp + 400]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 384], rax
                         mov              qword ptr [rbp + 392], rdx
                         cmp              eax, 99
-                                                                                        je    n19_lit_integer_α
-                                                                                        jmp   n18_lit_string_α
-n17_call_β:
-                                                                                        jmp   n19_lit_integer_α
-#=======================================================================================================================
-#         output = 'FAIL 410/004: 5/2 integer division'  :(end)
+                                                                                        je    n15_lit_integer_α
+                                                                                        jmp   n43_lit_string_α
+n34_call_β:
+                                                                                        jmp   n15_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-n18_lit_string_α:
-                        mov              qword ptr [rbp + 496], 1
-                        mov              rax, qword ptr [rip + .Lx67_0]
-                        mov              qword ptr [rbp + 504], rax
-                                                                                        jmp   n20_assign_α
-.Lx67_0:
-                        .quad            .Lx67_0_s
-.Lx67_0_s:
-                        .string          "FAIL 410/004: 5/2 integer division"
-#=======================================================================================================================
-#         differ(2 ** 3, 8)                   :f(e005)
-#-----------------------------------------------------------------------------------------------------------------------
-n19_lit_integer_α:
-                        mov              qword ptr [rbp + 592], 6
-                        mov              rax, qword ptr [rip + .Lx68_0]
-                        mov              qword ptr [rbp + 600], rax
-                                                                                        jmp   n21_lit_integer_α
-.Lx68_0:
-                        .quad            2
-#-----------------------------------------------------------------------------------------------------------------------
-n20_assign_α:
-                        mov              rax, qword ptr [rbp + 496]
-                        mov              rdx, qword ptr [rbp + 504]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 480], rax
-                        mov              qword ptr [rbp + 488], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n21_lit_integer_α:
-                        mov              qword ptr [rbp + 608], 6
-                        mov              rax, qword ptr [rip + .Lx70_0]
-                        mov              qword ptr [rbp + 616], rax
-                                                                                        jmp   n22_binop_α
-.Lx70_0:
-                        .quad            3
-#-----------------------------------------------------------------------------------------------------------------------
-n22_binop_α:
+n35_binop_α:
                         mov              rdi, qword ptr [rbp + 592]
                         mov              rsi, qword ptr [rbp + 600]
                         mov              rdx, qword ptr [rbp + 608]
@@ -314,73 +377,12 @@ n22_binop_α:
                         mov              r8d, 18
                         call             rt_num_arith@PLT
                         cmp              eax, 99
-                                                                                        je    n24_lit_integer_α
+                                                                                        je    n16_lit_integer_α
                         mov              qword ptr [rbp + 576], rax
                         mov              qword ptr [rbp + 584], rdx
-                                                                                        jmp   n23_lit_integer_α
+                                                                                        jmp   n44_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-n23_lit_integer_α:
-                        mov              qword ptr [rbp + 624], 6
-                        mov              rax, qword ptr [rip + .Lx72_0]
-                        mov              qword ptr [rbp + 632], rax
-                                                                                        jmp   n25_call_α
-.Lx72_0:
-                        .quad            8
-#-----------------------------------------------------------------------------------------------------------------------
-n24_lit_integer_α:
-                        mov              qword ptr [rbp + 736], 6
-                        mov              rax, qword ptr [rip + .Lx73_0]
-                        mov              qword ptr [rbp + 744], rax
-                                                                                        jmp   n26_lit_integer_α
-.Lx73_0:
-                        .quad            5
-#-----------------------------------------------------------------------------------------------------------------------
-n25_call_α:
-                        mov              rax, qword ptr [rbp + 576]
-                        mov              qword ptr [rbp + 528], rax
-                        mov              rax, qword ptr [rbp + 584]
-                        mov              qword ptr [rbp + 536], rax
-                        mov              rax, qword ptr [rbp + 624]
-                        mov              qword ptr [rbp + 544], rax
-                        mov              rax, qword ptr [rbp + 632]
-                        mov              qword ptr [rbp + 552], rax
-                        .section         .rodata
-.Lbynamefn26:           .string          "differ"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn26]
-                        lea              rsi, [rbp + 528]
-                        mov              edx, 2
-                        call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 512], rax
-                        mov              qword ptr [rbp + 520], rdx
-                        cmp              eax, 99
-                                                                                        je    n24_lit_integer_α
-                                                                                        jmp   n27_lit_string_α
-n25_call_β:
-                                                                                        jmp   n24_lit_integer_α
-#-----------------------------------------------------------------------------------------------------------------------
-n26_lit_integer_α:
-                        mov              qword ptr [rbp + 752], 6
-                        mov              rax, qword ptr [rip + .Lx75_0]
-                        mov              qword ptr [rbp + 760], rax
-                                                                                        jmp   n28_call_α
-.Lx75_0:
-                        .quad            5
-#=======================================================================================================================
-#         output = 'FAIL 410/005: 2**3'                  :(end)
-#-----------------------------------------------------------------------------------------------------------------------
-n27_lit_string_α:
-                        mov              qword ptr [rbp + 656], 1
-                        mov              rax, qword ptr [rip + .Lx76_0]
-                        mov              qword ptr [rbp + 664], rax
-                                                                                        jmp   n29_assign_α
-.Lx76_0:
-                        .quad            .Lx76_0_s
-.Lx76_0_s:
-                        .string          "FAIL 410/005: 2**3"
-#-----------------------------------------------------------------------------------------------------------------------
-n28_call_α:
+n36_call_α:
                         mov              rax, qword ptr [rbp + 736]
                         mov              qword ptr [rbp + 688], rax
                         mov              rax, qword ptr [rbp + 744]
@@ -390,68 +392,22 @@ n28_call_α:
                         mov              rax, qword ptr [rbp + 760]
                         mov              qword ptr [rbp + 712], rax
                         .section         .rodata
-.Lbynamefn29:           .string          "differ"
+.Lbynamefn37:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn29]
+                        lea              rdi, [rip + .Lbynamefn37]
                         lea              rsi, [rbp + 688]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 672], rax
                         mov              qword ptr [rbp + 680], rdx
                         cmp              eax, 99
-                                                                                        je    n31_lit_integer_α
-                                                                                        jmp   n30_lit_string_α
-n28_call_β:
-                                                                                        jmp   n31_lit_integer_α
+                                                                                        je    n17_lit_integer_α
+                                                                                        jmp   n45_lit_string_α
+n36_call_β:
+                                                                                        jmp   n17_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-n29_assign_α:
-                        mov              rax, qword ptr [rbp + 656]
-                        mov              rdx, qword ptr [rbp + 664]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 640], rax
-                        mov              qword ptr [rbp + 648], rdx
-                                                                                        jmp   main_γ
-#=======================================================================================================================
-#         output = 'FAIL 410/006: string+int coerce'     :(end)
-#-----------------------------------------------------------------------------------------------------------------------
-n30_lit_string_α:
-                        mov              qword ptr [rbp + 784], 1
-                        mov              rax, qword ptr [rip + .Lx79_0]
-                        mov              qword ptr [rbp + 792], rax
-                                                                                        jmp   n32_assign_α
-.Lx79_0:
-                        .quad            .Lx79_0_s
-.Lx79_0_s:
-                        .string          "FAIL 410/006: string+int coerce"
-#-----------------------------------------------------------------------------------------------------------------------
-n31_lit_integer_α:
-                        mov              qword ptr [rbp + 864], 6
-                        mov              rax, qword ptr [rip + .Lx80_0]
-                        mov              qword ptr [rbp + 872], rax
-                                                                                        jmp   n33_lit_integer_α
-.Lx80_0:
-                        .quad            1
-#-----------------------------------------------------------------------------------------------------------------------
-n32_assign_α:
-                        mov              rax, qword ptr [rbp + 784]
-                        mov              rdx, qword ptr [rbp + 792]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 768], rax
-                        mov              qword ptr [rbp + 776], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n33_lit_integer_α:
-                        mov              qword ptr [rbp + 880], 6
-                        mov              rax, qword ptr [rip + .Lx82_0]
-                        mov              qword ptr [rbp + 888], rax
-                                                                                        jmp   n34_call_α
-.Lx82_0:
-                        .quad            1
-#-----------------------------------------------------------------------------------------------------------------------
-n34_call_α:
+n37_call_α:
                         mov              rax, qword ptr [rbp + 864]
                         mov              qword ptr [rbp + 816], rax
                         mov              rax, qword ptr [rbp + 872]
@@ -461,59 +417,22 @@ n34_call_α:
                         mov              rax, qword ptr [rbp + 888]
                         mov              qword ptr [rbp + 840], rax
                         .section         .rodata
-.Lbynamefn35:           .string          "differ"
+.Lbynamefn38:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn35]
+                        lea              rdi, [rip + .Lbynamefn38]
                         lea              rsi, [rbp + 816]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 800], rax
                         mov              qword ptr [rbp + 808], rdx
                         cmp              eax, 99
-                                                                                        je    n36_lit_integer_α
-                                                                                        jmp   n35_lit_string_α
-n34_call_β:
-                                                                                        jmp   n36_lit_integer_α
-#=======================================================================================================================
-#         output = 'FAIL 410/007: int+neg-string'        :(end)
+                                                                                        je    n18_lit_integer_α
+                                                                                        jmp   n46_lit_string_α
+n37_call_β:
+                                                                                        jmp   n18_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-n35_lit_string_α:
-                        mov              qword ptr [rbp + 912], 1
-                        mov              rax, qword ptr [rip + .Lx84_0]
-                        mov              qword ptr [rbp + 920], rax
-                                                                                        jmp   n37_assign_α
-.Lx84_0:
-                        .quad            .Lx84_0_s
-.Lx84_0_s:
-                        .string          "FAIL 410/007: int+neg-string"
-#-----------------------------------------------------------------------------------------------------------------------
-n36_lit_integer_α:
-                        mov              qword ptr [rbp + 992], 6
-                        mov              rax, qword ptr [rip + .Lx85_0]
-                        mov              qword ptr [rbp + 1000], rax
-                                                                                        jmp   n38_lit_integer_α
-.Lx85_0:
-                        .quad            1
-#-----------------------------------------------------------------------------------------------------------------------
-n37_assign_α:
-                        mov              rax, qword ptr [rbp + 912]
-                        mov              rdx, qword ptr [rbp + 920]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 896], rax
-                        mov              qword ptr [rbp + 904], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n38_lit_integer_α:
-                        mov              qword ptr [rbp + 1008], 6
-                        mov              rax, qword ptr [rip + .Lx87_0]
-                        mov              qword ptr [rbp + 1016], rax
-                                                                                        jmp   n39_call_α
-.Lx87_0:
-                        .quad            1
-#-----------------------------------------------------------------------------------------------------------------------
-n39_call_α:
+n38_call_α:
                         mov              rax, qword ptr [rbp + 992]
                         mov              qword ptr [rbp + 944], rax
                         mov              rax, qword ptr [rbp + 1000]
@@ -523,59 +442,22 @@ n39_call_α:
                         mov              rax, qword ptr [rbp + 1016]
                         mov              qword ptr [rbp + 968], rax
                         .section         .rodata
-.Lbynamefn40:           .string          "differ"
+.Lbynamefn39:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn40]
+                        lea              rdi, [rip + .Lbynamefn39]
                         lea              rsi, [rbp + 944]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 928], rax
                         mov              qword ptr [rbp + 936], rdx
                         cmp              eax, 99
-                                                                                        je    n41_lit_integer_α
-                                                                                        jmp   n40_lit_string_α
-n39_call_β:
-                                                                                        jmp   n41_lit_integer_α
-#=======================================================================================================================
-#         output = 'FAIL 410/008: string+string coerce'  :(end)
+                                                                                        je    n19_lit_integer_α
+                                                                                        jmp   n47_lit_string_α
+n38_call_β:
+                                                                                        jmp   n19_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-n40_lit_string_α:
-                        mov              qword ptr [rbp + 1040], 1
-                        mov              rax, qword ptr [rip + .Lx89_0]
-                        mov              qword ptr [rbp + 1048], rax
-                                                                                        jmp   n42_assign_α
-.Lx89_0:
-                        .quad            .Lx89_0_s
-.Lx89_0_s:
-                        .string          "FAIL 410/008: string+string coerce"
-#-----------------------------------------------------------------------------------------------------------------------
-n41_lit_integer_α:
-                        mov              qword ptr [rbp + 1120], 6
-                        mov              rax, qword ptr [rip + .Lx90_0]
-                        mov              qword ptr [rbp + 1128], rax
-                                                                                        jmp   n43_lit_integer_α
-.Lx90_0:
-                        .quad            5
-#-----------------------------------------------------------------------------------------------------------------------
-n42_assign_α:
-                        mov              rax, qword ptr [rbp + 1040]
-                        mov              rdx, qword ptr [rbp + 1048]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 1024], rax
-                        mov              qword ptr [rbp + 1032], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n43_lit_integer_α:
-                        mov              qword ptr [rbp + 1136], 6
-                        mov              rax, qword ptr [rip + .Lx92_0]
-                        mov              qword ptr [rbp + 1144], rax
-                                                                                        jmp   n44_call_α
-.Lx92_0:
-                        .quad            5
-#-----------------------------------------------------------------------------------------------------------------------
-n44_call_α:
+n39_call_α:
                         mov              rax, qword ptr [rbp + 1120]
                         mov              qword ptr [rbp + 1072], rax
                         mov              rax, qword ptr [rbp + 1128]
@@ -585,46 +467,202 @@ n44_call_α:
                         mov              rax, qword ptr [rbp + 1144]
                         mov              qword ptr [rbp + 1096], rax
                         .section         .rodata
-.Lbynamefn45:           .string          "differ"
+.Lbynamefn40:           .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn45]
+                        lea              rdi, [rip + .Lbynamefn40]
                         lea              rsi, [rbp + 1072]
                         mov              edx, 2
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 1056], rax
                         mov              qword ptr [rbp + 1064], rdx
                         cmp              eax, 99
-                                                                                        je    n46_lit_string_α
-                                                                                        jmp   n45_lit_string_α
-n44_call_β:
-                                                                                        jmp   n46_lit_string_α
+                                                                                        je    n20_lit_string_α
+                                                                                        jmp   n48_lit_string_α
+n39_call_β:
+                                                                                        jmp   n20_lit_string_α
+#-----------------------------------------------------------------------------------------------------------------------
+n40_assign_α:
+                        mov              rax, qword ptr [rbp + 112]
+                        mov              rdx, qword ptr [rbp + 120]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                                                                                        jmp   main_γ
+#=======================================================================================================================
+#         output = 'FAIL 410/002: 3-2'                   :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n41_lit_string_α:
+                        mov              qword ptr [rbp + 240], 1
+                        mov              rax, qword ptr [rip + .Lx100_0]
+                        mov              qword ptr [rbp + 248], rax
+                                                                                        jmp   n49_assign_α
+.Lx100_0:
+                        .quad            .Lx100_0_s
+.Lx100_0_s:
+                        .string          "FAIL 410/002: 3-2"
+#=======================================================================================================================
+#         output = 'FAIL 410/003: 3*2'                   :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n42_lit_string_α:
+                        mov              qword ptr [rbp + 368], 1
+                        mov              rax, qword ptr [rip + .Lx101_0]
+                        mov              qword ptr [rbp + 376], rax
+                                                                                        jmp   n50_assign_α
+.Lx101_0:
+                        .quad            .Lx101_0_s
+.Lx101_0_s:
+                        .string          "FAIL 410/003: 3*2"
+#=======================================================================================================================
+#         output = 'FAIL 410/004: 5/2 integer division'  :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n43_lit_string_α:
+                        mov              qword ptr [rbp + 496], 1
+                        mov              rax, qword ptr [rip + .Lx102_0]
+                        mov              qword ptr [rbp + 504], rax
+                                                                                        jmp   n51_assign_α
+.Lx102_0:
+                        .quad            .Lx102_0_s
+.Lx102_0_s:
+                        .string          "FAIL 410/004: 5/2 integer division"
+#-----------------------------------------------------------------------------------------------------------------------
+n44_lit_integer_α:
+                        mov              qword ptr [rbp + 624], 6
+                        mov              rax, qword ptr [rip + .Lx103_0]
+                        mov              qword ptr [rbp + 632], rax
+                                                                                        jmp   n52_call_α
+.Lx103_0:
+                        .quad            8
+#=======================================================================================================================
+#         output = 'FAIL 410/006: string+int coerce'     :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n45_lit_string_α:
+                        mov              qword ptr [rbp + 784], 1
+                        mov              rax, qword ptr [rip + .Lx104_0]
+                        mov              qword ptr [rbp + 792], rax
+                                                                                        jmp   n53_assign_α
+.Lx104_0:
+                        .quad            .Lx104_0_s
+.Lx104_0_s:
+                        .string          "FAIL 410/006: string+int coerce"
+#=======================================================================================================================
+#         output = 'FAIL 410/007: int+neg-string'        :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n46_lit_string_α:
+                        mov              qword ptr [rbp + 912], 1
+                        mov              rax, qword ptr [rip + .Lx105_0]
+                        mov              qword ptr [rbp + 920], rax
+                                                                                        jmp   n54_assign_α
+.Lx105_0:
+                        .quad            .Lx105_0_s
+.Lx105_0_s:
+                        .string          "FAIL 410/007: int+neg-string"
+#=======================================================================================================================
+#         output = 'FAIL 410/008: string+string coerce'  :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n47_lit_string_α:
+                        mov              qword ptr [rbp + 1040], 1
+                        mov              rax, qword ptr [rip + .Lx106_0]
+                        mov              qword ptr [rbp + 1048], rax
+                                                                                        jmp   n55_assign_α
+.Lx106_0:
+                        .quad            .Lx106_0_s
+.Lx106_0_s:
+                        .string          "FAIL 410/008: string+string coerce"
 #=======================================================================================================================
 #         output = 'FAIL 410/009: null addend is zero'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n45_lit_string_α:
+n48_lit_string_α:
                         mov              qword ptr [rbp + 1168], 1
-                        mov              rax, qword ptr [rip + .Lx94_0]
+                        mov              rax, qword ptr [rip + .Lx107_0]
                         mov              qword ptr [rbp + 1176], rax
-                                                                                        jmp   n47_assign_α
-.Lx94_0:
-                        .quad            .Lx94_0_s
-.Lx94_0_s:
+                                                                                        jmp   n56_assign_α
+.Lx107_0:
+                        .quad            .Lx107_0_s
+.Lx107_0_s:
                         .string          "FAIL 410/009: null addend is zero"
-#=======================================================================================================================
-#         output = 'PASS 410_arith_int (9/9)'
 #-----------------------------------------------------------------------------------------------------------------------
-n46_lit_string_α:
-                        mov              qword ptr [rbp + 1200], 1
-                        mov              rax, qword ptr [rip + .Lx95_0]
-                        mov              qword ptr [rbp + 1208], rax
-                                                                                        jmp   n48_assign_α
-.Lx95_0:
-                        .quad            .Lx95_0_s
-.Lx95_0_s:
-                        .string          "PASS 410_arith_int (9/9)"
+n49_assign_α:
+                        mov              rax, qword ptr [rbp + 240]
+                        mov              rdx, qword ptr [rbp + 248]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 224], rax
+                        mov              qword ptr [rbp + 232], rdx
+                                                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-n47_assign_α:
+n50_assign_α:
+                        mov              rax, qword ptr [rbp + 368]
+                        mov              rdx, qword ptr [rbp + 376]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 352], rax
+                        mov              qword ptr [rbp + 360], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n51_assign_α:
+                        mov              rax, qword ptr [rbp + 496]
+                        mov              rdx, qword ptr [rbp + 504]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 480], rax
+                        mov              qword ptr [rbp + 488], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n52_call_α:
+                        mov              rax, qword ptr [rbp + 576]
+                        mov              qword ptr [rbp + 528], rax
+                        mov              rax, qword ptr [rbp + 584]
+                        mov              qword ptr [rbp + 536], rax
+                        mov              rax, qword ptr [rbp + 624]
+                        mov              qword ptr [rbp + 544], rax
+                        mov              rax, qword ptr [rbp + 632]
+                        mov              qword ptr [rbp + 552], rax
+                        .section         .rodata
+.Lbynamefn53:           .string          "differ"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lbynamefn53]
+                        lea              rsi, [rbp + 528]
+                        mov              edx, 2
+                        call             rt_call_arr@PLT
+                        mov              qword ptr [rbp + 512], rax
+                        mov              qword ptr [rbp + 520], rdx
+                        cmp              eax, 99
+                                                                                        je    n16_lit_integer_α
+                                                                                        jmp   n57_lit_string_α
+n52_call_β:
+                                                                                        jmp   n16_lit_integer_α
+#-----------------------------------------------------------------------------------------------------------------------
+n53_assign_α:
+                        mov              rax, qword ptr [rbp + 784]
+                        mov              rdx, qword ptr [rbp + 792]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 768], rax
+                        mov              qword ptr [rbp + 776], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n54_assign_α:
+                        mov              rax, qword ptr [rbp + 912]
+                        mov              rdx, qword ptr [rbp + 920]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 896], rax
+                        mov              qword ptr [rbp + 904], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n55_assign_α:
+                        mov              rax, qword ptr [rbp + 1040]
+                        mov              rdx, qword ptr [rbp + 1048]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 1024], rax
+                        mov              qword ptr [rbp + 1032], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n56_assign_α:
                         mov              rax, qword ptr [rbp + 1168]
                         mov              rdx, qword ptr [rbp + 1176]
                         mov              qword ptr [1879052288], rax
@@ -632,14 +670,26 @@ n47_assign_α:
                         mov              qword ptr [rbp + 1152], rax
                         mov              qword ptr [rbp + 1160], rdx
                                                                                         jmp   main_γ
+#=======================================================================================================================
+#         output = 'FAIL 410/005: 2**3'                  :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n48_assign_α:
-                        mov              rax, qword ptr [rbp + 1200]
-                        mov              rdx, qword ptr [rbp + 1208]
+n57_lit_string_α:
+                        mov              qword ptr [rbp + 656], 1
+                        mov              rax, qword ptr [rip + .Lx116_0]
+                        mov              qword ptr [rbp + 664], rax
+                                                                                        jmp   n58_assign_α
+.Lx116_0:
+                        .quad            .Lx116_0_s
+.Lx116_0_s:
+                        .string          "FAIL 410/005: 2**3"
+#-----------------------------------------------------------------------------------------------------------------------
+n58_assign_α:
+                        mov              rax, qword ptr [rbp + 656]
+                        mov              rdx, qword ptr [rbp + 664]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 1184], rax
-                        mov              qword ptr [rbp + 1192], rdx
+                        mov              qword ptr [rbp + 640], rax
+                        mov              qword ptr [rbp + 648], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
