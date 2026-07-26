@@ -993,6 +993,11 @@ inline std::string x86_rsp_load64(const char * reg, int off) {
     return std::string(" mov ") + reg + ", qword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rsp_store64_imm(int off, long imm) {
+    if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0xC7; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    return std::string(" mov qword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string(imm) + "\n";
+}   /* s150: the missing QWORD-immediate rsp store.  Before this, "qword ptr [rsp + N]" + an immediate dispatched to x86_rsp_store32_imm and SILENTLY EMITTED A 4-BYTE STORE (no REX.W), zeroing only the low half of the slot -- and because that encoder's TEXT arm also spells "dword ptr", the two media AGREED with each other, so even a cross-medium byte check could not see it.  imm32 sign-extends to 64 bits, matching the hand-encoded 48 C7 /0 the xa_flat raw-byte family uses; x86_rsp_modrm already picks mod=0/1/2 so the disp width is as-matching. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store32(int off, const char * reg) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x89; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
@@ -1241,7 +1246,7 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
         if (a.kind == XK_FR64 && b.kind == XK_REG)     return x86_frame_store64(a.off, b.txt);
         if (a.kind == XK_FR64 && b.kind == XK_IMM)     return x86_frame_mov_imm64(a.off, b.imm);
         if (a.kind == XK_RSP64 && b.kind == XK_REG)    return x86_rsp_store64(a.off, b.txt);
-        if (a.kind == XK_RSP64 && b.kind == XK_IMM)    return x86_rsp_store32_imm(a.off, b.imm);
+        if (a.kind == XK_RSP64 && b.kind == XK_IMM)    return x86_rsp_store64_imm(a.off, b.imm);   /* s150 width fix: XK_RSP64 is parsed from the literal "qword ptr [rsp + N]", so it MUST reach a REX.W store; it previously shared XK_RSP32's dword encoder and narrowed the write to 4 bytes without bombing. */
         if (a.kind == XK_RSP32 && b.kind == XK_REG)    return x86_rsp_store32(a.off, b.txt);
         if (a.kind == XK_RSP32 && b.kind == XK_IMM)    return x86_rsp_store32_imm(a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_FR32)     return x86_frame_load(a.txt, b.off);
