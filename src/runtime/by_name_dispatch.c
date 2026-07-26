@@ -212,6 +212,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$number_atom")) return 1;
     if (!strcmp(name, "$sort") || !strcmp(name, "$msort") || !strcmp(name, "$char_type") || !strcmp(name, "$numbervars")) return 1;
     if (!strcmp(name, "$acyclic_term")) return 1;
+    if (!strcmp(name, "$get_print_stream") || !strcmp(name, "$name_singleton_vars") || !strcmp(name, "$name_query_vars") || !strcmp(name, "$bind_variables")) return 1;
     if (!strcmp(name, "$writeq") || !strcmp(name, "$print") || !strcmp(name, "$write_canonical")) return 1;
     if (!strcmp(name, "$display") || !strcmp(name, "$display2") || !strcmp(name, "$print2")) return 1;
     if (!strcmp(name, "$format1") || !strcmp(name, "$format2") || !strcmp(name, "$copy_term")) return 1;
@@ -2340,6 +2341,30 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int ok = rt_pl_acyclic_cell((void *)plw_det_cell(&t0));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$get_print_stream") && nargs == 1) {
+        extern int rt_pl_get_print_stream_cell(void *);
+        DESCR_t t0 = args[0];
+        int ok = rt_pl_get_print_stream_cell((void *)plw_det_cell(&t0));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$name_singleton_vars") && nargs == 1) {
+        extern int rt_pl_name_singleton_vars_cell(void *);
+        DESCR_t t0 = args[0];
+        int ok = rt_pl_name_singleton_vars_cell((void *)plw_det_cell(&t0));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$name_query_vars") && nargs == 2) {
+        extern int rt_pl_name_query_vars_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_name_query_vars_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$bind_variables") && nargs == 2) {
+        extern int rt_pl_bind_variables_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_bind_variables_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
     if (!strcmp(fn, "$writeq") && nargs == 1) {
         extern void rt_pl_writeq_cell(void *);
         DESCR_t t0 = args[0];
@@ -4162,6 +4187,7 @@ const char *rt_pl_cmp_suffix(const char *s) {
 const char *rt_pl_det_builtin_target(const char *nm, int ar) {
     static const struct { const char *nm; int ar; const char *tgt; } tab[] = {
         { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "keysort", 2, "$keysort" }, { "$bag_prep_b", 2, "$bag_prep_b" }, { "$bag_prep_s", 2, "$bag_prep_s" }, { "numbervars", 3, "$numbervars" }, { "numbervars", 1, "$numbervars" }, { "copy_term", 2, "$copy_term" }, { "acyclic_term", 1, "$acyclic_term" },
+        { "get_print_stream", 1, "$get_print_stream" }, { "name_singleton_vars", 1, "$name_singleton_vars" }, { "name_query_vars", 2, "$name_query_vars" }, { "bind_variables", 2, "$bind_variables" },
         { "char_type", 2, "$char_type" }, { "lower_upper", 2, "$lower_upper" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
         { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" },
         { "compound", 1, "$tt_compound" }, { "callable", 1, "$tt_callable" }, { "ground", 1, "$tt_ground" }, { "is_list", 1, "$tt_is_list" },
