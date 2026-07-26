@@ -843,8 +843,9 @@ int main(int argc, char **argv)
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            printf("  .intel_syntax noprefix\n");
-            printf("  .text\n");
+            g_medium = BB_MEDIUM_TEXT; emit_io_set_sink(stdout);
+            emit_textf("  .intel_syntax noprefix\n");
+            emit_textf("  .text\n");
             g_frame_active = 1;
             extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             gva_collect_reset();
@@ -892,35 +893,35 @@ int main(int argc, char **argv)
             int n_gram_emit = 0;
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
-                printf("proc_startup:\n");
-                printf("  sub rsp, 8\n");
+                emit_textf("proc_startup:\n");
+                emit_textf("  sub rsp, 8\n");
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {
                       const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      printf("  .section .rodata\n");
-                      printf("  .Lclassspec%d: .string \"%s(", ci, cn);
-                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) printf(","); printf("%s", dat_type_field(ci, fj)); }
-                      printf(")\"\n");
-                      printf("  .section .text\n  .intel_syntax noprefix\n");
-                      printf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
-                      printf("  call record_register@PLT\n");
+                      emit_textf("  .section .rodata\n");
+                      emit_textf("  .Lclassspec%d: .string \"%s(", ci, cn);
+                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) emit_textf(","); emit_textf("%s", dat_type_field(ci, fj)); }
+                      emit_textf(")\"\n");
+                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                      emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
+                      emit_textf("  call record_register@PLT\n");
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nparents(int); extern const char *dat_type_parent_at(int, int);
                   int n_cls = dat_type_count();
                   for (int ci = 0; ci < n_cls; ci++) {
                       const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
                       int np = dat_type_nparents(ci); if (np <= 0) continue;
-                      printf("  .section .rodata\n");
-                      printf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
-                      for (int pj = 0; pj < np; pj++) printf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
-                      printf("  .balign 8\n  .Lclsparr%d:\n", ci);
-                      for (int pj = 0; pj < np; pj++) printf("  .quad .Lclsp%d_%d\n", ci, pj);
-                      printf("  .section .text\n  .intel_syntax noprefix\n");
-                      printf("  lea rdi, [rip + .Lclschild%d]\n", ci);
-                      printf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
-                      printf("  mov rdx, %d\n", np);
-                      printf("  call class_inherit_multi@PLT\n");
+                      emit_textf("  .section .rodata\n");
+                      emit_textf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
+                      for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
+                      emit_textf("  .balign 8\n  .Lclsparr%d:\n", ci);
+                      for (int pj = 0; pj < np; pj++) emit_textf("  .quad .Lclsp%d_%d\n", ci, pj);
+                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                      emit_textf("  lea rdi, [rip + .Lclschild%d]\n", ci);
+                      emit_textf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
+                      emit_textf("  mov rdx, %d\n", np);
+                      emit_textf("  call class_inherit_multi@PLT\n");
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
                   extern int dat_type_field_has_default(int, int); extern DESCR_t dat_type_field_default(int, int);
@@ -931,20 +932,20 @@ int main(int argc, char **argv)
                           if (!dat_type_field_has_default(ci, fj)) continue;
                           const char *fn = dat_type_field(ci, fj); if (!fn) continue;
                           DESCR_t dv = dat_type_field_default(ci, fj);
-                          printf("  .section .rodata\n");
-                          printf("  .Ldefcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Ldeffld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Ldefcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Ldeffld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
                           if (dv.v == DT_S) {
-                              const char *sv = dv.s ? dv.s : ""; printf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) printf("%d, ", (int)(unsigned char)*p);
-                              printf("0\n");
+                              const char *sv = dv.s ? dv.s : ""; emit_textf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                              emit_textf("0\n");
                           }
-                          else if (dv.v == DT_R) { union { double d; unsigned long long q; } u; u.d = dv.r; printf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q); }
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
-                          printf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
-                          if (dv.v == DT_S) { printf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj); printf("  call dat_set_field_default_s@PLT\n"); }
-                          else if (dv.v == DT_R) { printf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj); printf("  call dat_set_field_default_r@PLT\n"); }
-                          else { printf("  mov rdx, %lld\n", (long long)dv.i); printf("  call dat_set_field_default_i@PLT\n"); }
+                          else if (dv.v == DT_R) { union { double d; unsigned long long q; } u; u.d = dv.r; emit_textf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q); }
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
+                          emit_textf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
+                          if (dv.v == DT_S) { emit_textf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_s@PLT\n"); }
+                          else if (dv.v == DT_R) { emit_textf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_r@PLT\n"); }
+                          else { emit_textf("  mov rdx, %lld\n", (long long)dv.i); emit_textf("  call dat_set_field_default_i@PLT\n"); }
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
@@ -955,13 +956,13 @@ int main(int argc, char **argv)
                       for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                           if (!dat_type_field_required(ci, fj)) continue;
                           const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lreqcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lreqfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
-                          printf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
-                          printf("  call dat_set_field_required@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lreqcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lreqfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
+                          emit_textf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
+                          emit_textf("  call dat_set_field_required@PLT\n");
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
@@ -972,13 +973,13 @@ int main(int argc, char **argv)
                       for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                           if (!dat_type_field_rw(ci, fj)) continue;
                           const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lrwcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lrwfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lrwcls%d_%d]\n", ci, fj);
-                          printf("  lea rsi, [rip + .Lrwfld%d_%d]\n", ci, fj);
-                          printf("  call dat_set_field_rw@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lrwcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lrwfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lrwcls%d_%d]\n", ci, fj);
+                          emit_textf("  lea rsi, [rip + .Lrwfld%d_%d]\n", ci, fj);
+                          emit_textf("  call dat_set_field_rw@PLT\n");
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
@@ -989,14 +990,14 @@ int main(int argc, char **argv)
                       for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                           int sg = dat_type_field_sigil(ci, fj); if (sg != '@' && sg != '%') continue;
                           const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lsigcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lsigfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lsigcls%d_%d]\n", ci, fj);
-                          printf("  lea rsi, [rip + .Lsigfld%d_%d]\n", ci, fj);
-                          printf("  mov rdx, %d\n", sg);
-                          printf("  call dat_set_field_sigil@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lsigcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lsigfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lsigcls%d_%d]\n", ci, fj);
+                          emit_textf("  lea rsi, [rip + .Lsigfld%d_%d]\n", ci, fj);
+                          emit_textf("  mov rdx, %d\n", sg);
+                          emit_textf("  call dat_set_field_sigil@PLT\n");
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
@@ -1007,13 +1008,13 @@ int main(int argc, char **argv)
                       for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                           if (!dat_type_field_priv(ci, fj)) continue;
                           const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lprvcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lprvfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
-                          printf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
-                          printf("  call dat_set_field_priv@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lprvcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lprvfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
+                          emit_textf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
+                          emit_textf("  call dat_set_field_priv@PLT\n");
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nmethods(int); extern const char *dat_type_method_at(int, int);
@@ -1023,13 +1024,13 @@ int main(int argc, char **argv)
                       int nm = dat_type_nmethods(ci); if (nm <= 0) continue;
                       for (int mj = 0; mj < nm; mj++) {
                           const char *mn = dat_type_method_at(ci, mj); if (!mn || !*mn) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lmethcls%d_%d: .byte ", ci, mj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lmethnm%d_%d: .byte ", ci, mj); for (const char *p = mn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
-                          printf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
-                          printf("  call dat_add_method@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lmethcls%d_%d: .byte ", ci, mj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lmethnm%d_%d: .byte ", ci, mj); for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
+                          emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
+                          emit_textf("  call dat_add_method@PLT\n");
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_has_build(int);
@@ -1038,22 +1039,22 @@ int main(int argc, char **argv)
                   for (int ci = 0; ci < n_cls; ci++) {
                       const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
                       if (!dat_type_has_build(ci)) continue;
-                      printf("  .section .rodata\n");
-                      printf("  .Lbldcls%d: .byte ", ci); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                      printf("  .Lbldnull%d: .byte 0\n", ci);
-                      printf("  .section .text\n  .intel_syntax noprefix\n");
-                      printf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-                      printf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
-                      printf("  call dat_set_build_key@PLT\n");
+                      emit_textf("  .section .rodata\n");
+                      emit_textf("  .Lbldcls%d: .byte ", ci); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                      emit_textf("  .Lbldnull%d: .byte 0\n", ci);
+                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                      emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+                      emit_textf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
+                      emit_textf("  call dat_set_build_key@PLT\n");
                       int nk = dat_type_nbuild_keys(ci);
                       for (int kj = 0; kj < nk; kj++) {
                           const char *kn = dat_type_build_key_at(ci, kj); if (!kn || !*kn) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lbldkey%d_%d: .byte ", ci, kj); for (const char *p = kn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-                          printf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
-                          printf("  call dat_set_build_key@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lbldkey%d_%d: .byte ", ci, kj); for (const char *p = kn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+                          emit_textf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
+                          emit_textf("  call dat_set_build_key@PLT\n");
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nhandles(int);
@@ -1065,15 +1066,15 @@ int main(int argc, char **argv)
                       for (int hj = 0; hj < nh; hj++) {
                           const char *hm = dat_type_handles_meth_at(ci, hj); const char *hf = dat_type_handles_fld_at(ci, hj);
                           if (!hm || !*hm || !hf || !*hf) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lhndcls%d_%d: .byte ", ci, hj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lhndmeth%d_%d: .byte ", ci, hj); for (const char *p = hm; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lhndfld%d_%d: .byte ", ci, hj); for (const char *p = hf; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lhndcls%d_%d]\n", ci, hj);
-                          printf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", ci, hj);
-                          printf("  lea rdx, [rip + .Lhndfld%d_%d]\n", ci, hj);
-                          printf("  call dat_add_handles@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lhndcls%d_%d: .byte ", ci, hj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lhndmeth%d_%d: .byte ", ci, hj); for (const char *p = hm; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lhndfld%d_%d: .byte ", ci, hj); for (const char *p = hf; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lhndcls%d_%d]\n", ci, hj);
+                          emit_textf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", ci, hj);
+                          emit_textf("  lea rdx, [rip + .Lhndfld%d_%d]\n", ci, hj);
+                          emit_textf("  call dat_add_handles@PLT\n");
                       }
                   } }
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nroles(int); extern const char *dat_type_role_at(int, int);
@@ -1083,13 +1084,13 @@ int main(int argc, char **argv)
                       int nr = dat_type_nroles(ci); if (nr <= 0) continue;
                       for (int rj = 0; rj < nr; rj++) {
                           const char *rn = dat_type_role_at(ci, rj); if (!rn || !*rn) continue;
-                          printf("  .section .rodata\n");
-                          printf("  .Lrolechild%d_%d: .byte ", ci, rj); for (const char *p = cn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .Lrolename%d_%d: .byte ", ci, rj); for (const char *p = rn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                          printf("  .section .text\n  .intel_syntax noprefix\n");
-                          printf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
-                          printf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
-                          printf("  call class_compose_role@PLT\n");
+                          emit_textf("  .section .rodata\n");
+                          emit_textf("  .Lrolechild%d_%d: .byte ", ci, rj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .Lrolename%d_%d: .byte ", ci, rj); for (const char *p = rn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                          emit_textf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
+                          emit_textf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
+                          emit_textf("  call class_compose_role@PLT\n");
                       }
                   } }
                 { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
@@ -1097,119 +1098,119 @@ int main(int argc, char **argv)
                   for (int gi = 0; gi < n_gram; gi++) {
                       const char *qn = rt_grammar_qname(gi); const char *bd = rt_grammar_body(gi);
                       if (!qn || !bd) continue;
-                      printf("  .section .rodata\n");
-                      printf("  .Lgramqn%d: .byte ", gi); for (const char *p = qn; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                      printf("  .Lgrambd%d: .byte ", gi); for (const char *p = bd; *p; p++) printf("%d, ", (int)(unsigned char)*p); printf("0\n");
-                      printf("  .section .text\n  .intel_syntax noprefix\n");
-                      printf("  lea rdi, [rip + .Lgramqn%d]\n", gi);
-                      printf("  lea rsi, [rip + .Lgrambd%d]\n", gi);
-                      printf("  mov edx, %d\n", rt_grammar_flavor(gi));
-                      printf("  call rt_grammar_register@PLT\n");
+                      emit_textf("  .section .rodata\n");
+                      emit_textf("  .Lgramqn%d: .byte ", gi); for (const char *p = qn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                      emit_textf("  .Lgrambd%d: .byte ", gi); for (const char *p = bd; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                      emit_textf("  lea rdi, [rip + .Lgramqn%d]\n", gi);
+                      emit_textf("  lea rsi, [rip + .Lgrambd%d]\n", gi);
+                      emit_textf("  mov edx, %d\n", rt_grammar_flavor(gi));
+                      emit_textf("  call rt_grammar_register@PLT\n");
                   } }
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
-                    printf("  .section .rodata\n");
-                    printf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
                     if (pe->dyn_scope) {
                         for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
-                            printf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
-                        printf("  .align 8\n  .Lstartup_pnames%d:\n", i);
-                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) printf("  .quad .Lstartup_pp%d_%d\n", i, k);
-                        printf("  .quad 0\n");
+                            emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                        emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
+                        emit_textf("  .quad 0\n");
                     }
-                    printf("  .section .text\n");
-                    printf("  .intel_syntax noprefix\n");
+                    emit_textf("  .section .text\n");
+                    emit_textf("  .intel_syntax noprefix\n");
                     if (pe->dyn_scope) {
-                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        printf("  lea rsi, [rip + .Lstartup_pnames%d]\n", i);
-                        printf("  mov edx, %d\n", proc_nparams_buf[i]);
-                        printf("  call rt_proc_register@PLT\n");
-                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        printf("  mov esi, 1\n");
-                        printf("  call rt_proc_set_dyn_scope@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  lea rsi, [rip + .Lstartup_pnames%d]\n", i);
+                        emit_textf("  mov edx, %d\n", proc_nparams_buf[i]);
+                        emit_textf("  call rt_proc_register@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, 1\n");
+                        emit_textf("  call rt_proc_set_dyn_scope@PLT\n");
                         if (pe->result_name && strcmp(pe->result_name, pe->name)) {
-                            printf("  .section .rodata\n  .Lstartup_prn%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, pe->result_name);
-                            printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            printf("  lea rsi, [rip + .Lstartup_prn%d]\n", i);
-                            printf("  call rt_proc_set_result_name@PLT\n");
+                            emit_textf("  .section .rodata\n  .Lstartup_prn%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, pe->result_name);
+                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                            emit_textf("  lea rsi, [rip + .Lstartup_prn%d]\n", i);
+                            emit_textf("  call rt_proc_set_result_name@PLT\n");
                         }
                     }
-                    printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
-                    printf("  call rt_proc_set_fn@PLT\n");
-                    printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    printf("  mov esi, %d\n", proc_nparams_buf[i]);
-                    printf("  call rt_proc_set_nparams@PLT\n");
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    emit_textf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
+                    emit_textf("  call rt_proc_set_fn@PLT\n");
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
+                    emit_textf("  call rt_proc_set_nparams@PLT\n");
                     if (proc_fb_buf[i] > 0) {
-                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        printf("  mov esi, %d\n", proc_fb_buf[i]);
-                        printf("  call rt_proc_set_frame_bytes@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
+                        emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
                     }
                     if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {   /* PS-1b (s151): mode-4 printed twin of the m3 rt_proc_set_zstatic — only for PAT$ procs (the SNO$MKPAT consumer set) and only when statically proven; unregistered stays the conservative 0 */
-                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        printf("  mov esi, 1\n");
-                        printf("  call rt_proc_set_zstatic@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, 1\n");
+                        emit_textf("  call rt_proc_set_zstatic@PLT\n");
                     }
                     if (pe->is_variadic) {
-                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        printf("  mov esi, 1\n");
-                        printf("  call rt_proc_set_variadic@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, 1\n");
+                        emit_textf("  call rt_proc_set_variadic@PLT\n");
                     }
                     {   /* NCB-1d: record the body's regime for the C transfer fns — the mode-4 twin of the in-process rt_proc_set_jmpentry.  GENP slice-2: the generator flag now ALSO embeds (rt_proc_call_gen_h's per-instance-stack arm discriminates on p->jmp_entry && rt_proc_is_generator — without this twin the m4 runtime took the det one-shot arm and rt_genp_yield aborted with no current coexpression). */
-                        printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        printf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
-                        printf("  call rt_proc_set_jmpentry@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
+                        emit_textf("  call rt_proc_set_jmpentry@PLT\n");
                         { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {   /* PL-DC s108: the m4 twin of the m3 seal registration — s112: predicate now TRULY equals the arming predicate (!ispat && dc_ok), so the label exists iff this bakes; without the ispat conjunct the bake referenced proc_PAT$N_dcα stubs the pat-excluded arming never emitted (treebank m4 link regression) */
-                            printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            printf("  lea rsi, [rip + proc_%s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
-                            printf("  call rt_proc_set_dcfn@PLT\n"); } }
+                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                            emit_textf("  lea rsi, [rip + proc_%s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
+                            emit_textf("  call rt_proc_set_dcfn@PLT\n"); } }
                         if (pe->is_generator) {
-                            printf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            printf("  mov esi, 1\n");
-                            printf("  call rt_proc_set_generator@PLT\n");
+                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                            emit_textf("  mov esi, 1\n");
+                            emit_textf("  call rt_proc_set_generator@PLT\n");
                         }
                     }
                 }
-                printf("  add rsp, 8\n");
-                printf("  ret\n");
+                emit_textf("  add rsp, 8\n");
+                emit_textf("  ret\n");
             }
             free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
             if (n_gva_icn > 0) {
-                printf("  .section .rodata\n");
-                for (int k = 0; k < n_gva_icn; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
-                printf("  .align 8\n__gva_names:\n");
-                for (int k = 0; k < n_gva_icn; k++) printf("  .quad .Lgvan%d\n", k);
-                printf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  .section .rodata\n");
+                for (int k = 0; k < n_gva_icn; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
+                emit_textf("  .align 8\n__gva_names:\n");
+                for (int k = 0; k < n_gva_icn; k++) emit_textf("  .quad .Lgvan%d\n", k);
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            printf("  .globl main\n");
-            printf("main:\n");
-            printf("  sub rsp, 8\n");
-            printf("  push rdi\n");
-            printf("  push rsi\n");
-            if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
-            if (rt_zeta_port_mode() != (int)ZC_PORT) printf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
-            printf("  call core_lib_init@PLT\n");
+            emit_textf("  .globl main\n");
+            emit_textf("main:\n");
+            emit_textf("  sub rsp, 8\n");
+            emit_textf("  push rdi\n");
+            emit_textf("  push rsi\n");
+            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
+            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
+            emit_textf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
-                printf("  call proc_startup\n");
-            if (n_gva_icn > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
+                emit_textf("  call proc_startup\n");
+            if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
-              if (n_uop > 0) { printf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; printf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
-                printf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; printf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
+              if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
             if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
-                if (bbg->nparams >= 1) printf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
+                if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             } else {
-            printf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
+            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
             if (bbg->nparams >= 1)
-                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
+                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            printf("  xor esi, esi\n");
-            printf("  call main_\xce\xb1\n");
-            printf("  xor eax, eax\n");
-            if (ZC_FRAME == ZC_FRAME_RSP) printf("  add rsp, 24\n"); /* R12-ERAD */
-            else printf("  add rsp, 65536\n  add rsp, 24\n"); /* ZS-1 */
-            printf("  ret\n");
+            emit_textf("  xor esi, esi\n");
+            emit_textf("  call main_\xce\xb1\n");
+            emit_textf("  xor eax, eax\n");
+            if (ZC_FRAME == ZC_FRAME_RSP) emit_textf("  add rsp, 24\n"); /* R12-ERAD */
+            else emit_textf("  add rsp, 65536\n  add rsp, 24\n"); /* ZS-1 */
+            emit_textf("  ret\n");
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
@@ -1222,6 +1223,7 @@ int main(int argc, char **argv)
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
+            emit_textf_flush();
             fflush(stdout);
             ir_delete_all(s2);
             return rc;
@@ -1249,8 +1251,9 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid;
             g_flat_node_id = 0;
             g_m4_dense_nid = 1;
-            printf("  .intel_syntax noprefix\n");
-            printf("  .text\n");
+            g_medium = BB_MEDIUM_TEXT; emit_io_set_sink(stdout);
+            emit_textf("  .intel_syntax noprefix\n");
+            emit_textf("  .text\n");
             rt_proc_reset();
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -1313,41 +1316,41 @@ int main(int argc, char **argv)
                 pidx_buf[n_procs++] = _pi;
             }
             if (n_procs > 0) {
-                printf("  .section .rodata\n");
+                emit_textf("  .section .rodata\n");
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
-                    printf("  .Lpn%d: .string \"%s\"\n", i, pe->name);
+                    emit_textf("  .Lpn%d: .string \"%s\"\n", i, pe->name);
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
-                        printf("  .Lpp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
-                    printf("  .Lpnames%d:\n", i);
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) printf("  .quad .Lpp%d_%d\n", i, k);
-                    printf("  .quad 0\n");
+                        emit_textf("  .Lpp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                    emit_textf("  .Lpnames%d:\n", i);
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lpp%d_%d\n", i, k);
+                    emit_textf("  .quad 0\n");
                 }
-                printf("  .section .text\n  .intel_syntax noprefix\n");
-                printf("proc_startup:\n  sub rsp, 8\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("proc_startup:\n  sub rsp, 8\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
-                    printf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    printf("  lea rsi, [rip + .Lpnames%d]\n", i);
-                    printf("  mov edx, %d\n", pe->nparams);
-                    printf("  call rt_proc_register@PLT\n");
-                    printf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    printf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(pe->name));
-                    printf("  call rt_proc_set_fn@PLT\n");
+                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
+                    emit_textf("  lea rsi, [rip + .Lpnames%d]\n", i);
+                    emit_textf("  mov edx, %d\n", pe->nparams);
+                    emit_textf("  call rt_proc_register@PLT\n");
+                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
+                    emit_textf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(pe->name));
+                    emit_textf("  call rt_proc_set_fn@PLT\n");
                     int _fidx = pe->bb_idx;
                     if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {
-                        printf("  lea rdi, [rip + .Lpn%d]\n", i);
-                        printf("  mov esi, %d\n", s2->bbp.table[_fidx]->nslots - 1);
-                        printf("  mov edx, %d\n", pe->decl_level);
-                        printf("  call rt_proc_set_frame@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
+                        emit_textf("  mov esi, %d\n", s2->bbp.table[_fidx]->nslots - 1);
+                        emit_textf("  mov edx, %d\n", pe->decl_level);
+                        emit_textf("  call rt_proc_set_frame@PLT\n");
                     }
                     if (peak_buf[i] > 0) {
-                        printf("  lea rdi, [rip + .Lpn%d]\n", i);
-                        printf("  mov esi, %d\n", peak_buf[i]);
-                        printf("  call rt_proc_set_frame_bytes@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
+                        emit_textf("  mov esi, %d\n", peak_buf[i]);
+                        emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
                     }
                 }
-                printf("  add rsp, 8\n  ret\n");
+                emit_textf("  add rsp, 8\n  ret\n");
             }
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
@@ -1355,41 +1358,41 @@ int main(int argc, char **argv)
             if (!is_pascal) { gva_collect_reset(); gva_collect_graph(sbbg); } /* PAS-GVA: Pascal collected pre-proc-emission above; re-reset here would be harmless (deterministic walk) but wasted — non-Pascal keeps the original single-graph collection byte-identical */
             int n_gva = gva_count();
             if (n_gva > 0) {
-                printf("  .section .rodata\n");
-                for (int k = 0; k < n_gva; k++) printf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
-                printf("  .align 8\n__gva_names:\n");
-                for (int k = 0; k < n_gva; k++) printf("  .quad .Lgvan%d\n", k);
-                printf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  .section .rodata\n");
+                for (int k = 0; k < n_gva; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
+                emit_textf("  .align 8\n__gva_names:\n");
+                for (int k = 0; k < n_gva; k++) emit_textf("  .quad .Lgvan%d\n", k);
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
             int n_proc_slot = proc_slot_count();
             if (n_proc_slot > 0) {
                 extern const char *proc_slot_name(int);
-                printf("  .section .rodata\n");
-                for (int k = 0; k < n_proc_slot; k++) printf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k));
-                printf("  .align 8\n__proc_names:\n");
-                for (int k = 0; k < n_proc_slot; k++) printf("  .quad .Lprocn%d\n", k);
-                printf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", n_proc_slot * 8);
-                printf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  .section .rodata\n");
+                for (int k = 0; k < n_proc_slot; k++) emit_textf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k));
+                emit_textf("  .align 8\n__proc_names:\n");
+                for (int k = 0; k < n_proc_slot; k++) emit_textf("  .quad .Lprocn%d\n", k);
+                emit_textf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", n_proc_slot * 8);
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            printf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
-            if (rt_zeta_mode() != (int)ZC_ZETA) printf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
-            if (rt_zeta_port_mode() != (int)ZC_PORT) printf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
-            if (n_procs > 0) printf("  call proc_startup\n");
-            else printf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
-            if (n_proc_slot > 0) printf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
-            if (n_gva > 0) printf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
+            emit_textf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
+            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
+            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
+            if (n_procs > 0) emit_textf("  call proc_startup\n");
+            else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+            if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
+            if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
             if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
-                if (sbbg->nparams >= 1) printf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
+                if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             } else {
-            printf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
+            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
             if (sbbg->nparams >= 1)
-                printf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
+                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            printf("  xor esi, esi\n");
-            printf("  call flat_\xce\xb1\n");
-            if (ZC_FRAME == ZC_FRAME_RSP) printf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
-            else printf("  xor eax, eax\n  add rsp, 65536\n  add rsp, 24\n  ret\n"); /* ZS-1 */
+            emit_textf("  xor esi, esi\n");
+            emit_textf("  call flat_\xce\xb1\n");
+            if (ZC_FRAME == ZC_FRAME_RSP) emit_textf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
+            else emit_textf("  xor eax, eax\n  add rsp, 65536\n  add rsp, 24\n  ret\n"); /* ZS-1 */
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
@@ -1400,6 +1403,7 @@ int main(int argc, char **argv)
             g_frame_active = 0;
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
+            emit_textf_flush();
             fflush(stdout);
             ir_delete_all(s2);
             return rc;
