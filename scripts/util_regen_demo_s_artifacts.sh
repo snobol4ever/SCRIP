@@ -16,11 +16,24 @@ if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not found: $SCRIP"; exit 0; fi
 if [ ! -d "$DEMO" ]; then echo "SKIP  corpus demo dir not found: $DEMO"; exit 0; fi
 
 cd "$DEMO"
+# THE SANCTIONED SET (widened 2026-07-26 by Lon directive: "get them all but porter stemmer can be excluded").
+# Was the s151 five (roman wordcount claws5 treebank-list treebank-array) — which silently left hello.s and four
+# other legacy artifacts frozen at 2026-06-25 while the compiler moved a month underneath them, and left the ten
+# s158 working-set programs with no artifact at all.  PORTER IS DELIBERATELY ABSENT: its emit is ~37k lines
+# (mostly stemmer pattern tables) and would churn that on every codegen commit; it compiles and assembles fine,
+# so re-add it here if the churn is ever wanted.  Every name below is verified compile-clean + assembler-accepted.
+DEMOS="roman wordcount claws5 treebank-list treebank-array \
+       arithmetic counter hello pattern_test expression \
+       calculator-1 calculator-1-match calculator-1-match-fence \
+       calculator-2 calculator-2-match calculator-2-match-fence \
+       claws5-match claws5-match-fence \
+       json json-match json-match-fence \
+       treebank-match treebank-match-fence"
 echo "Emitting + verifying demo .s (graceful-skip)..."
-for f in roman wordcount claws5 treebank-list treebank-array; do
+for f in $DEMOS; do
     [ -f "$f.sno" ] || { echo "  SKIP  $f — no .sno"; continue; }
     tmp="/tmp/demo_$f.s"
-    if ! timeout 30 "$SCRIP" --compile "$f.sno" > "$tmp" 2>/dev/null; then
+    if ! timeout 90 "$SCRIP" --compile "$f.sno" > "$tmp" 2>/dev/null; then
         echo "  SKIP  $f.s — --compile failed (committed .s untouched)"; continue
     fi
     if [ ! -s "$tmp" ]; then
@@ -38,7 +51,7 @@ done
 
 echo "Committing to corpus..."
 cd "$CORPUS"
-git add programs/snobol4/demo/{roman,wordcount,claws5,treebank-list,treebank-array}.s 2>/dev/null || true
+for f in $DEMOS; do git add "programs/snobol4/demo/$f.s" 2>/dev/null || true; done
 if git diff --cached --quiet; then
     echo "  No changes — demo artifacts already current."
 else
