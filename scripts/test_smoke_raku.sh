@@ -3714,6 +3714,26 @@ raku "xxrep_still_works_after_key_fix" "x x x" << 'EOF'
 my @a = "x" xx 3; say @a;
 EOF
 
+raku "xrep_scalar_assign_my" "ababab" << 'EOF'
+my $s = "ab" x 3; say $s;
+EOF
+
+raku "xrep_scalar_assign_bare" "ababab" << 'EOF'
+my $s; $s = "ab" x 3; say $s;
+EOF
+
+raku "xrep_scalar_assign_var_count" "ababab" << 'EOF'
+my $n = 3; my $s = "ab" x $n; say $s;
+EOF
+
+raku "xrep_scalar_assign_zero" "[]" << 'EOF'
+my $s = "ab" x 0; say "[" ~ $s ~ "]";
+EOF
+
+raku "xrep_value_position_still_works" "ababab" << 'EOF'
+say "ab" x 3;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

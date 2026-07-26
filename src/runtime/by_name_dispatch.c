@@ -288,7 +288,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "rk_write", "rk_writes", "__rk_named_call",
+        "__rk_div", "rk_write", "rk_writes", "__rk_named_call", "__rk_rep",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -2882,6 +2882,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int total = np > maxslot ? np : maxslot;
         if (total > RK_NAMED_MAX) total = RK_NAMED_MAX;
         *out = invoke_method_proc(pname, slots, total); return 1;
+    }
+    if (!strcmp(fn, "__rk_rep") && nargs == 2) {
+        char sb[256]; const char *src = to_cstring(args[0], sb, sizeof sb);
+        long long n = IS_INT_fn(args[1]) ? (long long)args[1].i : (IS_REAL_fn(args[1]) ? (long long)args[1].r : 0);
+        if (!src) src = "";
+        if (n < 0) n = 0;
+        size_t L = strlen(src);
+        char *buf = rt_ws_alloc(L * (size_t)(n > 0 ? n : 0) + 1); size_t p = 0;
+        for (long long k = 0; k < n; k++) { memcpy(buf + p, src, L); p += L; }
+        buf[p] = '\0';
+        *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "__rk_range_arr") && nargs == 2) {
         long long lo = IS_INT_fn(args[0]) ? (long long)args[0].i : (IS_REAL_fn(args[0]) ? (long long)args[0].r : 0);
