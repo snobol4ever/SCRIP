@@ -842,6 +842,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, ω, &rr);
             IR_t * rbeta = (cx->beta != b4) ? cx->beta : NULL;
             if (rbeta) ω_to(nd, rbeta);
+            else if (rr && icn_tree_is_cursor_mover(rhs)) lc_ω_to_β(nd, rr);   /* ICN-CURSOR-BACKTRACK-β FACE 2: `str <- ="."` — backtracking must unwind BOTH the reversible assignment (restore the var, this node's β) AND the cursor-mover (restore δ, the rhs's β). The ω→rhs-β chain above already expresses that, but cursor-movers never publish cx->beta (they are built as generic IR_CALL and only retagged to IR_SCAN_TAB later by icn_retag_scan_body), so rbeta is NULL and the chain was silently dropped, leaving &pos past the match. Guard on the SOURCE TREE for the same reason as face 1. */
             γ_to(lr, re);
             lc_γ_to(rr, nd);
             ir_operand_push(nd, rr);
