@@ -3298,6 +3298,57 @@ my @a = 1,2,3,4,5;
 say @a[2];
 EOF
 
+raku "whatever_last" "40" << 'EOF'
+my @a = 10,20,30,40;
+say @a[*-1];
+EOF
+
+raku "whatever_second_last" "30" << 'EOF'
+my @a = 10,20,30,40;
+say @a[*-2];
+EOF
+
+raku "whatever_first_via_end" "10" << 'EOF'
+my @a = 10,20,30,40;
+say @a[*-4];
+EOF
+
+raku "whatever_string_array" "z" << 'EOF'
+my @s = "x","y","z";
+say @s[*-1];
+EOF
+
+raku "whatever_on_range_array" "5" << 'EOF'
+my @r = 1..5;
+say @r[*-1];
+EOF
+
+raku "whatever_var_offset" "30" << 'EOF'
+my @a = 10,20,30,40;
+my $n = 2;
+say @a[*-$n];
+EOF
+
+raku "whatever_in_arith" "50" << 'EOF'
+my @a = 10,20,30;
+say @a[*-1] + @a[*-2];
+EOF
+
+raku "whatever_in_condition" "big" << 'EOF'
+my @a = 10,20,30;
+if @a[*-1] > 25 { say "big" }
+EOF
+
+raku "whatever_expr_offset" "20" << 'EOF'
+my @a = 10,20,30,40;
+say @a[*-(1+2)];
+EOF
+
+raku "whatever_scalar_index_unaffected" "20" << 'EOF'
+my @a = 10,20,30,40;
+say @a[1];
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

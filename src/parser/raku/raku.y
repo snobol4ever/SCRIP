@@ -193,6 +193,11 @@ static tree_t *rk_arr_index(const char *arr, tree_t *idx) {
     tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, var_node(arr)); ast_push(c, idx); return c;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_arr_end_index(const char *arr, tree_t *off, tree_e op) {
+    tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, var_node(arr)); ast_push(el, leaf_sval(TT_QLIT, "elems"));
+    tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, var_node(arr)); ast_push(c, expr_binary(op, el, off)); return c;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_dec(tree_t *hi) {
     if (hi && hi->t == TT_ILIT) { tree_t *d = ast_node_new(TT_ILIT); d->v.ival = hi->v.ival - 1; return d; }
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
@@ -1597,6 +1602,10 @@ atom
           ast_push(c, leaf_sval(TT_QLIT, $1)); $$ = c; }
     | VAR_ARRAY '[' expr ']'
         { $$ = rk_arr_index($1, $3); }
+    | VAR_ARRAY '[' '*' '-' expr ']'
+        { $$ = rk_arr_end_index($1, $5, TT_SUB); }
+    | VAR_ARRAY '[' '*' '+' expr ']'
+        { $$ = rk_arr_end_index($1, $5, TT_ADD); }
     | VAR_HASH '<' IDENT '>'
         { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
     | VAR_HASH '{' expr '}'
