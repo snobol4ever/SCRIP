@@ -645,6 +645,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "scrip: parse failed for '%s'\n", input_path);
             return 1;
         }
+        { extern int sno_nerrors; if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d parse error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; } }
     }
     if (nsegs == 1) segs[0].prog = ast_prog;
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
