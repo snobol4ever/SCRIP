@@ -31,21 +31,21 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 248
+                        sub              rsp, 104
                         mov              rdi, rsp
-                        mov              ecx, 248
+                        mov              ecx, 104
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 240], rbp
+                        mov              [rsp + 96], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         X = 'first'
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rbp + 112], 1
+                        mov              qword ptr [rbp + 16], 1
                         mov              rax, qword ptr [rip + .Lx6_0]
-                        mov              qword ptr [rbp + 120], rax
+                        mov              qword ptr [rbp + 24], rax
                                                                                         jmp   n1_assign_α
 .Lx6_0:
                         .quad            .Lx6_0_s
@@ -53,20 +53,20 @@ n0_lit_string_α:
                         .string          "first"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
-                        mov              rax, qword ptr [rbp + 112]
-                        mov              rdx, qword ptr [rbp + 120]
+                        mov              rax, qword ptr [rbp + 16]
+                        mov              rdx, qword ptr [rbp + 24]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n2_lit_string_α
 #=======================================================================================================================
 #         X = 'second'
 #-----------------------------------------------------------------------------------------------------------------------
 n2_lit_string_α:
-                        mov              qword ptr [rbp + 160], 1
+                        mov              qword ptr [rbp + 48], 1
                         mov              rax, qword ptr [rip + .Lx8_0]
-                        mov              qword ptr [rbp + 168], rax
+                        mov              qword ptr [rbp + 56], rax
                                                                                         jmp   n3_assign_α
 .Lx8_0:
                         .quad            .Lx8_0_s
@@ -74,12 +74,12 @@ n2_lit_string_α:
                         .string          "second"
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:
-                        mov              rax, qword ptr [rbp + 160]
-                        mov              rdx, qword ptr [rbp + 168]
+                        mov              rax, qword ptr [rbp + 48]
+                        mov              rdx, qword ptr [rbp + 56]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 144], rax
-                        mov              qword ptr [rbp + 152], rdx
+                        mov              qword ptr [rbp + 32], rax
+                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   n4_var_α
 #=======================================================================================================================
 #         OUTPUT = X
@@ -87,17 +87,17 @@ n3_assign_α:
 n4_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rbp + 208], rax
-                        mov              qword ptr [rbp + 216], rdx
+                        mov              qword ptr [rbp + 80], rax
+                        mov              qword ptr [rbp + 88], rdx
                                                                                         jmp   n5_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_assign_α:
-                        mov              rsi, qword ptr [rbp + 208]
-                        mov              rdx, qword ptr [rbp + 216]
+                        mov              rsi, qword ptr [rbp + 80]
+                        mov              rdx, qword ptr [rbp + 88]
                         mov              rdi, qword ptr [rip + .Lx11_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 192], rax
-                        mov              qword ptr [rbp + 200], rdx
+                        mov              qword ptr [rbp + 64], rax
+                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   main_γ
 .Lx11_0:
                         .quad            .Lx11_0_s
@@ -111,18 +111,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 240]
-                        add              rsp, 248
+                        mov              rbp, [rsp + 96]
+                        add              rsp, 104
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
-                        mov              dword ptr [rsp+0], 99
-                        mov              dword ptr [rsp+4], 0
-                        mov              qword ptr [rsp+8], 0
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 240]
-                        add              rsp, 248
+                        mov              rbp, [rsp + 96]
+                        add              rsp, 104
                         ret
                         .section         .note.GNU-stack,"",@progbits
