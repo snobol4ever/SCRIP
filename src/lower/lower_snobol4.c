@@ -2000,6 +2000,14 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             lc_γ_to(anchor[i], num);
         }
     }
+    for (int i = 0; i < nst; i++) {
+        const char * ssrc = sfind_str(st[i], ":src");
+        if (!ssrc || !ssrc[0]) continue;
+        IR_t * t = anchor[i];
+        int hops = 0;
+        while (t && t->op == IR_GOTO && t->γ.node && hops++ < 64) t = t->γ.node;
+        if (t) bb_src_note(t, ssrc);
+    }
     free(anchor);
     return g;
 }
