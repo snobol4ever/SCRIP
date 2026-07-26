@@ -8,15 +8,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZB-VAL-0 (s177) CONSTANT-FOLD GATE: cf_run is OFF by default on the main spine so that IR_LIT_INTEGER
+ * nodes survive into the emitter as first-class fixed FORTH cells (per-BB sub-rsp, rsp-relative reads).
+ * ALWAYS ON for DEFINE proc graphs (nparams > 0 or resumable_callable — the body STILL benefits from fold
+ * because its lit operands are not yet on the FORTH cell ladder) and for pattern graphs (any IR_MATCH_* /
+ * IR_PAT_* node present — pat_fold depends on cf_run reducing its inputs).  SCRIP_CF=1 re-enables globally
+ * as a diagnostic escape hatch (mirrors the SCRIP_OPT=0 convention). */
+static int g_is_proc_or_pat(const IR_graph_t * g) {
+    if (g->nparams > 0 || g->resumable_callable) return 1;
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd) continue; if (nd->op >= IR_MATCH_LIT && nd->op <= IR_MATCH_ADVANCE) return 1; if (nd->op == IR_PATTERN_CAT || nd->op == IR_PATTERN_ALT || nd->op == IR_PATTERN_DEFER) return 1; }
+    return 0;
+}
 void optimizer_run(IR_graph_t *g) {
     { extern void region_report(IR_graph_t *); if (getenv("SCRIP_REGION_REPORT")) region_report(g); }
     if (!g) return;
     { extern void scc_taint_graph(IR_graph_t *); scc_taint_graph(g); }
     const char *e = getenv("SCRIP_OPT");
     if (e && *e == '0') return;
+    int do_cf = g_is_proc_or_pat(g) || (getenv("SCRIP_CF") && getenv("SCRIP_CF")[0] == '1');   /* ZB-VAL-0: cf OFF on main spine; ON for proc/pat graphs; SCRIP_CF=1 re-enables globally */
     int t_cf = 0, t_cp = 0, t_pf = 0, t_dp = 0, t_bc = 0;
     for (int round = 0; round < 8; round++) {
-        int n_cf = cf_run(g), n_cp = cp_run(g), n_pf = pf_run(g), n_dp = dp_run(g);
+        int n_cf = do_cf ? cf_run(g) : 0, n_cp = cp_run(g), n_pf = pf_run(g), n_dp = dp_run(g);
         int b = bc_run(g);
         t_cf += n_cf; t_cp += n_cp; t_pf += n_pf; t_dp += n_dp; t_bc += b;
         if (!(n_cf + n_cp + n_pf + n_dp)) break;

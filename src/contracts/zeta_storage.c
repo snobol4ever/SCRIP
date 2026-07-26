@@ -364,8 +364,10 @@ static void zls_slot_census(IR_graph_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_fct_finalize(IR_graph_t * g, int late);
+void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int);
 void zls_build(IR_graph_t * g) {
     if (!g) return;
+    for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0] && a->operands[0]->op == IR_LIT_INTEGER && a->operands[0]->γ.node == a) { fc_vlit_register(a->operands[0]); fc_vread_register(a, 0); } }   /* ZB-VAL-0: POST-OPTIMIZER pair scan -- lower-time pointer registration dies to node rebuild/fold; gamma-adjacency IS the v1 fence (disp 0 exact) */
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {
@@ -621,9 +623,11 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
  * from the v1 fixed-cell set by design (the heap-flavor gamma/omega overloads are ZB-ACT-3's entry). */
 int fc_alt_fpmax(const IR_t * nd);
 int fc_save_active(const IR_t * nd);
+int fc_vlit_active(const IR_t * nd);
 int fc_geom(const IR_t * nd, long * k) {
     if (!nd) return 0;
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-FC-3c: delta at cell+0; ungranted SAVE stays zero-cell = the flat rt_cap array path */
+    if (nd->op == IR_LIT_INTEGER && fc_vlit_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-VAL-0 (s177): registered statement-level lit feeding a plain assign; ungranted lits stay flat */
     if (nd->op == IR_MATCH_ARB)    { if (k) *k = 16; return 1; }   /* ZB-FC-4 (Lon s50 S14): the 8-byte counter+saved-cursor cell, ex-zls2, now a clean fixed FORTH cell */
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
@@ -724,6 +728,12 @@ int fc_seq_active(const IR_t * nd) {
  * COND/IMM stay ZERO-CELL BY LAW -- granting them a cell would silently inflate every enclosing ALT's
  * pad-to-max fpmax (the fc_geom catch at lower_snobol4.c's arm sum picks up granted SAVEs automatically and
  * must pick up nothing else).  IMM is the identical topology at op_phase 2 -- one mechanism, two phases. */
+static const IR_t * fvl[256]; static int fvl_n = 0;
+void fc_vlit_register(const IR_t * nd) { if (!nd || fvl_n >= 256) return; fvl[fvl_n++] = nd; }
+int fc_vlit_active(const IR_t * nd) { if (!nd || nd->op != IR_LIT_INTEGER) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
+static struct { const IR_t * nd; int fp; } fvr[256]; static int fvr_n = 0;
+void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fvr_n >= 256) return; fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; }   /* ZB-VAL-0: consumer-side displacement, the fc_cond_register shape */
+int fc_vread_fp(const IR_t * nd) { for (int i = 0; i < fvr_n; i++) if (fvr[i].nd == nd) return fvr[i].fp; return -1; }
 static const IR_t * fcv[256];
 static int fcv_n = 0;
 void fc_save_register(const IR_t * nd) { if (!nd || fcv_n >= 256) return; fcv[fcv_n++] = nd; }
