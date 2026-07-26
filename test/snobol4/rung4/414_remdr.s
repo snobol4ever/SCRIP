@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(remdr(10, 3), 1)                   :f(e001)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 224], 6
@@ -91,6 +92,7 @@ main_α_body:
  jmp xchain0_n5_α
 .Lx4_0:
  .quad 1
+#         differ(remdr(11, 10), 1)                   :f(e002)
 # IR_LIT_INTEGER
  xchain0_n4_α:
  mov qword ptr [rbp + 496], 6
@@ -134,6 +136,7 @@ main_α_body:
  jmp xchain0_n8_α
 .Lx7_0:
  .quad 10
+#         output = 'FAIL 414/001: remdr(10,3)'           :(end)
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 336], 1
@@ -188,6 +191,7 @@ main_α_body:
  jmp xchain0_n12_α
 .Lx11_0:
  .quad 1
+#         output = 'PASS 414_remdr (2/2)'
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 656], 1
@@ -234,6 +238,7 @@ main_α_body:
  mov qword ptr [rbp + 640], rax
  mov qword ptr [rbp + 648], rdx
  jmp main_γ
+#         output = 'FAIL 414/002: remdr(11,10)'          :(end)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 608], 1

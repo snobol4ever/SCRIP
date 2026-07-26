@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         &TRIM = 1
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -72,6 +73,8 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
+#         &TRIM = 1
+#         OUTPUT = lwr('HELLO WORLD')     ;* hello world
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 288], 1
@@ -117,6 +120,7 @@ main_α_body:
  .quad .Lx7_0_s
 .Lx7_0_s:
  .string "OUTPUT"
+#         OUTPUT = upr('hello world')     ;* HELLO WORLD
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 384], 1
@@ -162,6 +166,7 @@ main_α_body:
  .quad .Lx10_0_s
 .Lx10_0_s:
  .string "OUTPUT"
+#         OUTPUT = cap('hELLO wORLD')     ;* Hello world
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 480], 1
@@ -207,6 +212,8 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "OUTPUT"
+#         OUTPUT = cap('hELLO wORLD')     ;* Hello world
+#         'Hello' icase('hello')          :F(bad_ic1)
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 672], 1
@@ -357,6 +364,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 560]
  mov rbp, qword ptr [rbp + 568]
  jmp xchain0_n18_α
+#         OUTPUT = 'ok: icase hello'
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 720], 1
@@ -380,6 +388,7 @@ main_α_body:
  .quad .Lx23_0_s
 .Lx23_0_s:
  .string "OUTPUT"
+#         'HELLO' icase('hello')          :F(bad_ic2)
 # IR_LIT_STRING
  xchain0_n20_α:
  mov qword ptr [rbp + 912], 1
@@ -530,6 +539,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 800]
  mov rbp, qword ptr [rbp + 808]
  jmp xchain0_n26_α
+#         OUTPUT = 'ok: icase HELLO'
 # IR_LIT_STRING
  xchain0_n26_α:
  mov qword ptr [rbp + 960], 1
@@ -553,6 +563,7 @@ main_α_body:
  .quad .Lx33_0_s
 .Lx33_0_s:
  .string "OUTPUT"
+#         'HeLLo' icase('hello')          :F(bad_ic3)
 # IR_LIT_STRING
  xchain0_n28_α:
  mov qword ptr [rbp + 1152], 1
@@ -703,6 +714,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 1040]
  mov rbp, qword ptr [rbp + 1048]
  jmp xchain0_n34_α
+#         OUTPUT = 'ok: icase HeLLo'
 # IR_LIT_STRING
  xchain0_n34_α:
  mov qword ptr [rbp + 1200], 1
@@ -726,6 +738,7 @@ main_α_body:
  .quad .Lx43_0_s
 .Lx43_0_s:
  .string "OUTPUT"
+#         'world' icase('hello')          :S(bad_ic4)
 # IR_LIT_STRING
  xchain0_n36_α:
  mov qword ptr [rbp + 1392], 1
@@ -876,6 +889,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 1280]
  mov rbp, qword ptr [rbp + 1288]
  jmp xchain0_n42_α
+# bad_ic4 OUTPUT = 'FAIL: icase matched wrong string'
 # IR_LIT_STRING
  xchain0_n42_α:
  mov qword ptr [rbp + 1488], 1
@@ -899,6 +913,7 @@ main_α_body:
  .quad .Lx53_0_s
 .Lx53_0_s:
  .string "OUTPUT"
+#         OUTPUT = 'no match ok'          :(END)
 # IR_LIT_STRING
  xchain0_n44_α:
  mov qword ptr [rbp + 1440], 1

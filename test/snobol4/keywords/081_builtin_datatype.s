@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         OUTPUT = REPLACE(DATATYPE('hello'), &LCASE, &UCASE)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 240], 1
@@ -70,6 +71,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "LCASE"
+#         OUTPUT = REPLACE(DATATYPE(42),      &LCASE, &UCASE)
 # IR_LIT_INTEGER
  xchain0_n3_α:
  mov qword ptr [rbp + 448], 6
@@ -154,6 +156,7 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "LCASE"
+#         OUTPUT = REPLACE(DATATYPE(3.14),    &LCASE, &UCASE)
 # IR_LIT_REAL
  xchain0_n8_α:
  mov qword ptr [rbp + 656], 7

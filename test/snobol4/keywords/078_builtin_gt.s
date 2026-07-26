@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         GT(5, 3)                                                    :S(YES)F(NO)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 224], 6
@@ -89,6 +90,7 @@ main_α_body:
  mov rcx, 112
  call rt_coerce_num2_d@PLT
  jmp xchain0_n5_α
+# NO      OUTPUT = 'wrong'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 320], 1
@@ -122,6 +124,7 @@ main_α_body:
  .quad .Lx10_0_s
 .Lx10_0_s:
  .string "OUTPUT"
+# YES     OUTPUT = '5 > 3'
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 272], 1
@@ -132,6 +135,8 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "5 > 3"
+#         :(NEXT)
+# NEXT    GT(3, 5)                                                    :S(YES2)F(NO2)
 # IR_LIT_INTEGER
  xchain0_n8_α:
  mov qword ptr [rbp + 480], 6
@@ -207,6 +212,7 @@ main_α_body:
  mov rcx, 112
  call rt_coerce_num2_d@PLT
  jmp xchain0_n14_α
+# NO2     OUTPUT = '3 not > 5'
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 576], 1
@@ -240,6 +246,7 @@ main_α_body:
  .quad .Lx22_0_s
 .Lx22_0_s:
  .string "OUTPUT"
+# YES2    OUTPUT = 'wrong'
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 528], 1

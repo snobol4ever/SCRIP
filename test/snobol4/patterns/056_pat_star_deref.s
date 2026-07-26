@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         PAT = 'hello'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -63,6 +64,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         X = 'say hello world'
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 160], 1
@@ -82,6 +84,7 @@ main_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain0_n4_α
+#         X *PAT . V                                                  :S(YES)
 # IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [1879052304]
@@ -124,6 +127,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 240]
  mov rbp, qword ptr [rbp + 248]
  jmp xchain0_n6_α
+#         OUTPUT = 'fail'
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 384], 1
@@ -286,6 +290,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 240]
  mov rbp, qword ptr [rbp + 248]
  jmp xchain0_n12_α
+# YES     OUTPUT = V
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052320]

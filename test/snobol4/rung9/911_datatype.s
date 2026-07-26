@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(datatype('hello'), 'string')                   :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 208], 1
@@ -82,6 +83,7 @@ main_α_body:
  .quad .Lx3_0_s
 .Lx3_0_s:
  .string "string"
+#         differ(datatype(12), 'integer')                   :f(e002)
 # IR_LIT_INTEGER
  xchain0_n3_α:
  mov qword ptr [rbp + 432], 6
@@ -139,6 +141,7 @@ main_α_body:
  jmp xchain0_n7_α
  xchain0_n5_β:
  jmp xchain0_n8_α
+#         output = 'FAIL 911/001: string literal datatype' :(end)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 288], 1
@@ -159,6 +162,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "integer"
+#         differ(datatype(1.33), 'real')                   :f(e003)
 # IR_LIT_REAL
  xchain0_n8_α:
  mov qword ptr [rbp + 656], 7
@@ -225,6 +229,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n11_β:
  jmp xchain0_n14_α
+#         output = 'FAIL 911/002: integer datatype'       :(end)
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 512], 1
@@ -245,6 +250,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "real"
+#         differ(datatype(''), 'string')                   :f(e004)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 880], 1
@@ -313,6 +319,7 @@ main_α_body:
  jmp xchain0_n19_α
  xchain0_n17_β:
  jmp xchain0_n20_α
+#         output = 'FAIL 911/003: real datatype'          :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 736], 1
@@ -333,6 +340,7 @@ main_α_body:
  .quad .Lx20_0_s
 .Lx20_0_s:
  .string "string"
+#         output = 'PASS 911_datatype (4/4)'
 # IR_LIT_STRING
  xchain0_n20_α:
  mov qword ptr [rbp + 1008], 1
@@ -388,6 +396,7 @@ main_α_body:
  mov qword ptr [rbp + 992], rax
  mov qword ptr [rbp + 1000], rdx
  jmp main_γ
+#         output = 'FAIL 911/004: null is string'         :(end)
 # IR_LIT_STRING
  xchain0_n24_α:
  mov qword ptr [rbp + 960], 1

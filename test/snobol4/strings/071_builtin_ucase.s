@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         OUTPUT = &UCASE
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n0_α:
  mov rdi, qword ptr [rip + .Lx1_0]

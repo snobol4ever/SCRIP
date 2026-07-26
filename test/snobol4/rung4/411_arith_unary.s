@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(-5, 0 - 5)                   :f(e001)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 192], 6
@@ -64,6 +65,7 @@ main_α_body:
  jmp xchain0_n4_α
 .Lx3_0:
  .quad 18446744073709551611
+#         differ(+'4', 4)                   :f(e002)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 400], 1
@@ -109,6 +111,7 @@ main_α_body:
  mov qword ptr [rbp + 368], rax
  mov qword ptr [rbp + 376], rdx
  jmp xchain0_n7_α
+#         output = 'FAIL 411/001: unary minus'           :(end)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 272], 1
@@ -127,6 +130,7 @@ main_α_body:
  jmp xchain0_n10_α
 .Lx8_0:
  .quad 4
+#         output = 'PASS 411_arith_unary (2/2)'
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 528], 1
@@ -182,6 +186,7 @@ main_α_body:
  mov qword ptr [rbp + 512], rax
  mov qword ptr [rbp + 520], rdx
  jmp main_γ
+#         output = 'FAIL 411/002: unary plus string->int' :(end)
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 480], 1

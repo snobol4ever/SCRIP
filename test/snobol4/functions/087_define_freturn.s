@@ -17,6 +17,7 @@ proc_ispos_α:
   mov qword ptr [rsp + 256], 0
   mov qword ptr [rsp + 264], rsp
 proc_ispos_α_body:
+# ispos   GT(x, 0)                                                   :S(RETURN)F(FRETURN)
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
@@ -180,6 +181,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('ispos(x)')                                          :(ispos_end)
+#         ispos(5)                                                    :S(A)F(B)
 # IR_LIT_INTEGER
  xchain9_n0_α:
  mov qword ptr [rbp + 304], 6
@@ -285,6 +288,7 @@ main_α_body:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "ispos"
+# A       OUTPUT = 'positive'
 # IR_LIT_STRING
  xchain9_n2_α:
  mov qword ptr [rbp + 352], 1
@@ -295,6 +299,7 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "positive"
+# B       OUTPUT = 'wrong'
 # IR_LIT_STRING
  xchain9_n3_α:
  mov qword ptr [rbp + 400], 1
@@ -331,6 +336,8 @@ main_α_body:
  .quad .Lx16_0_s
 .Lx16_0_s:
  .string "OUTPUT"
+#         :(NEXT)
+# NEXT    ispos(-3)                                                   :S(C)F(D)
 # IR_LIT_INTEGER
  xchain9_n6_α:
  mov qword ptr [rbp + 512], 6
@@ -444,6 +451,7 @@ main_α_body:
  .quad .Lx20_0_s
 .Lx20_0_s:
  .string "ispos"
+# D       OUTPUT = 'not positive'
 # IR_LIT_STRING
  xchain9_n9_α:
  mov qword ptr [rbp + 608], 1
@@ -454,6 +462,7 @@ main_α_body:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "not positive"
+# C       OUTPUT = 'wrong'
 # IR_LIT_STRING
  xchain9_n10_α:
  mov qword ptr [rbp + 560], 1

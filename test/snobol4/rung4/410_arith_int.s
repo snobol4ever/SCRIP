@@ -83,6 +83,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+#         output = 'FAIL 410/001: 3+2'                   :(end)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -145,6 +146,7 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
+#         output = 'FAIL 410/002: 3-2'                   :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 416], 1
@@ -207,6 +209,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n14_α
+#         output = 'FAIL 410/003: 3*2'                   :(end)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 592], 1
@@ -269,6 +272,7 @@ main_α_body:
  jmp xchain0_n18_α
  xchain0_n17_β:
  jmp xchain0_n19_α
+#         output = 'FAIL 410/004: 5/2 integer division'  :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 768], 1
@@ -279,6 +283,7 @@ main_α_body:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "FAIL 410/004: 5/2 integer division"
+#         differ(2 ** 3, 8)                   :f(e005)
 # IR_LIT_INTEGER
  xchain0_n19_α:
  mov qword ptr [rbp + 896], 6
@@ -368,6 +373,7 @@ main_α_body:
  jmp xchain0_n28_α
 .Lx27_0:
  .quad 5
+#         output = 'FAIL 410/005: 2**3'                  :(end)
 # IR_LIT_STRING
  xchain0_n27_α:
  mov qword ptr [rbp + 1008], 1
@@ -414,6 +420,7 @@ main_α_body:
  mov qword ptr [rbp + 992], rax
  mov qword ptr [rbp + 1000], rdx
  jmp main_γ
+#         output = 'FAIL 410/006: string+int coerce'     :(end)
 # IR_LIT_STRING
  xchain0_n30_α:
  mov qword ptr [rbp + 1184], 1
@@ -476,6 +483,7 @@ main_α_body:
  jmp xchain0_n35_α
  xchain0_n34_β:
  jmp xchain0_n36_α
+#         output = 'FAIL 410/007: int+neg-string'        :(end)
 # IR_LIT_STRING
  xchain0_n35_α:
  mov qword ptr [rbp + 1360], 1
@@ -538,6 +546,7 @@ main_α_body:
  jmp xchain0_n40_α
  xchain0_n39_β:
  jmp xchain0_n41_α
+#         output = 'FAIL 410/008: string+string coerce'  :(end)
 # IR_LIT_STRING
  xchain0_n40_α:
  mov qword ptr [rbp + 1536], 1
@@ -600,6 +609,7 @@ main_α_body:
  jmp xchain0_n45_α
  xchain0_n44_β:
  jmp xchain0_n46_α
+#         output = 'FAIL 410/009: null addend is zero'   :(end)
 # IR_LIT_STRING
  xchain0_n45_α:
  mov qword ptr [rbp + 1712], 1
@@ -610,6 +620,7 @@ main_α_body:
  .quad .Lx46_0_s
 .Lx46_0_s:
  .string "FAIL 410/009: null addend is zero"
+#         output = 'PASS 410_arith_int (9/9)'
 # IR_LIT_STRING
  xchain0_n46_α:
  mov qword ptr [rbp + 1760], 1

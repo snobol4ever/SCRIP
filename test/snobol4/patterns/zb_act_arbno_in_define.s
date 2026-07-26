@@ -19,6 +19,7 @@ proc_MATCHIT_α:
   mov qword ptr [rsp + 496], 0
   mov qword ptr [rsp + 504], rsp
 proc_MATCHIT_α_body:
+# MATCHIT S POS(0) ARBNO('a') . V RPOS(0)                            :S(MI_YES)
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
@@ -65,6 +66,7 @@ proc_MATCHIT_α_body:
  mov r12, qword ptr [rbp + 144]
  mov rbp, qword ptr [rbp + 152]
  jmp xchain0_n2_α
+#         MATCHIT = 'fail'                                            :(RETURN)
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 416], 1
@@ -200,6 +202,7 @@ xchain0_n3_af:
  jmp xchain0_n5_α
  xchain0_n11_β:
  jmp xchain0_n9_β
+# MI_YES  MATCHIT = V                                                 :(RETURN)
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052320]
@@ -423,6 +426,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('MATCHIT(S)') :(MATCHIT_END)
+#         OUTPUT = MATCHIT('aaa')
 # IR_LIT_STRING
  xchain24_n0_α:
  mov qword ptr [rbp + 560], 1

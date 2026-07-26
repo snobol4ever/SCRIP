@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(dupl('abc', 2), 'abcabc')                   :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 224], 1
@@ -95,6 +96,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "abcabc"
+#         differ(dupl('', 10), '')                   :f(e002)
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 496], 1
@@ -140,6 +142,7 @@ main_α_body:
  jmp xchain0_n8_α
 .Lx7_0:
  .quad 10
+#         output = 'FAIL 812/001: dupl string x2'         :(end)
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 336], 1
@@ -196,6 +199,7 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string ""
+#         differ(dupl('abcdefg', 0), '')                   :f(e003)
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 768], 1
@@ -241,6 +245,7 @@ main_α_body:
  jmp xchain0_n15_α
 .Lx14_0:
  .quad 0
+#         output = 'FAIL 812/002: dupl null is null'      :(end)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 608], 1
@@ -297,6 +302,7 @@ main_α_body:
  .quad .Lx18_0_s
 .Lx18_0_s:
  .string ""
+#         differ(dupl(1, 10), '1111111111')                   :f(e004)
 # IR_LIT_INTEGER
  xchain0_n18_α:
  mov qword ptr [rbp + 1040], 6
@@ -340,6 +346,7 @@ main_α_body:
  jmp xchain0_n22_α
 .Lx21_0:
  .quad 10
+#         output = 'FAIL 812/003: dupl x0 is null'        :(end)
 # IR_LIT_STRING
  xchain0_n21_α:
  mov qword ptr [rbp + 880], 1
@@ -396,6 +403,7 @@ main_α_body:
  .quad .Lx25_0_s
 .Lx25_0_s:
  .string "1111111111"
+#         output = 'PASS 812_dupl (4/4)'
 # IR_LIT_STRING
  xchain0_n25_α:
  mov qword ptr [rbp + 1200], 1
@@ -442,6 +450,7 @@ main_α_body:
  mov qword ptr [rbp + 1184], rax
  mov qword ptr [rbp + 1192], rdx
  jmp main_γ
+#         output = 'FAIL 812/004: dupl integer coerce'    :(end)
 # IR_LIT_STRING
  xchain0_n28_α:
  mov qword ptr [rbp + 1152], 1

@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         c = array('2,2')
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -85,6 +86,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n3_α
+#         c<1,2> = '*'
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]
@@ -100,6 +102,7 @@ main_α_body:
  jmp xchain0_n6_α
 .Lx5_0:
  .quad 1
+#         differ(c<1,2>, '*')                   :f(e001)
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -127,6 +130,7 @@ main_α_body:
  jmp xchain0_n10_α
 .Lx8_0:
  .quad 1
+#         differ(prototype(c), '2,2')                   :f(e002)
 # IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [1879052288]
@@ -176,6 +180,7 @@ main_α_body:
  jmp xchain0_n15_α
  xchain0_n11_β:
  jmp xchain0_n12_α
+#         d = array('-1:1,2')
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 1008], 1
@@ -296,6 +301,7 @@ main_α_body:
  mov qword ptr [rbp + 944], rax
  mov qword ptr [rbp + 952], rdx
  jmp xchain0_n21_α
+#         d<-1,1> = 0
 # IR_VAR
  xchain0_n21_α:
  mov rax, qword ptr [1879052320]
@@ -325,6 +331,7 @@ main_α_body:
  mov qword ptr [rbp + 624], rax
  mov qword ptr [rbp + 632], rdx
  jmp xchain0_n27_α
+#         output = 'FAIL 1112/002: prototype of 2D array' :(end)
 # IR_LIT_STRING
  xchain0_n24_α:
  mov qword ptr [rbp + 912], 1
@@ -343,6 +350,7 @@ main_α_body:
  jmp xchain0_n29_α
 .Lx26_0:
  .quad 1
+#         differ(d<-1,1>, 0)                   :f(e003)
 # IR_VAR
  xchain0_n26_α:
  mov rax, qword ptr [1879052320]
@@ -385,6 +393,7 @@ main_α_body:
  jmp xchain0_n34_α
 .Lx31_0:
  .quad 1
+#         d<-2,1>                    :f(e004)
 # IR_VAR
  xchain0_n31_α:
  mov rax, qword ptr [1879052320]
@@ -447,6 +456,7 @@ main_α_body:
  jmp xchain0_n40_α
 .Lx36_0:
  .quad 2
+#         d<2,1>                     :f(e005)
 # IR_VAR
  xchain0_n36_α:
  mov rax, qword ptr [1879052320]
@@ -454,6 +464,7 @@ main_α_body:
  mov qword ptr [rbp + 1888], rax
  mov qword ptr [rbp + 1896], rdx
  jmp xchain0_n41_α
+#         output = 'FAIL 1112/001: 2D array assign/read' :(end)
 # IR_LIT_STRING
  xchain0_n37_α:
  mov qword ptr [rbp + 688], 1
@@ -500,6 +511,7 @@ main_α_body:
  jmp xchain0_n47_α
 .Lx42_0:
  .quad 2
+#         output = 'PASS 1112_array_multi (5/5)'
 # IR_LIT_STRING
  xchain0_n42_α:
  mov qword ptr [rbp + 2128], 1
@@ -709,6 +721,7 @@ main_α_body:
  jmp xchain0_n63_α
  xchain0_n60_β:
  jmp xchain0_n31_α
+#         output = 'FAIL 1112/004: below lower bound fails' :(end)
 # IR_LIT_STRING
  xchain0_n61_α:
  mov qword ptr [rbp + 1856], 1
@@ -719,6 +732,7 @@ main_α_body:
  .quad .Lx62_0_s
 .Lx62_0_s:
  .string "FAIL 1112/004: below lower bound fails"
+#         output = 'FAIL 1112/005: above upper bound fails' :(end)
 # IR_LIT_STRING
  xchain0_n62_α:
  mov qword ptr [rbp + 2080], 1
@@ -729,6 +743,7 @@ main_α_body:
  .quad .Lx63_0_s
 .Lx63_0_s:
  .string "FAIL 1112/005: above upper bound fails"
+#         output = 'FAIL 1112/003: custom lower bound assign/read' :(end)
 # IR_LIT_STRING
  xchain0_n63_α:
  mov qword ptr [rbp + 1600], 1

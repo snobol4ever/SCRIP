@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         &TRIM = 1
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -72,6 +73,8 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
+#         &TRIM = 1
+#         OUTPUT = pad_left('hi', 6, '*')     ;* ****hi
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 320], 1
@@ -145,6 +148,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "OUTPUT"
+#         OUTPUT = pad_right('hi', 6, '*')     ;* hi****
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 512], 1
@@ -218,6 +222,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "OUTPUT"
+#         OUTPUT = ltrim('   hello')      ;* hello
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 672], 1
@@ -263,6 +268,7 @@ main_α_body:
  .quad .Lx17_0_s
 .Lx17_0_s:
  .string "OUTPUT"
+#         OUTPUT = rtrim('hello   ')      ;* hello
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 768], 1
@@ -308,6 +314,7 @@ main_α_body:
  .quad .Lx20_0_s
 .Lx20_0_s:
  .string "OUTPUT"
+#         OUTPUT = trimws('  hello  ')      ;* hello
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [rbp + 864], 1
@@ -353,6 +360,7 @@ main_α_body:
  .quad .Lx23_0_s
 .Lx23_0_s:
  .string "OUTPUT"
+#         OUTPUT = repeat('hi', 3)        ;* hihihi
 # IR_LIT_STRING
  xchain0_n22_α:
  mov qword ptr [rbp + 976], 1
@@ -411,6 +419,8 @@ main_α_body:
  .quad .Lx27_0_s
 .Lx27_0_s:
  .string "OUTPUT"
+#         OUTPUT = repeat('hi', 3)        ;* hihihi
+#         contains('foobar', 'oba')       :F(bad_c1)
 # IR_LIT_STRING
  xchain0_n26_α:
  mov qword ptr [rbp + 1104], 1
@@ -458,6 +468,7 @@ main_α_body:
  jmp xchain0_n29_α
  xchain0_n28_β:
  jmp xchain0_n30_α
+#         OUTPUT = 'contains ok'          :(c1)
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [rbp + 1184], 1
@@ -468,6 +479,7 @@ main_α_body:
  .quad .Lx31_0_s
 .Lx31_0_s:
  .string "contains ok"
+# bad_c1  OUTPUT = 'FAIL: contains'
 # IR_LIT_STRING
  xchain0_n30_α:
  mov qword ptr [rbp + 1232], 1
@@ -504,6 +516,7 @@ main_α_body:
  .quad .Lx34_0_s
 .Lx34_0_s:
  .string "OUTPUT"
+#         startswith('foobar', 'foo')     :F(bad_sw1)
 # IR_LIT_STRING
  xchain0_n33_α:
  mov qword ptr [rbp + 1328], 1
@@ -551,6 +564,7 @@ main_α_body:
  jmp xchain0_n36_α
  xchain0_n35_β:
  jmp xchain0_n37_α
+#         OUTPUT = 'startswith ok'        :(sw1)
 # IR_LIT_STRING
  xchain0_n36_α:
  mov qword ptr [rbp + 1408], 1
@@ -561,6 +575,7 @@ main_α_body:
  .quad .Lx38_0_s
 .Lx38_0_s:
  .string "startswith ok"
+# bad_sw1 OUTPUT = 'FAIL: startswith'
 # IR_LIT_STRING
  xchain0_n37_α:
  mov qword ptr [rbp + 1456], 1
@@ -597,6 +612,7 @@ main_α_body:
  .quad .Lx41_0_s
 .Lx41_0_s:
  .string "OUTPUT"
+#         endswith('foobar', 'bar')       :F(bad_ew1)
 # IR_LIT_STRING
  xchain0_n40_α:
  mov qword ptr [rbp + 1552], 1
@@ -644,6 +660,7 @@ main_α_body:
  jmp xchain0_n43_α
  xchain0_n42_β:
  jmp xchain0_n44_α
+#         OUTPUT = 'endswith ok'          :(ew1)
 # IR_LIT_STRING
  xchain0_n43_α:
  mov qword ptr [rbp + 1632], 1
@@ -654,6 +671,7 @@ main_α_body:
  .quad .Lx45_0_s
 .Lx45_0_s:
  .string "endswith ok"
+# bad_ew1 OUTPUT = 'FAIL: endswith'
 # IR_LIT_STRING
  xchain0_n44_α:
  mov qword ptr [rbp + 1680], 1
@@ -690,6 +708,7 @@ main_α_body:
  .quad .Lx48_0_s
 .Lx48_0_s:
  .string "OUTPUT"
+#         startswith('foobar', 'bar')     :S(bad_sw2)
 # IR_LIT_STRING
  xchain0_n47_α:
  mov qword ptr [rbp + 1776], 1
@@ -737,6 +756,7 @@ main_α_body:
  jmp xchain0_n50_α
  xchain0_n49_β:
  jmp xchain0_n51_α
+# bad_sw2 OUTPUT = 'FAIL: startswith matched wrong'
 # IR_LIT_STRING
  xchain0_n50_α:
  mov qword ptr [rbp + 1904], 1
@@ -747,6 +767,7 @@ main_α_body:
  .quad .Lx52_0_s
 .Lx52_0_s:
  .string "FAIL: startswith matched wrong"
+#         OUTPUT = 'no startswith ok'     :(sw2)
 # IR_LIT_STRING
  xchain0_n51_α:
  mov qword ptr [rbp + 1856], 1
@@ -783,6 +804,7 @@ main_α_body:
  .quad .Lx55_0_s
 .Lx55_0_s:
  .string "OUTPUT"
+#         OUTPUT = index('foobar', 'oba') ;* 2  (f=1, o=2; oba starts at 2)
 # IR_LIT_STRING
  xchain0_n54_α:
  mov qword ptr [rbp + 2016], 1
@@ -843,6 +865,7 @@ main_α_body:
  .quad .Lx59_0_s
 .Lx59_0_s:
  .string "OUTPUT"
+#         OUTPUT = index('foobar', 'xyz') ;* 0
 # IR_LIT_STRING
  xchain0_n58_α:
  mov qword ptr [rbp + 2160], 1

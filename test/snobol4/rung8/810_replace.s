@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(replace('axxbyyy', 'xy', '01'), 'a00b111')                   :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 240], 1
@@ -114,6 +115,7 @@ main_α_body:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "a00b111"
+#         a = replace(&alphabet, 'xy', 'ab')
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n5_α:
  mov rdi, qword ptr [rip + .Lx6_0]
@@ -162,6 +164,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "xy"
+#         output = 'FAIL 810/001: xy->01 mapping'             :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 384], 1
@@ -232,6 +235,7 @@ main_α_body:
  mov qword ptr [rbp + 416], rax
  mov qword ptr [rbp + 424], rdx
  jmp xchain0_n13_α
+#         differ(replace('axy', &alphabet, a), 'aab')                   :f(e002)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 736], 1
@@ -292,6 +296,7 @@ main_α_body:
  jmp xchain0_n18_α
  xchain0_n16_β:
  jmp xchain0_n17_α
+#         differ(replace('hello', 'aeiou', 'aeiou'), 'hello')                   :f(e003)
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 1040], 1
@@ -359,6 +364,7 @@ main_α_body:
  .quad .Lx22_0_s
 .Lx22_0_s:
  .string "aeiou"
+#         output = 'FAIL 810/002: alphabet translation'       :(end)
 # IR_LIT_STRING
  xchain0_n22_α:
  mov qword ptr [rbp + 864], 1
@@ -420,6 +426,7 @@ main_α_body:
  .quad .Lx26_0_s
 .Lx26_0_s:
  .string "hello"
+#         output = 'PASS 810_replace (3/3)'
 # IR_LIT_STRING
  xchain0_n26_α:
  mov qword ptr [rbp + 1232], 1
@@ -466,6 +473,7 @@ main_α_body:
  mov qword ptr [rbp + 1216], rax
  mov qword ptr [rbp + 1224], rdx
  jmp main_γ
+#         output = 'FAIL 810/003: identity replace'           :(end)
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [rbp + 1184], 1

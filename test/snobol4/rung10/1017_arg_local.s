@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+# jlab    define('jlab(a,b,c)d,e,f')
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -74,6 +75,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         differ(arg(.jlab, 1), 'A')                   :f(e001)
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 352], 1
@@ -114,6 +116,7 @@ main_α_body:
  jmp xchain0_n6_α
 .Lx6_0:
  .quad 1
+#         differ(arg(.jlab, 3), 'C')                   :f(e002)
 # IR_LIT_STRING
  xchain0_n5_α:
  mov qword ptr [rbp + 672], 1
@@ -191,6 +194,7 @@ main_α_body:
  jmp xchain0_n12_α
 .Lx12_0:
  .quad 3
+#         arg(.jlab, 0)              :f(e003)
 # IR_LIT_STRING
  xchain0_n10_α:
  mov qword ptr [rbp + 928], 1
@@ -277,6 +281,7 @@ main_α_body:
  jmp xchain0_n16_α
  xchain0_n13_β:
  jmp xchain0_n17_α
+#         output = 'FAIL 1017/001: arg(.jlab,1) = A'     :(end)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 464], 1
@@ -305,6 +310,7 @@ main_α_body:
  jmp xchain0_n20_α
 .Lx20_0:
  .quad 0
+#         arg(.jlab, 4)              :f(e004)
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 1152], 1
@@ -400,6 +406,7 @@ main_α_body:
  jmp xchain0_n24_α
  xchain0_n21_β:
  jmp xchain0_n25_α
+#         output = 'FAIL 1017/002: arg(.jlab,3) = C'     :(end)
 # IR_LIT_STRING
  xchain0_n22_α:
  mov qword ptr [rbp + 784], 1
@@ -410,6 +417,7 @@ main_α_body:
  .quad .Lx27_0_s
 .Lx27_0_s:
  .string "FAIL 1017/002: arg(.jlab,3) = C"
+#         output = 'FAIL 1017/003: arg(.jlab,0) OOB should fail' :(end)
 # IR_LIT_STRING
  xchain0_n23_α:
  mov qword ptr [rbp + 1008], 1
@@ -428,6 +436,7 @@ main_α_body:
  jmp xchain0_n28_α
 .Lx29_0:
  .quad 4
+#         differ(local(.jlab, 1), 'D')                   :f(e005)
 # IR_LIT_STRING
  xchain0_n25_α:
  mov qword ptr [rbp + 1440], 1
@@ -505,6 +514,7 @@ main_α_body:
  jmp xchain0_n31_α
  xchain0_n29_β:
  jmp xchain0_n32_α
+#         output = 'FAIL 1017/004: arg(.jlab,4) OOB should fail' :(end)
 # IR_LIT_STRING
  xchain0_n30_α:
  mov qword ptr [rbp + 1232], 1
@@ -523,6 +533,7 @@ main_α_body:
  jmp xchain0_n34_α
 .Lx37_0:
  .quad 1
+#         differ(local(.jlab, 3), 'F')                   :f(e006)
 # IR_LIT_STRING
  xchain0_n32_α:
  mov qword ptr [rbp + 1760], 1
@@ -609,6 +620,7 @@ main_α_body:
  jmp xchain0_n40_α
 .Lx44_0:
  .quad 3
+#         local(.jlab, 0)            :f(e007)
 # IR_LIT_STRING
  xchain0_n38_α:
  mov qword ptr [rbp + 2016], 1
@@ -695,6 +707,7 @@ main_α_body:
  jmp xchain0_n44_α
  xchain0_n41_β:
  jmp xchain0_n45_α
+#         output = 'FAIL 1017/005: local(.jlab,1) = D'   :(end)
 # IR_LIT_STRING
  xchain0_n42_α:
  mov qword ptr [rbp + 1552], 1
@@ -723,6 +736,7 @@ main_α_body:
  jmp xchain0_n48_α
 .Lx52_0:
  .quad 0
+#         local(.jlab, 4)            :f(e008)
 # IR_LIT_STRING
  xchain0_n45_α:
  mov qword ptr [rbp + 2240], 1
@@ -818,6 +832,7 @@ main_α_body:
  jmp xchain0_n52_α
  xchain0_n49_β:
  jmp xchain0_n53_α
+#         output = 'FAIL 1017/006: local(.jlab,3) = F'   :(end)
 # IR_LIT_STRING
  xchain0_n50_α:
  mov qword ptr [rbp + 1872], 1
@@ -828,6 +843,7 @@ main_α_body:
  .quad .Lx59_0_s
 .Lx59_0_s:
  .string "FAIL 1017/006: local(.jlab,3) = F"
+#         output = 'FAIL 1017/007: local(.jlab,0) OOB should fail' :(end)
 # IR_LIT_STRING
  xchain0_n51_α:
  mov qword ptr [rbp + 2096], 1
@@ -846,6 +862,7 @@ main_α_body:
  jmp xchain0_n56_α
 .Lx61_0:
  .quad 4
+#         output = 'PASS 1017_arg_local (8/8)'
 # IR_LIT_STRING
  xchain0_n53_α:
  mov qword ptr [rbp + 2368], 1
@@ -910,6 +927,7 @@ main_α_body:
  mov qword ptr [rbp + 2352], rax
  mov qword ptr [rbp + 2360], rdx
  jmp main_γ
+#         output = 'FAIL 1017/008: local(.jlab,4) OOB should fail' :(end)
 # IR_LIT_STRING
  xchain0_n58_α:
  mov qword ptr [rbp + 2320], 1

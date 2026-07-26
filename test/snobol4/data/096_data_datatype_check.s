@@ -51,6 +51,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DATA('node(val,next)')
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -83,6 +84,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         N = node('hello', '')
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 256], 1
@@ -139,6 +141,7 @@ main_α_body:
  mov qword ptr [rbp + 176], rax
  mov qword ptr [rbp + 184], rdx
  jmp xchain0_n6_α
+#         OUTPUT = REPLACE(DATATYPE(N), &LCASE, &UCASE)
 # IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [1879052288]
@@ -168,6 +171,7 @@ main_α_body:
  jmp xchain0_n9_α
  xchain0_n7_β:
  jmp xchain0_n8_α
+#         OUTPUT = val(N)
 # IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [1879052288]

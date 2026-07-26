@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         a = array(3)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 6
@@ -81,6 +82,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n3_α
+#         a<2> = 'x'
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]
@@ -96,6 +98,8 @@ main_α_body:
  jmp xchain0_n6_α
 .Lx5_0:
  .quad 2
+#         a<2> = 'x'
+#         differ($.a<2>, 'x')                   :f(e001)
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -123,6 +127,7 @@ main_α_body:
  jmp xchain0_n10_α
 .Lx8_0:
  .quad 2
+#         output = 'PASS 212_indirect_array (1/1)'
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 608], 1
@@ -223,6 +228,7 @@ main_α_body:
  jmp xchain0_n16_α
  xchain0_n15_β:
  jmp xchain0_n8_α
+#         output = 'FAIL 212/001: $.var<index> indirect array' :(end)
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 560], 1

@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         OUTPUT = SIZE(&ALPHABET)
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n0_α:
  mov rdi, qword ptr [rip + .Lx1_0]
@@ -73,6 +74,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "OUTPUT"
+#         OUTPUT = SIZE(&UCASE)
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n3_α:
  mov rdi, qword ptr [rip + .Lx5_0]
@@ -119,6 +121,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "OUTPUT"
+#         OUTPUT = SIZE(&LCASE)
 # IR_KEYWORD_SNOBOL4_read
  xchain0_n6_α:
  mov rdi, qword ptr [rip + .Lx9_0]

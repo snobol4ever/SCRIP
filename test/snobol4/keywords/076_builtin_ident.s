@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         IDENT('abc', 'abc')                                         :S(YES)F(NO)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -74,6 +75,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+# YES     OUTPUT = 'equal'
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -84,6 +86,7 @@ main_α_body:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "equal"
+# NO      OUTPUT = 'not equal'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 288], 1
@@ -120,6 +123,8 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "OUTPUT"
+#         :(NEXT)
+# NEXT    IDENT('abc', 'xyz')                                         :S(YES2)F(NO2)
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 384], 1
@@ -167,6 +172,7 @@ main_α_body:
  jmp xchain0_n10_α
  xchain0_n9_β:
  jmp xchain0_n11_α
+# YES2    OUTPUT = 'equal'
 # IR_LIT_STRING
  xchain0_n10_α:
  mov qword ptr [rbp + 464], 1
@@ -177,6 +183,7 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "equal"
+# NO2     OUTPUT = 'not equal'
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 512], 1

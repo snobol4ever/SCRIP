@@ -324,6 +324,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         expr = *('abc' 'def')
 # IR_LIT_STRING
  xchain12_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -365,6 +366,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain12_n3_α
+#         DIFFER(EVAL(expr), 'abcdef')                   :f(e001)
 # IR_VAR
  xchain12_n3_α:
  mov rax, qword ptr [1879052288]
@@ -394,6 +396,7 @@ main_α_body:
  jmp xchain12_n6_α
  xchain12_n4_β:
  jmp xchain12_n5_α
+#         q = 'qqq'
 # IR_LIT_STRING
  xchain12_n5_α:
  mov qword ptr [rbp + 432], 1
@@ -450,6 +453,7 @@ main_α_body:
  jmp xchain12_n10_α
  xchain12_n8_β:
  jmp xchain12_n5_α
+#         sexp = *q
 # IR_LIT_STRING
  xchain12_n9_α:
  mov qword ptr [rbp + 528], 1
@@ -460,6 +464,7 @@ main_α_body:
  .quad .Lx25_0_s
 .Lx25_0_s:
  .string "EXPR$1"
+#         OUTPUT = 'FAIL 1016/001: eval concat expr'     :(end)
 # IR_LIT_STRING
  xchain12_n10_α:
  mov qword ptr [rbp + 384], 1
@@ -514,6 +519,7 @@ main_α_body:
  mov qword ptr [rbp + 464], rax
  mov qword ptr [rbp + 472], rdx
  jmp xchain12_n14_α
+#         DIFFER(EVAL(sexp), 'qqq')                   :f(e002)
 # IR_VAR
  xchain12_n14_α:
  mov rax, qword ptr [1879052320]
@@ -543,6 +549,7 @@ main_α_body:
  jmp xchain12_n17_α
  xchain12_n15_β:
  jmp xchain12_n16_α
+#         fexp = *IDENT(1, 2)
 # IR_LIT_STRING
  xchain12_n16_α:
  mov qword ptr [rbp + 848], 1
@@ -621,6 +628,7 @@ main_α_body:
  mov qword ptr [rbp + 784], rax
  mov qword ptr [rbp + 792], rdx
  jmp xchain12_n21_α
+#         EVAL(fexp)                                     :f(e003)
 # IR_VAR
  xchain12_n21_α:
  mov rax, qword ptr [1879052336]
@@ -628,6 +636,7 @@ main_α_body:
  mov qword ptr [rbp + 928], rax
  mov qword ptr [rbp + 936], rdx
  jmp xchain12_n23_α
+#         OUTPUT = 'FAIL 1016/002: eval var ref'         :(end)
 # IR_LIT_STRING
  xchain12_n22_α:
  mov qword ptr [rbp + 752], 1
@@ -660,6 +669,7 @@ main_α_body:
  jmp xchain12_n26_α
  xchain12_n23_β:
  jmp xchain12_n24_α
+#         OUTPUT = 'PASS 1016_eval (3/3)'
 # IR_LIT_STRING
  xchain12_n24_α:
  mov qword ptr [rbp + 1024], 1
@@ -683,6 +693,7 @@ main_α_body:
  .quad .Lx46_0_s
 .Lx46_0_s:
  .string "OUTPUT"
+#         OUTPUT = 'FAIL 1016/003: eval failing expr should fail' :(end)
 # IR_LIT_STRING
  xchain12_n26_α:
  mov qword ptr [rbp + 976], 1

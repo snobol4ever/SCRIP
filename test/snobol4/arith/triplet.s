@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#          &TRIM    =  1
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -87,6 +88,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
+#          N        =  0
 # IR_LIT_INTEGER
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 6
@@ -104,6 +106,7 @@ main_α_body:
  mov qword ptr [rbp + 224], rax
  mov qword ptr [rbp + 232], rdx
  jmp xchain0_n5_α
+# LOOP     S        =  INPUT                                  :F(END)
 # IR_VAR
  xchain0_n5_α:
  mov rdi, qword ptr [rip + .Lx7_0]
@@ -126,6 +129,7 @@ main_α_body:
  mov qword ptr [rbp + 272], rax
  mov qword ptr [rbp + 280], rdx
  jmp xchain0_n7_α
+#          OUTPUT   =  DUPL(' ', (80 - SIZE(S)) / 2) S
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 432], 1
@@ -173,6 +177,7 @@ main_α_body:
  jmp xchain0_n12_α
  xchain0_n10_β:
  jmp xchain0_n11_α
+#          N        =  REMDR(N + 1, 3)
 # IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [1879052288]
@@ -227,6 +232,7 @@ main_α_body:
  jmp xchain0_n16_α
 .Lx16_0:
  .quad 1
+#          OUTPUT   =  EQ(N, 0)                               :(LOOP)
 # IR_VAR
  xchain0_n14_α:
  mov rax, qword ptr [1879052288]

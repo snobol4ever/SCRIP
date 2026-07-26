@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         b = array(3, 10)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 176], 6
@@ -94,6 +95,8 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n4_α
+#         b = array(3, 10)
+#         differ(b<2>, 10)                   :f(e001)
 # IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [1879052288]
@@ -109,6 +112,7 @@ main_α_body:
  jmp xchain0_n7_α
 .Lx6_0:
  .quad 2
+#         differ(b<1>, 10)                   :f(e002)
 # IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [1879052288]
@@ -136,6 +140,7 @@ main_α_body:
  jmp xchain0_n11_α
 .Lx9_0:
  .quad 1
+#         output = 'PASS 1111_array_default (2/2)'
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 768], 1
@@ -230,6 +235,7 @@ main_α_body:
  jmp xchain0_n18_α
 .Lx17_0:
  .quad 10
+#         output = 'FAIL 1111/001: array default value'  :(end)
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 464], 1
@@ -276,6 +282,7 @@ main_α_body:
  mov qword ptr [rbp + 448], rax
  mov qword ptr [rbp + 456], rdx
  jmp main_γ
+#         output = 'FAIL 1111/002: default fills all slots' :(end)
 # IR_LIT_STRING
  xchain0_n20_α:
  mov qword ptr [rbp + 720], 1

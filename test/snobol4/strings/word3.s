@@ -485,6 +485,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#       PAT      =  POS(0) BREAK(' ') . WHEN (' ' SPAN(' '))
 # IR_LIT_STRING
  xchain34_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -526,6 +527,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain34_n3_α
+# LOOP  LINE     =  INPUT                            :F(END)
 # IR_VAR
  xchain34_n3_α:
  mov rdi, qword ptr [rip + .Lx39_0]
@@ -548,6 +550,7 @@ main_α_body:
  mov qword ptr [rbp + 192], rax
  mov qword ptr [rbp + 200], rdx
  jmp xchain34_n5_α
+#       LINE     ?  PAT                              :F(LOOP)
 # IR_VAR
  xchain34_n5_α:
  mov rax, qword ptr [1879052352]
@@ -713,6 +716,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 288]
  mov rbp, qword ptr [rbp + 296]
  jmp xchain34_n9_α
+#       OUTPUT   =  WHO " invented the " WHAT " in " WHEN  :(LOOP)
 # IR_VAR
  xchain34_n9_α:
  mov rax, qword ptr [1879052320]

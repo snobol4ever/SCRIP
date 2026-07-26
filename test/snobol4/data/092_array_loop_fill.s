@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         A = ARRAY(5)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 6
@@ -81,6 +82,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n3_α
+#         I = 1
 # IR_LIT_INTEGER
  xchain0_n3_α:
  mov qword ptr [rbp + 208], 6
@@ -98,6 +100,7 @@ main_α_body:
  mov qword ptr [rbp + 192], rax
  mov qword ptr [rbp + 200], rdx
  jmp xchain0_n5_α
+# FILL    A<I> = I * I
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -112,6 +115,7 @@ main_α_body:
  mov qword ptr [rbp + 272], rax
  mov qword ptr [rbp + 280], rdx
  jmp xchain0_n8_α
+#         I = I + 1
 # IR_VAR
  xchain0_n7_α:
  mov rax, qword ptr [1879052304]
@@ -139,6 +143,7 @@ main_α_body:
  jmp xchain0_n12_α
 .Lx11_0:
  .quad 1
+#         LE(I, 5)                                                    :S(FILL)
 # IR_VAR
  xchain0_n10_α:
  mov rax, qword ptr [1879052304]
@@ -200,6 +205,7 @@ main_α_body:
  jmp xchain0_n17_α
 .Lx15_0:
  .quad 5
+#         I = 1
 # IR_LIT_INTEGER
  xchain0_n14_α:
  mov qword ptr [rbp + 736], 6
@@ -324,6 +330,7 @@ main_α_body:
  mov rcx, 119
  call rt_coerce_num2_d@PLT
  jmp xchain0_n23_α
+# READ    OUTPUT = A<I>
 # IR_VAR
  xchain0_n21_α:
  mov rax, qword ptr [1879052288]
@@ -360,6 +367,7 @@ main_α_body:
  mov qword ptr [rbp + 816], rax
  mov qword ptr [rbp + 824], rdx
  jmp xchain0_n26_α
+#         I = I + 1
 # IR_VAR
  xchain0_n25_α:
  mov rax, qword ptr [1879052304]
@@ -387,6 +395,7 @@ main_α_body:
  jmp xchain0_n30_α
 .Lx32_0:
  .quad 1
+#         LE(I, 5)                                                    :S(READ)
 # IR_VAR
  xchain0_n28_α:
  mov rax, qword ptr [1879052304]

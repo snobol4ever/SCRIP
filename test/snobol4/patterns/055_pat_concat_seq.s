@@ -46,6 +46,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         X = 'abcdef'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -69,6 +70,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         X LEN(2) . A LEN(2) . B LEN(2) . C                        :S(YES)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -115,6 +117,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n4_α
+#         OUTPUT = 'fail'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 464], 1
@@ -262,6 +265,7 @@ xchain0_n5_af:
  xchain0_n13_β:
  sub r12, 24
  jmp xchain0_n17_β
+# YES     OUTPUT = A ' ' B ' ' C
 # IR_VAR
  xchain0_n14_α:
  mov rax, qword ptr [1879052304]

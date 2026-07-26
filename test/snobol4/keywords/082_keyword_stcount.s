@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         X = 1
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 480], 6
@@ -87,6 +88,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n4_α
+#         X = 2
 # IR_LIT_INTEGER
  xchain0_n4_α:
  mov qword ptr [rbp + 560], 6
@@ -134,6 +136,7 @@ main_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain0_n8_α
+#         GT(&STNO, 1)                                                :S(YES)F(NO)
 # IR_LIT_INTEGER
  xchain0_n8_α:
  mov qword ptr [rbp + 640], 6
@@ -229,6 +232,7 @@ main_α_body:
  mov rcx, 112
  call rt_coerce_num2_d@PLT
  jmp xchain0_n15_α
+# NO      OUTPUT = 'wrong'
 # IR_LIT_INTEGER
  xchain0_n14_α:
  mov qword ptr [rbp + 880], 6
@@ -269,6 +273,7 @@ main_α_body:
  jmp xchain0_n18_α
  xchain0_n16_β:
  jmp xchain0_n18_α
+# YES     OUTPUT = 'stno ok'
 # IR_LIT_INTEGER
  xchain0_n17_α:
  mov qword ptr [rbp + 720], 6
@@ -345,6 +350,7 @@ main_α_body:
  .quad .Lx31_0_s
 .Lx31_0_s:
  .string "OUTPUT"
+#         :(END)
 # IR_LIT_INTEGER
  xchain0_n23_α:
  mov qword ptr [rbp + 800], 6

@@ -46,6 +46,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         aaa = array(10)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 6
@@ -85,6 +86,8 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n3_α
+#         aaa = array(10)
+#         item(aaa, 1) = 5
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 192], 1
@@ -124,6 +127,7 @@ main_α_body:
  mov qword ptr [rbp + 336], rax
  mov qword ptr [rbp + 344], rdx
  jmp xchain0_n7_α
+#         differ(item(aaa, 1), 5)                   :f(e001)
 # IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [1879052288]
@@ -147,6 +151,7 @@ main_α_body:
  jmp xchain0_n11_α
 .Lx10_0:
  .quad 1
+#         differ(aaa<1>, 5)                   :f(e002)
 # IR_VAR
  xchain0_n9_α:
  mov rax, qword ptr [1879052288]
@@ -216,6 +221,7 @@ main_α_body:
  jmp xchain0_n16_α
 .Lx14_0:
  .quad 1
+#         aaa<2> = 22
 # IR_VAR
  xchain0_n13_α:
  mov rax, qword ptr [1879052288]
@@ -259,6 +265,7 @@ main_α_body:
  jmp xchain0_n22_α
 .Lx19_0:
  .quad 2
+#         differ(item(aaa, 2), 22)                   :f(e003)
 # IR_VAR
  xchain0_n18_α:
  mov rax, qword ptr [1879052288]
@@ -335,6 +342,7 @@ main_α_body:
  jmp xchain0_n28_α
 .Lx25_0:
  .quad 2
+#         ama = array('2,2,2,2')
 # IR_LIT_STRING
  xchain0_n24_α:
  mov qword ptr [rbp + 1456], 1
@@ -345,6 +353,7 @@ main_α_body:
  .quad .Lx26_0_s
 .Lx26_0_s:
  .string "2,2,2,2"
+#         output = 'FAIL 1114/001: item 1D assign/read'  :(end)
 # IR_LIT_STRING
  xchain0_n25_α:
  mov qword ptr [rbp + 688], 1
@@ -485,6 +494,7 @@ main_α_body:
  mov qword ptr [rbp + 1392], rax
  mov qword ptr [rbp + 1400], rdx
  jmp xchain0_n35_α
+#         item(ama, 1,2,1,2) = 1212
 # IR_LIT_STRING
  xchain0_n35_α:
  mov qword ptr [rbp + 1488], 1
@@ -495,6 +505,7 @@ main_α_body:
  .quad .Lx37_0_s
 .Lx37_0_s:
  .string ""
+#         output = 'FAIL 1114/002: item == bracket read' :(end)
 # IR_LIT_STRING
  xchain0_n36_α:
  mov qword ptr [rbp + 944], 1
@@ -563,6 +574,7 @@ main_α_body:
  mov qword ptr [rbp + 928], rax
  mov qword ptr [rbp + 936], rdx
  jmp main_γ
+#         output = 'FAIL 1114/003: bracket assign, item read' :(end)
 # IR_LIT_STRING
  xchain0_n40_α:
  mov qword ptr [rbp + 1360], 1
@@ -580,6 +592,7 @@ main_α_body:
  mov qword ptr [rbp + 1680], rax
  mov qword ptr [rbp + 1688], rdx
  jmp xchain0_n44_α
+#         differ(item(ama, 1,2,1,2), 1212)                   :f(e004)
 # IR_VAR
  xchain0_n42_α:
  mov rax, qword ptr [1879052320]
@@ -612,6 +625,7 @@ main_α_body:
  jmp xchain0_n48_α
 .Lx48_0:
  .quad 1
+#         differ(ama<1,2,1,2>, 1212)                   :f(e005)
 # IR_VAR
  xchain0_n46_α:
  mov rax, qword ptr [1879052320]
@@ -643,6 +657,7 @@ main_α_body:
  jmp xchain0_n53_α
 .Lx52_0:
  .quad 1
+#         ama<2,1,2,1> = 2121
 # IR_VAR
  xchain0_n50_α:
  mov rax, qword ptr [1879052320]
@@ -686,6 +701,7 @@ main_α_body:
  jmp xchain0_n59_α
 .Lx57_0:
  .quad 2
+#         differ(item(ama, 2,1,2,1), 2121)                   :f(e006)
 # IR_VAR
  xchain0_n55_α:
  mov rax, qword ptr [1879052320]
@@ -737,6 +753,7 @@ main_α_body:
  jmp xchain0_n66_α
 .Lx63_0:
  .quad 2
+#         tt = table()
  xchain0_n61_α:
 # BOX IR_CALL table(...) -> rt_call_arr [operand-marshal, FAIL->ω]
   .section .rodata
@@ -875,6 +892,7 @@ main_α_body:
  mov qword ptr [rbp + 3504], rax
  mov qword ptr [rbp + 3512], rdx
  jmp xchain0_n68_α
+#         item(tt, 'key') = 'val'
 # IR_LIT_STRING
  xchain0_n68_α:
  mov qword ptr [rbp + 3552], 1
@@ -1025,6 +1043,7 @@ main_α_body:
  mov qword ptr [rbp + 3696], rax
  mov qword ptr [rbp + 3704], rdx
  jmp xchain0_n86_α
+#         differ(item(tt, 'key'), 'val')                   :f(e007)
 # IR_VAR
  xchain0_n81_α:
  mov rax, qword ptr [1879052336]
@@ -1032,6 +1051,7 @@ main_α_body:
  mov qword ptr [rbp + 3936], rax
  mov qword ptr [rbp + 3944], rdx
  jmp xchain0_n87_α
+#         output = 'FAIL 1114/004: item 4D assign/read'  :(end)
 # IR_LIT_STRING
  xchain0_n82_α:
  mov qword ptr [rbp + 2272], 1
@@ -1124,6 +1144,7 @@ main_α_body:
  .quad .Lx92_0_s
 .Lx92_0_s:
  .string "key"
+#         output = 'PASS 1114_item (7/7)'
 # IR_LIT_STRING
  xchain0_n88_α:
  mov qword ptr [rbp + 4096], 1
@@ -1319,6 +1340,7 @@ main_α_body:
  jmp xchain0_n107_α
 .Lx107_0:
  .quad 2121
+#         output = 'FAIL 1114/006: bracket 4D assign, item read' :(end)
 # IR_LIT_STRING
  xchain0_n103_α:
  mov qword ptr [rbp + 3472], 1
@@ -1416,6 +1438,7 @@ main_α_body:
  mov qword ptr [rbp + 3456], rax
  mov qword ptr [rbp + 3464], rdx
  jmp main_γ
+#         output = 'FAIL 1114/007: item on table'        :(end)
 # IR_LIT_STRING
  xchain0_n109_α:
  mov qword ptr [rbp + 4048], 1
@@ -1426,6 +1449,7 @@ main_α_body:
  .quad .Lx114_0_s
 .Lx114_0_s:
  .string "FAIL 1114/007: item on table"
+#         output = 'FAIL 1114/005: item 4D == bracket'   :(end)
 # IR_LIT_STRING
  xchain0_n110_α:
  mov qword ptr [rbp + 2720], 1

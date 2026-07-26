@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         lgt('abc', 'xyz')          :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -87,6 +88,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+#         output = 'FAIL 914/001: lgt(abc,xyz) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -97,6 +99,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "FAIL 914/001: lgt(abc,xyz) should fail"
+#         lgt('abc', 'abc')          :f(e002)
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 336], 1
@@ -153,6 +156,7 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
+#         output = 'FAIL 914/002: lgt(abc,abc) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 416], 1
@@ -163,6 +167,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "FAIL 914/002: lgt(abc,abc) should fail"
+#         lgt('xyz', 'abc')          :s(e003)
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 512], 1
@@ -219,6 +224,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n14_α
+#         lgt('', 'abc')             :f(e004)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 688], 1
@@ -229,6 +235,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string ""
+#         output = 'FAIL 914/003: lgt(xyz,abc) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 592], 1
@@ -285,6 +292,7 @@ main_α_body:
  jmp xchain0_n18_α
  xchain0_n17_β:
  jmp xchain0_n19_α
+#         output = 'FAIL 914/004: lgt(null,abc) should fail'  :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 768], 1
@@ -295,6 +303,7 @@ main_α_body:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "FAIL 914/004: lgt(null,abc) should fail"
+#         lgt('abc', '')             :s(e005)
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [rbp + 864], 1
@@ -351,6 +360,7 @@ main_α_body:
  jmp xchain0_n23_α
  xchain0_n22_β:
  jmp xchain0_n24_α
+#         output = 'PASS 914_lgt (5/5)'
 # IR_LIT_STRING
  xchain0_n23_α:
  mov qword ptr [rbp + 992], 1
@@ -361,6 +371,7 @@ main_α_body:
  .quad .Lx24_0_s
 .Lx24_0_s:
  .string "PASS 914_lgt (5/5)"
+#         output = 'FAIL 914/005: lgt(abc,null) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n24_α:
  mov qword ptr [rbp + 944], 1

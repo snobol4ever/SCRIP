@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         T = TABLE()
  xchain0_n0_α:
 # BOX IR_CALL TABLE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
   .section .rodata
@@ -66,6 +67,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         T['name'] = 'Alice'
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -83,6 +85,7 @@ main_α_body:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "name"
+#         T['age'] = 30
 # IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [1879052288]
@@ -112,6 +115,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "age"
+#         T['lang'] = 'SNOBOL4'
 # IR_VAR
  xchain0_n7_α:
  mov rax, qword ptr [1879052288]
@@ -151,6 +155,7 @@ main_α_body:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "lang"
+#         OUTPUT = T['name']
 # IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [1879052288]
@@ -200,6 +205,7 @@ main_α_body:
  .quad .Lx17_0_s
 .Lx17_0_s:
  .string "name"
+#         OUTPUT = T['age']
 # IR_VAR
  xchain0_n16_α:
  mov rax, qword ptr [1879052288]
@@ -251,6 +257,7 @@ main_α_body:
  .quad .Lx22_0_s
 .Lx22_0_s:
  .string "age"
+#         OUTPUT = T['lang']
 # IR_VAR
  xchain0_n21_α:
  mov rax, qword ptr [1879052288]

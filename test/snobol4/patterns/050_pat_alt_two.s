@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         X = 'dog'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -65,6 +66,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         X ('cat' | 'dog') . V                                      :S(YES)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -111,6 +113,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n4_α
+#         OUTPUT = 'no match'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 352], 1
@@ -270,6 +273,7 @@ xchain0_n7_af:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n12_α
+# YES     OUTPUT = V
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052304]

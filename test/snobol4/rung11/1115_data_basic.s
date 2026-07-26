@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         data('node(val,lson,rson)')
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -76,6 +77,8 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         data('node(val,lson,rson)')
+#         a = node('x', 'y', 'z')
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 272], 1
@@ -147,6 +150,8 @@ main_α_body:
  mov qword ptr [rbp + 176], rax
  mov qword ptr [rbp + 184], rdx
  jmp xchain0_n7_α
+#         a = node('x', 'y', 'z')
+#         differ(replace(datatype(a),&lcase,&ucase), 'NODE')   :f(e001)
 # IR_VAR
  xchain0_n7_α:
  mov rax, qword ptr [1879052288]
@@ -176,6 +181,7 @@ main_α_body:
  jmp xchain0_n10_α
  xchain0_n8_β:
  jmp xchain0_n9_α
+#         differ(val(a), 'x')                   :f(e002)
 # IR_VAR
  xchain0_n9_α:
  mov rax, qword ptr [1879052288]
@@ -216,6 +222,7 @@ main_α_body:
  jmp xchain0_n14_α
  xchain0_n11_β:
  jmp xchain0_n12_α
+#         b = node()
  xchain0_n12_α:
 # BOX CALL node(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
@@ -263,6 +270,7 @@ main_α_body:
  mov qword ptr [rbp + 928], rax
  mov qword ptr [rbp + 936], rdx
  jmp xchain0_n16_α
+#         differ(rson(b))            :f(e003)
 # IR_VAR
  xchain0_n16_α:
  mov rax, qword ptr [1879052320]
@@ -351,6 +359,7 @@ main_α_body:
  jmp xchain0_n23_α
  xchain0_n19_β:
  jmp xchain0_n20_α
+#         lson(b) = a
 # IR_LIT_STRING
  xchain0_n20_α:
  mov qword ptr [rbp + 1152], 1
@@ -371,6 +380,7 @@ main_α_body:
  .quad .Lx22_0_s
 .Lx22_0_s:
  .string "NODE"
+#         output = 'FAIL 1115/002: field accessor val'   :(end)
 # IR_LIT_STRING
  xchain0_n22_α:
  mov qword ptr [rbp + 896], 1
@@ -461,6 +471,7 @@ main_α_body:
  mov qword ptr [rbp + 880], rax
  mov qword ptr [rbp + 888], rdx
  jmp main_γ
+#         output = 'FAIL 1115/003: unset field is null'  :(end)
 # IR_LIT_STRING
  xchain0_n27_α:
  mov qword ptr [rbp + 1120], 1
@@ -478,6 +489,7 @@ main_α_body:
  mov qword ptr [rbp + 1280], rax
  mov qword ptr [rbp + 1288], rdx
  jmp xchain0_n32_α
+#         differ(rson(lson(b)), 'z')                   :f(e004)
 # IR_VAR
  xchain0_n29_α:
  mov rax, qword ptr [1879052320]
@@ -485,6 +497,7 @@ main_α_body:
  mov qword ptr [rbp + 1520], rax
  mov qword ptr [rbp + 1528], rdx
  jmp xchain0_n33_α
+#         output = 'FAIL 1115/001: datatype of node'            :(end)
 # IR_LIT_STRING
  xchain0_n30_α:
  mov qword ptr [rbp + 672], 1
@@ -548,6 +561,7 @@ main_α_body:
  jmp xchain0_n37_α
  xchain0_n33_β:
  jmp xchain0_n34_α
+#         differ(value('b'), b)                   :f(e005)
 # IR_LIT_STRING
  xchain0_n34_α:
  mov qword ptr [rbp + 1744], 1
@@ -647,6 +661,7 @@ main_α_body:
  mov qword ptr [rbp + 1776], rax
  mov qword ptr [rbp + 1784], rdx
  jmp xchain0_n44_α
+#         val(a) = 'new'
 # IR_LIT_STRING
  xchain0_n42_α:
  mov qword ptr [rbp + 1856], 1
@@ -733,6 +748,7 @@ main_α_body:
  jmp xchain0_n48_α
  xchain0_n45_β:
  jmp xchain0_n49_α
+#         output = 'FAIL 1115/004: nested accessor after mutate' :(end)
 # IR_LIT_STRING
  xchain0_n46_α:
  mov qword ptr [rbp + 1600], 1
@@ -743,6 +759,7 @@ main_α_body:
  .quad .Lx49_0_s
 .Lx49_0_s:
  .string "FAIL 1115/004: nested accessor after mutate"
+#         output = 'FAIL 1115/005: value() by variable name' :(end)
 # IR_LIT_STRING
  xchain0_n47_α:
  mov qword ptr [rbp + 1824], 1
@@ -760,6 +777,7 @@ main_α_body:
  mov qword ptr [rbp + 1984], rax
  mov qword ptr [rbp + 1992], rdx
  jmp xchain0_n52_α
+#         differ(val(a), 'new')                   :f(e006)
 # IR_VAR
  xchain0_n49_α:
  mov rax, qword ptr [1879052288]
@@ -829,6 +847,7 @@ main_α_body:
  jmp xchain0_n56_α
  xchain0_n53_β:
  jmp xchain0_n54_α
+#         output = 'PASS 1115_data_basic (6/6)'
 # IR_LIT_STRING
  xchain0_n54_α:
  mov qword ptr [rbp + 2304], 1
@@ -907,6 +926,7 @@ main_α_body:
  jmp xchain0_n60_α
  xchain0_n59_β:
  jmp xchain0_n54_α
+#         output = 'FAIL 1115/006: mutate field and read back' :(end)
 # IR_LIT_STRING
  xchain0_n60_α:
  mov qword ptr [rbp + 2256], 1

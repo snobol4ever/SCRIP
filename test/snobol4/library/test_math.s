@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         &TRIM = 1
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -72,6 +73,8 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
+#         &TRIM = 1
+#         OUTPUT = max(3, 7)              ;* 7
 # IR_LIT_INTEGER
  xchain0_n3_α:
  mov qword ptr [rbp + 304], 6
@@ -128,6 +131,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "OUTPUT"
+#         OUTPUT = min(3, 7)              ;* 3
 # IR_LIT_INTEGER
  xchain0_n7_α:
  mov qword ptr [rbp + 448], 6
@@ -184,6 +188,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "OUTPUT"
+#         OUTPUT = max(3.5, 2.1)          ;* 3.5
 # IR_LIT_REAL
  xchain0_n11_α:
  mov qword ptr [rbp + 592], 7
@@ -240,6 +245,7 @@ main_α_body:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "OUTPUT"
+#         OUTPUT = min(3.5, 2.1)          ;* 2.1
 # IR_LIT_REAL
  xchain0_n15_α:
  mov qword ptr [rbp + 736], 7
@@ -296,6 +302,7 @@ main_α_body:
  .quad .Lx24_0_s
 .Lx24_0_s:
  .string "OUTPUT"
+#         OUTPUT = abs(-42)               ;* 42
 # IR_LIT_INTEGER
  xchain0_n19_α:
  mov qword ptr [rbp + 896], 6
@@ -334,6 +341,7 @@ main_α_body:
  jmp xchain0_n23_α
  xchain0_n21_β:
  jmp xchain0_n22_α
+#         OUTPUT = sign(0)                ;* 0
 # IR_LIT_INTEGER
  xchain0_n22_α:
  mov qword ptr [rbp + 992], 6
@@ -390,6 +398,7 @@ main_α_body:
  .quad .Lx32_0_s
 .Lx32_0_s:
  .string "OUTPUT"
+#         OUTPUT = sign(5)                ;* 1
 # IR_LIT_INTEGER
  xchain0_n26_α:
  mov qword ptr [rbp + 1088], 6
@@ -433,6 +442,7 @@ main_α_body:
  .quad .Lx35_0_s
 .Lx35_0_s:
  .string "OUTPUT"
+#         OUTPUT = sign(-3)               ;* -1
 # IR_LIT_INTEGER
  xchain0_n29_α:
  mov qword ptr [rbp + 1216], 6
@@ -471,6 +481,7 @@ main_α_body:
  jmp xchain0_n33_α
  xchain0_n31_β:
  jmp xchain0_n32_α
+#         OUTPUT = gcd(12, 8)             ;* 4
 # IR_LIT_INTEGER
  xchain0_n32_α:
  mov qword ptr [rbp + 1328], 6
@@ -540,6 +551,7 @@ main_α_body:
  .quad .Lx43_0_s
 .Lx43_0_s:
  .string "OUTPUT"
+#         OUTPUT = gcd(100, 75)           ;* 25
 # IR_LIT_INTEGER
  xchain0_n37_α:
  mov qword ptr [rbp + 1472], 6
@@ -596,6 +608,7 @@ main_α_body:
  .quad .Lx47_0_s
 .Lx47_0_s:
  .string "OUTPUT"
+#         OUTPUT = lcm(4, 6)              ;* 12
 # IR_LIT_INTEGER
  xchain0_n41_α:
  mov qword ptr [rbp + 1616], 6

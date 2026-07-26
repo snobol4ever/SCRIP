@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         X = 'hello'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -61,6 +62,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         X ANY('aeiou') . V                                          :S(YES)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -105,6 +107,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n4_α
+#         OUTPUT = 'no vowel'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 320], 1
@@ -215,6 +218,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n10_α
+# YES     OUTPUT = V
 # IR_VAR
  xchain0_n10_α:
  mov rax, qword ptr [1879052304]

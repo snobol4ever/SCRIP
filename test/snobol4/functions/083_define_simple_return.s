@@ -17,6 +17,7 @@ proc_double_α:
   mov qword ptr [rsp + 208], 0
   mov qword ptr [rsp + 216], rsp
 proc_double_α_body:
+# double  double = 2 * s                                             :(RETURN)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 6
@@ -172,6 +173,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('double(s)')                                         :(double_end)
+#         OUTPUT = double(5)
 # IR_LIT_INTEGER
  xchain5_n0_α:
  mov qword ptr [rbp + 272], 6
@@ -290,6 +293,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "OUTPUT"
+#         OUTPUT = double(21)
 # IR_LIT_INTEGER
  xchain5_n3_α:
  mov qword ptr [rbp + 368], 6

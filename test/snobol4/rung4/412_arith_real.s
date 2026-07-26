@@ -83,6 +83,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+#         output = 'FAIL 412/001: 2.0+3.0'              :(end)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -145,6 +146,7 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
+#         output = 'FAIL 412/002: 3.0-1.0'              :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 416], 1
@@ -207,6 +209,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n14_α
+#         output = 'FAIL 412/003: 3.0*2.0'              :(end)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 592], 1
@@ -269,6 +272,7 @@ main_α_body:
  jmp xchain0_n18_α
  xchain0_n17_β:
  jmp xchain0_n19_α
+#         output = 'FAIL 412/004: 3.0/2.0'              :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 768], 1
@@ -279,6 +283,7 @@ main_α_body:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "FAIL 412/004: 3.0/2.0"
+#         differ(3.0 ** 3, 27.0)                   :f(e005)
 # IR_LIT_REAL
  xchain0_n19_α:
  mov qword ptr [rbp + 896], 7
@@ -325,6 +330,7 @@ main_α_body:
  jmp xchain0_n25_α
 .Lx24_0:
  .quad 4628293042053316608
+#         differ(-1.0, 0.0 - 1.0)                   :f(e006)
 # IR_LIT_REAL
  xchain0_n24_α:
  mov qword ptr [rbp + 1136], 7
@@ -368,6 +374,7 @@ main_α_body:
  mov qword ptr [rbp + 1104], rax
  mov qword ptr [rbp + 1112], rdx
  jmp xchain0_n28_α
+#         output = 'FAIL 412/005: 3.0**3'               :(end)
 # IR_LIT_STRING
  xchain0_n27_α:
  mov qword ptr [rbp + 1008], 1
@@ -386,6 +393,7 @@ main_α_body:
  jmp xchain0_n31_α
 .Lx29_0:
  .quad 13830554455654793216
+#         output = 'PASS 412_arith_real (6/6)'
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [rbp + 1264], 1
@@ -441,6 +449,7 @@ main_α_body:
  mov qword ptr [rbp + 1248], rax
  mov qword ptr [rbp + 1256], rdx
  jmp main_γ
+#         output = 'FAIL 412/006: unary minus on real'   :(end)
 # IR_LIT_STRING
  xchain0_n33_α:
  mov qword ptr [rbp + 1216], 1

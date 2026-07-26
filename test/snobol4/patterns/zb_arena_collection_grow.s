@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         s = 'abcdefghij'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -63,6 +64,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         s POS(0) ARBNO(LEN(1) | LEN(1)) RPOS(0)    :S(YES)F(NO)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -109,6 +111,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n4_α
+# NO      OUTPUT = 'fail'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 496], 1
@@ -341,6 +344,7 @@ xchain0_n10_af:
  jmp xchain0_n7_α
  xchain0_n12_β:
  jmp xchain0_n10_β
+# YES     OUTPUT = 'grow ok'                          :(END)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 448], 1

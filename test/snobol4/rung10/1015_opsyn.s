@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         opsyn('@', .dupl, 2)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 176], 1
@@ -94,6 +95,8 @@ main_α_body:
  jmp xchain0_n5_α
 .Lx5_0:
  .quad 2
+#         opsyn('@', .dupl, 2)
+#         differ('a' @ 4, 'aaaa')                   :f(e001)
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 448], 1
@@ -181,6 +184,7 @@ main_α_body:
  .quad .Lx10_0_s
 .Lx10_0_s:
  .string "aaaa"
+#         opsyn('|', .size, 1)
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 672], 1
@@ -228,6 +232,7 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "size"
+#         output = 'FAIL 1015/001: @ as binary dupl'     :(end)
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 560], 1
@@ -277,6 +282,8 @@ main_α_body:
  jmp xchain0_n17_α
 .Lx18_0:
  .quad 1
+#         opsyn('|', .size, 1)
+#         differ(|'string', 6)                   :f(e002)
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 928], 1
@@ -349,6 +356,7 @@ main_α_body:
  jmp xchain0_n21_α
 .Lx22_0:
  .quad 6
+#         output = 'PASS 1015_opsyn (2/2)'
 # IR_LIT_STRING
  xchain0_n20_α:
  mov qword ptr [rbp + 1056], 1
@@ -395,6 +403,7 @@ main_α_body:
  mov qword ptr [rbp + 1040], rax
  mov qword ptr [rbp + 1048], rdx
  jmp main_γ
+#         output = 'FAIL 1015/002: | as unary size'      :(end)
 # IR_LIT_STRING
  xchain0_n23_α:
  mov qword ptr [rbp + 1008], 1

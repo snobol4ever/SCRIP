@@ -266,6 +266,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#       &TRIM    =  1
 # IR_LIT_STRING
  xchain13_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -311,6 +312,7 @@ main_α_body:
  jmp xchain13_n3_α
  xchain13_n2_β:
  jmp xchain13_n3_α
+#       NUMERALS =  '0123456789'
 # IR_LIT_STRING
  xchain13_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -330,6 +332,7 @@ main_α_body:
  mov qword ptr [rbp + 224], rax
  mov qword ptr [rbp + 232], rdx
  jmp xchain13_n5_α
+#       WORD     =  "'-" NUMERALS &UCASE &LCASE
 # IR_LIT_STRING
  xchain13_n5_α:
  mov qword ptr [rbp + 384], 1
@@ -357,6 +360,7 @@ main_α_body:
  mov qword ptr [rbp + 352], rax
  mov qword ptr [rbp + 360], rdx
  jmp xchain13_n9_α
+#       WPAT     =  BREAK(WORD) SPAN(WORD)
 # IR_VAR
  xchain13_n8_α:
  mov rax, qword ptr [1879052304]
@@ -384,6 +388,7 @@ main_α_body:
  mov qword ptr [rbp + 624], rax
  mov qword ptr [rbp + 632], rdx
  jmp xchain13_n13_α
+# NEXTL LINE     =  INPUT                            :F(DONE)
 # IR_VAR
  xchain13_n11_α:
  mov rdi, qword ptr [rip + .Lx26_0]
@@ -423,6 +428,7 @@ main_α_body:
  mov qword ptr [rbp + 672], rax
  mov qword ptr [rbp + 680], rdx
  jmp xchain13_n18_α
+# DONE  OUTPUT   =  +N ' words'
 # IR_VAR
  xchain13_n15_α:
  mov rax, qword ptr [1879052352]
@@ -450,6 +456,7 @@ main_α_body:
  mov qword ptr [rbp + 576], rax
  mov qword ptr [rbp + 584], rdx
  jmp xchain13_n21_α
+# NEXTW LINE     ?  WPAT =                           :F(NEXTL)
 # IR_VAR
  xchain13_n18_α:
  mov rax, qword ptr [1879052336]
@@ -743,6 +750,7 @@ main_α_body:
 .Lx51_1:
  mov rbp, qword ptr [rbp + 776]
  jmp xchain13_n33_α
+#       N        =  N + 1                            :(NEXTW)
 # IR_VAR
  xchain13_n33_α:
  mov rax, qword ptr [1879052352]

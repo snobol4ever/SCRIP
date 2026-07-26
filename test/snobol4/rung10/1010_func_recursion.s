@@ -50,6 +50,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         define('fact(n)')                              :(fact_end)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -82,6 +83,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         ne(fact(5), 120)           :f(e001)
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [rbp + 720], 6
@@ -120,6 +122,7 @@ main_α_body:
  jmp xchain0_n6_α
 .Lx5_0:
  .quad 120
+#         differ(opsyn(.facto, 'fact'))                   :f(e002)
 # IR_LIT_STRING
  xchain0_n5_α:
  mov qword ptr [rbp + 992], 1
@@ -179,6 +182,7 @@ main_α_body:
  jmp xchain0_n9_α
  xchain0_n7_β:
  jmp xchain0_n10_α
+#         output = 'FAIL 1010/001: fact(5)=120'          :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 800], 1
@@ -199,6 +203,7 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "fact"
+#         ne(facto(4), 24)           :f(e003)
 # IR_LIT_INTEGER
  xchain0_n10_α:
  mov qword ptr [rbp + 1216], 6
@@ -295,6 +300,7 @@ main_α_body:
  jmp xchain0_n18_α
 .Lx17_0:
  .quad 24
+#         define('fact2(n)', .fact2_entry)               :(fact2_end)
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 1392], 1
@@ -305,6 +311,7 @@ main_α_body:
  .quad .Lx18_0_s
 .Lx18_0_s:
  .string "fact2(n)"
+#         output = 'FAIL 1010/002: opsyn alias'          :(end)
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 1072], 1
@@ -361,6 +368,7 @@ main_α_body:
  mov qword ptr [rbp + 1056], rax
  mov qword ptr [rbp + 1064], rdx
  jmp main_γ
+#         output = 'FAIL 1010/003: facto(4)=24 via alias' :(end)
 # IR_LIT_STRING
  xchain0_n21_α:
  mov qword ptr [rbp + 1296], 1
@@ -429,6 +437,7 @@ main_α_body:
  jmp xchain0_n25_α
  xchain0_n24_β:
  jmp xchain0_n25_α
+#         ne(fact2(6), 720)          :f(e004)
 # IR_LIT_INTEGER
  xchain0_n25_α:
  mov qword ptr [rbp + 2048], 6
@@ -467,6 +476,7 @@ main_α_body:
  jmp xchain0_n29_α
 .Lx30_0:
  .quad 720
+#         output = 'PASS 1010_func_recursion (4/4)'
 # IR_LIT_STRING
  xchain0_n28_α:
  mov qword ptr [rbp + 2176], 1
@@ -513,6 +523,7 @@ main_α_body:
  mov qword ptr [rbp + 2160], rax
  mov qword ptr [rbp + 2168], rdx
  jmp main_γ
+#         output = 'FAIL 1010/004: fact2(6)=720 alt entry' :(end)
 # IR_LIT_STRING
  xchain0_n31_α:
  mov qword ptr [rbp + 2128], 1

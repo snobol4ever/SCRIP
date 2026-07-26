@@ -17,6 +17,7 @@ proc_bump_α:
   mov qword ptr [rsp + 208], 0
   mov qword ptr [rsp + 216], rsp
 proc_bump_α_body:
+# bump    bump = v + 1                                               :(RETURN)
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
@@ -176,6 +177,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('bump(v)')                                           :(bumpend)
+#         S = ''
 # IR_LIT_STRING
  xchain5_n0_α:
  mov qword ptr [rbp + 224], 1
@@ -195,6 +198,7 @@ main_α_body:
  mov qword ptr [rbp + 208], rax
  mov qword ptr [rbp + 216], rdx
  jmp xchain5_n2_α
+#         J = 0
 # IR_LIT_INTEGER
  xchain5_n2_α:
  mov qword ptr [rbp + 272], 6
@@ -212,6 +216,7 @@ main_α_body:
  mov qword ptr [rbp + 256], rax
  mov qword ptr [rbp + 264], rdx
  jmp xchain5_n4_α
+# LOOP    S = S bump(2 * J)
 # IR_VAR
  xchain5_n4_α:
  mov rax, qword ptr [1879052320]
@@ -227,6 +232,7 @@ main_α_body:
  jmp xchain5_n7_α
 .Lx11_0:
  .quad 2
+#         J = J + 1
 # IR_VAR
  xchain5_n6_α:
  mov rax, qword ptr [1879052336]
@@ -249,6 +255,7 @@ main_α_body:
  jmp xchain5_n11_α
 .Lx14_0:
  .quad 1
+#         LT(J, 5)                                                    :S(LOOP)
 # IR_VAR
  xchain5_n9_α:
  mov rax, qword ptr [1879052336]
@@ -342,6 +349,7 @@ main_α_body:
  jmp xchain5_n16_α
 .Lx18_0:
  .quad 5
+#         OUTPUT = S
 # IR_VAR
  xchain5_n13_α:
  mov rax, qword ptr [1879052320]

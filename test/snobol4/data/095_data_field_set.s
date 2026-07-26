@@ -51,6 +51,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DATA('point(x,y)')
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -83,6 +84,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         P = point(10, 20)
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [rbp + 256], 6
@@ -135,6 +137,7 @@ main_α_body:
  mov qword ptr [rbp + 176], rax
  mov qword ptr [rbp + 184], rdx
  jmp xchain0_n6_α
+#         OUTPUT = x(P)
 # IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [1879052288]
@@ -164,6 +167,7 @@ main_α_body:
  jmp xchain0_n9_α
  xchain0_n7_β:
  jmp xchain0_n8_α
+#         OUTPUT = y(P)
 # IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [1879052288]
@@ -206,6 +210,7 @@ main_α_body:
  jmp xchain0_n12_α
  xchain0_n10_β:
  jmp xchain0_n11_α
+#         x(P) = 99
 # IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [1879052288]
@@ -241,6 +246,7 @@ main_α_body:
  .quad .Lx18_0_s
 .Lx18_0_s:
  .string "x"
+#         OUTPUT = x(P)
 # IR_VAR
  xchain0_n14_α:
  mov rax, qword ptr [1879052288]

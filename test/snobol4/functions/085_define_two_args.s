@@ -17,6 +17,7 @@ proc_add_α:
   mov qword ptr [rsp + 208], 0
   mov qword ptr [rsp + 216], rsp
 proc_add_α_body:
+# add     add = a + b                                                :(RETURN)
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
@@ -181,6 +182,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('add(a,b)')                                          :(add_end)
+#         OUTPUT = add(3, 4)
 # IR_LIT_INTEGER
  xchain5_n0_α:
  mov qword ptr [rbp + 288], 6
@@ -339,6 +342,7 @@ main_α_body:
  .quad .Lx10_0_s
 .Lx10_0_s:
  .string "OUTPUT"
+#         OUTPUT = add(10, 32)
 # IR_LIT_INTEGER
  xchain5_n4_α:
  mov qword ptr [rbp + 432], 6
