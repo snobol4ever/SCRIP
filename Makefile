@@ -99,7 +99,6 @@ RT_PIC_SRCS := \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
-    $(SRC)/emitter/emit_io.c \
     $(SRC)/templates/bb_lit.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/templates/bb_conjunction.cpp \

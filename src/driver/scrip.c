@@ -843,7 +843,7 @@ int main(int argc, char **argv)
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            g_medium = BB_MEDIUM_TEXT; emit_io_set_sink(stdout);
+            g_medium = BB_MEDIUM_TEXT; emit_set_sink(stdout);
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             g_frame_active = 1;
@@ -1251,7 +1251,7 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid;
             g_flat_node_id = 0;
             g_m4_dense_nid = 1;
-            g_medium = BB_MEDIUM_TEXT; emit_io_set_sink(stdout);
+            g_medium = BB_MEDIUM_TEXT; emit_set_sink(stdout);
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             rt_proc_reset();

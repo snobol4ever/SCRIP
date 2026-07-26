@@ -171,7 +171,7 @@ void emitter_init_text(FILE *out, int mode)
     bb_emit_mode = EMIT_TEXT;
     g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_TEXT;
     bb_emit_out  = out ? out : stdout;
-    emit_io_set_sink(out ? out : stdout);
+    emit_set_sink(out ? out : stdout);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int  emitter_end(void)        { return g_is_text ? g_emit_pos : bb_emit_end(); }
@@ -776,7 +776,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     extern int  bb_slot_get(IR_t *nd);
     if (!nd) return 1;
     g_emit.node = nd;
-    emit_io_set_sink(out);
+    emit_set_sink(out);
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
@@ -2405,6 +2405,18 @@ static IR_t *g_pl_catch_nodes[PL_CATCH_MAX];
 static int   g_pl_catch_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string g_text_acc;
+static FILE * g_emit_sink = NULL;
+static long   g_emit_text_count = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_set_sink(FILE * out) { g_emit_sink = out; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long emit_text_count(void) { return g_emit_text_count; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_text_raw_n(const char * s, size_t n) {
+    if (!s || n == 0) return;
+    g_emit_text_count += (long)n;
+    if (g_emit_sink) fwrite(s, 1, n, g_emit_sink);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_text_n(const char * s, size_t n) {
     if (!s || n == 0) return;
