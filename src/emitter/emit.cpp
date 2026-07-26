@@ -996,7 +996,10 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_FAIL:            bb_emit_x86(bb_fail());                            return 0;
     case IR_CUT:             bb_emit_x86(bb_cut());                             return 0;
     case IR_UNOP:
-    case IR_UNOP_TEST: case IR_NULLTEST_VAR: bb_emit_x86(bb_unop());   return 0;
+    case IR_UNOP_TEST: case IR_NULLTEST_VAR: {
+        { extern int fc_vbinop_active(const IR_t *); g_emit.op_fc_disp = fc_vbinop_active(nd) ? 0 : -1; }   /* ZB-VAL-6b: registered value-spine unop -- its ONE operand rides the TOP cell [rsp+0..15] and that same cell becomes the result, so the box nets ZERO (no rsp instruction at all); -1 = flat */
+        { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && g_emit.op_fc_disp >= 0) g_emit.op_wpop += (int)_w; }   /* ZB-VAL-5/6b: same total-release contract as the binop -- a unop carves nothing at alpha, so wpop carries the whole live depth */
+        bb_emit_x86(bb_unop());   return 0; }
     case IR_FIELD_GET: case IR_FIELD_VAR: bb_emit_x86(bb_field_get());   return 0;
     default:
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
