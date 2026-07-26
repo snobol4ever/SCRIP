@@ -229,6 +229,11 @@ static tree_t *rk_param_default(tree_t *p, tree_t *dflt) {
     return expr_binary(TT_ASSIGN, p, dflt);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_scalar_rhs(tree_t *rhs) {
+    if (!rhs || rhs->t != TT_XREP || rhs->n < 2) return rhs;
+    tree_t *c = make_call("__rk_rep"); expr_add_child(c, rhs->c[0]); expr_add_child(c, rhs->c[1]); return c;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_named_call(const char *fname, ExprList *pos, ExprList *named) {
     tree_t *c = make_call("__rk_named_call");
     expr_add_child(c, leaf_sval(TT_QLIT, fname));
@@ -428,7 +433,7 @@ stmt_list
     ;
 stmt
     : KW_MY VAR_SCALAR '=' expr ';'
-        { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); }
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), rk_scalar_rhs($4)); }
     | KW_MY VAR_SCALAR ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), ast_node_new(TT_NUL)); }
     | KW_MY '(' scalar_list ')' '=' expr ';'
@@ -534,7 +539,7 @@ stmt
     | KW_RETURN ';'
         { $$=ast_node_new(TT_RETURN); }
     | VAR_SCALAR '=' expr ';'
-        { $$=expr_binary(TT_ASSIGN,var_node($1),$3); }
+        { $$=expr_binary(TT_ASSIGN,var_node($1),rk_scalar_rhs($3)); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
