@@ -18,7 +18,7 @@ static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sva
 typedef struct { const IR_t * nd; int scope_id; int off; int loff; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
-typedef struct { const IR_graph_t * g; const char * name; int start_n; } zls_mark_t;
+typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;   /* anchor: SN4-FLAT-PROC (s176) -- the label's statement anchor by pointer, orphan-proof emission root (see zls_group_mark_anchor) */
 typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; } zls_graph_t;
 static zls_entry_t  ze[ZLS_MAX_ENTRIES];  static int ze_n = 0;
 static zls_pfield_t zf[ZLS_MAX_FIELDS];   static int zf_n = 0;
@@ -38,8 +38,21 @@ void zls_reset(void) { ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 
 void zls_group_mark(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
     if (zm_n >= ZLS_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", ZLS_MAX_MARKS); abort(); }
-    zm[zm_n++] = (zls_mark_t){ g, name, g->n };
+    zm[zm_n++] = (zls_mark_t){ g, name, g->n, (const IR_t *)0 };
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SN4-FLAT-PROC (s176): the anchor-carrying mark.  The label's statement anchor is captured BY POINTER at lower time because the optimizer's GOTO-fold orphans anchors with no static in-edge (all[] slot
+ * nulled, node object alive, registry/edges still point through it) -- exactly the runtime-enterable chain heads.  The emitter seeds these as chain-BFS roots (codegen_flat_chain_body), giving mode 4
+ * the same enterable set mode 3 reaches lazily through the runtime label registry; γ-ordered entry keeps every fallthrough assumption intact. */
+void zls_group_mark_anchor(const IR_graph_t * g, const char * name, const IR_t * anchor) {
+    if (!g || !name) return;
+    if (zm_n >= ZLS_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", ZLS_MAX_MARKS); abort(); }
+    zm[zm_n++] = (zls_mark_t){ g, name, g->n, anchor };
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zls_g_group_count(const IR_graph_t * g) { int c = 0; for (int i = 0; i < zm_n; i++) if (zm[i].g == g) c++; return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const IR_t * zls_g_group_anchor(const IR_graph_t * g, int k) { int c = 0; for (int i = 0; i < zm_n; i++) if (zm[i].g == g) { if (c == k) return zm[i].anchor; c++; } return (const IR_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static zls_graph_t * zls_g_find(const IR_graph_t * g) { for (int i = 0; i < zg_n; i++) if (zg[i].g == g) return &zg[i]; return (zls_graph_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -379,6 +392,7 @@ void zls_build(IR_graph_t * g) {
       for (int i = 0; i < g->n && !dyn; i++) if (g->all[i] && (g->all[i]->op == IR_GOTO_DEFERRED || g->all[i]->op == IR_INDIRECT_GOTO || ((g->all[i]->op == IR_CALL || g->all[i]->op == IR_CALL_BUILTIN || g->all[i]->op == IR_CALL_BUILTIN_SNOBOL4) && IR_LIT(g->all[i]).sval && strcmp(IR_LIT(g->all[i]).sval, "CODE") == 0))) dyn = 1;
       if (dyn) { for (int i = 0; i < g->n; i++) if (g->all[i]) rb[i] = 1; wn = 0; }   /* SN4-FRAME-DIET (s174): DYNAMIC-TRANSFER graphs (indirect goto :($X), :<C>, CODE) can enter ANY label chain at runtime -- the optimizer's GOTO-fold leaves those chain heads with no static in-edge (measured: 214 reach=17/57), and m3 emits chains lazily from the label registry on first entry, so the walk under-marks exactly the enterable set.  Full grants for this class (the pre-diet layout); the diet applies to the static majority */
       for (int i = 0; i < g->n; i++) if (g->all[i] && !rb[i] && zls_is_wiring(g->all[i]->op)) { rb[i] = 1; wl[wn++] = i; }   /* SN4-FRAME-DIET (s174) ROOT REPAIR: the emitter is CHAIN-BFS -- every statement anchor (IR_GOTO) and deferred/indirect transfer is an emission root, so label-reachable chains with no static γ/ω in-edge (indirect goto :($X), CODE label transfers -- crosscheck 214/215/216/1020/1021, the drive_value_slot FATAL) must be granted too.  Wiring ops take no ticks themselves; rooting them marks their subtrees.  The registry-only NRETURN landing has no wiring in-edge and is not itself wiring, so it stays ungranted */
+      for (int mi2 = 0; mi2 < nl; mi2++) { int sp0 = mstart[mi2]; int sp1 = (mi2 + 1 < nl) ? mstart[mi2 + 1] : g->n; for (int i = sp0; i >= 0 && i < sp1 && i < g->n; i++) if (g->all[i] && !rb[i]) { rb[i] = 1; wl[wn++] = i; } }   /* SN4-FLAT-PROC (s176) LABEL-SPAN ROOTS: every LABELED statement is runtime-enterable (DEFINE stubs and rt_goto_transfer resolve entries through the label registry at CALL time), and the optimizer's GOTO-fold deletes anchors with no static in-edge -- exactly the flat function bodies -- so the wiring repair above finds nothing to root and the body span goes ungranted (the m2 drive_value_slot FATAL, IR_COERCE_STRING).  The group marks the lowerer records per label (zls_group_mark at sno_build_graph) ARE the span watermarks: root every node of every labeled span.  Statically-referenced labels keep surviving anchors, so their spans were already reached and this adds nothing; the diet loss is confined to labeled statements that are dead even at runtime */
       while (wn > 0) { IR_t * c = g->all[wl[--wn]]; if (!c) continue; for (int j = -2; j < c->n_operands; j++) { IR_t * p = (j == -2) ? c->γ.node : (j == -1) ? c->ω.node : c->operands[j]; if (!p) continue; unsigned long h = (((unsigned long)(uintptr_t)p) >> 4) & (unsigned long)(hn - 1); while (hk[h] && hk[h] != p) h = (h + 1) & (unsigned long)(hn - 1); if (hk[h] && !rb[hv[h]]) { rb[hv[h]] = 1; wl[wn++] = hv[h]; } } }
       free(hk); free(hv); free(wl); }   /* SN4-FRAME-DIET (s174): ZLS grants only REACHABLE nodes -- entry-rooted walk over γ/ω/operands.  Unreachable clusters (e.g. the synthetic NRETURN landing, lower_snobol4.c:1816) held 5 ticks = 80B in EVERY SNOBOL4 graph while the emitter BFS never emits them, so no emitted instruction can reference a skipped slot; operands are walked so a reachable consumer's producer is always granted even off the chain spine */
     int s0 = (g->nparams > 0 || g->resumable_callable) ? 1 : 0;

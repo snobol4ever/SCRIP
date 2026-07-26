@@ -1257,6 +1257,10 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_PAIR) return x86_jmp_pair(a.lbl);
         if (a.kind == XK_FR64) return x86_jmp_frame64(a.off);
         if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jmp_ext((const struct bb_label_t *)(uintptr_t)xb.u);
+        if (a.kind == XK_REG) {   /* SN4-FLAT-PROC (s176): jmp through a register — FF /4 (modrm 0xE0|r), REX.B for r8+; the floater's wire transfer.  Mirror of the call XK_REG arm below. */
+            int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xE0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
+            return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1, (char)rex)) + (char)0xFF + (char)modrm) : (std::string(" jmp ") + a.txt + "\n");
+        }
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" jmp ") + a.sym + "\n";
         return std::string();
     }

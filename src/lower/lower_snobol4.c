@@ -1793,7 +1793,8 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label) {
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, failnd);
     IR_LIT(gd).sval = lp_strdup(entry_label);
-    g->entry = gd;
+    IR_t * ad = lc_build(g, IR_SAVE_RESTORE, gd, failnd); IR_LIT(ad).ival = 3;   /* SN4-FLAT-PROC (s176) WIRE-ADOPT: copy the prologue-saved γ/ω wires + blob-entry rsp + caller rbp into the open pcall record BEFORE transferring into the body, so the program-wide RETURN/FRETURN floaters can restore machine state and jmp home from ANY depth — the body's exits no longer pass through this stub's exitnd at all */
+    g->entry = ad;
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1811,16 +1812,28 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (lbl && lbl[0]) bb_label_registry_add(lp_strdup(lbl), anchor[i]);
     }
     bb_label_registry_add(lp_strdup("END"), exitnd);
-    if (!bb_label_landing("RETURN"))  bb_label_registry_add(lp_strdup("RETURN"),  exitnd);
-    if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), failnd);
-    if (!bb_label_landing("NRETURN")) { IR_t * nrl = lc_build(g, IR_LIT_STRING, NULL, failnd); IR_LIT(nrl).sval = (char *) ""; IR_t * nnd = lc_build(g, IR_CALL, exitnd, failnd); IR_LIT(nnd).sval = (char *) "SNO$NRET"; lc_γ_to(nrl, nnd); ir_operand_push(nnd, nrl); bb_label_registry_add(lp_strdup("NRETURN"), nrl); }
+    /* SN4-FLAT-PROC (s176): in the ONE flat graph (and in EVAL/CODE fragment graphs) the reserved return labels are program-wide FLOATER BBs — manual Ch.8: RETURN yields the fname variable's value,
+     * FRETURN signals failure, both restore the pushdown-saved formals/locals/fname; the floaters merely re-route control (peek the open activation's wires, restore rsp/rbp, jmp the γ/ω wire) and the
+     * existing epilogue leaves on those wires perform the pop+restore+result protocol verbatim.  ANY goto — direct or $-computed — reaches them through this registry for free.  Level-0 transfer is a
+     * runtime error inside rt_flat_ret_snap.  Def-body graphs (result_name != NULL) stay self-contained on their own exitnd/failnd exactly as before: their bodies are not statements of this graph. */
+    if (!result_name) {
+        IR_t * rf = lc_build(g, IR_SAVE_RESTORE, exitnd, failnd); IR_LIT(rf).ival = 1;
+        IR_t * ff = lc_build(g, IR_SAVE_RESTORE, exitnd, failnd); IR_LIT(ff).ival = 2;
+        if (!bb_label_landing("RETURN"))  bb_label_registry_add(lp_strdup("RETURN"),  rf);
+        if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), ff);
+        if (!bb_label_landing("NRETURN")) { IR_t * nrl = lc_build(g, IR_LIT_STRING, NULL, ff); IR_LIT(nrl).sval = (char *) ""; IR_t * nnd = lc_build(g, IR_CALL, rf, ff); IR_LIT(nnd).sval = (char *) "SNO$NRET"; lc_γ_to(nrl, nnd); ir_operand_push(nnd, nrl); bb_label_registry_add(lp_strdup("NRETURN"), nrl); }
+    } else {
+        if (!bb_label_landing("RETURN"))  bb_label_registry_add(lp_strdup("RETURN"),  exitnd);
+        if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), failnd);
+        if (!bb_label_landing("NRETURN")) { IR_t * nrl = lc_build(g, IR_LIT_STRING, NULL, failnd); IR_LIT(nrl).sval = (char *) ""; IR_t * nnd = lc_build(g, IR_CALL, exitnd, failnd); IR_LIT(nnd).sval = (char *) "SNO$NRET"; lc_γ_to(nrl, nnd); ir_operand_push(nnd, nrl); bb_label_registry_add(lp_strdup("NRETURN"), nrl); }
+    }
     g->entry = (nst > 0) ? anchor[entry_idx] : exitnd;
     int _pro_open = 0, _pro_close = 0;   /* PS-3 (s152) prologue corridor: open at entry_idx, closed AFTER the first goto-bearing statement (its own assignment still executes first, so it records) */
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i];
         if (i == entry_idx) _pro_open = 1;
         if (_pro_close) _pro_open = 0;
-        { extern void zls_group_mark(const IR_graph_t *, const char *); const char * mlbl = sfind_str(s, ":lbl"); if (mlbl && mlbl[0]) zls_group_mark(g, lp_strdup(mlbl)); }
+        { extern void zls_group_mark_anchor(const IR_graph_t *, const char *, const IR_t *); const char * mlbl = sfind_str(s, ":lbl"); if (mlbl && mlbl[0]) zls_group_mark_anchor(g, lp_strdup(mlbl), anchor[i]); }   /* SN4-FLAT-PROC (s176): carry the anchor pointer so the mode-4 emitter can seed runtime-enterable chains (orphan-proof; see zeta_storage.c) */
         IR_t * next = (i + 1 < nst) ? anchor[i + 1] : exitnd;
         if (sfind(s, ":end")) { lc_γ_to(anchor[i], exitnd); continue; }
         const char * goU = sgoto(s, TT_GOTO_U);
@@ -2154,28 +2167,6 @@ void sno_pat_thunks_build(int p0) {
     g_sno_in_patproc = sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_lbl_index(const tree_t ** st, int nst, const char * nm) { if (!nm || !nm[0] || nm[0] == '$') return -1; if (!strcmp(nm, "RETURN") || !strcmp(nm, "FRETURN") || !strcmp(nm, "END") || !strcmp(nm, "NRETURN")) return -1; for (int i = 0; i < nst; i++) { const char * l = sfind_str(st[i], ":lbl"); if (l && !strcmp(l, nm)) return i; } return -1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*--- SN4 kill-the-O(n^2) small-per-DEFINE-graph body extraction: the classic entry-in-main DEFINE idiom names an ENTRY label in the flat main statement list; its body is the statements REACHABLE from that entry by fall-through plus local S/F/U label gotos (RETURN/FRETURN/END/NRETURN and computed/$-indirect gotos are terminals — they leave the function or resolve at runtime).  BFS the reachable set into inbody[]; the caller builds a graph of ONLY those statements (own exitnd => correct RETURN, own emission => no re-emission collision, O(body) not O(main) => the mark/entry/scope tables scale linearly).  A goto to a label OUTSIDE the body is absent from the sub-graph's reset label registry, so sno_goto_target falls back to IR_GOTO_DEFERRED/rt_goto_transfer automatically — main-label escapes resolve at runtime for free.  Fall-through is taken unless the statement transfers unconditionally OR both its success and failure edges are covered by explicit gotos.  Returns the reachable-statement count. ---*/
-static int sno_reach_body(const tree_t ** st, int nst, int eidx, char * inbody) {
-    for (int i = 0; i < nst; i++) inbody[i] = 0;
-    int * stk = (int *) malloc((size_t) (nst > 0 ? nst : 1) * sizeof(int)); int sp = 0; int cnt = 0;
-    if (eidx >= 0 && eidx < nst) { inbody[eidx] = 1; cnt = 1; stk[sp++] = eidx; }
-    while (sp > 0) {
-        const tree_t * s = st[stk[--sp]]; int i = 0; for (int k = 0; k < nst; k++) if (st[k] == s) { i = k; break; }
-        if (sfind(s, ":end")) continue;
-        const char * goU = sgoto(s, TT_GOTO_U); const char * goS = sgoto(s, TT_GOTO_S); const char * goF = sgoto(s, TT_GOTO_F);
-        const tree_t * exU = goU ? NULL : sgoto_expr(s, TT_GOTO_U); const tree_t * exS = goS ? NULL : sgoto_expr(s, TT_GOTO_S); const tree_t * exF = goF ? NULL : sgoto_expr(s, TT_GOTO_F);
-        int tU = sno_lbl_index(st, nst, goU); if (tU >= 0 && !inbody[tU]) { inbody[tU] = 1; cnt++; stk[sp++] = tU; }
-        int tS = sno_lbl_index(st, nst, goS); if (tS >= 0 && !inbody[tS]) { inbody[tS] = 1; cnt++; stk[sp++] = tS; }
-        int tF = sno_lbl_index(st, nst, goF); if (tF >= 0 && !inbody[tF]) { inbody[tF] = 1; cnt++; stk[sp++] = tF; }
-        int uncond = (goU != NULL) || (exU != NULL); int cov_s = (goS != NULL) || (exS != NULL); int cov_f = (goF != NULL) || (exF != NULL);
-        int falls = !uncond && !(cov_s && cov_f);
-        if (falls && i + 1 < nst && !inbody[i + 1]) { inbody[i + 1] = 1; cnt++; stk[sp++] = i + 1; }
-    }
-    free(stk); return cnt;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_seal_enabled = 1;   /* s137 MAIN-LOWERING GATE grant: this entry is the whole-program lowering (fragments enter via sno_lower_fragment_at, never here) — see the flag doc at its definition */
     if (!prog || prog->t != TT_PROGRAM) return NULL;
@@ -2257,8 +2248,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     /* LBL__ FIXED (O(n), shared-graph): each labelled statement becomes LBL__<name> sharing main's bb_idx and
      * using proc_entry_node to enter the already-built main graph at that label's anchor node.  Zero extra graphs,
      * zero extra ZLS marks.  rt_goto_transfer finds "LBL__<name>" via rt_proc_get_fn → rt_chain_enter.
-     * SCRIP_SN4_STUB gate removed: the DEFINE entry-stub is orthogonal and still gated separately in the DEFINE
-     * loop below; LBL__ is always produced when g_sno_uses_code (same gate as before). */
+     * SCRIP_SN4_STUB gate removed: the DEFINE entry-stub is now LAW (SN4-FLAT-PROC s176, extraction deleted);
+     * LBL__ is always produced when g_sno_uses_code (same gate as before), plus per-DEFINE-entry below. */
     /* LBL__ O(n) — share main's graph (bb_idx=pi's bb_idx); proc_entry_node points to each label's anchor
      * already in main's bb_label registry.  No sno_reach_body, no sno_build_graph, no extra ZLS marks.
      * bb_proc_entry() falls back to g->entry when proc_entry_node==NULL, so sharing is unconditional safe.
@@ -2285,6 +2276,34 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             g_stage2.proc_table[lpi].bb_idx = main_bb_idx;
         }
     }
+    /* SN4-FLAT-PROC (s176): every DEFINE entry label must be transfer-reachable at runtime — the stub's IR_GOTO_DEFERRED resolves it through rt_goto_transfer, whose arm 4 looks up "LBL__<name>".  When the
+     * program uses CODE the block above already minted LBL__ for EVERY label; otherwise mint one per unique entry label here, the same shared-graph shape (main's bb_idx, proc_entry_node = the label's
+     * already-built anchor).  This pass runs BEFORE the DEFINE loop because a def-body arm below re-lowers through sno_build_graph, which RESETS the label registry the anchors are read from. */
+    if (!g_sno_uses_code) {
+        int main_bb_idx2 = g_stage2.proc_table[pi].bb_idx;
+        for (int di = 0; di < ndefs; di++) {
+            if (def_body[di]) continue;
+            const char * el = defs[di].entry;
+            if (!el || !el[0]) continue;
+            IR_t * anchor = bb_label_landing(el);
+            if (!anchor) continue;
+            char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", el);
+            int dup = 0;
+            for (int q = 0; q < g_stage2.proc_count; q++) if (g_stage2.proc_table[q].name && !strcmp(g_stage2.proc_table[q].name, lname)) { dup = 1; break; }
+            if (dup) continue;
+            int lpi = stage2_proc_grow(&g_stage2);
+            g_stage2.proc_table[lpi].name = lp_strdup(lname);
+            g_stage2.proc_table[lpi].proc = NULL;
+            g_stage2.proc_table[lpi].entry_pc = -1;
+            g_stage2.proc_table[lpi].nparams = 0;
+            g_stage2.proc_table[lpi].lower_sc.n = 0;
+            g_stage2.proc_table[lpi].is_generator = 0;
+            g_stage2.proc_table[lpi].dyn_scope = 0;
+            g_stage2.proc_table[lpi].result_name = NULL;
+            g_stage2.proc_table[lpi].proc_entry_node = anchor;
+            g_stage2.proc_table[lpi].bb_idx = main_bb_idx2;
+        }
+    }
     for (int di = 0; di < ndefs; di++) {
         IR_graph_t * gf;
         const char * rn = defs[di].result_name ? defs[di].result_name : defs[di].fname;
@@ -2302,14 +2321,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             int eidx = -1;
             for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
             if (eidx < 0) continue; /* entry label doesn't exist anywhere: this DEFINE is dead (never callable); SPITBOL only resolves an entry at call time, not at DEFINE time, so a program that never calls it must still run (132_pat_fence_eps_recur_shallow) */
-            if (getenv("SCRIP_SN4_STUB")) { gf = sno_build_call_stub(defs[di].entry); }
-            else {
-            char * inbody = (char *) malloc((size_t) (nst > 0 ? nst : 1)); int bn = sno_reach_body(st, nst, eidx, inbody);
-            const tree_t ** bst = (const tree_t **) calloc((size_t) (bn > 0 ? bn : 1), sizeof(tree_t *)); int * bis = (int *) calloc((size_t) (bn > 0 ? bn : 1), sizeof(int)); int bk = 0; int bentry = 0;
-            for (int i = 0; i < nst; i++) if (inbody[i]) { if (i == eidx) bentry = bk; bis[bk] = is_def ? is_def[i] : 0; bst[bk++] = st[i]; }
-            gf = sno_build_graph(bst, bk, bentry, bis, rn);
-            free(inbody); free((void *) bst); free(bis);
-            }
+            gf = sno_build_call_stub(defs[di].entry);   /* SN4-FLAT-PROC (s176): the extraction regime is retired — the body statements live ONLY in the one main graph; the stub is the callable citizen (jmp-entry prologue carves a fresh MAIN-layout frame via the driver's frame floor, WIRE-ADOPT records the way home, IR_GOTO_DEFERRED transfers to the entry label at CALL time through the same registry rt_goto_transfer serves).  (void)rn: the proc record below still carries result_name for the epilogue leaves. */
         }
         int fpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[fpi].name = defs[di].fname;
