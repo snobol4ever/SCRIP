@@ -341,7 +341,7 @@ long        g_subject_dbg_len  = -1;
 typedef struct { DESCR_t slot[RT_FRAME_SLOT_MAX]; int nslots; } rt_frame_t;
 static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
-int rt_k_level = 1;
+__attribute__((visibility("hidden"))) int rt_k_level = 1;
 #define PROC_FRAME_QWORDS 512
 #define CALL_ARGS_MAX     64
 typedef struct {
@@ -971,8 +971,9 @@ typedef struct {
 extern int  rt_value_trail_mark(void);
 extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
 extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
-static rt_pcall_t *g_pcall;
-static int         g_pcall_top, g_pcall_cap;
+__attribute__((visibility("hidden"))) rt_pcall_t *g_pcall;
+__attribute__((visibility("hidden"))) int         g_pcall_top;
+static int         g_pcall_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ws_roots(void)
 {
@@ -1025,40 +1026,40 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
  * constant and the shim below is deleted.  Strict leaf: calls no BB.  ⚠ The c.lex arm is PORT-AGNOSTIC today —
  * it reads [fb+0] whether the callee reached RETURN or FRETURN, ignoring the port entirely.  Preserved VERBATIM
  * here (this refactor is watermark-neutral by construction); it needs a ruling before the transfer converts. */
-static DESCR_t rt_proc_epilogue_body(rt_pcall_t c, int failed, DESCR_t frame0)
+__attribute__((visibility("hidden"))) DESCR_t rt_proc_epilogue_body(const rt_pcall_t *c, int failed, DESCR_t frame0)
 {
-    if (c.lex) return failed ? FAILDESCR : rt_nret_fix(frame0, c.wn);
-    Σ = c.save_Σ; Σlen = c.save_Σlen;
-    DESCR_t *rcell = rt_call_fastpath_ok() ? c.p->rcell : (DESCR_t *)0;
-    DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c.rname));
-    result = rt_nret_fix(result, c.wn);
-    rt_name_restore(c.save_base);
-    if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
+    if (c->lex) return failed ? FAILDESCR : rt_nret_fix(frame0, c->wn);
+    Σ = c->save_Σ; Σlen = c->save_Σlen;
+    DESCR_t *rcell = rt_call_fastpath_ok() ? c->p->rcell : (DESCR_t *)0;
+    DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c->rname));
+    result = rt_nret_fix(result, c->wn);
+    rt_name_restore(c->save_base);
+    if (g_monitor_bin) mon_emit_return_bin(c->p->name, result);
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* γ ENTRY — RETURN and NRETURN.  Manual Ch.8: RETURN yields a value for the caller.  NRETURN yields a NAME and
  * is a γ citizen too — lower_snobol4.c routes its SNO$NRET node to exitnd, the same γ as RETURN, the flag
  * riding in rt_g_ret_by_name.  There is no fifth port (RULES.md: FOUR PORTS = FOUR GREEK NAMES ALWAYS). */
-DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0)
+DESCR_t c_rt_proc_call_epilogue_γ(DESCR_t frame0)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
     rt_pcall_t c = g_pcall[--g_pcall_top];
     if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2 WINDOW FORM (PL-DC s108): exact dead activation [c.fb, landing), replacing the frame-size-luck band — see resolution.c */
-    return rt_proc_epilogue_body(c, 0, frame0);
+    return rt_proc_epilogue_body(&c, 0, frame0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ω ENTRY — FRETURN.  Manual Ch.8 verbatim: "Transferring to the special label FRETURN returns from a function
  * signaling failure to the caller.  No value is returned as the function result."  Arriving here IS the failure
  * signal (s61 RULING 1); no frame value is read — s62 ruling (c): a failing lexical proc returns FAILDESCR. */
-DESCR_t rt_proc_call_epilogue_ω(void)
+DESCR_t c_rt_proc_call_epilogue_ω(void)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
     rt_pcall_t c = g_pcall[--g_pcall_top];
     if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2 WINDOW FORM: same as the γ landing */
-    return rt_proc_epilogue_body(c, 1, NULVCL);
+    return rt_proc_epilogue_body(&c, 1, NULVCL);
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BP-7 SCC SLIM LEAVES — the static-save-set call convention (GOAL-SNOBOL4-BB BP-7).  The emitted static arm performs the save-set old-value saves (GVA cell → caller rsp block) and the arg installs

@@ -68,6 +68,7 @@ RT_PIC_SRCS := \
     $(RT)/rtx/rtx_misc.S \
     $(RT)/rtx/rtx_alloc.S \
     $(RT)/rtx/rtx_str.S \
+    $(RT)/rtx/rtx_call.S \
     $(RT)/rtx/rtx_init.c \
     $(RT)/rt/rt_slab.c \
     $(RT)/rt/rt_arena.c \
