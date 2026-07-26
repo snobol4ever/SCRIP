@@ -3468,6 +3468,54 @@ my @a = 1;
 say @a.join(",");
 EOF
 
+raku "oob_read_no_unwind" "$(printf 'before\n\nafter')" << 'EOF'
+my @a = (10,20,30);
+say "before";
+say @a[3];
+say "after";
+EOF
+
+raku "oob_read_assign_continues" "after" << 'EOF'
+my @a = (10,20,30);
+my $x = @a[7];
+say "after";
+EOF
+
+raku "oob_read_far_past_end" "$(printf 'A\n\nB')" << 'EOF'
+my @a = (1,2,3);
+say "A";
+say @a[99];
+say "B";
+EOF
+
+raku "oob_inrange_still_correct" "$(printf '10\n30\n25')" << 'EOF'
+my @a = (10,20,30);
+say @a[0];
+say @a[2];
+say @a[1] + 5;
+EOF
+
+raku "oob_read_in_loop_continues" "$(printf '1\n2\n3\n\n\ndone')" << 'EOF'
+my @a = (1,2,3);
+for 0..4 -> $i {
+    say @a[$i];
+}
+say "done";
+EOF
+
+raku "oob_star_end_relative_unaffected" "$(printf '30\n20')" << 'EOF'
+my @a = (10,20,30);
+say @a[*-1];
+say @a[*-2];
+EOF
+
+raku "oob_destructure_surplus_still_nil" "$(printf '3\n7\nend')" << 'EOF'
+my ($a, $b, $c) = 3, 7;
+say $a;
+say $b;
+say "end";
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
