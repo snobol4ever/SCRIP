@@ -192,6 +192,7 @@ WS       [ \t\r]
 "%."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
 "%!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
 "$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+"*@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return SLURPY_POS; }
 "@"{ALPHA}{ALNUM}*"[*]"  { char *s = strdup(yytext); s[yyleng - 3] = '\0'; raku_yylval.sval = s; return ARR_ALL_SLICE; }
 "@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }

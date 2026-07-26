@@ -1640,6 +1640,30 @@ static int pl_read_apply_opts(DESCR_t optlist, DESCR_t tval, DESCR_t *bv, char (
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
+    if (nargs <= 0 || !args) { char *e = rt_ws_alloc(1); e[0] = '\0'; return STRVAL(e); }
+    const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
+    size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
+    int nel = 0, cap = nargs * 64;
+    for (int i = 0; i < nargs; i++) {
+        char scratch[64];
+        const char *cs = to_cstring(args[i], scratch, sizeof scratch);
+        const char *seg = cs;
+        for (;;) {
+            const char *nx = strchr(seg, SOH);
+            size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+            if (!nx) break;
+            seg = nx + 1;
+        }
+    }
+    size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
+    char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+    for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
+    buf[p] = '\0';
+    return STRVAL(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!strcmp(fn, "where") && nargs == 1) {
         extern void  fh_ensure_init(void);
@@ -2839,27 +2863,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(cnt); return 1;
     }
     if (!strcmp(fn, "__rk_arr") && nargs >= 0) {
-        if (nargs == 0) { char *e = rt_ws_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
-        const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
-        size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
-        int nel = 0, cap = nargs * 64;
-        for (int i = 0; i < nargs; i++) {
-            char scratch[64];
-            const char *cs = to_cstring(args[i], scratch, sizeof scratch);
-            const char *seg = cs;
-            for (;;) {
-                const char *nx = strchr(seg, SOH);
-                size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-                if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
-                if (!nx) break;
-                seg = nx + 1;
-            }
-        }
-        size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
-        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
-        for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
-        buf[p] = '\0';
-        *out = STRVAL(buf); return 1;
+        extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
+        *out = rt_make_flat_agg(args, nargs); return 1;
     }
     if (!strcmp(fn, "__rk_named_call") && nargs >= 2) {
         extern const char *rt_proc_pname(const char *name, int k);
@@ -4693,6 +4698,7 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
     }
     return rt_call_arr(fn, args, nargs);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;

@@ -137,50 +137,51 @@ typedef struct ExprList {
     OP_NAME = 317,                 /* OP_NAME  */
     OP_REDUCE = 318,               /* OP_REDUCE  */
     ARR_ALL_SLICE = 319,           /* ARR_ALL_SLICE  */
-    KW_HANDLES = 320,              /* KW_HANDLES  */
-    WORDLIST = 321,                /* WORDLIST  */
-    OP_COLON_D = 322,              /* OP_COLON_D  */
-    OP_COLON_U = 323,              /* OP_COLON_U  */
-    YADA = 324,                    /* YADA  */
-    KW_GRAMMAR = 325,              /* KW_GRAMMAR  */
-    KW_TOKEN = 326,                /* KW_TOKEN  */
-    KW_RULE = 327,                 /* KW_RULE  */
-    KW_REGEX = 328,                /* KW_REGEX  */
-    OP_FATARROW = 329,             /* OP_FATARROW  */
-    OP_RANGE = 330,                /* OP_RANGE  */
-    OP_RANGE_EX = 331,             /* OP_RANGE_EX  */
-    OP_ARROW = 332,                /* OP_ARROW  */
-    OP_EQ = 333,                   /* OP_EQ  */
-    OP_NE = 334,                   /* OP_NE  */
-    OP_LE = 335,                   /* OP_LE  */
-    OP_GE = 336,                   /* OP_GE  */
-    OP_SEQ = 337,                  /* OP_SEQ  */
-    OP_SNE = 338,                  /* OP_SNE  */
-    OP_SLT = 339,                  /* OP_SLT  */
-    OP_SLE = 340,                  /* OP_SLE  */
-    OP_SGT = 341,                  /* OP_SGT  */
-    OP_SGE = 342,                  /* OP_SGE  */
-    OP_AND = 343,                  /* OP_AND  */
-    OP_OR = 344,                   /* OP_OR  */
-    OP_TERNARY1 = 345,             /* OP_TERNARY1  */
-    OP_TERNARY2 = 346,             /* OP_TERNARY2  */
-    OP_BIND = 347,                 /* OP_BIND  */
-    OP_DOTEQ = 348,                /* OP_DOTEQ  */
-    OP_SMATCH = 349,               /* OP_SMATCH  */
-    OP_INC = 350,                  /* OP_INC  */
-    OP_DEC = 351,                  /* OP_DEC  */
-    OP_ADD_EQ = 352,               /* OP_ADD_EQ  */
-    OP_SUB_EQ = 353,               /* OP_SUB_EQ  */
-    OP_MUL_EQ = 354,               /* OP_MUL_EQ  */
-    OP_DIV_EQ = 355,               /* OP_DIV_EQ  */
-    OP_CAT_EQ = 356,               /* OP_CAT_EQ  */
-    OP_DOR = 357,                  /* OP_DOR  */
-    OP_DIV = 358,                  /* OP_DIV  */
-    OP_DIVIS = 359,                /* OP_DIVIS  */
-    OP_REP_X = 360,                /* OP_REP_X  */
-    OP_REP_XX = 361,               /* OP_REP_XX  */
-    OP_POW = 362,                  /* OP_POW  */
-    UMINUS = 363                   /* UMINUS  */
+    SLURPY_POS = 320,              /* SLURPY_POS  */
+    KW_HANDLES = 321,              /* KW_HANDLES  */
+    WORDLIST = 322,                /* WORDLIST  */
+    OP_COLON_D = 323,              /* OP_COLON_D  */
+    OP_COLON_U = 324,              /* OP_COLON_U  */
+    YADA = 325,                    /* YADA  */
+    KW_GRAMMAR = 326,              /* KW_GRAMMAR  */
+    KW_TOKEN = 327,                /* KW_TOKEN  */
+    KW_RULE = 328,                 /* KW_RULE  */
+    KW_REGEX = 329,                /* KW_REGEX  */
+    OP_FATARROW = 330,             /* OP_FATARROW  */
+    OP_RANGE = 331,                /* OP_RANGE  */
+    OP_RANGE_EX = 332,             /* OP_RANGE_EX  */
+    OP_ARROW = 333,                /* OP_ARROW  */
+    OP_EQ = 334,                   /* OP_EQ  */
+    OP_NE = 335,                   /* OP_NE  */
+    OP_LE = 336,                   /* OP_LE  */
+    OP_GE = 337,                   /* OP_GE  */
+    OP_SEQ = 338,                  /* OP_SEQ  */
+    OP_SNE = 339,                  /* OP_SNE  */
+    OP_SLT = 340,                  /* OP_SLT  */
+    OP_SLE = 341,                  /* OP_SLE  */
+    OP_SGT = 342,                  /* OP_SGT  */
+    OP_SGE = 343,                  /* OP_SGE  */
+    OP_AND = 344,                  /* OP_AND  */
+    OP_OR = 345,                   /* OP_OR  */
+    OP_TERNARY1 = 346,             /* OP_TERNARY1  */
+    OP_TERNARY2 = 347,             /* OP_TERNARY2  */
+    OP_BIND = 348,                 /* OP_BIND  */
+    OP_DOTEQ = 349,                /* OP_DOTEQ  */
+    OP_SMATCH = 350,               /* OP_SMATCH  */
+    OP_INC = 351,                  /* OP_INC  */
+    OP_DEC = 352,                  /* OP_DEC  */
+    OP_ADD_EQ = 353,               /* OP_ADD_EQ  */
+    OP_SUB_EQ = 354,               /* OP_SUB_EQ  */
+    OP_MUL_EQ = 355,               /* OP_MUL_EQ  */
+    OP_DIV_EQ = 356,               /* OP_DIV_EQ  */
+    OP_CAT_EQ = 357,               /* OP_CAT_EQ  */
+    OP_DOR = 358,                  /* OP_DOR  */
+    OP_DIV = 359,                  /* OP_DIV  */
+    OP_DIVIS = 360,                /* OP_DIVIS  */
+    OP_REP_X = 361,                /* OP_REP_X  */
+    OP_REP_XX = 362,               /* OP_REP_XX  */
+    OP_POW = 363,                  /* OP_POW  */
+    UMINUS = 364                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -189,7 +190,7 @@ typedef struct ExprList {
 #if ! defined RAKU_YYSTYPE && ! defined RAKU_YYSTYPE_IS_DECLARED
 union RAKU_YYSTYPE
 {
-#line 339 "raku.y"
+#line 343 "raku.y"
 
     long      ival;
     double    dval;
@@ -197,7 +198,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 201 "raku.tab.h"
+#line 202 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;
