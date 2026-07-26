@@ -219,6 +219,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$write_term")) return 1;
     if (!strcmp(name, "$functor") || !strcmp(name, "$arg") || !strcmp(name, "$univ")) return 1;
     if (!strcmp(name, "$can_compare")) return 1;
+    if (!strcmp(name, "$compare")) return 1;
     if (!strcmp(name, "$term_variables") || !strcmp(name, "$subsumes_term")) return 1;
     if (!strncmp(name, "$atop_", 6) || !strncmp(name, "$tt_", 4) || !strncmp(name, "$aop_", 5)) return 1;
     if (!strcmp(name, "$term_string") || !strncmp(name, "$agg_", 5) || !strcmp(name, "$nb_setval") || !strcmp(name, "$nb_getval")) return 1;
@@ -2293,6 +2294,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int ok = rt_pl_atop_cell(op, (void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$compare") && nargs == 3) {
+        extern int rt_pl_compare_cell(void *, void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1], t2 = args[2];
+        int ok = rt_pl_compare_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
     if (!strcmp(fn, "$can_compare") && nargs == 2) {
         extern int rt_pl_can_compare_cell(void *, void *);
         DESCR_t t0 = args[0], t1 = args[1];
@@ -4217,7 +4224,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "$wot_begin", 0, "$wot_begin" }, { "$wot_end", 1, "$wot_end" }, { "$wot_abort", 0, "$wot_abort" },
         { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
         { "assertz", 1, "$dyn_assertz" }, { "assert", 1, "$dyn_assertz" }, { "asserta", 1, "$dyn_asserta" }, { "retract", 1, "$retract" },
-        { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
+        { "compare", 3, "$compare" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
         { "throw", 1, "$throw" },
         { "atom_to_term", 3, "$atom_to_term" }, { "char_code", 2, "$char_code" }, { "number_chars", 2, "$number_chars" }, { "number_codes", 2, "$number_codes" },
         { "read", 1, "$read" }, { "read", 2, "$read2" }, { "read_term", 2, "$read_term2" }, { "read_term", 3, "$read_term3" },

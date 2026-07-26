@@ -66,6 +66,17 @@ named = {unesc(m.group(1)) for m in re.finditer(r'!strcmp\(nm,\s*"((?:[^"\\]|\\.
 wild = {n for n in named if not any(n == a for a, _ in arms)}
 for m in re.finditer(r'strcmp\([a-zA-Z_>.\-]+,\s*"((?:[^"\\]|\\.)+)"\)', pbl):
     wild.add(unesc(m.group(1)))
+# FIFTH ADMISSION SITE (added 2026-07-26 s152) -- static NAME-ARRAY tables in lower_prolog.c
+# (g_pl_nl_builtins[], the det extra[] list, the relop->suffix maps). The arithmetic comparisons
+# < > =< >= =:= =\= are admitted ONLY here -- never strcmp arms, never pl_ensure_gen_builtin_pred,
+# never det-table rows -- so the four-site read reported predicates SCRIP RUNS CORRECTLY as gaps
+# (proven behaviourally: `1+1 =:= 2` succeeds in --run). Any audit reading four sites over-reports.
+# See FINDING-2026-07-26-CLAUDE-PL-THREE-AXIS-DIALECT-AUDIT-AND-FIVE-INSTRUMENT-DEFECTS.md §1.
+for m in re.finditer(r'static const char \* (?:const )?[a-zA-Z_0-9]+\s*\[\]\s*=\s*\{([^;]*?)\}\s*;', low, re.S):
+    for q in re.finditer(r'"((?:[^"\\]|\\.)+)"', m.group(1)):
+        wild.add(unesc(q.group(1)))
+for m in re.finditer(r'\{\s*"((?:[^"\\]|\\.)+)"\s*,\s*"((?:[^"\\]|\\.)+)"\s*\}', low):
+    wild.add(unesc(m.group(1)))
 # control constructs + directives are structural (parser/lowerer), not table entries
 STRUCTURAL = {(',', 2), (';', 2), ('->', 2), ('!', 0), ('true', 0), ('fail', 0), ('false', 0),
               ('halt', 0), ('halt', 1), ('dynamic', 1), ('discontiguous', 1), ('ensure_loaded', 1),
