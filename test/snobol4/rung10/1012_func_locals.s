@@ -829,10 +829,11 @@ n66_lit_string_α:
 #         lfunc = a b d                                  :(return)
 #-----------------------------------------------------------------------------------------------------------------------
 n67_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rbp + 656], rax
-                        mov              qword ptr [rbp + 664], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n69_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n68_lit_string_α:
@@ -846,10 +847,11 @@ n68_lit_string_α:
                         .string          "r"
 #-----------------------------------------------------------------------------------------------------------------------
 n69_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052320]
                         mov              rdx, qword ptr [1879052328]
-                        mov              qword ptr [rbp + 672], rax
-                        mov              qword ptr [rbp + 680], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n72_binop_α
 #-----------------------------------------------------------------------------------------------------------------------
 n70_goto_deferred_α:
@@ -893,13 +895,14 @@ n71_call_β:
                                                                                         jmp   n20_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n72_binop_α:
-                        mov              rdi, qword ptr [rbp + 656]
-                        mov              rsi, qword ptr [rbp + 664]
-                        mov              rdx, qword ptr [rbp + 672]
-                        mov              rcx, qword ptr [rbp + 680]
+                        mov              rdi, qword ptr [rsp + 16]
+                        mov              rsi, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 0]
+                        mov              rcx, qword ptr [rsp + 8]
                         call             str_concat_d@PLT
-                        mov              qword ptr [rbp + 640], rax
-                        mov              qword ptr [rbp + 648], rdx
+                        add              rsp, 16
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n74_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n73_lit_string_α:
@@ -913,10 +916,11 @@ n73_lit_string_α:
                         .string          "aabbdd"
 #-----------------------------------------------------------------------------------------------------------------------
 n74_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052336]
                         mov              rdx, qword ptr [1879052344]
-                        mov              qword ptr [rbp + 688], rax
-                        mov              qword ptr [rbp + 696], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n76_binop_α
 #-----------------------------------------------------------------------------------------------------------------------
 n75_call_α:
@@ -945,13 +949,14 @@ n75_call_β:
                                                                                         jmp   n20_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n76_binop_α:
-                        mov              rdi, qword ptr [rbp + 640]
-                        mov              rsi, qword ptr [rbp + 648]
-                        mov              rdx, qword ptr [rbp + 688]
-                        mov              rcx, qword ptr [rbp + 696]
+                        mov              rdi, qword ptr [rsp + 16]
+                        mov              rsi, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 0]
+                        mov              rcx, qword ptr [rsp + 8]
                         call             str_concat_d@PLT
-                        mov              qword ptr [rbp + 624], rax
-                        mov              qword ptr [rbp + 632], rdx
+                        add              rsp, 16
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n78_assign_α
 #=======================================================================================================================
 #         output = 'FAIL 1012/004: lfunc return value'   :(end)
@@ -968,8 +973,9 @@ n77_lit_string_α:
                         .string          "FAIL 1012/004: lfunc return value"
 #-----------------------------------------------------------------------------------------------------------------------
 n78_assign_α:
-                        mov              rax, qword ptr [rbp + 624]
-                        mov              rdx, qword ptr [rbp + 632]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rdx
                         mov              qword ptr [rbp + 608], rax
