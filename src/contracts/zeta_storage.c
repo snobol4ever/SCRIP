@@ -364,13 +364,14 @@ static void zls_slot_census(IR_graph_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_fct_finalize(IR_graph_t * g, int late);
-void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int); void fc_vbinop_register(const IR_t *); int fc_vcap(int, int, int); int is_global(const char *);
-static int fc_vtree_scan(const IR_t * nd, const IR_t ** post, int * pn, int cap, int depth) {
+void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int); void fc_vbinop_register(const IR_t *); int fc_vcap(int, int, int, int); int is_global(const char *); void fc_vwpop_register(const IR_t *, long);
+static int fc_vvar_ok(const IR_graph_t * g, const IR_t * r) { const char * vn = IR_LIT(r).sval; return vn && vn[0] != '&' && ((is_global(vn) && !graph_has_local(g, vn)) || !strcmp(vn, "write") || !strcmp(vn, "writes")); }   /* ZB-VAL-3/5: MIRRORS the IR_VAR walk routing -- bb_var_global only */
+static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, const IR_t ** post, int * pn, int cap, int depth) {
     if (!nd || depth > 24 || *pn >= cap) return 0;
-    if (nd->op == IR_LIT_INTEGER) { post[(*pn)++] = nd; return 1; }
+    if (nd->op == IR_LIT_INTEGER || (nd->op == IR_VAR && fc_vvar_ok(g, nd))) { post[(*pn)++] = nd; return 1; }
     if (nd->op == IR_BINOP && nd->n_operands == 2 && IR_LIT(nd).ival >= 0 && IR_LIT(nd).ival <= 2
-        && fc_vtree_scan(nd->operands[0], post, pn, cap, depth + 1) && fc_vtree_scan(nd->operands[1], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
-    return 0; }   /* ZB-VAL-4: post-order collect + validate -- int-lit leaves, ADD/SUB/MUL internals, depth-capped (24 x 16B = 384B max rsp excursion) */
+        && fc_vtree_scan(g, nd->operands[0], post, pn, cap, depth + 1) && fc_vtree_scan(g, nd->operands[1], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
+    return 0; }   /* ZB-VAL-4/5: post-order collect + validate -- int-lit and global-var leaves, ADD/SUB/MUL internals, depth-capped (24 x 16B = 384B max rsp excursion) */
 void zls_build(IR_graph_t * g) {
     if (!g) return;
     for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;   /* ZB-VAL-0/1: POST-OPTIMIZER value-spine scan -- lower-time pointer registration dies to node rebuild/fold; gamma-adjacency IS the fence */
@@ -378,14 +379,19 @@ void zls_build(IR_graph_t * g) {
         IR_t * r = a->operands[0];
         if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
-            && r->γ.node == a && fc_vcap(1, 1, 0)) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }   /* ZB-VAL-0/2/3 pair: scalar lit OR global-routed var -> assign, disp 0 exact -- the cell is a type-blind 16B DESCR; bb_lit_scalar and bb_var_global both write FRQ(op_off)-relative so the fc_hit rebase serves them identically; the var gate MIRRORS the IR_VAR walk routing (bb_var_global only -- '&' keywords and locals stay flat) so registration <=> the one template with hook-served exits */
-        if (r->op == IR_BINOP && r->γ.node == a) {   /* ZB-VAL-4: ARBITRARY arith tree over int-lit leaves -- post-order emission makes every binop's operands the TOP TWO cells, so the [rsp+24]/[rsp+8] + net add rsp,16 geometry is SHAPE-INVARIANT (template untouched); the registrar only proves the gamma-chain IS the post-order walk.  Var leaves DECLINE v4: a fallible producer mid-tree leaks sibling cells on its omega (the hook releases only its own 16) -- vars-in-trees is v5 with summed-pop accounting (the op_wpop precedent). */
+            && r->γ.node == a && fc_vcap(1, 1, 0, 0)) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }   /* ZB-VAL-0/2/3 pair: scalar lit OR global-routed var -> assign, disp 0 exact -- the cell is a type-blind 16B DESCR; bb_lit_scalar and bb_var_global both write FRQ(op_off)-relative so the fc_hit rebase serves them identically; the var gate MIRRORS the IR_VAR walk routing (bb_var_global only -- '&' keywords and locals stay flat) so registration <=> the one template with hook-served exits */
+        if (r->op == IR_BINOP && r->γ.node == a) {   /* ZB-VAL-4/5: ARBITRARY arith tree over int-lit and GLOBAL-VAR leaves -- post-order emission makes every binop's operands the TOP TWO cells, so the [rsp+24]/[rsp+8] + net add rsp,16 geometry is SHAPE-INVARIANT; the fc binop arm carries the FULL type structure (fast/overload/generic) because a var cell holds whatever the global holds.  FALLIBLE boxes (vars: NV DT_FAIL edge; binops: rt_num_arith DT_FAIL) get a REGISTERED TOTAL POP from the depth simulation below -- their omega must release EVERY cell live in the statement, not just their own (own 16B rides the fc hook; the remainder rides op_wpop, the BP-9 summed-pop mechanism). */
             const IR_t * post[49]; int pn = 0;
-            if (fc_vtree_scan(r, post, &pn, 49, 0) && post[pn - 1] == r) {
+            if (fc_vtree_scan(g, r, post, &pn, 49, 0) && post[pn - 1] == r) {
                 int ok = 1, L = 0, B = 0;
                 for (int i = 0; i + 1 < pn; i++) if (post[i]->γ.node != post[i + 1]) { ok = 0; break; }
-                for (int i = 0; i < pn; i++) { if (post[i]->op == IR_LIT_INTEGER) L++; else B++; }
-                if (ok && fc_vcap(L, 1, B)) { for (int i = 0; i < pn; i++) { if (post[i]->op == IR_LIT_INTEGER) fc_vlit_register(post[i]); else fc_vbinop_register(post[i]); } fc_vread_register(a, 0); } } } }   /* registration stays capacity-ATOMIC and all-or-nothing per statement: any invalid member (DIV/MOD, var, non-lit leaf, broken chain) declines the WHOLE tree to the flat path */
+                for (int i = 0; i < pn; i++) { if (post[i]->op == IR_BINOP) B++; else L++; }
+                if (ok && fc_vcap(L, 1, B, pn)) {
+                    int d = 0;
+                    for (int i = 0; i < pn; i++) { const IR_t * x = post[i];
+                        if (x->op == IR_BINOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); d -= 1; }
+                        else { fc_vlit_register(x); if (x->op == IR_VAR && d > 0) fc_vwpop_register(x, (long)d * 16); d += 1; } }
+                    fc_vread_register(a, 0); } } } }   /* the simulation: d = cells live BEFORE the node's alpha.  A leaf's own cell pops via the fc hook, so its wpop = d*16 (the cells UNDER it); a binop carves nothing at alpha, so its wpop = d*16 covers ALL live cells including its two operands.  Registration stays capacity-atomic and all-or-nothing: any invalid member (DIV/MOD, local var, '&' keyword, broken chain) declines the WHOLE tree to the flat path */
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {
@@ -755,7 +761,10 @@ int fc_vread_fp(const IR_t * nd) { for (int i = 0; i < fvr_n; i++) if (fvr[i].nd
 static const IR_t * fvb[256]; static int fvb_n = 0;
 void fc_vbinop_register(const IR_t * nd) { if (!nd || fvb_n >= 256) return; fvb[fvb_n++] = nd; }   /* ZB-VAL-1: value-spine binop -- operands arrive as two granted-lit rsp cells; template releases both + carves its RESULT in one net add rsp,16 */
 int fc_vbinop_active(const IR_t * nd) { if (!nd || nd->op != IR_BINOP) return 0; for (int i = 0; i < fvb_n; i++) if (fvb[i] == nd) return 1; return 0; }
-int fc_vcap(int nl, int nr, int nb) { return fvl_n + nl <= 256 && fvr_n + nr <= 256 && fvb_n + nb <= 256; }   /* ZB-VAL-1: registration is all-or-nothing per statement -- a dropped member of the quartet would strand a carve */
+static struct { const IR_t * nd; long w; } fvw[512]; static int fvw_n = 0;
+void fc_vwpop_register(const IR_t * nd, long w) { if (!nd || w <= 0 || fvw_n >= 512) return; fvw[fvw_n].nd = nd; fvw[fvw_n].w = w; fvw_n++; }   /* ZB-VAL-5: fallible box's EXTRA omega pop (cells under it); own cell rides the fc hook */
+long fc_vwpop(const IR_t * nd) { for (int i = 0; i < fvw_n; i++) if (fvw[i].nd == nd) return fvw[i].w; return 0; }
+int fc_vcap(int nl, int nr, int nb, int nw) { return fvl_n + nl <= 256 && fvr_n + nr <= 256 && fvb_n + nb <= 256 && fvw_n + nw <= 512; }   /* ZB-VAL-1/5: registration is all-or-nothing per statement -- a dropped member would strand a carve or under-pop an omega */
 static const IR_t * fcv[256];
 static int fcv_n = 0;
 void fc_save_register(const IR_t * nd) { if (!nd || fcv_n >= 256) return; fcv[fcv_n++] = nd; }

@@ -14,13 +14,26 @@ int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * rspq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-1: the bb_assign_global rspq precedent */
-static inline int vfcb() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }   /* ZB-VAL-1: registered value-spine binop -- registration guarantees two granted int-lit cells + ADD/SUB/MUL */
+static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-5: cell type-dword read, the bb_match_capture rspd precedent */
+static inline int vfcb() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }   /* ZB-VAL-1/5: registered value-spine binop -- operands are the TOP TWO cells (a=[rsp+16..31], b=[rsp+0..15]); leaves may be VARS so the arm carries the FULL type structure */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
     if (!PLATFORM_X86) return std::string();
     return IF(vfcb(),
            x86_alpha()
          + x86("comment", "IR_BINOP_ARITH fc")
+         + x86("mov", "eax", rspd(16))
+         + x86("cmp", "eax", (long)DT_DATA)
+         + x86("je", L(0))
+         + x86("mov", "eax", rspd(0))
+         + x86("cmp", "eax", (long)DT_DATA)
+         + x86("je", L(0))
+         + x86("mov", "eax", rspd(16))
+         + x86("cmp", "eax", (long)DT_I)
+         + x86("jne", L(2))
+         + x86("mov", "eax", rspd(0))
+         + x86("cmp", "eax", (long)DT_I)
+         + x86("jne", L(2))
          + x86("mov", "rax", rspq(24))
          + x86("mov", "rcx", rspq(8))
          + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
@@ -29,6 +42,31 @@ std::string bb_binop_arith() {
          + x86("add", "rsp", (long)16)
          + x86("mov", rspq(0), (long)DT_I)
          + x86("mov", rspq(8), "rax")
+         + x86_gamma()
+         + x86("def", L(0))
+         + x86("mov", "rdi", rspq(16))
+         + x86("mov", "rsi", rspq(24))
+         + x86("mov", "rdx", rspq(0))
+         + x86("mov", "rcx", rspq(8))
+         + x86("mov", "r8d", (long)_.op_ival)
+         + x86("lea", "r9", rspq(16))
+         + x86("call", "rt_binop_overload", (uint64_t)(uintptr_t)(void*)rt_binop_overload)
+         + x86("test", "eax", "eax")
+         + x86("je", L(2))
+         + x86("add", "rsp", (long)16)
+         + x86_gamma()
+         + x86("def", L(2))
+         + x86("mov", "rdi", rspq(16))
+         + x86("mov", "rsi", rspq(24))
+         + x86("mov", "rdx", rspq(0))
+         + x86("mov", "rcx", rspq(8))
+         + x86("mov", "r8d", (long)_.op_ival)
+         + x86("call", "rt_num_arith", (uint64_t)(uintptr_t)(void*)rt_num_arith)
+         + x86("cmp", "eax", (long)DT_FAIL)
+         + x86_omega("je")
+         + x86("add", "rsp", (long)16)
+         + x86("mov", rspq(0), "rax")
+         + x86("mov", rspq(8), "rdx")
          + x86_gamma()
          + x86_beta_trampoline())
          + IF(!vfcb() && _.op_num_real && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0,
