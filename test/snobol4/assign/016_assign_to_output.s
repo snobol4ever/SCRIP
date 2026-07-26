@@ -29,52 +29,52 @@ main_α:
 main_α_body:
 #         OUTPUT = 'alpha'
 # IR_LIT_STRING
- xchain0_n0_α:
- mov qword ptr [rbp + 112], 1
- mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rbp + 120], rax
- jmp xchain0_n1_α
+xchain0_n0_α:
+                        mov              qword ptr [rbp + 112], 1
+                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              qword ptr [rbp + 120], rax
+                        jmp              xchain0_n1_α
 .Lx1_0:
- .quad .Lx1_0_s
+                        .quad            .Lx1_0_s
 .Lx1_0_s:
- .string "alpha"
+                        .string          "alpha"
 # IR_ASSIGN global
- xchain0_n1_α:
- mov rsi, qword ptr [rbp + 112]
- mov rdx, qword ptr [rbp + 120]
- mov rdi, qword ptr [rip + .Lx2_0]
- call NV_SET_fn@PLT
- mov qword ptr [rbp + 96], rax
- mov qword ptr [rbp + 104], rdx
- jmp xchain0_n2_α
+xchain0_n1_α:
+                        mov              rsi, qword ptr [rbp + 112]
+                        mov              rdx, qword ptr [rbp + 120]
+                        mov              rdi, qword ptr [rip + .Lx2_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                        jmp              xchain0_n2_α
 .Lx2_0:
- .quad .Lx2_0_s
+                        .quad            .Lx2_0_s
 .Lx2_0_s:
- .string "OUTPUT"
+                        .string          "OUTPUT"
 #         OUTPUT = 'beta'
 # IR_LIT_STRING
- xchain0_n2_α:
- mov qword ptr [rbp + 160], 1
- mov rax, qword ptr [rip + .Lx3_0]
- mov qword ptr [rbp + 168], rax
- jmp xchain0_n3_α
+xchain0_n2_α:
+                        mov              qword ptr [rbp + 160], 1
+                        mov              rax, qword ptr [rip + .Lx3_0]
+                        mov              qword ptr [rbp + 168], rax
+                        jmp              xchain0_n3_α
 .Lx3_0:
- .quad .Lx3_0_s
+                        .quad            .Lx3_0_s
 .Lx3_0_s:
- .string "beta"
+                        .string          "beta"
 # IR_ASSIGN global
- xchain0_n3_α:
- mov rsi, qword ptr [rbp + 160]
- mov rdx, qword ptr [rbp + 168]
- mov rdi, qword ptr [rip + .Lx4_0]
- call NV_SET_fn@PLT
- mov qword ptr [rbp + 144], rax
- mov qword ptr [rbp + 152], rdx
- jmp main_γ
+xchain0_n3_α:
+                        mov              rsi, qword ptr [rbp + 160]
+                        mov              rdx, qword ptr [rbp + 168]
+                        mov              rdi, qword ptr [rip + .Lx4_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 144], rax
+                        mov              qword ptr [rbp + 152], rdx
+                        jmp              main_γ
 .Lx4_0:
- .quad .Lx4_0_s
+                        .quad            .Lx4_0_s
 .Lx4_0_s:
- .string "OUTPUT"
+                        .string          "OUTPUT"
 main_β:
 jmp main_ω
 main_γ:

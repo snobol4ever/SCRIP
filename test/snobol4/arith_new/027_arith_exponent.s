@@ -29,47 +29,47 @@ main_α:
 main_α_body:
 #         OUTPUT = 2 ** 8
 # IR_LIT_INTEGER
- xchain0_n0_α:
- mov qword ptr [rbp + 144], 6
- mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rbp + 152], rax
- jmp xchain0_n1_α
+xchain0_n0_α:
+                        mov              qword ptr [rbp + 144], 6
+                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              qword ptr [rbp + 152], rax
+                        jmp              xchain0_n1_α
 .Lx1_0:
- .quad 2
+                        .quad            2
 # IR_LIT_INTEGER
- xchain0_n1_α:
- mov qword ptr [rbp + 176], 6
- mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rbp + 184], rax
- jmp xchain0_n2_α
+xchain0_n1_α:
+                        mov              qword ptr [rbp + 176], 6
+                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              qword ptr [rbp + 184], rax
+                        jmp              xchain0_n2_α
 .Lx2_0:
- .quad 8
- xchain0_n2_α:
+                        .quad            8
+xchain0_n2_α:
 # IR_BINOP_ARITH_REAL
- mov rdi, qword ptr [rbp + 144]
- mov rsi, qword ptr [rbp + 152]
- mov rdx, qword ptr [rbp + 176]
- mov rcx, qword ptr [rbp + 184]
- mov r8d, 18
- call rt_num_arith@PLT
- cmp eax, 99
- je main_γ
- mov qword ptr [rbp + 112], rax
- mov qword ptr [rbp + 120], rdx
- jmp xchain0_n3_α
+                        mov              rdi, qword ptr [rbp + 144]
+                        mov              rsi, qword ptr [rbp + 152]
+                        mov              rdx, qword ptr [rbp + 176]
+                        mov              rcx, qword ptr [rbp + 184]
+                        mov              r8d, 18
+                        call             rt_num_arith@PLT
+                        cmp              eax, 99
+                        je               main_γ
+                        mov              qword ptr [rbp + 112], rax
+                        mov              qword ptr [rbp + 120], rdx
+                        jmp              xchain0_n3_α
 # IR_ASSIGN global
- xchain0_n3_α:
- mov rsi, qword ptr [rbp + 112]
- mov rdx, qword ptr [rbp + 120]
- mov rdi, qword ptr [rip + .Lx4_0]
- call NV_SET_fn@PLT
- mov qword ptr [rbp + 96], rax
- mov qword ptr [rbp + 104], rdx
- jmp main_γ
+xchain0_n3_α:
+                        mov              rsi, qword ptr [rbp + 112]
+                        mov              rdx, qword ptr [rbp + 120]
+                        mov              rdi, qword ptr [rip + .Lx4_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                        jmp              main_γ
 .Lx4_0:
- .quad .Lx4_0_s
+                        .quad            .Lx4_0_s
 .Lx4_0_s:
- .string "OUTPUT"
+                        .string          "OUTPUT"
 main_β:
 jmp main_ω
 main_γ:

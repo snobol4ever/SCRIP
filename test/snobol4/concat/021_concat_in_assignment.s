@@ -41,45 +41,45 @@ main_α:
   mov rbp, rsp
 main_α_body:
 # IR_LIT_STRING
- xchain0_n0_α:
- mov qword ptr [rbp + 112], 1
- mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rbp + 120], rax
- jmp xchain0_n1_α
+xchain0_n0_α:
+                        mov              qword ptr [rbp + 112], 1
+                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              qword ptr [rbp + 120], rax
+                        jmp              xchain0_n1_α
 .Lx1_0:
- .quad .Lx1_0_s
+                        .quad            .Lx1_0_s
 .Lx1_0_s:
- .string "foobar"
+                        .string          "foobar"
 # IR_ASSIGN gva
- xchain0_n1_α:
- mov rax, qword ptr [rbp + 112]
- mov rdx, qword ptr [rbp + 120]
- mov qword ptr [1879052288], rax
- mov qword ptr [1879052296], rdx
- mov qword ptr [rbp + 96], rax
- mov qword ptr [rbp + 104], rdx
- jmp xchain0_n2_α
+xchain0_n1_α:
+                        mov              rax, qword ptr [rbp + 112]
+                        mov              rdx, qword ptr [rbp + 120]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                        jmp              xchain0_n2_α
 #         OUTPUT = X
 # IR_VAR
- xchain0_n2_α:
- mov rax, qword ptr [1879052288]
- mov rdx, qword ptr [1879052296]
- mov qword ptr [rbp + 160], rax
- mov qword ptr [rbp + 168], rdx
- jmp xchain0_n3_α
+xchain0_n2_α:
+                        mov              rax, qword ptr [1879052288]
+                        mov              rdx, qword ptr [1879052296]
+                        mov              qword ptr [rbp + 160], rax
+                        mov              qword ptr [rbp + 168], rdx
+                        jmp              xchain0_n3_α
 # IR_ASSIGN global
- xchain0_n3_α:
- mov rsi, qword ptr [rbp + 160]
- mov rdx, qword ptr [rbp + 168]
- mov rdi, qword ptr [rip + .Lx4_0]
- call NV_SET_fn@PLT
- mov qword ptr [rbp + 144], rax
- mov qword ptr [rbp + 152], rdx
- jmp main_γ
+xchain0_n3_α:
+                        mov              rsi, qword ptr [rbp + 160]
+                        mov              rdx, qword ptr [rbp + 168]
+                        mov              rdi, qword ptr [rip + .Lx4_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 144], rax
+                        mov              qword ptr [rbp + 152], rdx
+                        jmp              main_γ
 .Lx4_0:
- .quad .Lx4_0_s
+                        .quad            .Lx4_0_s
 .Lx4_0_s:
- .string "OUTPUT"
+                        .string          "OUTPUT"
 main_β:
 jmp main_ω
 main_γ:

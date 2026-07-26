@@ -29,29 +29,29 @@ main_α:
 main_α_body:
 #         OUTPUT = &LCASE
 # IR_KEYWORD_SNOBOL4_read
- xchain0_n0_α:
- mov rdi, qword ptr [rip + .Lx1_0]
- call rt_keyword_read_snobol4@PLT
- mov qword ptr [rbp + 112], rax
- mov qword ptr [rbp + 120], rdx
- jmp xchain0_n1_α
+xchain0_n0_α:
+                        mov              rdi, qword ptr [rip + .Lx1_0]
+                        call             rt_keyword_read_snobol4@PLT
+                        mov              qword ptr [rbp + 112], rax
+                        mov              qword ptr [rbp + 120], rdx
+                        jmp              xchain0_n1_α
 .Lx1_0:
- .quad .Lx1_0_s
+                        .quad            .Lx1_0_s
 .Lx1_0_s:
- .string "LCASE"
+                        .string          "LCASE"
 # IR_ASSIGN global
- xchain0_n1_α:
- mov rsi, qword ptr [rbp + 112]
- mov rdx, qword ptr [rbp + 120]
- mov rdi, qword ptr [rip + .Lx2_0]
- call NV_SET_fn@PLT
- mov qword ptr [rbp + 96], rax
- mov qword ptr [rbp + 104], rdx
- jmp main_γ
+xchain0_n1_α:
+                        mov              rsi, qword ptr [rbp + 112]
+                        mov              rdx, qword ptr [rbp + 120]
+                        mov              rdi, qword ptr [rip + .Lx2_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                        jmp              main_γ
 .Lx2_0:
- .quad .Lx2_0_s
+                        .quad            .Lx2_0_s
 .Lx2_0_s:
- .string "OUTPUT"
+                        .string          "OUTPUT"
 main_β:
 jmp main_ω
 main_γ:

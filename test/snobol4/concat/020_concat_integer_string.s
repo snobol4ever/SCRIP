@@ -29,46 +29,46 @@ main_α:
 main_α_body:
 #         OUTPUT = 42 ' items'
 # IR_LIT_INTEGER
- xchain0_n0_α:
- mov qword ptr [rbp + 144], 6
- mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rbp + 152], rax
- jmp xchain0_n1_α
+xchain0_n0_α:
+                        mov              qword ptr [rbp + 144], 6
+                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              qword ptr [rbp + 152], rax
+                        jmp              xchain0_n1_α
 .Lx1_0:
- .quad 42
+                        .quad            42
 # IR_LIT_STRING
- xchain0_n1_α:
- mov qword ptr [rbp + 176], 1
- mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rbp + 184], rax
- jmp xchain0_n2_α
+xchain0_n1_α:
+                        mov              qword ptr [rbp + 176], 1
+                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              qword ptr [rbp + 184], rax
+                        jmp              xchain0_n2_α
 .Lx2_0:
- .quad .Lx2_0_s
+                        .quad            .Lx2_0_s
 .Lx2_0_s:
- .string " items"
- xchain0_n2_α:
+                        .string          " items"
+xchain0_n2_α:
 # IR_BINOP_CONCAT
- mov rdi, qword ptr [rbp + 144]
- mov rsi, qword ptr [rbp + 152]
- mov rdx, qword ptr [rbp + 176]
- mov rcx, qword ptr [rbp + 184]
- call str_concat_d@PLT
- mov qword ptr [rbp + 112], rax
- mov qword ptr [rbp + 120], rdx
- jmp xchain0_n3_α
+                        mov              rdi, qword ptr [rbp + 144]
+                        mov              rsi, qword ptr [rbp + 152]
+                        mov              rdx, qword ptr [rbp + 176]
+                        mov              rcx, qword ptr [rbp + 184]
+                        call             str_concat_d@PLT
+                        mov              qword ptr [rbp + 112], rax
+                        mov              qword ptr [rbp + 120], rdx
+                        jmp              xchain0_n3_α
 # IR_ASSIGN global
- xchain0_n3_α:
- mov rsi, qword ptr [rbp + 112]
- mov rdx, qword ptr [rbp + 120]
- mov rdi, qword ptr [rip + .Lx4_0]
- call NV_SET_fn@PLT
- mov qword ptr [rbp + 96], rax
- mov qword ptr [rbp + 104], rdx
- jmp main_γ
+xchain0_n3_α:
+                        mov              rsi, qword ptr [rbp + 112]
+                        mov              rdx, qword ptr [rbp + 120]
+                        mov              rdi, qword ptr [rip + .Lx4_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                        jmp              main_γ
 .Lx4_0:
- .quad .Lx4_0_s
+                        .quad            .Lx4_0_s
 .Lx4_0_s:
- .string "OUTPUT"
+                        .string          "OUTPUT"
 main_β:
 jmp main_ω
 main_γ:
