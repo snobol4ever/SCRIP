@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         OUTPUT = X
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052288]

@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         OUTPUT = SIZE(RPAD('hi', 6))
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 224], 1

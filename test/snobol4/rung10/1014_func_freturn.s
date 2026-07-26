@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         define('always_fail()')                        :(af_end)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -72,6 +73,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         always_fail()                                  :f(e001)
  xchain0_n2_α:
 # BOX CALL always_fail(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
@@ -89,6 +91,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+#         output = 'FAIL 1014/001: freturn should cause statement failure' :(end)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 224], 1
@@ -99,6 +102,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "FAIL 1014/001: freturn should cause statement failure"
+#         output = 'PASS 1014_func_freturn (1/1)'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 272], 1

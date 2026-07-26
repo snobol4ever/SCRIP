@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         LGT('b', 'a')                                               :S(A)F(END)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -57,6 +58,7 @@ main_α_body:
  mov qword ptr [rbp + 96], 0
  mov qword ptr [rbp + 104], 0
  jmp xchain0_n3_α
+# A       OUTPUT = 'b > a'
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 208], 1
@@ -80,6 +82,7 @@ main_α_body:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "OUTPUT"
+#         LLT('a', 'b')                                               :S(B)F(END)
 # IR_LIT_STRING
  xchain0_n5_α:
  mov qword ptr [rbp + 304], 1
@@ -110,6 +113,7 @@ main_α_body:
  mov qword ptr [rbp + 240], 0
  mov qword ptr [rbp + 248], 0
  jmp xchain0_n8_α
+# B       OUTPUT = 'a < b'
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 352], 1
@@ -133,6 +137,7 @@ main_α_body:
  .quad .Lx12_0_s
 .Lx12_0_s:
  .string "OUTPUT"
+#         LEQ('cat', 'cat')                                           :S(C)F(END)
 # IR_LIT_STRING
  xchain0_n10_α:
  mov qword ptr [rbp + 448], 1
@@ -163,6 +168,7 @@ main_α_body:
  mov qword ptr [rbp + 384], 0
  mov qword ptr [rbp + 392], 0
  jmp xchain0_n13_α
+# C       OUTPUT = 'cat = cat'
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 496], 1
@@ -186,6 +192,7 @@ main_α_body:
  .quad .Lx18_0_s
 .Lx18_0_s:
  .string "OUTPUT"
+#         LNE('cat', 'dog')                                           :S(D)F(END)
 # IR_LIT_STRING
  xchain0_n15_α:
  mov qword ptr [rbp + 592], 1
@@ -216,6 +223,7 @@ main_α_body:
  mov qword ptr [rbp + 528], 0
  mov qword ptr [rbp + 536], 0
  jmp xchain0_n18_α
+# D       OUTPUT = 'cat != dog'
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 640], 1

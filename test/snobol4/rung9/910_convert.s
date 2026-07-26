@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(convert('12', 'integer'), 12)                   :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 224], 1
@@ -95,6 +96,7 @@ main_α_body:
  jmp xchain0_n5_α
 .Lx4_0:
  .quad 12
+#         differ(convert(2.5, 'integer'), 2)                   :f(e002)
 # IR_LIT_REAL
  xchain0_n4_α:
  mov qword ptr [rbp + 496], 7
@@ -140,6 +142,7 @@ main_α_body:
  .quad .Lx7_0_s
 .Lx7_0_s:
  .string "integer"
+#         output = 'FAIL 910/001: string->integer'        :(end)
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 336], 1
@@ -194,6 +197,7 @@ main_α_body:
  jmp xchain0_n12_α
 .Lx11_0:
  .quad 2
+#         differ(convert(2, 'real'), 2.0)                   :f(e003)
 # IR_LIT_INTEGER
  xchain0_n11_α:
  mov qword ptr [rbp + 768], 6
@@ -239,6 +243,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "real"
+#         output = 'FAIL 910/002: real->integer truncation' :(end)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 608], 1
@@ -293,6 +298,7 @@ main_α_body:
  jmp xchain0_n19_α
 .Lx18_0:
  .quad 4611686018427387904
+#         differ(convert('.2', 'real'), 0.2)                   :f(e004)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 1040], 1
@@ -340,6 +346,7 @@ main_α_body:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "real"
+#         output = 'FAIL 910/003: integer->real'          :(end)
 # IR_LIT_STRING
  xchain0_n21_α:
  mov qword ptr [rbp + 880], 1
@@ -394,6 +401,7 @@ main_α_body:
  jmp xchain0_n26_α
 .Lx25_0:
  .quad 4596373779694328218
+#         output = 'PASS 910_convert (4/4)'
 # IR_LIT_STRING
  xchain0_n25_α:
  mov qword ptr [rbp + 1200], 1
@@ -440,6 +448,7 @@ main_α_body:
  mov qword ptr [rbp + 1184], rax
  mov qword ptr [rbp + 1192], rdx
  jmp main_γ
+#         output = 'FAIL 910/004: string->real'           :(end)
 # IR_LIT_STRING
  xchain0_n28_α:
  mov qword ptr [rbp + 1152], 1

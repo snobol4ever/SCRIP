@@ -17,6 +17,7 @@ proc_Push_α:
   mov qword ptr [rsp + 704], 0
   mov qword ptr [rsp + 712], rsp
 proc_Push_α_body:
+# Push     stk[0]   =  stk[0] + 1
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052432]
@@ -32,6 +33,7 @@ proc_Push_α_body:
  jmp xchain0_n3_α
 .Lx2_0:
  .quad 0
+#          Push     =  .stk[stk[0]]
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052432]
@@ -58,6 +60,7 @@ proc_Push_α_body:
  mov qword ptr [rbp + 432], rax
  mov qword ptr [rbp + 440], rdx
  jmp xchain0_n7_α
+#          $Push    =  x                             :(NRETURN)
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -319,6 +322,7 @@ proc_Pop_α:
   mov qword ptr [rsp + 592], 0
   mov qword ptr [rsp + 600], rsp
 proc_Pop_α_body:
+# Pop      Pop      =  stk[stk[0]]
 # IR_VAR
  xchain26_n0_α:
  mov rax, qword ptr [1879052432]
@@ -333,6 +337,7 @@ proc_Pop_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain26_n3_α
+#          stk[0]   =  stk[0] - 1                    :(RETURN)
 # IR_VAR
  xchain26_n2_α:
  mov rax, qword ptr [1879052432]
@@ -551,6 +556,7 @@ proc_Unary_α:
   mov qword ptr [rsp + 560], 0
   mov qword ptr [rsp + 568], rsp
 proc_Unary_α_body:
+# Unary    arg      =  Pop()
  xchain45_n0_α:
  sub rsp, 16
  mov rax, qword ptr [1879052320]
@@ -625,6 +631,7 @@ proc_Unary_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain45_n2_α
+#          op       =  Pop()
  xchain45_n2_α:
  sub rsp, 16
  mov rax, qword ptr [1879052320]
@@ -699,6 +706,7 @@ proc_Unary_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain45_n4_α
+#          Push()   =  EVAL(op arg)
 # IR_LIT_STRING
  xchain45_n4_α:
  mov qword ptr [rbp + 192], 1
@@ -808,6 +816,7 @@ proc_Unary_α_body:
  .quad .Lx56_0_s
 .Lx56_0_s:
  .string "Push"
+#          Unary    =  .dummy                        :(NRETURN)
 # IR_LIT_STRING
  xchain45_n7_α:
  mov qword ptr [rbp + 528], 1
@@ -973,6 +982,7 @@ proc_Binary_α:
   mov qword ptr [rsp + 800], 0
   mov qword ptr [rsp + 808], rsp
 proc_Binary_α_body:
+# Binary   right    =  Pop()
  xchain70_n0_α:
  sub rsp, 16
  mov rax, qword ptr [1879052320]
@@ -1047,6 +1057,7 @@ proc_Binary_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain70_n2_α
+#          op       =  Pop()
  xchain70_n2_α:
  sub rsp, 16
  mov rax, qword ptr [1879052320]
@@ -1121,6 +1132,7 @@ proc_Binary_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain70_n4_α
+#          left     =  Pop()
  xchain70_n4_α:
  sub rsp, 16
  mov rax, qword ptr [1879052320]
@@ -1195,6 +1207,7 @@ proc_Binary_α_body:
  mov qword ptr [rbp + 192], rax
  mov qword ptr [rbp + 200], rdx
  jmp xchain70_n6_α
+#          Push()   =  EVAL(left ' ' op ' ' right)
 # IR_LIT_STRING
  xchain70_n6_α:
  mov qword ptr [rbp + 240], 1
@@ -1304,6 +1317,7 @@ proc_Binary_α_body:
  .quad .Lx84_0_s
 .Lx84_0_s:
  .string "Push"
+#          Binary   =  .dummy                        :(NRETURN)
 # IR_LIT_STRING
  xchain70_n9_α:
  mov qword ptr [rbp + 768], 1
@@ -4777,6 +4791,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#          DEFINE('Push(x)')
+#          stk      =  TABLE()                       :(PushEnd)
  xchain210_n0_α:
 # BOX IR_CALL TABLE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
   .section .rodata
@@ -4803,6 +4819,10 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain210_n2_α
+#          DEFINE('Pop()')                           :(PopEnd)
+#          DEFINE('Unary()arg,op')                   :(UnaryEnd)
+#          DEFINE('Binary()op,left,right')           :(BinaryEnd)
+#          integer  =  SPAN('0123456789')
 # IR_LIT_STRING
  xchain210_n2_α:
  mov qword ptr [rbp + 2480], 1
@@ -4844,6 +4864,7 @@ main_α_body:
  mov qword ptr [rbp + 2416], rax
  mov qword ptr [rbp + 2424], rdx
  jmp xchain210_n5_α
+#          exponent =  ANY('eEdD') (ANY('+-') | epsilon) integer
 # IR_LIT_STRING
  xchain210_n5_α:
  mov qword ptr [rbp + 2576], 1
@@ -4885,6 +4906,7 @@ main_α_body:
  mov qword ptr [rbp + 2512], rax
  mov qword ptr [rbp + 2520], rdx
  jmp xchain210_n8_α
+#          real     =  integer '.' (integer | epsilon) (exponent | epsilon)
 # IR_LIT_STRING
  xchain210_n8_α:
  mov qword ptr [rbp + 2672], 1
@@ -4926,6 +4948,8 @@ main_α_body:
  mov qword ptr [rbp + 2608], rax
  mov qword ptr [rbp + 2616], rdx
  jmp xchain210_n11_α
+#          real     =  integer '.' (integer | epsilon) (exponent | epsilon)
+#          addop    =  ANY('+-') . *Push()
 # IR_LIT_STRING
  xchain210_n11_α:
  mov qword ptr [rbp + 2768], 1
@@ -4967,6 +4991,7 @@ main_α_body:
  mov qword ptr [rbp + 2704], rax
  mov qword ptr [rbp + 2712], rdx
  jmp xchain210_n14_α
+#          mulop    =  ANY('*/') . *Push()
 # IR_LIT_STRING
  xchain210_n14_α:
  mov qword ptr [rbp + 2864], 1
@@ -5008,6 +5033,7 @@ main_α_body:
  mov qword ptr [rbp + 2800], rax
  mov qword ptr [rbp + 2808], rdx
  jmp xchain210_n17_α
+#          constant =  (real | integer) . *Push()
 # IR_LIT_STRING
  xchain210_n17_α:
  mov qword ptr [rbp + 2960], 1
@@ -5049,6 +5075,8 @@ main_α_body:
  mov qword ptr [rbp + 2896], rax
  mov qword ptr [rbp + 2904], rdx
  jmp xchain210_n20_α
+#          constant =  (real | integer) . *Push()
+#          primary  =  constant | '(' *expr ')'
 # IR_LIT_STRING
  xchain210_n20_α:
  mov qword ptr [rbp + 3056], 1
@@ -5090,6 +5118,8 @@ main_α_body:
  mov qword ptr [rbp + 2992], rax
  mov qword ptr [rbp + 3000], rdx
  jmp xchain210_n23_α
+#          primary  =  constant | '(' *expr ')'
+#          factor   =  addop *factor . *Unary()
 # IR_LIT_STRING
  xchain210_n23_α:
  mov qword ptr [rbp + 3152], 1
@@ -5131,6 +5161,8 @@ main_α_body:
  mov qword ptr [rbp + 3088], rax
  mov qword ptr [rbp + 3096], rdx
  jmp xchain210_n26_α
+#          factor   =  addop *factor . *Unary()
+#          term     =  *factor mulop *term . *Binary()
 # IR_LIT_STRING
  xchain210_n26_α:
  mov qword ptr [rbp + 3248], 1
@@ -5172,6 +5204,8 @@ main_α_body:
  mov qword ptr [rbp + 3184], rax
  mov qword ptr [rbp + 3192], rdx
  jmp xchain210_n29_α
+#          term     =  *factor mulop *term . *Binary()
+#          expr     =  *term addop *expr . *Binary()
 # IR_LIT_STRING
  xchain210_n29_α:
  mov qword ptr [rbp + 3344], 1
@@ -5213,6 +5247,8 @@ main_α_body:
  mov qword ptr [rbp + 3280], rax
  mov qword ptr [rbp + 3288], rdx
  jmp xchain210_n32_α
+#          expr     =  *term addop *expr . *Binary()
+#          &TRIM    =  1
 # IR_LIT_STRING
  xchain210_n32_α:
  mov qword ptr [rbp + 3440], 1
@@ -5258,6 +5294,7 @@ main_α_body:
  jmp xchain210_n35_α
  xchain210_n34_β:
  jmp xchain210_n35_α
+# loop     line     =  INPUT                         :F(END)
 # IR_VAR
  xchain210_n35_α:
  mov rdi, qword ptr [rip + .Lx258_0]
@@ -5280,6 +5317,7 @@ main_α_body:
  mov qword ptr [rbp + 3504], rax
  mov qword ptr [rbp + 3512], rdx
  jmp xchain210_n37_α
+#          line     POS(0) expr RPOS(0)              :F(error)
 # IR_VAR
  xchain210_n37_α:
  mov rax, qword ptr [1879052624]
@@ -5322,6 +5360,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 3600]
  mov rbp, qword ptr [rbp + 3608]
  jmp xchain210_n39_α
+# error    OUTPUT   = 'Bad input, try again'         :(loop)
 # IR_LIT_STRING
  xchain210_n39_α:
  mov qword ptr [rbp + 3824], 1
@@ -5506,6 +5545,7 @@ xchain210_n40_af:
  jmp xchain210_n42_α
  xchain210_n47_β:
  jmp xchain210_n45_β
+#          OUTPUT   =  Pop()                         :(loop)
  xchain210_n48_α:
  sub rsp, 16
  mov rax, qword ptr [1879052320]

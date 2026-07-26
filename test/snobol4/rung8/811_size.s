@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(size('abc'), 3)                   :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 208], 1
@@ -80,6 +81,7 @@ main_α_body:
  jmp xchain0_n4_α
 .Lx3_0:
  .quad 3
+#         differ(size(12), 2)                   :f(e002)
 # IR_LIT_INTEGER
  xchain0_n3_α:
  mov qword ptr [rbp + 432], 6
@@ -137,6 +139,7 @@ main_α_body:
  jmp xchain0_n7_α
  xchain0_n5_β:
  jmp xchain0_n8_α
+#         output = 'FAIL 811/001: size of 3-char string'  :(end)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 288], 1
@@ -155,6 +158,7 @@ main_α_body:
  jmp xchain0_n10_α
 .Lx8_0:
  .quad 2
+#         differ(size(''), 0)                   :f(e003)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 656], 1
@@ -223,6 +227,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n11_β:
  jmp xchain0_n14_α
+#         output = 'FAIL 811/002: size of integer 12 = 2 digits' :(end)
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 512], 1
@@ -241,6 +246,7 @@ main_α_body:
  jmp xchain0_n16_α
 .Lx14_0:
  .quad 0
+#         output = 'PASS 811_size (3/3)'
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 784], 1
@@ -296,6 +302,7 @@ main_α_body:
  mov qword ptr [rbp + 768], rax
  mov qword ptr [rbp + 776], rdx
  jmp main_γ
+#         output = 'FAIL 811/003: size of null = 0'       :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 736], 1

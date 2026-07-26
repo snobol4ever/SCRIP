@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         OUTPUT = 2 ** 8
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 6

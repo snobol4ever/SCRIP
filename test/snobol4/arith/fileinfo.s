@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#          &TRIM    =  1
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -87,6 +88,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
+# NEXTL    CHARS    =  CHARS + SIZE(INPUT)                    :F(DONE)
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]
@@ -107,6 +109,7 @@ main_α_body:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "INPUT"
+# DONE     OUTPUT   =  CHARS ' characters, ' LINES ' lines read'
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -217,6 +220,7 @@ main_α_body:
  mov qword ptr [rbp + 672], rax
  mov qword ptr [rbp + 680], rdx
  jmp xchain0_n13_α
+#          LINES    =  LINES + 1                              :(NEXTL)
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052304]

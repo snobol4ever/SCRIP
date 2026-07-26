@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         a = array(3)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 6
@@ -83,6 +84,8 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n3_α
+#         a = array(3)
+#         differ(a<1>)               :f(e001)
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]
@@ -98,6 +101,7 @@ main_α_body:
  jmp xchain0_n6_α
 .Lx5_0:
  .quad 1
+#         a<2> = 4.5
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -125,6 +129,7 @@ main_α_body:
  jmp xchain0_n10_α
 .Lx8_0:
  .quad 2
+#         differ(a<2>, 4.5)                   :f(e002)
 # IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [1879052288]
@@ -162,6 +167,7 @@ main_α_body:
  jmp xchain0_n15_α
 .Lx12_0:
  .quad 2
+#         a<4>                       :f(e003)
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052288]
@@ -219,6 +225,7 @@ main_α_body:
  jmp xchain0_n21_α
 .Lx17_0:
  .quad 4
+#         a<0>                       :f(e004)
 # IR_VAR
  xchain0_n17_α:
  mov rax, qword ptr [1879052288]
@@ -226,6 +233,7 @@ main_α_body:
  mov qword ptr [rbp + 960], rax
  mov qword ptr [rbp + 968], rdx
  jmp xchain0_n22_α
+#         output = 'FAIL 1110/001: array element init null' :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 368], 1
@@ -278,6 +286,7 @@ main_α_body:
  jmp xchain0_n27_α
 .Lx23_0:
  .quad 0
+#         differ(prototype(a), '3')                   :f(e005)
 # IR_VAR
  xchain0_n23_α:
  mov rax, qword ptr [1879052288]
@@ -346,6 +355,7 @@ main_α_body:
  jmp xchain0_n33_α
  xchain0_n28_β:
  jmp xchain0_n29_α
+#         b = array('3')
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [rbp + 1408], 1
@@ -383,6 +393,7 @@ main_α_body:
  jmp xchain0_n35_α
  xchain0_n30_β:
  jmp xchain0_n12_α
+#         output = 'FAIL 1110/003: OOB high should fail' :(end)
 # IR_LIT_STRING
  xchain0_n31_α:
  mov qword ptr [rbp + 928], 1
@@ -435,6 +446,7 @@ main_α_body:
  jmp xchain0_n39_α
  xchain0_n34_β:
  jmp xchain0_n40_α
+#         output = 'FAIL 1110/002: array assign/read'    :(end)
 # IR_LIT_STRING
  xchain0_n35_α:
  mov qword ptr [rbp + 768], 1
@@ -454,6 +466,7 @@ main_α_body:
  mov qword ptr [rbp + 912], rax
  mov qword ptr [rbp + 920], rdx
  jmp main_γ
+#         output = 'FAIL 1110/004: OOB zero should fail' :(end)
 # IR_LIT_STRING
  xchain0_n37_α:
  mov qword ptr [rbp + 1088], 1
@@ -500,6 +513,7 @@ main_α_body:
  mov qword ptr [rbp + 1344], rax
  mov qword ptr [rbp + 1352], rdx
  jmp xchain0_n40_α
+#         b<2> = 'x'
 # IR_VAR
  xchain0_n40_α:
  mov rax, qword ptr [1879052320]
@@ -525,6 +539,7 @@ main_α_body:
  mov qword ptr [rbp + 1072], rax
  mov qword ptr [rbp + 1080], rdx
  jmp main_γ
+#         output = 'FAIL 1110/005: prototype(array(3))=3' :(end)
 # IR_LIT_STRING
  xchain0_n43_α:
  mov qword ptr [rbp + 1312], 1
@@ -543,6 +558,7 @@ main_α_body:
  jmp xchain0_n47_α
 .Lx45_0:
  .quad 2
+#         differ(b<2>, 'x')                   :f(e006)
 # IR_VAR
  xchain0_n45_α:
  mov rax, qword ptr [1879052320]
@@ -579,6 +595,7 @@ main_α_body:
  jmp xchain0_n51_α
 .Lx49_0:
  .quad 2
+#         differ(prototype(b), '3')                   :f(e007)
 # IR_VAR
  xchain0_n49_α:
  mov rax, qword ptr [1879052320]
@@ -630,6 +647,7 @@ main_α_body:
  jmp xchain0_n56_α
  xchain0_n52_β:
  jmp xchain0_n53_α
+#         a<1> = 3.14
 # IR_VAR
  xchain0_n53_α:
  mov rax, qword ptr [1879052288]
@@ -677,6 +695,7 @@ main_α_body:
  jmp xchain0_n61_α
 .Lx58_0:
  .quad 1
+#         differ(a<1>, 3.14)                   :f(e008)
 # IR_VAR
  xchain0_n58_α:
  mov rax, qword ptr [1879052288]
@@ -741,6 +760,7 @@ main_α_body:
  jmp xchain0_n67_α
 .Lx63_0:
  .quad 1
+#         a<3> = 'z'
 # IR_VAR
  xchain0_n63_α:
  mov rax, qword ptr [1879052288]
@@ -775,6 +795,7 @@ main_α_body:
  jmp xchain0_n70_α
  xchain0_n64_β:
  jmp xchain0_n49_α
+#         output = 'FAIL 1110/007: prototype string-dim array' :(end)
 # IR_LIT_STRING
  xchain0_n65_α:
  mov qword ptr [rbp + 2032], 1
@@ -813,6 +834,7 @@ main_α_body:
  jmp xchain0_n74_α
 .Lx69_0:
  .quad 3
+#         differ(a<3>, 'z')                   :f(e009)
 # IR_VAR
  xchain0_n69_α:
  mov rax, qword ptr [1879052288]
@@ -820,6 +842,7 @@ main_α_body:
  mov qword ptr [rbp + 2672], rax
  mov qword ptr [rbp + 2680], rdx
  jmp xchain0_n75_α
+#         output = 'FAIL 1110/006: array from string dim' :(end)
 # IR_LIT_STRING
  xchain0_n70_α:
  mov qword ptr [rbp + 1808], 1
@@ -881,6 +904,7 @@ main_α_body:
  jmp xchain0_n80_α
 .Lx76_0:
  .quad 3
+#         output = 'PASS 1110_array_1d (9/9)'
 # IR_LIT_STRING
  xchain0_n76_α:
  mov qword ptr [rbp + 2880], 1
@@ -988,6 +1012,7 @@ main_α_body:
  mov qword ptr [rbp + 2768], rax
  mov qword ptr [rbp + 2776], rdx
  jmp xchain0_n86_α
+#         output = 'FAIL 1110/008: array stores real'    :(end)
 # IR_LIT_STRING
  xchain0_n85_α:
  mov qword ptr [rbp + 2432], 1
@@ -1044,6 +1069,7 @@ main_α_body:
  jmp xchain0_n89_α
  xchain0_n88_β:
  jmp xchain0_n76_α
+#         output = 'FAIL 1110/009: array stores string'  :(end)
 # IR_LIT_STRING
  xchain0_n89_α:
  mov qword ptr [rbp + 2832], 1

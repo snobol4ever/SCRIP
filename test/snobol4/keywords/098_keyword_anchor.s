@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         &ANCHOR = 1
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -85,6 +86,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
+#         X = 'hello world'
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -104,6 +106,7 @@ main_α_body:
  mov qword ptr [rbp + 224], rax
  mov qword ptr [rbp + 232], rdx
  jmp xchain0_n5_α
+#         X 'hello'                                                   :S(YES)F(NO)
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -148,6 +151,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 320]
  mov rbp, qword ptr [rbp + 328]
  jmp xchain0_n7_α
+# NO      OUTPUT = 'wrong'
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 592], 1
@@ -231,6 +235,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 320]
  mov rbp, qword ptr [rbp + 328]
  jmp xchain0_n11_α
+# YES     OUTPUT = 'anchored match ok'
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 400], 1
@@ -254,6 +259,7 @@ main_α_body:
  .quad .Lx17_0_s
 .Lx17_0_s:
  .string "OUTPUT"
+#         X 'world'                                                   :S(YES2)F(NO2)
 # IR_VAR
  xchain0_n13_α:
  mov rax, qword ptr [1879052288]
@@ -298,6 +304,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 480]
  mov rbp, qword ptr [rbp + 488]
  jmp xchain0_n15_α
+# NO2     OUTPUT = 'anchor prevented mid-string match'
 # IR_LIT_STRING
  xchain0_n15_α:
  mov qword ptr [rbp + 640], 1
@@ -381,6 +388,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 480]
  mov rbp, qword ptr [rbp + 488]
  jmp xchain0_n19_α
+# YES2    OUTPUT = 'should not reach'
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [rbp + 544], 1

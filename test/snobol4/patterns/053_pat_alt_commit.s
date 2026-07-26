@@ -209,6 +209,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         P = ('a' | 'b' | 'c')
 # IR_LIT_STRING
  xchain9_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -250,6 +251,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain9_n3_α
+#         X = 'b'
 # IR_LIT_STRING
  xchain9_n3_α:
  mov qword ptr [rbp + 208], 1
@@ -269,6 +271,7 @@ main_α_body:
  mov qword ptr [rbp + 192], rax
  mov qword ptr [rbp + 200], rdx
  jmp xchain9_n5_α
+#         X P . V                                                     :S(YES)F(NO)
 # IR_VAR
  xchain9_n5_α:
  mov rax, qword ptr [1879052304]
@@ -311,6 +314,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 288]
  mov rbp, qword ptr [rbp + 296]
  jmp xchain9_n7_α
+# NO      OUTPUT = 'no match'
 # IR_LIT_STRING
  xchain9_n7_α:
  mov qword ptr [rbp + 512], 1
@@ -480,6 +484,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 288]
  mov rbp, qword ptr [rbp + 296]
  jmp xchain9_n13_α
+# YES     OUTPUT = V
 # IR_VAR
  xchain9_n13_α:
  mov rax, qword ptr [1879052320]

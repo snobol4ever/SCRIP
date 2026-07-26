@@ -17,6 +17,7 @@ proc_roman_α:
   mov qword ptr [rsp + 5072], 0
   mov qword ptr [rsp + 5080], rsp
 proc_roman_α_body:
+# roman   s = ''
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -36,6 +37,7 @@ proc_roman_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         v = ARRAY(13)
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [rbp + 208], 6
@@ -75,6 +77,7 @@ proc_roman_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain0_n5_α
+#         v<1> = 1000
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052336]
@@ -90,6 +93,7 @@ proc_roman_α_body:
  jmp xchain0_n8_α
 .Lx8_0:
  .quad 1
+#         v<2> = 900
 # IR_VAR
  xchain0_n7_α:
  mov rax, qword ptr [1879052336]
@@ -117,6 +121,7 @@ proc_roman_α_body:
  jmp xchain0_n12_α
 .Lx11_0:
  .quad 2
+#         v<3> = 500
 # IR_VAR
  xchain0_n10_α:
  mov rax, qword ptr [1879052336]
@@ -152,6 +157,7 @@ proc_roman_α_body:
  jmp xchain0_n17_α
 .Lx15_0:
  .quad 3
+#         v<4> = 400
 # IR_VAR
  xchain0_n14_α:
  mov rax, qword ptr [1879052336]
@@ -199,6 +205,7 @@ proc_roman_α_body:
  jmp xchain0_n22_α
 .Lx20_0:
  .quad 4
+#         v<5> = 100
 # IR_VAR
  xchain0_n19_α:
  mov rax, qword ptr [1879052336]
@@ -246,6 +253,7 @@ proc_roman_α_body:
  jmp xchain0_n27_α
 .Lx25_0:
  .quad 5
+#         v<6> = 90
 # IR_VAR
  xchain0_n24_α:
  mov rax, qword ptr [1879052336]
@@ -293,6 +301,7 @@ proc_roman_α_body:
  jmp xchain0_n32_α
 .Lx30_0:
  .quad 6
+#         v<7> = 50
 # IR_VAR
  xchain0_n29_α:
  mov rax, qword ptr [1879052336]
@@ -340,6 +349,7 @@ proc_roman_α_body:
  jmp xchain0_n37_α
 .Lx35_0:
  .quad 7
+#         v<8> = 40
 # IR_VAR
  xchain0_n34_α:
  mov rax, qword ptr [1879052336]
@@ -387,6 +397,7 @@ proc_roman_α_body:
  jmp xchain0_n42_α
 .Lx40_0:
  .quad 8
+#         v<9> = 10
 # IR_VAR
  xchain0_n39_α:
  mov rax, qword ptr [1879052336]
@@ -434,6 +445,7 @@ proc_roman_α_body:
  jmp xchain0_n47_α
 .Lx45_0:
  .quad 9
+#         v<10> = 9
 # IR_VAR
  xchain0_n44_α:
  mov rax, qword ptr [1879052336]
@@ -481,6 +493,7 @@ proc_roman_α_body:
  jmp xchain0_n52_α
 .Lx50_0:
  .quad 10
+#         v<11> = 5
 # IR_VAR
  xchain0_n49_α:
  mov rax, qword ptr [1879052336]
@@ -528,6 +541,7 @@ proc_roman_α_body:
  jmp xchain0_n57_α
 .Lx55_0:
  .quad 11
+#         v<12> = 4
 # IR_VAR
  xchain0_n54_α:
  mov rax, qword ptr [1879052336]
@@ -575,6 +589,7 @@ proc_roman_α_body:
  jmp xchain0_n62_α
 .Lx60_0:
  .quad 12
+#         v<13> = 1
 # IR_VAR
  xchain0_n59_α:
  mov rax, qword ptr [1879052336]
@@ -622,6 +637,7 @@ proc_roman_α_body:
  jmp xchain0_n67_α
 .Lx65_0:
  .quad 13
+#         r = ARRAY(13)
 # IR_LIT_INTEGER
  xchain0_n64_α:
  mov qword ptr [rbp + 2176], 6
@@ -713,6 +729,7 @@ proc_roman_α_body:
  mov qword ptr [rbp + 2112], rax
  mov qword ptr [rbp + 2120], rdx
  jmp xchain0_n72_α
+#         r<1> = 'M'
 # IR_VAR
  xchain0_n72_α:
  mov rax, qword ptr [1879052352]
@@ -740,6 +757,7 @@ proc_roman_α_body:
  jmp xchain0_n76_α
 .Lx77_0:
  .quad 1
+#         r<2> = 'CM'
 # IR_VAR
  xchain0_n75_α:
  mov rax, qword ptr [1879052352]
@@ -767,6 +785,7 @@ proc_roman_α_body:
  jmp xchain0_n80_α
 .Lx80_0:
  .quad 2
+#         r<3> = 'D'
 # IR_VAR
  xchain0_n78_α:
  mov rax, qword ptr [1879052352]
@@ -804,6 +823,7 @@ proc_roman_α_body:
  jmp xchain0_n85_α
 .Lx84_0:
  .quad 3
+#         r<4> = 'CD'
 # IR_VAR
  xchain0_n82_α:
  mov rax, qword ptr [1879052352]
@@ -853,6 +873,7 @@ proc_roman_α_body:
  jmp xchain0_n90_α
 .Lx89_0:
  .quad 4
+#         r<5> = 'C'
 # IR_VAR
  xchain0_n87_α:
  mov rax, qword ptr [1879052352]
@@ -902,6 +923,7 @@ proc_roman_α_body:
  jmp xchain0_n95_α
 .Lx94_0:
  .quad 5
+#         r<6> = 'XC'
 # IR_VAR
  xchain0_n92_α:
  mov rax, qword ptr [1879052352]
@@ -951,6 +973,7 @@ proc_roman_α_body:
  jmp xchain0_n100_α
 .Lx99_0:
  .quad 6
+#         r<7> = 'L'
 # IR_VAR
  xchain0_n97_α:
  mov rax, qword ptr [1879052352]
@@ -1000,6 +1023,7 @@ proc_roman_α_body:
  jmp xchain0_n105_α
 .Lx104_0:
  .quad 7
+#         r<8> = 'XL'
 # IR_VAR
  xchain0_n102_α:
  mov rax, qword ptr [1879052352]
@@ -1049,6 +1073,7 @@ proc_roman_α_body:
  jmp xchain0_n110_α
 .Lx109_0:
  .quad 8
+#         r<9> = 'X'
 # IR_VAR
  xchain0_n107_α:
  mov rax, qword ptr [1879052352]
@@ -1098,6 +1123,7 @@ proc_roman_α_body:
  jmp xchain0_n115_α
 .Lx114_0:
  .quad 9
+#         r<10> = 'IX'
 # IR_VAR
  xchain0_n112_α:
  mov rax, qword ptr [1879052352]
@@ -1147,6 +1173,7 @@ proc_roman_α_body:
  jmp xchain0_n120_α
 .Lx119_0:
  .quad 10
+#         r<11> = 'V'
 # IR_VAR
  xchain0_n117_α:
  mov rax, qword ptr [1879052352]
@@ -1196,6 +1223,7 @@ proc_roman_α_body:
  jmp xchain0_n125_α
 .Lx124_0:
  .quad 11
+#         r<12> = 'IV'
 # IR_VAR
  xchain0_n122_α:
  mov rax, qword ptr [1879052352]
@@ -1245,6 +1273,7 @@ proc_roman_α_body:
  jmp xchain0_n130_α
 .Lx129_0:
  .quad 12
+#         r<13> = 'I'
 # IR_VAR
  xchain0_n127_α:
  mov rax, qword ptr [1879052352]
@@ -1294,6 +1323,7 @@ proc_roman_α_body:
  jmp xchain0_n135_α
 .Lx134_0:
  .quad 13
+#         i = 1
 # IR_LIT_INTEGER
  xchain0_n132_α:
  mov qword ptr [rbp + 4096], 6
@@ -1367,6 +1397,7 @@ proc_roman_α_body:
  .quad .Lx141_0_s
 .Lx141_0_s:
  .string "I"
+# RLOOP   GT(n, 0)                                                       :F(RDONE)
 # IR_VAR
  xchain0_n139_α:
  mov rax, qword ptr [1879052304]
@@ -1394,6 +1425,7 @@ proc_roman_α_body:
  jmp xchain0_n143_α
 .Lx144_0:
  .quad 0
+# RDONE   roman = s                                                      :(RETURN)
 # IR_VAR
  xchain0_n142_α:
  mov rax, qword ptr [1879052320]
@@ -1466,6 +1498,7 @@ proc_roman_α_body:
  mov qword ptr [rbp + 4128], 0
  mov qword ptr [rbp + 4136], 0
  jmp xchain0_n147_α
+#         GE(n, v<i>)                                                    :F(RNEXT)
 # IR_VAR
  xchain0_n147_α:
  mov rax, qword ptr [1879052304]
@@ -1480,6 +1513,7 @@ proc_roman_α_body:
  mov qword ptr [rbp + 4384], rax
  mov qword ptr [rbp + 4392], rdx
  jmp xchain0_n150_α
+# RNEXT   i = i + 1                                                      :(RLOOP)
 # IR_VAR
  xchain0_n149_α:
  mov rax, qword ptr [1879052368]
@@ -1628,6 +1662,7 @@ proc_roman_α_body:
  mov qword ptr [rbp + 4288], 0
  mov qword ptr [rbp + 4296], 0
  jmp xchain0_n159_α
+#         s = s r<i>
 # IR_VAR
  xchain0_n159_α:
  mov rax, qword ptr [1879052320]
@@ -1642,6 +1677,7 @@ proc_roman_α_body:
  mov qword ptr [rbp + 4608], rax
  mov qword ptr [rbp + 4616], rdx
  jmp xchain0_n162_α
+#         n = n - v<i>                                                   :(RLOOP)
 # IR_VAR
  xchain0_n161_α:
  mov rax, qword ptr [1879052304]
@@ -1895,6 +1931,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('roman(n)s,v,r,i')                                     :(roman_end)
+#         OUTPUT = roman(1)
 # IR_LIT_INTEGER
  xchain182_n0_α:
  mov qword ptr [rbp + 5136], 6
@@ -2061,6 +2099,7 @@ main_α_body:
  .quad .Lx186_0_s
 .Lx186_0_s:
  .string "OUTPUT"
+#         OUTPUT = roman(4)
 # IR_LIT_INTEGER
  xchain182_n3_α:
  mov qword ptr [rbp + 5232], 6
@@ -2227,6 +2266,7 @@ main_α_body:
  .quad .Lx190_0_s
 .Lx190_0_s:
  .string "OUTPUT"
+#         OUTPUT = roman(9)
 # IR_LIT_INTEGER
  xchain182_n6_α:
  mov qword ptr [rbp + 5328], 6
@@ -2393,6 +2433,7 @@ main_α_body:
  .quad .Lx194_0_s
 .Lx194_0_s:
  .string "OUTPUT"
+#         OUTPUT = roman(42)
 # IR_LIT_INTEGER
  xchain182_n9_α:
  mov qword ptr [rbp + 5424], 6
@@ -2559,6 +2600,7 @@ main_α_body:
  .quad .Lx198_0_s
 .Lx198_0_s:
  .string "OUTPUT"
+#         OUTPUT = roman(1999)
 # IR_LIT_INTEGER
  xchain182_n12_α:
  mov qword ptr [rbp + 5520], 6
@@ -2725,6 +2767,7 @@ main_α_body:
  .quad .Lx202_0_s
 .Lx202_0_s:
  .string "OUTPUT"
+#         OUTPUT = roman(2024)
 # IR_LIT_INTEGER
  xchain182_n15_α:
  mov qword ptr [rbp + 5616], 6

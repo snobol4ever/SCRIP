@@ -52,6 +52,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         define('lfunc(a,b,c)d,e,f')               :(lfunc_end)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -84,6 +85,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         a = 'global_a'
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 992], 1
@@ -103,6 +105,7 @@ main_α_body:
  mov qword ptr [rbp + 976], rax
  mov qword ptr [rbp + 984], rdx
  jmp xchain0_n4_α
+#         d = 'global_d'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 1040], 1
@@ -122,6 +125,8 @@ main_α_body:
  mov qword ptr [rbp + 1024], rax
  mov qword ptr [rbp + 1032], rdx
  jmp xchain0_n6_α
+#         d = 'global_d'
+#         differ(lfunc('p', 'q', 'r'), 'aabbdd')                   :f(e004)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 1216], 1
@@ -194,6 +199,7 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "aabbdd"
+#         ident(a, 'global_a')                           :s(e005)
 # IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [1879052288]
@@ -238,6 +244,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "global_a"
+#         output = 'FAIL 1012/005: global a not clobbered' :(end)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 1536], 1
@@ -248,6 +255,7 @@ main_α_body:
  .quad .Lx15_0_s
 .Lx15_0_s:
  .string "FAIL 1012/005: global a not clobbered"
+#         output = 'FAIL 1012/004: lfunc return value'   :(end)
 # IR_LIT_STRING
  xchain0_n15_α:
  mov qword ptr [rbp + 1360], 1
@@ -303,6 +311,7 @@ main_α_body:
  mov qword ptr [rbp + 1344], rax
  mov qword ptr [rbp + 1352], rdx
  jmp main_γ
+#         ident(d, 'global_d')                           :s(e006)
 # IR_VAR
  xchain0_n19_α:
  mov rax, qword ptr [1879052336]
@@ -320,6 +329,7 @@ main_α_body:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "global_d"
+#         output = 'FAIL 1012/006: global d not clobbered' :(end)
 # IR_LIT_STRING
  xchain0_n21_α:
  mov qword ptr [rbp + 1712], 1
@@ -366,6 +376,7 @@ main_α_body:
  mov qword ptr [rbp + 1696], rax
  mov qword ptr [rbp + 1704], rdx
  jmp main_γ
+#         define('checklocal()x')                        :(cl_end)
 # IR_LIT_STRING
  xchain0_n24_α:
  mov qword ptr [rbp + 1792], 1
@@ -398,6 +409,7 @@ main_α_body:
  jmp xchain0_n26_α
  xchain0_n25_β:
  jmp xchain0_n26_α
+#         differ(checklocal())       :f(e007)
  xchain0_n26_α:
 # BOX CALL checklocal(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
@@ -437,6 +449,7 @@ main_α_body:
  jmp xchain0_n29_α
  xchain0_n27_β:
  jmp xchain0_n28_α
+#         output = 'PASS 1012_func_locals (7/7)'
 # IR_LIT_STRING
  xchain0_n28_α:
  mov qword ptr [rbp + 2144], 1
@@ -447,6 +460,7 @@ main_α_body:
  .quad .Lx29_0_s
 .Lx29_0_s:
  .string "PASS 1012_func_locals (7/7)"
+#         output = 'FAIL 1012/007: local null on fresh call' :(end)
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [rbp + 2096], 1

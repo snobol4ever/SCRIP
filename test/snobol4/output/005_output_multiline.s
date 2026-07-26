@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         OUTPUT = 'line one'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -50,6 +51,7 @@ main_α_body:
  .quad .Lx2_0_s
 .Lx2_0_s:
  .string "OUTPUT"
+#         OUTPUT = 'line two'
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 160], 1
@@ -73,6 +75,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "OUTPUT"
+#         OUTPUT = 'line three'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 208], 1

@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         $'X' = 'hello'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -82,6 +83,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "hello"
+#         OUTPUT = X
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]

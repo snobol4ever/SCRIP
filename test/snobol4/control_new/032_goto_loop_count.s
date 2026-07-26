@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         N = 0
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 6
@@ -57,6 +58,8 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+# LOOP    N = N + 1
+#         :(LOOP)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -72,6 +75,7 @@ main_α_body:
  jmp xchain0_n5_α
 .Lx4_0:
  .quad 1
+#         GT(N, 5)                                                    :S(DONE)
 # IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [1879052288]
@@ -191,6 +195,7 @@ main_α_body:
  mov qword ptr [rbp + 256], 0
  mov qword ptr [rbp + 264], 0
  jmp xchain0_n11_α
+# DONE    OUTPUT = N
 # IR_VAR
  xchain0_n11_α:
  mov rax, qword ptr [1879052288]

@@ -87,6 +87,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+#         output = 'FAIL 310/001: two-string concat'      :(end)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -153,6 +154,7 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
+#         output = 'FAIL 310/002: three-string concat'    :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 416], 1
@@ -219,6 +221,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n14_α
+#         output = 'FAIL 310/003: left-associative concat' :(end)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 592], 1
@@ -229,6 +232,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "FAIL 310/003: left-associative concat"
+#         output = 'PASS 310_concat_strings (3/3)'
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 640], 1

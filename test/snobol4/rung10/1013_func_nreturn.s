@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         define('ref_a()')                              :(ref_a_end)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -76,6 +77,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         a = 27
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [rbp + 288], 6
@@ -93,6 +95,8 @@ main_α_body:
  mov qword ptr [rbp + 272], rax
  mov qword ptr [rbp + 280], rdx
  jmp xchain0_n4_α
+#         a = 27
+#         differ(ref_a(), 27)                            :f(e001)
  xchain0_n4_α:
 # BOX CALL ref_a(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
@@ -118,6 +122,7 @@ main_α_body:
  jmp xchain0_n7_α
 .Lx6_0:
  .quad 27
+#         ref_a() = 26                                   :s(e002)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 496], 1
@@ -177,6 +182,7 @@ main_α_body:
  jmp xchain0_n10_α
  xchain0_n8_β:
  jmp xchain0_n11_α
+#         output = 'FAIL 1013/001: nreturn read gives value' :(end)
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 464], 1
@@ -204,6 +210,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n10_β:
  jmp xchain0_n11_α
+#         output = 'FAIL 1013/002: nreturn lvalue assign failed' :(end)
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 672], 1
@@ -252,6 +259,7 @@ main_α_body:
  mov qword ptr [rbp + 640], rax
  mov qword ptr [rbp + 648], rdx
  jmp xchain0_n16_α
+#         differ(a, 26)                                  :f(e003)
 # IR_VAR
  xchain0_n16_α:
  mov rax, qword ptr [1879052304]
@@ -267,6 +275,7 @@ main_α_body:
  jmp xchain0_n19_α
 .Lx19_0:
  .quad 26
+#         output = 'PASS 1013_func_nreturn (3/3)'
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 896], 1
@@ -313,6 +322,7 @@ main_α_body:
  mov qword ptr [rbp + 880], rax
  mov qword ptr [rbp + 888], rdx
  jmp main_γ
+#         output = 'FAIL 1013/003: a updated via nreturn'   :(end)
 # IR_LIT_STRING
  xchain0_n21_α:
  mov qword ptr [rbp + 848], 1

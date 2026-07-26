@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         X = 'hello world'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -59,6 +60,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         X 'goodbye'                                                 :S(FOUND)F(NOTFOUND)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -103,6 +105,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n4_α
+# NOTFOUND OUTPUT = 'not found'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 320], 1
@@ -192,6 +195,7 @@ main_α_body:
  mov r12, qword ptr [rbp + 192]
  mov rbp, qword ptr [rbp + 200]
  jmp xchain0_n8_α
+# FOUND   OUTPUT = 'found'
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 272], 1

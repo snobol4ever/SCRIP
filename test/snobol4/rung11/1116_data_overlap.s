@@ -46,6 +46,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         data('node(val,lson,rson)')
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -78,6 +79,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         data('clunk(value,lson)')
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 224], 1
@@ -110,6 +112,8 @@ main_α_body:
  jmp xchain0_n4_α
  xchain0_n3_β:
  jmp xchain0_n4_α
+#         data('clunk(value,lson)')
+#         a = node('x', 'y', 'z')
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 352], 1
@@ -181,6 +185,7 @@ main_α_body:
  mov qword ptr [rbp + 256], rax
  mov qword ptr [rbp + 264], rdx
  jmp xchain0_n9_α
+#         b = node()
  xchain0_n9_α:
 # BOX CALL node(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
   .section .rodata
@@ -207,6 +212,7 @@ main_α_body:
  mov qword ptr [rbp + 448], rax
  mov qword ptr [rbp + 456], rdx
  jmp xchain0_n11_α
+#         lson(b) = a
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 496], 1
@@ -246,6 +252,7 @@ main_α_body:
  mov qword ptr [rbp + 624], rax
  mov qword ptr [rbp + 632], rdx
  jmp xchain0_n15_α
+#         differ(rson(lson(b)), 'z')                   :f(e001)
 # IR_VAR
  xchain0_n14_α:
  mov rax, qword ptr [1879052304]
@@ -297,6 +304,7 @@ main_α_body:
  jmp xchain0_n19_α
  xchain0_n16_β:
  jmp xchain0_n17_α
+#         differ(value('b'), b)                   :f(e002)
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 1088], 1
@@ -387,6 +395,7 @@ main_α_body:
  mov qword ptr [rbp + 1120], rax
  mov qword ptr [rbp + 1128], rdx
  jmp xchain0_n26_α
+#         c = clunk('alpha', 'beta')
 # IR_LIT_STRING
  xchain0_n24_α:
  mov qword ptr [rbp + 1280], 1
@@ -461,6 +470,7 @@ main_α_body:
  .quad .Lx29_0_s
 .Lx29_0_s:
  .string "beta"
+#         output = 'FAIL 1116/001: node.rson after clunk data def' :(end)
 # IR_LIT_STRING
  xchain0_n28_α:
  mov qword ptr [rbp + 944], 1
@@ -471,6 +481,7 @@ main_α_body:
  .quad .Lx30_0_s
 .Lx30_0_s:
  .string "FAIL 1116/001: node.rson after clunk data def"
+#         output = 'FAIL 1116/002: value() still works after clunk' :(end)
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [rbp + 1168], 1
@@ -535,6 +546,7 @@ main_α_body:
  mov qword ptr [rbp + 1200], rax
  mov qword ptr [rbp + 1208], rdx
  jmp xchain0_n34_α
+#         differ(lson(c), 'beta')                   :f(e003)
 # IR_VAR
  xchain0_n34_α:
  mov rax, qword ptr [1879052336]
@@ -564,6 +576,7 @@ main_α_body:
  jmp xchain0_n37_α
  xchain0_n35_β:
  jmp xchain0_n36_α
+#         output = 'PASS 1116_data_overlap (3/3)'
 # IR_LIT_STRING
  xchain0_n36_α:
  mov qword ptr [rbp + 1584], 1
@@ -620,6 +633,7 @@ main_α_body:
  jmp xchain0_n40_α
  xchain0_n39_β:
  jmp xchain0_n36_α
+#         output = 'FAIL 1116/003: clunk.lson accessor'  :(end)
 # IR_LIT_STRING
  xchain0_n40_α:
  mov qword ptr [rbp + 1536], 1

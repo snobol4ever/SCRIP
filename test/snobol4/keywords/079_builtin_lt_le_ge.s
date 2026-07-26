@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         LT(3, 5)                                                    :S(A)F(END)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 224], 6
@@ -99,6 +100,7 @@ main_α_body:
  mov qword ptr [rbp + 96], 0
  mov qword ptr [rbp + 104], 0
  jmp xchain0_n5_α
+# A       OUTPUT = '3 < 5'
 # IR_LIT_STRING
  xchain0_n5_α:
  mov qword ptr [rbp + 272], 1
@@ -122,6 +124,7 @@ main_α_body:
  .quad .Lx10_0_s
 .Lx10_0_s:
  .string "OUTPUT"
+#         LE(5, 5)                                                    :S(B)F(END)
 # IR_LIT_INTEGER
  xchain0_n7_α:
  mov qword ptr [rbp + 432], 6
@@ -194,6 +197,7 @@ main_α_body:
  mov qword ptr [rbp + 304], 0
  mov qword ptr [rbp + 312], 0
  jmp xchain0_n12_α
+# B       OUTPUT = '5 <= 5'
 # IR_LIT_STRING
  xchain0_n12_α:
  mov qword ptr [rbp + 480], 1
@@ -217,6 +221,7 @@ main_α_body:
  .quad .Lx20_0_s
 .Lx20_0_s:
  .string "OUTPUT"
+#         GE(7, 5)                                                    :S(C)F(END)
 # IR_LIT_INTEGER
  xchain0_n14_α:
  mov qword ptr [rbp + 640], 6
@@ -289,6 +294,7 @@ main_α_body:
  mov qword ptr [rbp + 512], 0
  mov qword ptr [rbp + 520], 0
  jmp xchain0_n19_α
+# C       OUTPUT = '7 >= 5'
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [rbp + 688], 1

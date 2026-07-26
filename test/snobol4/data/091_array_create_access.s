@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         A = ARRAY(5)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 6
@@ -79,6 +80,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n3_α
+#         A<1> = 'first'
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]
@@ -94,6 +96,7 @@ main_α_body:
  jmp xchain0_n6_α
 .Lx6_0:
  .quad 1
+#         A<3> = 'third'
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -121,6 +124,7 @@ main_α_body:
  jmp xchain0_n10_α
 .Lx9_0:
  .quad 3
+#         A<5> = 'fifth'
 # IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [1879052288]
@@ -158,6 +162,7 @@ main_α_body:
  jmp xchain0_n15_α
 .Lx13_0:
  .quad 5
+#         OUTPUT = A<1>
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052288]
@@ -207,6 +212,7 @@ main_α_body:
  jmp xchain0_n20_α
 .Lx18_0:
  .quad 1
+#         OUTPUT = A<3>
 # IR_VAR
  xchain0_n17_α:
  mov rax, qword ptr [1879052288]
@@ -256,6 +262,7 @@ main_α_body:
  jmp xchain0_n25_α
 .Lx23_0:
  .quad 3
+#         OUTPUT = A<5>
 # IR_VAR
  xchain0_n22_α:
  mov rax, qword ptr [1879052288]

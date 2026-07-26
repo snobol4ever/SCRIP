@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         INTEGER('42')                                               :S(YES)F(NO)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -59,6 +60,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n3_α
+# YES     OUTPUT = 'numeric'
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 192], 1
@@ -69,6 +71,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "numeric"
+# NO      OUTPUT = 'not numeric'
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -105,6 +108,8 @@ main_α_body:
  .quad .Lx7_0_s
 .Lx7_0_s:
  .string "OUTPUT"
+#         :(NEXT)
+# NEXT    INTEGER('abc')                                              :S(YES2)F(NO2)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 320], 1
@@ -137,6 +142,7 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
+# YES2    OUTPUT = 'numeric'
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 368], 1
@@ -147,6 +153,7 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "numeric"
+# NO2     OUTPUT = 'not numeric'
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 416], 1

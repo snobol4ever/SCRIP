@@ -83,6 +83,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+#         output = 'FAIL 413/001: int+real promotes to real' :(end)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -145,6 +146,7 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
+#         output = 'FAIL 413/002: real/int promotes to real' :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 416], 1
@@ -155,6 +157,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "FAIL 413/002: real/int promotes to real"
+#         output = 'PASS 413_arith_mixed (2/2)'
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 464], 1

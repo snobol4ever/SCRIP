@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         apply(.eq, 1, 2)           :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 224], 1
@@ -84,6 +85,7 @@ main_α_body:
  jmp xchain0_n4_α
 .Lx4_0:
  .quad 1
+#         apply(.eq, 1, 1)           :s(e002)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 496], 1
@@ -164,6 +166,7 @@ main_α_body:
  jmp xchain0_n10_α
 .Lx10_0:
  .quad 1
+#         output = 'FAIL 1018/002: apply(.eq,1,1) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 608], 1
@@ -174,6 +177,7 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "FAIL 1018/002: apply(.eq,1,1) should succeed"
+#         output = 'FAIL 1018/001: apply(.eq,1,2) should fail' :(end)
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 336], 1
@@ -242,6 +246,7 @@ main_α_body:
  jmp xchain0_n14_α
  xchain0_n13_β:
  jmp xchain0_n8_α
+#         differ(apply(.trim, 'abc   '), 'abc')                   :f(e003)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 816], 1
@@ -284,6 +289,7 @@ main_α_body:
  .quad .Lx20_0_s
 .Lx20_0_s:
  .string "abc   "
+#         output = 'PASS 1018_apply (3/3)'
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 976], 1
@@ -367,6 +373,7 @@ main_α_body:
  jmp xchain0_n22_α
  xchain0_n21_β:
  jmp xchain0_n17_α
+#         output = 'FAIL 1018/003: apply(.trim,...)'     :(end)
 # IR_LIT_STRING
  xchain0_n22_α:
  mov qword ptr [rbp + 928], 1

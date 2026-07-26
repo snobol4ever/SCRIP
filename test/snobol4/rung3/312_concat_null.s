@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         x = 'hello'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -61,6 +62,8 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         x = 'hello'
+#         differ(x '', x)                   :f(e001)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -78,6 +81,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string ""
+#         differ('' x, x)                   :f(e002)
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 480], 1
@@ -122,6 +126,7 @@ main_α_body:
  mov qword ptr [rbp + 448], rax
  mov qword ptr [rbp + 456], rdx
  jmp xchain0_n11_α
+#         output = 'PASS 312_concat_null (2/2)'
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 640], 1
@@ -175,6 +180,7 @@ main_α_body:
  mov qword ptr [rbp + 624], rax
  mov qword ptr [rbp + 632], rdx
  jmp main_γ
+#         output = 'FAIL 312/001: null right identity'    :(end)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 352], 1
@@ -221,6 +227,7 @@ main_α_body:
  mov qword ptr [rbp + 336], rax
  mov qword ptr [rbp + 344], rdx
  jmp main_γ
+#         output = 'FAIL 312/002: null left identity'     :(end)
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 592], 1

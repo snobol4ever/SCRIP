@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         lt(5, 4)                   :f(e001)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 6
@@ -83,6 +84,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+#         output = 'FAIL 912/001: lt(5,4) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -93,6 +95,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "FAIL 912/001: lt(5,4) should fail"
+# e001    lt(4, 4)                   :f(e002)
 # IR_LIT_INTEGER
  xchain0_n4_α:
  mov qword ptr [rbp + 336], 6
@@ -145,6 +148,7 @@ main_α_body:
  jmp xchain0_n8_α
  xchain0_n7_β:
  jmp xchain0_n9_α
+#         output = 'FAIL 912/002: lt(4,4) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 416], 1
@@ -155,6 +159,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "FAIL 912/002: lt(4,4) should fail"
+# e002    lt(4, 5)                   :s(e003)
 # IR_LIT_INTEGER
  xchain0_n9_α:
  mov qword ptr [rbp + 512], 6
@@ -207,6 +212,7 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n12_β:
  jmp xchain0_n14_α
+#         le(5, 2)                   :f(e004)
 # IR_LIT_INTEGER
  xchain0_n13_α:
  mov qword ptr [rbp + 688], 6
@@ -215,6 +221,7 @@ main_α_body:
  jmp xchain0_n15_α
 .Lx14_0:
  .quad 5
+#         output = 'FAIL 912/003: lt(4,5) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n14_α:
  mov qword ptr [rbp + 592], 1
@@ -269,6 +276,7 @@ main_α_body:
  jmp xchain0_n18_α
  xchain0_n17_β:
  jmp xchain0_n19_α
+#         output = 'FAIL 912/004: le(5,2) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 768], 1
@@ -279,6 +287,7 @@ main_α_body:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "FAIL 912/004: le(5,2) should fail"
+# e004    le(4, 4)                   :s(e005)
 # IR_LIT_INTEGER
  xchain0_n19_α:
  mov qword ptr [rbp + 864], 6
@@ -331,6 +340,7 @@ main_α_body:
  jmp xchain0_n23_α
  xchain0_n22_β:
  jmp xchain0_n24_α
+# e005    le(4, 10)                  :s(e006)
 # IR_LIT_INTEGER
  xchain0_n23_α:
  mov qword ptr [rbp + 1040], 6
@@ -339,6 +349,7 @@ main_α_body:
  jmp xchain0_n25_α
 .Lx24_0:
  .quad 4
+#         output = 'FAIL 912/005: le(4,4) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n24_α:
  mov qword ptr [rbp + 944], 1
@@ -393,6 +404,7 @@ main_α_body:
  jmp xchain0_n28_α
  xchain0_n27_β:
  jmp xchain0_n29_α
+#         eq(4, 5)                   :f(e007)
 # IR_LIT_INTEGER
  xchain0_n28_α:
  mov qword ptr [rbp + 1216], 6
@@ -401,6 +413,7 @@ main_α_body:
  jmp xchain0_n30_α
 .Lx29_0:
  .quad 4
+#         output = 'FAIL 912/006: le(4,10) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n29_α:
  mov qword ptr [rbp + 1120], 1
@@ -455,6 +468,7 @@ main_α_body:
  jmp xchain0_n33_α
  xchain0_n32_β:
  jmp xchain0_n34_α
+#         output = 'FAIL 912/007: eq(4,5) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n33_α:
  mov qword ptr [rbp + 1296], 1
@@ -465,6 +479,7 @@ main_α_body:
  .quad .Lx34_0_s
 .Lx34_0_s:
  .string "FAIL 912/007: eq(4,5) should fail"
+# e007    eq(5, 5)                   :s(e008)
 # IR_LIT_INTEGER
  xchain0_n34_α:
  mov qword ptr [rbp + 1392], 6
@@ -517,6 +532,7 @@ main_α_body:
  jmp xchain0_n38_α
  xchain0_n37_β:
  jmp xchain0_n39_α
+#         ne(4, 4)                   :f(e009)
 # IR_LIT_INTEGER
  xchain0_n38_α:
  mov qword ptr [rbp + 1568], 6
@@ -525,6 +541,7 @@ main_α_body:
  jmp xchain0_n40_α
 .Lx39_0:
  .quad 4
+#         output = 'FAIL 912/008: eq(5,5) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n39_α:
  mov qword ptr [rbp + 1472], 1
@@ -579,6 +596,7 @@ main_α_body:
  jmp xchain0_n43_α
  xchain0_n42_β:
  jmp xchain0_n44_α
+#         output = 'FAIL 912/009: ne(4,4) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n43_α:
  mov qword ptr [rbp + 1648], 1
@@ -589,6 +607,7 @@ main_α_body:
  .quad .Lx44_0_s
 .Lx44_0_s:
  .string "FAIL 912/009: ne(4,4) should fail"
+# e009    ne(4, 6)                   :s(e010)
 # IR_LIT_INTEGER
  xchain0_n44_α:
  mov qword ptr [rbp + 1744], 6
@@ -641,6 +660,7 @@ main_α_body:
  jmp xchain0_n48_α
  xchain0_n47_β:
  jmp xchain0_n49_α
+#         gt(4, 6)                   :f(e011)
 # IR_LIT_INTEGER
  xchain0_n48_α:
  mov qword ptr [rbp + 1920], 6
@@ -649,6 +669,7 @@ main_α_body:
  jmp xchain0_n50_α
 .Lx49_0:
  .quad 4
+#         output = 'FAIL 912/010: ne(4,6) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n49_α:
  mov qword ptr [rbp + 1824], 1
@@ -703,6 +724,7 @@ main_α_body:
  jmp xchain0_n53_α
  xchain0_n52_β:
  jmp xchain0_n54_α
+#         output = 'FAIL 912/011: gt(4,6) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n53_α:
  mov qword ptr [rbp + 2000], 1
@@ -713,6 +735,7 @@ main_α_body:
  .quad .Lx54_0_s
 .Lx54_0_s:
  .string "FAIL 912/011: gt(4,6) should fail"
+# e011    gt(4, 4)                   :f(e012)
 # IR_LIT_INTEGER
  xchain0_n54_α:
  mov qword ptr [rbp + 2096], 6
@@ -765,6 +788,7 @@ main_α_body:
  jmp xchain0_n58_α
  xchain0_n57_β:
  jmp xchain0_n59_α
+#         output = 'FAIL 912/012: gt(4,4) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n58_α:
  mov qword ptr [rbp + 2176], 1
@@ -775,6 +799,7 @@ main_α_body:
  .quad .Lx59_0_s
 .Lx59_0_s:
  .string "FAIL 912/012: gt(4,4) should fail"
+# e012    gt(5, 2)                   :s(e013)
 # IR_LIT_INTEGER
  xchain0_n59_α:
  mov qword ptr [rbp + 2272], 6
@@ -827,6 +852,7 @@ main_α_body:
  jmp xchain0_n63_α
  xchain0_n62_β:
  jmp xchain0_n64_α
+#         ge(5, 7)                   :f(e014)
 # IR_LIT_INTEGER
  xchain0_n63_α:
  mov qword ptr [rbp + 2448], 6
@@ -835,6 +861,7 @@ main_α_body:
  jmp xchain0_n65_α
 .Lx64_0:
  .quad 5
+#         output = 'FAIL 912/013: gt(5,2) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n64_α:
  mov qword ptr [rbp + 2352], 1
@@ -889,6 +916,7 @@ main_α_body:
  jmp xchain0_n68_α
  xchain0_n67_β:
  jmp xchain0_n69_α
+#         output = 'FAIL 912/014: ge(5,7) should fail'   :(end)
 # IR_LIT_STRING
  xchain0_n68_α:
  mov qword ptr [rbp + 2528], 1
@@ -899,6 +927,7 @@ main_α_body:
  .quad .Lx69_0_s
 .Lx69_0_s:
  .string "FAIL 912/014: ge(5,7) should fail"
+# e014    ge(4, 4)                   :s(e015)
 # IR_LIT_INTEGER
  xchain0_n69_α:
  mov qword ptr [rbp + 2624], 6
@@ -951,6 +980,7 @@ main_α_body:
  jmp xchain0_n73_α
  xchain0_n72_β:
  jmp xchain0_n74_α
+# e015    ge(7, 5)                   :s(e016)
 # IR_LIT_INTEGER
  xchain0_n73_α:
  mov qword ptr [rbp + 2800], 6
@@ -959,6 +989,7 @@ main_α_body:
  jmp xchain0_n75_α
 .Lx74_0:
  .quad 7
+#         output = 'FAIL 912/015: ge(4,4) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n74_α:
  mov qword ptr [rbp + 2704], 1
@@ -1013,6 +1044,7 @@ main_α_body:
  jmp xchain0_n78_α
  xchain0_n77_β:
  jmp xchain0_n79_α
+#         ne(4, 5 - 1)               :f(e017)
 # IR_LIT_INTEGER
  xchain0_n78_α:
  mov qword ptr [rbp + 2976], 6
@@ -1021,6 +1053,7 @@ main_α_body:
  jmp xchain0_n80_α
 .Lx79_0:
  .quad 4
+#         output = 'FAIL 912/016: ge(7,5) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n79_α:
  mov qword ptr [rbp + 2880], 1
@@ -1075,6 +1108,7 @@ main_α_body:
  jmp xchain0_n83_α
  xchain0_n82_β:
  jmp xchain0_n84_α
+#         output = 'FAIL 912/017: ne(4,5-1) should fail (both=4)' :(end)
 # IR_LIT_STRING
  xchain0_n83_α:
  mov qword ptr [rbp + 3056], 1
@@ -1085,6 +1119,7 @@ main_α_body:
  .quad .Lx84_0_s
 .Lx84_0_s:
  .string "FAIL 912/017: ne(4,5-1) should fail (both=4)"
+#         ne('12', 12)                   :f(e018)
 # IR_LIT_STRING
  xchain0_n84_α:
  mov qword ptr [rbp + 3152], 1
@@ -1139,6 +1174,7 @@ main_α_body:
  jmp xchain0_n88_α
  xchain0_n87_β:
  jmp xchain0_n89_α
+#         output = 'FAIL 912/018: ne(string,int) type mismatch' :(end)
 # IR_LIT_STRING
  xchain0_n88_α:
  mov qword ptr [rbp + 3232], 1
@@ -1149,6 +1185,7 @@ main_α_body:
  .quad .Lx89_0_s
 .Lx89_0_s:
  .string "FAIL 912/018: ne(string,int) type mismatch"
+#         output = 'PASS 912_num_pred (18/18)'
 # IR_LIT_STRING
  xchain0_n89_α:
  mov qword ptr [rbp + 3280], 1

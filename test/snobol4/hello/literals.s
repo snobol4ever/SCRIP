@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#       OUTPUT =
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -50,6 +51,7 @@ main_α_body:
  .quad .Lx2_0_s
 .Lx2_0_s:
  .string "OUTPUT"
+#       OUTPUT = ""
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 160], 1
@@ -73,6 +75,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "OUTPUT"
+#       OUTPUT = "Hello World!"
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 208], 1
@@ -96,6 +99,7 @@ main_α_body:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "OUTPUT"
+#       OUTPUT = 0
 # IR_LIT_INTEGER
  xchain0_n6_α:
  mov qword ptr [rbp + 256], 6
@@ -117,6 +121,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "OUTPUT"
+#       OUTPUT = 1
 # IR_LIT_INTEGER
  xchain0_n8_α:
  mov qword ptr [rbp + 304], 6
@@ -138,6 +143,7 @@ main_α_body:
  .quad .Lx10_0_s
 .Lx10_0_s:
  .string "OUTPUT"
+#       OUTPUT = -1
 # IR_LIT_INTEGER
  xchain0_n10_α:
  mov qword ptr [rbp + 384], 6
@@ -167,6 +173,7 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "OUTPUT"
+#       OUTPUT = 1.0
 # IR_LIT_REAL
  xchain0_n13_α:
  mov qword ptr [rbp + 432], 7
@@ -188,6 +195,7 @@ main_α_body:
  .quad .Lx15_0_s
 .Lx15_0_s:
  .string "OUTPUT"
+#       OUTPUT = '1'
 # IR_LIT_STRING
  xchain0_n15_α:
  mov qword ptr [rbp + 480], 1
@@ -211,6 +219,7 @@ main_α_body:
  .quad .Lx17_0_s
 .Lx17_0_s:
  .string "OUTPUT"
+#       OUTPUT = '1'
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 528], 1
@@ -234,6 +243,7 @@ main_α_body:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "OUTPUT"
+#       OUTPUT = '1.0'
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [rbp + 576], 1
@@ -257,6 +267,7 @@ main_α_body:
  .quad .Lx21_0_s
 .Lx21_0_s:
  .string "OUTPUT"
+#       OUTPUT = "I'm here"
 # IR_LIT_STRING
  xchain0_n21_α:
  mov qword ptr [rbp + 624], 1
@@ -280,6 +291,7 @@ main_α_body:
  .quad .Lx23_0_s
 .Lx23_0_s:
  .string "OUTPUT"
+#       OUTPUT = '"Quote of the day"'
 # IR_LIT_STRING
  xchain0_n23_α:
  mov qword ptr [rbp + 672], 1

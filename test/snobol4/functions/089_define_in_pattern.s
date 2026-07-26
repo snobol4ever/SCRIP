@@ -17,6 +17,7 @@ proc_upcase_α:
   mov qword ptr [rsp + 256], 0
   mov qword ptr [rsp + 264], rsp
 proc_upcase_α_body:
+# upcase  upcase = REPLACE(s, &LCASE, &UCASE)                       :(RETURN)
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
@@ -179,6 +180,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('upcase(s)')                                         :(upcase_end)
+#         OUTPUT = upcase('hello')
 # IR_LIT_STRING
  xchain7_n0_α:
  mov qword ptr [rbp + 320], 1
@@ -299,6 +302,7 @@ main_α_body:
  .quad .Lx11_0_s
 .Lx11_0_s:
  .string "OUTPUT"
+#         OUTPUT = upcase('world')
 # IR_LIT_STRING
  xchain7_n3_α:
  mov qword ptr [rbp + 416], 1

@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         N = 42
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 6
@@ -57,6 +58,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         OUTPUT = N
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]

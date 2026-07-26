@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         V = 'X'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -61,6 +62,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         $V = 'world'
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052288]
@@ -90,6 +92,7 @@ main_α_body:
  jmp xchain0_n5_α
  xchain0_n3_β:
  jmp xchain0_n4_α
+#         OUTPUT = X
 # IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [1879052304]

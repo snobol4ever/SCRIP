@@ -46,6 +46,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         t = table(10)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 6
@@ -85,6 +86,8 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n3_α
+#         t = table(10)
+#         differ(t<'cat'>)           :f(e001)
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]
@@ -102,6 +105,7 @@ main_α_body:
  .quad .Lx6_0_s
 .Lx6_0_s:
  .string "cat"
+#         t<'cat'> = 'dog'
 # IR_VAR
  xchain0_n5_α:
  mov rax, qword ptr [1879052288]
@@ -131,6 +135,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "cat"
+#         differ(t<'cat'>, 'dog')                   :f(e002)
 # IR_VAR
  xchain0_n8_α:
  mov rax, qword ptr [1879052288]
@@ -170,6 +175,7 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "cat"
+#         t<7> = 45
 # IR_VAR
  xchain0_n12_α:
  mov rax, qword ptr [1879052288]
@@ -229,6 +235,7 @@ main_α_body:
  jmp xchain0_n21_α
 .Lx18_0:
  .quad 7
+#         differ(t<7>, 45)                   :f(e003)
 # IR_VAR
  xchain0_n17_α:
  mov rax, qword ptr [1879052288]
@@ -236,6 +243,7 @@ main_α_body:
  mov qword ptr [rbp + 1008], rax
  mov qword ptr [rbp + 1016], rdx
  jmp xchain0_n22_α
+#         output = 'FAIL 1113/001: absent key is null'   :(end)
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 368], 1
@@ -288,6 +296,7 @@ main_α_body:
  jmp xchain0_n27_α
 .Lx24_0:
  .quad 7
+#         differ(t<'cat'>, 'dog')                   :f(e004)
 # IR_VAR
  xchain0_n23_α:
  mov rax, qword ptr [1879052288]
@@ -344,6 +353,7 @@ main_α_body:
  .quad .Lx30_0_s
 .Lx30_0_s:
  .string "cat"
+#         ta = convert(t, 'array')
 # IR_VAR
  xchain0_n29_α:
  mov rax, qword ptr [1879052288]
@@ -422,6 +432,7 @@ main_α_body:
  .quad .Lx36_0_s
 .Lx36_0_s:
  .string "array"
+#         differ(prototype(ta), '2,2')                   :f(e005)
 # IR_VAR
  xchain0_n35_α:
  mov rax, qword ptr [1879052320]
@@ -429,6 +440,7 @@ main_α_body:
  mov qword ptr [rbp + 1712], rax
  mov qword ptr [rbp + 1720], rdx
  jmp xchain0_n40_α
+#         output = 'FAIL 1113/002: string key assign/read' :(end)
 # IR_LIT_STRING
  xchain0_n36_α:
  mov qword ptr [rbp + 768], 1
@@ -506,6 +518,7 @@ main_α_body:
  jmp xchain0_n46_α
  xchain0_n40_β:
  jmp xchain0_n41_α
+#         ata = convert(ta, 'table')
 # IR_VAR
  xchain0_n41_α:
  mov rax, qword ptr [1879052320]
@@ -588,6 +601,7 @@ main_α_body:
  .quad .Lx49_0_s
 .Lx49_0_s:
  .string "table"
+#         differ(ata<7>, 45)                   :f(e006)
 # IR_VAR
  xchain0_n48_α:
  mov rax, qword ptr [1879052336]
@@ -595,6 +609,7 @@ main_α_body:
  mov qword ptr [rbp + 2032], rax
  mov qword ptr [rbp + 2040], rdx
  jmp xchain0_n53_α
+#         output = 'FAIL 1113/003: integer key assign/read' :(end)
 # IR_LIT_STRING
  xchain0_n49_α:
  mov qword ptr [rbp + 1168], 1
@@ -694,6 +709,7 @@ main_α_body:
  jmp xchain0_n59_α
 .Lx55_0:
  .quad 7
+#         differ(ata<'cat'>, 'dog')                   :f(e007)
 # IR_VAR
  xchain0_n54_α:
  mov rax, qword ptr [1879052336]
@@ -710,6 +726,7 @@ main_α_body:
  mov qword ptr [rbp + 1152], rax
  mov qword ptr [rbp + 1160], rdx
  jmp main_γ
+#         output = 'FAIL 1113/004: string key survives int key add' :(end)
 # IR_LIT_STRING
  xchain0_n56_α:
  mov qword ptr [rbp + 1424], 1
@@ -720,6 +737,7 @@ main_α_body:
  .quad .Lx58_0_s
 .Lx58_0_s:
  .string "FAIL 1113/004: string key survives int key add"
+#         output = 'FAIL 1113/005: table->array prototype 2,2' :(end)
 # IR_LIT_STRING
  xchain0_n57_α:
  mov qword ptr [rbp + 1792], 1
@@ -761,6 +779,7 @@ main_α_body:
  .quad .Lx62_0_s
 .Lx62_0_s:
  .string "cat"
+#         t['cat'] = 'fish'
 # IR_VAR
  xchain0_n61_α:
  mov rax, qword ptr [1879052288]
@@ -818,6 +837,7 @@ main_α_body:
  .quad .Lx68_0_s
 .Lx68_0_s:
  .string "cat"
+#         differ(t<'cat'>, 'fish')                   :f(e008)
 # IR_VAR
  xchain0_n67_α:
  mov rax, qword ptr [1879052288]
@@ -865,6 +885,7 @@ main_α_body:
  .quad .Lx73_0_s
 .Lx73_0_s:
  .string "cat"
+#         output = 'PASS 1113_table (8/8)'
 # IR_LIT_STRING
  xchain0_n72_α:
  mov qword ptr [rbp + 2896], 1
@@ -943,6 +964,7 @@ main_α_body:
  mov qword ptr [rbp + 2880], rax
  mov qword ptr [rbp + 2888], rdx
  jmp main_γ
+#         output = 'FAIL 1113/006: array->table int key roundtrip' :(end)
 # IR_LIT_STRING
  xchain0_n78_α:
  mov qword ptr [rbp + 2192], 1
@@ -1011,6 +1033,7 @@ main_α_body:
  mov qword ptr [rbp + 2176], rax
  mov qword ptr [rbp + 2184], rdx
  jmp main_γ
+#         output = 'FAIL 1113/007: array->table string key roundtrip' :(end)
 # IR_LIT_STRING
  xchain0_n83_α:
  mov qword ptr [rbp + 2448], 1
@@ -1067,6 +1090,7 @@ main_α_body:
  jmp xchain0_n87_α
  xchain0_n86_β:
  jmp xchain0_n72_α
+#         output = 'FAIL 1113/008: [] and <> syntax equivalent' :(end)
 # IR_LIT_STRING
  xchain0_n87_α:
  mov qword ptr [rbp + 2848], 1

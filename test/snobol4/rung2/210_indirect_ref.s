@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         bal = 'the real bal'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -61,6 +62,8 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         bal = 'the real bal'
+#         differ($'bal', bal)                   :f(e001)
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 272], 1
@@ -103,6 +106,7 @@ main_α_body:
  mov qword ptr [rbp + 208], rax
  mov qword ptr [rbp + 216], rdx
  jmp xchain0_n6_α
+#         differ($.bal, bal)                   :f(e002)
 # IR_LIT_STRING
  xchain0_n5_α:
  mov qword ptr [rbp + 512], 1
@@ -179,6 +183,7 @@ main_α_body:
  mov qword ptr [rbp + 448], rax
  mov qword ptr [rbp + 456], rdx
  jmp xchain0_n12_α
+#         output = 'PASS 210_indirect_ref (2/2)'
 # IR_LIT_STRING
  xchain0_n10_α:
  mov qword ptr [rbp + 640], 1
@@ -189,6 +194,7 @@ main_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "PASS 210_indirect_ref (2/2)"
+#         output = 'FAIL 210/001: $string lookup'        :(end)
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 352], 1
@@ -251,6 +257,7 @@ main_α_body:
  jmp xchain0_n16_α
  xchain0_n15_β:
  jmp xchain0_n10_α
+#         output = 'FAIL 210/002: $.var lookup'          :(end)
 # IR_LIT_STRING
  xchain0_n16_α:
  mov qword ptr [rbp + 592], 1

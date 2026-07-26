@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         X = 'first'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 112], 1
@@ -59,6 +60,7 @@ main_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         X = 'second'
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 160], 1
@@ -78,6 +80,7 @@ main_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain0_n4_α
+#         OUTPUT = X
 # IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [1879052288]

@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         integer('abc')             :f(e001)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -72,6 +73,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n3_α
+#         output = 'FAIL 913/001: integer(string) should fail' :(end)
 # IR_LIT_STRING
  xchain0_n2_α:
  mov qword ptr [rbp + 192], 1
@@ -82,6 +84,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "FAIL 913/001: integer(string) should fail"
+#         integer(12)                :s(e002)
 # IR_LIT_INTEGER
  xchain0_n3_α:
  mov qword ptr [rbp + 272], 6
@@ -121,6 +124,7 @@ main_α_body:
  jmp xchain0_n6_α
  xchain0_n5_β:
  jmp xchain0_n7_α
+#         integer('12')              :s(e003)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 400], 1
@@ -131,6 +135,7 @@ main_α_body:
  .quad .Lx9_0_s
 .Lx9_0_s:
  .string "12"
+#         output = 'FAIL 913/002: integer(12) should succeed'  :(end)
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 320], 1
@@ -172,6 +177,7 @@ main_α_body:
  mov qword ptr [rbp + 304], rax
  mov qword ptr [rbp + 312], rdx
  jmp main_γ
+#         output = 'PASS 913_integer_pred (3/3)'
 # IR_LIT_STRING
  xchain0_n10_α:
  mov qword ptr [rbp + 496], 1
@@ -182,6 +188,7 @@ main_α_body:
  .quad .Lx14_0_s
 .Lx14_0_s:
  .string "PASS 913_integer_pred (3/3)"
+#         output = 'FAIL 913/003: integer(numeric-string) should succeed' :(end)
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 448], 1

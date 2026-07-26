@@ -17,6 +17,7 @@ proc_swap_α:
   mov qword ptr [rsp + 416], 0
   mov qword ptr [rsp + 424], rsp
 proc_swap_α_body:
+# swap    tmp = a
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
@@ -33,6 +34,7 @@ proc_swap_α_body:
  mov qword ptr [rbp + 96], rax
  mov qword ptr [rbp + 104], rdx
  jmp xchain0_n2_α
+#         a = b
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052320]
@@ -49,6 +51,7 @@ proc_swap_α_body:
  mov qword ptr [rbp + 144], rax
  mov qword ptr [rbp + 152], rdx
  jmp xchain0_n4_α
+#         b = tmp
 # IR_VAR
  xchain0_n4_α:
  mov rax, qword ptr [1879052336]
@@ -65,6 +68,7 @@ proc_swap_α_body:
  mov qword ptr [rbp + 192], rax
  mov qword ptr [rbp + 200], rdx
  jmp xchain0_n6_α
+#         OUTPUT = a ' ' b                                            :(RETURN)
 # IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [1879052304]
@@ -222,6 +226,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('swap(a,b)tmp')                                      :(swap_end)
+#         swap('hello', 'world')
 # IR_LIT_STRING
  xchain13_n0_α:
  mov qword ptr [rbp + 480], 1

@@ -56,6 +56,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#       &TRIM    =  1
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -105,6 +106,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n3_α
+# AGAIN H        =  INPUT                            :F(END)
 # IR_VAR
  xchain0_n3_α:
  mov rdi, qword ptr [rip + .Lx5_0]
@@ -131,6 +133,7 @@ main_α_body:
  jmp xchain0_n5_α
  xchain0_n4_β:
  jmp main_γ
+#       V        =  INPUT                            :F(END)
 # IR_VAR
  xchain0_n5_α:
  mov rdi, qword ptr [rip + .Lx7_0]
@@ -157,6 +160,7 @@ main_α_body:
  jmp xchain0_n7_α
  xchain0_n6_β:
  jmp main_γ
+#       HC       =  H
 # IR_VAR
  xchain0_n7_α:
  mov rax, qword ptr [1879052288]
@@ -177,6 +181,7 @@ main_α_body:
  jmp xchain0_n9_α
  xchain0_n8_β:
  jmp xchain0_n9_α
+# NEXTH HC       ?  @NH ANY(V) . CROSS = '*'         :F(AGAIN)
 # IR_VAR
  xchain0_n9_α:
  mov rax, qword ptr [1879052320]
@@ -385,6 +390,7 @@ xchain0_n13_af:
 .Lx30_1:
  mov rbp, qword ptr [rbp + 424]
  jmp xchain0_n21_α
+#       VC       =  V
 # IR_VAR
  xchain0_n21_α:
  mov rax, qword ptr [1879052304]
@@ -405,6 +411,7 @@ xchain0_n13_af:
  jmp xchain0_n23_α
  xchain0_n22_β:
  jmp xchain0_n23_α
+# NEXTV VC       ?  @NV CROSS = '#'                  :F(NEXTH)
 # IR_VAR
  xchain0_n23_α:
  mov rax, qword ptr [1879052368]
@@ -609,6 +616,7 @@ xchain0_n25_af:
 .Lx44_1:
  mov rbp, qword ptr [rbp + 776]
  jmp xchain0_n31_α
+#       OUTPUT   =
 # IR_LIT_STRING
  xchain0_n31_α:
  mov qword ptr [rbp + 928], 1
@@ -636,6 +644,7 @@ xchain0_n25_af:
  .quad .Lx46_0_s
 .Lx46_0_s:
  .string "OUTPUT"
+#       PRINTV   =  V
 # IR_VAR
  xchain0_n33_α:
  mov rax, qword ptr [1879052304]
@@ -656,6 +665,7 @@ xchain0_n25_af:
  jmp xchain0_n35_α
  xchain0_n34_β:
  jmp xchain0_n35_α
+#       PRINTV   ?  POS(NV) LEN(1) = '#'
 # IR_VAR
  xchain0_n35_α:
  mov rax, qword ptr [1879052400]
@@ -674,6 +684,7 @@ xchain0_n25_af:
  jmp xchain0_n38_α
  xchain0_n36_β:
  jmp xchain0_n37_α
+# PRINT PRINTV   ?  LEN(1) . C =                     :F(NEXTV)
 # IR_VAR
  xchain0_n37_α:
  mov rax, qword ptr [1879052400]
@@ -978,6 +989,7 @@ xchain0_n42_af:
 .Lx76_1:
  mov rbp, qword ptr [rbp + 1304]
  jmp xchain0_n53_α
+#       OUTPUT   =  DIFFER(C, '#') DUPL(' ', NH) C   :S(PRINT)
 # IR_VAR
  xchain0_n53_α:
  mov rax, qword ptr [1879052416]
@@ -999,6 +1011,7 @@ xchain0_n42_af:
  .quad .Lx78_0_s
 .Lx78_0_s:
  .string "#"
+#       OUTPUT   =  H                                :(PRINT)
 # IR_VAR
  xchain0_n55_α:
  mov rax, qword ptr [1879052288]

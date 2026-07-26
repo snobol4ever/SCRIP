@@ -44,6 +44,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         define('myfunc(n)')                            :(myfunc_end)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -76,6 +77,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         ne(myfunc(3), 6)           :f(e001)
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [rbp + 400], 6
@@ -114,6 +116,7 @@ main_α_body:
  jmp xchain0_n6_α
 .Lx5_0:
  .quad 6
+#         differ(define('myfunc(myfunc)', 'myfunc2'))                   :f(e002)
 # IR_LIT_STRING
  xchain0_n5_α:
  mov qword ptr [rbp + 624], 1
@@ -161,6 +164,7 @@ main_α_body:
  .quad .Lx8_0_s
 .Lx8_0_s:
  .string "myfunc2"
+#         output = 'FAIL 1011/001: first definition myfunc(3)=6' :(end)
 # IR_LIT_STRING
  xchain0_n8_α:
  mov qword ptr [rbp + 480], 1
@@ -229,6 +233,8 @@ main_α_body:
  jmp xchain0_n13_α
  xchain0_n11_β:
  jmp xchain0_n12_α
+# e002    :(myfunc2_end)
+#         ne(myfunc(4), 24)          :f(e003)
 # IR_LIT_INTEGER
  xchain0_n12_α:
  mov qword ptr [rbp + 1232], 6
@@ -237,6 +243,7 @@ main_α_body:
  jmp xchain0_n14_α
 .Lx13_0:
  .quad 4
+#         output = 'FAIL 1011/002: define returns function name' :(end)
 # IR_LIT_STRING
  xchain0_n13_α:
  mov qword ptr [rbp + 704], 1
@@ -286,6 +293,7 @@ main_α_body:
  jmp xchain0_n18_α
 .Lx17_0:
  .quad 24
+#         output = 'PASS 1011_func_redefine (3/3)'
 # IR_LIT_STRING
  xchain0_n17_α:
  mov qword ptr [rbp + 1360], 1
@@ -332,6 +340,7 @@ main_α_body:
  mov qword ptr [rbp + 1344], rax
  mov qword ptr [rbp + 1352], rdx
  jmp main_γ
+#         output = 'FAIL 1011/003: redefined myfunc(4)=24'   :(end)
 # IR_LIT_STRING
  xchain0_n20_α:
  mov qword ptr [rbp + 1312], 1

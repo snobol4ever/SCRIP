@@ -51,6 +51,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DATA('complex(real,imag)')
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -83,6 +84,7 @@ main_α_body:
  jmp xchain0_n2_α
  xchain0_n1_β:
  jmp xchain0_n2_α
+#         X = complex(3, -2)
 # IR_LIT_INTEGER
  xchain0_n2_α:
  mov qword ptr [rbp + 256], 6
@@ -134,6 +136,7 @@ main_α_body:
  jmp xchain0_n7_α
  xchain0_n5_β:
  jmp xchain0_n6_α
+#         OUTPUT = real(X)
 # IR_VAR
  xchain0_n6_α:
  mov rax, qword ptr [1879052288]
@@ -172,6 +175,7 @@ main_α_body:
  jmp xchain0_n10_α
  xchain0_n8_β:
  jmp xchain0_n9_α
+#         OUTPUT = imag(X)
 # IR_VAR
  xchain0_n9_α:
  mov rax, qword ptr [1879052288]

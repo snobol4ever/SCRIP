@@ -17,6 +17,7 @@ proc_fib_α:
   mov qword ptr [rsp + 640], 0
   mov qword ptr [rsp + 648], rsp
 proc_fib_α_body:
+# fib     LE(n, 1)                                                   :S(base)
 # IR_VAR
  xchain0_n0_α:
  mov rax, qword ptr [1879052304]
@@ -32,6 +33,7 @@ proc_fib_α_body:
  jmp xchain0_n3_α
 .Lx2_0:
  .quad 1
+#         fib = fib(n - 1) + fib(n - 2)                             :(RETURN)
 # IR_VAR
  xchain0_n2_α:
  mov rax, qword ptr [1879052304]
@@ -239,6 +241,7 @@ proc_fib_α_body:
  .quad .Lx13_0_s
 .Lx13_0_s:
  .string "fib"
+# base    fib = n                                                    :(RETURN)
 # IR_VAR
  xchain0_n9_α:
  mov rax, qword ptr [1879052304]
@@ -552,6 +555,8 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DEFINE('fib(n)')                                            :(fib_end)
+#         OUTPUT = fib(0)
 # IR_LIT_INTEGER
  xchain23_n0_α:
  mov qword ptr [rbp + 704], 6
@@ -670,6 +675,7 @@ main_α_body:
  .quad .Lx27_0_s
 .Lx27_0_s:
  .string "OUTPUT"
+#         OUTPUT = fib(1)
 # IR_LIT_INTEGER
  xchain23_n3_α:
  mov qword ptr [rbp + 800], 6
@@ -788,6 +794,7 @@ main_α_body:
  .quad .Lx31_0_s
 .Lx31_0_s:
  .string "OUTPUT"
+#         OUTPUT = fib(6)
 # IR_LIT_INTEGER
  xchain23_n6_α:
  mov qword ptr [rbp + 896], 6
@@ -906,6 +913,7 @@ main_α_body:
  .quad .Lx35_0_s
 .Lx35_0_s:
  .string "OUTPUT"
+#         OUTPUT = fib(10)
 # IR_LIT_INTEGER
  xchain23_n9_α:
  mov qword ptr [rbp + 992], 6

@@ -42,6 +42,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         $'qq' = 'x'
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 144], 1
@@ -84,6 +85,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "x"
+#         differ(qq, 'x')                   :f(e001)
 # IR_VAR
  xchain0_n3_α:
  mov rax, qword ptr [1879052288]
@@ -113,6 +115,7 @@ main_α_body:
  .quad .Lx7_0_s
 .Lx7_0_s:
  .string "x"
+#         differ($'_no_such_var_')                   :f(e002)
 # IR_LIT_STRING
  xchain0_n6_α:
  mov qword ptr [rbp + 512], 1
@@ -172,6 +175,7 @@ main_α_body:
  jmp xchain0_n10_α
  xchain0_n8_β:
  jmp xchain0_n11_α
+#         output = 'FAIL 211/001: indirect assign sets named var' :(end)
 # IR_LIT_STRING
  xchain0_n9_α:
  mov qword ptr [rbp + 368], 1
@@ -192,6 +196,7 @@ main_α_body:
  mov qword ptr [rbp + 448], rax
  mov qword ptr [rbp + 456], rdx
  jmp xchain0_n13_α
+#         output = 'PASS 211_indirect_assign (2/2)'
 # IR_LIT_STRING
  xchain0_n11_α:
  mov qword ptr [rbp + 608], 1
@@ -242,6 +247,7 @@ main_α_body:
  mov qword ptr [rbp + 592], rax
  mov qword ptr [rbp + 600], rdx
  jmp main_γ
+#         output = 'FAIL 211/002: undefined indirect is null'     :(end)
 # IR_LIT_STRING
  xchain0_n15_α:
  mov qword ptr [rbp + 560], 1

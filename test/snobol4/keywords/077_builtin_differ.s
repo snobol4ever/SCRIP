@@ -27,6 +27,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         DIFFER('abc', 'xyz')                                        :S(YES)F(NO)
 # IR_LIT_STRING
  xchain0_n0_α:
  mov qword ptr [rbp + 160], 1
@@ -74,6 +75,7 @@ main_α_body:
  jmp xchain0_n3_α
  xchain0_n2_β:
  jmp xchain0_n4_α
+# YES     OUTPUT = 'different'
 # IR_LIT_STRING
  xchain0_n3_α:
  mov qword ptr [rbp + 240], 1
@@ -84,6 +86,7 @@ main_α_body:
  .quad .Lx5_0_s
 .Lx5_0_s:
  .string "different"
+# NO      OUTPUT = 'same'
 # IR_LIT_STRING
  xchain0_n4_α:
  mov qword ptr [rbp + 288], 1

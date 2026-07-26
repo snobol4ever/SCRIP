@@ -40,6 +40,7 @@ main_α:
   mov [rsp + 65536], rbp
   mov rbp, rsp
 main_α_body:
+#         differ(1 2, '12')                   :f(e001)
 # IR_LIT_INTEGER
  xchain0_n0_α:
  mov qword ptr [rbp + 192], 6
@@ -76,6 +77,7 @@ main_α_body:
  .quad .Lx4_0_s
 .Lx4_0_s:
  .string "12"
+#         differ(2 2 2, '222')                   :f(e002)
 # IR_LIT_INTEGER
  xchain0_n4_α:
  mov qword ptr [rbp + 464], 6
@@ -119,6 +121,7 @@ main_α_body:
  jmp xchain0_n8_α
 .Lx7_0:
  .quad 2
+#         output = 'FAIL 311/001: int int concat'         :(end)
 # IR_LIT_STRING
  xchain0_n7_α:
  mov qword ptr [rbp + 304], 1
@@ -156,6 +159,7 @@ main_α_body:
  jmp xchain0_n12_α
 .Lx11_0:
  .quad 2
+#         differ(1 3.4, '13.4')                   :f(e003)
 # IR_LIT_INTEGER
  xchain0_n11_α:
  mov qword ptr [rbp + 736], 6
@@ -239,6 +243,7 @@ main_α_body:
  .quad .Lx18_0_s
 .Lx18_0_s:
  .string "13.4"
+#         output = 'PASS 311_concat_numeric (3/3)'
 # IR_LIT_STRING
  xchain0_n18_α:
  mov qword ptr [rbp + 896], 1
@@ -249,6 +254,7 @@ main_α_body:
  .quad .Lx19_0_s
 .Lx19_0_s:
  .string "PASS 311_concat_numeric (3/3)"
+#         output = 'FAIL 311/002: three int concat'       :(end)
 # IR_LIT_STRING
  xchain0_n19_α:
  mov qword ptr [rbp + 608], 1
@@ -304,6 +310,7 @@ main_α_body:
  mov qword ptr [rbp + 592], rax
  mov qword ptr [rbp + 600], rdx
  jmp main_γ
+#         output = 'FAIL 311/003: int real concat'        :(end)
 # IR_LIT_STRING
  xchain0_n23_α:
  mov qword ptr [rbp + 848], 1
