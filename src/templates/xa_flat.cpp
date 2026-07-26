@@ -143,6 +143,8 @@ static std::string xaf_anchor_enter_x86(void) {
     return x86("mov", (std::string("qword ptr [") + x86_zr() + " + " + std::to_string(xaf_anchor_off()) + "]").c_str(), "rsp");
 }   /* XA-FLAT-CONVERT: x86() twin of xaf_anchor_enter_bin — same store (anchor slot <- rsp), frame-register-agnostic via x86_zr() so ZC_FRAME_RSP and ZC_FRAME_RBP both encode correctly, and medium-invisible because the encoder switches internally. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void xaf_mark(const char * arm) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_XAF_MARK"); on = e ? (atoi(e) != 0) : 0; } if (on) fprintf(stderr, "XAFMARK %s\n", arm); }   /* XA-FLAT-CONVERT reachability instrument (s150).  KEEP: this is not debug residue, it is the measurement that decides convert-vs-delete per arm, and s150 proved it load-bearing — s149 declared four arms dead from a Prolog+Icon sweep alone and NOFILL turned out to fire 2354 times in SNOBOL4.  Env-gated, resolved once, inert by default; emit-time only, never on a runtime path.  Method: SCRIP_XAF_MARK=1 <sweep a corpus> 2>&1 | grep -o "XAFMARK [A-Z0-9_]*" | sort | uniq -c. */
 static std::string xaf_jmp_hdr_x86(void) {
     int kt = g_emit.flat_frame_bytes;
     return x86("sub", "rsp", (long)kt)
@@ -194,7 +196,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                     + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(kt - 8))         /* mov [rsp + kt-8], rbp — REG-7 U2: caller rbp saved in the TOP header pad (kt-8 picked over kt-32 to keep the pad adjacent to the region free; both were unused, FINDING s81 measurement 5) */
                                     + bytes(3, "\x48\x89\xE5");                                          /* mov rbp, rsp — REG-7 U2 seed: rbp = this activation's flat base (mirror of the s79 pat-blob save/seed at [rsp+24]/zr; restored on BOTH exit edges in the epilogue arm) */
                     if (g_emit.flat_lex && g_emit.flat_seed_off >= 16) {   /* PL-REGAIN-4 lazy arm: NO rep stosb — rt_jmp_frame_lexprep2 seeds slot0 + [suffix,region) only; box grants first-write-wins (SCRIP_ZLS_POISON=1 lane lives inside the leaf) */
-                        if (getenv("SCRIP_XAF_MARK")) fprintf(stderr, "XAFMARK LEXPREP2\n");
+                        xaf_mark("LEXPREP2");
                         std::string r = xaf_jmp_hdr_x86()
                                       + xaf_anchor_enter_x86()
                                       + x86("mov", "rdi", "rsp")                                          /* fb = the just-allocated region base (== rbp seed) */
@@ -220,6 +222,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(2, "\x31\xC0")                                              /* xor eax, eax */
                                       + bytes(2, "\xF3\xAA");                                             /* rep stosb — resume/zeta-mark suffix stays zeroed */
                         r = r + xaf_anchor_enter_bin();
+                        xaf_mark("NOFILL");
                         out_site = 0; out_lbl = nullptr; out_def = false;
                         return r;
                     }
@@ -234,6 +237,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                                      + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_jmp_frame_lexprep)   /* movabs rax, rt_jmp_frame_lexprep — raw bytes, NOT x86_movabs_r64: this arm is the legacy raw-byte family, an L-record would corrupt the stream */
                                                      + bytes(2, "\xFF\xD0")                                /* call rax — rsp = base ≡ 0 mod 16 here (caller jmps at ≡0, kt is a 16-mult), the SysV pre-call parity; clobbers only caller-saved regs, the wires+rbp are already in the header */
                                                      : std::string());
+                    xaf_mark("JMP_EAGER");
                     out_site = 0; out_lbl = nullptr; out_def = false;
                     return r;
                 }
@@ -247,6 +251,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                    + bytes(2, "\x31\xC0")                                                                /* xor eax, eax */
                    + bytes(2, "\xF3\xAA")                                                                /* rep stosb — zls_alloc zeroed (ZC_INIT_ZERO); the activation must too */
                    + xaf_anchor_enter_bin();
+                xaf_mark("JMP_NONRSP");
                 out_site = 0; out_lbl = nullptr; out_def = false;
                 return r;
             }
@@ -257,6 +262,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix: a generator/resumable proc's frame MUST survive beta-resume, so it lives on the heap (rt_proc_call_gen_h -> rt_zls_alloc) and arrives in rdi; the box ADOPTS it as its rbp frame base (args already bound at [rbp+16]+, region pre-zeroed) instead of carving a throwaway rsp frame that discards the fb.  Restores the pre-s65 non-RSP `mov zr,rdi` the RSP conversion dropped when it applied the outer-graph self-alloc prologue to gen procs.  rsp stays free; both alpha and beta re-enter through this prefix. */
                         std::string rg = bytes(1, "\x55") + bytes(3, "\x48\x89\xFD")
                                        + bytes(3, "\x83\xFE\x00") + bytes(2, "\x0F\x85") + u32le(0);
+                        xaf_mark("GEN_RESUMABLE");
                         out_site = (int)rg.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
                         return rg;
                     }
@@ -279,6 +285,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                                               : std::string())
                                   + x86("cmp", "esi", (long)0)
                                   + x86("jne", "extlbl", (unsigned long)(uintptr_t)g_emit.flat_β_p);
+                    xaf_mark("FRAME_RSP");
                     out_site = -1; out_lbl = nullptr; out_def = false;   /* XA-FLAT-CONVERT slice A: record stream, patch site discovered by bb_emit_x86 via the 'X' record — the hand-counted r.size()-4 is retired here. */
                     return r;
                 }
@@ -292,9 +299,11 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                               + xaf_anchor_enter_bin()
                               + bytes(3, "\x83\xFE\x00")
                               + bytes(2, "\x0F\x85") + u32le(0);
+                xaf_mark("FRAME_NONRSP");
                 out_site = (int)r.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
                 return r;
             }
+            xaf_mark("BARE");
             out_site = -1; out_lbl = nullptr; out_def = false;   /* XA-FLAT-CONVERT slice A: first arm off the raw-byte family.  The hand-counted out_site=9 (4+3+2 bytes before the rel32) is gone — the 'X' record carries the flat_β_p pointer and bb_emit_x86 discovers the patch site as it walks, so the offset cannot drift when an encoder picks a different short form. */
             return x86("sub", "rsp", (long)8)
                  + x86("cmp", "esi", (long)0)
