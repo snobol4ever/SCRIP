@@ -31,101 +31,134 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 232
+                        sub              rsp, 264
                         mov              rdi, rsp
-                        mov              ecx, 232
+                        mov              ecx, 264
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 224], rbp
+                        mov              [rsp + 256], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         define('always_fail()')                        :(af_end)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rbp + 112], 1
-                        mov              rax, qword ptr [rip + .Lx7_0]
-                        mov              qword ptr [rbp + 120], rax
-                                                                                        jmp   n1_call_α
-.Lx7_0:
-                        .quad            .Lx7_0_s
-.Lx7_0_s:
+                        mov              qword ptr [rbp + 144], 1
+                        mov              rax, qword ptr [rip + .Lx12_0]
+                        mov              qword ptr [rbp + 152], rax
+                                                                                        jmp   n5_call_α
+.Lx12_0:
+                        .quad            .Lx12_0_s
+.Lx12_0_s:
                         .string          "always_fail()"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_call_α:
-                        mov              rax, qword ptr [rbp + 112]
-                        mov              qword ptr [rbp + 80], rax
-                        mov              rax, qword ptr [rbp + 120]
-                        mov              qword ptr [rbp + 88], rax
+n1_goto_α:
+                                                                                        jmp   n6_goto_deferred_α
+n1_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n2_goto_α:
+                                                                                        jmp   n7_call_α
+n2_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n3_goto_α:
+                                                                                        jmp   n8_lit_string_α
+n3_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n4_goto_α:
+                                                                                        jmp   main_γ
+n4_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n5_call_α:
+                        mov              rax, qword ptr [rbp + 144]
+                        mov              qword ptr [rbp + 112], rax
+                        mov              rax, qword ptr [rbp + 152]
+                        mov              qword ptr [rbp + 120], rax
                         .section         .rodata
-.Lbynamefn2:            .string          "define"
+.Lbynamefn6:            .string          "define"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn2]
-                        lea              rsi, [rbp + 80]
+                        lea              rdi, [rip + .Lbynamefn6]
+                        lea              rsi, [rbp + 112]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
                         cmp              eax, 99
-                                                                                        je    n2_call_α
-                                                                                        jmp   n2_call_α
-n1_call_β:
-                                                                                        jmp   n2_call_α
+                                                                                        je    n7_call_α
+                                                                                        jmp   n7_call_α
+n5_call_β:
+                                                                                        jmp   n7_call_α
+#=======================================================================================================================
+# always_fail                                            :(freturn)
+#-----------------------------------------------------------------------------------------------------------------------
+n6_goto_deferred_α:
+                        mov              rdi, qword ptr [rip + .Lx19_0]
+                        call             rt_goto_transfer@PLT
+                                                                                        jmp   .Lx19_1
+.Lx19_0:
+                        .quad            .Lx19_0_s
+.Lx19_0_s:
+                        .string          "freturn"
+.Lx19_1:
+                                                                                        jmp   main_γ
 #=======================================================================================================================
 #         always_fail()                                  :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------
-n2_call_α:
+n7_call_α:
                         .section         .rodata
-.Lbynamefn3:            .string          "always_fail"
+.Lbynamefn8:            .string          "always_fail"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn3]
-                        lea              rsi, [rbp + 144]
+                        lea              rdi, [rip + .Lbynamefn8]
+                        lea              rsi, [rbp + 176]
                         mov              edx, 0
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 128], rax
-                        mov              qword ptr [rbp + 136], rdx
+                        mov              qword ptr [rbp + 160], rax
+                        mov              qword ptr [rbp + 168], rdx
                         cmp              eax, 99
-                                                                                        je    n4_lit_string_α
-                                                                                        jmp   n3_lit_string_α
-n2_call_β:
-                                                                                        jmp   n4_lit_string_α
-#=======================================================================================================================
-#         output = 'FAIL 1014/001: freturn should cause statement failure' :(end)
-#-----------------------------------------------------------------------------------------------------------------------
-n3_lit_string_α:
-                        mov              qword ptr [rbp + 176], 1
-                        mov              rax, qword ptr [rip + .Lx10_0]
-                        mov              qword ptr [rbp + 184], rax
-                                                                                        jmp   n5_assign_α
-.Lx10_0:
-                        .quad            .Lx10_0_s
-.Lx10_0_s:
-                        .string          "FAIL 1014/001: freturn should cause statement failure"
+                                                                                        je    n8_lit_string_α
+                                                                                        jmp   n9_lit_string_α
+n7_call_β:
+                                                                                        jmp   n8_lit_string_α
 #=======================================================================================================================
 #         output = 'PASS 1014_func_freturn (1/1)'
 #-----------------------------------------------------------------------------------------------------------------------
-n4_lit_string_α:
-                        mov              qword ptr [rbp + 208], 1
-                        mov              rax, qword ptr [rip + .Lx11_0]
-                        mov              qword ptr [rbp + 216], rax
-                                                                                        jmp   n6_assign_α
-.Lx11_0:
-                        .quad            .Lx11_0_s
-.Lx11_0_s:
+n8_lit_string_α:
+                        mov              qword ptr [rbp + 240], 1
+                        mov              rax, qword ptr [rip + .Lx21_0]
+                        mov              qword ptr [rbp + 248], rax
+                                                                                        jmp   n10_assign_α
+.Lx21_0:
+                        .quad            .Lx21_0_s
+.Lx21_0_s:
                         .string          "PASS 1014_func_freturn (1/1)"
+#=======================================================================================================================
+#         output = 'FAIL 1014/001: freturn should cause statement failure' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n5_assign_α:
-                        mov              rax, qword ptr [rbp + 176]
-                        mov              rdx, qword ptr [rbp + 184]
+n9_lit_string_α:
+                        mov              qword ptr [rbp + 208], 1
+                        mov              rax, qword ptr [rip + .Lx22_0]
+                        mov              qword ptr [rbp + 216], rax
+                                                                                        jmp   n11_assign_α
+.Lx22_0:
+                        .quad            .Lx22_0_s
+.Lx22_0_s:
+                        .string          "FAIL 1014/001: freturn should cause statement failure"
+#-----------------------------------------------------------------------------------------------------------------------
+n10_assign_α:
+                        mov              rax, qword ptr [rbp + 240]
+                        mov              rdx, qword ptr [rbp + 248]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
+                        mov              qword ptr [rbp + 224], rax
+                        mov              qword ptr [rbp + 232], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-n6_assign_α:
+n11_assign_α:
                         mov              rax, qword ptr [rbp + 208]
                         mov              rdx, qword ptr [rbp + 216]
                         mov              qword ptr [1879052288], rax
@@ -141,15 +174,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 224]
-                        add              rsp, 232
+                        mov              rbp, [rsp + 256]
+                        add              rsp, 264
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 224]
-                        add              rsp, 232
+                        mov              rbp, [rsp + 256]
+                        add              rsp, 264
                         ret
                         .section         .note.GNU-stack,"",@progbits

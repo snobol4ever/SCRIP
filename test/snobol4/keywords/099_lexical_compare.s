@@ -31,25 +31,93 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rbp + 32], 1
-                        mov              rax, qword ptr [rip + .Lx20_0]
+                        mov              rax, qword ptr [rip + .Lx24_0]
                         mov              qword ptr [rbp + 40], rax
-                                                                                        jmp   n1_lit_string_α
-.Lx20_0:
-                        .quad            .Lx20_0_s
-.Lx20_0_s:
+                                                                                        jmp   n5_lit_string_α
+.Lx24_0:
+                        .quad            .Lx24_0_s
+.Lx24_0_s:
                         .string          "b"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_lit_string_α:
-                        mov              qword ptr [rbp + 16], 1
-                        mov              rax, qword ptr [rip + .Lx21_0]
-                        mov              qword ptr [rbp + 24], rax
-                                                                                        jmp   n2_op76_α
-.Lx21_0:
-                        .quad            .Lx21_0_s
-.Lx21_0_s:
-                        .string          "a"
+n1_goto_α:
+                                                                                        jmp   n6_lit_string_α
+n1_goto_β:
+                                                                                        jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-n2_op76_α:
+n2_goto_α:
+                                                                                        jmp   n7_lit_string_α
+n2_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n3_goto_α:
+                                                                                        jmp   n8_lit_string_α
+n3_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n4_goto_α:
+                                                                                        jmp   n9_lit_string_α
+n4_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n5_lit_string_α:
+                        mov              qword ptr [rbp + 16], 1
+                        mov              rax, qword ptr [rip + .Lx29_0]
+                        mov              qword ptr [rbp + 24], rax
+                                                                                        jmp   n10_op77_α
+.Lx29_0:
+                        .quad            .Lx29_0_s
+.Lx29_0_s:
+                        .string          "a"
+#=======================================================================================================================
+# A       OUTPUT = 'b > a'
+#-----------------------------------------------------------------------------------------------------------------------
+n6_lit_string_α:
+                        mov              qword ptr [rbp + 64], 1
+                        mov              rax, qword ptr [rip + .Lx30_0]
+                        mov              qword ptr [rbp + 72], rax
+                                                                                        jmp   n11_assign_α
+.Lx30_0:
+                        .quad            .Lx30_0_s
+.Lx30_0_s:
+                        .string          "b > a"
+#=======================================================================================================================
+# B       OUTPUT = 'a < b'
+#-----------------------------------------------------------------------------------------------------------------------
+n7_lit_string_α:
+                        mov              qword ptr [rbp + 144], 1
+                        mov              rax, qword ptr [rip + .Lx31_0]
+                        mov              qword ptr [rbp + 152], rax
+                                                                                        jmp   n12_assign_α
+.Lx31_0:
+                        .quad            .Lx31_0_s
+.Lx31_0_s:
+                        .string          "a < b"
+#=======================================================================================================================
+# C       OUTPUT = 'cat = cat'
+#-----------------------------------------------------------------------------------------------------------------------
+n8_lit_string_α:
+                        mov              qword ptr [rbp + 224], 1
+                        mov              rax, qword ptr [rip + .Lx32_0]
+                        mov              qword ptr [rbp + 232], rax
+                                                                                        jmp   n13_assign_α
+.Lx32_0:
+                        .quad            .Lx32_0_s
+.Lx32_0_s:
+                        .string          "cat = cat"
+#=======================================================================================================================
+# D       OUTPUT = 'cat != dog'
+#-----------------------------------------------------------------------------------------------------------------------
+n9_lit_string_α:
+                        mov              qword ptr [rbp + 304], 1
+                        mov              rax, qword ptr [rip + .Lx33_0]
+                        mov              qword ptr [rbp + 312], rax
+                                                                                        jmp   n14_assign_α
+.Lx33_0:
+                        .quad            .Lx33_0_s
+.Lx33_0_s:
+                        .string          "cat != dog"
+#-----------------------------------------------------------------------------------------------------------------------
+n10_op77_α:
                         lea              rdi, [rbp + 32]
                         lea              rsi, [rbp + 16]
                         call             rt_cmp_d@PLT
@@ -57,56 +125,127 @@ n2_op76_α:
                                                                                         jle   main_γ
                         mov              qword ptr [rbp + 0], 0
                         mov              qword ptr [rbp + 8], 0
-                                                                                        jmp   n3_lit_string_α
-#=======================================================================================================================
-# A       OUTPUT = 'b > a'
+                                                                                        jmp   n6_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_string_α:
-                        mov              qword ptr [rbp + 64], 1
-                        mov              rax, qword ptr [rip + .Lx24_0]
-                        mov              qword ptr [rbp + 72], rax
-                                                                                        jmp   n4_assign_α
-.Lx24_0:
-                        .quad            .Lx24_0_s
-.Lx24_0_s:
-                        .string          "b > a"
-#-----------------------------------------------------------------------------------------------------------------------
-n4_assign_α:
+n11_assign_α:
                         mov              rsi, qword ptr [rbp + 64]
                         mov              rdx, qword ptr [rbp + 72]
-                        mov              rdi, qword ptr [rip + .Lx25_0]
+                        mov              rdi, qword ptr [rip + .Lx36_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 48], rax
                         mov              qword ptr [rbp + 56], rdx
-                                                                                        jmp   n5_lit_string_α
-.Lx25_0:
-                        .quad            .Lx25_0_s
-.Lx25_0_s:
+                                                                                        jmp   n15_lit_string_α
+.Lx36_0:
+                        .quad            .Lx36_0_s
+.Lx36_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n12_assign_α:
+                        mov              rsi, qword ptr [rbp + 144]
+                        mov              rdx, qword ptr [rbp + 152]
+                        mov              rdi, qword ptr [rip + .Lx37_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 128], rax
+                        mov              qword ptr [rbp + 136], rdx
+                                                                                        jmp   n16_lit_string_α
+.Lx37_0:
+                        .quad            .Lx37_0_s
+.Lx37_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n13_assign_α:
+                        mov              rsi, qword ptr [rbp + 224]
+                        mov              rdx, qword ptr [rbp + 232]
+                        mov              rdi, qword ptr [rip + .Lx38_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 208], rax
+                        mov              qword ptr [rbp + 216], rdx
+                                                                                        jmp   n17_lit_string_α
+.Lx38_0:
+                        .quad            .Lx38_0_s
+.Lx38_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n14_assign_α:
+                        mov              rsi, qword ptr [rbp + 304]
+                        mov              rdx, qword ptr [rbp + 312]
+                        mov              rdi, qword ptr [rip + .Lx39_0]
+                        call             NV_SET_fn@PLT
+                        mov              qword ptr [rbp + 288], rax
+                        mov              qword ptr [rbp + 296], rdx
+                                                                                        jmp   main_γ
+.Lx39_0:
+                        .quad            .Lx39_0_s
+.Lx39_0_s:
                         .string          "OUTPUT"
 #=======================================================================================================================
 #         LLT('a', 'b')                                               :S(B)F(END)
 #-----------------------------------------------------------------------------------------------------------------------
-n5_lit_string_α:
+n15_lit_string_α:
                         mov              qword ptr [rbp + 112], 1
-                        mov              rax, qword ptr [rip + .Lx26_0]
+                        mov              rax, qword ptr [rip + .Lx40_0]
                         mov              qword ptr [rbp + 120], rax
-                                                                                        jmp   n6_lit_string_α
-.Lx26_0:
-                        .quad            .Lx26_0_s
-.Lx26_0_s:
+                                                                                        jmp   n18_lit_string_α
+.Lx40_0:
+                        .quad            .Lx40_0_s
+.Lx40_0_s:
                         .string          "a"
+#=======================================================================================================================
+#         LEQ('cat', 'cat')                                           :S(C)F(END)
 #-----------------------------------------------------------------------------------------------------------------------
-n6_lit_string_α:
+n16_lit_string_α:
+                        mov              qword ptr [rbp + 192], 1
+                        mov              rax, qword ptr [rip + .Lx41_0]
+                        mov              qword ptr [rbp + 200], rax
+                                                                                        jmp   n19_lit_string_α
+.Lx41_0:
+                        .quad            .Lx41_0_s
+.Lx41_0_s:
+                        .string          "cat"
+#=======================================================================================================================
+#         LNE('cat', 'dog')                                           :S(D)F(END)
+#-----------------------------------------------------------------------------------------------------------------------
+n17_lit_string_α:
+                        mov              qword ptr [rbp + 272], 1
+                        mov              rax, qword ptr [rip + .Lx42_0]
+                        mov              qword ptr [rbp + 280], rax
+                                                                                        jmp   n20_lit_string_α
+.Lx42_0:
+                        .quad            .Lx42_0_s
+.Lx42_0_s:
+                        .string          "cat"
+#-----------------------------------------------------------------------------------------------------------------------
+n18_lit_string_α:
                         mov              qword ptr [rbp + 96], 1
-                        mov              rax, qword ptr [rip + .Lx27_0]
+                        mov              rax, qword ptr [rip + .Lx43_0]
                         mov              qword ptr [rbp + 104], rax
-                                                                                        jmp   n7_op76_α
-.Lx27_0:
-                        .quad            .Lx27_0_s
-.Lx27_0_s:
+                                                                                        jmp   n21_op77_α
+.Lx43_0:
+                        .quad            .Lx43_0_s
+.Lx43_0_s:
                         .string          "b"
 #-----------------------------------------------------------------------------------------------------------------------
-n7_op76_α:
+n19_lit_string_α:
+                        mov              qword ptr [rbp + 176], 1
+                        mov              rax, qword ptr [rip + .Lx44_0]
+                        mov              qword ptr [rbp + 184], rax
+                                                                                        jmp   n22_op77_α
+.Lx44_0:
+                        .quad            .Lx44_0_s
+.Lx44_0_s:
+                        .string          "cat"
+#-----------------------------------------------------------------------------------------------------------------------
+n20_lit_string_α:
+                        mov              qword ptr [rbp + 256], 1
+                        mov              rax, qword ptr [rip + .Lx45_0]
+                        mov              qword ptr [rbp + 264], rax
+                                                                                        jmp   n23_op77_α
+.Lx45_0:
+                        .quad            .Lx45_0_s
+.Lx45_0_s:
+                        .string          "dog"
+#-----------------------------------------------------------------------------------------------------------------------
+n21_op77_α:
                         lea              rdi, [rbp + 112]
                         lea              rsi, [rbp + 96]
                         call             rt_cmp_d@PLT
@@ -114,56 +253,9 @@ n7_op76_α:
                                                                                         jns   main_γ
                         mov              qword ptr [rbp + 80], 0
                         mov              qword ptr [rbp + 88], 0
-                                                                                        jmp   n8_lit_string_α
-#=======================================================================================================================
-# B       OUTPUT = 'a < b'
+                                                                                        jmp   n7_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n8_lit_string_α:
-                        mov              qword ptr [rbp + 144], 1
-                        mov              rax, qword ptr [rip + .Lx30_0]
-                        mov              qword ptr [rbp + 152], rax
-                                                                                        jmp   n9_assign_α
-.Lx30_0:
-                        .quad            .Lx30_0_s
-.Lx30_0_s:
-                        .string          "a < b"
-#-----------------------------------------------------------------------------------------------------------------------
-n9_assign_α:
-                        mov              rsi, qword ptr [rbp + 144]
-                        mov              rdx, qword ptr [rbp + 152]
-                        mov              rdi, qword ptr [rip + .Lx31_0]
-                        call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 128], rax
-                        mov              qword ptr [rbp + 136], rdx
-                                                                                        jmp   n10_lit_string_α
-.Lx31_0:
-                        .quad            .Lx31_0_s
-.Lx31_0_s:
-                        .string          "OUTPUT"
-#=======================================================================================================================
-#         LEQ('cat', 'cat')                                           :S(C)F(END)
-#-----------------------------------------------------------------------------------------------------------------------
-n10_lit_string_α:
-                        mov              qword ptr [rbp + 192], 1
-                        mov              rax, qword ptr [rip + .Lx32_0]
-                        mov              qword ptr [rbp + 200], rax
-                                                                                        jmp   n11_lit_string_α
-.Lx32_0:
-                        .quad            .Lx32_0_s
-.Lx32_0_s:
-                        .string          "cat"
-#-----------------------------------------------------------------------------------------------------------------------
-n11_lit_string_α:
-                        mov              qword ptr [rbp + 176], 1
-                        mov              rax, qword ptr [rip + .Lx33_0]
-                        mov              qword ptr [rbp + 184], rax
-                                                                                        jmp   n12_op76_α
-.Lx33_0:
-                        .quad            .Lx33_0_s
-.Lx33_0_s:
-                        .string          "cat"
-#-----------------------------------------------------------------------------------------------------------------------
-n12_op76_α:
+n22_op77_α:
                         lea              rdi, [rbp + 192]
                         lea              rsi, [rbp + 176]
                         call             rt_cmp_d@PLT
@@ -171,56 +263,9 @@ n12_op76_α:
                                                                                         jne   main_γ
                         mov              qword ptr [rbp + 160], 0
                         mov              qword ptr [rbp + 168], 0
-                                                                                        jmp   n13_lit_string_α
-#=======================================================================================================================
-# C       OUTPUT = 'cat = cat'
+                                                                                        jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n13_lit_string_α:
-                        mov              qword ptr [rbp + 224], 1
-                        mov              rax, qword ptr [rip + .Lx36_0]
-                        mov              qword ptr [rbp + 232], rax
-                                                                                        jmp   n14_assign_α
-.Lx36_0:
-                        .quad            .Lx36_0_s
-.Lx36_0_s:
-                        .string          "cat = cat"
-#-----------------------------------------------------------------------------------------------------------------------
-n14_assign_α:
-                        mov              rsi, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
-                        mov              rdi, qword ptr [rip + .Lx37_0]
-                        call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 208], rax
-                        mov              qword ptr [rbp + 216], rdx
-                                                                                        jmp   n15_lit_string_α
-.Lx37_0:
-                        .quad            .Lx37_0_s
-.Lx37_0_s:
-                        .string          "OUTPUT"
-#=======================================================================================================================
-#         LNE('cat', 'dog')                                           :S(D)F(END)
-#-----------------------------------------------------------------------------------------------------------------------
-n15_lit_string_α:
-                        mov              qword ptr [rbp + 272], 1
-                        mov              rax, qword ptr [rip + .Lx38_0]
-                        mov              qword ptr [rbp + 280], rax
-                                                                                        jmp   n16_lit_string_α
-.Lx38_0:
-                        .quad            .Lx38_0_s
-.Lx38_0_s:
-                        .string          "cat"
-#-----------------------------------------------------------------------------------------------------------------------
-n16_lit_string_α:
-                        mov              qword ptr [rbp + 256], 1
-                        mov              rax, qword ptr [rip + .Lx39_0]
-                        mov              qword ptr [rbp + 264], rax
-                                                                                        jmp   n17_op76_α
-.Lx39_0:
-                        .quad            .Lx39_0_s
-.Lx39_0_s:
-                        .string          "dog"
-#-----------------------------------------------------------------------------------------------------------------------
-n17_op76_α:
+n23_op77_α:
                         lea              rdi, [rbp + 272]
                         lea              rsi, [rbp + 256]
                         call             rt_cmp_d@PLT
@@ -228,32 +273,7 @@ n17_op76_α:
                                                                                         je    main_γ
                         mov              qword ptr [rbp + 240], 0
                         mov              qword ptr [rbp + 248], 0
-                                                                                        jmp   n18_lit_string_α
-#=======================================================================================================================
-# D       OUTPUT = 'cat != dog'
-#-----------------------------------------------------------------------------------------------------------------------
-n18_lit_string_α:
-                        mov              qword ptr [rbp + 304], 1
-                        mov              rax, qword ptr [rip + .Lx42_0]
-                        mov              qword ptr [rbp + 312], rax
-                                                                                        jmp   n19_assign_α
-.Lx42_0:
-                        .quad            .Lx42_0_s
-.Lx42_0_s:
-                        .string          "cat != dog"
-#-----------------------------------------------------------------------------------------------------------------------
-n19_assign_α:
-                        mov              rsi, qword ptr [rbp + 304]
-                        mov              rdx, qword ptr [rbp + 312]
-                        mov              rdi, qword ptr [rip + .Lx43_0]
-                        call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 288], rax
-                        mov              qword ptr [rbp + 296], rdx
-                                                                                        jmp   main_γ
-.Lx43_0:
-                        .quad            .Lx43_0_s
-.Lx43_0_s:
-                        .string          "OUTPUT"
+                                                                                        jmp   n9_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

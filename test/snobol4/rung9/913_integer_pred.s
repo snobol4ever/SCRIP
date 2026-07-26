@@ -44,144 +44,80 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rbp + 48], 1
-                        mov              rax, qword ptr [rip + .Lx14_0]
+                        mov              rax, qword ptr [rip + .Lx18_0]
                         mov              qword ptr [rbp + 56], rax
-                                                                                        jmp   n1_call_α
-.Lx14_0:
-                        .quad            .Lx14_0_s
-.Lx14_0_s:
+                                                                                        jmp   n5_call_α
+.Lx18_0:
+                        .quad            .Lx18_0_s
+.Lx18_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_call_α:
+n1_goto_α:
+                                                                                        jmp   n6_lit_integer_α
+n1_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n2_goto_α:
+                                                                                        jmp   n7_lit_string_α
+n2_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n3_goto_α:
+                                                                                        jmp   n8_lit_string_α
+n3_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n4_goto_α:
+                                                                                        jmp   main_γ
+n4_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n5_call_α:
                         mov              rax, qword ptr [rbp + 48]
                         mov              qword ptr [rbp + 16], rax
                         mov              rax, qword ptr [rbp + 56]
                         mov              qword ptr [rbp + 24], rax
                         .section         .rodata
-.Lrkfn16:               .string          "integer"
+.Lrkfn24:               .string          "integer"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn16]
+                        lea              rdi, [rip + .Lrkfn24]
                         lea              rsi, [rbp + 16]
                         mov              edx, 1
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 0], rax
                         mov              qword ptr [rbp + 8], rdx
                         cmp              eax, 99
-                                                                                        je    n3_lit_integer_α
-                                                                                        jmp   n2_lit_string_α
-n1_call_β:
-                                                                                        jmp   n3_lit_integer_α
-#=======================================================================================================================
-#         output = 'FAIL 913/001: integer(string) should fail' :(end)
-#-----------------------------------------------------------------------------------------------------------------------
-n2_lit_string_α:
-                        mov              qword ptr [rbp + 80], 1
-                        mov              rax, qword ptr [rip + .Lx17_0]
-                        mov              qword ptr [rbp + 88], rax
-                                                                                        jmp   n4_assign_α
-.Lx17_0:
-                        .quad            .Lx17_0_s
-.Lx17_0_s:
-                        .string          "FAIL 913/001: integer(string) should fail"
+                                                                                        je    n6_lit_integer_α
+                                                                                        jmp   n9_lit_string_α
+n5_call_β:
+                                                                                        jmp   n6_lit_integer_α
 #=======================================================================================================================
 #         integer(12)                :s(e002)
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_integer_α:
+n6_lit_integer_α:
                         mov              qword ptr [rbp + 144], 6
-                        mov              rax, qword ptr [rip + .Lx18_0]
+                        mov              rax, qword ptr [rip + .Lx25_0]
                         mov              qword ptr [rbp + 152], rax
-                                                                                        jmp   n5_call_α
-.Lx18_0:
+                                                                                        jmp   n10_call_α
+.Lx25_0:
                         .quad            12
-#-----------------------------------------------------------------------------------------------------------------------
-n4_assign_α:
-                        mov              rax, qword ptr [rbp + 80]
-                        mov              rdx, qword ptr [rbp + 88]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n5_call_α:
-                        mov              rax, qword ptr [rbp + 144]
-                        mov              qword ptr [rbp + 112], rax
-                        mov              rax, qword ptr [rbp + 152]
-                        mov              qword ptr [rbp + 120], rax
-                        .section         .rodata
-.Lrkfn21:               .string          "integer"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn21]
-                        lea              rsi, [rbp + 112]
-                        mov              edx, 1
-                        call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
-                        cmp              eax, 99
-                                                                                        je    n7_lit_string_α
-                                                                                        jmp   n6_lit_string_α
-n5_call_β:
-                                                                                        jmp   n7_lit_string_α
 #=======================================================================================================================
 #         integer('12')              :s(e003)
 #-----------------------------------------------------------------------------------------------------------------------
-n6_lit_string_α:
-                        mov              qword ptr [rbp + 240], 1
-                        mov              rax, qword ptr [rip + .Lx22_0]
-                        mov              qword ptr [rbp + 248], rax
-                                                                                        jmp   n8_call_α
-.Lx22_0:
-                        .quad            .Lx22_0_s
-.Lx22_0_s:
-                        .string          "12"
-#=======================================================================================================================
-#         output = 'FAIL 913/002: integer(12) should succeed'  :(end)
-#-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:
-                        mov              qword ptr [rbp + 176], 1
-                        mov              rax, qword ptr [rip + .Lx23_0]
-                        mov              qword ptr [rbp + 184], rax
-                                                                                        jmp   n9_assign_α
-.Lx23_0:
-                        .quad            .Lx23_0_s
-.Lx23_0_s:
-                        .string          "FAIL 913/002: integer(12) should succeed"
-#-----------------------------------------------------------------------------------------------------------------------
-n8_call_α:
-                        mov              rax, qword ptr [rbp + 240]
-                        mov              qword ptr [rbp + 208], rax
-                        mov              rax, qword ptr [rbp + 248]
-                        mov              qword ptr [rbp + 216], rax
-                        .section         .rodata
-.Lrkfn25:               .string          "integer"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn25]
-                        lea              rsi, [rbp + 208]
-                        mov              edx, 1
-                        call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 192], rax
-                        mov              qword ptr [rbp + 200], rdx
-                        cmp              eax, 99
-                                                                                        je    n11_lit_string_α
-                                                                                        jmp   n10_lit_string_α
-n8_call_β:
-                                                                                        jmp   n11_lit_string_α
-#-----------------------------------------------------------------------------------------------------------------------
-n9_assign_α:
-                        mov              rax, qword ptr [rbp + 176]
-                        mov              rdx, qword ptr [rbp + 184]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
-                                                                                        jmp   main_γ
+                        mov              qword ptr [rbp + 240], 1
+                        mov              rax, qword ptr [rip + .Lx26_0]
+                        mov              qword ptr [rbp + 248], rax
+                                                                                        jmp   n11_call_α
+.Lx26_0:
+                        .quad            .Lx26_0_s
+.Lx26_0_s:
+                        .string          "12"
 #=======================================================================================================================
 #         output = 'PASS 913_integer_pred (3/3)'
 #-----------------------------------------------------------------------------------------------------------------------
-n10_lit_string_α:
+n8_lit_string_α:
                         mov              qword ptr [rbp + 304], 1
                         mov              rax, qword ptr [rip + .Lx27_0]
                         mov              qword ptr [rbp + 312], rax
@@ -191,17 +127,59 @@ n10_lit_string_α:
 .Lx27_0_s:
                         .string          "PASS 913_integer_pred (3/3)"
 #=======================================================================================================================
-#         output = 'FAIL 913/003: integer(numeric-string) should succeed' :(end)
+#         output = 'FAIL 913/001: integer(string) should fail' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n11_lit_string_α:
-                        mov              qword ptr [rbp + 272], 1
+n9_lit_string_α:
+                        mov              qword ptr [rbp + 80], 1
                         mov              rax, qword ptr [rip + .Lx28_0]
-                        mov              qword ptr [rbp + 280], rax
+                        mov              qword ptr [rbp + 88], rax
                                                                                         jmp   n13_assign_α
 .Lx28_0:
                         .quad            .Lx28_0_s
 .Lx28_0_s:
-                        .string          "FAIL 913/003: integer(numeric-string) should succeed"
+                        .string          "FAIL 913/001: integer(string) should fail"
+#-----------------------------------------------------------------------------------------------------------------------
+n10_call_α:
+                        mov              rax, qword ptr [rbp + 144]
+                        mov              qword ptr [rbp + 112], rax
+                        mov              rax, qword ptr [rbp + 152]
+                        mov              qword ptr [rbp + 120], rax
+                        .section         .rodata
+.Lrkfn30:               .string          "integer"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lrkfn30]
+                        lea              rsi, [rbp + 112]
+                        mov              edx, 1
+                        call             rt_call_arr@PLT
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                        cmp              eax, 99
+                                                                                        je    n14_lit_string_α
+                                                                                        jmp   n7_lit_string_α
+n10_call_β:
+                                                                                        jmp   n14_lit_string_α
+#-----------------------------------------------------------------------------------------------------------------------
+n11_call_α:
+                        mov              rax, qword ptr [rbp + 240]
+                        mov              qword ptr [rbp + 208], rax
+                        mov              rax, qword ptr [rbp + 248]
+                        mov              qword ptr [rbp + 216], rax
+                        .section         .rodata
+.Lrkfn32:               .string          "integer"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lrkfn32]
+                        lea              rsi, [rbp + 208]
+                        mov              edx, 1
+                        call             rt_call_arr@PLT
+                        mov              qword ptr [rbp + 192], rax
+                        mov              qword ptr [rbp + 200], rdx
+                        cmp              eax, 99
+                                                                                        je    n15_lit_string_α
+                                                                                        jmp   n8_lit_string_α
+n11_call_β:
+                                                                                        jmp   n15_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_assign_α:
                         mov              rax, qword ptr [rbp + 304]
@@ -213,6 +191,48 @@ n12_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n13_assign_α:
+                        mov              rax, qword ptr [rbp + 80]
+                        mov              rdx, qword ptr [rbp + 88]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 64], rax
+                        mov              qword ptr [rbp + 72], rdx
+                                                                                        jmp   main_γ
+#=======================================================================================================================
+#         output = 'FAIL 913/002: integer(12) should succeed'  :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n14_lit_string_α:
+                        mov              qword ptr [rbp + 176], 1
+                        mov              rax, qword ptr [rip + .Lx35_0]
+                        mov              qword ptr [rbp + 184], rax
+                                                                                        jmp   n16_assign_α
+.Lx35_0:
+                        .quad            .Lx35_0_s
+.Lx35_0_s:
+                        .string          "FAIL 913/002: integer(12) should succeed"
+#=======================================================================================================================
+#         output = 'FAIL 913/003: integer(numeric-string) should succeed' :(end)
+#-----------------------------------------------------------------------------------------------------------------------
+n15_lit_string_α:
+                        mov              qword ptr [rbp + 272], 1
+                        mov              rax, qword ptr [rip + .Lx36_0]
+                        mov              qword ptr [rbp + 280], rax
+                                                                                        jmp   n17_assign_α
+.Lx36_0:
+                        .quad            .Lx36_0_s
+.Lx36_0_s:
+                        .string          "FAIL 913/003: integer(numeric-string) should succeed"
+#-----------------------------------------------------------------------------------------------------------------------
+n16_assign_α:
+                        mov              rax, qword ptr [rbp + 176]
+                        mov              rdx, qword ptr [rbp + 184]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 160], rax
+                        mov              qword ptr [rbp + 168], rdx
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n17_assign_α:
                         mov              rax, qword ptr [rbp + 272]
                         mov              rdx, qword ptr [rbp + 280]
                         mov              qword ptr [1879052288], rax

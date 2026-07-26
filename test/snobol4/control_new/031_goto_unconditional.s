@@ -31,25 +31,30 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rbp + 16], 1
-                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              rax, qword ptr [rip + .Lx3_0]
                         mov              qword ptr [rbp + 24], rax
-                                                                                        jmp   n1_assign_α
-.Lx2_0:
-                        .quad            .Lx2_0_s
-.Lx2_0_s:
+                                                                                        jmp   n2_assign_α
+.Lx3_0:
+                        .quad            .Lx3_0_s
+.Lx3_0_s:
                         .string          "before"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_assign_α:
+n1_goto_α:
+                                                                                        jmp   main_γ
+n1_goto_β:
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
+n2_assign_α:
                         mov              rsi, qword ptr [rbp + 16]
                         mov              rdx, qword ptr [rbp + 24]
-                        mov              rdi, qword ptr [rip + .Lx3_0]
+                        mov              rdi, qword ptr [rip + .Lx5_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 0], rax
                         mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
-.Lx3_0:
-                        .quad            .Lx3_0_s
-.Lx3_0_s:
+.Lx5_0:
+                        .quad            .Lx5_0_s
+.Lx5_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
