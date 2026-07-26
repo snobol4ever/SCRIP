@@ -299,6 +299,15 @@ static std::string bb_call_byname_str(IR_t * pBB) {
      * dispatch (global scan_pos), the two desync, and a stale sync_out later resets &pos to 1 -> infinite co-expr
      * re-scan -> coexpr-stack overflow. See x86_scan_sync_out_force in x86_asm.h. */
     bool scansync = x86_is_scan_builtin_name(fn);
+    /* ICN-BYNAME-CURSOR-RESTORE: tab/move are the only two δ-writing scan primitives (ARCH-ICON.md two-family split).
+     * Reached by-name (no lexical ?, so no inline bb_scan_tab box) they advanced r14 and left β a bare jmp ω, so a
+     * failed conjunct never unwound &pos — `&subject := "p.coord"; tab(many(&letters)); ="." & tab(many(&digits))`
+     * reported &pos=3 where iconx reports 2, which is exactly what killed JCON's ?-less lex_yylex0 on every
+     * IDENT.IDENT (irgen.icn:29 `\p.coord` -> invalid character: "c"). Save δ here, restore it in β below; the slot
+     * is the extra quad zls_node_bytes grants this node, at the same offset formula the emitters use. */
+    bool curmov = fn && (!strcmp(fn, "tab") || !strcmp(fn, "move"));
+    int  dsave  = argbase + 16 * (int)narg;
+    if (curmov) s += x86("mov", FRQ(dsave), "r14");
     if (scansync) s += x86_scan_sync_out_force();
     const char * dsym = 0; void * dfp = dop_direct_fp(fn, narg, &dsym);
     if (dfp) {
@@ -327,6 +336,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += x86_omega("je");
     s += x86_gamma();
     s += x86_beta();
+    if (curmov) s += x86("mov", "r14", FRQ(dsave));
     s += x86_omega();
     return s;
 }
