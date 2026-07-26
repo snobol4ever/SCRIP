@@ -1177,7 +1177,54 @@ inline std::string x86_deflabel_pair(int idx);
 inline std::string x86_jmp_pair(int idx);
 inline std::string x86_jcc_pair(const char * mnem, int idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) {
+static inline int x86_disp_w(const char * s, size_t n) { int w = 0; for (size_t i = 0; i < n; i++) if (((unsigned char)s[i] & 0xC0) != 0x80) w++; return w; }
+static inline void x86_3col_pad(std::string & o, const char * s, size_t n, int width) { o.append(s, n); int pad = width - x86_disp_w(s, n); if (pad < 1) pad = 1; o.append((size_t)pad, ' '); }
+/* x86_3col (2026-07-26, Lon directive): render every TEXT-medium assembly line in the bb_macros.s three-column shape — label field 24, operator field 17, operands at col 41, display-width padded so the
+ * Greek port labels align.  '#' comment lines and empty lines pass through at the margin; 'label: op ...' lines split; rep/lock prefixes fold into the operator; label-only lines sit alone at col 0.
+ * Applied inside x86() (the dispatcher) and once at bb_emit_x86's TEXT sink — the port/pair/jmp terminal encoders bypass the dispatcher by design, and the formatter is idempotent so the double
+ * application is a no-op.  Plain TEXT only: BINARY records and MACRO_DEF pass untouched, so mode-3 bytes and MODE34 identity are unaffected by construction.  SCRIP_ASM_COLUMNS=0 restores verbatim. */
+inline std::string x86_3col(const std::string & s) {
+    if (MEDIUM_BINARY || MEDIUM_MACRO_DEF) return s;
+    { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_ASM_COLUMNS"); on = (e && *e == '0') ? 0 : 1; } if (!on) return s; }
+    std::string o; o.reserve(s.size() + s.size() / 2);
+    size_t i = 0, n = s.size();
+    while (i < n) {
+        size_t e = s.find('\n', i); size_t len = (e == std::string::npos ? n : e) - i;
+        const char * p = s.data() + i;
+        size_t b = 0; while (b < len && (p[b] == ' ' || p[b] == '\t')) b++;
+        const char * t = p + b; size_t tl = len - b;
+        if (tl == 0) { }
+        else if (t[0] == '#') { o.append(t, tl); }
+        else {
+            size_t k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++;
+            const char * q = t; size_t ql = tl;
+            if (t[k - 1] == ':') {
+                size_t r = k; while (r < tl && (t[r] == ' ' || t[r] == '\t')) r++;
+                if (r >= tl) { o.append(t, k); q = 0; }
+                else { x86_3col_pad(o, t, k, 24); q = t + r; ql = tl - r; }
+            } else o.append((size_t)24, ' ');
+            if (q) {
+                size_t m = 0; while (m < ql && q[m] != ' ' && q[m] != '\t') m++;
+                std::string op(q, m);
+                size_t r2 = m;
+                if ((m == 3 && !strncmp(q, "rep", 3)) || (m == 4 && (!strncmp(q, "repe", 4) || !strncmp(q, "repz", 4) || !strncmp(q, "lock", 4))) || (m == 5 && (!strncmp(q, "repne", 5) || !strncmp(q, "repnz", 5)))) {
+                    size_t w = m; while (w < ql && (q[w] == ' ' || q[w] == '\t')) w++;
+                    if (w < ql) { size_t m2 = w; while (m2 < ql && q[m2] != ' ' && q[m2] != '\t') m2++; op += ' '; op.append(q + w, m2 - w); r2 = m2; }
+                }
+                while (r2 < ql && (q[r2] == ' ' || q[r2] == '\t')) r2++;
+                if (r2 >= ql) o.append(op);
+                else { x86_3col_pad(o, op.data(), op.size(), 17); o.append(q + r2, ql - r2); }
+            }
+        }
+        o.append(1, '\n');
+        i = (e == std::string::npos) ? n : e + 1;
+    }
+    return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
+inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_3col(x86_core_(mnem, xa, xb, xc, xd)); }
+inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
     if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
     if (!strcmp(mnem, "comment"))   return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
@@ -1860,7 +1907,7 @@ inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void bb_emit_x86(const std::string & s) {
-    if (!MEDIUM_BINARY) { if (!s.empty()) emit_text_n(s.data(), s.size()); return; }
+    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string _f = x86_3col(s); emit_text_n(_f.data(), _f.size()); } return; }
     bb_label_t internal[X86_INTERNAL_MAX];
     for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name[0] = '\0'; }
     size_t i = 0, n = s.size();
