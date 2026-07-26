@@ -16,14 +16,18 @@ if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not found: $SCRIP"; exit 0; fi
 if [ ! -d "$DEMO" ]; then echo "SKIP  corpus demo dir not found: $DEMO"; exit 0; fi
 
 cd "$DEMO"
-# THE SANCTIONED SET (widened 2026-07-26 by Lon directive: "get them all but porter stemmer can be excluded").
+# THE SANCTIONED SET (widened 2026-07-26 by Lon directive: "get them all but porter stemmer can be excluded";
+# narrowed same day: "exclude expression.s also — we do not want the huge ones").
 # Was the s151 five (roman wordcount claws5 treebank-list treebank-array) — which silently left hello.s and four
 # other legacy artifacts frozen at 2026-06-25 while the compiler moved a month underneath them, and left the ten
-# s158 working-set programs with no artifact at all.  PORTER IS DELIBERATELY ABSENT: its emit is ~37k lines
-# (mostly stemmer pattern tables) and would churn that on every codegen commit; it compiles and assembles fine,
-# so re-add it here if the churn is ever wanted.  Every name below is verified compile-clean + assembler-accepted.
+# s158 working-set programs with no artifact at all.  TWO PROGRAMS ARE DELIBERATELY ABSENT ON SIZE, NOT ON
+# HEALTH — porter (~37k lines of stemmer pattern tables) and expression (~36k) both compile clean and assemble
+# clean; they are out because committing them churns ~73k lines on every codegen commit.  Their .s files are
+# NOT left behind stale: a name dropped from this list must have its artifact deleted in the same commit, which
+# is the whole lesson of the hello.s fossil.  Re-add a name here if the churn is ever wanted.  Largest member
+# now is json at ~18k; that is the standing ceiling unless Lon rules otherwise.
 DEMOS="roman wordcount claws5 treebank-list treebank-array \
-       arithmetic counter hello pattern_test expression \
+       arithmetic counter hello pattern_test \
        calculator-1 calculator-1-match calculator-1-match-fence \
        calculator-2 calculator-2-match calculator-2-match-fence \
        claws5-match claws5-match-fence \
