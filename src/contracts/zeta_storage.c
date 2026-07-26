@@ -215,8 +215,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
             }
             return 1 + nd->n_operands;
         }
-        if (ir_node_produces_value(nd->op)) { return 1; }
-        return 0;
+        return 0;   /* SN4-FRAME-DIET (s174): the default-arm phantom is DELETED -- every armless value producer (LIT/VAR/binop class) burned result+16 with no registered field and no reader; audit: every template consuming [op_off+16] (bb_scan_*, bb_match_head/arbno/release/replace, bb_disjunction, bb_call_value, bb_create, bb_limit, bb_repalt, bb_rev_swap, bb_to*, bb_move_label, bb_indirect_goto, bb_keyword_icon, bb_gen_scan, bb_make_list) owns an explicit arm above, so no default-class kind reads past its result quad */
     }
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
@@ -367,7 +366,20 @@ void zls_build(IR_graph_t * g) {
         mfirst[nl] = sc; mstart[nl] = zm[mi].start_n; nl++;
         r->n_scopes++;
     }
-    int base = 16 + (g->nparams > 0 ? g->nparams * 16 : 0);
+    char rb_s[8192]; char * rb = (g->n <= (int)sizeof rb_s) ? rb_s : (char *)malloc((size_t)(g->n > 0 ? g->n : 1)); memset(rb, 0, (size_t)(g->n > 0 ? g->n : 1));
+    { int hn = 4; while (hn < g->n * 2 + 4) hn <<= 1; IR_t ** hk = (IR_t **)calloc((size_t)hn, sizeof(IR_t *)); int * hv = (int *)malloc((size_t)hn * sizeof(int)); int * wl = (int *)malloc((size_t)(g->n > 0 ? g->n : 1) * sizeof(int)); int wn = 0;
+      for (int i = 0; i < g->n; i++) { IR_t * p = g->all[i]; if (!p) continue; unsigned long h = (((unsigned long)(uintptr_t)p) >> 4) & (unsigned long)(hn - 1); while (hk[h]) h = (h + 1) & (unsigned long)(hn - 1); hk[h] = p; hv[h] = i; }
+      if (g->entry) { IR_t * p = g->entry; unsigned long h = (((unsigned long)(uintptr_t)p) >> 4) & (unsigned long)(hn - 1); while (hk[h] && hk[h] != p) h = (h + 1) & (unsigned long)(hn - 1); if (hk[h]) { rb[hv[h]] = 1; wl[wn++] = hv[h]; } }
+      else for (int i = 0; i < g->n; i++) rb[i] = 1;
+      int dyn = 0;
+      for (int i = 0; i < g->n && !dyn; i++) if (g->all[i] && (g->all[i]->op == IR_GOTO_DEFERRED || g->all[i]->op == IR_INDIRECT_GOTO || ((g->all[i]->op == IR_CALL || g->all[i]->op == IR_CALL_BUILTIN || g->all[i]->op == IR_CALL_BUILTIN_SNOBOL4) && IR_LIT(g->all[i]).sval && strcmp(IR_LIT(g->all[i]).sval, "CODE") == 0))) dyn = 1;
+      if (dyn) { for (int i = 0; i < g->n; i++) if (g->all[i]) rb[i] = 1; wn = 0; }   /* SN4-FRAME-DIET (s174): DYNAMIC-TRANSFER graphs (indirect goto :($X), :<C>, CODE) can enter ANY label chain at runtime -- the optimizer's GOTO-fold leaves those chain heads with no static in-edge (measured: 214 reach=17/57), and m3 emits chains lazily from the label registry on first entry, so the walk under-marks exactly the enterable set.  Full grants for this class (the pre-diet layout); the diet applies to the static majority */
+      for (int i = 0; i < g->n; i++) if (g->all[i] && !rb[i] && zls_is_wiring(g->all[i]->op)) { rb[i] = 1; wl[wn++] = i; }   /* SN4-FRAME-DIET (s174) ROOT REPAIR: the emitter is CHAIN-BFS -- every statement anchor (IR_GOTO) and deferred/indirect transfer is an emission root, so label-reachable chains with no static γ/ω in-edge (indirect goto :($X), CODE label transfers -- crosscheck 214/215/216/1020/1021, the drive_value_slot FATAL) must be granted too.  Wiring ops take no ticks themselves; rooting them marks their subtrees.  The registry-only NRETURN landing has no wiring in-edge and is not itself wiring, so it stays ungranted */
+      while (wn > 0) { IR_t * c = g->all[wl[--wn]]; if (!c) continue; for (int j = -2; j < c->n_operands; j++) { IR_t * p = (j == -2) ? c->γ.node : (j == -1) ? c->ω.node : c->operands[j]; if (!p) continue; unsigned long h = (((unsigned long)(uintptr_t)p) >> 4) & (unsigned long)(hn - 1); while (hk[h] && hk[h] != p) h = (h + 1) & (unsigned long)(hn - 1); if (hk[h] && !rb[hv[h]]) { rb[hv[h]] = 1; wl[wn++] = hv[h]; } } }
+      free(hk); free(hv); free(wl); }   /* SN4-FRAME-DIET (s174): ZLS grants only REACHABLE nodes -- entry-rooted walk over γ/ω/operands.  Unreachable clusters (e.g. the synthetic NRETURN landing, lower_snobol4.c:1816) held 5 ticks = 80B in EVERY SNOBOL4 graph while the emitter BFS never emits them, so no emitted instruction can reference a skipped slot; operands are walked so a reachable consumer's producer is always granted even off the chain spine */
+    int s0 = (g->nparams > 0 || g->resumable_callable) ? 1 : 0;
+    for (int i = 0; !s0 && i < g->n; i++) if (g->all[i] && rb[i] && (g->all[i]->op == IR_RETURN || g->all[i]->op == IR_SUSPEND)) s0 = 1;
+    int base = s0 ? 16 + (g->nparams > 0 ? g->nparams * 16 : 0) : 0;   /* SN4-FRAME-DIET (s174): slot0 [0,16) is the result/FAILDESCR cell of the gen/resumable/RETURN protocols (xa_flat gen γ reads [rbp+0..15]; rt.c lex epilogue reads [fb+0]) and the params anchor (+16 binding is baked into xa_flat/rt_frame_bind) -- graphs with none of those carried a 16B cell nothing reads, so they get base 0 */
     int k = 0;
     r->first_vslot = zv_n;
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
@@ -385,13 +397,14 @@ void zls_build(IR_graph_t * g) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
         while (cur < nl && i >= mstart[cur]) cur++;
+        if (!rb[i]) continue;
         int sc = (cur > 0) ? mfirst[cur - 1] : root;
         k += eon ? zls_grant_elide(nd, sc, base + k * 16, lv[i], &scratch_off) : zls_grant(nd, sc, base + k * 16);
       }
       if (lv != lv_sbuf) free(lv);
     }
     r->resume_off = -1;
-    for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) {
+    for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && g->all[i]->op == IR_SUSPEND) {
         r->resume_off = base + k * 16;
         zls_field(root, r->resume_off, 8, ZK_PTR_CODE, 0, "gen-proc resume continuation", (const IR_t *)0);
         zls_field(root, r->resume_off + 8, 8, ZK_RAW, 0, "resume.pad (unused)", (const IR_t *)0);
@@ -412,7 +425,7 @@ void zls_build(IR_graph_t * g) {
     } else r->zeta_mark_off = -1;   /* ALIGN-INV-3c: under RSP both halves are dead (mark_call/release_to return empty; anchor writer+readers removed) -- slot unreserved, region reclaimed */
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
-        if (!nd) continue;
+        if (!nd || !rb[i]) continue;
         const char * vn = (const char *)0;
         if (nd->op == IR_ASSIGN) vn = IR_LIT(nd).sval;
         else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vn = IR_LIT(nd->operands[1]).sval;
@@ -444,7 +457,7 @@ void zls_build(IR_graph_t * g) {
      * per-iteration (ARCH-ZETA-LOCAL-STORAGE.md section 5f). */
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
-        if (!nd || nd->op != IR_MATCH_ARBNO || IR_LIT(nd).ival != 1 || nd->n_operands < 3) continue;
+        if (!nd || !rb[i] || nd->op != IR_MATCH_ARBNO || IR_LIT(nd).ival != 1 || nd->n_operands < 3) continue;
         int i0 = -1, i1 = -1;
         for (int j = 0; j < g->n; j++) { if (g->all[j] == nd->operands[1]) i0 = j; if (g->all[j] == nd->operands[2]) i1 = j; }
         if (i0 < 0 || i1 < 0) { fprintf(stderr, "zls: arbno2 geometry — body bracket operands not found in g->all\n"); abort(); }
@@ -461,6 +474,7 @@ void zls_build(IR_graph_t * g) {
         if (mn == 0x7fffffff) za[za_n++] = (zls_ageom_t){ nd, 16, 0, {0}, 0 };
         else                  { zls_ageom_t a; a.nd = nd; a.min_off = mn; a.span = mx - mn; a.nzq = anzq > 8 ? 9 : anzq; for (int q = 0; q < (anzq > 8 ? 0 : anzq); q++) a.zq[q] = azq[q]; za[za_n++] = a; }
     }
+    if (rb != rb_s) free(rb);
     /* R12-EXIT-1 CARRY-THE-TAIL finalize (see the fc_tail_* block below): LOWER registered structural candidates; only HERE do zls offsets exist, so windows, footprints, op_sb, and every range leaf's
      * fcl displacement land in this pass.  Left leaves take the flat formula (32 + prefix + own, the fc_leaf_walk math verbatim); body leaves rebase into the element ([rsp + off + d] = elem + off - bmn
      * with rsp = elem - prefix - own, so d = prefix + own - bmn, routinely NEGATIVE -- the fcl relax above); right leaves add fp_body + span (their window sits after the body window and rsp is deeper by
