@@ -633,13 +633,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ);
             succ = ent[i];
         }
-        int lr = -1;
+        int lr = -1; int lr_cm = 0;
         for (int i = 0; i < k; i++) {
             if (i > 0 && jn[i]) {
                 IR_t * tgt = ω; if (lr >= 0) tgt = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
-                γ_to(jn[i], tgt); ω_to(jn[i], tgt);
+                if (lr >= 0 && lr_cm && tgt && tgt != ω) { lc_γ_to_β(jn[i], tgt); lc_ω_to_β(jn[i], tgt); }   /* ICN-CURSOR-BACKTRACK-β: tab/move (and =s == tab(match(s))) are {0,1+} cursor-movers, deliberately NOT ir_is_generator_kind (ARCH-ICON.md two-family split), so γ_to/ω_to silently DOWNGRADE this backtrack edge to α. Re-entering α re-runs the match at the SAME δ and re-succeeds -> infinite spin -> stack exhaustion (the =s β SEGV, jcon self-host blocker 2026-07-26). Guard on the SOURCE TREE, not tgt->op: at this point the node is still a generic IR_CALL and is only specialized to IR_SCAN_TAB by a later pass. Their β is the documented restore-δ-and-FAIL port (bb_scan_tab: mov r14,[saved]; jmp ω). */
+                else { γ_to(jn[i], tgt); ω_to(jn[i], tgt); }
             }
-            if (is_resumable(S[i]) || icn_tree_is_cursor_mover(S[i])) lr = i;
+            if (is_resumable(S[i]) || icn_tree_is_cursor_mover(S[i])) { lr = i; lr_cm = (!is_resumable(S[i]) && icn_tree_is_cursor_mover(S[i])); }
         }
         if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
         cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
