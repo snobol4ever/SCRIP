@@ -286,7 +286,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div",
+        "__rk_div", "rk_write", "rk_writes",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -860,6 +860,13 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern const char *icon_real_str(double r, char *buf, int bufsz);
+static const char *rk_real_str(double r, char *buf, int bufsz) {
+    if (isfinite(r) && r == floor(r) && fabs(r) < 1e15) { snprintf(buf, (size_t)bufsz, "%lld", (long long)r); return buf; }
+    return icon_real_str(r, buf, bufsz);
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_value(const char *name) {
     DESCR_t d; d.v = DT_E; d.slen = 0xFFFFFFFEu; d.s = (char *)name; return d;
@@ -2830,6 +2837,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (long long v = lo; v <= hi; v++) { if (p > 0) buf[p++] = SOH; char eb[24]; int el = snprintf(eb, sizeof eb, "%lld", v); memcpy(buf + p, eb, (size_t)el); p += (size_t)el; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if ((!strcmp(fn, "rk_write") || !strcmp(fn, "rk_writes"))) {
+        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
+        for (int _ri = 0; _ri < nargs; _ri++) {
+            if (IS_REAL_fn(args[_ri])) { char *_rb = rt_ws_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
+            else tmp[_ri] = args[_ri];
+        }
+        *out = rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs); return 1;
     }
     if (!strcmp(fn, "__rk_div") && nargs == 2) {
         extern void rt_script_die_surface(const char *msg);
