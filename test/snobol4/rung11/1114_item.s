@@ -32,19 +32,19 @@ main:
                         ret
 main_α:
 #=======================================================================================================================
-    .global main_α
-    .global main_β
-    .global main_γ
-    .global main_ω
-  sub rsp, 65544
-  mov rdi, rsp
-  mov ecx, 65544
-  xor eax, eax
-  rep stosb
-  mov qword ptr [rsp + 4136], rsp
-  mov r12, qword ptr [1879048192]
-  mov [rsp + 65536], rbp
-  mov rbp, rsp
+                        .global          main_α
+                        .global          main_β
+                        .global          main_γ
+                        .global          main_ω
+                        sub              rsp, 65544
+                        mov              rdi, rsp
+                        mov              ecx, 65544
+                        xor              eax, eax
+                        rep stosb
+                        mov              qword ptr [rsp + 4136], rsp
+                        mov              r12, qword ptr [1879048192]
+                        mov              [rsp + 65536], rbp
+                        mov              rbp, rsp
 main_α_body:
 #         aaa = array(10)
 # IR_LIT_INTEGER
@@ -52,7 +52,7 @@ xchain0_n0_α:
                         mov              qword ptr [rbp + 160], 6
                         mov              rax, qword ptr [rip + .Lx1_0]
                         mov              qword ptr [rbp + 168], rax
-                        jmp              xchain0_n1_α
+                                                                                        jmp   xchain0_n1_α
 .Lx1_0:
                         .quad            10
 xchain0_n1_α:
@@ -73,10 +73,10 @@ xchain0_n1_α:
                         mov              qword ptr [rbp + 112], rax
                         mov              qword ptr [rbp + 120], rdx
                         cmp              eax, 99
-                        je               xchain0_n3_α
-                        jmp              xchain0_n2_α
+                                                                                        je    xchain0_n3_α
+                                                                                        jmp   xchain0_n2_α
 xchain0_n1_β:
-                        jmp              xchain0_n3_α
+                                                                                        jmp   xchain0_n3_α
 # IR_ASSIGN gva
 xchain0_n2_α:
                         mov              rax, qword ptr [rbp + 112]
@@ -85,7 +85,7 @@ xchain0_n2_α:
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
-                        jmp              xchain0_n3_α
+                                                                                        jmp   xchain0_n3_α
 #         aaa = array(10)
 #         item(aaa, 1) = 5
 # IR_LIT_STRING
@@ -93,7 +93,7 @@ xchain0_n3_α:
                         mov              qword ptr [rbp + 192], 1
                         mov              rax, qword ptr [rip + .Lx4_0]
                         mov              qword ptr [rbp + 200], rax
-                        jmp              xchain0_n4_α
+                                                                                        jmp   xchain0_n4_α
 .Lx4_0:
                         .quad            .Lx4_0_s
 .Lx4_0_s:
@@ -116,17 +116,17 @@ xchain0_n4_α:
                         mov              qword ptr [rbp + 224], rax
                         mov              qword ptr [rbp + 232], rdx
                         cmp              eax, 99
-                        je               xchain0_n6_α
-                        jmp              xchain0_n5_α
+                                                                                        je    xchain0_n6_α
+                                                                                        jmp   xchain0_n5_α
 xchain0_n4_β:
-                        jmp              xchain0_n6_α
+                                                                                        jmp   xchain0_n6_α
 # IR_VAR
 xchain0_n5_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rbp + 336], rax
                         mov              qword ptr [rbp + 344], rdx
-                        jmp              xchain0_n7_α
+                                                                                        jmp   xchain0_n7_α
 #         differ(item(aaa, 1), 5)                   :f(e001)
 # IR_VAR
 xchain0_n6_α:
@@ -134,13 +134,13 @@ xchain0_n6_α:
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rbp + 576], rax
                         mov              qword ptr [rbp + 584], rdx
-                        jmp              xchain0_n8_α
+                                                                                        jmp   xchain0_n8_α
 # IR_LIT_INTEGER
 xchain0_n7_α:
                         mov              qword ptr [rbp + 368], 6
                         mov              rax, qword ptr [rip + .Lx9_0]
                         mov              qword ptr [rbp + 376], rax
-                        jmp              xchain0_n10_α
+                                                                                        jmp   xchain0_n10_α
 .Lx9_0:
                         .quad            1
 # IR_LIT_INTEGER
@@ -148,7 +148,7 @@ xchain0_n8_α:
                         mov              qword ptr [rbp + 608], 6
                         mov              rax, qword ptr [rip + .Lx10_0]
                         mov              qword ptr [rbp + 616], rax
-                        jmp              xchain0_n11_α
+                                                                                        jmp   xchain0_n11_α
 .Lx10_0:
                         .quad            1
 #         differ(aaa<1>, 5)                   :f(e002)
@@ -158,7 +158,7 @@ xchain0_n9_α:
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rbp + 784], rax
                         mov              qword ptr [rbp + 792], rdx
-                        jmp              xchain0_n12_α
+                                                                                        jmp   xchain0_n12_α
 xchain0_n10_α:
 # BOX CALL item(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+336] -> [zr+288]
@@ -182,10 +182,10 @@ xchain0_n10_α:
                         mov              qword ptr [rbp + 272], rax
                         mov              qword ptr [rbp + 280], rdx
                         cmp              eax, 99
-                        je               xchain0_n6_α
-                        jmp              xchain0_n14_α
+                                                                                        je    xchain0_n6_α
+                                                                                        jmp   xchain0_n14_α
 xchain0_n10_β:
-                        jmp              xchain0_n6_α
+                                                                                        jmp   xchain0_n6_α
 xchain0_n11_α:
 # BOX CALL item(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+576] -> [zr+528]
@@ -209,16 +209,16 @@ xchain0_n11_α:
                         mov              qword ptr [rbp + 512], rax
                         mov              qword ptr [rbp + 520], rdx
                         cmp              eax, 99
-                        je               xchain0_n9_α
-                        jmp              xchain0_n15_α
+                                                                                        je    xchain0_n9_α
+                                                                                        jmp   xchain0_n15_α
 xchain0_n11_β:
-                        jmp              xchain0_n9_α
+                                                                                        jmp   xchain0_n9_α
 # IR_LIT_INTEGER
 xchain0_n12_α:
                         mov              qword ptr [rbp + 816], 6
                         mov              rax, qword ptr [rip + .Lx14_0]
                         mov              qword ptr [rbp + 824], rax
-                        jmp              xchain0_n16_α
+                                                                                        jmp   xchain0_n16_α
 .Lx14_0:
                         .quad            1
 #         aaa<2> = 22
@@ -228,13 +228,13 @@ xchain0_n13_α:
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rbp + 976], rax
                         mov              qword ptr [rbp + 984], rdx
-                        jmp              xchain0_n17_α
+                                                                                        jmp   xchain0_n17_α
 # IR_LIT_INTEGER
 xchain0_n14_α:
                         mov              qword ptr [rbp + 400], 6
                         mov              rax, qword ptr [rip + .Lx16_0]
                         mov              qword ptr [rbp + 408], rax
-                        jmp              xchain0_n19_α
+                                                                                        jmp   xchain0_n19_α
 .Lx16_0:
                         .quad            5
 # IR_LIT_INTEGER
@@ -242,7 +242,7 @@ xchain0_n15_α:
                         mov              qword ptr [rbp + 640], 6
                         mov              rax, qword ptr [rip + .Lx17_0]
                         mov              qword ptr [rbp + 648], rax
-                        jmp              xchain0_n20_α
+                                                                                        jmp   xchain0_n20_α
 .Lx17_0:
                         .quad            5
 # IR_SUBSCRIPT x[i] variable
@@ -253,16 +253,16 @@ xchain0_n16_α:
                         mov              rcx, qword ptr [rbp + 824]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n13_α
+                                                                                        je    xchain0_n13_α
                         mov              qword ptr [rbp + 848], rax
                         mov              qword ptr [rbp + 856], rdx
-                        jmp              xchain0_n21_α
+                                                                                        jmp   xchain0_n21_α
 # IR_LIT_INTEGER
 xchain0_n17_α:
                         mov              qword ptr [rbp + 1008], 6
                         mov              rax, qword ptr [rip + .Lx19_0]
                         mov              qword ptr [rbp + 1016], rax
-                        jmp              xchain0_n22_α
+                                                                                        jmp   xchain0_n22_α
 .Lx19_0:
                         .quad            2
 #         differ(item(aaa, 2), 22)                   :f(e003)
@@ -272,7 +272,7 @@ xchain0_n18_α:
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rbp + 1248], rax
                         mov              qword ptr [rbp + 1256], rdx
-                        jmp              xchain0_n23_α
+                                                                                        jmp   xchain0_n23_α
 # IR_ASSIGN_VAR
 xchain0_n19_α:
                         mov              rdi, qword ptr [rbp + 272]
@@ -281,10 +281,10 @@ xchain0_n19_α:
                         mov              rcx, qword ptr [rbp + 408]
                         call             rt_assign_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n6_α
+                                                                                        je    xchain0_n6_α
                         mov              qword ptr [rbp + 432], rax
                         mov              qword ptr [rbp + 440], rdx
-                        jmp              xchain0_n6_α
+                                                                                        jmp   xchain0_n6_α
 xchain0_n20_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+512] -> [zr+464]
@@ -308,20 +308,20 @@ xchain0_n20_α:
                         mov              qword ptr [rbp + 448], rax
                         mov              qword ptr [rbp + 456], rdx
                         cmp              eax, 99
-                        je               xchain0_n9_α
-                        jmp              xchain0_n25_α
+                                                                                        je    xchain0_n9_α
+                                                                                        jmp   xchain0_n25_α
 xchain0_n20_β:
-                        jmp              xchain0_n9_α
+                                                                                        jmp   xchain0_n9_α
 # IR_DEREF variable -> value
 xchain0_n21_α:
                         mov              rdi, qword ptr [rbp + 848]
                         mov              rsi, qword ptr [rbp + 856]
                         call             rt_deref@PLT
                         cmp              eax, 99
-                        je               xchain0_n13_α
+                                                                                        je    xchain0_n13_α
                         mov              qword ptr [rbp + 880], rax
                         mov              qword ptr [rbp + 888], rdx
-                        jmp              xchain0_n26_α
+                                                                                        jmp   xchain0_n26_α
 # IR_SUBSCRIPT x[i] variable
 xchain0_n22_α:
                         mov              rdi, qword ptr [rbp + 976]
@@ -330,16 +330,16 @@ xchain0_n22_α:
                         mov              rcx, qword ptr [rbp + 1016]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n18_α
+                                                                                        je    xchain0_n18_α
                         mov              qword ptr [rbp + 1040], rax
                         mov              qword ptr [rbp + 1048], rdx
-                        jmp              xchain0_n27_α
+                                                                                        jmp   xchain0_n27_α
 # IR_LIT_INTEGER
 xchain0_n23_α:
                         mov              qword ptr [rbp + 1280], 6
                         mov              rax, qword ptr [rip + .Lx25_0]
                         mov              qword ptr [rbp + 1288], rax
-                        jmp              xchain0_n28_α
+                                                                                        jmp   xchain0_n28_α
 .Lx25_0:
                         .quad            2
 #         ama = array('2,2,2,2')
@@ -348,7 +348,7 @@ xchain0_n24_α:
                         mov              qword ptr [rbp + 1456], 1
                         mov              rax, qword ptr [rip + .Lx26_0]
                         mov              qword ptr [rbp + 1464], rax
-                        jmp              xchain0_n29_α
+                                                                                        jmp   xchain0_n29_α
 .Lx26_0:
                         .quad            .Lx26_0_s
 .Lx26_0_s:
@@ -359,7 +359,7 @@ xchain0_n25_α:
                         mov              qword ptr [rbp + 688], 1
                         mov              rax, qword ptr [rip + .Lx27_0]
                         mov              qword ptr [rbp + 696], rax
-                        jmp              xchain0_n30_α
+                                                                                        jmp   xchain0_n30_α
 .Lx27_0:
                         .quad            .Lx27_0_s
 .Lx27_0_s:
@@ -369,7 +369,7 @@ xchain0_n26_α:
                         mov              qword ptr [rbp + 896], 6
                         mov              rax, qword ptr [rip + .Lx28_0]
                         mov              qword ptr [rbp + 904], rax
-                        jmp              xchain0_n31_α
+                                                                                        jmp   xchain0_n31_α
 .Lx28_0:
                         .quad            5
 # IR_LIT_INTEGER
@@ -377,7 +377,7 @@ xchain0_n27_α:
                         mov              qword ptr [rbp + 1072], 6
                         mov              rax, qword ptr [rip + .Lx29_0]
                         mov              qword ptr [rbp + 1080], rax
-                        jmp              xchain0_n32_α
+                                                                                        jmp   xchain0_n32_α
 .Lx29_0:
                         .quad            22
 xchain0_n28_α:
@@ -403,10 +403,10 @@ xchain0_n28_α:
                         mov              qword ptr [rbp + 1184], rax
                         mov              qword ptr [rbp + 1192], rdx
                         cmp              eax, 99
-                        je               xchain0_n24_α
-                        jmp              xchain0_n33_α
+                                                                                        je    xchain0_n24_α
+                                                                                        jmp   xchain0_n33_α
 xchain0_n28_β:
-                        jmp              xchain0_n24_α
+                                                                                        jmp   xchain0_n24_α
 xchain0_n29_α:
 # BOX CALL array(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1456] -> [zr+1424]
@@ -425,10 +425,10 @@ xchain0_n29_α:
                         mov              qword ptr [rbp + 1408], rax
                         mov              qword ptr [rbp + 1416], rdx
                         cmp              eax, 99
-                        je               xchain0_n35_α
-                        jmp              xchain0_n34_α
+                                                                                        je    xchain0_n35_α
+                                                                                        jmp   xchain0_n34_α
 xchain0_n29_β:
-                        jmp              xchain0_n35_α
+                                                                                        jmp   xchain0_n35_α
 # IR_ASSIGN gva
 xchain0_n30_α:
                         mov              rax, qword ptr [rbp + 688]
@@ -437,7 +437,7 @@ xchain0_n30_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 672], rax
                         mov              qword ptr [rbp + 680], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 xchain0_n31_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+880] -> [zr+736]
@@ -461,10 +461,10 @@ xchain0_n31_α:
                         mov              qword ptr [rbp + 720], rax
                         mov              qword ptr [rbp + 728], rdx
                         cmp              eax, 99
-                        je               xchain0_n13_α
-                        jmp              xchain0_n36_α
+                                                                                        je    xchain0_n13_α
+                                                                                        jmp   xchain0_n36_α
 xchain0_n31_β:
-                        jmp              xchain0_n13_α
+                                                                                        jmp   xchain0_n13_α
 # IR_ASSIGN_VAR
 xchain0_n32_α:
                         mov              rdi, qword ptr [rbp + 1040]
@@ -473,16 +473,16 @@ xchain0_n32_α:
                         mov              rcx, qword ptr [rbp + 1080]
                         call             rt_assign_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n18_α
+                                                                                        je    xchain0_n18_α
                         mov              qword ptr [rbp + 1104], rax
                         mov              qword ptr [rbp + 1112], rdx
-                        jmp              xchain0_n18_α
+                                                                                        jmp   xchain0_n18_α
 # IR_LIT_INTEGER
 xchain0_n33_α:
                         mov              qword ptr [rbp + 1312], 6
                         mov              rax, qword ptr [rip + .Lx35_0]
                         mov              qword ptr [rbp + 1320], rax
-                        jmp              xchain0_n37_α
+                                                                                        jmp   xchain0_n37_α
 .Lx35_0:
                         .quad            22
 # IR_ASSIGN gva
@@ -493,14 +493,14 @@ xchain0_n34_α:
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 1392], rax
                         mov              qword ptr [rbp + 1400], rdx
-                        jmp              xchain0_n35_α
+                                                                                        jmp   xchain0_n35_α
 #         item(ama, 1,2,1,2) = 1212
 # IR_LIT_STRING
 xchain0_n35_α:
                         mov              qword ptr [rbp + 1488], 1
                         mov              rax, qword ptr [rip + .Lx37_0]
                         mov              qword ptr [rbp + 1496], rax
-                        jmp              xchain0_n38_α
+                                                                                        jmp   xchain0_n38_α
 .Lx37_0:
                         .quad            .Lx37_0_s
 .Lx37_0_s:
@@ -511,7 +511,7 @@ xchain0_n36_α:
                         mov              qword ptr [rbp + 944], 1
                         mov              rax, qword ptr [rip + .Lx38_0]
                         mov              qword ptr [rbp + 952], rax
-                        jmp              xchain0_n39_α
+                                                                                        jmp   xchain0_n39_α
 .Lx38_0:
                         .quad            .Lx38_0_s
 .Lx38_0_s:
@@ -539,10 +539,10 @@ xchain0_n37_α:
                         mov              qword ptr [rbp + 1120], rax
                         mov              qword ptr [rbp + 1128], rdx
                         cmp              eax, 99
-                        je               xchain0_n24_α
-                        jmp              xchain0_n40_α
+                                                                                        je    xchain0_n24_α
+                                                                                        jmp   xchain0_n40_α
 xchain0_n37_β:
-                        jmp              xchain0_n24_α
+                                                                                        jmp   xchain0_n24_α
 xchain0_n38_α:
 # BOX IR_CALL SNO$WANTNM(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+1488] -> [zr+1536]
@@ -561,10 +561,10 @@ xchain0_n38_α:
                         mov              qword ptr [rbp + 1520], rax
                         mov              qword ptr [rbp + 1528], rdx
                         cmp              eax, 99
-                        je               xchain0_n42_α
-                        jmp              xchain0_n41_α
+                                                                                        je    xchain0_n42_α
+                                                                                        jmp   xchain0_n41_α
 xchain0_n38_β:
-                        jmp              xchain0_n42_α
+                                                                                        jmp   xchain0_n42_α
 # IR_ASSIGN gva
 xchain0_n39_α:
                         mov              rax, qword ptr [rbp + 944]
@@ -573,14 +573,14 @@ xchain0_n39_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 928], rax
                         mov              qword ptr [rbp + 936], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 #         output = 'FAIL 1114/003: bracket assign, item read' :(end)
 # IR_LIT_STRING
 xchain0_n40_α:
                         mov              qword ptr [rbp + 1360], 1
                         mov              rax, qword ptr [rip + .Lx43_0]
                         mov              qword ptr [rbp + 1368], rax
-                        jmp              xchain0_n43_α
+                                                                                        jmp   xchain0_n43_α
 .Lx43_0:
                         .quad            .Lx43_0_s
 .Lx43_0_s:
@@ -591,7 +591,7 @@ xchain0_n41_α:
                         mov              rdx, qword ptr [1879052328]
                         mov              qword ptr [rbp + 1680], rax
                         mov              qword ptr [rbp + 1688], rdx
-                        jmp              xchain0_n44_α
+                                                                                        jmp   xchain0_n44_α
 #         differ(item(ama, 1,2,1,2), 1212)                   :f(e004)
 # IR_VAR
 xchain0_n42_α:
@@ -599,7 +599,7 @@ xchain0_n42_α:
                         mov              rdx, qword ptr [1879052328]
                         mov              qword ptr [rbp + 2064], rax
                         mov              qword ptr [rbp + 2072], rdx
-                        jmp              xchain0_n45_α
+                                                                                        jmp   xchain0_n45_α
 # IR_ASSIGN gva
 xchain0_n43_α:
                         mov              rax, qword ptr [rbp + 1360]
@@ -608,13 +608,13 @@ xchain0_n43_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1344], rax
                         mov              qword ptr [rbp + 1352], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 # IR_LIT_INTEGER
 xchain0_n44_α:
                         mov              qword ptr [rbp + 1712], 6
                         mov              rax, qword ptr [rip + .Lx47_0]
                         mov              qword ptr [rbp + 1720], rax
-                        jmp              xchain0_n47_α
+                                                                                        jmp   xchain0_n47_α
 .Lx47_0:
                         .quad            1
 # IR_LIT_INTEGER
@@ -622,7 +622,7 @@ xchain0_n45_α:
                         mov              qword ptr [rbp + 2096], 6
                         mov              rax, qword ptr [rip + .Lx48_0]
                         mov              qword ptr [rbp + 2104], rax
-                        jmp              xchain0_n48_α
+                                                                                        jmp   xchain0_n48_α
 .Lx48_0:
                         .quad            1
 #         differ(ama<1,2,1,2>, 1212)                   :f(e005)
@@ -632,13 +632,13 @@ xchain0_n46_α:
                         mov              rdx, qword ptr [1879052328]
                         mov              qword ptr [rbp + 2368], rax
                         mov              qword ptr [rbp + 2376], rdx
-                        jmp              xchain0_n49_α
+                                                                                        jmp   xchain0_n49_α
 # IR_LIT_INTEGER
 xchain0_n47_α:
                         mov              qword ptr [rbp + 1744], 6
                         mov              rax, qword ptr [rip + .Lx50_0]
                         mov              qword ptr [rbp + 1752], rax
-                        jmp              xchain0_n51_α
+                                                                                        jmp   xchain0_n51_α
 .Lx50_0:
                         .quad            2
 # IR_LIT_INTEGER
@@ -646,7 +646,7 @@ xchain0_n48_α:
                         mov              qword ptr [rbp + 2128], 6
                         mov              rax, qword ptr [rip + .Lx51_0]
                         mov              qword ptr [rbp + 2136], rax
-                        jmp              xchain0_n52_α
+                                                                                        jmp   xchain0_n52_α
 .Lx51_0:
                         .quad            2
 # IR_LIT_INTEGER
@@ -654,7 +654,7 @@ xchain0_n49_α:
                         mov              qword ptr [rbp + 2400], 6
                         mov              rax, qword ptr [rip + .Lx52_0]
                         mov              qword ptr [rbp + 2408], rax
-                        jmp              xchain0_n53_α
+                                                                                        jmp   xchain0_n53_α
 .Lx52_0:
                         .quad            1
 #         ama<2,1,2,1> = 2121
@@ -664,13 +664,13 @@ xchain0_n50_α:
                         mov              rdx, qword ptr [1879052328]
                         mov              qword ptr [rbp + 2752], rax
                         mov              qword ptr [rbp + 2760], rdx
-                        jmp              xchain0_n54_α
+                                                                                        jmp   xchain0_n54_α
 # IR_LIT_INTEGER
 xchain0_n51_α:
                         mov              qword ptr [rbp + 1776], 6
                         mov              rax, qword ptr [rip + .Lx54_0]
                         mov              qword ptr [rbp + 1784], rax
-                        jmp              xchain0_n56_α
+                                                                                        jmp   xchain0_n56_α
 .Lx54_0:
                         .quad            1
 # IR_LIT_INTEGER
@@ -678,7 +678,7 @@ xchain0_n52_α:
                         mov              qword ptr [rbp + 2160], 6
                         mov              rax, qword ptr [rip + .Lx55_0]
                         mov              qword ptr [rbp + 2168], rax
-                        jmp              xchain0_n57_α
+                                                                                        jmp   xchain0_n57_α
 .Lx55_0:
                         .quad            1
 # IR_SUBSCRIPT x[i] variable
@@ -689,16 +689,16 @@ xchain0_n53_α:
                         mov              rcx, qword ptr [rbp + 2408]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n50_α
+                                                                                        je    xchain0_n50_α
                         mov              qword ptr [rbp + 2432], rax
                         mov              qword ptr [rbp + 2440], rdx
-                        jmp              xchain0_n58_α
+                                                                                        jmp   xchain0_n58_α
 # IR_LIT_INTEGER
 xchain0_n54_α:
                         mov              qword ptr [rbp + 2784], 6
                         mov              rax, qword ptr [rip + .Lx57_0]
                         mov              qword ptr [rbp + 2792], rax
-                        jmp              xchain0_n59_α
+                                                                                        jmp   xchain0_n59_α
 .Lx57_0:
                         .quad            2
 #         differ(item(ama, 2,1,2,1), 2121)                   :f(e006)
@@ -708,13 +708,13 @@ xchain0_n55_α:
                         mov              rdx, qword ptr [1879052328]
                         mov              qword ptr [rbp + 3264], rax
                         mov              qword ptr [rbp + 3272], rdx
-                        jmp              xchain0_n60_α
+                                                                                        jmp   xchain0_n60_α
 # IR_LIT_INTEGER
 xchain0_n56_α:
                         mov              qword ptr [rbp + 1808], 6
                         mov              rax, qword ptr [rip + .Lx59_0]
                         mov              qword ptr [rbp + 1816], rax
-                        jmp              xchain0_n62_α
+                                                                                        jmp   xchain0_n62_α
 .Lx59_0:
                         .quad            2
 # IR_LIT_INTEGER
@@ -722,7 +722,7 @@ xchain0_n57_α:
                         mov              qword ptr [rbp + 2192], 6
                         mov              rax, qword ptr [rip + .Lx60_0]
                         mov              qword ptr [rbp + 2200], rax
-                        jmp              xchain0_n63_α
+                                                                                        jmp   xchain0_n63_α
 .Lx60_0:
                         .quad            2
 # IR_LIT_INTEGER
@@ -730,7 +730,7 @@ xchain0_n58_α:
                         mov              qword ptr [rbp + 2464], 6
                         mov              rax, qword ptr [rip + .Lx61_0]
                         mov              qword ptr [rbp + 2472], rax
-                        jmp              xchain0_n64_α
+                                                                                        jmp   xchain0_n64_α
 .Lx61_0:
                         .quad            2
 # IR_SUBSCRIPT x[i] variable
@@ -741,16 +741,16 @@ xchain0_n59_α:
                         mov              rcx, qword ptr [rbp + 2792]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n55_α
+                                                                                        je    xchain0_n55_α
                         mov              qword ptr [rbp + 2816], rax
                         mov              qword ptr [rbp + 2824], rdx
-                        jmp              xchain0_n65_α
+                                                                                        jmp   xchain0_n65_α
 # IR_LIT_INTEGER
 xchain0_n60_α:
                         mov              qword ptr [rbp + 3296], 6
                         mov              rax, qword ptr [rip + .Lx63_0]
                         mov              qword ptr [rbp + 3304], rax
-                        jmp              xchain0_n66_α
+                                                                                        jmp   xchain0_n66_α
 .Lx63_0:
                         .quad            2
 #         tt = table()
@@ -767,10 +767,10 @@ xchain0_n61_α:
                         mov              qword ptr [rbp + 3520], rax
                         mov              qword ptr [rbp + 3528], rdx
                         cmp              eax, 99
-                        je               xchain0_n68_α
-                        jmp              xchain0_n67_α
+                                                                                        je    xchain0_n68_α
+                                                                                        jmp   xchain0_n67_α
 xchain0_n61_β:
-                        jmp              xchain0_n68_α
+                                                                                        jmp   xchain0_n68_α
 xchain0_n62_α:
 # BOX CALL item(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1680] -> [zr+1584]
@@ -809,10 +809,10 @@ xchain0_n62_α:
                         mov              qword ptr [rbp + 1568], rax
                         mov              qword ptr [rbp + 1576], rdx
                         cmp              eax, 99
-                        je               xchain0_n42_α
-                        jmp              xchain0_n69_α
+                                                                                        je    xchain0_n42_α
+                                                                                        jmp   xchain0_n69_α
 xchain0_n62_β:
-                        jmp              xchain0_n42_α
+                                                                                        jmp   xchain0_n42_α
 xchain0_n63_α:
 # BOX CALL item(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+2064] -> [zr+1968]
@@ -851,10 +851,10 @@ xchain0_n63_α:
                         mov              qword ptr [rbp + 1952], rax
                         mov              qword ptr [rbp + 1960], rdx
                         cmp              eax, 99
-                        je               xchain0_n46_α
-                        jmp              xchain0_n70_α
+                                                                                        je    xchain0_n46_α
+                                                                                        jmp   xchain0_n70_α
 xchain0_n63_β:
-                        jmp              xchain0_n46_α
+                                                                                        jmp   xchain0_n46_α
 # IR_SUBSCRIPT x[i] variable
 xchain0_n64_α:
                         mov              rdi, qword ptr [rbp + 2432]
@@ -863,16 +863,16 @@ xchain0_n64_α:
                         mov              rcx, qword ptr [rbp + 2472]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n50_α
+                                                                                        je    xchain0_n50_α
                         mov              qword ptr [rbp + 2496], rax
                         mov              qword ptr [rbp + 2504], rdx
-                        jmp              xchain0_n71_α
+                                                                                        jmp   xchain0_n71_α
 # IR_LIT_INTEGER
 xchain0_n65_α:
                         mov              qword ptr [rbp + 2848], 6
                         mov              rax, qword ptr [rip + .Lx69_0]
                         mov              qword ptr [rbp + 2856], rax
-                        jmp              xchain0_n72_α
+                                                                                        jmp   xchain0_n72_α
 .Lx69_0:
                         .quad            1
 # IR_LIT_INTEGER
@@ -880,7 +880,7 @@ xchain0_n66_α:
                         mov              qword ptr [rbp + 3328], 6
                         mov              rax, qword ptr [rip + .Lx70_0]
                         mov              qword ptr [rbp + 3336], rax
-                        jmp              xchain0_n73_α
+                                                                                        jmp   xchain0_n73_α
 .Lx70_0:
                         .quad            1
 # IR_ASSIGN gva
@@ -891,14 +891,14 @@ xchain0_n67_α:
                         mov              qword ptr [1879052344], rdx
                         mov              qword ptr [rbp + 3504], rax
                         mov              qword ptr [rbp + 3512], rdx
-                        jmp              xchain0_n68_α
+                                                                                        jmp   xchain0_n68_α
 #         item(tt, 'key') = 'val'
 # IR_LIT_STRING
 xchain0_n68_α:
                         mov              qword ptr [rbp + 3552], 1
                         mov              rax, qword ptr [rip + .Lx72_0]
                         mov              qword ptr [rbp + 3560], rax
-                        jmp              xchain0_n74_α
+                                                                                        jmp   xchain0_n74_α
 .Lx72_0:
                         .quad            .Lx72_0_s
 .Lx72_0_s:
@@ -908,7 +908,7 @@ xchain0_n69_α:
                         mov              qword ptr [rbp + 1840], 6
                         mov              rax, qword ptr [rip + .Lx73_0]
                         mov              qword ptr [rbp + 1848], rax
-                        jmp              xchain0_n75_α
+                                                                                        jmp   xchain0_n75_α
 .Lx73_0:
                         .quad            1212
 # IR_LIT_INTEGER
@@ -916,7 +916,7 @@ xchain0_n70_α:
                         mov              qword ptr [rbp + 2224], 6
                         mov              rax, qword ptr [rip + .Lx74_0]
                         mov              qword ptr [rbp + 2232], rax
-                        jmp              xchain0_n76_α
+                                                                                        jmp   xchain0_n76_α
 .Lx74_0:
                         .quad            1212
 # IR_LIT_INTEGER
@@ -924,7 +924,7 @@ xchain0_n71_α:
                         mov              qword ptr [rbp + 2528], 6
                         mov              rax, qword ptr [rip + .Lx75_0]
                         mov              qword ptr [rbp + 2536], rax
-                        jmp              xchain0_n77_α
+                                                                                        jmp   xchain0_n77_α
 .Lx75_0:
                         .quad            1
 # IR_SUBSCRIPT x[i] variable
@@ -935,16 +935,16 @@ xchain0_n72_α:
                         mov              rcx, qword ptr [rbp + 2856]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n55_α
+                                                                                        je    xchain0_n55_α
                         mov              qword ptr [rbp + 2880], rax
                         mov              qword ptr [rbp + 2888], rdx
-                        jmp              xchain0_n78_α
+                                                                                        jmp   xchain0_n78_α
 # IR_LIT_INTEGER
 xchain0_n73_α:
                         mov              qword ptr [rbp + 3360], 6
                         mov              rax, qword ptr [rip + .Lx77_0]
                         mov              qword ptr [rbp + 3368], rax
-                        jmp              xchain0_n79_α
+                                                                                        jmp   xchain0_n79_α
 .Lx77_0:
                         .quad            2
 xchain0_n74_α:
@@ -965,10 +965,10 @@ xchain0_n74_α:
                         mov              qword ptr [rbp + 3584], rax
                         mov              qword ptr [rbp + 3592], rdx
                         cmp              eax, 99
-                        je               xchain0_n81_α
-                        jmp              xchain0_n80_α
+                                                                                        je    xchain0_n81_α
+                                                                                        jmp   xchain0_n80_α
 xchain0_n74_β:
-                        jmp              xchain0_n81_α
+                                                                                        jmp   xchain0_n81_α
 # IR_ASSIGN_VAR
 xchain0_n75_α:
                         mov              rdi, qword ptr [rbp + 1568]
@@ -977,10 +977,10 @@ xchain0_n75_α:
                         mov              rcx, qword ptr [rbp + 1848]
                         call             rt_assign_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n42_α
+                                                                                        je    xchain0_n42_α
                         mov              qword ptr [rbp + 1872], rax
                         mov              qword ptr [rbp + 1880], rdx
-                        jmp              xchain0_n42_α
+                                                                                        jmp   xchain0_n42_α
 xchain0_n76_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+1952] -> [zr+1904]
@@ -1004,10 +1004,10 @@ xchain0_n76_α:
                         mov              qword ptr [rbp + 1888], rax
                         mov              qword ptr [rbp + 1896], rdx
                         cmp              eax, 99
-                        je               xchain0_n46_α
-                        jmp              xchain0_n82_α
+                                                                                        je    xchain0_n46_α
+                                                                                        jmp   xchain0_n82_α
 xchain0_n76_β:
-                        jmp              xchain0_n46_α
+                                                                                        jmp   xchain0_n46_α
 # IR_SUBSCRIPT x[i] variable
 xchain0_n77_α:
                         mov              rdi, qword ptr [rbp + 2496]
@@ -1016,16 +1016,16 @@ xchain0_n77_α:
                         mov              rcx, qword ptr [rbp + 2536]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n50_α
+                                                                                        je    xchain0_n50_α
                         mov              qword ptr [rbp + 2560], rax
                         mov              qword ptr [rbp + 2568], rdx
-                        jmp              xchain0_n83_α
+                                                                                        jmp   xchain0_n83_α
 # IR_LIT_INTEGER
 xchain0_n78_α:
                         mov              qword ptr [rbp + 2912], 6
                         mov              rax, qword ptr [rip + .Lx83_0]
                         mov              qword ptr [rbp + 2920], rax
-                        jmp              xchain0_n84_α
+                                                                                        jmp   xchain0_n84_α
 .Lx83_0:
                         .quad            2
 # IR_LIT_INTEGER
@@ -1033,7 +1033,7 @@ xchain0_n79_α:
                         mov              qword ptr [rbp + 3392], 6
                         mov              rax, qword ptr [rip + .Lx84_0]
                         mov              qword ptr [rbp + 3400], rax
-                        jmp              xchain0_n85_α
+                                                                                        jmp   xchain0_n85_α
 .Lx84_0:
                         .quad            1
 # IR_VAR
@@ -1042,7 +1042,7 @@ xchain0_n80_α:
                         mov              rdx, qword ptr [1879052344]
                         mov              qword ptr [rbp + 3696], rax
                         mov              qword ptr [rbp + 3704], rdx
-                        jmp              xchain0_n86_α
+                                                                                        jmp   xchain0_n86_α
 #         differ(item(tt, 'key'), 'val')                   :f(e007)
 # IR_VAR
 xchain0_n81_α:
@@ -1050,14 +1050,14 @@ xchain0_n81_α:
                         mov              rdx, qword ptr [1879052344]
                         mov              qword ptr [rbp + 3936], rax
                         mov              qword ptr [rbp + 3944], rdx
-                        jmp              xchain0_n87_α
+                                                                                        jmp   xchain0_n87_α
 #         output = 'FAIL 1114/004: item 4D assign/read'  :(end)
 # IR_LIT_STRING
 xchain0_n82_α:
                         mov              qword ptr [rbp + 2272], 1
                         mov              rax, qword ptr [rip + .Lx87_0]
                         mov              qword ptr [rbp + 2280], rax
-                        jmp              xchain0_n89_α
+                                                                                        jmp   xchain0_n89_α
 .Lx87_0:
                         .quad            .Lx87_0_s
 .Lx87_0_s:
@@ -1067,7 +1067,7 @@ xchain0_n83_α:
                         mov              qword ptr [rbp + 2592], 6
                         mov              rax, qword ptr [rip + .Lx88_0]
                         mov              qword ptr [rbp + 2600], rax
-                        jmp              xchain0_n90_α
+                                                                                        jmp   xchain0_n90_α
 .Lx88_0:
                         .quad            2
 # IR_SUBSCRIPT x[i] variable
@@ -1078,10 +1078,10 @@ xchain0_n84_α:
                         mov              rcx, qword ptr [rbp + 2920]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n55_α
+                                                                                        je    xchain0_n55_α
                         mov              qword ptr [rbp + 2944], rax
                         mov              qword ptr [rbp + 2952], rdx
-                        jmp              xchain0_n91_α
+                                                                                        jmp   xchain0_n91_α
 xchain0_n85_α:
 # BOX CALL item(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+3264] -> [zr+3168]
@@ -1120,16 +1120,16 @@ xchain0_n85_α:
                         mov              qword ptr [rbp + 3152], rax
                         mov              qword ptr [rbp + 3160], rdx
                         cmp              eax, 99
-                        je               xchain0_n61_α
-                        jmp              xchain0_n92_α
+                                                                                        je    xchain0_n61_α
+                                                                                        jmp   xchain0_n92_α
 xchain0_n85_β:
-                        jmp              xchain0_n61_α
+                                                                                        jmp   xchain0_n61_α
 # IR_LIT_STRING
 xchain0_n86_α:
                         mov              qword ptr [rbp + 3728], 1
                         mov              rax, qword ptr [rip + .Lx91_0]
                         mov              qword ptr [rbp + 3736], rax
-                        jmp              xchain0_n93_α
+                                                                                        jmp   xchain0_n93_α
 .Lx91_0:
                         .quad            .Lx91_0_s
 .Lx91_0_s:
@@ -1139,7 +1139,7 @@ xchain0_n87_α:
                         mov              qword ptr [rbp + 3968], 1
                         mov              rax, qword ptr [rip + .Lx92_0]
                         mov              qword ptr [rbp + 3976], rax
-                        jmp              xchain0_n94_α
+                                                                                        jmp   xchain0_n94_α
 .Lx92_0:
                         .quad            .Lx92_0_s
 .Lx92_0_s:
@@ -1150,7 +1150,7 @@ xchain0_n88_α:
                         mov              qword ptr [rbp + 4096], 1
                         mov              rax, qword ptr [rip + .Lx93_0]
                         mov              qword ptr [rbp + 4104], rax
-                        jmp              xchain0_n95_α
+                                                                                        jmp   xchain0_n95_α
 .Lx93_0:
                         .quad            .Lx93_0_s
 .Lx93_0_s:
@@ -1163,7 +1163,7 @@ xchain0_n89_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 2256], rax
                         mov              qword ptr [rbp + 2264], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 # IR_SUBSCRIPT x[i] variable
 xchain0_n90_α:
                         mov              rdi, qword ptr [rbp + 2560]
@@ -1172,16 +1172,16 @@ xchain0_n90_α:
                         mov              rcx, qword ptr [rbp + 2600]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n50_α
+                                                                                        je    xchain0_n50_α
                         mov              qword ptr [rbp + 2624], rax
                         mov              qword ptr [rbp + 2632], rdx
-                        jmp              xchain0_n96_α
+                                                                                        jmp   xchain0_n96_α
 # IR_LIT_INTEGER
 xchain0_n91_α:
                         mov              qword ptr [rbp + 2976], 6
                         mov              rax, qword ptr [rip + .Lx96_0]
                         mov              qword ptr [rbp + 2984], rax
-                        jmp              xchain0_n97_α
+                                                                                        jmp   xchain0_n97_α
 .Lx96_0:
                         .quad            1
 # IR_LIT_INTEGER
@@ -1189,7 +1189,7 @@ xchain0_n92_α:
                         mov              qword ptr [rbp + 3424], 6
                         mov              rax, qword ptr [rip + .Lx97_0]
                         mov              qword ptr [rbp + 3432], rax
-                        jmp              xchain0_n98_α
+                                                                                        jmp   xchain0_n98_α
 .Lx97_0:
                         .quad            2121
 xchain0_n93_α:
@@ -1215,10 +1215,10 @@ xchain0_n93_α:
                         mov              qword ptr [rbp + 3632], rax
                         mov              qword ptr [rbp + 3640], rdx
                         cmp              eax, 99
-                        je               xchain0_n81_α
-                        jmp              xchain0_n99_α
+                                                                                        je    xchain0_n81_α
+                                                                                        jmp   xchain0_n99_α
 xchain0_n93_β:
-                        jmp              xchain0_n81_α
+                                                                                        jmp   xchain0_n81_α
 xchain0_n94_α:
 # BOX CALL item(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+3936] -> [zr+3888]
@@ -1242,10 +1242,10 @@ xchain0_n94_α:
                         mov              qword ptr [rbp + 3872], rax
                         mov              qword ptr [rbp + 3880], rdx
                         cmp              eax, 99
-                        je               xchain0_n88_α
-                        jmp              xchain0_n100_α
+                                                                                        je    xchain0_n88_α
+                                                                                        jmp   xchain0_n100_α
 xchain0_n94_β:
-                        jmp              xchain0_n88_α
+                                                                                        jmp   xchain0_n88_α
 # IR_ASSIGN gva
 xchain0_n95_α:
                         mov              rax, qword ptr [rbp + 4096]
@@ -1254,17 +1254,17 @@ xchain0_n95_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 4080], rax
                         mov              qword ptr [rbp + 4088], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 # IR_DEREF variable -> value
 xchain0_n96_α:
                         mov              rdi, qword ptr [rbp + 2624]
                         mov              rsi, qword ptr [rbp + 2632]
                         call             rt_deref@PLT
                         cmp              eax, 99
-                        je               xchain0_n50_α
+                                                                                        je    xchain0_n50_α
                         mov              qword ptr [rbp + 2656], rax
                         mov              qword ptr [rbp + 2664], rdx
-                        jmp              xchain0_n101_α
+                                                                                        jmp   xchain0_n101_α
 # IR_SUBSCRIPT x[i] variable
 xchain0_n97_α:
                         mov              rdi, qword ptr [rbp + 2944]
@@ -1273,10 +1273,10 @@ xchain0_n97_α:
                         mov              rcx, qword ptr [rbp + 2984]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n55_α
+                                                                                        je    xchain0_n55_α
                         mov              qword ptr [rbp + 3008], rax
                         mov              qword ptr [rbp + 3016], rdx
-                        jmp              xchain0_n102_α
+                                                                                        jmp   xchain0_n102_α
 xchain0_n98_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+3152] -> [zr+3104]
@@ -1300,16 +1300,16 @@ xchain0_n98_α:
                         mov              qword ptr [rbp + 3088], rax
                         mov              qword ptr [rbp + 3096], rdx
                         cmp              eax, 99
-                        je               xchain0_n61_α
-                        jmp              xchain0_n103_α
+                                                                                        je    xchain0_n61_α
+                                                                                        jmp   xchain0_n103_α
 xchain0_n98_β:
-                        jmp              xchain0_n61_α
+                                                                                        jmp   xchain0_n61_α
 # IR_LIT_STRING
 xchain0_n99_α:
                         mov              qword ptr [rbp + 3760], 1
                         mov              rax, qword ptr [rip + .Lx104_0]
                         mov              qword ptr [rbp + 3768], rax
-                        jmp              xchain0_n104_α
+                                                                                        jmp   xchain0_n104_α
 .Lx104_0:
                         .quad            .Lx104_0_s
 .Lx104_0_s:
@@ -1319,7 +1319,7 @@ xchain0_n100_α:
                         mov              qword ptr [rbp + 4000], 1
                         mov              rax, qword ptr [rip + .Lx105_0]
                         mov              qword ptr [rbp + 4008], rax
-                        jmp              xchain0_n105_α
+                                                                                        jmp   xchain0_n105_α
 .Lx105_0:
                         .quad            .Lx105_0_s
 .Lx105_0_s:
@@ -1329,7 +1329,7 @@ xchain0_n101_α:
                         mov              qword ptr [rbp + 2672], 6
                         mov              rax, qword ptr [rip + .Lx106_0]
                         mov              qword ptr [rbp + 2680], rax
-                        jmp              xchain0_n106_α
+                                                                                        jmp   xchain0_n106_α
 .Lx106_0:
                         .quad            1212
 # IR_LIT_INTEGER
@@ -1337,7 +1337,7 @@ xchain0_n102_α:
                         mov              qword ptr [rbp + 3040], 6
                         mov              rax, qword ptr [rip + .Lx107_0]
                         mov              qword ptr [rbp + 3048], rax
-                        jmp              xchain0_n107_α
+                                                                                        jmp   xchain0_n107_α
 .Lx107_0:
                         .quad            2121
 #         output = 'FAIL 1114/006: bracket 4D assign, item read' :(end)
@@ -1346,7 +1346,7 @@ xchain0_n103_α:
                         mov              qword ptr [rbp + 3472], 1
                         mov              rax, qword ptr [rip + .Lx108_0]
                         mov              qword ptr [rbp + 3480], rax
-                        jmp              xchain0_n108_α
+                                                                                        jmp   xchain0_n108_α
 .Lx108_0:
                         .quad            .Lx108_0_s
 .Lx108_0_s:
@@ -1359,10 +1359,10 @@ xchain0_n104_α:
                         mov              rcx, qword ptr [rbp + 3768]
                         call             rt_assign_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n81_α
+                                                                                        je    xchain0_n81_α
                         mov              qword ptr [rbp + 3792], rax
                         mov              qword ptr [rbp + 3800], rdx
-                        jmp              xchain0_n81_α
+                                                                                        jmp   xchain0_n81_α
 xchain0_n105_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+3872] -> [zr+3824]
@@ -1386,10 +1386,10 @@ xchain0_n105_α:
                         mov              qword ptr [rbp + 3808], rax
                         mov              qword ptr [rbp + 3816], rdx
                         cmp              eax, 99
-                        je               xchain0_n88_α
-                        jmp              xchain0_n109_α
+                                                                                        je    xchain0_n88_α
+                                                                                        jmp   xchain0_n109_α
 xchain0_n105_β:
-                        jmp              xchain0_n88_α
+                                                                                        jmp   xchain0_n88_α
 xchain0_n106_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+2656] -> [zr+2320]
@@ -1413,10 +1413,10 @@ xchain0_n106_α:
                         mov              qword ptr [rbp + 2304], rax
                         mov              qword ptr [rbp + 2312], rdx
                         cmp              eax, 99
-                        je               xchain0_n50_α
-                        jmp              xchain0_n110_α
+                                                                                        je    xchain0_n50_α
+                                                                                        jmp   xchain0_n110_α
 xchain0_n106_β:
-                        jmp              xchain0_n50_α
+                                                                                        jmp   xchain0_n50_α
 # IR_ASSIGN_VAR
 xchain0_n107_α:
                         mov              rdi, qword ptr [rbp + 3008]
@@ -1425,10 +1425,10 @@ xchain0_n107_α:
                         mov              rcx, qword ptr [rbp + 3048]
                         call             rt_assign_var@PLT
                         cmp              eax, 99
-                        je               xchain0_n55_α
+                                                                                        je    xchain0_n55_α
                         mov              qword ptr [rbp + 3072], rax
                         mov              qword ptr [rbp + 3080], rdx
-                        jmp              xchain0_n55_α
+                                                                                        jmp   xchain0_n55_α
 # IR_ASSIGN gva
 xchain0_n108_α:
                         mov              rax, qword ptr [rbp + 3472]
@@ -1437,14 +1437,14 @@ xchain0_n108_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 3456], rax
                         mov              qword ptr [rbp + 3464], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 #         output = 'FAIL 1114/007: item on table'        :(end)
 # IR_LIT_STRING
 xchain0_n109_α:
                         mov              qword ptr [rbp + 4048], 1
                         mov              rax, qword ptr [rip + .Lx114_0]
                         mov              qword ptr [rbp + 4056], rax
-                        jmp              xchain0_n111_α
+                                                                                        jmp   xchain0_n111_α
 .Lx114_0:
                         .quad            .Lx114_0_s
 .Lx114_0_s:
@@ -1455,7 +1455,7 @@ xchain0_n110_α:
                         mov              qword ptr [rbp + 2720], 1
                         mov              rax, qword ptr [rip + .Lx115_0]
                         mov              qword ptr [rbp + 2728], rax
-                        jmp              xchain0_n112_α
+                                                                                        jmp   xchain0_n112_α
 .Lx115_0:
                         .quad            .Lx115_0_s
 .Lx115_0_s:
@@ -1468,7 +1468,7 @@ xchain0_n111_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 4032], rax
                         mov              qword ptr [rbp + 4040], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 # IR_ASSIGN gva
 xchain0_n112_α:
                         mov              rax, qword ptr [rbp + 2720]
@@ -1477,23 +1477,23 @@ xchain0_n112_α:
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 2704], rax
                         mov              qword ptr [rbp + 2712], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 main_β:
-jmp main_ω
+                                                                                        jmp   main_ω
 main_γ:
-mov eax, 1
-xor edx, edx
-mov rsp, qword ptr [rbp + 4136]
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
+                        mov              eax, 1
+                        xor              edx, edx
+                        mov              rsp, qword ptr [rbp + 4136]
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret
 main_ω:
-mov rsp, qword ptr [rbp + 4136]
-mov dword ptr [rsp+0], 99
-mov dword ptr [rsp+4], 0
-mov qword ptr [rsp+8], 0
-mov eax, 99
-xor edx, edx
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
+                        mov              rsp, qword ptr [rbp + 4136]
+                        mov              dword ptr [rsp+0], 99
+                        mov              dword ptr [rsp+4], 0
+                        mov              qword ptr [rsp+8], 0
+                        mov              eax, 99
+                        xor              edx, edx
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret

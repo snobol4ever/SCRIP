@@ -13,19 +13,19 @@ main:
                         ret
 main_α:
 #=======================================================================================================================
-    .global main_α
-    .global main_β
-    .global main_γ
-    .global main_ω
-  sub rsp, 65544
-  mov rdi, rsp
-  mov ecx, 65544
-  xor eax, eax
-  rep stosb
-  mov qword ptr [rsp + 728], rsp
-  mov r12, qword ptr [1879048192]
-  mov [rsp + 65536], rbp
-  mov rbp, rsp
+                        .global          main_α
+                        .global          main_β
+                        .global          main_γ
+                        .global          main_ω
+                        sub              rsp, 65544
+                        mov              rdi, rsp
+                        mov              ecx, 65544
+                        xor              eax, eax
+                        rep stosb
+                        mov              qword ptr [rsp + 728], rsp
+                        mov              r12, qword ptr [1879048192]
+                        mov              [rsp + 65536], rbp
+                        mov              rbp, rsp
 main_α_body:
 #         OUTPUT = REPLACE(DATATYPE('hello'), &LCASE, &UCASE)
 # IR_LIT_STRING
@@ -33,7 +33,7 @@ xchain0_n0_α:
                         mov              qword ptr [rbp + 240], 1
                         mov              rax, qword ptr [rip + .Lx1_0]
                         mov              qword ptr [rbp + 248], rax
-                        jmp              xchain0_n1_α
+                                                                                        jmp   xchain0_n1_α
 .Lx1_0:
                         .quad            .Lx1_0_s
 .Lx1_0_s:
@@ -56,17 +56,17 @@ xchain0_n1_α:
                         mov              qword ptr [rbp + 192], rax
                         mov              qword ptr [rbp + 200], rdx
                         cmp              eax, 99
-                        je               xchain0_n3_α
-                        jmp              xchain0_n2_α
+                                                                                        je    xchain0_n3_α
+                                                                                        jmp   xchain0_n2_α
 xchain0_n1_β:
-                        jmp              xchain0_n3_α
+                                                                                        jmp   xchain0_n3_α
 # IR_KEYWORD_SNOBOL4_read
 xchain0_n2_α:
                         mov              rdi, qword ptr [rip + .Lx4_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 272], rax
                         mov              qword ptr [rbp + 280], rdx
-                        jmp              xchain0_n4_α
+                                                                                        jmp   xchain0_n4_α
 .Lx4_0:
                         .quad            .Lx4_0_s
 .Lx4_0_s:
@@ -77,7 +77,7 @@ xchain0_n3_α:
                         mov              qword ptr [rbp + 448], 6
                         mov              rax, qword ptr [rip + .Lx5_0]
                         mov              qword ptr [rbp + 456], rax
-                        jmp              xchain0_n5_α
+                                                                                        jmp   xchain0_n5_α
 .Lx5_0:
                         .quad            42
 # IR_KEYWORD_SNOBOL4_read
@@ -86,7 +86,7 @@ xchain0_n4_α:
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 288], rax
                         mov              qword ptr [rbp + 296], rdx
-                        jmp              xchain0_n6_α
+                                                                                        jmp   xchain0_n6_α
 .Lx6_0:
                         .quad            .Lx6_0_s
 .Lx6_0_s:
@@ -109,10 +109,10 @@ xchain0_n5_α:
                         mov              qword ptr [rbp + 400], rax
                         mov              qword ptr [rbp + 408], rdx
                         cmp              eax, 99
-                        je               xchain0_n8_α
-                        jmp              xchain0_n7_α
+                                                                                        je    xchain0_n8_α
+                                                                                        jmp   xchain0_n7_α
 xchain0_n5_β:
-                        jmp              xchain0_n8_α
+                                                                                        jmp   xchain0_n8_α
 xchain0_n6_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+192] -> [zr+128]
@@ -141,17 +141,17 @@ xchain0_n6_α:
                         mov              qword ptr [rbp + 112], rax
                         mov              qword ptr [rbp + 120], rdx
                         cmp              eax, 99
-                        je               xchain0_n3_α
-                        jmp              xchain0_n9_α
+                                                                                        je    xchain0_n3_α
+                                                                                        jmp   xchain0_n9_α
 xchain0_n6_β:
-                        jmp              xchain0_n3_α
+                                                                                        jmp   xchain0_n3_α
 # IR_KEYWORD_SNOBOL4_read
 xchain0_n7_α:
                         mov              rdi, qword ptr [rip + .Lx11_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 480], rax
                         mov              qword ptr [rbp + 488], rdx
-                        jmp              xchain0_n10_α
+                                                                                        jmp   xchain0_n10_α
 .Lx11_0:
                         .quad            .Lx11_0_s
 .Lx11_0_s:
@@ -162,7 +162,7 @@ xchain0_n8_α:
                         mov              qword ptr [rbp + 656], 7
                         mov              rax, qword ptr [rip + .Lx12_0]
                         mov              qword ptr [rbp + 664], rax
-                        jmp              xchain0_n11_α
+                                                                                        jmp   xchain0_n11_α
 .Lx12_0:
                         .quad            4614253070214989087
 # IR_ASSIGN global
@@ -173,7 +173,7 @@ xchain0_n9_α:
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
-                        jmp              xchain0_n3_α
+                                                                                        jmp   xchain0_n3_α
 .Lx13_0:
                         .quad            .Lx13_0_s
 .Lx13_0_s:
@@ -184,7 +184,7 @@ xchain0_n10_α:
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 496], rax
                         mov              qword ptr [rbp + 504], rdx
-                        jmp              xchain0_n12_α
+                                                                                        jmp   xchain0_n12_α
 .Lx14_0:
                         .quad            .Lx14_0_s
 .Lx14_0_s:
@@ -207,10 +207,10 @@ xchain0_n11_α:
                         mov              qword ptr [rbp + 608], rax
                         mov              qword ptr [rbp + 616], rdx
                         cmp              eax, 99
-                        je               main_γ
-                        jmp              xchain0_n13_α
+                                                                                        je    main_γ
+                                                                                        jmp   xchain0_n13_α
 xchain0_n11_β:
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 xchain0_n12_α:
 # BOX IR_CALL REPLACE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
 # marshal arg0 = producer-box slot [zr+400] -> [zr+336]
@@ -239,17 +239,17 @@ xchain0_n12_α:
                         mov              qword ptr [rbp + 320], rax
                         mov              qword ptr [rbp + 328], rdx
                         cmp              eax, 99
-                        je               xchain0_n8_α
-                        jmp              xchain0_n14_α
+                                                                                        je    xchain0_n8_α
+                                                                                        jmp   xchain0_n14_α
 xchain0_n12_β:
-                        jmp              xchain0_n8_α
+                                                                                        jmp   xchain0_n8_α
 # IR_KEYWORD_SNOBOL4_read
 xchain0_n13_α:
                         mov              rdi, qword ptr [rip + .Lx19_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 688], rax
                         mov              qword ptr [rbp + 696], rdx
-                        jmp              xchain0_n15_α
+                                                                                        jmp   xchain0_n15_α
 .Lx19_0:
                         .quad            .Lx19_0_s
 .Lx19_0_s:
@@ -262,7 +262,7 @@ xchain0_n14_α:
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 304], rax
                         mov              qword ptr [rbp + 312], rdx
-                        jmp              xchain0_n8_α
+                                                                                        jmp   xchain0_n8_α
 .Lx20_0:
                         .quad            .Lx20_0_s
 .Lx20_0_s:
@@ -273,7 +273,7 @@ xchain0_n15_α:
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 704], rax
                         mov              qword ptr [rbp + 712], rdx
-                        jmp              xchain0_n16_α
+                                                                                        jmp   xchain0_n16_α
 .Lx21_0:
                         .quad            .Lx21_0_s
 .Lx21_0_s:
@@ -306,10 +306,10 @@ xchain0_n16_α:
                         mov              qword ptr [rbp + 528], rax
                         mov              qword ptr [rbp + 536], rdx
                         cmp              eax, 99
-                        je               main_γ
-                        jmp              xchain0_n17_α
+                                                                                        je    main_γ
+                                                                                        jmp   xchain0_n17_α
 xchain0_n16_β:
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 # IR_ASSIGN global
 xchain0_n17_α:
                         mov              rsi, qword ptr [rbp + 528]
@@ -318,27 +318,27 @@ xchain0_n17_α:
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 512], rax
                         mov              qword ptr [rbp + 520], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 .Lx24_0:
                         .quad            .Lx24_0_s
 .Lx24_0_s:
                         .string          "OUTPUT"
 main_β:
-jmp main_ω
+                                                                                        jmp   main_ω
 main_γ:
-mov eax, 1
-xor edx, edx
-mov rsp, qword ptr [rbp + 728]
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
+                        mov              eax, 1
+                        xor              edx, edx
+                        mov              rsp, qword ptr [rbp + 728]
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret
 main_ω:
-mov rsp, qword ptr [rbp + 728]
-mov dword ptr [rsp+0], 99
-mov dword ptr [rsp+4], 0
-mov qword ptr [rsp+8], 0
-mov eax, 99
-xor edx, edx
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
+                        mov              rsp, qword ptr [rbp + 728]
+                        mov              dword ptr [rsp+0], 99
+                        mov              dword ptr [rsp+4], 0
+                        mov              qword ptr [rsp+8], 0
+                        mov              eax, 99
+                        xor              edx, edx
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret
