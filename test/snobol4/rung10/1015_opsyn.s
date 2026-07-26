@@ -96,9 +96,10 @@ n5_lit_string_α:
 #         output = 'PASS 1015_opsyn (2/2)'
 #-----------------------------------------------------------------------------------------------------------------------
 n6_lit_string_α:
-                        mov              qword ptr [rbp + 752], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx34_0]
-                        mov              qword ptr [rbp + 760], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n9_assign_α
 .Lx34_0:
                         .quad            .Lx34_0_s
@@ -137,8 +138,9 @@ n8_lit_string_α:
                         .string          "size"
 #-----------------------------------------------------------------------------------------------------------------------
 n9_assign_α:
-                        mov              rax, qword ptr [rbp + 752]
-                        mov              rdx, qword ptr [rbp + 760]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 736], rax
@@ -391,9 +393,10 @@ n23_call_β:
 #         output = 'FAIL 1015/001: @ as binary dupl'     :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n24_lit_string_α:
-                        mov              qword ptr [rbp + 368], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx54_0]
-                        mov              qword ptr [rbp + 376], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n26_assign_α
 .Lx54_0:
                         .quad            .Lx54_0_s
@@ -403,9 +406,10 @@ n24_lit_string_α:
 #         output = 'FAIL 1015/002: | as unary size'      :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n25_lit_string_α:
-                        mov              qword ptr [rbp + 720], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx55_0]
-                        mov              qword ptr [rbp + 728], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n27_assign_α
 .Lx55_0:
                         .quad            .Lx55_0_s
@@ -413,8 +417,9 @@ n25_lit_string_α:
                         .string          "FAIL 1015/002: | as unary size"
 #-----------------------------------------------------------------------------------------------------------------------
 n26_assign_α:
-                        mov              rax, qword ptr [rbp + 368]
-                        mov              rdx, qword ptr [rbp + 376]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 352], rax
@@ -422,8 +427,9 @@ n26_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n27_assign_α:
-                        mov              rax, qword ptr [rbp + 720]
-                        mov              rdx, qword ptr [rbp + 728]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 704], rax

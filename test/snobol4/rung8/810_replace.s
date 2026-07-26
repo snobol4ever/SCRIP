@@ -112,9 +112,10 @@ n7_lit_string_α:
 #         output = 'PASS 810_replace (3/3)'
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_string_α:
-                        mov              qword ptr [rbp + 880], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx43_0]
-                        mov              qword ptr [rbp + 888], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n12_assign_α
 .Lx43_0:
                         .quad            .Lx43_0_s
@@ -152,8 +153,9 @@ n11_lit_string_α:
                         .string          "aeiou"
 #-----------------------------------------------------------------------------------------------------------------------
 n12_assign_α:
-                        mov              rax, qword ptr [rbp + 880]
-                        mov              rdx, qword ptr [rbp + 888]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 864], rax
@@ -336,9 +338,10 @@ n22_lit_string_α:
 #         output = 'FAIL 810/001: xy->01 mapping'             :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n23_lit_string_α:
-                        mov              qword ptr [rbp + 224], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx58_0]
-                        mov              qword ptr [rbp + 232], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n26_assign_α
 .Lx58_0:
                         .quad            .Lx58_0_s
@@ -382,8 +385,9 @@ n25_call_β:
                                                                                         jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n26_assign_α:
-                        mov              rax, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 208], rax
@@ -400,9 +404,10 @@ n27_var_α:
 #         output = 'FAIL 810/003: identity replace'           :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n28_lit_string_α:
-                        mov              qword ptr [rbp + 848], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx63_0]
-                        mov              qword ptr [rbp + 856], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n30_assign_α
 .Lx63_0:
                         .quad            .Lx63_0_s
@@ -439,8 +444,9 @@ n29_call_β:
                                                                                         jmp   n7_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_assign_α:
-                        mov              rax, qword ptr [rbp + 848]
-                        mov              rdx, qword ptr [rbp + 856]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 832], rax
@@ -485,9 +491,10 @@ n32_call_β:
 #         output = 'FAIL 810/002: alphabet translation'       :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n33_lit_string_α:
-                        mov              qword ptr [rbp + 608], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx68_0]
-                        mov              qword ptr [rbp + 616], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n34_assign_α
 .Lx68_0:
                         .quad            .Lx68_0_s
@@ -495,8 +502,9 @@ n33_lit_string_α:
                         .string          "FAIL 810/002: alphabet translation"
 #-----------------------------------------------------------------------------------------------------------------------
 n34_assign_α:
-                        mov              rax, qword ptr [rbp + 608]
-                        mov              rdx, qword ptr [rbp + 616]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 592], rax

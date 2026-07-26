@@ -47,12 +47,14 @@ n3_var_β:
 # MI_YES  MATCHIT = V                                                 :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
 n4_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052320]
                         mov              rdx, qword ptr [1879052328]
-                        mov              qword ptr [rbp + 320], rax
-                        mov              qword ptr [rbp + 328], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n8_assign_α
 n4_var_β:
+                        add              rsp, 16
                                                                                         jmp   n9_op14_α
 #=======================================================================================================================
 #         DEFINE('MATCHIT(S)') :(MATCHIT_END)
@@ -110,11 +112,13 @@ n6_match_head_β:
 #         MATCHIT = 'fail'                                            :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:
-                        mov              qword ptr [rbp + 288], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx31_0]
-                        mov              qword ptr [rbp + 296], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n12_assign_α
 n7_lit_string_β:
+                        add              rsp, 16
                                                                                         jmp   n9_op14_α
 .Lx31_0:
                         .quad            .Lx31_0_s
@@ -122,8 +126,9 @@ n7_lit_string_β:
                         .string          "fail"
 #-----------------------------------------------------------------------------------------------------------------------
 n8_assign_α:
-                        mov              rax, qword ptr [rbp + 320]
-                        mov              rdx, qword ptr [rbp + 328]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 304], rax
@@ -247,8 +252,9 @@ n11_match_sequence_af:
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_assign_α:
-                        mov              rax, qword ptr [rbp + 288]
-                        mov              rdx, qword ptr [rbp + 296]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 272], rax
@@ -792,12 +798,14 @@ n66_var_β:
 # MI_YES  MATCHIT = V                                                 :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
 n67_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052320]
                         mov              rdx, qword ptr [1879052328]
-                        mov              qword ptr [rbp + 320], rax
-                        mov              qword ptr [rbp + 328], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n71_assign_α
 n67_var_β:
+                        add              rsp, 16
                                                                                         jmp   n72_op14_α
 #-----------------------------------------------------------------------------------------------------------------------
 n68_assign_α:
@@ -855,11 +863,13 @@ n69_match_head_β:
 #         MATCHIT = 'fail'                                            :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
 n70_lit_string_α:
-                        mov              qword ptr [rbp + 288], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx95_0]
-                        mov              qword ptr [rbp + 296], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n74_assign_α
 n70_lit_string_β:
+                        add              rsp, 16
                                                                                         jmp   n72_op14_α
 .Lx95_0:
                         .quad            .Lx95_0_s
@@ -867,8 +877,9 @@ n70_lit_string_β:
                         .string          "fail"
 #-----------------------------------------------------------------------------------------------------------------------
 n71_assign_α:
-                        mov              rax, qword ptr [rbp + 320]
-                        mov              rdx, qword ptr [rbp + 328]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 304], rax
@@ -894,8 +905,9 @@ n73_match_sequence_af:
                                                                                         jmp   n69_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n74_assign_α:
-                        mov              rax, qword ptr [rbp + 288]
-                        mov              rdx, qword ptr [rbp + 296]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 272], rax

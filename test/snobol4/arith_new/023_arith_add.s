@@ -18,34 +18,96 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 40
+                        sub              rsp, 72
                         mov              rdi, rsp
-                        mov              ecx, 40
+                        mov              ecx, 72
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 32], rbp
+                        mov              [rsp + 64], rbp
                         mov              rbp, rsp
 main_α_body:
+#=======================================================================================================================
+#         OUTPUT = 1 + 2
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_integer_α:
-                        mov              qword ptr [rbp + 16], 6
-                        mov              rax, qword ptr [rip + .Lx2_0]
-                        mov              qword ptr [rbp + 24], rax
-                                                                                        jmp   n1_assign_α
-.Lx2_0:
-                        .quad            3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
+                        mov              rax, qword ptr [rip + .Lx4_0]
+                        mov              qword ptr [rsp + 8], rax
+                                                                                        jmp   n1_lit_integer_α
+.Lx4_0:
+                        .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
-n1_assign_α:
-                        mov              rsi, qword ptr [rbp + 16]
-                        mov              rdx, qword ptr [rbp + 24]
-                        mov              rdi, qword ptr [rip + .Lx3_0]
+n1_lit_integer_α:
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
+                        mov              rax, qword ptr [rip + .Lx5_0]
+                        mov              qword ptr [rsp + 8], rax
+                                                                                        jmp   n2_binop_α
+.Lx5_0:
+                        .quad            2
+#-----------------------------------------------------------------------------------------------------------------------
+n2_binop_α:
+                        mov              eax, dword ptr [rsp + 16]
+                        cmp              eax, 100
+                                                                                        je    .Lx6_0
+                        mov              eax, dword ptr [rsp + 0]
+                        cmp              eax, 100
+                                                                                        je    .Lx6_0
+                        mov              eax, dword ptr [rsp + 16]
+                        cmp              eax, 6
+                                                                                        jne   .Lx6_2
+                        mov              eax, dword ptr [rsp + 0]
+                        cmp              eax, 6
+                                                                                        jne   .Lx6_2
+                        mov              rax, qword ptr [rsp + 24]
+                        mov              rcx, qword ptr [rsp + 8]
+                        add              rax, rcx
+                        add              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 8], rax
+                                                                                        jmp   n3_assign_α
+.Lx6_0:
+                        mov              rdi, qword ptr [rsp + 16]
+                        mov              rsi, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 0]
+                        mov              rcx, qword ptr [rsp + 8]
+                        mov              r8d, 0
+                        lea              r9, [rsp + 16]
+                        call             rt_binop_overload@PLT
+                        test             eax, eax
+                                                                                        je    .Lx6_2
+                        add              rsp, 16
+                                                                                        jmp   n3_assign_α
+.Lx6_2:
+                        mov              rdi, qword ptr [rsp + 16]
+                        mov              rsi, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 0]
+                        mov              rcx, qword ptr [rsp + 8]
+                        mov              r8d, 0
+                        call             rt_num_arith@PLT
+                        cmp              eax, 99
+                                                                                        jne   .Lx6_240
+                        add              rsp, 32
+                                                                                        jmp   main_γ
+.Lx6_240:
+                        add              rsp, 16
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n3_assign_α
+#-----------------------------------------------------------------------------------------------------------------------
+n3_assign_α:
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
+                        mov              rdi, qword ptr [rip + .Lx7_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 0], rax
                         mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
-.Lx3_0:
-                        .quad            .Lx3_0_s
-.Lx3_0_s:
+.Lx7_0:
+                        .quad            .Lx7_0_s
+.Lx7_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
@@ -55,15 +117,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 32]
-                        add              rsp, 40
+                        mov              rbp, [rsp + 64]
+                        add              rsp, 72
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 32]
-                        add              rsp, 40
+                        mov              rbp, [rsp + 64]
+                        add              rsp, 72
                         ret
                         .section         .note.GNU-stack,"",@progbits

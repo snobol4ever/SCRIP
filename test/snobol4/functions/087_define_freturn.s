@@ -74,9 +74,10 @@ n8_lit_integer_α:
 # A       OUTPUT = 'positive'
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_string_α:
-                        mov              qword ptr [rbp + 192], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx36_0]
-                        mov              qword ptr [rbp + 200], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n17_assign_α
 .Lx36_0:
                         .quad            .Lx36_0_s
@@ -86,9 +87,10 @@ n9_lit_string_α:
 # B       OUTPUT = 'wrong'
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_string_α:
-                        mov              qword ptr [rbp + 224], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx37_0]
-                        mov              qword ptr [rbp + 232], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n18_assign_α
 .Lx37_0:
                         .quad            .Lx37_0_s
@@ -109,9 +111,10 @@ n11_lit_integer_α:
 # C       OUTPUT = 'wrong'
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_string_α:
-                        mov              qword ptr [rbp + 336], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx39_0]
-                        mov              qword ptr [rbp + 344], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n20_assign_α
 .Lx39_0:
                         .quad            .Lx39_0_s
@@ -121,9 +124,10 @@ n12_lit_string_α:
 # D       OUTPUT = 'not positive'
 #-----------------------------------------------------------------------------------------------------------------------
 n13_lit_string_α:
-                        mov              qword ptr [rbp + 368], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx40_0]
-                        mov              qword ptr [rbp + 376], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n21_assign_α
 .Lx40_0:
                         .quad            .Lx40_0_s
@@ -244,8 +248,9 @@ n16_call_β:
                         .string          "ispos"
 #-----------------------------------------------------------------------------------------------------------------------
 n17_assign_α:
-                        mov              rsi, qword ptr [rbp + 192]
-                        mov              rdx, qword ptr [rbp + 200]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx46_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 176], rax
@@ -257,8 +262,9 @@ n17_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n18_assign_α:
-                        mov              rsi, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx47_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 208], rax
@@ -278,8 +284,9 @@ n19_unop_α:
                                                                                         jmp   n23_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n20_assign_α:
-                        mov              rsi, qword ptr [rbp + 336]
-                        mov              rdx, qword ptr [rbp + 344]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx49_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 320], rax
@@ -291,8 +298,9 @@ n20_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n21_assign_α:
-                        mov              rsi, qword ptr [rbp + 368]
-                        mov              rdx, qword ptr [rbp + 376]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx50_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 352], rax
@@ -788,9 +796,10 @@ n76_var_α:
 # A       OUTPUT = 'positive'
 #-----------------------------------------------------------------------------------------------------------------------
 n77_lit_string_α:
-                        mov              qword ptr [rbp + 192], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx105_0]
-                        mov              qword ptr [rbp + 200], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n84_assign_α
 .Lx105_0:
                         .quad            .Lx105_0_s
@@ -800,9 +809,10 @@ n77_lit_string_α:
 # B       OUTPUT = 'wrong'
 #-----------------------------------------------------------------------------------------------------------------------
 n78_lit_string_α:
-                        mov              qword ptr [rbp + 224], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx106_0]
-                        mov              qword ptr [rbp + 232], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n85_assign_α
 .Lx106_0:
                         .quad            .Lx106_0_s
@@ -823,9 +833,10 @@ n79_lit_integer_α:
 # C       OUTPUT = 'wrong'
 #-----------------------------------------------------------------------------------------------------------------------
 n80_lit_string_α:
-                        mov              qword ptr [rbp + 336], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx108_0]
-                        mov              qword ptr [rbp + 344], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n87_assign_α
 .Lx108_0:
                         .quad            .Lx108_0_s
@@ -835,9 +846,10 @@ n80_lit_string_α:
 # D       OUTPUT = 'not positive'
 #-----------------------------------------------------------------------------------------------------------------------
 n81_lit_string_α:
-                        mov              qword ptr [rbp + 368], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx109_0]
-                        mov              qword ptr [rbp + 376], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n88_assign_α
 .Lx109_0:
                         .quad            .Lx109_0_s
@@ -860,8 +872,9 @@ n83_op14_α:
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 n84_assign_α:
-                        mov              rsi, qword ptr [rbp + 192]
-                        mov              rdx, qword ptr [rbp + 200]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx113_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 176], rax
@@ -873,8 +886,9 @@ n84_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n85_assign_α:
-                        mov              rsi, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx114_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 208], rax
@@ -894,8 +908,9 @@ n86_unop_α:
                                                                                         jmp   n90_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n87_assign_α:
-                        mov              rsi, qword ptr [rbp + 336]
-                        mov              rdx, qword ptr [rbp + 344]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx116_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 320], rax
@@ -907,8 +922,9 @@ n87_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n88_assign_α:
-                        mov              rsi, qword ptr [rbp + 368]
-                        mov              rdx, qword ptr [rbp + 376]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx117_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 352], rax

@@ -203,9 +203,10 @@ n19_var_α:
 #         output = 'PASS 1110_array_1d (9/9)'
 #-----------------------------------------------------------------------------------------------------------------------
 n20_lit_string_α:
-                        mov              qword ptr [rbp + 1888], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx121_0]
-                        mov              qword ptr [rbp + 1896], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n34_assign_α
 .Lx121_0:
                         .quad            .Lx121_0_s
@@ -362,8 +363,9 @@ n33_var_α:
                                                                                         jmp   n47_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n34_assign_α:
-                        mov              rax, qword ptr [rbp + 1888]
-                        mov              rdx, qword ptr [rbp + 1896]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1872], rax
@@ -696,9 +698,10 @@ n63_deref_α:
 #         output = 'FAIL 1110/003: OOB high should fail' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n64_lit_string_α:
-                        mov              qword ptr [rbp + 560], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx165_0]
-                        mov              qword ptr [rbp + 568], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n76_assign_α
 .Lx165_0:
                         .quad            .Lx165_0_s
@@ -708,9 +711,10 @@ n64_lit_string_α:
 #         output = 'FAIL 1110/004: OOB zero should fail' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n65_lit_string_α:
-                        mov              qword ptr [rbp + 656], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx166_0]
-                        mov              qword ptr [rbp + 664], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n77_assign_α
 .Lx166_0:
                         .quad            .Lx166_0_s
@@ -720,9 +724,10 @@ n65_lit_string_α:
 #         output = 'FAIL 1110/005: prototype(array(3))=3' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n66_lit_string_α:
-                        mov              qword ptr [rbp + 832], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx167_0]
-                        mov              qword ptr [rbp + 840], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n78_assign_α
 .Lx167_0:
                         .quad            .Lx167_0_s
@@ -752,9 +757,10 @@ n68_lit_integer_α:
 #         output = 'FAIL 1110/007: prototype string-dim array' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n69_lit_string_α:
-                        mov              qword ptr [rbp + 1344], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx170_0]
-                        mov              qword ptr [rbp + 1352], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n81_assign_α
 .Lx170_0:
                         .quad            .Lx170_0_s
@@ -835,8 +841,9 @@ n75_lit_real_α:
                         .quad            4616752568008179712
 #-----------------------------------------------------------------------------------------------------------------------
 n76_assign_α:
-                        mov              rax, qword ptr [rbp + 560]
-                        mov              rdx, qword ptr [rbp + 568]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 544], rax
@@ -844,8 +851,9 @@ n76_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n77_assign_α:
-                        mov              rax, qword ptr [rbp + 656]
-                        mov              rdx, qword ptr [rbp + 664]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 640], rax
@@ -853,8 +861,9 @@ n77_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n78_assign_α:
-                        mov              rax, qword ptr [rbp + 832]
-                        mov              rdx, qword ptr [rbp + 840]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 816], rax
@@ -884,8 +893,9 @@ n80_subscript_α:
                                                                                         jmp   n87_deref_α
 #-----------------------------------------------------------------------------------------------------------------------
 n81_assign_α:
-                        mov              rax, qword ptr [rbp + 1344]
-                        mov              rdx, qword ptr [rbp + 1352]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1328], rax
@@ -913,9 +923,10 @@ n83_lit_string_α:
 #         output = 'FAIL 1110/001: array element init null' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n84_lit_string_α:
-                        mov              qword ptr [rbp + 208], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx185_0]
-                        mov              qword ptr [rbp + 216], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n90_assign_α
 .Lx185_0:
                         .quad            .Lx185_0_s
@@ -1020,8 +1031,9 @@ n89_call_β:
                                                                                         jmp   n20_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n90_assign_α:
-                        mov              rax, qword ptr [rbp + 208]
-                        mov              rdx, qword ptr [rbp + 216]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 192], rax
@@ -1031,9 +1043,10 @@ n90_assign_α:
 #         output = 'FAIL 1110/002: array assign/read'    :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n91_lit_string_α:
-                        mov              qword ptr [rbp + 464], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx192_0]
-                        mov              qword ptr [rbp + 472], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n95_assign_α
 .Lx192_0:
                         .quad            .Lx192_0_s
@@ -1053,9 +1066,10 @@ n92_lit_string_α:
 #         output = 'FAIL 1110/008: array stores real'    :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n93_lit_string_α:
-                        mov              qword ptr [rbp + 1600], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx194_0]
-                        mov              qword ptr [rbp + 1608], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n97_assign_α
 .Lx194_0:
                         .quad            .Lx194_0_s
@@ -1065,9 +1079,10 @@ n93_lit_string_α:
 #         output = 'FAIL 1110/009: array stores string'  :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n94_lit_string_α:
-                        mov              qword ptr [rbp + 1856], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx195_0]
-                        mov              qword ptr [rbp + 1864], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n98_assign_α
 .Lx195_0:
                         .quad            .Lx195_0_s
@@ -1075,8 +1090,9 @@ n94_lit_string_α:
                         .string          "FAIL 1110/009: array stores string"
 #-----------------------------------------------------------------------------------------------------------------------
 n95_assign_α:
-                        mov              rax, qword ptr [rbp + 464]
-                        mov              rdx, qword ptr [rbp + 472]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 448], rax
@@ -1109,8 +1125,9 @@ n96_call_β:
                                                                                         jmp   n17_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n97_assign_α:
-                        mov              rax, qword ptr [rbp + 1600]
-                        mov              rdx, qword ptr [rbp + 1608]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1584], rax
@@ -1118,8 +1135,9 @@ n97_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n98_assign_α:
-                        mov              rax, qword ptr [rbp + 1856]
-                        mov              rdx, qword ptr [rbp + 1864]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1840], rax
@@ -1129,9 +1147,10 @@ n98_assign_α:
 #         output = 'FAIL 1110/006: array from string dim' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n99_lit_string_α:
-                        mov              qword ptr [rbp + 1168], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx200_0]
-                        mov              qword ptr [rbp + 1176], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n100_assign_α
 .Lx200_0:
                         .quad            .Lx200_0_s
@@ -1139,8 +1158,9 @@ n99_lit_string_α:
                         .string          "FAIL 1110/006: array from string dim"
 #-----------------------------------------------------------------------------------------------------------------------
 n100_assign_α:
-                        mov              rax, qword ptr [rbp + 1168]
-                        mov              rdx, qword ptr [rbp + 1176]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1152], rax

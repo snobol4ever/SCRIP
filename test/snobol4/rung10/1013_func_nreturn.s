@@ -122,9 +122,10 @@ n8_lit_string_α:
 #         a = 27
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_integer_α:
-                        mov              qword ptr [rbp + 256], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx43_0]
-                        mov              qword ptr [rbp + 264], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n14_assign_α
 .Lx43_0:
                         .quad            27
@@ -153,9 +154,10 @@ n11_var_α:
 #         output = 'PASS 1013_func_nreturn (3/3)'
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_string_α:
-                        mov              qword ptr [rbp + 720], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx46_0]
-                        mov              qword ptr [rbp + 728], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n17_assign_α
 .Lx46_0:
                         .quad            .Lx46_0_s
@@ -184,8 +186,9 @@ n13_call_β:
                                                                                         jmp   n19_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_assign_α:
-                        mov              rax, qword ptr [rbp + 256]
-                        mov              rdx, qword ptr [rbp + 264]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 240], rax
@@ -222,8 +225,9 @@ n16_lit_integer_α:
                         .quad            26
 #-----------------------------------------------------------------------------------------------------------------------
 n17_assign_α:
-                        mov              rax, qword ptr [rbp + 720]
-                        mov              rdx, qword ptr [rbp + 728]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 704], rax
@@ -290,9 +294,10 @@ n21_call_β:
 #         output = 'FAIL 1013/002: nreturn lvalue assign failed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n22_lit_string_α:
-                        mov              qword ptr [rbp + 560], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx59_0]
-                        mov              qword ptr [rbp + 568], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n27_assign_α
 .Lx59_0:
                         .quad            .Lx59_0_s
@@ -352,8 +357,9 @@ n26_lit_integer_α:
                         .quad            26
 #-----------------------------------------------------------------------------------------------------------------------
 n27_assign_α:
-                        mov              rax, qword ptr [rbp + 560]
-                        mov              rdx, qword ptr [rbp + 568]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 544], rax
@@ -363,9 +369,10 @@ n27_assign_α:
 #         output = 'FAIL 1013/003: a updated via nreturn'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n28_lit_string_α:
-                        mov              qword ptr [rbp + 688], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx66_0]
-                        mov              qword ptr [rbp + 696], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n31_assign_α
 .Lx66_0:
                         .quad            .Lx66_0_s
@@ -410,8 +417,9 @@ n30_assign_var_α:
                                                                                         jmp   n11_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n31_assign_α:
-                        mov              rax, qword ptr [rbp + 688]
-                        mov              rdx, qword ptr [rbp + 696]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 672], rax
@@ -421,9 +429,10 @@ n31_assign_α:
 #         output = 'FAIL 1013/001: nreturn read gives value' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n32_lit_string_α:
-                        mov              qword ptr [rbp + 400], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx70_0]
-                        mov              qword ptr [rbp + 408], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n33_assign_α
 .Lx70_0:
                         .quad            .Lx70_0_s
@@ -431,8 +440,9 @@ n32_lit_string_α:
                         .string          "FAIL 1013/001: nreturn read gives value"
 #-----------------------------------------------------------------------------------------------------------------------
 n33_assign_α:
-                        mov              rax, qword ptr [rbp + 400]
-                        mov              rdx, qword ptr [rbp + 408]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 384], rax

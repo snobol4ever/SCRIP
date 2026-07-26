@@ -408,12 +408,16 @@ n45_call_β:
 # LOOP  LINE     =  INPUT                            :F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n46_var_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx67_0]
                         call             NV_GET_fn@PLT
                         cmp              eax, 99
-                                                                                        je    main_γ
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
+                                                                                        jne   .Lx67_240
+                        add              rsp, 16
+                                                                                        jmp   main_γ
+.Lx67_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n48_assign_α
 .Lx67_0:
                         .quad            .Lx67_0_s
@@ -430,8 +434,9 @@ n47_assign_α:
                                                                                         jmp   n46_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n48_assign_α:
-                        mov              rax, qword ptr [rbp + 96]
-                        mov              rdx, qword ptr [rbp + 104]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rdx
                         mov              qword ptr [rbp + 80], rax

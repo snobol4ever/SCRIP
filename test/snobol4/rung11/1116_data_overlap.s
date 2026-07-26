@@ -126,9 +126,10 @@ n7_lit_string_α:
 #         output = 'PASS 1116_data_overlap (3/3)'
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_string_α:
-                        mov              qword ptr [rbp + 1184], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx54_0]
-                        mov              qword ptr [rbp + 1192], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n12_assign_α
 .Lx54_0:
                         .quad            .Lx54_0_s
@@ -179,8 +180,9 @@ n11_lit_string_α:
                         .string          "beta"
 #-----------------------------------------------------------------------------------------------------------------------
 n12_assign_α:
-                        mov              rax, qword ptr [rbp + 1184]
-                        mov              rdx, qword ptr [rbp + 1192]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 1168], rax
@@ -309,9 +311,10 @@ n20_lit_string_α:
 #         output = 'FAIL 1116/002: value() still works after clunk' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n21_lit_string_α:
-                        mov              qword ptr [rbp + 864], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx67_0]
-                        mov              qword ptr [rbp + 872], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n24_assign_α
 .Lx67_0:
                         .quad            .Lx67_0_s
@@ -350,8 +353,9 @@ n23_lit_string_α:
                         .string          "z"
 #-----------------------------------------------------------------------------------------------------------------------
 n24_assign_α:
-                        mov              rax, qword ptr [rbp + 864]
-                        mov              rdx, qword ptr [rbp + 872]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 848], rax
@@ -453,9 +457,10 @@ n29_call_β:
 #         output = 'FAIL 1116/003: clunk.lson accessor'  :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n30_lit_string_α:
-                        mov              qword ptr [rbp + 1152], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx76_0]
-                        mov              qword ptr [rbp + 1160], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n33_assign_α
 .Lx76_0:
                         .quad            .Lx76_0_s
@@ -484,8 +489,9 @@ n32_lit_string_α:
                         .string          ""
 #-----------------------------------------------------------------------------------------------------------------------
 n33_assign_α:
-                        mov              rax, qword ptr [rbp + 1152]
-                        mov              rdx, qword ptr [rbp + 1160]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 1136], rax
@@ -649,9 +655,10 @@ n43_call_β:
 #         output = 'FAIL 1116/001: node.rson after clunk data def' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n44_lit_string_α:
-                        mov              qword ptr [rbp + 688], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx91_0]
-                        mov              qword ptr [rbp + 696], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n45_assign_α
 .Lx91_0:
                         .quad            .Lx91_0_s
@@ -659,8 +666,9 @@ n44_lit_string_α:
                         .string          "FAIL 1116/001: node.rson after clunk data def"
 #-----------------------------------------------------------------------------------------------------------------------
 n45_assign_α:
-                        mov              rax, qword ptr [rbp + 688]
-                        mov              rdx, qword ptr [rbp + 696]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 672], rax
