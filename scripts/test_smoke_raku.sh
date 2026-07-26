@@ -3657,6 +3657,63 @@ print 4.0;
 say "";
 EOF
 
+raku "named_arg_basic" "Hello Bob" << 'EOF'
+sub greet(:$name) { say "Hello " ~ $name; }
+greet(name => "Bob");
+EOF
+
+raku "named_arg_mixed_positional" "1
+2" << 'EOF'
+sub f($a, :$b) { say $a; say $b; }
+f(1, b => 2);
+EOF
+
+raku "named_arg_two_in_order" "4
+9" << 'EOF'
+sub f(:$x, :$y) { say $x; say $y; }
+f(x => 4, y => 9);
+EOF
+
+raku "named_arg_out_of_order" "4
+9" << 'EOF'
+sub f(:$x, :$y) { say $x; say $y; }
+f(y => 9, x => 4);
+EOF
+
+raku "named_arg_absent_is_undefined" "0" << 'EOF'
+sub f(:$x) { say $x.defined; }
+f();
+EOF
+
+raku "named_arg_absent_with_default" "5" << 'EOF'
+sub f(:$x = 5) { say $x; }
+f();
+EOF
+
+raku "named_arg_key_x_lexer" "4" << 'EOF'
+sub f(:$q, :$x) { say $x; }
+f(q => 1, x => 4);
+EOF
+
+raku "named_arg_key_x_in_hash" "4" << 'EOF'
+my %h = (y => 9, x => 4);
+say %h{"x"};
+EOF
+
+raku "named_arg_key_x_in_new" "4" << 'EOF'
+class C { has $.x; has $.y; }
+my $c = C.new(y => 9, x => 4);
+say $c.x;
+EOF
+
+raku "xrep_still_works_after_key_fix" "1xxx2" << 'EOF'
+say 1 ~ "x" x 3 ~ 2;
+EOF
+
+raku "xxrep_still_works_after_key_fix" "x x x" << 'EOF'
+my @a = "x" xx 3; say @a;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
