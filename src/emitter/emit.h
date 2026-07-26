@@ -671,6 +671,7 @@ long emit_text_count(void);
 void emit_textf (const char * fmt, ...)
                  __attribute__((format(printf, 1, 2)));
 void emit_textf_flush(void);
+void emit_sep_rule_c(char ch);
 void emit_set_sink(FILE * out);
 #ifdef __cplusplus
 }

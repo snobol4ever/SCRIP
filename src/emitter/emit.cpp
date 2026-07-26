@@ -770,6 +770,13 @@ int walk_bb_node(IR_t * nd, FILE * out) {
     return rc;
 }
 static int drive_value_slot(IR_t *nd);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int emit_sep_on(void) { static int _sep = -1; if (_sep < 0) { const char *e = getenv("SCRIP_ASM_SEP"); _sep = (e && *e == '0') ? 0 : 1; } return _sep; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_sep_rule(char ch) { if (emit_sep_on()) bb_emit_x86(x86("commentrule", std::string(119, ch))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void emit_sep_rule_c(char ch) { emit_sep_rule(ch); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
@@ -808,7 +815,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { extern int arith_emits_descr(IR_t *nd); g_emit.op_a_descr = arith_emits_descr(op_a) ? 1 : 0; }
     { static int bm = -1; if (bm < 0) { const char *e = getenv("SCRIP_BLOB_MAP"); bm = (e && *e == '1') ? 1 : 0; } if (bm && MEDIUM_BINARY) { extern const char *bb_op_name(IR_e); fprintf(stderr, "BLOBBOX %p %s n%d\n", (void *)(bb_emit_buf + bb_emit_pos), bb_op_name(nd->op), g_emit.x86_uid); } }
     { static int _sc = -1; if (_sc < 0) { const char *e = getenv("SCRIP_SRC_COMMENT"); _sc = (e && *e == '0') ? 0 : 1; } g_emit.op_src = _sc ? bb_src_of(nd) : (const char *)0; }
-    if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("comment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
+    { if (g_emit.op_src && *g_emit.op_src) emit_sep_rule('=');
+      if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("comment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
+      emit_sep_rule('-'); }
     switch (nd->op) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
@@ -2175,7 +2184,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          * BELOW the header at suspension time, so the frontier — not the header — is the only address the
          * LIFO law hands back to β.  Drop the landing word, pop the frame reg, fall into the chain's
          * resume dispatch at lbl_β with rsp restored to the pre-suspension frontier. */
-        emit_label_define_bb(&lbl_res);
+        emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
         if (g_is_text) {
             char _res[96];
             snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", x86_fb());   /* REG-7 U5: the record[+8] payload is the FRAME BASE — rbp for RSP pat blobs (Lon FORTH ruling; zr is sealing to rsp and can no longer name it), r12/rbp legacy modes byte-identical via the fb selector */
@@ -2186,7 +2195,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (z >= 8) ef_b2(0x41, (uint8_t)(0x58 | (z & 7))); else ef_b1((uint8_t)(0x58 | (z & 7)));
         }
     }
-    emit_label_define_bb(&lbl_β);
+    emit_sep_rule('-'); emit_label_define_bb(&lbl_β);
     if (g_suspend_resume_slot >= 0 && (g_gen_proc_active || g_resumable_callable_active)) {
         if (g_is_text) {
             char _ind_jmp[64];
@@ -2204,7 +2213,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root && nodes[i]->op == IR_CALL_BUILTIN_GEN) { resume_tgt = betas[i]; break; }
         emit_jmp_label(resume_tgt, JMP_JMP);
     }
-    emit_label_define_bb(&lbl_γ);
+    emit_sep_rule('-'); emit_label_define_bb(&lbl_γ);
     xa_dispatch(XA_FLAT_EPILOGUE);
     /* PL-DC (REGAIN-1 SLICE C, s108): the per-proc DIRECT-CALL stub, appended after the shared exits when the driver armed the graph (g_flat_dc_np >= 0: registered det-lexical jmp-entry proc,
      * nparams<=4, hatch SCRIP_NO_DC unset — the SAME table facts the site predicate reads, so site and callee agree by construction).  Refinement guards here are LOUD: a driver-armed graph that
@@ -2214,7 +2223,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
       if (g_flat_dc_np >= 0) {
           if (!g_emit.flat_jmp_entry || !g_emit.flat_lex || g_emit.flat_gen || g_emit.flat_pat) { fprintf(stderr, "FATAL PL-DC: driver-armed graph is not det-lexical jmp-entry (jmp=%d lex=%d gen=%d pat=%d)\n", g_emit.flat_jmp_entry, g_emit.flat_lex, g_emit.flat_gen, g_emit.flat_pat); abort(); }
           bb_label_t lbl_dc; emit_label_initf(&lbl_dc, "%s_dcα", prefix);
-          emit_label_define_bb(&lbl_dc);
+          emit_sep_rule('-'); emit_label_define_bb(&lbl_dc);
           g_emit.flat_dc_body_p = &lbl_α_body;
           { extern void xa_flat_dc_stub(void); xa_flat_dc_stub(); }
           g_emit.flat_dc_body_p = (bb_label_t *)0;

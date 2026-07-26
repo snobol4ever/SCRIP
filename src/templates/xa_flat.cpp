@@ -26,6 +26,10 @@ static std::string xa_entry_dispatch_str(void) {
 }
 #define BB_BANNER_RULE_LEN 119
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xaf_seprule(char ch) { static int _sep = -1; if (_sep < 0) { const char *e = getenv("SCRIP_ASM_SEP"); _sep = (e && *e == '0') ? 0 : 1; } return _sep ? std::string("#") + std::string(BB_BANNER_RULE_LEN, ch) + "\n" : std::string(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xaf_ω_label(void) { return (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? xaf_seprule('-') + g_emit.flat_fail_p->name + ":\n" : std::string(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_wired_base(void) {
     std::string s(g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "");
     return s.size() > 3 ? s.substr(0, s.size() - 3) : s;
@@ -313,8 +317,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             if (!g_is_text) return std::string();
             std::string banner;
             if (g_emit.flat_text_externalise) {
-                banner = std::string("#") + std::string(BB_BANNER_RULE_LEN, '=') + "\n"
-                       + "    .global " + (g_emit.flat_lbl_α    ? g_emit.flat_lbl_α    : "") + "\n"
+                banner = std::string("    .global ") + (g_emit.flat_lbl_α    ? g_emit.flat_lbl_α    : "") + "\n"
                        + "    .global " + (g_emit.flat_lbl_β    ? g_emit.flat_lbl_β    : "") + "\n"
                        + "    .global " + (g_emit.flat_lbl_γ ? g_emit.flat_lbl_γ : "") + "\n"
                        + "    .global " + (g_emit.flat_lbl_ω ? g_emit.flat_lbl_ω : "") + "\n";
@@ -546,7 +549,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             extern int g_frame_active;
             if (g_emit.flat_wired) {
                 return std::string(" jmp ") + xa_wired_base() + "_wγ\n"
-                     + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                     + xaf_ω_label()
                      + " jmp " + xa_wired_base() + "_wω\n";
             }
             if (g_emit.flat_jmp_entry) {
@@ -555,10 +558,9 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     char sa[288], sb2[224], fb2[320];
                     snprintf(sa, sizeof sa, "%spush rbp\nlea rax, [rip + %s]\n", g_emit.flat_gen ? "mov rdi, [rbp]\nmov rsi, [rbp + 8]\n" : "", (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
                     snprintf(sb2, sizeof sb2, "push rax\nmov rax, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 24, kt - 8);
-                    snprintf(fb2, sizeof fb2, "%s%smov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n",
-                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt, kt - 8);
+                    snprintf(fb2, sizeof fb2, "mov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 16, kt, kt - 8);
                     if (out_succ) *out_succ = std::string(sa);
-                    if (out_fail) *out_fail = std::string(fb2);
+                    if (out_fail) *out_fail = xaf_ω_label() + fb2;
                     return std::string(sb2);
                 }
                 if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute (TEXT twin of the BINARY arm above).  γ loads the result DESCR (frame slot 0, IR_RETURN's write) into rdi:rsi via the PINNED rbp PRE-unwind (the landing's
@@ -566,19 +568,17 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      * every-ω-pops assumption holds only for SNOBOL4's determinate procs), restores caller rbp self-referentially LAST (reads-before-motion), and jmps the wire — no resume record (det: β fires only on a post-return re-entry, UB).  ω mirrors with the [rbp+kt−16] wire. */
                     char sg[288], fo[352];
                     snprintf(sg, sizeof sg, "mov rdi, [rbp]\nmov rsi, [rbp + 8]\nmov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 24, kt, kt - 8);
-                    snprintf(fo, sizeof fo, "%s%smov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n",
-                        (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", kt - 16, kt, kt - 8);
+                    snprintf(fo, sizeof fo, "mov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 16, kt, kt - 8);
                     if (out_succ) *out_succ = std::string(sg);
-                    if (out_fail) *out_fail = std::string(fo);
+                    if (out_fail) *out_fail = xaf_ω_label() + fo;
                     return std::string();
                 }
                 char sa[224], sb2[224], fb[320];
                 snprintf(sa, sizeof sa, "push %s\nlea rax, [rip + %s]\n", x86_zr(), (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
                 snprintf(sb2, sizeof sb2, "push rax\nmov rax, [%s-24]\nmov %s, [%s-8]\njmp rax\n", x86_zr(), x86_zr(), x86_zr());
-                snprintf(fb, sizeof fb, "%s%smov rax, [%s-16]\nlea rsp, [%s + %d]\nmov %s, [%s-8]\njmp rax\n",
-                    (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? g_emit.flat_fail_p->name : "", (g_emit.flat_fail_p && g_emit.flat_fail_p->name) ? ":\n" : "", x86_zr(), x86_zr(), kt - 32, x86_zr(), x86_zr());
+                snprintf(fb, sizeof fb, "mov rax, [%s-16]\nlea rsp, [%s + %d]\nmov %s, [%s-8]\njmp rax\n", x86_zr(), x86_zr(), kt - 32, x86_zr(), x86_zr());
                 if (out_succ) *out_succ = std::string(sa);
-                if (out_fail) *out_fail = std::string(fb);
+                if (out_fail) *out_fail = xaf_ω_label() + fb;
                 return std::string(sb2);
             }
             if (g_frame_active) {
@@ -587,7 +587,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     extern int g_gen_proc_active; extern int g_resumable_callable_active;
                     if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix (TEXT twin): result/FAILDESCR at [rbp+0] (heap frame); pop rbp; ret; no add rsp */
                         std::string sgt = std::string("pop rbp\nret\n");
-                        std::string fgt = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                        std::string fgt = xaf_ω_label()
                              + "mov dword ptr [rbp+0], 99\nmov dword ptr [rbp+4], 0\nmov qword ptr [rbp+8], 0\npop rbp\nret\n";
                         if (out_succ) *out_succ = sgt;
                         if (out_fail) *out_fail = fgt;
@@ -597,7 +597,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     char rbpr[64]; snprintf(rbpr, sizeof rbpr, "mov rbp, [rsp + %d]\n", Kt - 8);
                     char frel[64]; snprintf(frel, sizeof frel, "add rsp, %d\n", Kt);
                     std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + rbpr + frel + "ret\n";
-                    std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                    std::string fail_half = xaf_ω_label()
                          + xaf_anchor_leave_text()
                          + "mov dword ptr [rsp+0], 99\n" + "mov dword ptr [rsp+4], 0\n" + "mov qword ptr [rsp+8], 0\n"
                          + "mov eax, 99\n" + "xor edx, edx\n" + rbpr + frel + "ret\n";
@@ -612,7 +612,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                      + dpop
                      + "pop " + x86_zr() + "\n"
                      + "ret\n";
-                std::string fail_half = (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+                std::string fail_half = xaf_ω_label()
                      + "# GZ-10 PROC FAIL EXIT: write FAILDESCR to frame[0] so rt_call_proc_descr sees failure\n"
                      + "mov dword ptr [" + x86_zr() + "+0], 99\n"
                      + "mov dword ptr [" + x86_zr() + "+4], 0\n"
@@ -634,7 +634,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
              + "mov rdx, rax\n"
              + "mov eax, 1\n"
              + "ret\n"
-             + (g_emit.flat_fail_p && g_emit.flat_fail_p->name ? std::string(g_emit.flat_fail_p->name) + ":\n" : std::string())
+             + xaf_ω_label()
              + "mov eax, 99\n"
              + "xor edx, edx\n"
              + "ret\n";
