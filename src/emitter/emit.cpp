@@ -833,7 +833,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         const char * _vn = IR_LIT(nd).sval;
         int _vn_reassignable_builtin = _vn && (!strcmp(_vn, "write") || !strcmp(_vn, "writes"));
         if (_vn && _vn[0] == '&') bb_emit_x86(bb_keyword_icon());
-        else if (_vn && ((is_global(_vn) && !graph_has_local(g_emit_cfg, _vn)) || _vn_reassignable_builtin)) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_var_global()); }   /* ZB-VAL-3: registered global-read fixed-cell grant -- FRQ rebase + the invert+pop+jmp conditional-omega synth serve the template unchanged */
+        else if (_vn && ((is_global(_vn) && !graph_has_local(g_emit_cfg, _vn)) || _vn_reassignable_builtin)) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0) g_emit.op_wpop += (int)_w; } bb_emit_x86(bb_var_global()); }   /* ZB-VAL-3/5: registered global-read fixed-cell grant -- FRQ rebase + the invert+pop+jmp conditional-omega synth serve the template unchanged; wpop ADDS the under-cells release so a mid-tree NV fail restores rsp to statement entry */
         else bb_emit_x86(bb_var()); } return 0;
     case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval;
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
@@ -860,7 +860,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_BINOP_TEST:          bb_emit_x86(bb_binop_relop());       return 0;
     case IR_BINOP_RELOP_VAL:     bb_emit_x86(bb_binop_relop_val());   return 0;
     case IR_BINOP:
-        { extern int fc_vbinop_active(const IR_t *); g_emit.op_fc_disp = fc_vbinop_active(nd) ? 0 : -1; }   /* ZB-VAL-1: registered value-spine binop -- operands ride rsp cells (rhs@0, lhs@16), result replaces both via one net add rsp,16; -1 = flat */
+        { extern int fc_vbinop_active(const IR_t *); g_emit.op_fc_disp = fc_vbinop_active(nd) ? 0 : -1; }   /* ZB-VAL-1/5: registered value-spine binop -- operands ride rsp cells (rhs@0, lhs@16), result replaces both via one net add rsp,16; -1 = flat */
+        { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && g_emit.op_fc_disp >= 0) g_emit.op_wpop += (int)_w; }   /* ZB-VAL-5: generic-path DT_FAIL omega must release ALL live statement cells (binop carves nothing at alpha, so wpop carries the whole depth) */
         switch (g_emit.op_binop_kind) {
         case BINOP_CAT_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
         case BINOP_CAT_CONCAT: bb_emit_x86(bb_binop_concat_slot()); return 0;
