@@ -7,15 +7,13 @@ proc_swap_α:
                         .global          proc_swap_β
                         .global          proc_swap_γ
                         .global          proc_swap_ω
-                        sub              rsp, 464
-                        mov              [rsp + 440], rcx
-                        mov              [rsp + 448], rdx
-                        mov              [rsp + 456], rbp
+                        sub              rsp, 448
+                        mov              [rsp + 424], rcx
+                        mov              [rsp + 432], rdx
+                        mov              [rsp + 440], rbp
                         mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 416], 0
-                        mov              qword ptr [rsp + 424], rsp
 proc_swap_α_body:
 #=======================================================================================================================
 # swap    tmp = a
@@ -153,15 +151,15 @@ proc_swap_β:
 proc_swap_γ:
                         mov              rdi, [rbp]
                         mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 440]
-                        lea              rsp, [rbp + 464]
-                        mov              rbp, [rbp + 456]
+                        mov              rax, [rbp + 424]
+                        lea              rsp, [rbp + 448]
+                        mov              rbp, [rbp + 440]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_ω:
-                        mov              rax, [rbp + 448]
-                        lea              rsp, [rbp + 464]
-                        mov              rbp, [rbp + 456]
+                        mov              rax, [rbp + 432]
+                        lea              rsp, [rbp + 448]
+                        mov              rbp, [rbp + 440]
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -192,7 +190,7 @@ proc_startup:
                         mov              esi, 3
                         call             rt_proc_set_nparams@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 432
+                        mov              esi, 416
                         call             rt_proc_set_frame_bytes@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 1
@@ -236,14 +234,13 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 65544
+                        sub              rsp, 552
                         mov              rdi, rsp
-                        mov              ecx, 65544
+                        mov              ecx, 552
                         xor              eax, eax
                         rep stosb
-                        mov              qword ptr [rsp + 552], rsp
                         mov              r12, qword ptr [1879048192]
-                        mov              [rsp + 65536], rbp
+                        mov              [rsp + 544], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -420,19 +417,19 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, qword ptr [rbp + 552]
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 544]
+                        add              rsp, 552
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, qword ptr [rbp + 552]
+                        mov              rsp, rbp
                         mov              dword ptr [rsp+0], 99
                         mov              dword ptr [rsp+4], 0
                         mov              qword ptr [rsp+8], 0
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rbp, [rsp + 544]
+                        add              rsp, 552
                         ret
                         .section         .note.GNU-stack,"",@progbits

@@ -7,15 +7,13 @@ proc_EXPR$0_α:
                         .global          proc_EXPR$0_β
                         .global          proc_EXPR$0_γ
                         .global          proc_EXPR$0_ω
-                        sub              rsp, 112
-                        mov              [rsp + 88], rcx
-                        mov              [rsp + 96], rdx
-                        mov              [rsp + 104], rbp
+                        sub              rsp, 96
+                        mov              [rsp + 72], rcx
+                        mov              [rsp + 80], rdx
+                        mov              [rsp + 88], rbp
                         mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 64], 0
-                        mov              qword ptr [rsp + 72], rsp
 proc_EXPR$0_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 # IR_LIT_STRING
@@ -49,15 +47,15 @@ proc_EXPR$0_β:
 proc_EXPR$0_γ:
                         mov              rdi, [rbp]
                         mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 88]
-                        lea              rsp, [rbp + 112]
-                        mov              rbp, [rbp + 104]
+                        mov              rax, [rbp + 72]
+                        lea              rsp, [rbp + 96]
+                        mov              rbp, [rbp + 88]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$0_ω:
-                        mov              rax, [rbp + 96]
-                        lea              rsp, [rbp + 112]
-                        mov              rbp, [rbp + 104]
+                        mov              rax, [rbp + 80]
+                        lea              rsp, [rbp + 96]
+                        mov              rbp, [rbp + 88]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_EXPR$1_α
@@ -66,15 +64,13 @@ proc_EXPR$1_α:
                         .global          proc_EXPR$1_β
                         .global          proc_EXPR$1_γ
                         .global          proc_EXPR$1_ω
-                        sub              rsp, 112
-                        mov              [rsp + 88], rcx
-                        mov              [rsp + 96], rdx
-                        mov              [rsp + 104], rbp
+                        sub              rsp, 96
+                        mov              [rsp + 72], rcx
+                        mov              [rsp + 80], rdx
+                        mov              [rsp + 88], rbp
                         mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 64], 0
-                        mov              qword ptr [rsp + 72], rsp
 proc_EXPR$1_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 # IR_VAR
@@ -105,15 +101,15 @@ proc_EXPR$1_β:
 proc_EXPR$1_γ:
                         mov              rdi, [rbp]
                         mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 88]
-                        lea              rsp, [rbp + 112]
-                        mov              rbp, [rbp + 104]
+                        mov              rax, [rbp + 72]
+                        lea              rsp, [rbp + 96]
+                        mov              rbp, [rbp + 88]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$1_ω:
-                        mov              rax, [rbp + 96]
-                        lea              rsp, [rbp + 112]
-                        mov              rbp, [rbp + 104]
+                        mov              rax, [rbp + 80]
+                        lea              rsp, [rbp + 96]
+                        mov              rbp, [rbp + 88]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_EXPR$2_α
@@ -122,15 +118,13 @@ proc_EXPR$2_α:
                         .global          proc_EXPR$2_β
                         .global          proc_EXPR$2_γ
                         .global          proc_EXPR$2_ω
-                        sub              rsp, 208
-                        mov              [rsp + 184], rcx
-                        mov              [rsp + 192], rdx
-                        mov              [rsp + 200], rbp
+                        sub              rsp, 192
+                        mov              [rsp + 168], rcx
+                        mov              [rsp + 176], rdx
+                        mov              [rsp + 184], rbp
                         mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 160], 0
-                        mov              qword ptr [rsp + 168], rsp
 proc_EXPR$2_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 # IR_LIT_INTEGER
@@ -199,15 +193,15 @@ proc_EXPR$2_β:
 proc_EXPR$2_γ:
                         mov              rdi, [rbp]
                         mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 184]
-                        lea              rsp, [rbp + 208]
-                        mov              rbp, [rbp + 200]
+                        mov              rax, [rbp + 168]
+                        lea              rsp, [rbp + 192]
+                        mov              rbp, [rbp + 184]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$2_ω:
-                        mov              rax, [rbp + 192]
-                        lea              rsp, [rbp + 208]
-                        mov              rbp, [rbp + 200]
+                        mov              rax, [rbp + 176]
+                        lea              rsp, [rbp + 192]
+                        mov              rbp, [rbp + 184]
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -232,7 +226,7 @@ proc_startup:
                         mov              esi, 0
                         call             rt_proc_set_nparams@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 80
+                        mov              esi, 64
                         call             rt_proc_set_frame_bytes@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 1
@@ -258,7 +252,7 @@ proc_startup:
                         mov              esi, 0
                         call             rt_proc_set_nparams@PLT
                         lea              rdi, [rip + .Lstartup_pname1]
-                        mov              esi, 80
+                        mov              esi, 64
                         call             rt_proc_set_frame_bytes@PLT
                         lea              rdi, [rip + .Lstartup_pname1]
                         mov              esi, 1
@@ -284,7 +278,7 @@ proc_startup:
                         mov              esi, 0
                         call             rt_proc_set_nparams@PLT
                         lea              rdi, [rip + .Lstartup_pname2]
-                        mov              esi, 176
+                        mov              esi, 160
                         call             rt_proc_set_frame_bytes@PLT
                         lea              rdi, [rip + .Lstartup_pname2]
                         mov              esi, 1
@@ -334,14 +328,13 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 65544
+                        sub              rsp, 1064
                         mov              rdi, rsp
-                        mov              ecx, 65544
+                        mov              ecx, 1064
                         xor              eax, eax
                         rep stosb
-                        mov              qword ptr [rsp + 1064], rsp
                         mov              r12, qword ptr [1879048192]
-                        mov              [rsp + 65536], rbp
+                        mov              [rsp + 1056], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -797,19 +790,19 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, qword ptr [rbp + 1064]
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 1056]
+                        add              rsp, 1064
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, qword ptr [rbp + 1064]
+                        mov              rsp, rbp
                         mov              dword ptr [rsp+0], 99
                         mov              dword ptr [rsp+4], 0
                         mov              qword ptr [rsp+8], 0
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rbp, [rsp + 1056]
+                        add              rsp, 1064
                         ret
                         .section         .note.GNU-stack,"",@progbits
