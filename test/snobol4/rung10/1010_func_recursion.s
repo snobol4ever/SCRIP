@@ -203,9 +203,10 @@ n17_lit_integer_α:
 #         output = 'PASS 1010_func_recursion (4/4)'
 #-----------------------------------------------------------------------------------------------------------------------
 n18_lit_string_α:
-                        mov              qword ptr [rbp + 1648], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx92_0]
-                        mov              qword ptr [rbp + 1656], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n28_assign_α
 .Lx92_0:
                         .quad            .Lx92_0_s
@@ -341,8 +342,9 @@ n27_call_β:
                                                                                         jmp   n18_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n28_assign_α:
-                        mov              rax, qword ptr [rbp + 1648]
-                        mov              rdx, qword ptr [rbp + 1656]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 1632], rax
@@ -699,9 +701,10 @@ n50_binop_β:
 #         output = 'FAIL 1010/001: fact(5)=120'          :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n51_lit_string_α:
-                        mov              qword ptr [rbp + 608], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx129_0]
-                        mov              qword ptr [rbp + 616], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n59_assign_α
 .Lx129_0:
                         .quad            .Lx129_0_s
@@ -732,9 +735,10 @@ n52_call_β:
 #         output = 'FAIL 1010/003: facto(4)=24 via alias' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n53_lit_string_α:
-                        mov              qword ptr [rbp + 1008], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx131_0]
-                        mov              qword ptr [rbp + 1016], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n61_assign_α
 .Lx131_0:
                         .quad            .Lx131_0_s
@@ -793,9 +797,10 @@ n55_binop_β:
 #         output = 'FAIL 1010/004: fact2(6)=720 alt entry' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n56_lit_string_α:
-                        mov              qword ptr [rbp + 1616], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx134_0]
-                        mov              qword ptr [rbp + 1624], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n64_assign_α
 .Lx134_0:
                         .quad            .Lx134_0_s
@@ -833,8 +838,9 @@ n58_call_β:
                                                                                         jmp   n31_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n59_assign_α:
-                        mov              rax, qword ptr [rbp + 608]
-                        mov              rdx, qword ptr [rbp + 616]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 592], rax
@@ -844,9 +850,10 @@ n59_assign_α:
 #         output = 'FAIL 1010/002: opsyn alias'          :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n60_lit_string_α:
-                        mov              qword ptr [rbp + 832], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx138_0]
-                        mov              qword ptr [rbp + 840], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n67_assign_α
 .Lx138_0:
                         .quad            .Lx138_0_s
@@ -854,8 +861,9 @@ n60_lit_string_α:
                         .string          "FAIL 1010/002: opsyn alias"
 #-----------------------------------------------------------------------------------------------------------------------
 n61_assign_α:
-                        mov              rax, qword ptr [rbp + 1008]
-                        mov              rdx, qword ptr [rbp + 1016]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 992], rax
@@ -893,8 +901,9 @@ n63_call_β:
                                                                                         jmp   n38_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n64_assign_α:
-                        mov              rax, qword ptr [rbp + 1616]
-                        mov              rdx, qword ptr [rbp + 1624]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 1600], rax
@@ -958,8 +967,9 @@ n66_binop_β:
                                                                                         jmp   n31_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n67_assign_α:
-                        mov              rax, qword ptr [rbp + 832]
-                        mov              rdx, qword ptr [rbp + 840]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
                         mov              qword ptr [rbp + 816], rax

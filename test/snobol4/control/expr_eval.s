@@ -238,12 +238,16 @@ n14_call_β:
 # loop     line     =  INPUT                         :F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n15_var_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx156_0]
                         call             NV_GET_fn@PLT
                         cmp              eax, 99
-                                                                                        je    proc_LBL__Push_γ
-                        mov              qword ptr [rbp + 2624], rax
-                        mov              qword ptr [rbp + 2632], rdx
+                                                                                        jne   .Lx156_240
+                        add              rsp, 16
+                                                                                        jmp   proc_LBL__Push_γ
+.Lx156_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n26_assign_α
 .Lx156_0:
                         .quad            .Lx156_0_s
@@ -253,9 +257,10 @@ n15_var_α:
 # error    OUTPUT   = 'Bad input, try again'         :(loop)
 #-----------------------------------------------------------------------------------------------------------------------
 n16_lit_string_α:
-                        mov              qword ptr [rbp + 2864], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx157_0]
-                        mov              qword ptr [rbp + 2872], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n27_assign_α
 .Lx157_0:
                         .quad            .Lx157_0_s
@@ -471,8 +476,9 @@ n25_call_β:
                         .string          "Pop"
 #-----------------------------------------------------------------------------------------------------------------------
 n26_assign_α:
-                        mov              rax, qword ptr [rbp + 2624]
-                        mov              rdx, qword ptr [rbp + 2632]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052624], rax
                         mov              qword ptr [1879052632], rdx
                         mov              qword ptr [rbp + 2608], rax
@@ -480,8 +486,9 @@ n26_assign_α:
                                                                                         jmp   n40_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n27_assign_α:
-                        mov              rsi, qword ptr [rbp + 2864]
-                        mov              rdx, qword ptr [rbp + 2872]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx171_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 2848], rax
@@ -2483,12 +2490,16 @@ n324_call_β:
 # loop     line     =  INPUT                         :F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n325_var_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx466_0]
                         call             NV_GET_fn@PLT
                         cmp              eax, 99
-                                                                                        je    proc_LBL__Pop_γ
-                        mov              qword ptr [rbp + 2624], rax
-                        mov              qword ptr [rbp + 2632], rdx
+                                                                                        jne   .Lx466_240
+                        add              rsp, 16
+                                                                                        jmp   proc_LBL__Pop_γ
+.Lx466_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n336_assign_α
 .Lx466_0:
                         .quad            .Lx466_0_s
@@ -2498,9 +2509,10 @@ n325_var_α:
 # error    OUTPUT   = 'Bad input, try again'         :(loop)
 #-----------------------------------------------------------------------------------------------------------------------
 n326_lit_string_α:
-                        mov              qword ptr [rbp + 2864], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx467_0]
-                        mov              qword ptr [rbp + 2872], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n337_assign_α
 .Lx467_0:
                         .quad            .Lx467_0_s
@@ -2716,8 +2728,9 @@ n335_call_β:
                         .string          "Pop"
 #-----------------------------------------------------------------------------------------------------------------------
 n336_assign_α:
-                        mov              rax, qword ptr [rbp + 2624]
-                        mov              rdx, qword ptr [rbp + 2632]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052624], rax
                         mov              qword ptr [1879052632], rdx
                         mov              qword ptr [rbp + 2608], rax
@@ -2725,8 +2738,9 @@ n336_assign_α:
                                                                                         jmp   n350_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n337_assign_α:
-                        mov              rsi, qword ptr [rbp + 2864]
-                        mov              rdx, qword ptr [rbp + 2872]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx481_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 2848], rax
@@ -4728,12 +4742,16 @@ n634_call_β:
 # loop     line     =  INPUT                         :F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n635_var_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx776_0]
                         call             NV_GET_fn@PLT
                         cmp              eax, 99
-                                                                                        je    proc_LBL__Unary_γ
-                        mov              qword ptr [rbp + 2624], rax
-                        mov              qword ptr [rbp + 2632], rdx
+                                                                                        jne   .Lx776_240
+                        add              rsp, 16
+                                                                                        jmp   proc_LBL__Unary_γ
+.Lx776_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n646_assign_α
 .Lx776_0:
                         .quad            .Lx776_0_s
@@ -4743,9 +4761,10 @@ n635_var_α:
 # error    OUTPUT   = 'Bad input, try again'         :(loop)
 #-----------------------------------------------------------------------------------------------------------------------
 n636_lit_string_α:
-                        mov              qword ptr [rbp + 2864], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx777_0]
-                        mov              qword ptr [rbp + 2872], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n647_assign_α
 .Lx777_0:
                         .quad            .Lx777_0_s
@@ -4961,8 +4980,9 @@ n645_call_β:
                         .string          "Pop"
 #-----------------------------------------------------------------------------------------------------------------------
 n646_assign_α:
-                        mov              rax, qword ptr [rbp + 2624]
-                        mov              rdx, qword ptr [rbp + 2632]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052624], rax
                         mov              qword ptr [1879052632], rdx
                         mov              qword ptr [rbp + 2608], rax
@@ -4970,8 +4990,9 @@ n646_assign_α:
                                                                                         jmp   n660_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n647_assign_α:
-                        mov              rsi, qword ptr [rbp + 2864]
-                        mov              rdx, qword ptr [rbp + 2872]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx791_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 2848], rax
@@ -6973,12 +6994,16 @@ n944_call_β:
 # loop     line     =  INPUT                         :F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n945_var_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx1086_0]
                         call             NV_GET_fn@PLT
                         cmp              eax, 99
-                                                                                        je    proc_LBL__Binary_γ
-                        mov              qword ptr [rbp + 2624], rax
-                        mov              qword ptr [rbp + 2632], rdx
+                                                                                        jne   .Lx1086_240
+                        add              rsp, 16
+                                                                                        jmp   proc_LBL__Binary_γ
+.Lx1086_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n956_assign_α
 .Lx1086_0:
                         .quad            .Lx1086_0_s
@@ -6988,9 +7013,10 @@ n945_var_α:
 # error    OUTPUT   = 'Bad input, try again'         :(loop)
 #-----------------------------------------------------------------------------------------------------------------------
 n946_lit_string_α:
-                        mov              qword ptr [rbp + 2864], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx1087_0]
-                        mov              qword ptr [rbp + 2872], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n957_assign_α
 .Lx1087_0:
                         .quad            .Lx1087_0_s
@@ -7206,8 +7232,9 @@ n955_call_β:
                         .string          "Pop"
 #-----------------------------------------------------------------------------------------------------------------------
 n956_assign_α:
-                        mov              rax, qword ptr [rbp + 2624]
-                        mov              rdx, qword ptr [rbp + 2632]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052624], rax
                         mov              qword ptr [1879052632], rdx
                         mov              qword ptr [rbp + 2608], rax
@@ -7215,8 +7242,9 @@ n956_assign_α:
                                                                                         jmp   n970_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n957_assign_α:
-                        mov              rsi, qword ptr [rbp + 2864]
-                        mov              rdx, qword ptr [rbp + 2872]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx1101_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 2848], rax
@@ -12810,12 +12838,16 @@ n1436_call_β:
 # loop     line     =  INPUT                         :F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n1437_var_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx1581_0]
                         call             NV_GET_fn@PLT
                         cmp              eax, 99
-                                                                                        je    main_γ
-                        mov              qword ptr [rbp + 2624], rax
-                        mov              qword ptr [rbp + 2632], rdx
+                                                                                        jne   .Lx1581_240
+                        add              rsp, 16
+                                                                                        jmp   main_γ
+.Lx1581_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n1448_assign_α
 .Lx1581_0:
                         .quad            .Lx1581_0_s
@@ -12825,9 +12857,10 @@ n1437_var_α:
 # error    OUTPUT   = 'Bad input, try again'         :(loop)
 #-----------------------------------------------------------------------------------------------------------------------
 n1438_lit_string_α:
-                        mov              qword ptr [rbp + 2864], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx1582_0]
-                        mov              qword ptr [rbp + 2872], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1449_assign_α
 .Lx1582_0:
                         .quad            .Lx1582_0_s
@@ -13043,8 +13076,9 @@ n1447_call_β:
                         .string          "Pop"
 #-----------------------------------------------------------------------------------------------------------------------
 n1448_assign_α:
-                        mov              rax, qword ptr [rbp + 2624]
-                        mov              rdx, qword ptr [rbp + 2632]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052624], rax
                         mov              qword ptr [1879052632], rdx
                         mov              qword ptr [rbp + 2608], rax
@@ -13052,8 +13086,9 @@ n1448_assign_α:
                                                                                         jmp   n1462_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1449_assign_α:
-                        mov              rsi, qword ptr [rbp + 2864]
-                        mov              rdx, qword ptr [rbp + 2872]
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx1596_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 2848], rax

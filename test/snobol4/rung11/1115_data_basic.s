@@ -179,9 +179,10 @@ n13_lit_string_α:
 #         output = 'PASS 1115_data_basic (6/6)'
 #-----------------------------------------------------------------------------------------------------------------------
 n14_lit_string_α:
-                        mov              qword ptr [rbp + 1776], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx83_0]
-                        mov              qword ptr [rbp + 1784], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n22_assign_α
 .Lx83_0:
                         .quad            .Lx83_0_s
@@ -304,8 +305,9 @@ n21_call_β:
                                                                                         jmp   n30_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n22_assign_α:
-                        mov              rax, qword ptr [rbp + 1776]
-                        mov              rdx, qword ptr [rbp + 1784]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1760], rax
@@ -589,9 +591,10 @@ n39_call_β:
 #         output = 'FAIL 1115/002: field accessor val'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n40_lit_string_α:
-                        mov              qword ptr [rbp + 656], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx111_0]
-                        mov              qword ptr [rbp + 664], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n49_assign_α
 .Lx111_0:
                         .quad            .Lx111_0_s
@@ -601,9 +604,10 @@ n40_lit_string_α:
 #         output = 'FAIL 1115/003: unset field is null'  :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n41_lit_string_α:
-                        mov              qword ptr [rbp + 848], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx112_0]
-                        mov              qword ptr [rbp + 856], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n50_assign_α
 .Lx112_0:
                         .quad            .Lx112_0_s
@@ -641,9 +645,10 @@ n43_call_β:
 #         output = 'FAIL 1115/005: value() by variable name' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n44_lit_string_α:
-                        mov              qword ptr [rbp + 1408], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx115_0]
-                        mov              qword ptr [rbp + 1416], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n53_assign_α
 .Lx115_0:
                         .quad            .Lx115_0_s
@@ -690,8 +695,9 @@ n48_var_α:
                                                                                         jmp   n56_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n49_assign_α:
-                        mov              rax, qword ptr [rbp + 656]
-                        mov              rdx, qword ptr [rbp + 664]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 640], rax
@@ -699,8 +705,9 @@ n49_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n50_assign_α:
-                        mov              rax, qword ptr [rbp + 848]
-                        mov              rdx, qword ptr [rbp + 856]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 832], rax
@@ -730,8 +737,9 @@ n52_lit_string_α:
                         .string          "z"
 #-----------------------------------------------------------------------------------------------------------------------
 n53_assign_α:
-                        mov              rax, qword ptr [rbp + 1408]
-                        mov              rdx, qword ptr [rbp + 1416]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1392], rax
@@ -824,9 +832,10 @@ n57_call_β:
 #         output = 'FAIL 1115/006: mutate field and read back' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n58_lit_string_α:
-                        mov              qword ptr [rbp + 1744], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx129_0]
-                        mov              qword ptr [rbp + 1752], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n61_assign_α
 .Lx129_0:
                         .quad            .Lx129_0_s
@@ -847,9 +856,10 @@ n59_keyword_snobol4_α:
 #         output = 'FAIL 1115/004: nested accessor after mutate' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n60_lit_string_α:
-                        mov              qword ptr [rbp + 1232], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx131_0]
-                        mov              qword ptr [rbp + 1240], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n63_assign_α
 .Lx131_0:
                         .quad            .Lx131_0_s
@@ -857,8 +867,9 @@ n60_lit_string_α:
                         .string          "FAIL 1115/004: nested accessor after mutate"
 #-----------------------------------------------------------------------------------------------------------------------
 n61_assign_α:
-                        mov              rax, qword ptr [rbp + 1744]
-                        mov              rdx, qword ptr [rbp + 1752]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1728], rax
@@ -877,8 +888,9 @@ n62_keyword_snobol4_α:
                         .string          "ucase"
 #-----------------------------------------------------------------------------------------------------------------------
 n63_assign_α:
-                        mov              rax, qword ptr [rbp + 1232]
-                        mov              rdx, qword ptr [rbp + 1240]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1216], rax
@@ -952,9 +964,10 @@ n66_call_β:
 #         output = 'FAIL 1115/001: datatype of node'            :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n67_lit_string_α:
-                        mov              qword ptr [rbp + 480], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx138_0]
-                        mov              qword ptr [rbp + 488], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n68_assign_α
 .Lx138_0:
                         .quad            .Lx138_0_s
@@ -962,8 +975,9 @@ n67_lit_string_α:
                         .string          "FAIL 1115/001: datatype of node"
 #-----------------------------------------------------------------------------------------------------------------------
 n68_assign_α:
-                        mov              rax, qword ptr [rbp + 480]
-                        mov              rdx, qword ptr [rbp + 488]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 464], rax

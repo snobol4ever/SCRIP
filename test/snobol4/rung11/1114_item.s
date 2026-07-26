@@ -187,9 +187,10 @@ n15_call_β:
 #         output = 'PASS 1114_item (7/7)'
 #-----------------------------------------------------------------------------------------------------------------------
 n16_lit_string_α:
-                        mov              qword ptr [rbp + 2832], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx138_0]
-                        mov              qword ptr [rbp + 2840], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n28_assign_α
 .Lx138_0:
                         .quad            .Lx138_0_s
@@ -311,8 +312,9 @@ n27_lit_string_α:
                         .string          ""
 #-----------------------------------------------------------------------------------------------------------------------
 n28_assign_α:
-                        mov              rax, qword ptr [rbp + 2832]
-                        mov              rdx, qword ptr [rbp + 2840]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 2816], rax
@@ -887,9 +889,10 @@ n74_lit_integer_α:
 #         output = 'FAIL 1114/002: item == bracket read' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n75_lit_string_α:
-                        mov              qword ptr [rbp + 640], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx200_0]
-                        mov              qword ptr [rbp + 648], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n86_assign_α
 .Lx200_0:
                         .quad            .Lx200_0_s
@@ -899,9 +902,10 @@ n75_lit_string_α:
 #         output = 'FAIL 1114/003: bracket assign, item read' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n76_lit_string_α:
-                        mov              qword ptr [rbp + 928], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx201_0]
-                        mov              qword ptr [rbp + 936], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n87_assign_α
 .Lx201_0:
                         .quad            .Lx201_0_s
@@ -1043,8 +1047,9 @@ n85_call_β:
                                                                                         jmp   n10_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n86_assign_α:
-                        mov              rax, qword ptr [rbp + 640]
-                        mov              rdx, qword ptr [rbp + 648]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 624], rax
@@ -1052,8 +1057,9 @@ n86_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n87_assign_α:
-                        mov              rax, qword ptr [rbp + 928]
-                        mov              rdx, qword ptr [rbp + 936]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 912], rax
@@ -1140,9 +1146,10 @@ n94_call_β:
 #         output = 'FAIL 1114/001: item 1D assign/read'  :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n95_lit_string_α:
-                        mov              qword ptr [rbp + 464], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx220_0]
-                        mov              qword ptr [rbp + 472], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n102_assign_α
 .Lx220_0:
                         .quad            .Lx220_0_s
@@ -1217,9 +1224,10 @@ n100_call_β:
 #         output = 'FAIL 1114/007: item on table'        :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n101_lit_string_α:
-                        mov              qword ptr [rbp + 2800], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx226_0]
-                        mov              qword ptr [rbp + 2808], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n108_assign_α
 .Lx226_0:
                         .quad            .Lx226_0_s
@@ -1227,8 +1235,9 @@ n101_lit_string_α:
                         .string          "FAIL 1114/007: item on table"
 #-----------------------------------------------------------------------------------------------------------------------
 n102_assign_α:
-                        mov              rax, qword ptr [rbp + 464]
-                        mov              rdx, qword ptr [rbp + 472]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 448], rax
@@ -1330,9 +1339,10 @@ n106_lit_integer_α:
 #         output = 'FAIL 1114/006: bracket 4D assign, item read' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n107_lit_string_α:
-                        mov              qword ptr [rbp + 2352], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx232_0]
-                        mov              qword ptr [rbp + 2360], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n113_assign_α
 .Lx232_0:
                         .quad            .Lx232_0_s
@@ -1340,8 +1350,9 @@ n107_lit_string_α:
                         .string          "FAIL 1114/006: bracket 4D assign, item read"
 #-----------------------------------------------------------------------------------------------------------------------
 n108_assign_α:
-                        mov              rax, qword ptr [rbp + 2800]
-                        mov              rdx, qword ptr [rbp + 2808]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 2784], rax
@@ -1385,8 +1396,9 @@ n112_assign_var_α:
                                                                                         jmp   n25_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n113_assign_α:
-                        mov              rax, qword ptr [rbp + 2352]
-                        mov              rdx, qword ptr [rbp + 2360]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 2336], rax
@@ -1458,9 +1470,10 @@ n116_call_β:
 #         output = 'FAIL 1114/004: item 4D assign/read'  :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n117_lit_string_α:
-                        mov              qword ptr [rbp + 1600], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx242_0]
-                        mov              qword ptr [rbp + 1608], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n119_assign_α
 .Lx242_0:
                         .quad            .Lx242_0_s
@@ -1470,9 +1483,10 @@ n117_lit_string_α:
 #         output = 'FAIL 1114/005: item 4D == bracket'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n118_lit_string_α:
-                        mov              qword ptr [rbp + 1872], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx243_0]
-                        mov              qword ptr [rbp + 1880], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n120_assign_α
 .Lx243_0:
                         .quad            .Lx243_0_s
@@ -1480,8 +1494,9 @@ n118_lit_string_α:
                         .string          "FAIL 1114/005: item 4D == bracket"
 #-----------------------------------------------------------------------------------------------------------------------
 n119_assign_α:
-                        mov              rax, qword ptr [rbp + 1600]
-                        mov              rdx, qword ptr [rbp + 1608]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1584], rax
@@ -1489,8 +1504,9 @@ n119_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n120_assign_α:
-                        mov              rax, qword ptr [rbp + 1872]
-                        mov              rdx, qword ptr [rbp + 1880]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1856], rax

@@ -149,9 +149,10 @@ n11_var_α:
 #         output = 'PASS 1112_array_multi (5/5)'
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_string_α:
-                        mov              qword ptr [rbp + 1296], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx85_0]
-                        mov              qword ptr [rbp + 1304], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n19_assign_α
 .Lx85_0:
                         .quad            .Lx85_0_s
@@ -235,8 +236,9 @@ n18_lit_integer_α:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
 n19_assign_α:
-                        mov              rax, qword ptr [rbp + 1296]
-                        mov              rdx, qword ptr [rbp + 1304]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1280], rax
@@ -413,9 +415,10 @@ n35_subscript_α:
 #         output = 'FAIL 1112/002: prototype of 2D array' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n36_lit_string_α:
-                        mov              qword ptr [rbp + 560], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx109_0]
-                        mov              qword ptr [rbp + 568], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n43_assign_α
 .Lx109_0:
                         .quad            .Lx109_0_s
@@ -479,8 +482,9 @@ n42_lit_integer_α:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
 n43_assign_α:
-                        mov              rax, qword ptr [rbp + 560]
-                        mov              rdx, qword ptr [rbp + 568]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 544], rax
@@ -584,9 +588,10 @@ n52_deref_α:
 #         output = 'FAIL 1112/005: above upper bound fails' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n53_lit_string_α:
-                        mov              qword ptr [rbp + 1264], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx126_0]
-                        mov              qword ptr [rbp + 1272], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n59_assign_α
 .Lx126_0:
                         .quad            .Lx126_0_s
@@ -638,9 +643,10 @@ n57_lit_integer_α:
 #         output = 'FAIL 1112/004: below lower bound fails' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n58_lit_string_α:
-                        mov              qword ptr [rbp + 1136], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx131_0]
-                        mov              qword ptr [rbp + 1144], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n63_assign_α
 .Lx131_0:
                         .quad            .Lx131_0_s
@@ -648,8 +654,9 @@ n58_lit_string_α:
                         .string          "FAIL 1112/004: below lower bound fails"
 #-----------------------------------------------------------------------------------------------------------------------
 n59_assign_α:
-                        mov              rax, qword ptr [rbp + 1264]
-                        mov              rdx, qword ptr [rbp + 1272]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1248], rax
@@ -687,8 +694,9 @@ n62_subscript_α:
                                                                                         jmp   n66_deref_α
 #-----------------------------------------------------------------------------------------------------------------------
 n63_assign_α:
-                        mov              rax, qword ptr [rbp + 1136]
-                        mov              rdx, qword ptr [rbp + 1144]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1120], rax
@@ -745,9 +753,10 @@ n66_deref_α:
 #         output = 'FAIL 1112/001: 2D array assign/read' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n67_lit_string_α:
-                        mov              qword ptr [rbp + 384], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx140_0]
-                        mov              qword ptr [rbp + 392], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n69_assign_α
 .Lx140_0:
                         .quad            .Lx140_0_s
@@ -763,8 +772,9 @@ n68_lit_integer_α:
                         .quad            0
 #-----------------------------------------------------------------------------------------------------------------------
 n69_assign_α:
-                        mov              rax, qword ptr [rbp + 384]
-                        mov              rdx, qword ptr [rbp + 392]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 368], rax
@@ -799,9 +809,10 @@ n70_call_β:
 #         output = 'FAIL 1112/003: custom lower bound assign/read' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n71_lit_string_α:
-                        mov              qword ptr [rbp + 992], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx144_0]
-                        mov              qword ptr [rbp + 1000], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n72_assign_α
 .Lx144_0:
                         .quad            .Lx144_0_s
@@ -809,8 +820,9 @@ n71_lit_string_α:
                         .string          "FAIL 1112/003: custom lower bound assign/read"
 #-----------------------------------------------------------------------------------------------------------------------
 n72_assign_α:
-                        mov              rax, qword ptr [rbp + 992]
-                        mov              rdx, qword ptr [rbp + 1000]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 976], rax

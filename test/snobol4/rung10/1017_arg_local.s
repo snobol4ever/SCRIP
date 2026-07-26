@@ -212,9 +212,10 @@ n18_lit_string_α:
 #         output = 'PASS 1017_arg_local (8/8)'
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_string_α:
-                        mov              qword ptr [rbp + 1808], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx89_0]
-                        mov              qword ptr [rbp + 1816], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n28_assign_α
 .Lx89_0:
                         .quad            .Lx89_0_s
@@ -381,8 +382,9 @@ n27_call_β:
                                                                                         jmp   n19_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n28_assign_α:
-                        mov              rax, qword ptr [rbp + 1808]
-                        mov              rdx, qword ptr [rbp + 1816]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1792], rax
@@ -687,9 +689,10 @@ n46_lit_string_α:
 #         output = 'FAIL 1017/003: arg(.jlab,0) OOB should fail' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n47_lit_string_α:
-                        mov              qword ptr [rbp + 736], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx125_0]
-                        mov              qword ptr [rbp + 744], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n55_assign_α
 .Lx125_0:
                         .quad            .Lx125_0_s
@@ -699,9 +702,10 @@ n47_lit_string_α:
 #         output = 'FAIL 1017/004: arg(.jlab,4) OOB should fail' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n48_lit_string_α:
-                        mov              qword ptr [rbp + 912], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx126_0]
-                        mov              qword ptr [rbp + 920], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n56_assign_α
 .Lx126_0:
                         .quad            .Lx126_0_s
@@ -731,9 +735,10 @@ n50_lit_string_α:
 #         output = 'FAIL 1017/007: local(.jlab,0) OOB should fail' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n51_lit_string_α:
-                        mov              qword ptr [rbp + 1600], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx129_0]
-                        mov              qword ptr [rbp + 1608], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n59_assign_α
 .Lx129_0:
                         .quad            .Lx129_0_s
@@ -743,9 +748,10 @@ n51_lit_string_α:
 #         output = 'FAIL 1017/008: local(.jlab,4) OOB should fail' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n52_lit_string_α:
-                        mov              qword ptr [rbp + 1776], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx130_0]
-                        mov              qword ptr [rbp + 1784], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n60_assign_α
 .Lx130_0:
                         .quad            .Lx130_0_s
@@ -788,8 +794,9 @@ n54_call_β:
                                                                                         jmp   n13_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n55_assign_α:
-                        mov              rax, qword ptr [rbp + 736]
-                        mov              rdx, qword ptr [rbp + 744]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 720], rax
@@ -797,8 +804,9 @@ n55_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n56_assign_α:
-                        mov              rax, qword ptr [rbp + 912]
-                        mov              rdx, qword ptr [rbp + 920]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 896], rax
@@ -856,8 +864,9 @@ n58_call_β:
                                                                                         jmp   n17_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n59_assign_α:
-                        mov              rax, qword ptr [rbp + 1600]
-                        mov              rdx, qword ptr [rbp + 1608]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1584], rax
@@ -865,8 +874,9 @@ n59_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n60_assign_α:
-                        mov              rax, qword ptr [rbp + 1776]
-                        mov              rdx, qword ptr [rbp + 1784]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1760], rax
@@ -901,9 +911,10 @@ n61_call_β:
 #         output = 'FAIL 1017/002: arg(.jlab,3) = C'     :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n62_lit_string_α:
-                        mov              qword ptr [rbp + 560], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx140_0]
-                        mov              qword ptr [rbp + 568], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n66_assign_α
 .Lx140_0:
                         .quad            .Lx140_0_s
@@ -913,9 +924,10 @@ n62_lit_string_α:
 #         output = 'FAIL 1017/005: local(.jlab,1) = D'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n63_lit_string_α:
-                        mov              qword ptr [rbp + 1168], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx141_0]
-                        mov              qword ptr [rbp + 1176], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n67_assign_α
 .Lx141_0:
                         .quad            .Lx141_0_s
@@ -925,9 +937,10 @@ n63_lit_string_α:
 #         output = 'FAIL 1017/006: local(.jlab,3) = F'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n64_lit_string_α:
-                        mov              qword ptr [rbp + 1424], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx142_0]
-                        mov              qword ptr [rbp + 1432], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n68_assign_α
 .Lx142_0:
                         .quad            .Lx142_0_s
@@ -937,9 +950,10 @@ n64_lit_string_α:
 #         output = 'FAIL 1017/001: arg(.jlab,1) = A'     :(end)
 #-----------------------------------------------------------------------------------------------------------------------
 n65_lit_string_α:
-                        mov              qword ptr [rbp + 304], 1
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
                         mov              rax, qword ptr [rip + .Lx143_0]
-                        mov              qword ptr [rbp + 312], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n69_assign_α
 .Lx143_0:
                         .quad            .Lx143_0_s
@@ -947,8 +961,9 @@ n65_lit_string_α:
                         .string          "FAIL 1017/001: arg(.jlab,1) = A"
 #-----------------------------------------------------------------------------------------------------------------------
 n66_assign_α:
-                        mov              rax, qword ptr [rbp + 560]
-                        mov              rdx, qword ptr [rbp + 568]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 544], rax
@@ -956,8 +971,9 @@ n66_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n67_assign_α:
-                        mov              rax, qword ptr [rbp + 1168]
-                        mov              rdx, qword ptr [rbp + 1176]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1152], rax
@@ -965,8 +981,9 @@ n67_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n68_assign_α:
-                        mov              rax, qword ptr [rbp + 1424]
-                        mov              rdx, qword ptr [rbp + 1432]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 1408], rax
@@ -974,8 +991,9 @@ n68_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n69_assign_α:
-                        mov              rax, qword ptr [rbp + 304]
-                        mov              rdx, qword ptr [rbp + 312]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
                         mov              qword ptr [rbp + 288], rax
