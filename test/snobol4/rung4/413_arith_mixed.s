@@ -26,26 +26,26 @@ main:
                         ret
 main_α:
 #=======================================================================================================================
-    .global main_α
-    .global main_β
-    .global main_γ
-    .global main_ω
-  sub rsp, 65544
-  mov rdi, rsp
-  mov ecx, 65544
-  xor eax, eax
-  rep stosb
-  mov qword ptr [rsp + 504], rsp
-  mov r12, qword ptr [1879048192]
-  mov [rsp + 65536], rbp
-  mov rbp, rsp
+                        .global          main_α
+                        .global          main_β
+                        .global          main_γ
+                        .global          main_ω
+                        sub              rsp, 65544
+                        mov              rdi, rsp
+                        mov              ecx, 65544
+                        xor              eax, eax
+                        rep stosb
+                        mov              qword ptr [rsp + 504], rsp
+                        mov              r12, qword ptr [1879048192]
+                        mov              [rsp + 65536], rbp
+                        mov              rbp, rsp
 main_α_body:
 # IR_LIT_REAL
 xchain0_n0_α:
                         mov              qword ptr [rbp + 160], 7
                         mov              rax, qword ptr [rip + .Lx1_0]
                         mov              qword ptr [rbp + 168], rax
-                        jmp              xchain0_n1_α
+                                                                                        jmp   xchain0_n1_α
 .Lx1_0:
                         .quad            4613937818241073152
 # IR_LIT_REAL
@@ -53,7 +53,7 @@ xchain0_n1_α:
                         mov              qword ptr [rbp + 192], 7
                         mov              rax, qword ptr [rip + .Lx2_0]
                         mov              qword ptr [rbp + 200], rax
-                        jmp              xchain0_n2_α
+                                                                                        jmp   xchain0_n2_α
 .Lx2_0:
                         .quad            4613937818241073152
 xchain0_n2_α:
@@ -79,17 +79,17 @@ xchain0_n2_α:
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
                         cmp              eax, 99
-                        je               xchain0_n4_α
-                        jmp              xchain0_n3_α
+                                                                                        je    xchain0_n4_α
+                                                                                        jmp   xchain0_n3_α
 xchain0_n2_β:
-                        jmp              xchain0_n4_α
+                                                                                        jmp   xchain0_n4_α
 #         output = 'FAIL 413/001: int+real promotes to real' :(end)
 # IR_LIT_STRING
 xchain0_n3_α:
                         mov              qword ptr [rbp + 240], 1
                         mov              rax, qword ptr [rip + .Lx4_0]
                         mov              qword ptr [rbp + 248], rax
-                        jmp              xchain0_n5_α
+                                                                                        jmp   xchain0_n5_α
 .Lx4_0:
                         .quad            .Lx4_0_s
 .Lx4_0_s:
@@ -99,7 +99,7 @@ xchain0_n4_α:
                         mov              qword ptr [rbp + 336], 7
                         mov              rax, qword ptr [rip + .Lx5_0]
                         mov              qword ptr [rbp + 344], rax
-                        jmp              xchain0_n6_α
+                                                                                        jmp   xchain0_n6_α
 .Lx5_0:
                         .quad            4609434218613702656
 # IR_ASSIGN gva
@@ -110,13 +110,13 @@ xchain0_n5_α:
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 224], rax
                         mov              qword ptr [rbp + 232], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 # IR_LIT_REAL
 xchain0_n6_α:
                         mov              qword ptr [rbp + 368], 7
                         mov              rax, qword ptr [rip + .Lx7_0]
                         mov              qword ptr [rbp + 376], rax
-                        jmp              xchain0_n7_α
+                                                                                        jmp   xchain0_n7_α
 .Lx7_0:
                         .quad            4609434218613702656
 xchain0_n7_α:
@@ -142,17 +142,17 @@ xchain0_n7_α:
                         mov              qword ptr [rbp + 272], rax
                         mov              qword ptr [rbp + 280], rdx
                         cmp              eax, 99
-                        je               xchain0_n9_α
-                        jmp              xchain0_n8_α
+                                                                                        je    xchain0_n9_α
+                                                                                        jmp   xchain0_n8_α
 xchain0_n7_β:
-                        jmp              xchain0_n9_α
+                                                                                        jmp   xchain0_n9_α
 #         output = 'FAIL 413/002: real/int promotes to real' :(end)
 # IR_LIT_STRING
 xchain0_n8_α:
                         mov              qword ptr [rbp + 416], 1
                         mov              rax, qword ptr [rip + .Lx9_0]
                         mov              qword ptr [rbp + 424], rax
-                        jmp              xchain0_n10_α
+                                                                                        jmp   xchain0_n10_α
 .Lx9_0:
                         .quad            .Lx9_0_s
 .Lx9_0_s:
@@ -163,7 +163,7 @@ xchain0_n9_α:
                         mov              qword ptr [rbp + 464], 1
                         mov              rax, qword ptr [rip + .Lx10_0]
                         mov              qword ptr [rbp + 472], rax
-                        jmp              xchain0_n11_α
+                                                                                        jmp   xchain0_n11_α
 .Lx10_0:
                         .quad            .Lx10_0_s
 .Lx10_0_s:
@@ -176,7 +176,7 @@ xchain0_n10_α:
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 400], rax
                         mov              qword ptr [rbp + 408], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 # IR_ASSIGN gva
 xchain0_n11_α:
                         mov              rax, qword ptr [rbp + 464]
@@ -185,23 +185,23 @@ xchain0_n11_α:
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 448], rax
                         mov              qword ptr [rbp + 456], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 main_β:
-jmp main_ω
+                                                                                        jmp   main_ω
 main_γ:
-mov eax, 1
-xor edx, edx
-mov rsp, qword ptr [rbp + 504]
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
+                        mov              eax, 1
+                        xor              edx, edx
+                        mov              rsp, qword ptr [rbp + 504]
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret
 main_ω:
-mov rsp, qword ptr [rbp + 504]
-mov dword ptr [rsp+0], 99
-mov dword ptr [rsp+4], 0
-mov qword ptr [rsp+8], 0
-mov eax, 99
-xor edx, edx
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
+                        mov              rsp, qword ptr [rbp + 504]
+                        mov              dword ptr [rsp+0], 99
+                        mov              dword ptr [rsp+4], 0
+                        mov              qword ptr [rsp+8], 0
+                        mov              eax, 99
+                        xor              edx, edx
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret

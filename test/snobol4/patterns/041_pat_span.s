@@ -28,19 +28,19 @@ main:
                         ret
 main_α:
 #=======================================================================================================================
-    .global main_α
-    .global main_β
-    .global main_γ
-    .global main_ω
-  sub rsp, 65544
-  mov rdi, rsp
-  mov ecx, 65544
-  xor eax, eax
-  rep stosb
-  mov qword ptr [rsp + 424], rsp
-  mov r12, qword ptr [1879048192]
-  mov [rsp + 65536], rbp
-  mov rbp, rsp
+                        .global          main_α
+                        .global          main_β
+                        .global          main_γ
+                        .global          main_ω
+                        sub              rsp, 65544
+                        mov              rdi, rsp
+                        mov              ecx, 65544
+                        xor              eax, eax
+                        rep stosb
+                        mov              qword ptr [rsp + 424], rsp
+                        mov              r12, qword ptr [1879048192]
+                        mov              [rsp + 65536], rbp
+                        mov              rbp, rsp
 main_α_body:
 #         X = '12345abc'
 # IR_LIT_STRING
@@ -48,7 +48,7 @@ xchain0_n0_α:
                         mov              qword ptr [rbp + 112], 1
                         mov              rax, qword ptr [rip + .Lx1_0]
                         mov              qword ptr [rbp + 120], rax
-                        jmp              xchain0_n1_α
+                                                                                        jmp   xchain0_n1_α
 .Lx1_0:
                         .quad            .Lx1_0_s
 .Lx1_0_s:
@@ -61,7 +61,7 @@ xchain0_n1_α:
                         mov              qword ptr [1879052296], rdx
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
-                        jmp              xchain0_n2_α
+                                                                                        jmp   xchain0_n2_α
 #         X SPAN('0123456789') . V                                    :S(YES)
 # IR_VAR
 xchain0_n2_α:
@@ -69,7 +69,7 @@ xchain0_n2_α:
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rbp + 288], rax
                         mov              qword ptr [rbp + 296], rdx
-                        jmp              xchain0_n3_α
+                                                                                        jmp   xchain0_n3_α
 # IR_MATCH_HEAD
 xchain0_n3_α:
                         mov              qword ptr [rbp + 200], rbp
@@ -88,17 +88,17 @@ xchain0_n3_α:
                         mov              dword ptr [rsp + 0], 0
 .Lx5_0:
                         mov              r14d, dword ptr [rsp + 0]
-                        jmp              xchain0_n5_α
+                                                                                        jmp   xchain0_n5_α
 xchain0_n3_β:
                         add              dword ptr [rsp + 0], 1
                         mov              eax, dword ptr [rsp + 0]
                         cmp              eax, r15d
-                        jg               .Lx5_1
+                                                                                        jg    .Lx5_1
                         lea              rcx, [rip + g_anchor]
                         mov              rax, qword ptr [rcx]
                         cmp              rax, 0
-                        jne              .Lx5_1
-                        jmp              .Lx5_0
+                                                                                        jne   .Lx5_1
+                                                                                        jmp   .Lx5_0
 .Lx5_1:
                         mov              rax, qword ptr [rsp + 8]
                         lea              rcx, [rip + g_patstk_sp]
@@ -106,14 +106,14 @@ xchain0_n3_β:
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rbp + 192]
                         mov              rbp, qword ptr [rbp + 200]
-                        jmp              xchain0_n4_α
+                                                                                        jmp   xchain0_n4_α
 #         OUTPUT = 'no digits'
 # IR_LIT_STRING
 xchain0_n4_α:
                         mov              qword ptr [rbp + 336], 1
                         mov              rax, qword ptr [rip + .Lx6_0]
                         mov              qword ptr [rbp + 344], rax
-                        jmp              xchain0_n6_α
+                                                                                        jmp   xchain0_n6_α
 .Lx6_0:
                         .quad            .Lx6_0_s
 .Lx6_0_s:
@@ -122,10 +122,10 @@ xchain0_n4_α:
 xchain0_n5_α:
                         sub              rsp, 16
                         mov              dword ptr [rsp + 0], r14d
-                        jmp              xchain0_n7_α
+                                                                                        jmp   xchain0_n7_α
 xchain0_n5_β:
                         add              rsp, 16
-                        jmp              xchain0_n3_β
+                                                                                        jmp   xchain0_n3_β
 # IR_ASSIGN global
 xchain0_n6_α:
                         mov              rsi, qword ptr [rbp + 336]
@@ -134,7 +134,7 @@ xchain0_n6_α:
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 320], rax
                         mov              qword ptr [rbp + 328], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 .Lx9_0:
                         .quad            .Lx9_0_s
 .Lx9_0_s:
@@ -146,46 +146,46 @@ xchain0_n7_α:
                         movsxd           rcx, r14d
 .Lx11_0:
                         cmp              ecx, r15d
-                        jge              .Lx11_1
+                                                                                        jge   .Lx11_1
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              byte ptr [rdi+rsi], 0
-                        je               .Lx11_1
+                                                                                        je    .Lx11_1
                         add              ecx, 1
                         cmp              ecx, r15d
-                        jge              .Lx11_1
+                                                                                        jge   .Lx11_1
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              byte ptr [rdi+rsi], 0
-                        je               .Lx11_1
+                                                                                        je    .Lx11_1
                         add              ecx, 1
                         cmp              ecx, r15d
-                        jge              .Lx11_1
+                                                                                        jge   .Lx11_1
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              byte ptr [rdi+rsi], 0
-                        je               .Lx11_1
+                                                                                        je    .Lx11_1
                         add              ecx, 1
                         cmp              ecx, r15d
-                        jge              .Lx11_1
+                                                                                        jge   .Lx11_1
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              byte ptr [rdi+rsi], 0
-                        je               .Lx11_1
+                                                                                        je    .Lx11_1
                         add              ecx, 1
-                        jmp              .Lx11_0
+                                                                                        jmp   .Lx11_0
 .Lx11_1:
                         cmp              ecx, r14d
-                        jg               .Lx11_240
+                                                                                        jg    .Lx11_240
                         add              rsp, 16
                         add              rsp, 16
-                        jmp              xchain0_n3_β
+                                                                                        jmp   xchain0_n3_β
 .Lx11_240:
                         mov              dword ptr [rsp + 4], r14d
                         mov              r14d, ecx
-                        jmp              xchain0_n8_α
+                                                                                        jmp   xchain0_n8_α
 xchain0_n7_β:
 xchain0_n7_β:
                         mov              r14d, dword ptr [rsp + 4]
                         add              rsp, 16
                         add              rsp, 16
-                        jmp              xchain0_n3_β
+                                                                                        jmp   xchain0_n3_β
 # IR_MATCH_CAPTURE_COND (pend-park inline pend)
 xchain0_n8_α:
                         mov              eax, dword ptr [rsp + 16]
@@ -197,10 +197,10 @@ xchain0_n8_α:
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24
-                        jmp              xchain0_n9_α
+                                                                                        jmp   xchain0_n9_α
 xchain0_n8_β:
                         sub              r12, 24
-                        jmp              xchain0_n7_β
+                                                                                        jmp   xchain0_n7_β
 # IR_MATCH_RELEASE
 xchain0_n9_α:
                         mov              rax, qword ptr [rsp + 40]
@@ -217,23 +217,23 @@ xchain0_n9_α:
                         call             rt_dcap_end_ok_open@PLT
 .Lx15_1:
                         test             rax, rax
-                        je               .Lx15_2
+                                                                                        je    .Lx15_2
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx15_3]
                         lea              rdx, [rip + .Lx15_4]
-                        jmp              rax
+                                                                                        jmp   rax
 .Lx15_3:
                         call             rt_proc_call_epilogue_γ@PLT
                         mov              rdi, rax
                         mov              rsi, rdx
                         call             rt_dcap_step@PLT
-                        jmp              .Lx15_1
+                                                                                        jmp   .Lx15_1
 .Lx15_4:
                         call             rt_proc_call_epilogue_ω@PLT
                         mov              rdi, rax
                         mov              rsi, rdx
                         call             rt_dcap_step@PLT
-                        jmp              .Lx15_1
+                                                                                        jmp   .Lx15_1
 .Lx15_2:
                         call             rt_dcap_end_ok_close@PLT
                         add              rsp, 8
@@ -242,7 +242,7 @@ xchain0_n9_α:
                         pop              r14
                         mov              r12, qword ptr [rbp + 192]
                         mov              rbp, qword ptr [rbp + 200]
-                        jmp              xchain0_n10_α
+                                                                                        jmp   xchain0_n10_α
 # YES     OUTPUT = V
 # IR_VAR
 xchain0_n10_α:
@@ -250,7 +250,7 @@ xchain0_n10_α:
                         mov              rdx, qword ptr [1879052312]
                         mov              qword ptr [rbp + 384], rax
                         mov              qword ptr [rbp + 392], rdx
-                        jmp              xchain0_n11_α
+                                                                                        jmp   xchain0_n11_α
 # IR_ASSIGN global
 xchain0_n11_α:
                         mov              rsi, qword ptr [rbp + 384]
@@ -259,49 +259,49 @@ xchain0_n11_α:
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 368], rax
                         mov              qword ptr [rbp + 376], rdx
-                        jmp              main_γ
+                                                                                        jmp   main_γ
 .Lx17_0:
                         .quad            .Lx17_0_s
 .Lx17_0_s:
                         .string          "OUTPUT"
 main_β:
-jmp main_ω
+                                                                                        jmp   main_ω
 main_γ:
-mov eax, 1
-xor edx, edx
-mov rsp, qword ptr [rbp + 424]
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
+                        mov              eax, 1
+                        xor              edx, edx
+                        mov              rsp, qword ptr [rbp + 424]
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret
 main_ω:
-mov rsp, qword ptr [rbp + 424]
-mov dword ptr [rsp+0], 99
-mov dword ptr [rsp+4], 0
-mov qword ptr [rsp+8], 0
-mov eax, 99
-xor edx, edx
-mov rbp, [rsp + 65536]
-add rsp, 65544
-ret
-.section .rodata
-.S0: .string "V"
-.text
-.section .rodata
+                        mov              rsp, qword ptr [rbp + 424]
+                        mov              dword ptr [rsp+0], 99
+                        mov              dword ptr [rsp+4], 0
+                        mov              qword ptr [rsp+8], 0
+                        mov              eax, 99
+                        xor              edx, edx
+                        mov              rbp, [rsp + 65536]
+                        add              rsp, 65544
+                        ret
+                        .section         .rodata
+.S0:                    .string          "V"
+                        .text
+                        .section         .rodata
 .C0:
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
- .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-.text
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+                        .text
