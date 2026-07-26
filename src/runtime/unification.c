@@ -660,6 +660,19 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
     if (op == 4) return c == 0;
     return c != 0;
 }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell)
+{
+    extern pl_trail_t g_pl_trail;
+    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
+    Term *ta = pl_cell_copy_walk((pl_cell_t *)a_cell, vaddr, vterm, &vn, 256);
+    Term *tb = pl_cell_copy_walk((pl_cell_t *)b_cell, vaddr, vterm, &vn, 256);
+    int c = rt_pl_term_compare(ta, tb);
+    const char *nm = (c < 0) ? "<" : (c > 0) ? ">" : "=";
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify_term_into_cell((pl_cell_t *)order_cell, term_new_atom(prolog_atom_intern(nm)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_can_compare_cell(void *a_cell, void *b_cell)
 {
