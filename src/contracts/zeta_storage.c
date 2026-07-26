@@ -365,6 +365,12 @@ static void zls_slot_census(IR_graph_t * g) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_fct_finalize(IR_graph_t * g, int late);
 void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int); void fc_vbinop_register(const IR_t *); int fc_vcap(int, int, int); int is_global(const char *);
+static int fc_vtree_scan(const IR_t * nd, const IR_t ** post, int * pn, int cap, int depth) {
+    if (!nd || depth > 24 || *pn >= cap) return 0;
+    if (nd->op == IR_LIT_INTEGER) { post[(*pn)++] = nd; return 1; }
+    if (nd->op == IR_BINOP && nd->n_operands == 2 && IR_LIT(nd).ival >= 0 && IR_LIT(nd).ival <= 2
+        && fc_vtree_scan(nd->operands[0], post, pn, cap, depth + 1) && fc_vtree_scan(nd->operands[1], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
+    return 0; }   /* ZB-VAL-4: post-order collect + validate -- int-lit leaves, ADD/SUB/MUL internals, depth-capped (24 x 16B = 384B max rsp excursion) */
 void zls_build(IR_graph_t * g) {
     if (!g) return;
     for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;   /* ZB-VAL-0/1: POST-OPTIMIZER value-spine scan -- lower-time pointer registration dies to node rebuild/fold; gamma-adjacency IS the fence */
@@ -373,9 +379,13 @@ void zls_build(IR_graph_t * g) {
         if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
             && r->γ.node == a && fc_vcap(1, 1, 0)) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }   /* ZB-VAL-0/2/3 pair: scalar lit OR global-routed var -> assign, disp 0 exact -- the cell is a type-blind 16B DESCR; bb_lit_scalar and bb_var_global both write FRQ(op_off)-relative so the fc_hit rebase serves them identically; the var gate MIRRORS the IR_VAR walk routing (bb_var_global only -- '&' keywords and locals stay flat) so registration <=> the one template with hook-served exits */
-        if (r->op == IR_BINOP && r->γ.node == a && r->n_operands == 2 && r->operands[0] && r->operands[1] && r->operands[0]->op == IR_LIT_INTEGER && r->operands[1]->op == IR_LIT_INTEGER
-            && r->operands[0]->γ.node == r->operands[1] && r->operands[1]->γ.node == r && IR_LIT(r).ival >= 0 && IR_LIT(r).ival <= 2 && fc_vcap(2, 1, 1))
-        { fc_vlit_register(r->operands[0]); fc_vlit_register(r->operands[1]); fc_vbinop_register(r); fc_vread_register(a, 0); } }   /* ZB-VAL-1: lit,lit -> binop(ADD/SUB/MUL only -- DIV/MOD decline, idiv fault path) -> assign; strict gamma-chain so cell depths are STATIC (lhs@16, rhs@0 at binop alpha); registration is capacity-ATOMIC (fc_vcap) so a partial quartet can never grant a cell nobody releases */
+        if (r->op == IR_BINOP && r->γ.node == a) {   /* ZB-VAL-4: ARBITRARY arith tree over int-lit leaves -- post-order emission makes every binop's operands the TOP TWO cells, so the [rsp+24]/[rsp+8] + net add rsp,16 geometry is SHAPE-INVARIANT (template untouched); the registrar only proves the gamma-chain IS the post-order walk.  Var leaves DECLINE v4: a fallible producer mid-tree leaks sibling cells on its omega (the hook releases only its own 16) -- vars-in-trees is v5 with summed-pop accounting (the op_wpop precedent). */
+            const IR_t * post[49]; int pn = 0;
+            if (fc_vtree_scan(r, post, &pn, 49, 0) && post[pn - 1] == r) {
+                int ok = 1, L = 0, B = 0;
+                for (int i = 0; i + 1 < pn; i++) if (post[i]->γ.node != post[i + 1]) { ok = 0; break; }
+                for (int i = 0; i < pn; i++) { if (post[i]->op == IR_LIT_INTEGER) L++; else B++; }
+                if (ok && fc_vcap(L, 1, B)) { for (int i = 0; i < pn; i++) { if (post[i]->op == IR_LIT_INTEGER) fc_vlit_register(post[i]); else fc_vbinop_register(post[i]); } fc_vread_register(a, 0); } } } }   /* registration stays capacity-ATOMIC and all-or-nothing per statement: any invalid member (DIV/MOD, var, non-lit leaf, broken chain) declines the WHOLE tree to the flat path */
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {
