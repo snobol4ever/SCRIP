@@ -1141,6 +1141,16 @@ int main(int argc, char **argv)
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                     emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
                     emit_textf("  call rt_proc_set_nparams@PLT\n");
+                    { int _pi2 = proc_pidx_buf[i];
+                      if (is_raku && _pi2 >= 0 && _pi2 < s2->proc_count) { ProcEntry *_pe = &s2->proc_table[_pi2];
+                        if (!_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
+                            const char *_pn = _pe->lower_sc.e[k].name; if (!_pn) continue;
+                            emit_textf("  .section .rodata\n  .Lstartup_qp%d_%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, k, _pn);
+                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                            emit_textf("  mov esi, %d\n", k);
+                            emit_textf("  lea rdx, [rip + .Lstartup_qp%d_%d]\n", i, k);
+                            emit_textf("  call rt_proc_set_pname@PLT\n");
+                        } } }
                     if (proc_fb_buf[i] > 0) {
                         emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                         emit_textf("  mov esi, %d\n", proc_fb_buf[i]);

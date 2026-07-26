@@ -113,6 +113,7 @@ WS       [ \t\r]
 "le"            { return OP_SLE; }
 "gt"            { return OP_SGT; }
 "ge"            { return OP_SGE; }
+[ \t]+("xx"|"x")/[ \t]*"=>"  { const char *_p = yytext; while (*_p == ' ' || *_p == '\t') _p++; raku_yylval.sval = strdup(_p); return IDENT; }
 [ \t]+"xx"/[^A-Za-z0-9_-]  { return OP_REP_XX; }
 [ \t]+"x"/[^A-Za-z0-9_-]   { return OP_REP_X; }
 "div"           { return OP_DIV; }

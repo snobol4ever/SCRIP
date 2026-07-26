@@ -288,7 +288,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "rk_write", "rk_writes",
+        "__rk_div", "rk_write", "rk_writes", "__rk_named_call",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -394,6 +394,7 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
                     case 'o': return hits == 1; case 'n': return hits == 0; default: return 0; }
 }
 #define GRAMMAR_MAX 128
+#define RK_NAMED_MAX 32
 static struct { const char *qname; const char *body; int flavor; } gram_reg[GRAMMAR_MAX];
 static int gram_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2859,6 +2860,28 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_named_call") && nargs >= 2) {
+        extern const char *rt_proc_pname(const char *name, int k);
+        char pb[256]; const char *pname = to_cstring(args[0], pb, sizeof pb);
+        int npos = IS_INT_fn(args[1]) ? (int)args[1].i : 0;
+        if (npos < 0) npos = 0;
+        if (npos > RK_NAMED_MAX) npos = RK_NAMED_MAX;
+        DESCR_t slots[RK_NAMED_MAX];
+        for (int i = 0; i < RK_NAMED_MAX; i++) slots[i] = NULVCL;
+        int np = 0; while (np < RK_NAMED_MAX && rt_proc_pname(pname, np)) np++;
+        int maxslot = 0;
+        for (int i = 0; i < npos && (2 + i) < nargs; i++) { slots[i] = args[2 + i]; if (i + 1 > maxslot) maxslot = i + 1; }
+        for (int i = 2 + npos; i + 1 < nargs; i += 2) {
+            char kb[128]; const char *k = to_cstring(args[i], kb, sizeof kb);
+            int found = -1;
+            for (int s = 0; s < np; s++) { const char *pn = rt_proc_pname(pname, s); if (pn && k && !strcmp(pn, k)) { found = s; break; } }
+            if (found < 0) continue;
+            slots[found] = args[i + 1]; if (found + 1 > maxslot) maxslot = found + 1;
+        }
+        int total = np > maxslot ? np : maxslot;
+        if (total > RK_NAMED_MAX) total = RK_NAMED_MAX;
+        *out = invoke_method_proc(pname, slots, total); return 1;
     }
     if (!strcmp(fn, "__rk_range_arr") && nargs == 2) {
         long long lo = IS_INT_fn(args[0]) ? (long long)args[0].i : (IS_REAL_fn(args[0]) ? (long long)args[0].r : 0);

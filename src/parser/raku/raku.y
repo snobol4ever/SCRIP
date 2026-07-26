@@ -229,6 +229,16 @@ static tree_t *rk_param_default(tree_t *p, tree_t *dflt) {
     return expr_binary(TT_ASSIGN, p, dflt);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_named_call(const char *fname, ExprList *pos, ExprList *named) {
+    tree_t *c = make_call("__rk_named_call");
+    expr_add_child(c, leaf_sval(TT_QLIT, fname));
+    tree_t *n = ast_node_new(TT_ILIT); n->v.ival = pos ? pos->count : 0;
+    expr_add_child(c, n);
+    if (pos) { for (int i = 0; i < pos->count; i++) expr_add_child(c, pos->items[i]); exprlist_free(pos); }
+    if (named) { for (int i = 0; i < named->count; i++) expr_add_child(c, named->items[i]); exprlist_free(named); }
+    return c;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_defaults_prologue(ExprList *params, tree_t *body) {
     if (!params) return body;
     ExprList *pro = NULL;
@@ -1507,6 +1517,10 @@ call_expr
           if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
           $$=e; }
     | IDENT '(' ')'  { $$=make_call($1); }
+    | IDENT '(' named_arg_list ')'
+        { $$ = rk_named_call($1, NULL, $3); free($1); }
+    | IDENT '(' arg_list ',' named_arg_list ')'
+        { $$ = rk_named_call($1, $3, $5); free($1); }
     | VAR_SCALAR '(' arg_list ')'
         { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node($1));
           ExprList *args=$3;
