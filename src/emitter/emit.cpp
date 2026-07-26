@@ -824,7 +824,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
     case IR_LIT_CHARSET:
-    case IR_LIT_REAL:               bb_emit_x86(bb_lit_scalar());         return 0;
+    case IR_LIT_REAL:               { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;   /* ZB-VAL-0: registered-lit fixed-cell grant */
     case IR_KEYWORD_ICON:
     case IR_KEYWORD_ICON_GEN:     bb_emit_x86(bb_keyword_icon());       return 0;
     case IR_KEYWORD_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
@@ -846,6 +846,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CMP_TEST:             { bb_prepare(nd); bb_emit_x86(bb_cmp_test()); }      return 0;
     case IR_ASSIGN: {
         extern int is_global(const char *);
+        { extern int fc_vread_fp(const IR_t *); g_emit.op_fc_disp = fc_vread_fp(nd); }   /* ZB-VAL-0: granted-lit operand read displacement (-1 = flat) */
         const char * _an = IR_LIT(nd).sval;
         int _an_reassignable_builtin = _an && (!strcmp(_an, "write") || !strcmp(_an, "writes"));
         if (_an && ((is_global(_an) && !graph_has_local(g_emit_cfg, _an)) || _an_reassignable_builtin)) { bb_emit_x86(bb_assign_global()); return 0; }
