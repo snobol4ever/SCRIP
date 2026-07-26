@@ -3395,6 +3395,48 @@ my @r = 1..5;
 say @r[0,2,4].join(",");
 EOF
 
+raku "arr_reassign_list" "4,5,6" << 'EOF'
+my @a = 1,2,3;
+@a = 4,5,6;
+say @a.join(",");
+EOF
+
+raku "arr_reassign_single" "1" << 'EOF'
+my @a = 1,2,3;
+@a = 9;
+say @a.elems;
+EOF
+
+raku "arr_reassign_paren_list" "7,8,9" << 'EOF'
+my @a = 1,2,3;
+@a = (7,8,9);
+say @a.join(",");
+EOF
+
+raku "arr_reassign_range" "1,2,3,4" << 'EOF'
+my @a = 9;
+@a = 1..4;
+say @a.join(",");
+EOF
+
+raku "arr_reassign_xx" "5,5,5" << 'EOF'
+my @a = 1;
+@a = 5 xx 3;
+say @a.join(",");
+EOF
+
+raku "arr_reassign_paren_expr_is_one_elem" "1" << 'EOF'
+my @b = 1,2,3;
+@b = (1+2);
+say @b.elems;
+EOF
+
+raku "arr_reassign_scalar_unaffected" "2" << 'EOF'
+my $s = 1;
+$s = 2;
+say $s;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
