@@ -2319,6 +2319,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     int rg = g ? zls_g_region(g) : -1;
     int so = g ? zls_g_resume(g) : -1;
     if (so < 0 && g) so = zls_g_zeta_mark(g);
+    if (so < 0 && g) { extern int zls_g_locals(const IR_graph_t *); so = zls_g_locals(g); if (so < 0) so = rg; }   /* ALIGN-INV-3c take 2: suffix = zls's own locals boundary (the old mark cursor, recorded unconditionally) -- NOT min(vslot), because params ARE vslots at +16 and prep binds BEFORE seeding (fact(n) regression: seed from +16 NULVCLed the just-bound n) */
     int capen; { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NOFILL"); v = e ? (atoi(e) != 0) : 1; } capen = v; }   /* CAP-NOFILL (s143) kill-switch: 0 restores the s139 pull-down (SCRIP_PAT_NOFILL precedent) */
     g_emit.flat_cap_n = 0; int capovf = !capen;
     if (g) for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_MATCH_ASSIGN_SAVE) { int off = nd_slot(nd); if (off < 16) continue;
@@ -2329,7 +2330,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }   /* SPD-NOFILL (s139): fallback graphs must keep the eager fill — see emit.h flat_layout_unknown */
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
-    g_emit.flat_seed_off = (so >= 16 && so + 16 <= rg) ? so : 0;   /* PL-REGAIN-4: seed suffix start for the lazy lexprep2 prologue; 0 = fall back to full fill */
+    g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;   /* PL-REGAIN-4: seed suffix start for the lazy lexprep2 prologue; 0 = fall back to full fill.  ALIGN-INV-3c: so == rg is a LEGAL EMPTY suffix (RSP reclaimed the mark; every consumer treats [rg,rg) as no-op) -- the old so+16<=rg guard collided empty with the 0 sentinel and full-seeded from 16, wiping bound params (fact(n) -> 1) */
     return 1;
 }
 /* ZS-2 (Lon s58/s59): lower-synthetic PAT$N pattern procs are consumed ONLY through SNO$MKPAT → DT_P → the

@@ -128,9 +128,7 @@ static int xaf_anchor_off(void) {
 }
 static int xaf_outer_frame_k(void) {
     int rg = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
-    int k = rg + 8;
-    if (k < 65544) k = 65544;
-    return k;
+    return ((rg + 15) & ~15) + 8;
 }
 static std::string xaf_frame_rsp_rm(uint32_t disp, unsigned char op) {
     int z = x86_zr_num(), lo = z & 7; std::string c;
@@ -140,10 +138,12 @@ static std::string xaf_frame_rsp_rm(uint32_t disp, unsigned char op) {
 }
 static std::string xaf_anchor_enter_bin(void) {
     if (!x86_port_cstack()) return std::string();
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
     return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x89);
 }
 static std::string xaf_anchor_enter_x86(void) {
     if (!x86_port_cstack()) return std::string();
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
     return x86("mov", (std::string("qword ptr [") + x86_zr() + " + " + std::to_string(xaf_anchor_off()) + "]").c_str(), "rsp");
 }   /* XA-FLAT-CONVERT: x86() twin of xaf_anchor_enter_bin — same store (anchor slot <- rsp), frame-register-agnostic via x86_zr() so ZC_FRAME_RSP and ZC_FRAME_RBP both encode correctly, and medium-invisible because the encoder switches internally. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -159,16 +159,17 @@ static std::string xaf_jmp_hdr_x86(void) {
 }   /* XA-FLAT-CONVERT slice B: x86() twin of the jmp-entry raw-byte `hdr` — HEADER ABOVE THE FRAME (outside-γ wire at kt-24, outside-ω wire at kt-16, caller rbp at kt-8), then rbp seeded to this activation's flat base.  Parameterless per R5 (reads g_emit, no locals leak into the arm's concat).  ⚠ THE BYTES ARE NOT THE LEGACY BYTES AND THAT IS CORRECT (R10): the legacy arm hand-encoded `sub rsp,imm32` + three disp32 stores unconditionally, while the encoder picks the as-matching imm8/disp8 short form whenever kt fits, so a small-frame blob converts SHORTER.  Byte-identity vs the legacy BINARY is therefore NOT the acceptance test here — behavioral gates are (s149 §5). */
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
-    if (ZC_FRAME == ZC_FRAME_RSP) return bytes(3, "\x48\x8B\xA5") + u32le((uint32_t)xaf_anchor_off());   /* mov rsp, [rbp + off] — FZ-E stratum 2 (s90): the anchor is a FRAME slot (U3 role split); the U5 zr→rsp seal made this read rsp-relative, valid only at depth 0 — SN4's LIFO balance masked it, Icon's retained scan-suspension cells (element cells left below rsp for β-backtrack) arrive DEEP and loaded garbage → rsp=heap → jmp 0 (sa2 bracketing).  Enter stays rsp-based: the prologue IS depth 0 (and in the outermost arm it precedes the rbp seed). */
+    if (ZC_FRAME == ZC_FRAME_RSP) return bytes(3, "\x48\x89\xEC");   /* mov rsp, rbp — ALIGN-INV-3 twin of the TEXT arm (as-form 48 89 EC); the s90 rsp-relative-read lesson lives in the TEXT arm comment */
     return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x8B);
 }
 static std::string xaf_anchor_enter_text(void) {
     if (!x86_port_cstack()) return std::string();
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
     char b[160]; snprintf(b, sizeof b, "  mov qword ptr [%s + %d], rsp\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 static std::string xaf_anchor_leave_text(void) {
     if (!x86_port_cstack()) return std::string();
-    if (ZC_FRAME == ZC_FRAME_RSP) { char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_fb(), xaf_anchor_off()); return std::string(b); }   /* FZ-E stratum 2 (s90): frame-base read, TEXT twin of the BINARY 48 8B A5 — see the BINARY comment */
+    if (ZC_FRAME == ZC_FRAME_RSP) return std::string("mov rsp, rbp\n");   /* ALIGN-INV-3: under RSP fb IS the snapshot — U1/U2/s79 seed rbp=base at every frame-active activation, so the s90 frame-base READ collapses to the register (the s90 hazard was rsp-RELATIVE reads at depth; reading rbp keeps its cure).  Enter store retained: s142 NOFILL dead-store-cut assumes it overwrites; reader sweep owed before retiring it. */
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -219,7 +220,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(2, "\xB0\xA5")                                              /* mov al, 0xA5 */
                                       + bytes(2, "\xF3\xAA");                                             /* rep stosb — poison lane */
                         for (int ci = 0; ci < g_emit.flat_cap_n; ci++) { int o = g_emit.flat_cap_off[ci]; if (o >= 16 && o + 16 <= rgn) r = r + xaf_zero_q_rsp_bin(o) + xaf_zero_q_rsp_bin(o + 8); }   /* CAP-NOFILL (s143): zero each 16B rt_cap grant (+0 buf, +8 gen|sp) individually — AFTER the poison fill so the lane still proves no other implicit-zero reader; see emit.cpp emit_jmp_entry_arm_region */
-                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (o == xaf_anchor_off()) continue; r = r + xaf_zero_q_rsp_bin(o); } }   /* SPD-NOFILL-B (s139): short suffix (the universal case — resume+mark quads, 32B) unrolls to plain quad zeros, eliminating the ~30-40 cycle REP startup per activation.  s142 DEAD-STORE CUT (the s141-proven free store): the anchor quad is unconditionally overwritten by xaf_anchor_enter appended immediately below (mov [rsp+anchor_off], rsp) with no intervening reader — skip its zero in BOTH twins; the guard is equality-based so an anchor outside [fz,rgn) leaves the unroll untouched */
+                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (ZC_FRAME != ZC_FRAME_RSP && o == xaf_anchor_off()) continue; r = r + xaf_zero_q_rsp_bin(o); } }   /* SPD-NOFILL-B (s139): short suffix (the universal case — resume+mark quads, 32B) unrolls to plain quad zeros, eliminating the ~30-40 cycle REP startup per activation.  s142 DEAD-STORE CUT (the s141-proven free store): the anchor quad is unconditionally overwritten by xaf_anchor_enter appended immediately below (mov [rsp+anchor_off], rsp) with no intervening reader — skip its zero in BOTH twins; the guard is equality-based so an anchor outside [fz,rgn) leaves the unroll untouched */
                         else if (fz < rgn) r = r + bytes(3, "\x48\x89\xE7")                                /* mov rdi, rsp */
                                       + xaf_add_rdi_imm_bin(fz)
                                       + bytes(1, "\xB9") + u32le((uint32_t)(rgn - fz))                    /* ecx = suffix span */
@@ -351,7 +352,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                         std::string r3 = std::string(b3) + xaf_slot0_seed_text();                        /* DB-2a TEXT twin — see the BINARY arm */
                         if (xaf_poison() && fz > 16) { char p3[200]; snprintf(p3, sizeof p3, "  mov rdi, rsp\n  add rdi, 16\n  mov ecx, %d\n  mov al, 0xA5\n  rep stosb\n", fz - 16); r3 += p3; }
                         for (int ci = 0; ci < g_emit.flat_cap_n; ci++) { int o = g_emit.flat_cap_off[ci]; if (o >= 16 && o + 16 <= rgn) { char c3[96]; snprintf(c3, sizeof c3, "  mov qword ptr [rsp + %d], 0\n  mov qword ptr [rsp + %d], 0\n", o, o + 8); r3 += c3; } }   /* CAP-NOFILL (s143) TEXT twin — see the BINARY arm */
-                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (o == xaf_anchor_off()) continue; char q3[64]; snprintf(q3, sizeof q3, "  mov qword ptr [rsp + %d], 0\n", o); r3 += q3; } }   /* SPD-NOFILL-B TEXT twin — see the BINARY arm (s142 dead-store cut mirrored: the anchor quad is re-stored by anchor_enter immediately below) */
+                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (ZC_FRAME != ZC_FRAME_RSP && o == xaf_anchor_off()) continue; char q3[64]; snprintf(q3, sizeof q3, "  mov qword ptr [rsp + %d], 0\n", o); r3 += q3; } }   /* SPD-NOFILL-B TEXT twin — see the BINARY arm (s142 dead-store cut mirrored: the anchor quad is re-stored by anchor_enter immediately below) */
                         else if (fz < rgn) { char s3[200]; snprintf(s3, sizeof s3, "  mov rdi, rsp\n  add rdi, %d\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", fz, rgn - fz); r3 += s3; }
                         return banner + r3 + xaf_anchor_enter_text();
                     }
@@ -690,11 +691,11 @@ extern "C" void xa_flat_epilogue(void) {
         xa_emit_one(fail, 0, nullptr, false);
         return;
     }
-    bool have_halves = g_frame_active && g_emit_cfg && g_emit_cfg->zeta_mark_slot >= 0 && (!succ.empty() || !fail.empty());
+    bool have_halves = g_frame_active && (!succ.empty() || !fail.empty());
     if (!have_halves) { xa_emit_one(s, st, lb, df); return; }
-    int off = g_emit_cfg->zeta_mark_slot;
+    int off = g_emit_cfg ? g_emit_cfg->zeta_mark_slot : -1;
     xa_emit_one(succ, 0, nullptr, false);
-    bb_emit_x86(x86_zeta_release_to_call(off));
+    if (off >= 0) bb_emit_x86(x86_zeta_release_to_call(off));
     xa_emit_one(fail, 0, lb, df);
 }
 extern "C" void xa_flat_data_section(void) { auto s = xa_flat_data_section_str(); if (!s.empty()) emit_text_n(s.data(), s.size()); }
@@ -713,7 +714,7 @@ static std::string xa_flat_dc_stub_str(void) {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     int kt = g_emit.flat_frame_bytes;
-    int anchor = xaf_anchor_off();
+    int anchor = (ZC_FRAME != ZC_FRAME_RSP) ? xaf_anchor_off() : -1;   /* ALIGN-INV-3c: DC stub mirrors the jmp-entry prologue -- under RSP the anchor store is dead there too */
     int suffix = (g_emit.flat_seed_off >= 16) ? g_emit.flat_seed_off : 16;
     extern int g_flat_dc_np;
     int np = g_flat_dc_np;
@@ -732,7 +733,7 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86("mov", FRQ(kt - 24), "rax")
          + x86_lea_id("rax", 3)
          + x86("mov", FRQ(kt - 16), "rax")
-         + x86("mov", FRQ(anchor), "rbp")
+         + IF(anchor >= 0, x86("mov", FRQ(anchor), "rbp"))
          + FOR(0, np, [&](int i) { return x86("mov", FRQ(16 + 8 * i), argreg[i]); })
          + x86("mov", "rdi", "rbp")
          + x86("mov32", "esi", (long)suffix)
