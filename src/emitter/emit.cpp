@@ -43,6 +43,8 @@ void emit_label_pool_reset(void)
     g_label_pool_n = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * flat_label_kind(IR_e op) { const char * n = bb_op_name(op); static char b[48]; int j = 0; if (n && n[0] == 'I' && n[1] == 'R' && n[2] == '_') n += 3; if (!n) { snprintf(b, sizeof b, "op%d", (int)op); return b; } for (; n[j] && j < 47; j++) b[j] = (n[j] >= 'A' && n[j] <= 'Z') ? (char)(n[j] - 'A' + 'a') : n[j]; b[j] = 0; return b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_alloc(const char *fmt, ...)
 {
     if (g_label_pool_n >= g_label_pool_max) {
@@ -816,7 +818,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { static int bm = -1; if (bm < 0) { const char *e = getenv("SCRIP_BLOB_MAP"); bm = (e && *e == '1') ? 1 : 0; } if (bm && MEDIUM_BINARY) { extern const char *bb_op_name(IR_e); fprintf(stderr, "BLOBBOX %p %s n%d\n", (void *)(bb_emit_buf + bb_emit_pos), bb_op_name(nd->op), g_emit.x86_uid); } }
     { static int _sc = -1; if (_sc < 0) { const char *e = getenv("SCRIP_SRC_COMMENT"); _sc = (e && *e == '0') ? 0 : 1; } g_emit.op_src = _sc ? bb_src_of(nd) : (const char *)0; }
     { if (g_emit.op_src && *g_emit.op_src) emit_sep_rule('=');
-      if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("comment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
+      if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("srccomment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
       emit_sep_rule('-'); }
     switch (nd->op) {
     case IR_LIT_INTEGER:
@@ -1886,23 +1888,24 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { g_suspend_resume_slot = g_emit_cfg->resume_slot; break; }
     if (g_suspend_resume_slot < 0 && g_resumable_callable_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
         g_suspend_resume_slot = g_emit_cfg->resume_slot;
-    int id = g_flat_node_id++;
+    static int _diag_chain_seq = 0; int id = _diag_chain_seq++;   /* SN4-ASM-CRIT: diag-only ordinal for the SEQVERDICT / DRIVE-DIAG stderr prints — no longer names labels and no longer draws from the g_flat_node_id uid stream */
     /* RUNG ZB-OWN-0 (Lon 2026-07-11): per-chain statement mark = HEAD's zls entry +16 (head.zls2_mark quad);
      * -1 when the chain has no HEAD (non-match chains carry no per-box shadow at rung 0 -- recorded scope cut). */
     int own_mark = -1;
     { extern int zls_off(const IR_t *); for (int _oi = 0; _oi < n; _oi++) if (nodes[_oi]->op == IR_MATCH_HEAD) { int _ho = zls_off(nodes[_oi]); if (_ho >= 0) own_mark = _ho + 16; break; } }
     for (int i = 0; i < n; i++) {
-        lbls[i]  = emit_label_alloc("xchain%d_n%d_α", id, i);
-        betas[i] = emit_label_alloc("xchain%d_n%d_β", id, i);
-        ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_ry", id, i) : NULL;
-        ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("xchain%d_n%d_rt", id, i) : NULL;
-        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_as", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
-        na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("xchain%d_n%d_af", id, i) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
+        int _uid = g_flat_node_id++; const char * _kn = flat_label_kind(nodes[i]->op);   /* SN4-ASM-CRIT (Lon s173): label = n<uid>_<ir-kind>_<port>, uid from the ONE file-global mint (g_flat_node_id, per-compile reset) so every node label is file-unique by construction — the BYNAMEFN-DEDUP principle applied at birth; "chain" naming retired.  The per-BB kind comment this replaces is silenced in the "comment" encoder. */
+        lbls[i]  = emit_label_alloc("n%d_%s_α", _uid, _kn);
+        betas[i] = emit_label_alloc("n%d_%s_β", _uid, _kn);
+        ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_ry", _uid, _kn) : NULL;
+        ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_rt", _uid, _kn) : NULL;
+        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("n%d_%s_as", _uid, _kn) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
+        na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("n%d_%s_af", _uid, _kn) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
         fc_sig[i] = NULL;   /* ZB-FC-3a: per-arm sigma pad-stub labels for a LINEAR-ARM granted ALT (FORTH flavor) */
         if (fc_alt_active(nodes[i])) {
             int _N = (int)(nodes[i]->n_operands / 2);
             fc_sig[i] = (bb_label_t **)alloca(sizeof(bb_label_t *) * _N);
-            for (int _j = 0; _j < _N; _j++) fc_sig[i][_j] = emit_label_alloc("xchain%d_n%d_s%d", id, i, _j);
+            for (int _j = 0; _j < _N; _j++) fc_sig[i][_j] = emit_label_alloc("n%d_%s_s%d", _uid, _kn, _j);
         }
     }
     unsigned char *bused = (unsigned char *)alloca(n > 0 ? n : 1);

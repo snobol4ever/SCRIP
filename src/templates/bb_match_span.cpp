@@ -87,7 +87,6 @@ std::string bb_match_span() {
             + x86("mov",    "r14d", "ecx"))
          + x86_gamma()
          + x86_beta()
-         + x86_beta()
          + x86("mov",    "r14d", FR(_.x86_scratch_off + 4))
          + x86_omega();
 }

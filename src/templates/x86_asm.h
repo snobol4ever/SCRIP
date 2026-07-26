@@ -1231,7 +1231,8 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
     if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
-    if (!strcmp(mnem, "comment"))   return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
+    if (!strcmp(mnem, "comment"))   return std::string();   /* SN4-ASM-CRIT (Lon s173): BB emissions are COMMENT-FREE — the IR kind now lives in the node label (n<uid>_<kind>_α); statement source echo rides "srccomment", separators ride "commentrule".  All 245 template x86("comment",...) calls become pure empty strings; call-site removal is a named hygiene follow-up. */
+    if (!strcmp(mnem, "srccomment")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "commentrule")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("#") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
