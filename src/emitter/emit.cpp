@@ -2406,6 +2406,26 @@ void gva_collect_icon_globals(void) {
 #define PL_CATCH_MAX 64
 static IR_t *g_pl_catch_nodes[PL_CATCH_MAX];
 static int   g_pl_catch_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string g_textf_acc;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_textf(const char * fmt, ...) {
+    va_list ap; va_start(ap, fmt); char sb[4096]; int need = vsnprintf(sb, sizeof sb, fmt, ap); va_end(ap);
+    if (need <= 0) return;
+    if (need < (int) sizeof sb) g_textf_acc.append(sb, (size_t) need);
+    else { char * hb = (char *) malloc((size_t) need + 1); if (!hb) return; va_start(ap, fmt); vsnprintf(hb, (size_t) need + 1, fmt, ap); va_end(ap); g_textf_acc.append(hb, (size_t) need); free(hb); }
+    size_t last = g_textf_acc.rfind('\n');
+    if (last == std::string::npos) return;
+    std::string done = x86_3col(g_textf_acc.substr(0, last + 1));
+    g_textf_acc.erase(0, last + 1);
+    emit_text_n(done.data(), done.size());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_textf_flush(void) {
+    if (g_textf_acc.empty()) return;
+    std::string done = x86_3col(g_textf_acc); g_textf_acc.clear();
+    emit_text_n(done.data(), done.size());
+}
 #ifdef __cplusplus
 }
 #endif

@@ -669,6 +669,7 @@ void emit_text_n(const char * s, size_t n);
 long emit_text_count(void);
 void emit_textf (const char * fmt, ...)
                  __attribute__((format(printf, 1, 2)));
+void emit_textf_flush(void);
 void emit_1asm  (const char * a);
 void emit_2asm  (const char * a, const char * b);
 size_t emit_io_flush(FILE * out);
