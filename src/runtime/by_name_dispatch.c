@@ -284,7 +284,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
@@ -2842,6 +2842,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (k >= lo && k <= hi) { if (wrote) buf[p++] = SOH; memcpy(buf + p, seg, L); p += L; wrote = 1; }
             if (!nx || k >= hi) break;
             seg = nx + 1; k++;
+        }
+        buf[p] = '\0'; *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_pick") && nargs >= 2) {
+        char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch); if (!cs) cs = "";
+        size_t tot = strlen(cs); int nsel = nargs - 1;
+        const char **els = rt_ws_alloc((tot + 2) * sizeof(const char *)); size_t *lens = rt_ws_alloc((tot + 2) * sizeof(size_t));
+        int nel = 0; const char *seg = cs;
+        for (;;) { const char *nx = strchr(seg, SOH); els[nel] = seg; lens[nel] = nx ? (size_t)(nx - seg) : strlen(seg); nel++; if (!nx) break; seg = nx + 1; }
+        char *buf = rt_ws_alloc((tot + 2) * (size_t)nsel + 2); size_t p = 0;
+        for (int i = 1; i < nargs; i++) {
+            long long k = IS_INT_fn(args[i]) ? (long long)args[i].i : (IS_REAL_fn(args[i]) ? (long long)args[i].r : 0);
+            if (i > 1) buf[p++] = SOH;
+            if (k >= 0 && k < nel) { memcpy(buf + p, els[k], lens[k]); p += lens[k]; }
         }
         buf[p] = '\0'; *out = STRVAL(buf); return 1;
     }
