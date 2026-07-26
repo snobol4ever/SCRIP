@@ -2325,7 +2325,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     if (so < 0 && g) { extern int zls_g_locals(const IR_graph_t *); so = zls_g_locals(g); if (so < 0) so = rg; }   /* ALIGN-INV-3c take 2: suffix = zls's own locals boundary (the old mark cursor, recorded unconditionally) -- NOT min(vslot), because params ARE vslots at +16 and prep binds BEFORE seeding (fact(n) regression: seed from +16 NULVCLed the just-bound n) */
     int capen; { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NOFILL"); v = e ? (atoi(e) != 0) : 1; } capen = v; }   /* CAP-NOFILL (s143) kill-switch: 0 restores the s139 pull-down (SCRIP_PAT_NOFILL precedent) */
     g_emit.flat_cap_n = 0; int capovf = !capen;
-    if (g) for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_MATCH_ASSIGN_SAVE) { int off = nd_slot(nd); if (off < 16) continue;
+    if (g) for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_MATCH_ASSIGN_SAVE) { int off = nd_slot(nd); if (off < 0) continue;
         if (!capovf) { int dup = 0; for (int j = 0; j < g_emit.flat_cap_n; j++) if (g_emit.flat_cap_off[j] == off) { dup = 1; break; } if (dup) continue;
             if (g_emit.flat_cap_n < 48) { g_emit.flat_cap_off[g_emit.flat_cap_n++] = off; continue; }
             capovf = 1; for (int j = 0; j < g_emit.flat_cap_n; j++) if (so < 0 || g_emit.flat_cap_off[j] < so) so = g_emit.flat_cap_off[j]; g_emit.flat_cap_n = 0; }

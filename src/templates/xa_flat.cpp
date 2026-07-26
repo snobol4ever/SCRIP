@@ -497,9 +497,6 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(3, "\x48\x81\xC4") + u32le((uint32_t)Ke)
                                       + bytes(1, "\xC3");
                 std::string fail_half = xaf_anchor_leave_bin()
-                                      + bytes(3, "\xC7\x04\x24") + u32le(99)
-                                      + bytes(4, "\xC7\x44\x24\x04") + u32le(0)
-                                      + bytes(5, "\x48\xC7\x44\x24\x08") + u32le(0)
                                       + bytes(1, "\xB8") + u32le(99)
                                       + bytes(2, "\x31\xD2")
                                       + bytes(4, "\x48\x8B\xAC\x24") + u32le((uint32_t)(Ke - 8)) /* CALLER-RBP RESTORE (ABI fix): reload caller rbp from [rsp+K-8] before rejoining the caller */
@@ -598,7 +595,6 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + rbpr + frel + "ret\n";
                     std::string fail_half = xaf_ω_label()
                          + xaf_anchor_leave_text()
-                         + "mov dword ptr [rsp+0], 99\n" + "mov dword ptr [rsp+4], 0\n" + "mov qword ptr [rsp+8], 0\n"
                          + "mov eax, 99\n" + "xor edx, edx\n" + rbpr + frel + "ret\n";
                     if (out_succ) *out_succ = succ_half;
                     if (out_fail) *out_fail = fail_half;
