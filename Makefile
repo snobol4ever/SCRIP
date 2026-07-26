@@ -100,6 +100,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/templates/bb_lit.cpp \
+    $(SRC)/templates/bb_save_restore.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/templates/bb_conjunction.cpp \
     $(SRC)/templates/bb_subscript.cpp \

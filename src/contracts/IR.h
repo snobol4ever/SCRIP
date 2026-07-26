@@ -32,6 +32,7 @@ typedef enum {
     IR_CALL_BUILTIN_PROLOG,
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
+    IR_SAVE_RESTORE,   /* SN4-FLAT-PROC (s176) linkage family — SPITBOL manual Ch.8 save/restore protocol citizens, role in ival: 0 = site OPEN (reserved, next slice), 1 = RETURN floater (peek wires, restore rsp/rbp, jmp γ wire), 2 = FRETURN floater (same, ω wire), 3 = WIRE-ADOPT (stub entry: copy header wires + entry-rsp + caller-rbp into the open pcall record) */
     IR_COFAIL,
     IR_CONJUNCTION,
     IR_CORET,

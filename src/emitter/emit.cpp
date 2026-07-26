@@ -935,6 +935,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
     case IR_GOTO:                 { static int _mon = -1; if (_mon < 0) _mon = getenv("MONITOR_BIN") ? 1 : 0; extern void emit_mon_label_tap(int32_t); if (_mon && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto());           return 0;
     case IR_GOTO_DEFERRED:             bb_emit_x86(bb_goto_dyn());       return 0;               /* EVAL/CODE runtime label transfer */
+    case IR_SAVE_RESTORE:              bb_emit_x86(bb_save_restore());   return 0;               /* SN4-FLAT-PROC linkage: wire-adopt + RETURN/FRETURN floaters (role in ival) */
     case IR_BOUND:                { g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;   /* Op_Mark: save rsp at bounded-expression entry (interp.r Op_Mark) */
     case IR_UNMARK:               { IR_t * _mk = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; g_emit.op_sb = 0; g_emit.op_off = _mk ? zls_off(_mk) : -1; g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;   /* Op_Unmark: rsp = paired mark — discard abandoned retained-suspension carves (interp.r rsp=efp-1) */
     case IR_SUBSCRIPT:            bb_emit_x86(nd->n_operands == 2 ? bb_subscript() : bb_section()); return 0;
@@ -1027,7 +1028,7 @@ static int drive_value_slot(IR_t *nd) {
         if (slot >= 0) { bb_slot_register(nd, slot); return slot; }
     }
     if (nd && ir_node_produces_value(nd->op)) {
-        fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no ZLS slot — ir_drive_slot_assign never granted it. "
+                fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no ZLS slot — ir_drive_slot_assign never granted it. "
                         "Emit-time allocation is ERADICATED (TMP-ERADICATE); add the grant in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
         abort();
     }
@@ -1242,6 +1243,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     }
     case IR_GOTO_DEFERRED: {
         g_emit.op_sval = IR_LIT(nd).sval; DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_SAVE_RESTORE: {
+        g_emit.op_ival = IR_LIT(nd).ival; DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;   /* SN4-FLAT-PROC: role rides ival (1 RETURN floater, 2 FRETURN floater, 3 wire-adopt) */
     }
     case IR_MATCH_REPLACE: {
         /* SN4-REPL: [0]=head (start@+0, RELEASE-stashed end@+24), [1]=repl value, [2]=subject value; sval=name */
@@ -1826,6 +1830,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
     entry = entry;
     queue[qt++] = entry;
+    { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
+      if (g_emit_cfg) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc && qt < Q_MAX; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a) queue[qt++] = (IR_t *)_a; } } }   /* SN4-FLAT-PROC (s176) ENTERABLE-CHAIN ROOTS: every labeled statement's anchor (pointer-captured at lower time, orphan-proof against the GOTO-fold) seeds the BFS, so mode 4 emits the same runtime-enterable set mode 3 pulls lazily through the label registry -- flat DEFINE bodies and the RETURN/FRETURN floaters their exits edge to.  Statically-referenced labels were already reached; the dedup below makes those seeds free */
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
@@ -2332,6 +2338,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
         if (so < 0 || off < so) so = off; } }   /* SPD-NOFILL fix (s139) + CAP-NOFILL (s143): capture head cells (rt_cap_push/pop/top take &slot — empty state IS zero, read-before-first-push by design; the +0 buf ptr is deref'd after gen self-heal, so BOTH quads of the 16B grant must be zero) are implicit-zero citizens like resume/zeta-mark, NOT first-write-wins grants.  s139 pulled the zero suffix down to the lowest one, blanketing every grant above it (expression-eval PAT$: 560B rep stosb per activation = 52% of blob Ir); s143 records each site's offset in flat_cap_off for INDIVIDUAL zeroing by xa_flat's SPD-NOFILL arm, keeping flat_seed_off at the true resume/zeta-mark suffix.  SCRIP_CAP_NOFILL=0 or >48 distinct sites = the s139 pull-down.  s139 bisect provenance: 124 ([rbp+144]); explains 124/131/expr_eval/146.  Trio has no captures — no cost there. */
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }   /* SPD-NOFILL (s139): fallback graphs must keep the eager fill — see emit.h flat_layout_unknown */
+    { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0 && rg < g_flat_frame_floor) { rg = g_flat_frame_floor; so = -1; g_emit.flat_layout_unknown = 1; } }   /* SN4-FLAT-PROC (s176): a DEFINE stub's activation IS a fresh MAIN-layout frame — the body statements it transfers into address main's [rbp+off] slots, so the driver floors the stub's region at main's (zls_g_region on the shared graph, valid because drive_slots_all builds every graph's zls before any proc emits).  layout_unknown forces the eager full zero: main's implicit-zero suffix/capture citizens sit at MAIN offsets this stub's own tiny layout knows nothing about, and a fresh recursion frame must satisfy them all. */
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (32 + rg + 15) & ~15;
     g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;   /* PL-REGAIN-4: seed suffix start for the lazy lexprep2 prologue; 0 = fall back to full fill.  ALIGN-INV-3c: so == rg is a LEGAL EMPTY suffix (RSP reclaimed the mark; every consumer treats [rg,rg) as no-op) -- the old so+16<=rg guard collided empty with the 0 sentinel and full-seeded from 16, wiping bound params (fact(n) -> 1) */
     return 1;
@@ -2346,9 +2353,10 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
     g_emit.flat_pat = 1;   /* R12-ERAD s65: suspending blob — r12-island flavor */
     return emit_jmp_entry_arm_region(g);
 }
+int  g_flat_frame_floor = 0;   /* SN4-FLAT-PROC (s176): region-bytes floor for the NEXT jmp-entry arm — driver sets to main's zls region around DEFINE-stub emissions (see emit_jmp_entry_arm_region), clears after */
 int  g_flat_dc_np = -1;   /* PL-DC (s108): driver-armed direct-call eligibility for the NEXT graph — nparams (0..4) when the callee passes the table predicate (registered, !dyn, !gen, np<=4, hatch off), -1 otherwise.  Set beside emit_jmp_entry_for_proc, cleared with the rest of the jmp-entry arm. */
 long g_last_dc_off = -1;  /* PL-DC (s108): slab byte offset of the just-emitted graph's dc stub label (m3), -1 = none; the driver registers pfn+off via rt_proc_set_dcfn at seal. */
-extern "C" void emit_jmp_entry_clear(void) { g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_cap_n = 0; g_flat_dc_np = -1; }
+extern "C" void emit_jmp_entry_clear(void) { extern int g_flat_frame_floor; g_flat_frame_floor = 0; g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_cap_n = 0; g_flat_dc_np = -1; }
 /* PROC-CONV (R12-FREE ladder rung 2) + NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): ordinary procs arm the SAME jmp-entry regime.  DYN procs (SNOBOL4 DEFINE): args ride the name
  * dictionary, a self-allocated zeroed frame is correct.  DET LEXICAL procs (dyn_scope=0 — Icon/Raku): NCB-1d retires their call-regime trampoline — the blob self-allocates and its prologue calls
  * rt_jmp_frame_lexprep (NULVCL fill + rt_frame_bind_args from the staged g_call_args), so the caller-made-frame protocol is gone and flat_lex marks the graph for that prologue tail.  GENERATOR procs

@@ -994,6 +994,14 @@ extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 __attribute__((visibility("hidden"))) rt_pcall_t *g_pcall;
 __attribute__((visibility("hidden"))) int         g_pcall_top;
 static int         g_pcall_cap;
+/* SN4-FLAT-PROC (s176) — the flat-return wires ride a PARALLEL array, index-locked to g_pcall, NOT new rt_pcall_t fields: rtx_call.S bakes sizeof(rt_pcall_t)==64 (stride shl 6) and its field offsets,
+ * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's
+ * rbp) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
+ * SPITBOL restore protocol stay in the existing γ/ω epilogue leaves the wires land on, so save/restore semantics are byte-identical to the extracted-body regime. */
+typedef struct { void *gw; void *ww; void *rsp; void *rbp; } rt_flat_wires_t;
+static rt_flat_wires_t *g_pcall_wires;
+static rt_flat_wires_t  g_flat_ret_snapbuf;
+_Static_assert(sizeof(rt_flat_wires_t) == 32 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, rbp) == 24, "bb_save_restore.cpp bakes these offsets");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ws_roots(void)
 {
@@ -1008,7 +1016,29 @@ static void rt_pcall_grow(void)
     int nc = g_pcall_cap ? g_pcall_cap * 2 : 1024;
     rt_pcall_t *np = (rt_pcall_t *)rt_ws_realloc(g_pcall, (size_t)nc * sizeof(rt_pcall_t));
     if (!np) return;
-    g_pcall = np; g_pcall_cap = nc;
+    rt_flat_wires_t *nw = (rt_flat_wires_t *)rt_ws_realloc(g_pcall_wires, (size_t)nc * sizeof(rt_flat_wires_t));
+    if (!nw) return;
+    g_pcall = np; g_pcall_wires = nw; g_pcall_cap = nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SN4-FLAT-PROC leaves.  wire_adopt: the stub blob's WIRE-ADOPT box calls here right after the jmp-entry prologue — copy the just-saved header wires plus the restore state into the record the open
+ * pushed one call boundary up (LIFO: the top record IS this activation's).  Guard top==0: a blob entered with no open activation (LBL__/CODE chain-enter) has nothing to adopt into and nothing will
+ * ever peek — a silent no-op is correct there because such an entry's RETURN legitimately belongs to the ENCLOSING open call, whose own adopt already filled the top record.  ret_snap: the floaters
+ * PEEK (never pop) the top record's wires into a static quad and return its address; rax:rdx ride untouched through the floater's tail so the γ landing's epilogue sees exactly what it sees today.
+ * Level-0 transfer to RETURN/FRETURN = runtime error (Lon s175 ruling; SPITBOL erred here too rather than exiting). */
+void rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp)
+{
+    if (g_pcall_top <= 0 || !g_pcall_wires) return;
+    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_flat_ret_snap(void)
+{
+    if (g_pcall_top <= 0) { extern void core_runtime_error(int, const char *); core_runtime_error(18, (const char *)0); exit(1); }   /* SN4-FLAT-PROC: manual/SPITBOL error class "Return from level zero" (core_err_msgs[18]) — routed through the core machinery so &ERROR/SETEXIT trapping applies; the exit is unreachable belt-and-braces (core exits or longjmps) */
+    { rt_flat_wires_t *w = g_pcall_wires ? &g_pcall_wires[g_pcall_top - 1] : (rt_flat_wires_t *)0;
+      if (!w || !w->gw || !w->ww) { fprintf(stderr, "[SNO] RETURN: open call for '%s' carries no return wires (activation was not flat-adopted)\n", g_pcall[g_pcall_top - 1].p ? g_pcall[g_pcall_top - 1].p->name : "?"); exit(1); }
+      g_flat_ret_snapbuf = *w;
+      return &g_flat_ret_snapbuf; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PROLOGUE LEAF — everything from resolve_cells through the monitor call event.  Returns the 16-aligned frame
@@ -1031,6 +1061,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
         rt_pcall_t *c = &g_pcall[g_pcall_top];
         c->p = p; c->rname = rname; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = save_base; c->wn = wn;
         c->lex = 0; c->nargs = 0; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
+        if (g_pcall_wires) g_pcall_wires[g_pcall_top] = (rt_flat_wires_t){0, 0, 0, 0};
     }
     g_pcall_top++;
     if (g_monitor_bin) mon_emit_call_bin(p->name);
@@ -1101,6 +1132,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
         rt_pcall_t *c = &g_pcall[g_pcall_top];
         c->p = p; c->rname = rname; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = -1; c->wn = wn;
         c->lex = 0; c->nargs = 0; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
+        if (g_pcall_wires) g_pcall_wires[g_pcall_top] = (rt_flat_wires_t){0, 0, 0, 0};
     }
     g_pcall_top++;
     if (g_monitor_bin) mon_emit_call_bin(p->name);
@@ -1319,6 +1351,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
         rt_pcall_t *c = &g_pcall[g_pcall_top];
         c->p = p; c->rname = p->name; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = 0; c->wn = wn;
         c->lex = 1; c->nargs = nargs; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
+        if (g_pcall_wires) g_pcall_wires[g_pcall_top] = (rt_flat_wires_t){0, 0, 0, 0};
     }
     g_pcall_top++;
     rt_k_level++;
