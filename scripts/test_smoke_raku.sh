@@ -3516,6 +3516,43 @@ say $b;
 say "end";
 EOF
 
+raku "arr_all_slice_join" "10,20,30" << 'EOF'
+my @a = (10,20,30);
+say @a[*].join(",");
+EOF
+
+raku "arr_all_slice_elems" "3" << 'EOF'
+my @a = (10,20,30);
+say @a[*].elems;
+EOF
+
+raku "arr_all_slice_empty" "0" << 'EOF'
+my @e = ();
+say @e[*].elems;
+EOF
+
+raku "arr_all_slice_single" "7" << 'EOF'
+my @a = (7);
+say @a[*].join(",");
+EOF
+
+raku "arr_all_slice_reduce_metaop_intact" "$(printf '24\n10')" << 'EOF'
+my @n = (1,2,3,4);
+say [*] @n;
+say [+] @n;
+EOF
+
+raku "arr_all_slice_star_minus_intact" "$(printf '30\n20')" << 'EOF'
+my @a = (10,20,30);
+say @a[*-1];
+say @a[*-2];
+EOF
+
+raku "arr_all_slice_sum" "60" << 'EOF'
+my @a = (10,20,30);
+say @a[*].sum;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
