@@ -3598,6 +3598,43 @@ sub t(Int $n) { return $n }
 say t(4);
 EOF
 
+raku "div_inexact_rational" "$(printf '3.5\n2.5\n-3.5')" << 'EOF'
+say 7/2;
+say 10/4;
+say -7/2;
+EOF
+
+raku "div_exact_stays_integral" "$(printf '4\n2\n3\n5')" << 'EOF'
+say 8/2;
+say 6/3;
+say 9/3;
+say 10/2;
+EOF
+
+raku "div_roundtrip_multiply" "$(printf '7\n7.0')" << 'EOF'
+my $h = 7/2;
+say $h*2 == 7 ?? 7 !! 0;
+say $h*2;
+EOF
+
+raku "div_by_zero_dies" "before" << 'EOF'
+say "before";
+say 1/0;
+say "after";
+EOF
+
+raku "div_var_operands" "$(printf '2.5\n4')" << 'EOF'
+my $a = 5; my $b = 2;
+say $a/$b;
+my $c = 8; my $d = 2;
+say $c/$d;
+EOF
+
+raku "div_in_expression" "$(printf '6.5\n1.5')" << 'EOF'
+say 3 + 7/2;
+say 7/2 - 2;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
