@@ -180,14 +180,13 @@ static void  ef_b2 (uint8_t a, uint8_t b)                        { bb_emit_byte(
 static void  ef_b3 (uint8_t a, uint8_t b, uint8_t c)             { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); }
 static void  ef_b4 (uint8_t a, uint8_t b, uint8_t c, uint8_t d)  { bb_emit_byte(a); bb_emit_byte(b); bb_emit_byte(c); bb_emit_byte(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void ef_t3c_jmp(const char *mnem, const char *target)
-{ fprintf(bb_emit_out, "%s %s\n", mnem ? mnem : "", target ? target : ""); }
+static void ef_text_jmp(const char *mnem, const char *target)
+{ emit_textf("%s %s\n", mnem ? mnem : "", target ? target : ""); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_define_bb(bb_label_t *lbl)
 {
     if (g_is_text) {
-        char buf[256]; snprintf(buf, sizeof(buf), "%s:", lbl->name);
-        fprintf(bb_emit_out, "%s\n", buf);
+        emit_textf("%s:\n", lbl->name);
     } else {
         bb_emit_mode_t s = bb_emit_mode; bb_emit_mode = EMIT_BINARY_WIRED;
         bb_label_define(lbl);
@@ -201,22 +200,20 @@ void emit_jmp_label(bb_label_t *target, jmp_kind_t kind)
     static const char    *mn[]    = {"jmp","je","jne","jl","jge","jg"};
     static const uint8_t  ops[6][2] = {{0xE9,0x00},{0x0F,0x84},{0x0F,0x85},{0x0F,0x8C},{0x0F,0x8D},{0x0F,0x8F}};
     int k = (int)kind < 6 ? (int)kind : 0;
-    if (g_is_text) { ef_t3c_jmp(mn[k], target->name); g_emit_pos += 6; }
+    if (g_is_text) { ef_text_jmp(mn[k], target->name); g_emit_pos += 6; }
     else { if (k==0) ef_b1(0xE9); else ef_b2(ops[k][0], ops[k][1]); bb_emit_patch_rel32(target); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_aligned_call_rt(const char *sym, void *addr)
 {
-    if (g_is_text) { fprintf(bb_emit_out, " push rbx\n mov rbx, rsp\n and rsp, -16\n call %s@PLT\n mov rsp, rbx\n pop rbx\n", sym ? sym : ""); }
+    if (g_is_text) { emit_textf(" push rbx\n mov rbx, rsp\n and rsp, -16\n call %s@PLT\n mov rsp, rbx\n pop rbx\n", sym ? sym : ""); }
     else { ef_b1(0x53); ef_b3(0x48,0x89,0xE3); ef_b4(0x48,0x83,0xE4,0xF0); ef_b2(0x48,0xB8); bb_emit_u64((uint64_t)(uintptr_t)addr); ef_b2(0xFF,0xD0); ef_b3(0x48,0x89,0xDC); ef_b1(0x5B); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_label_define(bb_label_t *lbl)
 {
     if (!MEDIUM_BINARY) {
-        FILE *f = bb_emit_out ? bb_emit_out : stdout;
-        char lbuf[256]; snprintf(lbuf, sizeof(lbuf), "%s:", lbl->name);
-        fprintf(f, "%s\n", lbuf);
+        emit_textf("%s:\n", lbl->name);
         return;
     }
     if (bb_emit_overflow) return;
@@ -2407,25 +2404,33 @@ void gva_collect_icon_globals(void) {
 static IR_t *g_pl_catch_nodes[PL_CATCH_MAX];
 static int   g_pl_catch_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string g_textf_acc;
+static std::string g_text_acc;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_text_n(const char * s, size_t n) {
+    if (!s || n == 0) return;
+    if (MEDIUM_BINARY) { emit_text_raw_n(s, n); return; }
+    g_text_acc.append(s, n);
+    size_t last = g_text_acc.rfind('\n');
+    if (last == std::string::npos) return;
+    std::string done = x86_4col(g_text_acc.substr(0, last + 1));
+    g_text_acc.erase(0, last + 1);
+    emit_text_raw_n(done.data(), done.size());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void emit_text_flush(void) {
+    if (g_text_acc.empty()) return;
+    std::string done = x86_4col(g_text_acc); g_text_acc.clear();
+    emit_text_raw_n(done.data(), done.size());
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_textf(const char * fmt, ...) {
     va_list ap; va_start(ap, fmt); char sb[4096]; int need = vsnprintf(sb, sizeof sb, fmt, ap); va_end(ap);
     if (need <= 0) return;
-    if (need < (int) sizeof sb) g_textf_acc.append(sb, (size_t) need);
-    else { char * hb = (char *) malloc((size_t) need + 1); if (!hb) return; va_start(ap, fmt); vsnprintf(hb, (size_t) need + 1, fmt, ap); va_end(ap); g_textf_acc.append(hb, (size_t) need); free(hb); }
-    size_t last = g_textf_acc.rfind('\n');
-    if (last == std::string::npos) return;
-    std::string done = x86_3col(g_textf_acc.substr(0, last + 1));
-    g_textf_acc.erase(0, last + 1);
-    emit_text_n(done.data(), done.size());
+    if (need < (int) sizeof sb) emit_text_n(sb, (size_t) need);
+    else { char * hb = (char *) malloc((size_t) need + 1); if (!hb) return; va_start(ap, fmt); vsnprintf(hb, (size_t) need + 1, fmt, ap); va_end(ap); emit_text_n(hb, (size_t) need); free(hb); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void emit_textf_flush(void) {
-    if (g_textf_acc.empty()) return;
-    std::string done = x86_3col(g_textf_acc); g_textf_acc.clear();
-    emit_text_n(done.data(), done.size());
-}
+void emit_textf_flush(void) { emit_text_flush(); }
 #ifdef __cplusplus
 }
 #endif
