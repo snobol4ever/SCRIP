@@ -19,6 +19,7 @@ main:
                         lea              rdi, [rip + __gva_names]
                         mov              edx, 1
                         call             gva_register@PLT
+                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
@@ -35,33 +36,29 @@ main_α:
                         mov              ecx, 936
                         xor              eax, eax
                         rep stosb
-                        mov              r12, qword ptr [1879048192]
                         mov              [rsp + 928], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         differ(1 2, '12')                   :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n0_α:
+n0_lit_integer_α:
                         mov              qword ptr [rbp + 192], 6
-                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              rax, qword ptr [rip + .Lx25_0]
                         mov              qword ptr [rbp + 200], rax
-                                                                                        jmp   xchain0_n1_α
-.Lx1_0:
+                                                                                        jmp   n1_lit_integer_α
+.Lx25_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n1_α:
+n1_lit_integer_α:
                         mov              qword ptr [rbp + 224], 6
-                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              rax, qword ptr [rip + .Lx26_0]
                         mov              qword ptr [rbp + 232], rax
-                                                                                        jmp   xchain0_n2_α
-.Lx2_0:
+                                                                                        jmp   n2_binop_α
+.Lx26_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n2_α:
-# IR_BINOP_CONCAT
+n2_binop_α:
                         mov              rdi, qword ptr [rbp + 192]
                         mov              rsi, qword ptr [rbp + 200]
                         mov              rdx, qword ptr [rbp + 224]
@@ -69,38 +66,33 @@ xchain0_n2_α:
                         call             str_concat_d@PLT
                         mov              qword ptr [rbp + 160], rax
                         mov              qword ptr [rbp + 168], rdx
-                                                                                        jmp   xchain0_n3_α
+                                                                                        jmp   n3_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n3_α:
+n3_lit_string_α:
                         mov              qword ptr [rbp + 256], 1
-                        mov              rax, qword ptr [rip + .Lx4_0]
+                        mov              rax, qword ptr [rip + .Lx28_0]
                         mov              qword ptr [rbp + 264], rax
-                                                                                        jmp   xchain0_n5_α
-.Lx4_0:
-                        .quad            .Lx4_0_s
-.Lx4_0_s:
+                                                                                        jmp   n5_call_α
+.Lx28_0:
+                        .quad            .Lx28_0_s
+.Lx28_0_s:
                         .string          "12"
 #=======================================================================================================================
 #         differ(2 2 2, '222')                   :f(e002)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n4_α:
+n4_lit_integer_α:
                         mov              qword ptr [rbp + 464], 6
-                        mov              rax, qword ptr [rip + .Lx5_0]
+                        mov              rax, qword ptr [rip + .Lx29_0]
                         mov              qword ptr [rbp + 472], rax
-                                                                                        jmp   xchain0_n6_α
-.Lx5_0:
+                                                                                        jmp   n6_lit_integer_α
+.Lx29_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n5_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+160] -> [zr+112]
+n5_call_α:
                         mov              rax, qword ptr [rbp + 160]
                         mov              qword ptr [rbp + 112], rax
                         mov              rax, qword ptr [rbp + 168]
                         mov              qword ptr [rbp + 120], rax
-# marshal arg1 = producer-box slot [zr+256] -> [zr+128]
                         mov              rax, qword ptr [rbp + 256]
                         mov              qword ptr [rbp + 128], rax
                         mov              rax, qword ptr [rbp + 264]
@@ -116,35 +108,32 @@ xchain0_n5_α:
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n4_α
-                                                                                        jmp   xchain0_n7_α
-xchain0_n5_β:
-                                                                                        jmp   xchain0_n4_α
+                                                                                        je    n4_lit_integer_α
+                                                                                        jmp   n7_lit_string_α
+n5_call_β:
+                                                                                        jmp   n4_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n6_α:
+n6_lit_integer_α:
                         mov              qword ptr [rbp + 496], 6
-                        mov              rax, qword ptr [rip + .Lx7_0]
+                        mov              rax, qword ptr [rip + .Lx31_0]
                         mov              qword ptr [rbp + 504], rax
-                                                                                        jmp   xchain0_n8_α
-.Lx7_0:
+                                                                                        jmp   n8_binop_α
+.Lx31_0:
                         .quad            2
 #=======================================================================================================================
 #         output = 'FAIL 311/001: int int concat'         :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n7_α:
+n7_lit_string_α:
                         mov              qword ptr [rbp + 304], 1
-                        mov              rax, qword ptr [rip + .Lx8_0]
+                        mov              rax, qword ptr [rip + .Lx32_0]
                         mov              qword ptr [rbp + 312], rax
-                                                                                        jmp   xchain0_n9_α
-.Lx8_0:
-                        .quad            .Lx8_0_s
-.Lx8_0_s:
+                                                                                        jmp   n9_assign_α
+.Lx32_0:
+                        .quad            .Lx32_0_s
+.Lx32_0_s:
                         .string          "FAIL 311/001: int int concat"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n8_α:
-# IR_BINOP_CONCAT
+n8_binop_α:
                         mov              rdi, qword ptr [rbp + 464]
                         mov              rsi, qword ptr [rbp + 472]
                         mov              rdx, qword ptr [rbp + 496]
@@ -152,10 +141,9 @@ xchain0_n8_α:
                         call             str_concat_d@PLT
                         mov              qword ptr [rbp + 432], rax
                         mov              qword ptr [rbp + 440], rdx
-                                                                                        jmp   xchain0_n10_α
+                                                                                        jmp   n10_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n9_α:
+n9_assign_α:
                         mov              rax, qword ptr [rbp + 304]
                         mov              rdx, qword ptr [rbp + 312]
                         mov              qword ptr [1879052288], rax
@@ -164,28 +152,25 @@ xchain0_n9_α:
                         mov              qword ptr [rbp + 296], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n10_α:
+n10_lit_integer_α:
                         mov              qword ptr [rbp + 528], 6
-                        mov              rax, qword ptr [rip + .Lx11_0]
+                        mov              rax, qword ptr [rip + .Lx35_0]
                         mov              qword ptr [rbp + 536], rax
-                                                                                        jmp   xchain0_n12_α
-.Lx11_0:
+                                                                                        jmp   n12_binop_α
+.Lx35_0:
                         .quad            2
 #=======================================================================================================================
 #         differ(1 3.4, '13.4')                   :f(e003)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n11_α:
+n11_lit_integer_α:
                         mov              qword ptr [rbp + 736], 6
-                        mov              rax, qword ptr [rip + .Lx12_0]
+                        mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rbp + 744], rax
-                                                                                        jmp   xchain0_n13_α
-.Lx12_0:
+                                                                                        jmp   n13_lit_real_α
+.Lx36_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n12_α:
-# IR_BINOP_CONCAT
+n12_binop_α:
                         mov              rdi, qword ptr [rbp + 432]
                         mov              rsi, qword ptr [rbp + 440]
                         mov              rdx, qword ptr [rbp + 528]
@@ -193,30 +178,27 @@ xchain0_n12_α:
                         call             str_concat_d@PLT
                         mov              qword ptr [rbp + 400], rax
                         mov              qword ptr [rbp + 408], rdx
-                                                                                        jmp   xchain0_n14_α
+                                                                                        jmp   n14_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n13_α:
+n13_lit_real_α:
                         mov              qword ptr [rbp + 768], 7
-                        mov              rax, qword ptr [rip + .Lx14_0]
+                        mov              rax, qword ptr [rip + .Lx38_0]
                         mov              qword ptr [rbp + 776], rax
-                                                                                        jmp   xchain0_n15_α
-.Lx14_0:
+                                                                                        jmp   n15_binop_α
+.Lx38_0:
                         .quad            4614838538166547251
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n14_α:
+n14_lit_string_α:
                         mov              qword ptr [rbp + 560], 1
-                        mov              rax, qword ptr [rip + .Lx15_0]
+                        mov              rax, qword ptr [rip + .Lx39_0]
                         mov              qword ptr [rbp + 568], rax
-                                                                                        jmp   xchain0_n16_α
-.Lx15_0:
-                        .quad            .Lx15_0_s
-.Lx15_0_s:
+                                                                                        jmp   n16_call_α
+.Lx39_0:
+                        .quad            .Lx39_0_s
+.Lx39_0_s:
                         .string          "222"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n15_α:
-# IR_BINOP_CONCAT
+n15_binop_α:
                         mov              rdi, qword ptr [rbp + 736]
                         mov              rsi, qword ptr [rbp + 744]
                         mov              rdx, qword ptr [rbp + 768]
@@ -224,16 +206,13 @@ xchain0_n15_α:
                         call             str_concat_d@PLT
                         mov              qword ptr [rbp + 704], rax
                         mov              qword ptr [rbp + 712], rdx
-                                                                                        jmp   xchain0_n17_α
+                                                                                        jmp   n17_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n16_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+400] -> [zr+352]
+n16_call_α:
                         mov              rax, qword ptr [rbp + 400]
                         mov              qword ptr [rbp + 352], rax
                         mov              rax, qword ptr [rbp + 408]
                         mov              qword ptr [rbp + 360], rax
-# marshal arg1 = producer-box slot [zr+560] -> [zr+368]
                         mov              rax, qword ptr [rbp + 560]
                         mov              qword ptr [rbp + 368], rax
                         mov              rax, qword ptr [rbp + 568]
@@ -249,56 +228,50 @@ xchain0_n16_α:
                         mov              qword ptr [rbp + 336], rax
                         mov              qword ptr [rbp + 344], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n11_α
-                                                                                        jmp   xchain0_n19_α
-xchain0_n16_β:
-                                                                                        jmp   xchain0_n11_α
+                                                                                        je    n11_lit_integer_α
+                                                                                        jmp   n19_lit_string_α
+n16_call_β:
+                                                                                        jmp   n11_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n17_α:
+n17_lit_string_α:
                         mov              qword ptr [rbp + 800], 1
-                        mov              rax, qword ptr [rip + .Lx18_0]
+                        mov              rax, qword ptr [rip + .Lx42_0]
                         mov              qword ptr [rbp + 808], rax
-                                                                                        jmp   xchain0_n20_α
-.Lx18_0:
-                        .quad            .Lx18_0_s
-.Lx18_0_s:
+                                                                                        jmp   n20_call_α
+.Lx42_0:
+                        .quad            .Lx42_0_s
+.Lx42_0_s:
                         .string          "13.4"
 #=======================================================================================================================
 #         output = 'PASS 311_concat_numeric (3/3)'
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n18_α:
+n18_lit_string_α:
                         mov              qword ptr [rbp + 896], 1
-                        mov              rax, qword ptr [rip + .Lx19_0]
+                        mov              rax, qword ptr [rip + .Lx43_0]
                         mov              qword ptr [rbp + 904], rax
-                                                                                        jmp   xchain0_n21_α
-.Lx19_0:
-                        .quad            .Lx19_0_s
-.Lx19_0_s:
+                                                                                        jmp   n21_assign_α
+.Lx43_0:
+                        .quad            .Lx43_0_s
+.Lx43_0_s:
                         .string          "PASS 311_concat_numeric (3/3)"
 #=======================================================================================================================
 #         output = 'FAIL 311/002: three int concat'       :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n19_α:
+n19_lit_string_α:
                         mov              qword ptr [rbp + 608], 1
-                        mov              rax, qword ptr [rip + .Lx20_0]
+                        mov              rax, qword ptr [rip + .Lx44_0]
                         mov              qword ptr [rbp + 616], rax
-                                                                                        jmp   xchain0_n22_α
-.Lx20_0:
-                        .quad            .Lx20_0_s
-.Lx20_0_s:
+                                                                                        jmp   n22_assign_α
+.Lx44_0:
+                        .quad            .Lx44_0_s
+.Lx44_0_s:
                         .string          "FAIL 311/002: three int concat"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n20_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+704] -> [zr+656]
+n20_call_α:
                         mov              rax, qword ptr [rbp + 704]
                         mov              qword ptr [rbp + 656], rax
                         mov              rax, qword ptr [rbp + 712]
                         mov              qword ptr [rbp + 664], rax
-# marshal arg1 = producer-box slot [zr+800] -> [zr+672]
                         mov              rax, qword ptr [rbp + 800]
                         mov              qword ptr [rbp + 672], rax
                         mov              rax, qword ptr [rbp + 808]
@@ -314,13 +287,12 @@ xchain0_n20_α:
                         mov              qword ptr [rbp + 640], rax
                         mov              qword ptr [rbp + 648], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n18_α
-                                                                                        jmp   xchain0_n23_α
-xchain0_n20_β:
-                                                                                        jmp   xchain0_n18_α
+                                                                                        je    n18_lit_string_α
+                                                                                        jmp   n23_lit_string_α
+n20_call_β:
+                                                                                        jmp   n18_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n21_α:
+n21_assign_α:
                         mov              rax, qword ptr [rbp + 896]
                         mov              rdx, qword ptr [rbp + 904]
                         mov              qword ptr [1879052288], rax
@@ -329,8 +301,7 @@ xchain0_n21_α:
                         mov              qword ptr [rbp + 888], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n22_α:
+n22_assign_α:
                         mov              rax, qword ptr [rbp + 608]
                         mov              rdx, qword ptr [rbp + 616]
                         mov              qword ptr [1879052288], rax
@@ -341,19 +312,17 @@ xchain0_n22_α:
 #=======================================================================================================================
 #         output = 'FAIL 311/003: int real concat'        :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n23_α:
+n23_lit_string_α:
                         mov              qword ptr [rbp + 848], 1
-                        mov              rax, qword ptr [rip + .Lx24_0]
+                        mov              rax, qword ptr [rip + .Lx48_0]
                         mov              qword ptr [rbp + 856], rax
-                                                                                        jmp   xchain0_n24_α
-.Lx24_0:
-                        .quad            .Lx24_0_s
-.Lx24_0_s:
+                                                                                        jmp   n24_assign_α
+.Lx48_0:
+                        .quad            .Lx48_0_s
+.Lx48_0_s:
                         .string          "FAIL 311/003: int real concat"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n24_α:
+n24_assign_α:
                         mov              rax, qword ptr [rbp + 848]
                         mov              rdx, qword ptr [rbp + 856]
                         mov              qword ptr [1879052288], rax

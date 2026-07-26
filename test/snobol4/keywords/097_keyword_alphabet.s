@@ -6,6 +6,7 @@ main:
                         push             rdi
                         push             rsi
                         call             core_lib_init@PLT
+                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
@@ -22,139 +23,127 @@ main_α:
                         mov              ecx, 344
                         xor              eax, eax
                         rep stosb
-                        mov              r12, qword ptr [1879048192]
                         mov              [rsp + 336], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         OUTPUT = SIZE(&ALPHABET)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_KEYWORD_SNOBOL4_read
-xchain0_n0_α:
-                        mov              rdi, qword ptr [rip + .Lx1_0]
+n0_keyword_snobol4_α:
+                        mov              rdi, qword ptr [rip + .Lx9_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 160], rax
                         mov              qword ptr [rbp + 168], rdx
-                                                                                        jmp   xchain0_n1_α
-.Lx1_0:
-                        .quad            .Lx1_0_s
-.Lx1_0_s:
+                                                                                        jmp   n1_call_α
+.Lx9_0:
+                        .quad            .Lx9_0_s
+.Lx9_0_s:
                         .string          "ALPHABET"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n1_α:
-# BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [zr+160] -> [zr+128]
+n1_call_α:
                         mov              rax, qword ptr [rbp + 160]
                         mov              qword ptr [rbp + 128], rax
                         mov              rax, qword ptr [rbp + 168]
                         mov              qword ptr [rbp + 136], rax
                         .section         .rodata
-.Lrkfn3:                .string          "SIZE"
+.Lrkfn11:               .string          "SIZE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn3]
+                        lea              rdi, [rip + .Lrkfn11]
                         lea              rsi, [rbp + 128]
                         mov              edx, 1
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 112], rax
                         mov              qword ptr [rbp + 120], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n3_α
-                                                                                        jmp   xchain0_n2_α
-xchain0_n1_β:
-                                                                                        jmp   xchain0_n3_α
+                                                                                        je    n3_keyword_snobol4_α
+                                                                                        jmp   n2_assign_α
+n1_call_β:
+                                                                                        jmp   n3_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN global
-xchain0_n2_α:
+n2_assign_α:
                         mov              rsi, qword ptr [rbp + 112]
                         mov              rdx, qword ptr [rbp + 120]
-                        mov              rdi, qword ptr [rip + .Lx4_0]
+                        mov              rdi, qword ptr [rip + .Lx12_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
-                                                                                        jmp   xchain0_n3_α
-.Lx4_0:
-                        .quad            .Lx4_0_s
-.Lx4_0_s:
+                                                                                        jmp   n3_keyword_snobol4_α
+.Lx12_0:
+                        .quad            .Lx12_0_s
+.Lx12_0_s:
                         .string          "OUTPUT"
 #=======================================================================================================================
 #         OUTPUT = SIZE(&UCASE)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_KEYWORD_SNOBOL4_read
-xchain0_n3_α:
-                        mov              rdi, qword ptr [rip + .Lx5_0]
+n3_keyword_snobol4_α:
+                        mov              rdi, qword ptr [rip + .Lx13_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 240], rax
                         mov              qword ptr [rbp + 248], rdx
-                                                                                        jmp   xchain0_n4_α
-.Lx5_0:
-                        .quad            .Lx5_0_s
-.Lx5_0_s:
+                                                                                        jmp   n4_call_α
+.Lx13_0:
+                        .quad            .Lx13_0_s
+.Lx13_0_s:
                         .string          "UCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n4_α:
-# BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [zr+240] -> [zr+208]
+n4_call_α:
                         mov              rax, qword ptr [rbp + 240]
                         mov              qword ptr [rbp + 208], rax
                         mov              rax, qword ptr [rbp + 248]
                         mov              qword ptr [rbp + 216], rax
                         .section         .rodata
-.Lrkfn7:                .string          "SIZE"
+.Lrkfn15:               .string          "SIZE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn7]
+                        lea              rdi, [rip + .Lrkfn15]
                         lea              rsi, [rbp + 208]
                         mov              edx, 1
                         call             rt_call_arr@PLT
                         mov              qword ptr [rbp + 192], rax
                         mov              qword ptr [rbp + 200], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n6_α
-                                                                                        jmp   xchain0_n5_α
-xchain0_n4_β:
-                                                                                        jmp   xchain0_n6_α
+                                                                                        je    n6_keyword_snobol4_α
+                                                                                        jmp   n5_assign_α
+n4_call_β:
+                                                                                        jmp   n6_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN global
-xchain0_n5_α:
+n5_assign_α:
                         mov              rsi, qword ptr [rbp + 192]
                         mov              rdx, qword ptr [rbp + 200]
-                        mov              rdi, qword ptr [rip + .Lx8_0]
+                        mov              rdi, qword ptr [rip + .Lx16_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 176], rax
                         mov              qword ptr [rbp + 184], rdx
-                                                                                        jmp   xchain0_n6_α
-.Lx8_0:
-                        .quad            .Lx8_0_s
-.Lx8_0_s:
+                                                                                        jmp   n6_keyword_snobol4_α
+.Lx16_0:
+                        .quad            .Lx16_0_s
+.Lx16_0_s:
                         .string          "OUTPUT"
 #=======================================================================================================================
 #         OUTPUT = SIZE(&LCASE)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_KEYWORD_SNOBOL4_read
-xchain0_n6_α:
-                        mov              rdi, qword ptr [rip + .Lx9_0]
+n6_keyword_snobol4_α:
+                        mov              rdi, qword ptr [rip + .Lx17_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 320], rax
                         mov              qword ptr [rbp + 328], rdx
-                                                                                        jmp   xchain0_n7_α
-.Lx9_0:
-                        .quad            .Lx9_0_s
-.Lx9_0_s:
+                                                                                        jmp   n7_call_α
+.Lx17_0:
+                        .quad            .Lx17_0_s
+.Lx17_0_s:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n7_α:
-# BOX IR_CALL SIZE(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [zr+320] -> [zr+288]
+n7_call_α:
                         mov              rax, qword ptr [rbp + 320]
                         mov              qword ptr [rbp + 288], rax
                         mov              rax, qword ptr [rbp + 328]
                         mov              qword ptr [rbp + 296], rax
                         .section         .rodata
-.Lrkfn11:               .string          "SIZE"
+.Lrkfn19:               .string          "SIZE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn11]
+                        lea              rdi, [rip + .Lrkfn19]
                         lea              rsi, [rbp + 288]
                         mov              edx, 1
                         call             rt_call_arr@PLT
@@ -162,22 +151,21 @@ xchain0_n7_α:
                         mov              qword ptr [rbp + 280], rdx
                         cmp              eax, 99
                                                                                         je    main_γ
-                                                                                        jmp   xchain0_n8_α
-xchain0_n7_β:
+                                                                                        jmp   n8_assign_α
+n7_call_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN global
-xchain0_n8_α:
+n8_assign_α:
                         mov              rsi, qword ptr [rbp + 272]
                         mov              rdx, qword ptr [rbp + 280]
-                        mov              rdi, qword ptr [rip + .Lx12_0]
+                        mov              rdi, qword ptr [rip + .Lx20_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 256], rax
                         mov              qword ptr [rbp + 264], rdx
                                                                                         jmp   main_γ
-.Lx12_0:
-                        .quad            .Lx12_0_s
-.Lx12_0_s:
+.Lx20_0:
+                        .quad            .Lx20_0_s
+.Lx20_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
