@@ -18,12 +18,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 136
+                        sub              rsp, 40
                         mov              rdi, rsp
-                        mov              ecx, 136
+                        mov              ecx, 40
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 128], rbp
+                        mov              [rsp + 32], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -32,8 +32,8 @@ main_α_body:
 n0_keyword_snobol4_α:
                         mov              rdi, qword ptr [rip + .Lx2_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rbp + 112], rax
-                        mov              qword ptr [rbp + 120], rdx
+                        mov              qword ptr [rbp + 16], rax
+                        mov              qword ptr [rbp + 24], rdx
                                                                                         jmp   n1_assign_α
 .Lx2_0:
                         .quad            .Lx2_0_s
@@ -41,12 +41,12 @@ n0_keyword_snobol4_α:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
-                        mov              rsi, qword ptr [rbp + 112]
-                        mov              rdx, qword ptr [rbp + 120]
+                        mov              rsi, qword ptr [rbp + 16]
+                        mov              rdx, qword ptr [rbp + 24]
                         mov              rdi, qword ptr [rip + .Lx3_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx3_0:
                         .quad            .Lx3_0_s
@@ -60,18 +60,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 128]
-                        add              rsp, 136
+                        mov              rbp, [rsp + 32]
+                        add              rsp, 40
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
-                        mov              dword ptr [rsp+0], 99
-                        mov              dword ptr [rsp+4], 0
-                        mov              qword ptr [rsp+8], 0
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 128]
-                        add              rsp, 136
+                        mov              rbp, [rsp + 32]
+                        add              rsp, 40
                         ret
                         .section         .note.GNU-stack,"",@progbits
