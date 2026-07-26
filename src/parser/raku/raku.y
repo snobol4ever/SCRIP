@@ -210,6 +210,13 @@ static tree_t *rk_dec(tree_t *hi) {
     return expr_binary(TT_SUB, hi, one);
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_arr_all(const char *arr) {
+    tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, var_node(arr)); ast_push(el, leaf_sval(TT_QLIT, "elems"));
+    tree_t *lo = ast_node_new(TT_ILIT); lo->v.ival = 0;
+    tree_t *call = make_call("__rk_arr_slice"); expr_add_child(call, var_node(arr)); expr_add_child(call, lo); expr_add_child(call, rk_dec(el));
+    return call;
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_tree_clone(tree_t *e) {
     if (!e) return NULL;
     tree_t *c = ast_node_new(e->t); c->v = e->v;
@@ -324,6 +331,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_MULTI KW_PROTO
 %token <sval> OP_NAME
 %token <sval> OP_REDUCE
+%token <sval> ARR_ALL_SLICE
 %token <sval> KW_HANDLES
 %token <sval> WORDLIST
 %token OP_COLON_D OP_COLON_U
@@ -1628,6 +1636,8 @@ atom
         { $$ = rk_arr_end_index($1, $5, TT_SUB); }
     | VAR_ARRAY '[' '*' '+' expr ']'
         { $$ = rk_arr_end_index($1, $5, TT_ADD); }
+    | ARR_ALL_SLICE
+        { $$ = rk_arr_all($1); }
     | VAR_HASH '<' IDENT '>'
         { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
     | VAR_HASH '{' expr '}'
