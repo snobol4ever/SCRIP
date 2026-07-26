@@ -142,6 +142,15 @@ static std::string xaf_anchor_enter_x86(void) {
     if (!x86_port_cstack()) return std::string();
     return x86("mov", (std::string("qword ptr [") + x86_zr() + " + " + std::to_string(xaf_anchor_off()) + "]").c_str(), "rsp");
 }   /* XA-FLAT-CONVERT: x86() twin of xaf_anchor_enter_bin — same store (anchor slot <- rsp), frame-register-agnostic via x86_zr() so ZC_FRAME_RSP and ZC_FRAME_RBP both encode correctly, and medium-invisible because the encoder switches internally. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xaf_jmp_hdr_x86(void) {
+    int kt = g_emit.flat_frame_bytes;
+    return x86("sub", "rsp", (long)kt)
+         + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 24) + "]").c_str(), "rcx")
+         + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 16) + "]").c_str(), "rdx")
+         + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 8)  + "]").c_str(), "rbp")
+         + x86("mov", "rbp", "rsp");
+}   /* XA-FLAT-CONVERT slice B: x86() twin of the jmp-entry raw-byte `hdr` — HEADER ABOVE THE FRAME (outside-γ wire at kt-24, outside-ω wire at kt-16, caller rbp at kt-8), then rbp seeded to this activation's flat base.  Parameterless per R5 (reads g_emit, no locals leak into the arm's concat).  ⚠ THE BYTES ARE NOT THE LEGACY BYTES AND THAT IS CORRECT (R10): the legacy arm hand-encoded `sub rsp,imm32` + three disp32 stores unconditionally, while the encoder picks the as-matching imm8/disp8 short form whenever kt fits, so a small-frame blob converts SHORTER.  Byte-identity vs the legacy BINARY is therefore NOT the acceptance test here — behavioral gates are (s149 §5). */
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
     if (ZC_FRAME == ZC_FRAME_RSP) return bytes(3, "\x48\x8B\xA5") + u32le((uint32_t)xaf_anchor_off());   /* mov rsp, [rbp + off] — FZ-E stratum 2 (s90): the anchor is a FRAME slot (U3 role split); the U5 zr→rsp seal made this read rsp-relative, valid only at depth 0 — SN4's LIFO balance masked it, Icon's retained scan-suspension cells (element cells left below rsp for β-backtrack) arrive DEEP and loaded garbage → rsp=heap → jmp 0 (sa2 bracketing).  Enter stays rsp-based: the prologue IS depth 0 (and in the outermost arm it precedes the rbp seed). */
@@ -185,14 +194,14 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                     + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(kt - 8))         /* mov [rsp + kt-8], rbp — REG-7 U2: caller rbp saved in the TOP header pad (kt-8 picked over kt-32 to keep the pad adjacent to the region free; both were unused, FINDING s81 measurement 5) */
                                     + bytes(3, "\x48\x89\xE5");                                          /* mov rbp, rsp — REG-7 U2 seed: rbp = this activation's flat base (mirror of the s79 pat-blob save/seed at [rsp+24]/zr; restored on BOTH exit edges in the epilogue arm) */
                     if (g_emit.flat_lex && g_emit.flat_seed_off >= 16) {   /* PL-REGAIN-4 lazy arm: NO rep stosb — rt_jmp_frame_lexprep2 seeds slot0 + [suffix,region) only; box grants first-write-wins (SCRIP_ZLS_POISON=1 lane lives inside the leaf) */
-                        std::string r = hdr
-                                      + xaf_anchor_enter_bin()
-                                      + bytes(3, "\x48\x89\xE7")                                          /* mov rdi, rsp — fb = the just-allocated region base (== rbp seed) */
-                                      + bytes(1, "\xBE") + u32le((uint32_t)g_emit.flat_seed_off)          /* mov esi, suffix_off — NULVCL seed starts here (resume slot / zeta-mark / locals) */
-                                      + bytes(1, "\xBA") + u32le((uint32_t)(kt - 32))                     /* mov edx, K_region — seed/bind stops below the header */
-                                      + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)(void *)&rt_jmp_frame_lexprep2)   /* movabs rax, rt_jmp_frame_lexprep2 — raw bytes, NOT x86_movabs_r64: this arm is the legacy raw-byte family, an L-record would corrupt the stream */
-                                      + bytes(2, "\xFF\xD0");                                             /* call rax — rsp = base ≡ 0 mod 16 here (caller jmps at ≡0, kt is a 16-mult), the SysV pre-call parity; clobbers only caller-saved regs, the wires+rbp are already in the header */
-                        out_site = 0; out_lbl = nullptr; out_def = false;
+                        if (getenv("SCRIP_XAF_MARK")) fprintf(stderr, "XAFMARK LEXPREP2\n");
+                        std::string r = xaf_jmp_hdr_x86()
+                                      + xaf_anchor_enter_x86()
+                                      + x86("mov", "rdi", "rsp")                                          /* fb = the just-allocated region base (== rbp seed) */
+                                      + x86("mov32", "esi", (long)g_emit.flat_seed_off)                   /* mov esi, suffix_off — NULVCL seed starts here (resume slot / zeta-mark / locals).  ⚠ "mov32" NOT "mov": the plain mov-imm dispatch is x86_movimm, which ALWAYS stamps REX.W + a full imm64 (`movabs rsi`), while the TEXT twin `mov esi, N` assembles to the 5-byte B8+r imm32 — that pair is a MEDIUM DIVERGENCE (contract §5 width trap).  x86_movimm32 is the as-matching form and reproduces the legacy BE+u32 exactly. */
+                                      + x86("mov32", "edx", (long)(kt - 32))                              /* mov edx, K_region — seed/bind stops below the header; same mov32 reasoning as esi above */
+                                      + x86("call", "rt_jmp_frame_lexprep2", (uint64_t)(uintptr_t)(void *)&rt_jmp_frame_lexprep2);   /* x86_call_ro IS the legacy pair verbatim — BINARY `48 B8 <ptr> FF D0` (movabs rax + call rax), TEXT ` call sym@PLT` — so the hand-encoded movabs/call and the separate TEXT snprintf collapse into ONE medium-invisible call (R2/R10).  rsp = base ≡ 0 mod 16 here (caller jmps at ≡0, kt is a 16-mult), the SysV pre-call parity; clobbers only caller-saved regs, the wires+rbp are already in the header. */
+                        out_site = -1; out_lbl = nullptr; out_def = false;   /* XA-FLAT-CONVERT slice B: record stream — this arm carries NO external patch (it never had one; the legacy site was 0/nullptr), so the sentinel here buys the tag walker, not an 'X' record. */
                         return r;
                     }
                     if (!g_emit.flat_lex && !g_emit.flat_layout_unknown && xaf_nofill()) {   /* SPD-NOFILL (s139): flat_lex=0 jmp-entry citizens (PAT$ patprocs / LBL__ / EVAL-CODE chains / DYN procs) run NO lexprep and carry NO in-frame named locals — the region is box grants (first-write-wins by the four-port contract, rt.c:1402) + the [seed,region) suffix (resume slot / zeta-mark).  Zero ONLY slot0 + that suffix and SKIP the grant span: the blanket rep stosb was 63% of json-match's TOTAL Ir (255.7M/404M, FINDING s139).  Layout-unknown fallback graphs keep the eager arm below; SCRIP_PAT_NOFILL=0 kill-switch; SCRIP_ZLS_POISON=1 poisons the skipped span. */
@@ -254,7 +263,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     int K = xaf_outer_frame_k();
                     std::string r = x86("sub", "rsp", (long)K)
                                   + x86("mov", "rdi", "rsp")
-                                  + x86("mov", "ecx", (long)K)
+                                  + x86("mov32", "ecx", (long)K)   /* XA-FLAT-CONVERT slice B fix: was x86("mov",...) — that dispatches to x86_movimm, which unconditionally stamps REX.W + imm64 (`movabs rcx`, 10 bytes) while this arm's TEXT twin `mov ecx, K` assembles to the 5-byte B8+r imm32.  Verified with as: `mov esi,-1` -> be ff ff ff ff (rsi = 4294967295) vs `movabs rsi,-1` -> 48 be ff.. (rsi = -1), so the pair is a BYTE divergence at every site and a SEMANTIC one for any negative immediate (R10 "same REX.W width").  Harmless HERE only because K = xaf_outer_frame_k() >= 65544 is positive; x86_movimm32 is the as-matching form. */
                                   + x86("xor", "eax", "eax")
                                   + x86("rep_stosb")
                                   + xaf_anchor_enter_x86()
