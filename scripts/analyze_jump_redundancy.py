@@ -67,7 +67,7 @@ def kind(lbl):
     if lbl.endswith('_α'): return 'α-start'
     if lbl.endswith('_γ'): return 'γ-succeed'
     if lbl.endswith('_ω'): return 'ω-fail'
-    if lbl.startswith('xcat') or lbl.startswith('xalt') or lbl.startswith('xgvarg') or lbl.startswith('xchain'): return 'combinator'
+    if lbl.startswith('xcat') or lbl.startswith('xalt') or lbl.startswith('xgvarg') or re.match(r'n\d+_', lbl): return 'combinator'
     return 'other'
 
 def classify(path):
@@ -175,37 +175,32 @@ def main():
 # IR_MATCH_CAPTURE_SAVE is enforced ONLY on its "fc cell" comment variant (the granted arm) — the
 # "push" variant has a real β body (rt_cap_pop) and is not driver-listed.  Elided (absent) β labels
 # are skipped — nothing references them.  Exit 1 on any violation.
-GATE_ALWAYS = ('IR_MATCH_POS', 'IR_MATCH_RPOS', 'IR_MATCH_ABORT')
-GATE_FC     = ('IR_MATCH_CAPTURE_SAVE fc cell',)
+GATE_ALWAYS = ('match_pos', 'match_rpos', 'match_abort')
+GATE_FC     = ('match_capture_save',)   # SN4-ASM-CRIT: kind now read from the LABEL (n<uid>_<kind>_α); the old "fc cell" comment marker is gone — the push variant is skipped STRUCTURALLY (its β carries a real call, e.g. rt_cap_pop) below
 def gate(paths):
     body_re = re.compile(r'^(?:add\s+rsp\s*,\s*\d+)$')
     jmp_re  = re.compile(r'^jmp\s+[\w.$]+$')
-    lbl_re  = re.compile(r'^xchain(\d+)_n(\d+)_α\s*:\s*$')
+    lbl_re  = re.compile(r'^(n\d+)_([a-z0-9_]+?)_α\s*:\s*$')
     bad = 0; checked = 0
     for path in paths:
         labels, order = parse(path)
         attributed = {}
-        pending = None
         for raw in open(path, encoding='utf-8', errors='replace'):
             s = raw.strip()
-            if not s:
-                continue
-            if s.startswith('#'):
-                pending = s[1:].strip()
-                continue
             m = lbl_re.match(s)
-            if m and pending is not None:
-                attributed[(int(m.group(1)), int(m.group(2)))] = pending
-            pending = None
-        for (c, i), cmt in attributed.items():
+            if m:
+                attributed[(m.group(1), m.group(2))] = m.group(2)
+        for (stem, k), cmt in attributed.items():
             listed = (cmt in GATE_ALWAYS) or (cmt in GATE_FC)
             if not listed:
                 continue
-            blbl = f'xchain{c}_n{i}_β'
+            blbl = f'{stem}_{k}_β'
             if blbl not in labels:
                 continue
-            checked += 1
             real = [ins for ins in labels[blbl] if not ins.startswith('#')]
+            if cmt in GATE_FC and any(x.split()[:1] == ['call'] for x in real):
+                continue   # push variant: real β body (rt_cap_pop) by design, never driver-whitelisted
+            checked += 1
             ok = len(real) >= 1 and jmp_re.match(real[-1]) and all(body_re.match(x) for x in real[:-1])
             if not ok:
                 bad += 1

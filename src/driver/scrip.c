@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "../contracts/pin_va.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1215,6 +1216,7 @@ int main(int argc, char **argv)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
+            emit_textf("  mov r12, qword ptr [%lu]\n", (unsigned long)RT_CAS_TOP); /* R12-EXTERN (Lon s173): the OUTSIDE sets the environment register — mode-4 twin of mode-3's rt_outer_call; blobs assume r12 live on entry (xa_flat REG-6 outer seed deleted, outer prologue now shape-identical to a proc's) */
             emit_textf("  xor esi, esi\n");
             emit_textf("  call main_\xce\xb1\n");
             emit_textf("  xor eax, eax\n");
@@ -1400,6 +1402,7 @@ int main(int argc, char **argv)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
+            emit_textf("  mov r12, qword ptr [%lu]\n", (unsigned long)RT_CAS_TOP); /* R12-EXTERN (Lon s173): the OUTSIDE sets the environment register — twin of the main_α arm above and mode-3's rt_outer_call */
             emit_textf("  xor esi, esi\n");
             emit_textf("  call flat_\xce\xb1\n");
             if (ZC_FRAME == ZC_FRAME_RSP) emit_textf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
@@ -1539,7 +1542,7 @@ int main(int argc, char **argv)
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
             { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
-            (void)fn(mf, 0);
+            { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): mode-3's OUTSIDE seeds the environment register — push r12 / mov r12,[RT_CAS_TOP] / call / pop r12 (rt.c thunk); twin of the mode-4 wrapper seed, and closes the old in-blob seed's caller-r12 ABI clobber */
             goto run_done;
         }
         {
@@ -1628,7 +1631,7 @@ int main(int argc, char **argv)
                     if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
                     if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP */
                     { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20) */
-                    (void)fn(mf, 0);
+                    { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): twin of the primary mode-3 entry above */
                     { extern int g_gva_active; g_gva_active = 0; } goto run_done;
                 }
             }

@@ -32,7 +32,7 @@ mapfile -t ALL < <(find "$CORPUS" -path '*snobol4*' -name '*.s' 2>/dev/null)
 FILES=()
 for f in "${ALL[@]}"; do head -1 "$f" 2>/dev/null | grep -q '\.intel_syntax' && FILES+=("$f"); done
 [ "${#FILES[@]}" -gt 0 ] || { echo "FAIL: no LIVE SNOBOL4 .s artifacts under $CORPUS"; exit 1; }
-LOCAL='^(proc_|xchain|snoch|xcat|alt[0-9]|dol[0-9]|smatch|xscan|xgvarg|xcap|fn_|P_|L_|Ln_|s_|g_|m_|a_|arb[0-9]|ucall|flat_|main_|vowelinstem|stemmer|cons_|cvc_|doublec_|record_register|execute_code_dyn|comm_stno|qword|r[0-9a-z]{1,3}$|scan_retry)'
+LOCAL='^(proc_|n[0-9]+_|snoch|xcat|alt[0-9]|dol[0-9]|smatch|xscan|xgvarg|xcap|fn_|P_|L_|Ln_|s_|g_|m_|a_|arb[0-9]|ucall|flat_|main_|vowelinstem|stemmer|cons_|cvc_|doublec_|record_register|execute_code_dyn|comm_stno|qword|r[0-9a-z]{1,3}$|scan_retry)'
 printf '# RTX symbol inventory — generated %s from %d LIVE .s artifacts (of %d found) under %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${#FILES[@]}" "${#ALL[@]}" "$CORPUS"
 printf '# count symbol   (count = static call/jmp sites across all artifacts, NOT dynamic weight)\n'
 grep -ohE '(call|jmp)[[:space:]]+[A-Za-z_][^[:space:],;()#]*' "${FILES[@]}" 2>/dev/null \
