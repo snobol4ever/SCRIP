@@ -364,10 +364,18 @@ static void zls_slot_census(IR_graph_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_fct_finalize(IR_graph_t * g, int late);
-void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int);
+void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int); void fc_vbinop_register(const IR_t *); int fc_vcap(int, int, int); int is_global(const char *);
 void zls_build(IR_graph_t * g) {
     if (!g) return;
-    for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0] && a->operands[0]->op == IR_LIT_INTEGER && a->operands[0]->γ.node == a) { fc_vlit_register(a->operands[0]); fc_vread_register(a, 0); } }   /* ZB-VAL-0: POST-OPTIMIZER pair scan -- lower-time pointer registration dies to node rebuild/fold; gamma-adjacency IS the v1 fence (disp 0 exact) */
+    for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;   /* ZB-VAL-0/1: POST-OPTIMIZER value-spine scan -- lower-time pointer registration dies to node rebuild/fold; gamma-adjacency IS the fence */
+        { const char * vn = IR_LIT(a).sval; if (!(vn && is_global(vn) && !graph_has_local(g, vn))) continue; }   /* ZB-VAL-1: consumer MUST route to bb_assign_global (the only vfc release arm) -- mirrors the walk's routing predicate; a local-assign consumer would strand the carve (closes the ZB-VAL-0 latent) */
+        IR_t * r = a->operands[0];
+        if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET
+             || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
+            && r->γ.node == a && fc_vcap(1, 1, 0)) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }   /* ZB-VAL-0/2/3 pair: scalar lit OR global-routed var -> assign, disp 0 exact -- the cell is a type-blind 16B DESCR; bb_lit_scalar and bb_var_global both write FRQ(op_off)-relative so the fc_hit rebase serves them identically; the var gate MIRRORS the IR_VAR walk routing (bb_var_global only -- '&' keywords and locals stay flat) so registration <=> the one template with hook-served exits */
+        if (r->op == IR_BINOP && r->γ.node == a && r->n_operands == 2 && r->operands[0] && r->operands[1] && r->operands[0]->op == IR_LIT_INTEGER && r->operands[1]->op == IR_LIT_INTEGER
+            && r->operands[0]->γ.node == r->operands[1] && r->operands[1]->γ.node == r && IR_LIT(r).ival >= 0 && IR_LIT(r).ival <= 2 && fc_vcap(2, 1, 1))
+        { fc_vlit_register(r->operands[0]); fc_vlit_register(r->operands[1]); fc_vbinop_register(r); fc_vread_register(a, 0); } }   /* ZB-VAL-1: lit,lit -> binop(ADD/SUB/MUL only -- DIV/MOD decline, idiv fault path) -> assign; strict gamma-chain so cell depths are STATIC (lhs@16, rhs@0 at binop alpha); registration is capacity-ATOMIC (fc_vcap) so a partial quartet can never grant a cell nobody releases */
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {
@@ -627,7 +635,7 @@ int fc_vlit_active(const IR_t * nd);
 int fc_geom(const IR_t * nd, long * k) {
     if (!nd) return 0;
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-FC-3c: delta at cell+0; ungranted SAVE stays zero-cell = the flat rt_cap array path */
-    if (nd->op == IR_LIT_INTEGER && fc_vlit_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-VAL-0 (s177): registered statement-level lit feeding a plain assign; ungranted lits stay flat */
+    if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR) && fc_vlit_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-VAL-0/2/3 (s177/s178): registered statement-level value producer (scalar lit or global var read) feeding a plain assign; ungranted producers stay flat */
     if (nd->op == IR_MATCH_ARB)    { if (k) *k = 16; return 1; }   /* ZB-FC-4 (Lon s50 S14): the 8-byte counter+saved-cursor cell, ex-zls2, now a clean fixed FORTH cell */
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
@@ -730,10 +738,14 @@ int fc_seq_active(const IR_t * nd) {
  * must pick up nothing else).  IMM is the identical topology at op_phase 2 -- one mechanism, two phases. */
 static const IR_t * fvl[256]; static int fvl_n = 0;
 void fc_vlit_register(const IR_t * nd) { if (!nd || fvl_n >= 256) return; fvl[fvl_n++] = nd; }
-int fc_vlit_active(const IR_t * nd) { if (!nd || nd->op != IR_LIT_INTEGER) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
+int fc_vlit_active(const IR_t * nd) { if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; int fp; } fvr[256]; static int fvr_n = 0;
 void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fvr_n >= 256) return; fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; }   /* ZB-VAL-0: consumer-side displacement, the fc_cond_register shape */
 int fc_vread_fp(const IR_t * nd) { for (int i = 0; i < fvr_n; i++) if (fvr[i].nd == nd) return fvr[i].fp; return -1; }
+static const IR_t * fvb[256]; static int fvb_n = 0;
+void fc_vbinop_register(const IR_t * nd) { if (!nd || fvb_n >= 256) return; fvb[fvb_n++] = nd; }   /* ZB-VAL-1: value-spine binop -- operands arrive as two granted-lit rsp cells; template releases both + carves its RESULT in one net add rsp,16 */
+int fc_vbinop_active(const IR_t * nd) { if (!nd || nd->op != IR_BINOP) return 0; for (int i = 0; i < fvb_n; i++) if (fvb[i] == nd) return 1; return 0; }
+int fc_vcap(int nl, int nr, int nb) { return fvl_n + nl <= 256 && fvr_n + nr <= 256 && fvb_n + nb <= 256; }   /* ZB-VAL-1: registration is all-or-nothing per statement -- a dropped member of the quartet would strand a carve */
 static const IR_t * fcv[256];
 static int fcv_n = 0;
 void fc_save_register(const IR_t * nd) { if (!nd || fcv_n >= 256) return; fcv[fcv_n++] = nd; }

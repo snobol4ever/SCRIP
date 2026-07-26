@@ -11,10 +11,27 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 }
 #include "x86_asm.h"
+#include <cstdio>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline const char * rspq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-1: the bb_assign_global rspq precedent */
+static inline int vfcb() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }   /* ZB-VAL-1: registered value-spine binop -- registration guarantees two granted int-lit cells + ADD/SUB/MUL */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
     if (!PLATFORM_X86) return std::string();
-    return IF(_.op_num_real && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0,
+    return IF(vfcb(),
+           x86_alpha()
+         + x86("comment", "IR_BINOP_ARITH fc")
+         + x86("mov", "rax", rspq(24))
+         + x86("mov", "rcx", rspq(8))
+         + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
+         + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
+         + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))
+         + x86("add", "rsp", (long)16)
+         + x86("mov", rspq(0), (long)DT_I)
+         + x86("mov", rspq(8), "rax")
+         + x86_gamma()
+         + x86_beta_trampoline())
+         + IF(!vfcb() && _.op_num_real && _.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0,
            x86_alpha()
          + x86("comment", "IR_BINOP_ARITH_REAL")
          + x86("mov", "rdi", FRQ(_.op_sa))
@@ -29,7 +46,7 @@ std::string bb_binop_arith() {
          + x86("mov", FRQ(_.op_off + 8), "rdx")
          + x86_gamma()
          + x86_beta_trampoline())
-         + IF(_.op_off >= 0 && !_.op_num_real
+         + IF(!vfcb() && _.op_off >= 0 && !_.op_num_real
               && ((long long)_.op_ival == BINOP_ADD || (long long)_.op_ival == BINOP_SUB || (long long)_.op_ival == BINOP_MUL
                   || (long long)_.op_ival == BINOP_DIV || (long long)_.op_ival == BINOP_MOD),
            x86_alpha()
