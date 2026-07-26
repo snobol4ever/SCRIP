@@ -80,6 +80,14 @@ void pl_write(Term *t) {
                     break;
                 }
             }
+            if (strcmp(fn, "$VARNAME") == 0 && t->compound.arity == 1) {
+                Term *n = term_deref(t->compound.args[0]);
+                if (n && n->tag == TERM_ATOM) {
+                    const char *vn = prolog_atom_name(n->atom_id);
+                    fprintf(plw(), "%s", vn ? vn : "_");
+                    break;
+                }
+            }
             if (t->compound.functor == ATOM_DOT && t->compound.arity == 2) {
                 fprintf(plw(), "[");
                 pl_write(t->compound.args[0]);
@@ -236,6 +244,14 @@ static void pl_writeq_term(Term *t) {
                 if (n && n->tag == TERM_INT) {
                     long num = n->ival; int letter=(int)(num%26); long suf=num/26;
                     if (suf==0) fprintf(plw(), "%c",'A'+letter); else fprintf(plw(), "%c%ld",'A'+letter,suf);
+                    break;
+                }
+            }
+            if (strcmp(fn,"$VARNAME")==0 && t->compound.arity==1) {
+                Term *n = term_deref(t->compound.args[0]);
+                if (n && n->tag == TERM_ATOM) {
+                    const char *vn = prolog_atom_name(n->atom_id);
+                    fprintf(plw(), "%s", vn ? vn : "_");
                     break;
                 }
             }
