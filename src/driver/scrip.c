@@ -785,6 +785,12 @@ int main(int argc, char **argv)
                 if (!bb) continue;
                 bbj_edge(stdout, &first, gi, i, "gamma", g, &bb->γ);
                 bbj_edge(stdout, &first, gi, i, "omega", g, &bb->ω);
+                for (int oj = 0; oj < bb->n_operands; oj++) {
+                    int j = bb->operands && bb->operands[oj] ? bbj_index(g, bb->operands[oj]) : -1;
+                    if (j < 0) continue;
+                    fprintf(stdout, "%s\n  {\"from\":\"b%d_%d\",\"to\":\"b%d_%d\",\"rel\":\"op\",\"slot\":%d}", first ? "" : ",", gi, i, gi, j, oj);
+                    first = 0;
+                }
             }
         }
         fputs("]}\n", stdout);
