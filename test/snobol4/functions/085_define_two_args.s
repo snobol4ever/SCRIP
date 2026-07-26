@@ -1,5 +1,5 @@
-  .intel_syntax noprefix
-  .text
+                        .intel_syntax    noprefix
+                        .text
   .globl proc_add_α
 proc_add_α:
 #=======================================================================================================================
@@ -104,68 +104,68 @@ lea rsp, [rbp + 256]
 mov rbp, [rbp + 248]
 jmp rax
 proc_startup:
-  sub rsp, 8
-  .section .rodata
-  .Lstartup_pname0: .string "add"
-  .Lstartup_pp0_0: .string "a"
-  .Lstartup_pp0_1: .string "b"
-  .align 8
-  .Lstartup_pnames0:
-  .quad .Lstartup_pp0_0
-  .quad .Lstartup_pp0_1
-  .quad 0
-  .section .text
-  .intel_syntax noprefix
-  lea rdi, [rip + .Lstartup_pname0]
-  lea rsi, [rip + .Lstartup_pnames0]
-  mov edx, 2
-  call rt_proc_register@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 1
-  call rt_proc_set_dyn_scope@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  lea rsi, [rip + proc_add_α]
-  call rt_proc_set_fn@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 2
-  call rt_proc_set_nparams@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 224
-  call rt_proc_set_frame_bytes@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 1
-  call rt_proc_set_jmpentry@PLT
-  add rsp, 8
-  ret
-  .section .rodata
-  .Lgvan0: .string "add"
-  .Lgvan1: .string "a"
-  .Lgvan2: .string "b"
-  .align 8
+                        sub              rsp, 8
+                        .section         .rodata
+.Lstartup_pname0:       .string          "add"
+.Lstartup_pp0_0:        .string          "a"
+.Lstartup_pp0_1:        .string          "b"
+                        .align           8
+.Lstartup_pnames0:
+                        .quad            .Lstartup_pp0_0
+                        .quad            .Lstartup_pp0_1
+                        .quad            0
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        lea              rsi, [rip + .Lstartup_pnames0]
+                        mov              edx, 2
+                        call             rt_proc_register@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 1
+                        call             rt_proc_set_dyn_scope@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        lea              rsi, [rip + proc_add_α]
+                        call             rt_proc_set_fn@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 2
+                        call             rt_proc_set_nparams@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 224
+                        call             rt_proc_set_frame_bytes@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 1
+                        call             rt_proc_set_jmpentry@PLT
+                        add              rsp, 8
+                        ret
+                        .section         .rodata
+.Lgvan0:                .string          "add"
+.Lgvan1:                .string          "a"
+.Lgvan2:                .string          "b"
+                        .align           8
 __gva_names:
-  .quad .Lgvan0
-  .quad .Lgvan1
-  .quad .Lgvan2
-  .section .text
-  .intel_syntax noprefix
-  .globl main
+                        .quad            .Lgvan0
+                        .quad            .Lgvan1
+                        .quad            .Lgvan2
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .globl           main
 main:
-  sub rsp, 8
-  push rdi
-  push rsi
-  call core_lib_init@PLT
-  call proc_startup
-  mov edi, 3
-  call rt_gva_island@PLT
-  mov rsi, rax
-  lea rdi, [rip + __gva_names]
-  mov edx, 3
-  call gva_register@PLT
-  xor esi, esi
-  call main_α
-  xor eax, eax
-  add rsp, 24
-  ret
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             proc_startup
+                        mov              edi, 3
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 3
+                        call             gva_register@PLT
+                        xor              esi, esi
+                        call             main_α
+                        xor              eax, eax
+                        add              rsp, 24
+                        ret
 main_α:
 #=======================================================================================================================
     .global main_α

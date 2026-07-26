@@ -1,41 +1,41 @@
-  .intel_syntax noprefix
-  .text
-  .section .rodata
-  .Lgvan0: .string "a"
-  .Lgvan1: .string "output"
-  .Lgvan2: .string "b"
-  .Lgvan3: .string "d"
-  .Lgvan4: .string "lfunc"
-  .Lgvan5: .string "x"
-  .Lgvan6: .string "checklocal"
-  .align 8
+                        .intel_syntax    noprefix
+                        .text
+                        .section         .rodata
+.Lgvan0:                .string          "a"
+.Lgvan1:                .string          "output"
+.Lgvan2:                .string          "b"
+.Lgvan3:                .string          "d"
+.Lgvan4:                .string          "lfunc"
+.Lgvan5:                .string          "x"
+.Lgvan6:                .string          "checklocal"
+                        .align           8
 __gva_names:
-  .quad .Lgvan0
-  .quad .Lgvan1
-  .quad .Lgvan2
-  .quad .Lgvan3
-  .quad .Lgvan4
-  .quad .Lgvan5
-  .quad .Lgvan6
-  .section .text
-  .intel_syntax noprefix
-  .globl main
+                        .quad            .Lgvan0
+                        .quad            .Lgvan1
+                        .quad            .Lgvan2
+                        .quad            .Lgvan3
+                        .quad            .Lgvan4
+                        .quad            .Lgvan5
+                        .quad            .Lgvan6
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .globl           main
 main:
-  sub rsp, 8
-  push rdi
-  push rsi
-  call core_lib_init@PLT
-  mov edi, 7
-  call rt_gva_island@PLT
-  mov rsi, rax
-  lea rdi, [rip + __gva_names]
-  mov edx, 7
-  call gva_register@PLT
-  xor esi, esi
-  call main_α
-  xor eax, eax
-  add rsp, 24
-  ret
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        mov              edi, 7
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 7
+                        call             gva_register@PLT
+                        xor              esi, esi
+                        call             main_α
+                        xor              eax, eax
+                        add              rsp, 24
+                        ret
 main_α:
 #=======================================================================================================================
     .global main_α

@@ -1,5 +1,5 @@
-  .intel_syntax noprefix
-  .text
+                        .intel_syntax    noprefix
+                        .text
   .globl proc_roman_α
 proc_roman_α:
 #=======================================================================================================================
@@ -1841,80 +1841,80 @@ lea rsp, [rbp + 5120]
 mov rbp, [rbp + 5112]
 jmp rax
 proc_startup:
-  sub rsp, 8
-  .section .rodata
-  .Lstartup_pname0: .string "roman"
-  .Lstartup_pp0_0: .string "n"
-  .Lstartup_pp0_1: .string "s"
-  .Lstartup_pp0_2: .string "v"
-  .Lstartup_pp0_3: .string "r"
-  .Lstartup_pp0_4: .string "i"
-  .align 8
-  .Lstartup_pnames0:
-  .quad .Lstartup_pp0_0
-  .quad .Lstartup_pp0_1
-  .quad .Lstartup_pp0_2
-  .quad .Lstartup_pp0_3
-  .quad .Lstartup_pp0_4
-  .quad 0
-  .section .text
-  .intel_syntax noprefix
-  lea rdi, [rip + .Lstartup_pname0]
-  lea rsi, [rip + .Lstartup_pnames0]
-  mov edx, 5
-  call rt_proc_register@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 1
-  call rt_proc_set_dyn_scope@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  lea rsi, [rip + proc_roman_α]
-  call rt_proc_set_fn@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 5
-  call rt_proc_set_nparams@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 5088
-  call rt_proc_set_frame_bytes@PLT
-  lea rdi, [rip + .Lstartup_pname0]
-  mov esi, 1
-  call rt_proc_set_jmpentry@PLT
-  add rsp, 8
-  ret
-  .section .rodata
-  .Lgvan0: .string "roman"
-  .Lgvan1: .string "n"
-  .Lgvan2: .string "s"
-  .Lgvan3: .string "v"
-  .Lgvan4: .string "r"
-  .Lgvan5: .string "i"
-  .align 8
+                        sub              rsp, 8
+                        .section         .rodata
+.Lstartup_pname0:       .string          "roman"
+.Lstartup_pp0_0:        .string          "n"
+.Lstartup_pp0_1:        .string          "s"
+.Lstartup_pp0_2:        .string          "v"
+.Lstartup_pp0_3:        .string          "r"
+.Lstartup_pp0_4:        .string          "i"
+                        .align           8
+.Lstartup_pnames0:
+                        .quad            .Lstartup_pp0_0
+                        .quad            .Lstartup_pp0_1
+                        .quad            .Lstartup_pp0_2
+                        .quad            .Lstartup_pp0_3
+                        .quad            .Lstartup_pp0_4
+                        .quad            0
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        lea              rsi, [rip + .Lstartup_pnames0]
+                        mov              edx, 5
+                        call             rt_proc_register@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 1
+                        call             rt_proc_set_dyn_scope@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        lea              rsi, [rip + proc_roman_α]
+                        call             rt_proc_set_fn@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 5
+                        call             rt_proc_set_nparams@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 5088
+                        call             rt_proc_set_frame_bytes@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 1
+                        call             rt_proc_set_jmpentry@PLT
+                        add              rsp, 8
+                        ret
+                        .section         .rodata
+.Lgvan0:                .string          "roman"
+.Lgvan1:                .string          "n"
+.Lgvan2:                .string          "s"
+.Lgvan3:                .string          "v"
+.Lgvan4:                .string          "r"
+.Lgvan5:                .string          "i"
+                        .align           8
 __gva_names:
-  .quad .Lgvan0
-  .quad .Lgvan1
-  .quad .Lgvan2
-  .quad .Lgvan3
-  .quad .Lgvan4
-  .quad .Lgvan5
-  .section .text
-  .intel_syntax noprefix
-  .globl main
+                        .quad            .Lgvan0
+                        .quad            .Lgvan1
+                        .quad            .Lgvan2
+                        .quad            .Lgvan3
+                        .quad            .Lgvan4
+                        .quad            .Lgvan5
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .globl           main
 main:
-  sub rsp, 8
-  push rdi
-  push rsi
-  call core_lib_init@PLT
-  call proc_startup
-  mov edi, 6
-  call rt_gva_island@PLT
-  mov rsi, rax
-  lea rdi, [rip + __gva_names]
-  mov edx, 6
-  call gva_register@PLT
-  xor esi, esi
-  call main_α
-  xor eax, eax
-  add rsp, 24
-  ret
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             proc_startup
+                        mov              edi, 6
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 6
+                        call             gva_register@PLT
+                        xor              esi, esi
+                        call             main_α
+                        xor              eax, eax
+                        add              rsp, 24
+                        ret
 main_α:
 #=======================================================================================================================
     .global main_α

@@ -1,45 +1,45 @@
-  .intel_syntax noprefix
-  .text
-  .section .rodata
-  .Lgvan0: .string "H"
-  .Lgvan1: .string "V"
-  .Lgvan2: .string "HC"
-  .Lgvan3: .string "NH"
-  .Lgvan4: .string "CROSS"
-  .Lgvan5: .string "VC"
-  .Lgvan6: .string "NV"
-  .Lgvan7: .string "PRINTV"
-  .Lgvan8: .string "C"
-  .align 8
+                        .intel_syntax    noprefix
+                        .text
+                        .section         .rodata
+.Lgvan0:                .string          "H"
+.Lgvan1:                .string          "V"
+.Lgvan2:                .string          "HC"
+.Lgvan3:                .string          "NH"
+.Lgvan4:                .string          "CROSS"
+.Lgvan5:                .string          "VC"
+.Lgvan6:                .string          "NV"
+.Lgvan7:                .string          "PRINTV"
+.Lgvan8:                .string          "C"
+                        .align           8
 __gva_names:
-  .quad .Lgvan0
-  .quad .Lgvan1
-  .quad .Lgvan2
-  .quad .Lgvan3
-  .quad .Lgvan4
-  .quad .Lgvan5
-  .quad .Lgvan6
-  .quad .Lgvan7
-  .quad .Lgvan8
-  .section .text
-  .intel_syntax noprefix
-  .globl main
+                        .quad            .Lgvan0
+                        .quad            .Lgvan1
+                        .quad            .Lgvan2
+                        .quad            .Lgvan3
+                        .quad            .Lgvan4
+                        .quad            .Lgvan5
+                        .quad            .Lgvan6
+                        .quad            .Lgvan7
+                        .quad            .Lgvan8
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .globl           main
 main:
-  sub rsp, 8
-  push rdi
-  push rsi
-  call core_lib_init@PLT
-  mov edi, 9
-  call rt_gva_island@PLT
-  mov rsi, rax
-  lea rdi, [rip + __gva_names]
-  mov edx, 9
-  call gva_register@PLT
-  xor esi, esi
-  call main_α
-  xor eax, eax
-  add rsp, 24
-  ret
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        mov              edi, 9
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 9
+                        call             gva_register@PLT
+                        xor              esi, esi
+                        call             main_α
+                        xor              eax, eax
+                        add              rsp, 24
+                        ret
 main_α:
 #=======================================================================================================================
     .global main_α
