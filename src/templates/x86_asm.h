@@ -1182,9 +1182,10 @@ static inline void x86_4col_pad(std::string & o, const char * s, size_t n, int w
 /* x86_4col (2026-07-26, Lon directive; corrected same day: BBs have ALWAYS been a FOUR-column format — LABEL / OPERATOR / OPERANDS / GOTO; the three-column notion was Stack Machine, long gone): render
  * every TEXT-medium assembly line in the four-column BB shape — label field 24, operator field 17, operands at col 41 width 47, GOTO column at col 88 (24+17+47, sized by the 2026-07-26 sweep of all 587
  * live .intel_syntax artifacts: widest non-jump operand = 47).  Every jump — mnemonic 'j*': jmp + the whole jcc family + jecxz/jrcxz, an exact class in x86 — renders in the GOTO column, mnemonic
- * padded to 6.  '#' comment lines and empty lines pass through at the margin; 'label: op ...' lines split; rep/lock prefixes fold into the operator; label-only lines sit alone at col 0.  Applied at
- * exactly ONE place — the emit_text_n funnel (emit.cpp), through which every TEXT byte reaches the sink.  Plain x86 TEXT only: BINARY records, MACRO_DEF, and non-x86 platforms pass untouched, so
- * mode-3 bytes and MODE34 identity are unaffected by construction.  SCRIP_ASM_COLUMNS=0 restores verbatim. */
+ * padded to 6.  '#' comment lines and empty lines pass through at the margin; 'label: op ...' lines split; rep/lock prefixes fold into the operator; label-only lines sit alone at col 0.  x86() — the
+ * ONE funnel, which is not new — applies this formatter to every line it dispatches; the emit_text_n sink applies it again (idempotent, a no-op on x86() output) to catch the legacy producers that do
+ * not yet speak x86() (emit_textf sites, xa_* string builders, label defines) until R7 conversion retires them.  Plain x86 TEXT only: BINARY records, MACRO_DEF, and non-x86 platforms pass untouched,
+ * so mode-3 bytes and MODE34 identity are unaffected by construction.  SCRIP_ASM_COLUMNS=0 restores verbatim. */
 inline std::string x86_4col(const std::string & s) {
     if (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !PLATFORM_X86) return s;
     { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_ASM_COLUMNS"); on = (e && *e == '0') ? 0 : 1; } if (!on) return s; }
@@ -1226,7 +1227,7 @@ inline std::string x86_4col(const std::string & s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
-inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_core_(mnem, xa, xb, xc, xd); }
+inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_4col(x86_core_(mnem, xa, xb, xc, xd)); }
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
     if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");

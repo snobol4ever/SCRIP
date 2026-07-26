@@ -666,13 +666,12 @@ extern "C" {
 #include <stddef.h>
 #include <stdio.h>
 void emit_text_n(const char * s, size_t n);
-void emit_text_raw_n(const char * s, size_t n);
 void emit_text_flush(void);
 long emit_text_count(void);
 void emit_textf (const char * fmt, ...)
                  __attribute__((format(printf, 1, 2)));
 void emit_textf_flush(void);
-void   emit_io_set_sink(FILE * out);
+void emit_set_sink(FILE * out);
 #ifdef __cplusplus
 }
 extern "C++" {
