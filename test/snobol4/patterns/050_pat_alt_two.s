@@ -32,14 +32,13 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 65544
+                        sub              rsp, 440
                         mov              rdi, rsp
-                        mov              ecx, 65544
+                        mov              ecx, 440
                         xor              eax, eax
                         rep stosb
-                        mov              qword ptr [rsp + 440], rsp
                         mov              r12, qword ptr [1879048192]
-                        mov              [rsp + 65536], rbp
+                        mov              [rsp + 432], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -323,20 +322,20 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, qword ptr [rbp + 440]
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 432]
+                        add              rsp, 440
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, qword ptr [rbp + 440]
+                        mov              rsp, rbp
                         mov              dword ptr [rsp+0], 99
                         mov              dword ptr [rsp+4], 0
                         mov              qword ptr [rsp+8], 0
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rbp, [rsp + 432]
+                        add              rsp, 440
                         ret
                         .section         .rodata
 .S0:                    .string          "V"

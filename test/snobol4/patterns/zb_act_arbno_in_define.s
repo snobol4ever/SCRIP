@@ -7,17 +7,15 @@ proc_MATCHIT_α:
                         .global          proc_MATCHIT_β
                         .global          proc_MATCHIT_γ
                         .global          proc_MATCHIT_ω
-                        sub              rsp, 544
-                        mov              [rsp + 520], rcx
-                        mov              [rsp + 528], rdx
-                        mov              [rsp + 536], rbp
+                        sub              rsp, 528
+                        mov              [rsp + 504], rcx
+                        mov              [rsp + 512], rdx
+                        mov              [rsp + 520], rbp
                         mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
                         mov              qword ptr [rsp + 256], 0
                         mov              qword ptr [rsp + 264], 0
-                        mov              qword ptr [rsp + 496], 0
-                        mov              qword ptr [rsp + 504], rsp
 proc_MATCHIT_α_body:
 #=======================================================================================================================
 # MATCHIT S POS(0) ARBNO('a') . V RPOS(0)                            :S(MI_YES)
@@ -362,15 +360,15 @@ proc_MATCHIT_β:
 proc_MATCHIT_γ:
                         mov              rdi, [rbp]
                         mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 520]
-                        lea              rsp, [rbp + 544]
-                        mov              rbp, [rbp + 536]
+                        mov              rax, [rbp + 504]
+                        lea              rsp, [rbp + 528]
+                        mov              rbp, [rbp + 520]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_ω:
-                        mov              rax, [rbp + 528]
-                        lea              rsp, [rbp + 544]
-                        mov              rbp, [rbp + 536]
+                        mov              rax, [rbp + 512]
+                        lea              rsp, [rbp + 528]
+                        mov              rbp, [rbp + 520]
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -397,7 +395,7 @@ proc_startup:
                         mov              esi, 1
                         call             rt_proc_set_nparams@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 512
+                        mov              esi, 496
                         call             rt_proc_set_frame_bytes@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 1
@@ -439,14 +437,13 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 65544
+                        sub              rsp, 600
                         mov              rdi, rsp
-                        mov              ecx, 65544
+                        mov              ecx, 600
                         xor              eax, eax
                         rep stosb
-                        mov              qword ptr [rsp + 600], rsp
                         mov              r12, qword ptr [1879048192]
-                        mov              [rsp + 65536], rbp
+                        mov              [rsp + 592], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -582,20 +579,20 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, qword ptr [rbp + 600]
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 592]
+                        add              rsp, 600
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, qword ptr [rbp + 600]
+                        mov              rsp, rbp
                         mov              dword ptr [rsp+0], 99
                         mov              dword ptr [rsp+4], 0
                         mov              qword ptr [rsp+8], 0
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 65536]
-                        add              rsp, 65544
+                        mov              rbp, [rsp + 592]
+                        add              rsp, 600
                         ret
                         .section         .rodata
 .S0:                    .string          "V"
