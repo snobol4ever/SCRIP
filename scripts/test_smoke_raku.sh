@@ -3553,6 +3553,51 @@ my @a = (10,20,30);
 say @a[*].sum;
 EOF
 
+raku "param_default_omitted" "5" << 'EOF'
+sub f($x = 5) { return $x }
+say f();
+EOF
+
+raku "param_default_supplied" "9" << 'EOF'
+sub f($x = 5) { return $x }
+say f(9);
+EOF
+
+raku "param_default_zero_kept" "0" << 'EOF'
+sub f($x = 5) { return $x }
+say f(0);
+EOF
+
+raku "param_default_second_only" "$(printf '3\n11')" << 'EOF'
+sub g($a, $b = 2) { return $a + $b }
+say g(1);
+say g(1,10);
+EOF
+
+raku "param_default_depends_on_earlier" "9" << 'EOF'
+sub h($a, $b = $a * 2) { return $a + $b }
+say h(3);
+EOF
+
+raku "param_default_string" "hi" << 'EOF'
+sub s2($a = "hi") { return $a }
+say s2();
+EOF
+
+raku "param_default_method" "$(printf '42\n8')" << 'EOF'
+class C { method m($v = 42) { return $v } }
+my $o = C.new;
+say $o.m();
+say $o.m(8);
+EOF
+
+raku "param_default_plain_unaffected" "$(printf '6\n4')" << 'EOF'
+sub plain($z) { return $z }
+say plain(6);
+sub t(Int $n) { return $n }
+say t(4);
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

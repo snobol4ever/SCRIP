@@ -225,6 +225,28 @@ static tree_t *rk_tree_clone(tree_t *e) {
     return c;
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_param_default(tree_t *p, tree_t *dflt) {
+    return expr_binary(TT_ASSIGN, p, dflt);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_defaults_prologue(ExprList *params, tree_t *body) {
+    if (!params) return body;
+    ExprList *pro = NULL;
+    for (int i = 0; i < params->count; i++) {
+        tree_t *p = params->items[i];
+        if (!p || p->t != TT_ASSIGN || p->n < 2) continue;
+        tree_t *pv = p->c[0]; tree_t *dv = p->c[1];
+        params->items[i] = pv;
+        tree_t *mc = ast_node_new(TT_METHCALL); ast_push(mc, rk_tree_clone(pv)); ast_push(mc, leaf_sval(TT_QLIT, "defined"));
+        tree_t *un = ast_node_new(TT_UNLESS); ast_push(un, mc); ast_push(un, seq1(expr_binary(TT_ASSIGN, rk_tree_clone(pv), dv)));
+        if (!pro) pro = exprlist_new();
+        exprlist_append(pro, un);
+    }
+    if (!pro) return body;
+    for (int i = 0; body && i < body->n; i++) exprlist_append(pro, body->c[i]);
+    return make_seq(pro);
+}
+/*--------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_chain_cmp(tree_e k) {
     return k == TT_LT || k == TT_GT || k == TT_LE || k == TT_GE || k == TT_EQ || k == TT_NE || k == TT_LEQ || k == TT_LNE;
 }
@@ -782,11 +804,11 @@ when_list
     ;
 sub_decl
     : KW_SUB IDENT '(' param_list ')' sub_body
-        { ExprList *params=$4; int np=params?params->count:0;
+        { ExprList *params=$4; tree_t *rkbody=rk_defaults_prologue(params,$6); int np=params?params->count:0;
           tree_t *e=leaf_sval(TT_SUB_DECL,$2); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($2); expr_add_child(e,nn);
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=$6;
+          tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
     | KW_SUB IDENT '(' ')' sub_body
@@ -802,11 +824,11 @@ sub_decl
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
     | KW_MY KW_SUB IDENT '(' param_list ')' sub_body
-        { ExprList *params=$5; int np=params?params->count:0;
+        { ExprList *params=$5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np=params?params->count:0;
           tree_t *e=leaf_sval(TT_SUB_DECL,$3); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($3); expr_add_child(e,nn);
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=$7;
+          tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
     | KW_MY KW_SUB IDENT '(' ')' sub_body
@@ -822,12 +844,12 @@ sub_decl
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
     | KW_MULTI KW_SUB IDENT '(' param_list ')' sub_body
-        { ExprList *params=$5; int np=params?params->count:0;
+        { ExprList *params=$5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np=params?params->count:0;
           const char *mname=rk_multi_mangle($3,params);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=$7;
+          tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
     | KW_MULTI KW_SUB IDENT '(' ')' sub_body
@@ -838,21 +860,21 @@ sub_decl
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
     | KW_MULTI KW_SUB OP_NAME '(' param_list ')' sub_body
-        { ExprList *params=$5; int np=params?params->count:0;
+        { ExprList *params=$5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np=params?params->count:0;
           const char *mname=rk_multi_mangle($3,params);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=$7;
+          tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($3); $$=e; }
     | KW_MULTI IDENT '(' param_list ')' sub_body
-        { ExprList *params=$4; int np=params?params->count:0;
+        { ExprList *params=$4; tree_t *rkbody=rk_defaults_prologue(params,$6); int np=params?params->count:0;
           const char *mname=rk_multi_mangle($2,params);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=$6;
+          tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($2); $$=e; }
     | KW_MULTI IDENT '(' ')' sub_body
@@ -1131,12 +1153,12 @@ class_body_list
           free($3); free($4); free($5); free($6);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_METHOD meth_name '(' param_list ')' method_body
-        { ExprList *params = $5; int np = params ? params->count : 0;
+        { ExprList *params = $5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np = params ? params->count : 0;
           tree_t *e = ast_node_new(TT_SUB_DECL);
           e->v.ival = (long long)(np + 1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern($3); expr_add_child(e, nn);
           if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
-          tree_t *body = $7;
+          tree_t *body=rkbody;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free($3);
           $$ = exprlist_append($1, e); }
@@ -1157,12 +1179,12 @@ class_body_list
           free($3);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_METHOD KW_NEW '(' param_list ')' method_body
-        { ExprList *params = $5; int np = params ? params->count : 0;
+        { ExprList *params = $5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np = params ? params->count : 0;
           tree_t *e = ast_node_new(TT_SUB_DECL);
           e->v.ival = (long long)(np + 1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern("new"); expr_add_child(e, nn);
           if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
-          tree_t *body = $7;
+          tree_t *body=rkbody;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_METHOD KW_NEW '(' ')' method_body
@@ -1180,12 +1202,12 @@ class_body_list
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_MULTI KW_METHOD meth_name '(' param_list ')' method_body
-        { ExprList *params = $6; int np = params ? params->count : 0;
+        { ExprList *params = $6; tree_t *rkbody=rk_defaults_prologue(params,$8); int np = params ? params->count : 0;
           const char *mname = rk_multi_mangle($4, params);
           tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(np + 1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
           if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
-          tree_t *body = $8;
+          tree_t *body=rkbody;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free($4);
           $$ = exprlist_append($1, e); }
@@ -1268,6 +1290,8 @@ param_list
     | param_list ',' IDENT VAR_SCALAR { $$=exprlist_append($1,rk_typed_param($3,$4)); free($3); }
     | param_list ',' IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":D",$5)); free($3); }
     | param_list ',' IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":U",$5)); free($3); }
+    | VAR_SCALAR '=' expr    { $$=exprlist_append(exprlist_new(),rk_param_default(var_node($1),$3)); }
+    | param_list ',' VAR_SCALAR '=' expr { $$=exprlist_append($1,rk_param_default(var_node($3),$5)); }
     ;
 block
     : '{' stmt_list '}'  { $$=make_seq($2); }
