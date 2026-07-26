@@ -6,6 +6,7 @@ main:
                         push             rdi
                         push             rsi
                         call             core_lib_init@PLT
+                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
@@ -22,32 +23,29 @@ main_α:
                         mov              ecx, 152
                         xor              eax, eax
                         rep stosb
-                        mov              r12, qword ptr [1879048192]
                         mov              [rsp + 144], rbp
                         mov              rbp, rsp
 main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n0_α:
+n0_lit_integer_α:
                         mov              qword ptr [rbp + 112], 6
-                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              rax, qword ptr [rip + .Lx2_0]
                         mov              qword ptr [rbp + 120], rax
-                                                                                        jmp   xchain0_n1_α
-.Lx1_0:
+                                                                                        jmp   n1_assign_α
+.Lx2_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN global
-xchain0_n1_α:
+n1_assign_α:
                         mov              rsi, qword ptr [rbp + 112]
                         mov              rdx, qword ptr [rbp + 120]
-                        mov              rdi, qword ptr [rip + .Lx2_0]
+                        mov              rdi, qword ptr [rip + .Lx3_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   main_γ
-.Lx2_0:
-                        .quad            .Lx2_0_s
-.Lx2_0_s:
+.Lx3_0:
+                        .quad            .Lx3_0_s
+.Lx3_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

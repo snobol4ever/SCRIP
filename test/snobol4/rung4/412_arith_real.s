@@ -19,6 +19,7 @@ main:
                         lea              rdi, [rip + __gva_names]
                         mov              edx, 1
                         call             gva_register@PLT
+                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
@@ -35,37 +36,31 @@ main_α:
                         mov              ecx, 1304
                         xor              eax, eax
                         rep stosb
-                        mov              r12, qword ptr [1879048192]
                         mov              [rsp + 1296], rbp
                         mov              rbp, rsp
 main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n0_α:
+n0_lit_real_α:
                         mov              qword ptr [rbp + 160], 7
-                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              rax, qword ptr [rip + .Lx35_0]
                         mov              qword ptr [rbp + 168], rax
-                                                                                        jmp   xchain0_n1_α
-.Lx1_0:
+                                                                                        jmp   n1_lit_real_α
+.Lx35_0:
                         .quad            4617315517961601024
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n1_α:
+n1_lit_real_α:
                         mov              qword ptr [rbp + 192], 7
-                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rbp + 200], rax
-                                                                                        jmp   xchain0_n2_α
-.Lx2_0:
+                                                                                        jmp   n2_call_α
+.Lx36_0:
                         .quad            4617315517961601024
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n2_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+160] -> [zr+112]
+n2_call_α:
                         mov              rax, qword ptr [rbp + 160]
                         mov              qword ptr [rbp + 112], rax
                         mov              rax, qword ptr [rbp + 168]
                         mov              qword ptr [rbp + 120], rax
-# marshal arg1 = producer-box slot [zr+192] -> [zr+128]
                         mov              rax, qword ptr [rbp + 192]
                         mov              qword ptr [rbp + 128], rax
                         mov              rax, qword ptr [rbp + 200]
@@ -81,35 +76,32 @@ xchain0_n2_α:
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n4_α
-                                                                                        jmp   xchain0_n3_α
-xchain0_n2_β:
-                                                                                        jmp   xchain0_n4_α
+                                                                                        je    n4_lit_real_α
+                                                                                        jmp   n3_lit_string_α
+n2_call_β:
+                                                                                        jmp   n4_lit_real_α
 #=======================================================================================================================
 #         output = 'FAIL 412/001: 2.0+3.0'              :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n3_α:
+n3_lit_string_α:
                         mov              qword ptr [rbp + 240], 1
-                        mov              rax, qword ptr [rip + .Lx4_0]
+                        mov              rax, qword ptr [rip + .Lx38_0]
                         mov              qword ptr [rbp + 248], rax
-                                                                                        jmp   xchain0_n5_α
-.Lx4_0:
-                        .quad            .Lx4_0_s
-.Lx4_0_s:
+                                                                                        jmp   n5_assign_α
+.Lx38_0:
+                        .quad            .Lx38_0_s
+.Lx38_0_s:
                         .string          "FAIL 412/001: 2.0+3.0"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n4_α:
+n4_lit_real_α:
                         mov              qword ptr [rbp + 336], 7
-                        mov              rax, qword ptr [rip + .Lx5_0]
+                        mov              rax, qword ptr [rip + .Lx39_0]
                         mov              qword ptr [rbp + 344], rax
-                                                                                        jmp   xchain0_n6_α
-.Lx5_0:
+                                                                                        jmp   n6_lit_real_α
+.Lx39_0:
                         .quad            4611686018427387904
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n5_α:
+n5_assign_α:
                         mov              rax, qword ptr [rbp + 240]
                         mov              rdx, qword ptr [rbp + 248]
                         mov              qword ptr [1879052288], rax
@@ -118,23 +110,19 @@ xchain0_n5_α:
                         mov              qword ptr [rbp + 232], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n6_α:
+n6_lit_real_α:
                         mov              qword ptr [rbp + 368], 7
-                        mov              rax, qword ptr [rip + .Lx7_0]
+                        mov              rax, qword ptr [rip + .Lx41_0]
                         mov              qword ptr [rbp + 376], rax
-                                                                                        jmp   xchain0_n7_α
-.Lx7_0:
+                                                                                        jmp   n7_call_α
+.Lx41_0:
                         .quad            4611686018427387904
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n7_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+336] -> [zr+288]
+n7_call_α:
                         mov              rax, qword ptr [rbp + 336]
                         mov              qword ptr [rbp + 288], rax
                         mov              rax, qword ptr [rbp + 344]
                         mov              qword ptr [rbp + 296], rax
-# marshal arg1 = producer-box slot [zr+368] -> [zr+304]
                         mov              rax, qword ptr [rbp + 368]
                         mov              qword ptr [rbp + 304], rax
                         mov              rax, qword ptr [rbp + 376]
@@ -150,35 +138,32 @@ xchain0_n7_α:
                         mov              qword ptr [rbp + 272], rax
                         mov              qword ptr [rbp + 280], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n9_α
-                                                                                        jmp   xchain0_n8_α
-xchain0_n7_β:
-                                                                                        jmp   xchain0_n9_α
+                                                                                        je    n9_lit_real_α
+                                                                                        jmp   n8_lit_string_α
+n7_call_β:
+                                                                                        jmp   n9_lit_real_α
 #=======================================================================================================================
 #         output = 'FAIL 412/002: 3.0-1.0'              :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n8_α:
+n8_lit_string_α:
                         mov              qword ptr [rbp + 416], 1
-                        mov              rax, qword ptr [rip + .Lx9_0]
+                        mov              rax, qword ptr [rip + .Lx43_0]
                         mov              qword ptr [rbp + 424], rax
-                                                                                        jmp   xchain0_n10_α
-.Lx9_0:
-                        .quad            .Lx9_0_s
-.Lx9_0_s:
+                                                                                        jmp   n10_assign_α
+.Lx43_0:
+                        .quad            .Lx43_0_s
+.Lx43_0_s:
                         .string          "FAIL 412/002: 3.0-1.0"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n9_α:
+n9_lit_real_α:
                         mov              qword ptr [rbp + 512], 7
-                        mov              rax, qword ptr [rip + .Lx10_0]
+                        mov              rax, qword ptr [rip + .Lx44_0]
                         mov              qword ptr [rbp + 520], rax
-                                                                                        jmp   xchain0_n11_α
-.Lx10_0:
+                                                                                        jmp   n11_lit_real_α
+.Lx44_0:
                         .quad            4618441417868443648
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n10_α:
+n10_assign_α:
                         mov              rax, qword ptr [rbp + 416]
                         mov              rdx, qword ptr [rbp + 424]
                         mov              qword ptr [1879052288], rax
@@ -187,23 +172,19 @@ xchain0_n10_α:
                         mov              qword ptr [rbp + 408], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n11_α:
+n11_lit_real_α:
                         mov              qword ptr [rbp + 544], 7
-                        mov              rax, qword ptr [rip + .Lx12_0]
+                        mov              rax, qword ptr [rip + .Lx46_0]
                         mov              qword ptr [rbp + 552], rax
-                                                                                        jmp   xchain0_n12_α
-.Lx12_0:
+                                                                                        jmp   n12_call_α
+.Lx46_0:
                         .quad            4618441417868443648
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n12_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+512] -> [zr+464]
+n12_call_α:
                         mov              rax, qword ptr [rbp + 512]
                         mov              qword ptr [rbp + 464], rax
                         mov              rax, qword ptr [rbp + 520]
                         mov              qword ptr [rbp + 472], rax
-# marshal arg1 = producer-box slot [zr+544] -> [zr+480]
                         mov              rax, qword ptr [rbp + 544]
                         mov              qword ptr [rbp + 480], rax
                         mov              rax, qword ptr [rbp + 552]
@@ -219,35 +200,32 @@ xchain0_n12_α:
                         mov              qword ptr [rbp + 448], rax
                         mov              qword ptr [rbp + 456], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n14_α
-                                                                                        jmp   xchain0_n13_α
-xchain0_n12_β:
-                                                                                        jmp   xchain0_n14_α
+                                                                                        je    n14_lit_real_α
+                                                                                        jmp   n13_lit_string_α
+n12_call_β:
+                                                                                        jmp   n14_lit_real_α
 #=======================================================================================================================
 #         output = 'FAIL 412/003: 3.0*2.0'              :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n13_α:
+n13_lit_string_α:
                         mov              qword ptr [rbp + 592], 1
-                        mov              rax, qword ptr [rip + .Lx14_0]
+                        mov              rax, qword ptr [rip + .Lx48_0]
                         mov              qword ptr [rbp + 600], rax
-                                                                                        jmp   xchain0_n15_α
-.Lx14_0:
-                        .quad            .Lx14_0_s
-.Lx14_0_s:
+                                                                                        jmp   n15_assign_α
+.Lx48_0:
+                        .quad            .Lx48_0_s
+.Lx48_0_s:
                         .string          "FAIL 412/003: 3.0*2.0"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n14_α:
+n14_lit_real_α:
                         mov              qword ptr [rbp + 688], 7
-                        mov              rax, qword ptr [rip + .Lx15_0]
+                        mov              rax, qword ptr [rip + .Lx49_0]
                         mov              qword ptr [rbp + 696], rax
-                                                                                        jmp   xchain0_n16_α
-.Lx15_0:
+                                                                                        jmp   n16_lit_real_α
+.Lx49_0:
                         .quad            4609434218613702656
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n15_α:
+n15_assign_α:
                         mov              rax, qword ptr [rbp + 592]
                         mov              rdx, qword ptr [rbp + 600]
                         mov              qword ptr [1879052288], rax
@@ -256,23 +234,19 @@ xchain0_n15_α:
                         mov              qword ptr [rbp + 584], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n16_α:
+n16_lit_real_α:
                         mov              qword ptr [rbp + 720], 7
-                        mov              rax, qword ptr [rip + .Lx17_0]
+                        mov              rax, qword ptr [rip + .Lx51_0]
                         mov              qword ptr [rbp + 728], rax
-                                                                                        jmp   xchain0_n17_α
-.Lx17_0:
+                                                                                        jmp   n17_call_α
+.Lx51_0:
                         .quad            4609434218613702656
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n17_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+688] -> [zr+640]
+n17_call_α:
                         mov              rax, qword ptr [rbp + 688]
                         mov              qword ptr [rbp + 640], rax
                         mov              rax, qword ptr [rbp + 696]
                         mov              qword ptr [rbp + 648], rax
-# marshal arg1 = producer-box slot [zr+720] -> [zr+656]
                         mov              rax, qword ptr [rbp + 720]
                         mov              qword ptr [rbp + 656], rax
                         mov              rax, qword ptr [rbp + 728]
@@ -288,37 +262,34 @@ xchain0_n17_α:
                         mov              qword ptr [rbp + 624], rax
                         mov              qword ptr [rbp + 632], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n19_α
-                                                                                        jmp   xchain0_n18_α
-xchain0_n17_β:
-                                                                                        jmp   xchain0_n19_α
+                                                                                        je    n19_lit_real_α
+                                                                                        jmp   n18_lit_string_α
+n17_call_β:
+                                                                                        jmp   n19_lit_real_α
 #=======================================================================================================================
 #         output = 'FAIL 412/004: 3.0/2.0'              :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n18_α:
+n18_lit_string_α:
                         mov              qword ptr [rbp + 768], 1
-                        mov              rax, qword ptr [rip + .Lx19_0]
+                        mov              rax, qword ptr [rip + .Lx53_0]
                         mov              qword ptr [rbp + 776], rax
-                                                                                        jmp   xchain0_n20_α
-.Lx19_0:
-                        .quad            .Lx19_0_s
-.Lx19_0_s:
+                                                                                        jmp   n20_assign_α
+.Lx53_0:
+                        .quad            .Lx53_0_s
+.Lx53_0_s:
                         .string          "FAIL 412/004: 3.0/2.0"
 #=======================================================================================================================
 #         differ(3.0 ** 3, 27.0)                   :f(e005)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n19_α:
+n19_lit_real_α:
                         mov              qword ptr [rbp + 896], 7
-                        mov              rax, qword ptr [rip + .Lx20_0]
+                        mov              rax, qword ptr [rip + .Lx54_0]
                         mov              qword ptr [rbp + 904], rax
-                                                                                        jmp   xchain0_n21_α
-.Lx20_0:
+                                                                                        jmp   n21_lit_integer_α
+.Lx54_0:
                         .quad            4613937818241073152
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n20_α:
+n20_assign_α:
                         mov              rax, qword ptr [rbp + 768]
                         mov              rdx, qword ptr [rbp + 776]
                         mov              qword ptr [1879052288], rax
@@ -327,17 +298,15 @@ xchain0_n20_α:
                         mov              qword ptr [rbp + 760], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n21_α:
+n21_lit_integer_α:
                         mov              qword ptr [rbp + 928], 6
-                        mov              rax, qword ptr [rip + .Lx22_0]
+                        mov              rax, qword ptr [rip + .Lx56_0]
                         mov              qword ptr [rbp + 936], rax
-                                                                                        jmp   xchain0_n22_α
-.Lx22_0:
+                                                                                        jmp   n22_binop_α
+.Lx56_0:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n22_α:
-# IR_BINOP_ARITH_REAL
+n22_binop_α:
                         mov              rdi, qword ptr [rbp + 896]
                         mov              rsi, qword ptr [rbp + 904]
                         mov              rdx, qword ptr [rbp + 928]
@@ -345,39 +314,34 @@ xchain0_n22_α:
                         mov              r8d, 18
                         call             rt_num_arith@PLT
                         cmp              eax, 99
-                                                                                        je    xchain0_n24_α
+                                                                                        je    n24_lit_real_α
                         mov              qword ptr [rbp + 864], rax
                         mov              qword ptr [rbp + 872], rdx
-                                                                                        jmp   xchain0_n23_α
+                                                                                        jmp   n23_lit_real_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n23_α:
+n23_lit_real_α:
                         mov              qword ptr [rbp + 960], 7
-                        mov              rax, qword ptr [rip + .Lx24_0]
+                        mov              rax, qword ptr [rip + .Lx58_0]
                         mov              qword ptr [rbp + 968], rax
-                                                                                        jmp   xchain0_n25_α
-.Lx24_0:
+                                                                                        jmp   n25_call_α
+.Lx58_0:
                         .quad            4628293042053316608
 #=======================================================================================================================
 #         differ(-1.0, 0.0 - 1.0)                   :f(e006)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n24_α:
+n24_lit_real_α:
                         mov              qword ptr [rbp + 1136], 7
-                        mov              rax, qword ptr [rip + .Lx25_0]
+                        mov              rax, qword ptr [rip + .Lx59_0]
                         mov              qword ptr [rbp + 1144], rax
-                                                                                        jmp   xchain0_n26_α
-.Lx25_0:
+                                                                                        jmp   n26_unop_α
+.Lx59_0:
                         .quad            4607182418800017408
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n25_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+864] -> [zr+816]
+n25_call_α:
                         mov              rax, qword ptr [rbp + 864]
                         mov              qword ptr [rbp + 816], rax
                         mov              rax, qword ptr [rbp + 872]
                         mov              qword ptr [rbp + 824], rax
-# marshal arg1 = producer-box slot [zr+960] -> [zr+832]
                         mov              rax, qword ptr [rbp + 960]
                         mov              qword ptr [rbp + 832], rax
                         mov              rax, qword ptr [rbp + 968]
@@ -393,57 +357,52 @@ xchain0_n25_α:
                         mov              qword ptr [rbp + 800], rax
                         mov              qword ptr [rbp + 808], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n24_α
-                                                                                        jmp   xchain0_n27_α
-xchain0_n25_β:
-                                                                                        jmp   xchain0_n24_α
+                                                                                        je    n24_lit_real_α
+                                                                                        jmp   n27_lit_string_α
+n25_call_β:
+                                                                                        jmp   n24_lit_real_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_UNOP
-xchain0_n26_α:
+n26_unop_α:
                         mov              rdi, qword ptr [rbp + 1136]
                         mov              rsi, qword ptr [rbp + 1144]
                         call             rt_num_neg@PLT
                         mov              qword ptr [rbp + 1104], rax
                         mov              qword ptr [rbp + 1112], rdx
-                                                                                        jmp   xchain0_n28_α
+                                                                                        jmp   n28_lit_real_α
 #=======================================================================================================================
 #         output = 'FAIL 412/005: 3.0**3'               :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n27_α:
+n27_lit_string_α:
                         mov              qword ptr [rbp + 1008], 1
-                        mov              rax, qword ptr [rip + .Lx28_0]
+                        mov              rax, qword ptr [rip + .Lx62_0]
                         mov              qword ptr [rbp + 1016], rax
-                                                                                        jmp   xchain0_n30_α
-.Lx28_0:
-                        .quad            .Lx28_0_s
-.Lx28_0_s:
+                                                                                        jmp   n30_assign_α
+.Lx62_0:
+                        .quad            .Lx62_0_s
+.Lx62_0_s:
                         .string          "FAIL 412/005: 3.0**3"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_REAL
-xchain0_n28_α:
+n28_lit_real_α:
                         mov              qword ptr [rbp + 1168], 7
-                        mov              rax, qword ptr [rip + .Lx29_0]
+                        mov              rax, qword ptr [rip + .Lx63_0]
                         mov              qword ptr [rbp + 1176], rax
-                                                                                        jmp   xchain0_n31_α
-.Lx29_0:
+                                                                                        jmp   n31_call_α
+.Lx63_0:
                         .quad            13830554455654793216
 #=======================================================================================================================
 #         output = 'PASS 412_arith_real (6/6)'
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n29_α:
+n29_lit_string_α:
                         mov              qword ptr [rbp + 1264], 1
-                        mov              rax, qword ptr [rip + .Lx30_0]
+                        mov              rax, qword ptr [rip + .Lx64_0]
                         mov              qword ptr [rbp + 1272], rax
-                                                                                        jmp   xchain0_n32_α
-.Lx30_0:
-                        .quad            .Lx30_0_s
-.Lx30_0_s:
+                                                                                        jmp   n32_assign_α
+.Lx64_0:
+                        .quad            .Lx64_0_s
+.Lx64_0_s:
                         .string          "PASS 412_arith_real (6/6)"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n30_α:
+n30_assign_α:
                         mov              rax, qword ptr [rbp + 1008]
                         mov              rdx, qword ptr [rbp + 1016]
                         mov              qword ptr [1879052288], rax
@@ -452,14 +411,11 @@ xchain0_n30_α:
                         mov              qword ptr [rbp + 1000], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n31_α:
-# BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+1104] -> [zr+1056]
+n31_call_α:
                         mov              rax, qword ptr [rbp + 1104]
                         mov              qword ptr [rbp + 1056], rax
                         mov              rax, qword ptr [rbp + 1112]
                         mov              qword ptr [rbp + 1064], rax
-# marshal arg1 = producer-box slot [zr+1168] -> [zr+1072]
                         mov              rax, qword ptr [rbp + 1168]
                         mov              qword ptr [rbp + 1072], rax
                         mov              rax, qword ptr [rbp + 1176]
@@ -475,13 +431,12 @@ xchain0_n31_α:
                         mov              qword ptr [rbp + 1040], rax
                         mov              qword ptr [rbp + 1048], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n29_α
-                                                                                        jmp   xchain0_n33_α
-xchain0_n31_β:
-                                                                                        jmp   xchain0_n29_α
+                                                                                        je    n29_lit_string_α
+                                                                                        jmp   n33_lit_string_α
+n31_call_β:
+                                                                                        jmp   n29_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n32_α:
+n32_assign_α:
                         mov              rax, qword ptr [rbp + 1264]
                         mov              rdx, qword ptr [rbp + 1272]
                         mov              qword ptr [1879052288], rax
@@ -492,19 +447,17 @@ xchain0_n32_α:
 #=======================================================================================================================
 #         output = 'FAIL 412/006: unary minus on real'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n33_α:
+n33_lit_string_α:
                         mov              qword ptr [rbp + 1216], 1
-                        mov              rax, qword ptr [rip + .Lx34_0]
+                        mov              rax, qword ptr [rip + .Lx68_0]
                         mov              qword ptr [rbp + 1224], rax
-                                                                                        jmp   xchain0_n34_α
-.Lx34_0:
-                        .quad            .Lx34_0_s
-.Lx34_0_s:
+                                                                                        jmp   n34_assign_α
+.Lx68_0:
+                        .quad            .Lx68_0_s
+.Lx68_0_s:
                         .string          "FAIL 412/006: unary minus on real"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n34_α:
+n34_assign_α:
                         mov              rax, qword ptr [rbp + 1216]
                         mov              rdx, qword ptr [rbp + 1224]
                         mov              qword ptr [1879052288], rax

@@ -6,6 +6,7 @@ main:
                         push             rdi
                         push             rsi
                         call             core_lib_init@PLT
+                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
@@ -22,64 +23,56 @@ main_α:
                         mov              ecx, 296
                         xor              eax, eax
                         rep stosb
-                        mov              r12, qword ptr [1879048192]
                         mov              [rsp + 288], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         OUTPUT = SUBSTR('hello world', 7, 5)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n0_α:
+n0_lit_string_α:
                         mov              qword ptr [rbp + 192], 1
-                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              rax, qword ptr [rip + .Lx5_0]
                         mov              qword ptr [rbp + 200], rax
-                                                                                        jmp   xchain0_n1_α
-.Lx1_0:
-                        .quad            .Lx1_0_s
-.Lx1_0_s:
+                                                                                        jmp   n1_lit_integer_α
+.Lx5_0:
+                        .quad            .Lx5_0_s
+.Lx5_0_s:
                         .string          "hello world"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n1_α:
+n1_lit_integer_α:
                         mov              qword ptr [rbp + 224], 6
-                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              rax, qword ptr [rip + .Lx6_0]
                         mov              qword ptr [rbp + 232], rax
-                                                                                        jmp   xchain0_n2_α
-.Lx2_0:
+                                                                                        jmp   n2_lit_integer_α
+.Lx6_0:
                         .quad            7
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_INTEGER
-xchain0_n2_α:
+n2_lit_integer_α:
                         mov              qword ptr [rbp + 256], 6
-                        mov              rax, qword ptr [rip + .Lx3_0]
+                        mov              rax, qword ptr [rip + .Lx7_0]
                         mov              qword ptr [rbp + 264], rax
-                                                                                        jmp   xchain0_n3_α
-.Lx3_0:
+                                                                                        jmp   n3_call_α
+.Lx7_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n3_α:
-# BOX IR_CALL SUBSTR(...) -> rt_call_arr [operand-marshal, FAIL->ω]
-# marshal arg0 = producer-box slot [zr+192] -> [zr+128]
+n3_call_α:
                         mov              rax, qword ptr [rbp + 192]
                         mov              qword ptr [rbp + 128], rax
                         mov              rax, qword ptr [rbp + 200]
                         mov              qword ptr [rbp + 136], rax
-# marshal arg1 = producer-box slot [zr+224] -> [zr+144]
                         mov              rax, qword ptr [rbp + 224]
                         mov              qword ptr [rbp + 144], rax
                         mov              rax, qword ptr [rbp + 232]
                         mov              qword ptr [rbp + 152], rax
-# marshal arg2 = producer-box slot [zr+256] -> [zr+160]
                         mov              rax, qword ptr [rbp + 256]
                         mov              qword ptr [rbp + 160], rax
                         mov              rax, qword ptr [rbp + 264]
                         mov              qword ptr [rbp + 168], rax
                         .section         .rodata
-.Lrkfn5:                .string          "SUBSTR"
+.Lrkfn9:                .string          "SUBSTR"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn5]
+                        lea              rdi, [rip + .Lrkfn9]
                         lea              rsi, [rbp + 128]
                         mov              edx, 3
                         call             rt_call_arr@PLT
@@ -87,22 +80,21 @@ xchain0_n3_α:
                         mov              qword ptr [rbp + 120], rdx
                         cmp              eax, 99
                                                                                         je    main_γ
-                                                                                        jmp   xchain0_n4_α
-xchain0_n3_β:
+                                                                                        jmp   n4_assign_α
+n3_call_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN global
-xchain0_n4_α:
+n4_assign_α:
                         mov              rsi, qword ptr [rbp + 112]
                         mov              rdx, qword ptr [rbp + 120]
-                        mov              rdi, qword ptr [rip + .Lx6_0]
+                        mov              rdi, qword ptr [rip + .Lx10_0]
                         call             NV_SET_fn@PLT
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   main_γ
-.Lx6_0:
-                        .quad            .Lx6_0_s
-.Lx6_0_s:
+.Lx10_0:
+                        .quad            .Lx10_0_s
+.Lx10_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

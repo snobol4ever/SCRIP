@@ -19,6 +19,7 @@ main:
                         lea              rdi, [rip + __gva_names]
                         mov              edx, 1
                         call             gva_register@PLT
+                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
@@ -35,43 +36,37 @@ main_α:
                         mov              ecx, 1032
                         xor              eax, eax
                         rep stosb
-                        mov              r12, qword ptr [1879048192]
                         mov              [rsp + 1024], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         lgt('abc', 'xyz')          :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n0_α:
+n0_lit_string_α:
                         mov              qword ptr [rbp + 160], 1
-                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              rax, qword ptr [rip + .Lx27_0]
                         mov              qword ptr [rbp + 168], rax
-                                                                                        jmp   xchain0_n1_α
-.Lx1_0:
-                        .quad            .Lx1_0_s
-.Lx1_0_s:
+                                                                                        jmp   n1_lit_string_α
+.Lx27_0:
+                        .quad            .Lx27_0_s
+.Lx27_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n1_α:
+n1_lit_string_α:
                         mov              qword ptr [rbp + 192], 1
-                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              rax, qword ptr [rip + .Lx28_0]
                         mov              qword ptr [rbp + 200], rax
-                                                                                        jmp   xchain0_n2_α
-.Lx2_0:
-                        .quad            .Lx2_0_s
-.Lx2_0_s:
+                                                                                        jmp   n2_call_α
+.Lx28_0:
+                        .quad            .Lx28_0_s
+.Lx28_0_s:
                         .string          "xyz"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n2_α:
-# BOX CALL lgt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+160] -> [zr+112]
+n2_call_α:
                         mov              rax, qword ptr [rbp + 160]
                         mov              qword ptr [rbp + 112], rax
                         mov              rax, qword ptr [rbp + 168]
                         mov              qword ptr [rbp + 120], rax
-# marshal arg1 = producer-box slot [zr+192] -> [zr+128]
                         mov              rax, qword ptr [rbp + 192]
                         mov              qword ptr [rbp + 128], rax
                         mov              rax, qword ptr [rbp + 200]
@@ -87,39 +82,36 @@ xchain0_n2_α:
                         mov              qword ptr [rbp + 96], rax
                         mov              qword ptr [rbp + 104], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n4_α
-                                                                                        jmp   xchain0_n3_α
-xchain0_n2_β:
-                                                                                        jmp   xchain0_n4_α
+                                                                                        je    n4_lit_string_α
+                                                                                        jmp   n3_lit_string_α
+n2_call_β:
+                                                                                        jmp   n4_lit_string_α
 #=======================================================================================================================
 #         output = 'FAIL 914/001: lgt(abc,xyz) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n3_α:
+n3_lit_string_α:
                         mov              qword ptr [rbp + 240], 1
-                        mov              rax, qword ptr [rip + .Lx4_0]
+                        mov              rax, qword ptr [rip + .Lx30_0]
                         mov              qword ptr [rbp + 248], rax
-                                                                                        jmp   xchain0_n5_α
-.Lx4_0:
-                        .quad            .Lx4_0_s
-.Lx4_0_s:
+                                                                                        jmp   n5_assign_α
+.Lx30_0:
+                        .quad            .Lx30_0_s
+.Lx30_0_s:
                         .string          "FAIL 914/001: lgt(abc,xyz) should fail"
 #=======================================================================================================================
 #         lgt('abc', 'abc')          :f(e002)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n4_α:
+n4_lit_string_α:
                         mov              qword ptr [rbp + 336], 1
-                        mov              rax, qword ptr [rip + .Lx5_0]
+                        mov              rax, qword ptr [rip + .Lx31_0]
                         mov              qword ptr [rbp + 344], rax
-                                                                                        jmp   xchain0_n6_α
-.Lx5_0:
-                        .quad            .Lx5_0_s
-.Lx5_0_s:
+                                                                                        jmp   n6_lit_string_α
+.Lx31_0:
+                        .quad            .Lx31_0_s
+.Lx31_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n5_α:
+n5_assign_α:
                         mov              rax, qword ptr [rbp + 240]
                         mov              rdx, qword ptr [rbp + 248]
                         mov              qword ptr [1879052288], rax
@@ -128,25 +120,21 @@ xchain0_n5_α:
                         mov              qword ptr [rbp + 232], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n6_α:
+n6_lit_string_α:
                         mov              qword ptr [rbp + 368], 1
-                        mov              rax, qword ptr [rip + .Lx7_0]
+                        mov              rax, qword ptr [rip + .Lx33_0]
                         mov              qword ptr [rbp + 376], rax
-                                                                                        jmp   xchain0_n7_α
-.Lx7_0:
-                        .quad            .Lx7_0_s
-.Lx7_0_s:
+                                                                                        jmp   n7_call_α
+.Lx33_0:
+                        .quad            .Lx33_0_s
+.Lx33_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n7_α:
-# BOX CALL lgt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+336] -> [zr+288]
+n7_call_α:
                         mov              rax, qword ptr [rbp + 336]
                         mov              qword ptr [rbp + 288], rax
                         mov              rax, qword ptr [rbp + 344]
                         mov              qword ptr [rbp + 296], rax
-# marshal arg1 = producer-box slot [zr+368] -> [zr+304]
                         mov              rax, qword ptr [rbp + 368]
                         mov              qword ptr [rbp + 304], rax
                         mov              rax, qword ptr [rbp + 376]
@@ -162,39 +150,36 @@ xchain0_n7_α:
                         mov              qword ptr [rbp + 272], rax
                         mov              qword ptr [rbp + 280], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n9_α
-                                                                                        jmp   xchain0_n8_α
-xchain0_n7_β:
-                                                                                        jmp   xchain0_n9_α
+                                                                                        je    n9_lit_string_α
+                                                                                        jmp   n8_lit_string_α
+n7_call_β:
+                                                                                        jmp   n9_lit_string_α
 #=======================================================================================================================
 #         output = 'FAIL 914/002: lgt(abc,abc) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n8_α:
+n8_lit_string_α:
                         mov              qword ptr [rbp + 416], 1
-                        mov              rax, qword ptr [rip + .Lx9_0]
+                        mov              rax, qword ptr [rip + .Lx35_0]
                         mov              qword ptr [rbp + 424], rax
-                                                                                        jmp   xchain0_n10_α
-.Lx9_0:
-                        .quad            .Lx9_0_s
-.Lx9_0_s:
+                                                                                        jmp   n10_assign_α
+.Lx35_0:
+                        .quad            .Lx35_0_s
+.Lx35_0_s:
                         .string          "FAIL 914/002: lgt(abc,abc) should fail"
 #=======================================================================================================================
 #         lgt('xyz', 'abc')          :s(e003)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n9_α:
+n9_lit_string_α:
                         mov              qword ptr [rbp + 512], 1
-                        mov              rax, qword ptr [rip + .Lx10_0]
+                        mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rbp + 520], rax
-                                                                                        jmp   xchain0_n11_α
-.Lx10_0:
-                        .quad            .Lx10_0_s
-.Lx10_0_s:
+                                                                                        jmp   n11_lit_string_α
+.Lx36_0:
+                        .quad            .Lx36_0_s
+.Lx36_0_s:
                         .string          "xyz"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n10_α:
+n10_assign_α:
                         mov              rax, qword ptr [rbp + 416]
                         mov              rdx, qword ptr [rbp + 424]
                         mov              qword ptr [1879052288], rax
@@ -203,25 +188,21 @@ xchain0_n10_α:
                         mov              qword ptr [rbp + 408], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n11_α:
+n11_lit_string_α:
                         mov              qword ptr [rbp + 544], 1
-                        mov              rax, qword ptr [rip + .Lx12_0]
+                        mov              rax, qword ptr [rip + .Lx38_0]
                         mov              qword ptr [rbp + 552], rax
-                                                                                        jmp   xchain0_n12_α
-.Lx12_0:
-                        .quad            .Lx12_0_s
-.Lx12_0_s:
+                                                                                        jmp   n12_call_α
+.Lx38_0:
+                        .quad            .Lx38_0_s
+.Lx38_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n12_α:
-# BOX CALL lgt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+512] -> [zr+464]
+n12_call_α:
                         mov              rax, qword ptr [rbp + 512]
                         mov              qword ptr [rbp + 464], rax
                         mov              rax, qword ptr [rbp + 520]
                         mov              qword ptr [rbp + 472], rax
-# marshal arg1 = producer-box slot [zr+544] -> [zr+480]
                         mov              rax, qword ptr [rbp + 544]
                         mov              qword ptr [rbp + 480], rax
                         mov              rax, qword ptr [rbp + 552]
@@ -237,50 +218,46 @@ xchain0_n12_α:
                         mov              qword ptr [rbp + 448], rax
                         mov              qword ptr [rbp + 456], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n14_α
-                                                                                        jmp   xchain0_n13_α
-xchain0_n12_β:
-                                                                                        jmp   xchain0_n14_α
+                                                                                        je    n14_lit_string_α
+                                                                                        jmp   n13_lit_string_α
+n12_call_β:
+                                                                                        jmp   n14_lit_string_α
 #=======================================================================================================================
 #         lgt('', 'abc')             :f(e004)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n13_α:
+n13_lit_string_α:
                         mov              qword ptr [rbp + 688], 1
-                        mov              rax, qword ptr [rip + .Lx14_0]
+                        mov              rax, qword ptr [rip + .Lx40_0]
                         mov              qword ptr [rbp + 696], rax
-                                                                                        jmp   xchain0_n15_α
-.Lx14_0:
-                        .quad            .Lx14_0_s
-.Lx14_0_s:
+                                                                                        jmp   n15_lit_string_α
+.Lx40_0:
+                        .quad            .Lx40_0_s
+.Lx40_0_s:
                         .string          ""
 #=======================================================================================================================
 #         output = 'FAIL 914/003: lgt(xyz,abc) should succeed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n14_α:
+n14_lit_string_α:
                         mov              qword ptr [rbp + 592], 1
-                        mov              rax, qword ptr [rip + .Lx15_0]
+                        mov              rax, qword ptr [rip + .Lx41_0]
                         mov              qword ptr [rbp + 600], rax
-                                                                                        jmp   xchain0_n16_α
-.Lx15_0:
-                        .quad            .Lx15_0_s
-.Lx15_0_s:
+                                                                                        jmp   n16_assign_α
+.Lx41_0:
+                        .quad            .Lx41_0_s
+.Lx41_0_s:
                         .string          "FAIL 914/003: lgt(xyz,abc) should succeed"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n15_α:
+n15_lit_string_α:
                         mov              qword ptr [rbp + 720], 1
-                        mov              rax, qword ptr [rip + .Lx16_0]
+                        mov              rax, qword ptr [rip + .Lx42_0]
                         mov              qword ptr [rbp + 728], rax
-                                                                                        jmp   xchain0_n17_α
-.Lx16_0:
-                        .quad            .Lx16_0_s
-.Lx16_0_s:
+                                                                                        jmp   n17_call_α
+.Lx42_0:
+                        .quad            .Lx42_0_s
+.Lx42_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n16_α:
+n16_assign_α:
                         mov              rax, qword ptr [rbp + 592]
                         mov              rdx, qword ptr [rbp + 600]
                         mov              qword ptr [1879052288], rax
@@ -289,14 +266,11 @@ xchain0_n16_α:
                         mov              qword ptr [rbp + 584], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n17_α:
-# BOX CALL lgt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+688] -> [zr+640]
+n17_call_α:
                         mov              rax, qword ptr [rbp + 688]
                         mov              qword ptr [rbp + 640], rax
                         mov              rax, qword ptr [rbp + 696]
                         mov              qword ptr [rbp + 648], rax
-# marshal arg1 = producer-box slot [zr+720] -> [zr+656]
                         mov              rax, qword ptr [rbp + 720]
                         mov              qword ptr [rbp + 656], rax
                         mov              rax, qword ptr [rbp + 728]
@@ -312,39 +286,36 @@ xchain0_n17_α:
                         mov              qword ptr [rbp + 624], rax
                         mov              qword ptr [rbp + 632], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n19_α
-                                                                                        jmp   xchain0_n18_α
-xchain0_n17_β:
-                                                                                        jmp   xchain0_n19_α
+                                                                                        je    n19_lit_string_α
+                                                                                        jmp   n18_lit_string_α
+n17_call_β:
+                                                                                        jmp   n19_lit_string_α
 #=======================================================================================================================
 #         output = 'FAIL 914/004: lgt(null,abc) should fail'  :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n18_α:
+n18_lit_string_α:
                         mov              qword ptr [rbp + 768], 1
-                        mov              rax, qword ptr [rip + .Lx19_0]
+                        mov              rax, qword ptr [rip + .Lx45_0]
                         mov              qword ptr [rbp + 776], rax
-                                                                                        jmp   xchain0_n20_α
-.Lx19_0:
-                        .quad            .Lx19_0_s
-.Lx19_0_s:
+                                                                                        jmp   n20_assign_α
+.Lx45_0:
+                        .quad            .Lx45_0_s
+.Lx45_0_s:
                         .string          "FAIL 914/004: lgt(null,abc) should fail"
 #=======================================================================================================================
 #         lgt('abc', '')             :s(e005)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n19_α:
+n19_lit_string_α:
                         mov              qword ptr [rbp + 864], 1
-                        mov              rax, qword ptr [rip + .Lx20_0]
+                        mov              rax, qword ptr [rip + .Lx46_0]
                         mov              qword ptr [rbp + 872], rax
-                                                                                        jmp   xchain0_n21_α
-.Lx20_0:
-                        .quad            .Lx20_0_s
-.Lx20_0_s:
+                                                                                        jmp   n21_lit_string_α
+.Lx46_0:
+                        .quad            .Lx46_0_s
+.Lx46_0_s:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n20_α:
+n20_assign_α:
                         mov              rax, qword ptr [rbp + 768]
                         mov              rdx, qword ptr [rbp + 776]
                         mov              qword ptr [1879052288], rax
@@ -353,25 +324,21 @@ xchain0_n20_α:
                         mov              qword ptr [rbp + 760], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n21_α:
+n21_lit_string_α:
                         mov              qword ptr [rbp + 896], 1
-                        mov              rax, qword ptr [rip + .Lx22_0]
+                        mov              rax, qword ptr [rip + .Lx48_0]
                         mov              qword ptr [rbp + 904], rax
-                                                                                        jmp   xchain0_n22_α
-.Lx22_0:
-                        .quad            .Lx22_0_s
-.Lx22_0_s:
+                                                                                        jmp   n22_call_α
+.Lx48_0:
+                        .quad            .Lx48_0_s
+.Lx48_0_s:
                         .string          ""
 #-----------------------------------------------------------------------------------------------------------------------
-xchain0_n22_α:
-# BOX CALL lgt(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
-# marshal arg0 = producer-box slot [zr+864] -> [zr+816]
+n22_call_α:
                         mov              rax, qword ptr [rbp + 864]
                         mov              qword ptr [rbp + 816], rax
                         mov              rax, qword ptr [rbp + 872]
                         mov              qword ptr [rbp + 824], rax
-# marshal arg1 = producer-box slot [zr+896] -> [zr+832]
                         mov              rax, qword ptr [rbp + 896]
                         mov              qword ptr [rbp + 832], rax
                         mov              rax, qword ptr [rbp + 904]
@@ -387,39 +354,36 @@ xchain0_n22_α:
                         mov              qword ptr [rbp + 800], rax
                         mov              qword ptr [rbp + 808], rdx
                         cmp              eax, 99
-                                                                                        je    xchain0_n24_α
-                                                                                        jmp   xchain0_n23_α
-xchain0_n22_β:
-                                                                                        jmp   xchain0_n24_α
+                                                                                        je    n24_lit_string_α
+                                                                                        jmp   n23_lit_string_α
+n22_call_β:
+                                                                                        jmp   n24_lit_string_α
 #=======================================================================================================================
 #         output = 'PASS 914_lgt (5/5)'
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n23_α:
+n23_lit_string_α:
                         mov              qword ptr [rbp + 992], 1
-                        mov              rax, qword ptr [rip + .Lx24_0]
+                        mov              rax, qword ptr [rip + .Lx50_0]
                         mov              qword ptr [rbp + 1000], rax
-                                                                                        jmp   xchain0_n25_α
-.Lx24_0:
-                        .quad            .Lx24_0_s
-.Lx24_0_s:
+                                                                                        jmp   n25_assign_α
+.Lx50_0:
+                        .quad            .Lx50_0_s
+.Lx50_0_s:
                         .string          "PASS 914_lgt (5/5)"
 #=======================================================================================================================
 #         output = 'FAIL 914/005: lgt(abc,null) should succeed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_LIT_STRING
-xchain0_n24_α:
+n24_lit_string_α:
                         mov              qword ptr [rbp + 944], 1
-                        mov              rax, qword ptr [rip + .Lx25_0]
+                        mov              rax, qword ptr [rip + .Lx51_0]
                         mov              qword ptr [rbp + 952], rax
-                                                                                        jmp   xchain0_n26_α
-.Lx25_0:
-                        .quad            .Lx25_0_s
-.Lx25_0_s:
+                                                                                        jmp   n26_assign_α
+.Lx51_0:
+                        .quad            .Lx51_0_s
+.Lx51_0_s:
                         .string          "FAIL 914/005: lgt(abc,null) should succeed"
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n25_α:
+n25_assign_α:
                         mov              rax, qword ptr [rbp + 992]
                         mov              rdx, qword ptr [rbp + 1000]
                         mov              qword ptr [1879052288], rax
@@ -428,8 +392,7 @@ xchain0_n25_α:
                         mov              qword ptr [rbp + 984], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-# IR_ASSIGN gva
-xchain0_n26_α:
+n26_assign_α:
                         mov              rax, qword ptr [rbp + 944]
                         mov              rdx, qword ptr [rbp + 952]
                         mov              qword ptr [1879052288], rax
