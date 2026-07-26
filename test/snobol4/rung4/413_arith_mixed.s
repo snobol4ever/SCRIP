@@ -41,151 +41,151 @@ main_α:
   mov rbp, rsp
 main_α_body:
 # IR_LIT_REAL
- xchain0_n0_α:
- mov qword ptr [rbp + 160], 7
- mov rax, qword ptr [rip + .Lx1_0]
- mov qword ptr [rbp + 168], rax
- jmp xchain0_n1_α
+xchain0_n0_α:
+                        mov              qword ptr [rbp + 160], 7
+                        mov              rax, qword ptr [rip + .Lx1_0]
+                        mov              qword ptr [rbp + 168], rax
+                        jmp              xchain0_n1_α
 .Lx1_0:
- .quad 4613937818241073152
+                        .quad            4613937818241073152
 # IR_LIT_REAL
- xchain0_n1_α:
- mov qword ptr [rbp + 192], 7
- mov rax, qword ptr [rip + .Lx2_0]
- mov qword ptr [rbp + 200], rax
- jmp xchain0_n2_α
+xchain0_n1_α:
+                        mov              qword ptr [rbp + 192], 7
+                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              qword ptr [rbp + 200], rax
+                        jmp              xchain0_n2_α
 .Lx2_0:
- .quad 4613937818241073152
- xchain0_n2_α:
+                        .quad            4613937818241073152
+xchain0_n2_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+160] -> [zr+112]
- mov rax, qword ptr [rbp + 160]
- mov qword ptr [rbp + 112], rax
- mov rax, qword ptr [rbp + 168]
- mov qword ptr [rbp + 120], rax
+                        mov              rax, qword ptr [rbp + 160]
+                        mov              qword ptr [rbp + 112], rax
+                        mov              rax, qword ptr [rbp + 168]
+                        mov              qword ptr [rbp + 120], rax
 # marshal arg1 = producer-box slot [zr+192] -> [zr+128]
- mov rax, qword ptr [rbp + 192]
- mov qword ptr [rbp + 128], rax
- mov rax, qword ptr [rbp + 200]
- mov qword ptr [rbp + 136], rax
-  .section .rodata
-  .Lbynamefn3: .string "differ"
-  .section .text
-  .intel_syntax noprefix
- lea rdi, [rip + .Lbynamefn3]
- lea rsi, [rbp + 112]
- mov edx, 2
- call rt_call_arr@PLT
- mov qword ptr [rbp + 96], rax
- mov qword ptr [rbp + 104], rdx
- cmp eax, 99
- je xchain0_n4_α
- jmp xchain0_n3_α
- xchain0_n2_β:
- jmp xchain0_n4_α
+                        mov              rax, qword ptr [rbp + 192]
+                        mov              qword ptr [rbp + 128], rax
+                        mov              rax, qword ptr [rbp + 200]
+                        mov              qword ptr [rbp + 136], rax
+                        .section         .rodata
+.Lbynamefn3:            .string          "differ"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lbynamefn3]
+                        lea              rsi, [rbp + 112]
+                        mov              edx, 2
+                        call             rt_call_arr@PLT
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
+                        cmp              eax, 99
+                        je               xchain0_n4_α
+                        jmp              xchain0_n3_α
+xchain0_n2_β:
+                        jmp              xchain0_n4_α
 #         output = 'FAIL 413/001: int+real promotes to real' :(end)
 # IR_LIT_STRING
- xchain0_n3_α:
- mov qword ptr [rbp + 240], 1
- mov rax, qword ptr [rip + .Lx4_0]
- mov qword ptr [rbp + 248], rax
- jmp xchain0_n5_α
+xchain0_n3_α:
+                        mov              qword ptr [rbp + 240], 1
+                        mov              rax, qword ptr [rip + .Lx4_0]
+                        mov              qword ptr [rbp + 248], rax
+                        jmp              xchain0_n5_α
 .Lx4_0:
- .quad .Lx4_0_s
+                        .quad            .Lx4_0_s
 .Lx4_0_s:
- .string "FAIL 413/001: int+real promotes to real"
+                        .string          "FAIL 413/001: int+real promotes to real"
 # IR_LIT_REAL
- xchain0_n4_α:
- mov qword ptr [rbp + 336], 7
- mov rax, qword ptr [rip + .Lx5_0]
- mov qword ptr [rbp + 344], rax
- jmp xchain0_n6_α
+xchain0_n4_α:
+                        mov              qword ptr [rbp + 336], 7
+                        mov              rax, qword ptr [rip + .Lx5_0]
+                        mov              qword ptr [rbp + 344], rax
+                        jmp              xchain0_n6_α
 .Lx5_0:
- .quad 4609434218613702656
+                        .quad            4609434218613702656
 # IR_ASSIGN gva
- xchain0_n5_α:
- mov rax, qword ptr [rbp + 240]
- mov rdx, qword ptr [rbp + 248]
- mov qword ptr [1879052288], rax
- mov qword ptr [1879052296], rdx
- mov qword ptr [rbp + 224], rax
- mov qword ptr [rbp + 232], rdx
- jmp main_γ
+xchain0_n5_α:
+                        mov              rax, qword ptr [rbp + 240]
+                        mov              rdx, qword ptr [rbp + 248]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 224], rax
+                        mov              qword ptr [rbp + 232], rdx
+                        jmp              main_γ
 # IR_LIT_REAL
- xchain0_n6_α:
- mov qword ptr [rbp + 368], 7
- mov rax, qword ptr [rip + .Lx7_0]
- mov qword ptr [rbp + 376], rax
- jmp xchain0_n7_α
+xchain0_n6_α:
+                        mov              qword ptr [rbp + 368], 7
+                        mov              rax, qword ptr [rip + .Lx7_0]
+                        mov              qword ptr [rbp + 376], rax
+                        jmp              xchain0_n7_α
 .Lx7_0:
- .quad 4609434218613702656
- xchain0_n7_α:
+                        .quad            4609434218613702656
+xchain0_n7_α:
 # BOX CALL differ(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]
 # marshal arg0 = producer-box slot [zr+336] -> [zr+288]
- mov rax, qword ptr [rbp + 336]
- mov qword ptr [rbp + 288], rax
- mov rax, qword ptr [rbp + 344]
- mov qword ptr [rbp + 296], rax
+                        mov              rax, qword ptr [rbp + 336]
+                        mov              qword ptr [rbp + 288], rax
+                        mov              rax, qword ptr [rbp + 344]
+                        mov              qword ptr [rbp + 296], rax
 # marshal arg1 = producer-box slot [zr+368] -> [zr+304]
- mov rax, qword ptr [rbp + 368]
- mov qword ptr [rbp + 304], rax
- mov rax, qword ptr [rbp + 376]
- mov qword ptr [rbp + 312], rax
-  .section .rodata
-  .Lbynamefn8: .string "differ"
-  .section .text
-  .intel_syntax noprefix
- lea rdi, [rip + .Lbynamefn8]
- lea rsi, [rbp + 288]
- mov edx, 2
- call rt_call_arr@PLT
- mov qword ptr [rbp + 272], rax
- mov qword ptr [rbp + 280], rdx
- cmp eax, 99
- je xchain0_n9_α
- jmp xchain0_n8_α
- xchain0_n7_β:
- jmp xchain0_n9_α
+                        mov              rax, qword ptr [rbp + 368]
+                        mov              qword ptr [rbp + 304], rax
+                        mov              rax, qword ptr [rbp + 376]
+                        mov              qword ptr [rbp + 312], rax
+                        .section         .rodata
+.Lbynamefn8:            .string          "differ"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lbynamefn8]
+                        lea              rsi, [rbp + 288]
+                        mov              edx, 2
+                        call             rt_call_arr@PLT
+                        mov              qword ptr [rbp + 272], rax
+                        mov              qword ptr [rbp + 280], rdx
+                        cmp              eax, 99
+                        je               xchain0_n9_α
+                        jmp              xchain0_n8_α
+xchain0_n7_β:
+                        jmp              xchain0_n9_α
 #         output = 'FAIL 413/002: real/int promotes to real' :(end)
 # IR_LIT_STRING
- xchain0_n8_α:
- mov qword ptr [rbp + 416], 1
- mov rax, qword ptr [rip + .Lx9_0]
- mov qword ptr [rbp + 424], rax
- jmp xchain0_n10_α
+xchain0_n8_α:
+                        mov              qword ptr [rbp + 416], 1
+                        mov              rax, qword ptr [rip + .Lx9_0]
+                        mov              qword ptr [rbp + 424], rax
+                        jmp              xchain0_n10_α
 .Lx9_0:
- .quad .Lx9_0_s
+                        .quad            .Lx9_0_s
 .Lx9_0_s:
- .string "FAIL 413/002: real/int promotes to real"
+                        .string          "FAIL 413/002: real/int promotes to real"
 #         output = 'PASS 413_arith_mixed (2/2)'
 # IR_LIT_STRING
- xchain0_n9_α:
- mov qword ptr [rbp + 464], 1
- mov rax, qword ptr [rip + .Lx10_0]
- mov qword ptr [rbp + 472], rax
- jmp xchain0_n11_α
+xchain0_n9_α:
+                        mov              qword ptr [rbp + 464], 1
+                        mov              rax, qword ptr [rip + .Lx10_0]
+                        mov              qword ptr [rbp + 472], rax
+                        jmp              xchain0_n11_α
 .Lx10_0:
- .quad .Lx10_0_s
+                        .quad            .Lx10_0_s
 .Lx10_0_s:
- .string "PASS 413_arith_mixed (2/2)"
+                        .string          "PASS 413_arith_mixed (2/2)"
 # IR_ASSIGN gva
- xchain0_n10_α:
- mov rax, qword ptr [rbp + 416]
- mov rdx, qword ptr [rbp + 424]
- mov qword ptr [1879052288], rax
- mov qword ptr [1879052296], rdx
- mov qword ptr [rbp + 400], rax
- mov qword ptr [rbp + 408], rdx
- jmp main_γ
+xchain0_n10_α:
+                        mov              rax, qword ptr [rbp + 416]
+                        mov              rdx, qword ptr [rbp + 424]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 400], rax
+                        mov              qword ptr [rbp + 408], rdx
+                        jmp              main_γ
 # IR_ASSIGN gva
- xchain0_n11_α:
- mov rax, qword ptr [rbp + 464]
- mov rdx, qword ptr [rbp + 472]
- mov qword ptr [1879052288], rax
- mov qword ptr [1879052296], rdx
- mov qword ptr [rbp + 448], rax
- mov qword ptr [rbp + 456], rdx
- jmp main_γ
+xchain0_n11_α:
+                        mov              rax, qword ptr [rbp + 464]
+                        mov              rdx, qword ptr [rbp + 472]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [rbp + 448], rax
+                        mov              qword ptr [rbp + 456], rdx
+                        jmp              main_γ
 main_β:
 jmp main_ω
 main_γ:
