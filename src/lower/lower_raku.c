@@ -414,7 +414,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         γ_to(va, bentry);
         *res = to; return elo; }
         return rk_excise(cx, γ, ω, res);
-    case TT_ARR_GET: return lower_rcall(cx, t, "arr_get", 0, γ, ω, res);
+    case TT_ARR_GET: return lower_rcall(cx, t, "__rk_arr_at", 0, γ, ω, res);
     case TT_HASH_GET: return lower_rcall(cx, t, "hash_get", 0, γ, ω, res);
     case TT_HASH_SET: if (t->n > 2 && t->c[0] && (t->c[0]->t == TT_VAR || t->c[0]->t == TT_TWIGIL_FIELD)) {
         const char * vn = t->c[0]->t == TT_TWIGIL_FIELD ? t->c[0]->v.sval : (t->c[0]->n > 0 && t->c[0]->c[0] ? t->c[0]->c[0]->v.sval : t->c[0]->v.sval);
