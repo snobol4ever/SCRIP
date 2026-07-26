@@ -369,6 +369,47 @@ static int apply_stack_limit(long bytes) {
     rl.rlim_cur = (rlim_t)bytes; return setrlimit(RLIMIT_STACK, &rl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void bbj_str(FILE * fp, const char * s) {
+    fputc('"', fp);
+    for (const unsigned char * p = (const unsigned char *) (s ? s : ""); *p; p++) {
+        if (*p == '"' || *p == '\\') { fputc('\\', fp); fputc(*p, fp); }
+        else if (*p == '\n') fputs("\\n", fp);
+        else if (*p == '\t') fputs("\\t", fp);
+        else if (*p == '\r') fputs("\\r", fp);
+        else if (*p < 0x20) fprintf(fp, "\\u%04x", *p);
+        else fputc(*p, fp);
+    }
+    fputc('"', fp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void bbj_label(FILE * fp, const IR_t * bb) {
+    switch (bb->op) {
+        case IR_LIT_INTEGER: fprintf(fp, ",\"label\":\"%lld\"", (long long) IR_LIT(bb).ival); break;
+        case IR_LIT_REAL: fprintf(fp, ",\"label\":\"%g\"", IR_LIT(bb).dval); break;
+        case IR_LIT_STRING: case IR_LIT_CHARSET: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_VAR: case IR_ASSIGN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN: case IR_KEYWORD_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_BINOP: case IR_BINOP_TEST: fprintf(fp, ",\"label\":\"op%lld\"", (long long) IR_LIT(bb).ival); break;
+        case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        default: break;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bbj_index(const IR_graph_t * g, const IR_t * nd) {
+    for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void bbj_edge(FILE * fp, int * first, int gi, int i, const char * fp_name, const IR_graph_t * g, const IR_ref_t * r) {
+    if (!r->node) return;
+    int j = bbj_index(g, r->node);
+    if (j < 0) return;
+    const char * tp = (r->sz[0] && strcmp(r->sz, "β") == 0) ? "beta" : "alpha";
+    fprintf(fp, "%s\n  {\"from\":\"b%d_%d\",\"fp\":\"%s\",\"to\":\"b%d_%d\",\"tp\":\"%s\"}", *first ? "" : ",", gi, i, fp_name, gi, j, tp);
+    *first = 0;
+}
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -379,6 +420,7 @@ int main(int argc, char **argv)
     int mode_compile       = 0;
     int dump_ast           = 0;
     int dump_ir            = 0;
+    int dump_bb            = 0;
     int dump_ir_verbose    = 0;
     int dump_zeta          = 0;
     int dump_transpile     = 0;
@@ -392,6 +434,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast       = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ir-verbose") == 0) { dump_ir = 1; dump_ir_verbose = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
+        else if (strcmp(argv[argi], "--dump-bb")       == 0) { dump_bb        = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
         else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : strcmp(z, "zh") == 0 ? 2 : -1; /* 0/1/2 = ZC_ZETA_ZLS/ZC_ZETA_ZLS2/ZC_ZETA_ZH (zeta_choices.h) */ if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2, zh)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
@@ -426,6 +469,7 @@ int main(int argc, char **argv)
             "Diagnostic options:\n"
             "  --dump-ast       print AST after frontend\n"
             "  --dump-ir        print IR/BB-graph for each proc (terse: slot/op refs only)\n"
+            "  --dump-bb        print the Byrd-box graph as JSON (boxes + gamma/omega port edges) for tools/bb_viewer.html\n"
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n"
             "  --transpile      transpile AST to portable SNOBOL4 source\n"
@@ -673,6 +717,78 @@ int main(int argc, char **argv)
         }
         if (dump_zeta) zls_dump(stdout);
         free(seen_all);
+        return 0;
+    }
+    if (dump_bb) {
+        extern void optimizer_run(IR_graph_t * g);
+        extern const char * bb_src_of(const IR_t * nd);
+        extern int g_postfix_resume;
+        if (is_icon) g_postfix_resume = 1;
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+        if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
+        ast_tree_free(ast_prog); ast_prog = NULL;
+        if (is_icon || is_sno_bb || is_prolog) for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]);
+        const IR_graph_t ** gset = (const IR_graph_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_graph_t *));
+        const char ** gname = (const char **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const char *));
+        int gn = 0;
+        for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+            int idx = s2->proc_table[_pi].bb_idx;
+            if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx]) continue;
+            int dup = 0;
+            for (int s = 0; s < gn; s++) if (gset[s] == (const IR_graph_t *) s2->bbp.table[idx]) { dup = 1; break; }
+            if (dup) continue;
+            gname[gn] = s2->proc_table[_pi].name ? s2->proc_table[_pi].name : "?";
+            gset[gn++] = s2->bbp.table[idx];
+        }
+        fputs("{\"meta\":{\"program\":", stdout); bbj_str(stdout, input_path ? input_path : "?");
+        fputs(",\"generator\":\"scrip --dump-bb\"},\n \"boxes\":[", stdout);
+        int first = 1, stno = 0;
+        for (int gi = 0; gi < gn; gi++) {
+            const IR_graph_t * g = gset[gi];
+            int * stno_of = (int *) calloc(g->n > 0 ? g->n : 1, sizeof(int));
+            const char ** src_of = (const char **) calloc(g->n > 0 ? g->n : 1, sizeof(const char *));
+            int pend = 0;
+            for (int i = 0; i < g->n; i++) {
+                if (!g->all[i]) continue;
+                const char * src = bb_src_of(g->all[i]);
+                if (!src) continue;
+                stno++;
+                for (int j = pend; j <= i; j++) if (g->all[j]) stno_of[j] = stno;
+                src_of[i] = src;
+                pend = i + 1;
+            }
+            for (int i = 0; i < g->n; i++) {
+                const IR_t * bb = g->all[i];
+                if (!bb) continue;
+                const char * opn = bb_op_name(bb->op);
+                if (opn && !strncmp(opn, "IR_", 3)) opn += 3;
+                fprintf(stdout, "%s\n  {\"id\":\"b%d_%d\",\"kind\":", first ? "" : ",", gi, i); first = 0;
+                bbj_str(stdout, opn ? opn : "?");
+                bbj_label(stdout, bb);
+                if (stno_of[i] > 0) fprintf(stdout, ",\"stmt\":%d", stno_of[i]);
+                if (gi > 0) { fputs(",\"proc\":", stdout); bbj_str(stdout, gname[gi]); }
+                if (src_of[i]) { fputs(",\"src\":", stdout); bbj_str(stdout, src_of[i]); }
+                fputs("}", stdout);
+            }
+            free(stno_of); free((void *) src_of);
+        }
+        fputs("],\n \"edges\":[", stdout);
+        first = 1;
+        if (gn > 0 && gset[0]->n > 0) {
+            int e0 = gset[0]->entry ? bbj_index(gset[0], gset[0]->entry) : 0;
+            fprintf(stdout, "\n  {\"from\":\"$start\",\"to\":\"b0_%d\",\"tp\":\"alpha\"}", e0 < 0 ? 0 : e0); first = 0;
+        }
+        for (int gi = 0; gi < gn; gi++) {
+            const IR_graph_t * g = gset[gi];
+            for (int i = 0; i < g->n; i++) {
+                const IR_t * bb = g->all[i];
+                if (!bb) continue;
+                bbj_edge(stdout, &first, gi, i, "gamma", g, &bb->γ);
+                bbj_edge(stdout, &first, gi, i, "omega", g, &bb->ω);
+            }
+        }
+        fputs("]}\n", stdout);
+        free(gset); free(gname);
         return 0;
     }
     if (mode_compile_x86) {
