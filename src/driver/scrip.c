@@ -877,7 +877,7 @@ int main(int argc, char **argv)
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }   /* PL-DC s108: arm the direct-call stub for this graph iff the SAME table predicate the site arm reads passes (pat blobs excluded structurally); s112: RECORD the structural exclusion so the startup bake mirrors it — the bake predicate must equal the arming predicate or it references stubs that were never emitted (treebank m4 link regression) */
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); emit_sep_rule_c('-'); emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(s2->bbp.table[idx]->entry, stdout, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = g_last_flat_frame_bytes; }
@@ -1215,7 +1215,7 @@ int main(int argc, char **argv)
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
-                rc = emit_chain(bbg->entry, stdout, "main") ? 0 : 1;
+                emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, stdout, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             }
             g_gva_active = 0;
@@ -1223,6 +1223,7 @@ int main(int argc, char **argv)
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
+            emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
             fflush(stdout);
             ir_delete_all(s2);
@@ -1309,7 +1310,7 @@ int main(int argc, char **argv)
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); emit_sep_rule_c('-'); emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
@@ -1396,13 +1397,14 @@ int main(int argc, char **argv)
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
-            int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
+            emit_sep_rule_c('-'); int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_gva_active = 0;
             g_proc_direct_active = 0;
             g_frame_active = 0;
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
+            emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
             fflush(stdout);
             ir_delete_all(s2);
