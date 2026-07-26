@@ -286,6 +286,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
+        "__rk_div",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -2829,6 +2830,22 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (long long v = lo; v <= hi; v++) { if (p > 0) buf[p++] = SOH; char eb[24]; int el = snprintf(eb, sizeof eb, "%lld", v); memcpy(buf + p, eb, (size_t)el); p += (size_t)el; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_div") && nargs == 2) {
+        extern void rt_script_die_surface(const char *msg);
+        DESCR_t a = args[0], b = args[1];
+        int ai = IS_INT_fn(a), arl = IS_REAL_fn(a), bi = IS_INT_fn(b), brl = IS_REAL_fn(b);
+        double ad = arl ? a.r : (ai ? (double)a.i : 0.0), bd = brl ? b.r : (bi ? (double)b.i : 0.0);
+        if (!ai && !arl) { char sa[64]; const char *cs = to_cstring(a, sa, sizeof sa); ad = cs ? strtod(cs, (char **)0) : 0.0; }
+        if (!bi && !brl) { char sb[64]; const char *cs = to_cstring(b, sb, sizeof sb); bd = cs ? strtod(cs, (char **)0) : 0.0; }
+        if (ai && bi) {
+            if (b.i == 0) { rt_script_die_surface("Attempt to divide by zero"); *out = FAILDESCR; return 1; }
+            if (b.i == -1) { *out = INTVAL(-a.i); return 1; }
+            if ((a.i % b.i) == 0) { *out = INTVAL(a.i / b.i); return 1; }
+            *out = REALVAL((double)a.i / (double)b.i); return 1;
+        }
+        if (bd == 0.0) { rt_script_die_surface("Attempt to divide by zero"); *out = FAILDESCR; return 1; }
+        *out = REALVAL(ad / bd); return 1;
     }
     if (!strcmp(fn, "__rk_arr_slice") && nargs == 3) {
         char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch); if (!cs) cs = "";

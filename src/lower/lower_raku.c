@@ -185,6 +185,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * op = build(cx, IR_BINOP_RELOP_VAL, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
         γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea; }
+    if (t->t == TT_DIV && t->n > 1) { return lower_rcall(cx, t, "__rk_div", 0, γ, ω, res); }
     if (rk_is_binop(t->t)) {
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
