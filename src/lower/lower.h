@@ -30,6 +30,8 @@ void bb_label_registry_add(const char *name, IR_t *landing);
 IR_t *bb_label_landing(const char *name);
 int bb_label_registry_count(void);
 const char *bb_label_registry_get(int i, IR_t **landing);
+void bb_src_note(const IR_t *nd, const char *src);
+const char *bb_src_of(const IR_t *nd);
 typedef struct { void * data; int n; int cap; int esz; } lc_vec;
 void   lc_vec_init(lc_vec * v, int esz);
 void * lc_vec_push(lc_vec * v, const void * elem);

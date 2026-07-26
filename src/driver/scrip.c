@@ -590,6 +590,7 @@ int main(int argc, char **argv)
         } else {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
+            { extern void stmt_src_set_file(const char *); stmt_src_set_file(input_path); }
             tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
             RECORD_SEG(sub_ast, lower_sno_stage2);

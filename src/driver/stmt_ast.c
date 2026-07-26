@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "ast.h"
 #include "parser/snobol4/scrip_cc.h"
+static char * stmt_src_slice(const STMT_t * s);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *ast_stmt_new(tree_e kind)
 {
@@ -82,6 +83,7 @@ tree_t *stmt_to_ast(const STMT_t *s)
         sa_add(node, attr_leaf(":lbl",  s->label));
     sa_add(node, attr_int(":line", s->lineno));
     sa_add(node, attr_int(":stno", s->stno));
+    { char * ssrc = stmt_src_slice(s); if (ssrc) { sa_add(node, attr_leaf(":src", ssrc)); free(ssrc); } }
     if (s->subject)
         sa_add(node, attr_expr(":subj", s->subject));
     if (s->pattern)
@@ -132,4 +134,57 @@ const char *stmt_attr_str(const tree_t *attr)
     if (attr->n > 0 && attr->c[0])
         return attr->c[0]->v.sval;
     return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char ** g_src_lines = NULL;
+static int     g_src_nlines = 0;
+void stmt_src_set_file(const char * path)
+{
+    for (int i = 0; i < g_src_nlines; i++) free(g_src_lines[i]);
+    free(g_src_lines); g_src_lines = NULL; g_src_nlines = 0;
+    FILE * f = path ? fopen(path, "r") : NULL;
+    if (!f) return;
+    fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);
+    if (flen <= 0) { fclose(f); return; }
+    char * buf = malloc((size_t) flen + 1);
+    if (!buf) { fclose(f); return; }
+    size_t got = fread(buf, 1, (size_t) flen, f); buf[got] = 0; fclose(f);
+    int cap = 256;
+    g_src_lines = malloc((size_t) cap * sizeof(char *));
+    if (!g_src_lines) { free(buf); return; }
+    char * p = buf;
+    while (*p) {
+        char * e = p; while (*e && *e != '\n') e++;
+        int len = (int)(e - p);
+        while (len > 0 && (p[len - 1] == ' ' || p[len - 1] == '\t' || p[len - 1] == '\r')) len--;
+        if (g_src_nlines >= cap) { cap *= 2; char ** g = realloc(g_src_lines, (size_t) cap * sizeof(char *)); if (!g) break; g_src_lines = g; }
+        char * ln = malloc((size_t) len + 1);
+        if (!ln) break;
+        memcpy(ln, p, (size_t) len); ln[len] = 0;
+        g_src_lines[g_src_nlines++] = ln;
+        p = *e ? e + 1 : e;
+    }
+    free(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * stmt_src_slice(const STMT_t * s)
+{
+    if (!g_src_nlines || !s || s->lineno < 1 || s->lineno > g_src_nlines) return NULL;
+    int n1 = s->lineno;
+    int n2 = (s->next && s->next->lineno > n1) ? s->next->lineno : n1 + 1;
+    if (n2 > g_src_nlines + 1) n2 = g_src_nlines + 1;
+    while (n2 - 1 > n1) { const char * t = g_src_lines[n2 - 2]; if (t[0] == '*' || t[0] == '-' || t[0] == 0) n2--; else break; }
+    const char * first = g_src_lines[n1 - 1];
+    if (first[0] == '*' || first[0] == '-' || first[0] == 0) return NULL;
+    if (s->label && s->label[0]) { if (strncmp(first, s->label, strlen(s->label)) != 0) return NULL; }
+    else if (first[0] != ' ' && first[0] != '\t') return NULL;
+    size_t tot = 0;
+    for (int i = n1; i < n2; i++) tot += strlen(g_src_lines[i - 1]) + 1;
+    char * out = malloc(tot + 1);
+    if (!out) return NULL;
+    size_t o = 0;
+    for (int i = n1; i < n2; i++) { size_t l = strlen(g_src_lines[i - 1]); memcpy(out + o, g_src_lines[i - 1], l); o += l; out[o++] = '\n'; }
+    if (o) o--;
+    out[o] = 0;
+    return out;
 }

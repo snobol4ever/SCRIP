@@ -15,6 +15,7 @@ extern "C" {
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+const char * bb_src_of(const IR_t * nd);
 bb_emit_mode_t  bb_emit_mode = EMIT_BINARY_WIRED;
 int             g_sm_native_unsupported = 0;
 FILE           *bb_emit_out  = NULL;
@@ -809,6 +810,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_a_dval = op_a ? IR_LIT(op_a).dval : 0;
     { extern int arith_emits_descr(IR_t *nd); g_emit.op_a_descr = arith_emits_descr(op_a) ? 1 : 0; }
     { static int bm = -1; if (bm < 0) { const char *e = getenv("SCRIP_BLOB_MAP"); bm = (e && *e == '1') ? 1 : 0; } if (bm && MEDIUM_BINARY) { extern const char *bb_op_name(IR_e); fprintf(stderr, "BLOBBOX %p %s n%d\n", (void *)(bb_emit_buf + bb_emit_pos), bb_op_name(nd->op), g_emit.x86_uid); } }
+    { static int _sc = -1; if (_sc < 0) { const char *e = getenv("SCRIP_SRC_COMMENT"); _sc = (e && *e == '0') ? 0 : 1; } g_emit.op_src = _sc ? bb_src_of(nd) : (const char *)0; }
+    if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("comment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
     switch (nd->op) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
