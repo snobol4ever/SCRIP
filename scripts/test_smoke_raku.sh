@@ -3734,6 +3734,75 @@ raku "xrep_value_position_still_works" "ababab" << 'EOF'
 say "ab" x 3;
 EOF
 
+raku "slurpy_basic_rest" "1|2" << 'EOF'
+sub f($a, *@r) { say $a ~ "|" ~ @r.elems; }
+f(1,2,3);
+EOF
+
+raku "slurpy_rest_values" "2 3" << 'EOF'
+sub f($a, *@r) { say @r; }
+f(1,2,3);
+EOF
+
+raku "slurpy_only_param" "3" << 'EOF'
+sub f(*@r) { say @r.elems; }
+f(10,20,30);
+EOF
+
+raku "slurpy_empty_is_empty_array_not_any" "0" << 'EOF'
+sub f($a, *@r) { say @r.elems; }
+f(1);
+EOF
+
+raku "slurpy_no_args_at_all" "0" << 'EOF'
+sub f(*@r) { say @r.elems; }
+f();
+EOF
+
+raku "slurpy_flattens_array_arg" "3" << 'EOF'
+sub f(*@r) { say @r.elems; }
+my @a = (1,2,3);
+f(@a);
+EOF
+
+raku "slurpy_flattens_two_arrays" "5" << 'EOF'
+sub f($a, *@r) { say @r.elems; }
+my @a = (1,2); my @b = (3,4,5);
+f(0, @a, @b);
+EOF
+
+raku "slurpy_subscript" "3" << 'EOF'
+sub f(*@r) { say @r[2]; }
+f(1,2,3);
+EOF
+
+raku "slurpy_reduction" "10" << 'EOF'
+sub f($a, *@r) { say [+] @r; }
+f(0, 1,2,3,4);
+EOF
+
+raku "slurpy_iterates" "a b" << 'EOF'
+sub f(*@r) { my $o = ""; for @r -> $x { $o = $o ~ $x ~ " "; } say $o.trim; }
+f("a","b");
+EOF
+
+raku "slurpy_strings_flat" "x y z" << 'EOF'
+sub f(*@r) { say @r; }
+f("x","y","z");
+EOF
+
+raku "slurpy_multiply_unregressed" "42" << 'EOF'
+my $x = 6; my $y = 7; say $x * $y;
+EOF
+
+raku "slurpy_multiply_array_elems_unregressed" "18" << 'EOF'
+my $x = 6; my @a = (1,2,3); say $x * @a.elems;
+EOF
+
+raku "slurpy_array_literal_unregressed" "1 2 3" << 'EOF'
+my @a = (1,2,3); say @a;
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
