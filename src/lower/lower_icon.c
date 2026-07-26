@@ -18,6 +18,9 @@ typedef struct {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
 static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
+/* FAIL-CONDUIT γ: a node whose γ port is reached ONLY on the failing path — it restores state and hands control to the fail continuation, and it never fills its own value slot. Structurally indistinguishable from a value-yielding sibling (same op, both edges to the same target), so the producer MARKS it at construction; the nary arm retag below then preserves the mark instead of clobbering it to σ. Inert when the γ target has no fail-glue: emit.cpp's node_γ resolution falls through φ to lbls[k] exactly as an unmarked α would. */
+static void icn_mark_γ_fail_conduit(IR_t * nd) { if (nd) { memcpy(nd->γ.sz, "φ", 3); nd->γ.sz[3] = 0; } }
+static int icn_γ_is_fail_conduit(const IR_t * nd) { return nd && (unsigned char) nd->γ.sz[0] == 0xcf && (unsigned char) nd->γ.sz[1] == 0x86; }
 static void ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
@@ -192,7 +195,7 @@ static IR_t * icn_scan_seq_nary(icx_t * cx, const tree_t ** elems, int ne, IR_t 
             IR_t * x = g->all[k];
             if (!x) continue;
             if (x->ω.node == S) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
-            if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+            if (x->γ.node == S) { if ((x->op == IR_GOTO && x->ω.node == S) || icn_γ_is_fail_conduit(x)) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
         ir_operand_push(S, ei);
         ir_operand_push(S, ri);
@@ -686,6 +689,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * enter = build(cx, IR_SCAN_ENTER, NULL, ω);
         IR_t * leave_succ = build(cx, IR_SCAN, γ, ω);
         IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
+        icn_mark_γ_fail_conduit(leave_fail);   /* both leaves are IR_SCAN with γ and ω on the same target; only the producer knows which one is the fail path, so record it here (line 706's γ_to legitimately overrides when the subject supplies a resume surface — canonical ir_a_Scan body-failure -> goto p.expr.ir.resume) */
         ir_operand_push(leave_succ, enter);
         ir_operand_push(leave_fail, enter);
         /* SCAN-α-FORCE: IR_SCAN is generator-kind (ir_query.c), so build()'s auto-β stamp would land the
@@ -928,7 +932,9 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nullv = build(cx, IR_VAR, γ, ω); IR_LIT(nullv).sval = (char *) "&null";
+    IR_graph_t * g = cx->g; int before = g->n;
     IR_t * cr = NULL; IR_t * ce = lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nullv, &cr);
+    for (int k = before; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == ω) icn_mark_γ_fail_conduit(x); }   /* canonical ir_a_Not lowers the inner expr with succ=ω, so EVERY γ edge landing ω means "inner succeeded ⇒ the not FAILED" — a fail conduit, never a value-yielding σ. Unmarked, the nary retag (1045) sees only `γ.node == dj` and stamps σ, so `if not (1=1) then A else B` jumped the disjunction's SUCCESS glue whose γ is the dj's own ω=FAIL: neither arm ran (geddump's `A | (not B)` guard then succeeded for the wife and printed every child twice). Same producer-marks-at-construction contract as the scan leave_fail at 692; inert outside a nary (φ falls through to lbls[k]). */
     cx->beta = ω; *res = nullv; return ce;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -981,7 +987,7 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
             IR_t * x = g->all[k];
             if (!x) continue;
             if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
-            if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+            if (x->γ.node == dj) { if ((x->op == IR_GOTO && x->ω.node == dj) || icn_γ_is_fail_conduit(x)) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
         ir_operand_push(dj, ej);
         ir_operand_push(dj, rj);
@@ -1038,7 +1044,7 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * x = g->all[k];
             if (!x) continue;
             if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
-            if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+            if (x->γ.node == dj) { if ((x->op == IR_GOTO && x->ω.node == dj) || icn_γ_is_fail_conduit(x)) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
         entv[j] = aent; resumev[j] = ab_in_arm ? ab : fs; resv[j] = ar;
     }
