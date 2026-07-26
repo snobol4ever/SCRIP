@@ -3611,7 +3611,7 @@ say 9/3;
 say 10/2;
 EOF
 
-raku "div_roundtrip_multiply" "$(printf '7\n7.0')" << 'EOF'
+raku "div_roundtrip_multiply" "$(printf '7\n7')" << 'EOF'
 my $h = 7/2;
 say $h*2 == 7 ?? 7 !! 0;
 say $h*2;
@@ -3633,6 +3633,28 @@ EOF
 raku "div_in_expression" "$(printf '6.5\n1.5')" << 'EOF'
 say 3 + 7/2;
 say 7/2 - 2;
+EOF
+
+raku "real_whole_prints_bare" "$(printf '4\n7\n4\n-3')" << 'EOF'
+say 4.0;
+say (7/2)*2;
+say 2.5+1.5;
+say -3.0;
+EOF
+
+raku "real_fraction_preserved" "$(printf '3.5\n2.5\n-3.5')" << 'EOF'
+say 3.5;
+say 10/4;
+say -7/2;
+EOF
+
+raku "real_num_precision_not_truncated" "1.4142135623730951" << 'EOF'
+say sqrt(2);
+EOF
+
+raku "real_whole_print_no_nl" "4" << 'EOF'
+print 4.0;
+say "";
 EOF
 
 echo ""
