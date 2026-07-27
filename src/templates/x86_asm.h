@@ -346,10 +346,23 @@ inline int x86_selfload_mode() {
  * choice unchanged. */
 inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): ONE stream — under RSP zr IS rsp, no conditions.  History: the op_anchored window arms died at U4 (s86); the s79 flat_pat rbp-island died here (pat blobs now ride the U2/U2b header-above protocol — unified prologue + suspend epilogue arm, s87 slice 1). */
 inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): under RSP zr IS rsp, unconditionally — the ONE stream.  flat_pat no longer selects a register anywhere; it survives only as the xa_flat epilogue's suspend-vs-determinate protocol selector.  The s79 pat-blob rbp-island (save [rsp+24] / restore [zr-8] / record re-pin) is RETIRED — pat blobs ride the U2/U2b header-above protocol (prologue unified, suspend epilogue arm added s87 slice 1). */
-inline const char * x86_fb()         { return ZC_FRAME == ZC_FRAME_RSP ? "rbp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U3 FRAME BASE — the frame-slot role SPLIT OFF zr (zr keeps the cursor/anchor role until the U5 seal): under RSP the base is UNCONDITIONALLY rbp, seeded at every activation boundary (U1 outer graph, U2 non-pat blobs, s79 pat blobs), so frame refs need no depth compensation.  Consumers kept in lockstep: fr32/fr64 prefixes, x86_r12_modrm, x86_frame_rex, x86_frame_text_mem. */
-inline int          x86_fb_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 5 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
-inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "dword ptr [rbp + " : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }   /* REG-7 U3: unconditional rbp under RSP — the flat_pat/op_anchored branches collapsed; rbp is the frame base at every activation (U1/U2/s79 seeds) */
-inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? "qword ptr [rbp + " : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
+/* FLATDISP (s188) — RBP ERADICATION, THE ONE-FUNCTION FORM.  Build constant, NOT an env switch (the
+ * COMPILE-TIME-ONLY law above): -DZC_FLATDISP=0 restores the rbp frame base for A/B.  Under it the frame
+ * base IS rsp and every frame reference adds the box's STATIC depth D = g_emit.op_flat_disp, the running
+ * prefix sum over the known BB sequence that LOWER's fc_leaf_walk already computes (allocation order = flow
+ * order on a linear spine; granted ALTERNATE arms pad to fpmax so the post-ALT depth is uniform).  D = 0 is
+ * the common case and is EXACT, not a fallback: a statement that pushes no FORTH cell leaves rsp at the
+ * activation seed, where rsp == the old rbp by construction (xa_flat `sub rsp,K_total; mov rbp,rsp`).
+ * ONE function owns the arithmetic — every other site calls it. */
+#ifndef ZC_FLATDISP
+#define ZC_FLATDISP 1
+#endif
+inline int x86_flatdisp_on() { return ZC_FLATDISP && ZC_FRAME == ZC_FRAME_RSP; }
+inline int x86_frame_off(int off) { return x86_flatdisp_on() ? off + (int)_.op_flat_disp : off; }   /* THE ONE OFFSET FUNCTION: flat-frame offset -> base-relative displacement.  Sole consumers: x86_r12_modrm (BINARY modrm), x86_frame_text_mem (TEXT spelling), FR/FRQ (operand spellings).  Nothing else may add a frame displacement. */
+inline const char * x86_fb()         { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? "rsp" : "rbp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U3 FRAME BASE, FLATDISP s188: under RSP+FLATDISP the base is rsp and depth is compensated by x86_frame_off; the rbp arm survives only as the -DZC_FLATDISP=0 A/B control.  Consumers kept in lockstep: fr32/fr64 prefixes, x86_r12_modrm, x86_frame_rex, x86_frame_text_mem. */
+inline int          x86_fb_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? 4 : 5) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
+inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? "dword ptr [rsp + " : "dword ptr [rbp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
+inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? "qword ptr [rsp + " : "qword ptr [rbp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM accessor — runtime-selectable BY DESIGN (Lon 2026-07-09, contrast the ZC_FRAME build
  * constant above); see zeta_choices.h ZC_ZETA block for the rung map.  RUNG-1 seams read THIS, never getenv,
@@ -742,6 +755,7 @@ inline std::string x86_r12_modrm(int regfield, int off) {
      * (low3=101): no SIB, and mod=00 is UNAVAILABLE ([rbp] with mod=00 encodes disp32/RIP-relative), so
      * off==0 must take the disp8 form — one extra byte vs r12, matching exactly what `as` emits for
      * [rbp + 0] (the R10 BINARY-agrees-with-TEXT law). */
+    off = x86_frame_off(off);   /* FLATDISP s188: compensate BEFORE the mod/disp-width choice, or a depth-shifted ref silently picks the wrong encoding length */
     std::string s; int rf = regfield & 7; int b = x86_fb_num() & 7; int sib = (b == 4);   /* REG-7 U3: base = x86_fb_num() (frame base), no longer zr — lockstep with the fr prefixes */
     int mod = (off == 0 && b != 5) ? 0 : (off >= -128 && off <= 127) ? 1 : 2;
     s += (char)((mod << 6) | (rf << 3) | (sib ? 4 : b));
@@ -761,7 +775,7 @@ inline std::string x86_frame_rex(int w, int regfield) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_frame_text_mem(int off) { return std::string("[") + x86_fb() + " + " + std::to_string(off) + "]"; }
+inline std::string x86_frame_text_mem(int off) { return std::string("[") + x86_fb() + " + " + std::to_string(x86_frame_off(off)) + "]"; }   /* FLATDISP s188: TEXT twin of the x86_r12_modrm compensation — both mediums read the ONE function, so R10 (BINARY agrees with TEXT) holds by construction */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_lea(const char * reg, int off) {
     int g = x86_rnum(reg);
@@ -826,7 +840,7 @@ inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "dword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), off); return b[i]; }   /* REG-7 U3: op_flat_disp compensation DELETED — rbp is depth-immune (seeded U1/U2/s79); the fc_hit granted-window rebase stays rsp BY DESIGN (element LIFO arithmetic, R12-EXIT-1) */
+inline const char * FR(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "dword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr32_prefix(), x86_frame_off(off)); return b[i]; }   /* REG-7 U3: op_flat_disp compensation DELETED — rbp is depth-immune (seeded U1/U2/s79); the fc_hit granted-window rebase stays rsp BY DESIGN (element LIFO arithmetic, R12-EXIT-1) */
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
@@ -851,7 +865,7 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "qword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), off); return b[i]; }   /* REG-7 U3: same as FR — compensation deleted, fc_hit stays rsp */
+inline const char * FRQ(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; if (x86_fc_hit(off)) snprintf(b[i], 40, "qword ptr [rsp + %d]", off - _.op_fc_base); else snprintf(b[i], 40, "%s%d]", x86_fr64_prefix(), x86_frame_off(off)); return b[i]; }   /* REG-7 U3: same as FR — compensation deleted, fc_hit stays rsp */
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }   /* REG-1: pinned-island absolute (SIB no-base, va < 0x7FFFFFFF, identical bytes both mediums) */
