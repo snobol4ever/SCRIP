@@ -57,15 +57,28 @@
 # | CROSS 4,618. Corpus-wide the new count is 108 -- i.e. EVERY other program's misses were by-design,
 # and s183's 1,344 "non-expression" misses were too. x86_fc_hit now counts only the defect class; its
 # RETURN VALUE is untouched, proven by expression.sno's .s being md5-identical across the change.
-# THE ZERO-ASSERT IS NOW MEANINGFUL: 108 is reachable residue, not an architectural floor. It is TWO
-# boxes, both addressing their own fields at +20/+24 with a 16-byte cell against a 32-byte node extent
-# (an undersized grant) -- the next rung is to name that kind and widen its fc_geom cell.
+# ---- SUPERSEDED SAME SESSION: THE RESIDUAL 108 WERE ALSO A MEASUREMENT ARTIFACT. TRUE COUNT = 0 ----
+# The 108 were 2 boxes reading +20/+24 past a 16-byte cell.  Tracing them: IR_MATCH_BREAK, result@63792
+# + break.cnt/cur@63808, so its storage truly ENDS at 63824 -- but the reads were at 63828/63832, inside
+# the NEXT node's result quad.  They are neighbour reads (every consumer reads its operand's slot), not
+# this box's own field falling back.  They scored OWN only because op_own_ci said BREAK ran to 63840:
+# zls_off() returns e->loff (the SHIFTED locals base for the zls_locals_shifted family) while
+# zls_node_bytes() measures from e->off (the RESULT base), so loff+bytes overstates every shifted node's
+# end by exactly the shift.  Same base-convention class as the ZLS-CALL-BASE defect.  emit.cpp now
+# computes C_i from zls_result_off(); default-port codegen is unaffected (C_i's only other consumer is
+# the dormant ZC_PORT_OWNED arm) -- proven by expression.sno's .s staying md5-identical across BOTH
+# changes.  Corpus count is now 0 and FC_BASELINE is 0: a real zero-assert at last.
+# ---- WHAT ZERO DOES *NOT* MEAN ----
+# It means no GRANTED box addresses its OWN field outside its cell.  It does NOT mean the FORTH
+# conversion is complete: fc_geom still grants cells to an enumerated whitelist only, and IR_MATCH_HEAD
+# (570 local fields/160 programs), IR_CALL (405), SEQUENCE (66), DEFER (64), FENCE1 (32), ARBNO (30)
+# and VALUE (6) remain unconverted.  Coverage is tracked by fc_geom's list, never by this counter.
 # ==============================================================================================
 cd "$(dirname "$0")/.." || exit 2
 SCRIP=${SCRIP:-./scrip}
 CORPUS=${CORPUS:-/home/claude/corpus/programs/snobol4}
 FC_TIMEOUT=${FC_TIMEOUT:-60}
-FC_BASELINE=${FC_BASELINE:-108}
+FC_BASELINE=${FC_BASELINE:-0}
 # Programs known NOT to compile cleanly.  These are DEFECTS ON RECORD, not exemptions -- each one is
 # reported loudly every run.  A program may leave a list only by being fixed; anything arriving in a
 # list that is not already named here FAILS the gate.
