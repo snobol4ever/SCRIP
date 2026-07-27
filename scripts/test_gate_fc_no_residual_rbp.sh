@@ -43,12 +43,29 @@
 # the number s183 measured; the conversion is mid-flight and zero is not yet reachable, so asserting
 # 0 would leave the gate permanently red and therefore ignored.  It fails on REGRESSION ABOVE
 # BASELINE, and on any NEW timeout / NEW failed compile.  Lower FC_BASELINE as the conversion widens.
+#
+# ---- RECLASSIFIED (this session): 13,006 WAS 99.1% CORRECT-BY-DESIGN BEHAVIOUR. TRUE RESIDUE = 108 ----
+# The counter fired on ANY granted box whose offset left its window, which conflates three events:
+#   OWN + full-cell  -> a box with an fc_geom cell addressing its OWN field outside it. THE DEFECT.
+#   OWN + window-only-> IR_MATCH_HEAD. op_fc_wbytes is DOCUMENTED as a partial window (cell-resident
+#                       cursor/zeta_mark/zls2_mark at +0/+8/+16; head.end/dcap_mark/incoming_rbp are
+#                       "FLAT on both paths -- post-unwind lifetime", read by RELEASE/REPLACE AFTER the
+#                       cell dies). Those accesses MUST land on rbp. Counting them made zero unreachable.
+#   CROSS            -> the offset belongs to ANOTHER node (op_own_ci is that node's extent end).
+#                       Reading a neighbour's flat slot is normal emitter behaviour, never a fallback.
+# MEASURED on demo/expression.sno (11,662 of the old 13,006): OWN/full-cell 108 | OWN/HEAD 6,936
+# | CROSS 4,618. Corpus-wide the new count is 108 -- i.e. EVERY other program's misses were by-design,
+# and s183's 1,344 "non-expression" misses were too. x86_fc_hit now counts only the defect class; its
+# RETURN VALUE is untouched, proven by expression.sno's .s being md5-identical across the change.
+# THE ZERO-ASSERT IS NOW MEANINGFUL: 108 is reachable residue, not an architectural floor. It is TWO
+# boxes, both addressing their own fields at +20/+24 with a 16-byte cell against a 32-byte node extent
+# (an undersized grant) -- the next rung is to name that kind and widen its fc_geom cell.
 # ==============================================================================================
 cd "$(dirname "$0")/.." || exit 2
 SCRIP=${SCRIP:-./scrip}
 CORPUS=${CORPUS:-/home/claude/corpus/programs/snobol4}
 FC_TIMEOUT=${FC_TIMEOUT:-60}
-FC_BASELINE=${FC_BASELINE:-13006}
+FC_BASELINE=${FC_BASELINE:-108}
 # Programs known NOT to compile cleanly.  These are DEFECTS ON RECORD, not exemptions -- each one is
 # reported loudly every run.  A program may leave a list only by being fixed; anything arriving in a
 # list that is not already named here FAILS the gate.
