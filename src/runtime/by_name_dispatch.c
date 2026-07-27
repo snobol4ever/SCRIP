@@ -1640,6 +1640,16 @@ static int pl_read_apply_opts(DESCR_t optlist, DESCR_t tval, DESCR_t *bv, char (
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs) {   /* canonical from-slurpy (List.rakumod:193 / BOOTSTRAP.nqp:935): the **@ SLURPY_LOL tail binds each argument as EXACTLY ONE element -- Iterables are NOT flattened, unlike from-slurpy-flat.  MEASURED COINCIDENCE (s2026-07-27): under the current ONE-LEVEL SOH encoding this verbatim join is BYTE-IDENTICAL to rt_make_flat_agg, because split-on-SOH-then-rejoin-with-SOH is the identity -- so **@ and *@ differ observably only for an Iterable argument, which needs an array-NESTING representation SCRIP does not have.  This function is that seam: when nesting lands, ONLY this changes. */
+    if (nargs <= 0 || !args) { char *e = rt_ws_alloc(1); e[0] = '\0'; return STRVAL(e); }
+    size_t total = 0;
+    for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); total += strlen(cs) + 1; }
+    char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+    for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); size_t L = strlen(cs); if (p > 0) buf[p++] = SOH; memcpy(buf + p, cs, L); p += L; }
+    buf[p] = '\0';
+    return STRVAL(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
     if (nargs <= 0 || !args) { char *e = rt_ws_alloc(1); e[0] = '\0'; return STRVAL(e); }
     const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));

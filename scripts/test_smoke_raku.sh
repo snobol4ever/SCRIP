@@ -3803,6 +3803,43 @@ raku "slurpy_array_literal_unregressed" "1 2 3" << 'EOF'
 my @a = (1,2,3); say @a;
 EOF
 
+raku "slurpy_lol_basic_rest" "1|2" << 'EOF'
+sub f($a, **@r) { say $a ~ "|" ~ @r.elems; }
+f(1,2,3);
+EOF
+
+raku "slurpy_lol_only_param" "3" << 'EOF'
+sub f(**@r) { say @r.elems; }
+f(10,20,30);
+EOF
+
+raku "slurpy_lol_empty_is_empty_array" "0" << 'EOF'
+sub f($a, **@r) { say @r.elems; }
+f(1);
+EOF
+
+raku "slurpy_lol_rest_values" "2 3" << 'EOF'
+sub f($a, **@r) { say @r; }
+f(1,2,3);
+EOF
+
+raku "slurpy_lol_subscript" "8|9" << 'EOF'
+sub f($a, **@r) { say @r[0] ~ "|" ~ @r[1]; }
+f(0,8,9);
+EOF
+
+raku "slurpy_lol_scalars_match_flat" "3|3" << 'EOF'
+sub a($x, *@r)  { return @r.elems; }
+sub b($x, **@r) { return @r.elems; }
+say a(0,1,2,3) ~ "|" ~ b(0,1,2,3);
+EOF
+
+raku "slurpy_pos_flattens_iterable_unregressed" "3" << 'EOF'
+my @x = 1, 2;
+sub f($a, *@r) { say @r.elems; }
+f(0, @x, 9);
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
