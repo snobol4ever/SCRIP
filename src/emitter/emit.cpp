@@ -779,7 +779,13 @@ static void emit_sep_rule(char ch) { if (emit_sep_on()) bb_emit_x86(x86("comment
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_sep_rule_c(char ch) { emit_sep_rule(ch); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZB-VAL-8b-USE-2 (s183): the use predicate is promoted HERE -- the ONE choke point every template invocation passes through (all three entry macros FILL / EMIT_PAIR_FILL / DRIVE_FILL end in walk_bb_node,
+ * whose only two callees are this function).  s182 promoted it at the IR_CMP_TEST/IR_COERCE_NUMERIC dispatch arm instead, which was correct while bb_cmp_test was the sole reader but is STALE-UNSAFE the moment
+ * a second consumer exists: DRIVE_FILL resets ~20 op_* fields and op_res_live is NOT among them, so a live node whose own arm never assigns it would inherit the PREVIOUS node's measured 0 and silently SKIP a
+ * result store the reader needs -- wrong code, not slow code.  Keying it on nd at the choke point makes the value always the emitting node's own; zls_result_live is conservative (unknown node -> 1), so the
+ * uniform promotion can only ever hand a template the same answer the arm-local promotion did, or a SAFER one.  This supersedes the s182 arm-local line, which is deleted (one authority, not two). */
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
+    { extern int zls_result_live(const IR_t *); g_emit.op_res_live = zls_result_live(nd); }
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
     extern int  bb_slot_get(IR_t *nd);
@@ -1302,7 +1308,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int sa = a0 ? emit_binop_opnd_slot(a0) : -1; int sb = a1 ? emit_binop_opnd_slot(a1) : -1;
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_res_live = zls_result_live(nd);   /* ZB-VAL-8b: promoted HERE, beside the operand slots it qualifies -- NOT in DRIVE_FILL, which runs for every box in the tree, where a wrong answer would be a silent wrong-code bug across 120 templates at once; this arm is the only consumer today */
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LEN: {
