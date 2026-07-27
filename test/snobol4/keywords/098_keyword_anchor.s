@@ -36,8 +36,6 @@ main_α:
                         mov              ecx, 360
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 352], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         &ANCHOR = 1
@@ -236,7 +234,6 @@ n17_assign_α:
                                                                                         jmp   n19_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n18_match_head_α:
-                        mov              qword ptr [rsp + 280], rbp
                         mov              rdi, qword ptr [rsp + 288]
                         mov              rsi, qword ptr [rsp + 296]
                         call             rt_match_enter@PLT
@@ -269,7 +266,6 @@ n18_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 272]
-                        mov              rbp, qword ptr [rsp + 280]
                                                                                         jmp   n9_lit_string_α
 #=======================================================================================================================
 #         X 'hello'                                                   :S(YES)F(NO)
@@ -300,7 +296,6 @@ n20_match_lit_β:
                                                                                         jmp   n18_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n21_match_head_α:
-                        mov              qword ptr [rsp + 184], rbp
                         mov              rdi, qword ptr [rsp + 192]
                         mov              rsi, qword ptr [rsp + 200]
                         call             rt_match_enter@PLT
@@ -333,7 +328,6 @@ n21_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 176]
-                        mov              rbp, qword ptr [rsp + 184]
                                                                                         jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n22_match_release_α:
@@ -375,7 +369,6 @@ n22_match_release_α:
                         pop              r15
                         pop              r14
                         mov              r12, qword ptr [rsp + 272]
-                        mov              rbp, qword ptr [rsp + 280]
                                                                                         jmp   n7_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n23_match_lit_α:
@@ -435,7 +428,6 @@ n24_match_release_α:
                         pop              r15
                         pop              r14
                         mov              r12, qword ptr [rsp + 176]
-                        mov              rbp, qword ptr [rsp + 184]
                                                                                         jmp   n6_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
@@ -444,16 +436,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 352]
                         add              rsp, 360
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 352]
                         add              rsp, 360
                         ret
                         .section         .note.GNU-stack,"",@progbits

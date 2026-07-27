@@ -40,8 +40,6 @@ main_α:
                         mov              ecx, 312
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 304], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         X = 'aaa'
@@ -135,7 +133,6 @@ n8_op74_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_head_α:
-                        mov              qword ptr [rsp + 104], rbp
                         mov              rdi, qword ptr [rsp + 224]
                         mov              rsi, qword ptr [rsp + 232]
                         call             rt_match_enter@PLT
@@ -168,7 +165,6 @@ n9_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 96]
-                        mov              rbp, qword ptr [rsp + 104]
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_sequence_α:
@@ -219,7 +215,6 @@ n11_match_release_α:
                         pop              r15
                         pop              r14
                         mov              r12, qword ptr [rsp + 96]
-                        mov              rbp, qword ptr [rsp + 104]
                                                                                         jmp   n15_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_pos_α:
@@ -395,16 +390,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 304]
                         add              rsp, 312
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 304]
                         add              rsp, 312
                         ret
                         .section         .rodata

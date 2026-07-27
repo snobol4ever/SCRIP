@@ -36,8 +36,6 @@ main_α:
                         mov              ecx, 136
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 128], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         X = 'hello'
@@ -71,7 +69,6 @@ n2_var_α:
                                                                                         jmp   n3_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
-                        mov              qword ptr [rsp + 88], rbp
                         mov              rdi, qword ptr [rsp + 96]
                         mov              rsi, qword ptr [rsp + 104]
                         call             rt_match_enter@PLT
@@ -104,7 +101,6 @@ n3_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 80]
-                        mov              rbp, qword ptr [rsp + 88]
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_lit_α:
@@ -164,7 +160,6 @@ n5_match_release_α:
                         pop              r15
                         pop              r14
                         mov              r12, qword ptr [rsp + 80]
-                        mov              rbp, qword ptr [rsp + 88]
                                                                                         jmp   n6_lit_string_α
 #=======================================================================================================================
 #         OUTPUT = 'found'
@@ -198,16 +193,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 128]
                         add              rsp, 136
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 128]
                         add              rsp, 136
                         ret
                         .section         .note.GNU-stack,"",@progbits
