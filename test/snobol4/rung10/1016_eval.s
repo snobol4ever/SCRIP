@@ -10,8 +10,6 @@ proc_EXPR$0_α:
                         sub              rsp, 96
                         mov              [rsp + 72], rcx
                         mov              [rsp + 80], rdx
-                        mov              [rsp + 88], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_EXPR$0_α_body:
@@ -65,17 +63,15 @@ proc_EXPR$0_β:
                                                                                         jmp   proc_EXPR$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$0_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 72]
-                        lea              rsp, [rbp + 96]
-                        mov              rbp, [rbp + 88]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 72]
+                        add              rsp, 96
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$0_ω:
-                        mov              rax, [rbp + 80]
-                        lea              rsp, [rbp + 96]
-                        mov              rbp, [rbp + 88]
+                        mov              rax, [rsp + 80]
+                        add              rsp, 96
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_EXPR$1_α
@@ -87,8 +83,6 @@ proc_EXPR$1_α:
                         sub              rsp, 64
                         mov              [rsp + 40], rcx
                         mov              [rsp + 48], rdx
-                        mov              [rsp + 56], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_EXPR$1_α_body:
@@ -117,17 +111,15 @@ proc_EXPR$1_β:
                                                                                         jmp   proc_EXPR$1_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$1_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 40]
-                        lea              rsp, [rbp + 64]
-                        mov              rbp, [rbp + 56]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 40]
+                        add              rsp, 64
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$1_ω:
-                        mov              rax, [rbp + 48]
-                        lea              rsp, [rbp + 64]
-                        mov              rbp, [rbp + 56]
+                        mov              rax, [rsp + 48]
+                        add              rsp, 64
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_EXPR$2_α
@@ -139,8 +131,6 @@ proc_EXPR$2_α:
                         sub              rsp, 144
                         mov              [rsp + 120], rcx
                         mov              [rsp + 128], rdx
-                        mov              [rsp + 136], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_EXPR$2_α_body:
@@ -201,17 +191,15 @@ proc_EXPR$2_β:
                                                                                         jmp   proc_EXPR$2_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$2_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 120]
-                        lea              rsp, [rbp + 144]
-                        mov              rbp, [rbp + 136]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 120]
+                        add              rsp, 144
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$2_ω:
-                        mov              rax, [rbp + 128]
-                        lea              rsp, [rbp + 144]
-                        mov              rbp, [rbp + 136]
+                        mov              rax, [rsp + 128]
+                        add              rsp, 144
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

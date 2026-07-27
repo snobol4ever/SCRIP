@@ -1603,8 +1603,6 @@ proc_Push_α:
                         sub              rsp, 2544
                         mov              [rsp + 2520], rcx
                         mov              [rsp + 2528], rdx
-                        mov              [rsp + 2536], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 2512
                         xor              eax, eax
@@ -1612,10 +1610,10 @@ proc_Push_α:
 proc_Push_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n212_op14_α:
-                        mov              rdi, qword ptr [rbp + 2520]
-                        mov              rsi, qword ptr [rbp + 2528]
-                        lea              rdx, [rbp + 2544]
-                        mov              rcx, qword ptr [rbp + 2536]
+                        mov              rdi, qword ptr [rsp + 2520]
+                        mov              rsi, qword ptr [rsp + 2528]
+                        lea              rdx, [rsp + 2544]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n213_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1638,17 +1636,15 @@ proc_Push_β:
                                                                                         jmp   proc_Push_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2520]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 2520]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_ω:
-                        mov              rax, [rbp + 2528]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rax, [rsp + 2528]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Pop_α
@@ -1660,8 +1656,6 @@ proc_Pop_α:
                         sub              rsp, 2544
                         mov              [rsp + 2520], rcx
                         mov              [rsp + 2528], rdx
-                        mov              [rsp + 2536], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 2512
                         xor              eax, eax
@@ -1669,10 +1663,10 @@ proc_Pop_α:
 proc_Pop_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n218_op14_α:
-                        mov              rdi, qword ptr [rbp + 2520]
-                        mov              rsi, qword ptr [rbp + 2528]
-                        lea              rdx, [rbp + 2544]
-                        mov              rcx, qword ptr [rbp + 2536]
+                        mov              rdi, qword ptr [rsp + 2520]
+                        mov              rsi, qword ptr [rsp + 2528]
+                        lea              rdx, [rsp + 2544]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n219_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1695,17 +1689,15 @@ proc_Pop_β:
                                                                                         jmp   proc_Pop_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2520]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 2520]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_ω:
-                        mov              rax, [rbp + 2528]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rax, [rsp + 2528]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Unary_α
@@ -1717,8 +1709,6 @@ proc_Unary_α:
                         sub              rsp, 2544
                         mov              [rsp + 2520], rcx
                         mov              [rsp + 2528], rdx
-                        mov              [rsp + 2536], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 2512
                         xor              eax, eax
@@ -1726,10 +1716,10 @@ proc_Unary_α:
 proc_Unary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n224_op14_α:
-                        mov              rdi, qword ptr [rbp + 2520]
-                        mov              rsi, qword ptr [rbp + 2528]
-                        lea              rdx, [rbp + 2544]
-                        mov              rcx, qword ptr [rbp + 2536]
+                        mov              rdi, qword ptr [rsp + 2520]
+                        mov              rsi, qword ptr [rsp + 2528]
+                        lea              rdx, [rsp + 2544]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n225_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1752,17 +1742,15 @@ proc_Unary_β:
                                                                                         jmp   proc_Unary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2520]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 2520]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_ω:
-                        mov              rax, [rbp + 2528]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rax, [rsp + 2528]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Binary_α
@@ -1774,8 +1762,6 @@ proc_Binary_α:
                         sub              rsp, 2544
                         mov              [rsp + 2520], rcx
                         mov              [rsp + 2528], rdx
-                        mov              [rsp + 2536], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 2512
                         xor              eax, eax
@@ -1783,10 +1769,10 @@ proc_Binary_α:
 proc_Binary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n230_op14_α:
-                        mov              rdi, qword ptr [rbp + 2520]
-                        mov              rsi, qword ptr [rbp + 2528]
-                        lea              rdx, [rbp + 2544]
-                        mov              rcx, qword ptr [rbp + 2536]
+                        mov              rdi, qword ptr [rsp + 2520]
+                        mov              rsi, qword ptr [rsp + 2528]
+                        lea              rdx, [rsp + 2544]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n231_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1809,17 +1795,15 @@ proc_Binary_β:
                                                                                         jmp   proc_Binary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2520]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 2520]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_ω:
-                        mov              rax, [rbp + 2528]
-                        lea              rsp, [rbp + 2544]
-                        mov              rbp, [rbp + 2536]
+                        mov              rax, [rsp + 2528]
+                        add              rsp, 2544
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$0_α

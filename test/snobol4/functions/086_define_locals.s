@@ -10,8 +10,6 @@ proc_LBL__swap_α:
                         sub              rsp, 288
                         mov              [rsp + 264], rcx
                         mov              [rsp + 272], rdx
-                        mov              [rsp + 280], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__swap_α_body:
@@ -153,17 +151,15 @@ proc_LBL__swap_β:
                                                                                         jmp   proc_LBL__swap_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__swap_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 264]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 264]
+                        add              rsp, 288
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__swap_ω:
-                        mov              rax, [rbp + 272]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rax, [rsp + 272]
+                        add              rsp, 288
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_swap_α
@@ -175,8 +171,6 @@ proc_swap_α:
                         sub              rsp, 288
                         mov              [rsp + 264], rcx
                         mov              [rsp + 272], rdx
-                        mov              [rsp + 280], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 256
                         xor              eax, eax
@@ -184,10 +178,10 @@ proc_swap_α:
 proc_swap_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n29_op14_α:
-                        mov              rdi, qword ptr [rbp + 264]
-                        mov              rsi, qword ptr [rbp + 272]
-                        lea              rdx, [rbp + 288]
-                        mov              rcx, qword ptr [rbp + 280]
+                        mov              rdi, qword ptr [rsp + 264]
+                        mov              rsi, qword ptr [rsp + 272]
+                        lea              rdx, [rsp + 288]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n30_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -210,17 +204,15 @@ proc_swap_β:
                                                                                         jmp   proc_swap_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 264]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 264]
+                        add              rsp, 288
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_ω:
-                        mov              rax, [rbp + 272]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rax, [rsp + 272]
+                        add              rsp, 288
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

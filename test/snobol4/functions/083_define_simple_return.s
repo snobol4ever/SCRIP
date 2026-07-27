@@ -10,8 +10,6 @@ proc_LBL__double_α:
                         sub              rsp, 240
                         mov              [rsp + 216], rcx
                         mov              [rsp + 224], rdx
-                        mov              [rsp + 232], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__double_α_body:
@@ -112,17 +110,15 @@ proc_LBL__double_β:
                                                                                         jmp   proc_LBL__double_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__double_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 216]
-                        lea              rsp, [rbp + 240]
-                        mov              rbp, [rbp + 232]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 216]
+                        add              rsp, 240
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__double_ω:
-                        mov              rax, [rbp + 224]
-                        lea              rsp, [rbp + 240]
-                        mov              rbp, [rbp + 232]
+                        mov              rax, [rsp + 224]
+                        add              rsp, 240
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_double_α
@@ -134,8 +130,6 @@ proc_double_α:
                         sub              rsp, 240
                         mov              [rsp + 216], rcx
                         mov              [rsp + 224], rdx
-                        mov              [rsp + 232], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 208
                         xor              eax, eax
@@ -143,10 +137,10 @@ proc_double_α:
 proc_double_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_op14_α:
-                        mov              rdi, qword ptr [rbp + 216]
-                        mov              rsi, qword ptr [rbp + 224]
-                        lea              rdx, [rbp + 240]
-                        mov              rcx, qword ptr [rbp + 232]
+                        mov              rdi, qword ptr [rsp + 216]
+                        mov              rsi, qword ptr [rsp + 224]
+                        lea              rdx, [rsp + 240]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n14_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -169,17 +163,15 @@ proc_double_β:
                                                                                         jmp   proc_double_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_double_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 216]
-                        lea              rsp, [rbp + 240]
-                        mov              rbp, [rbp + 232]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 216]
+                        add              rsp, 240
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_double_ω:
-                        mov              rax, [rbp + 224]
-                        lea              rsp, [rbp + 240]
-                        mov              rbp, [rbp + 232]
+                        mov              rax, [rsp + 224]
+                        add              rsp, 240
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

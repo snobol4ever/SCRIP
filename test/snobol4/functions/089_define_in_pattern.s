@@ -10,8 +10,6 @@ proc_LBL__upcase_α:
                         sub              rsp, 320
                         mov              [rsp + 296], rcx
                         mov              [rsp + 304], rdx
-                        mov              [rsp + 312], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__upcase_α_body:
@@ -103,17 +101,15 @@ proc_LBL__upcase_β:
                                                                                         jmp   proc_LBL__upcase_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 296]
-                        lea              rsp, [rbp + 320]
-                        mov              rbp, [rbp + 312]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 296]
+                        add              rsp, 320
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_ω:
-                        mov              rax, [rbp + 304]
-                        lea              rsp, [rbp + 320]
-                        mov              rbp, [rbp + 312]
+                        mov              rax, [rsp + 304]
+                        add              rsp, 320
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_upcase_α
@@ -125,8 +121,6 @@ proc_upcase_α:
                         sub              rsp, 320
                         mov              [rsp + 296], rcx
                         mov              [rsp + 304], rdx
-                        mov              [rsp + 312], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 288
                         xor              eax, eax
@@ -134,10 +128,10 @@ proc_upcase_α:
 proc_upcase_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n16_op14_α:
-                        mov              rdi, qword ptr [rbp + 296]
-                        mov              rsi, qword ptr [rbp + 304]
-                        lea              rdx, [rbp + 320]
-                        mov              rcx, qword ptr [rbp + 312]
+                        mov              rdi, qword ptr [rsp + 296]
+                        mov              rsi, qword ptr [rsp + 304]
+                        lea              rdx, [rsp + 320]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n17_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -160,17 +154,15 @@ proc_upcase_β:
                                                                                         jmp   proc_upcase_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 296]
-                        lea              rsp, [rbp + 320]
-                        mov              rbp, [rbp + 312]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 296]
+                        add              rsp, 320
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_ω:
-                        mov              rax, [rbp + 304]
-                        lea              rsp, [rbp + 320]
-                        mov              rbp, [rbp + 312]
+                        mov              rax, [rsp + 304]
+                        add              rsp, 320
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
