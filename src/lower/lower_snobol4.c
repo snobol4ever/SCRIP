@@ -1164,7 +1164,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     }
     case TT_FAIL:    { IR_t * j = lc_build(g, IR_GOTO, NULL, NULL); sno_ω_to(j, fail); lc_γ_to(j, fail); return j; }
     case TT_SUCCEED: { IR_t * j = lc_build(g, IR_GOTO, succ, NULL); return j; }
-    case TT_ABORT:   { IR_t * j = lc_build(g, IR_GOTO, cx->pat_seal ? cx->pat_seal : fail, NULL); return j; }
+    case TT_ABORT:   { IR_t * j = lc_build(g, IR_MATCH_ABORT, NULL, NULL); IR_t * k = cx->pat_seal ? cx->pat_seal : fail; sno_ω_to(j, k); lc_γ_to(j, k); return j; }   /* ABORT-NODE (s193): was a bare IR_GOTO — classifier-invisible, which pinned IR_MATCH_HEAD in the deep-arrival list (emit.cpp).  The box kills through ω (bb_match_abort = α-label + jmp ω + β trampoline→ω), so a β arrival — the matcher "seeing the ABORT pattern when it is backing up", manual Ch.9's stated reason FENCE(…|ABORT) exists — kills too, MORE faithful than the goto's no-β-surface.  γ wired to the same kill defensively (TT_FAIL precedent).  Kill target unchanged: pat_seal ?: fail, so the anchor-advance bypass (171) is preserved. */
     case TT_SPAN: {
         IR_t * nd = lc_build(g, IR_MATCH_SPAN, succ, NULL);
         sno_ω_to(nd, fail);
