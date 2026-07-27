@@ -208,7 +208,7 @@ n10_match_alternate_af:
                                                                                         jmp   n8_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 48]
+                        mov              eax, dword ptr [rsp + 80]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax

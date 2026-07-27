@@ -181,7 +181,7 @@ n10_match_len_β:
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_assign_imm_α:
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 48]
                         lea              rdi, [rip + .S0]
                         mov              esi, eax
                         mov              edx, r14d

@@ -579,9 +579,9 @@ n41_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx73_5
-                        mov              rax, qword ptr [rsp + 192]
+                        mov              rax, qword ptr [rsp + 224]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 200]
+                        mov              rax, qword ptr [rsp + 232]
                         mov              qword ptr [1879052312], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx73_6]

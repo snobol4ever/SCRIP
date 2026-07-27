@@ -263,7 +263,7 @@ n13_match_assign_save_β:
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 48]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -286,7 +286,7 @@ n15_match_assign_save_β:
                                                                                         jmp   n14_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n16_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 48]
+                        mov              eax, dword ptr [rsp + 64]
                         lea              rcx, [rip + .S1]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -309,7 +309,7 @@ n17_match_assign_save_β:
                                                                                         jmp   n16_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 64]
+                        mov              eax, dword ptr [rsp + 80]
                         lea              rcx, [rip + .S2]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
