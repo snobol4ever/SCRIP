@@ -36,8 +36,6 @@ main_α:
                         mov              ecx, 168
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 160], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         X = 'hello world'
@@ -71,7 +69,6 @@ n2_var_α:
                                                                                         jmp   n3_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
-                        mov              qword ptr [rsp + 88], rbp
                         mov              rdi, qword ptr [rsp + 128]
                         mov              rsi, qword ptr [rsp + 136]
                         call             rt_match_enter@PLT
@@ -104,7 +101,6 @@ n3_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 80]
-                        mov              rbp, qword ptr [rsp + 88]
                                                                                         jmp   n4_var_α
 #=======================================================================================================================
 #         OUTPUT = X
@@ -215,7 +211,6 @@ n9_match_replace_α:
 .Lx23_0_s:
                         .string          "X"
 .Lx23_1:
-                        mov              rbp, qword ptr [rsp + 88]
                                                                                         jmp   n4_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
@@ -224,16 +219,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 160]
                         add              rsp, 168
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 160]
                         add              rsp, 168
                         ret
                         .section         .note.GNU-stack,"",@progbits
