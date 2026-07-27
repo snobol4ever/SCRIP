@@ -1844,7 +1844,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     entry = entry;
     queue[qt++] = entry;
     { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
-      if (g_emit_cfg) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc && qt < Q_MAX; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a) queue[qt++] = (IR_t *)_a; } } }   /* SN4-FLAT-PROC (s176) ENTERABLE-CHAIN ROOTS: every labeled statement's anchor (pointer-captured at lower time, orphan-proof against the GOTO-fold) seeds the BFS, so mode 4 emits the same runtime-enterable set mode 3 pulls lazily through the label registry -- flat DEFINE bodies and the RETURN/FRETURN floaters their exits edge to.  Statically-referenced labels were already reached; the dedup below makes those seeds free */
+      if (g_emit_cfg && (!g_is_text || entry == g_emit_cfg->entry)) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc && qt < Q_MAX; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a) queue[qt++] = (IR_t *)_a; } } }   /* SN4-FLAT-PROC (s176) ENTERABLE-CHAIN ROOTS: every labeled statement's anchor (pointer-captured at lower time, orphan-proof against the GOTO-fold) seeds the BFS, so mode 4 emits the same runtime-enterable set mode 3 pulls lazily through the label registry -- flat DEFINE bodies and the RETURN/FRETURN floaters their exits edge to.  Statically-referenced labels were already reached; the dedup below makes those seeds free */
     while (qh < qt) {
         IR_t *c = queue[qh++];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
