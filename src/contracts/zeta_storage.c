@@ -141,7 +141,15 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_DEFER:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "defer.pad (ZS-2 jmp-entry, Lon s58: the fn/frame cell pair is DELETED — the blob is a jmp-entered new activation that self-allocates on rsp with a 32B wire header, so there is nothing to stash and nothing to guard; quad KEPT at 16B so no later node's offset shifts. s137 OVER-SEAL: when IR_t.seal, quad +0 is REPURPOSED as the fence-demarked sync watermark — α stamps rsp there, the γ/ω glues and β bulk-restore it; +8 stays pad)", nd); return 1;
     case IR_MATCH_VALUE:
-        zls_field(scope_id, off, 16, ZK_RAW, 0, "matchvalue.pad (SN4 kill-manufactured-names: structural clone of defer.pad — the value lives in operand[0]'s slot, resume rides rsp, nothing to stash here; 16B quad KEPT so no later node's offset shifts)", nd); return 1;
+        /* ZB-FC-VALUE (s186): RETIRED — this quad was never read or written by anything.  The grant predates the
+         * measurement: bb_match_value.cpp addresses only FR(op_a_slot) (operand[0]'s slot) and FR(op_scan_head_off)
+         * (a cross-box scan field), the emit arm sets op_off = -1 outright, and the resume continuation is already
+         * pushed on rsp (x86_sub rsp,8 + push rax / add rsp,16) — the field's own comment conceded "nothing to stash
+         * here" and kept 16B purely so later offsets would not shift.  s185 made that reason obsolete by deriving
+         * every node extent from zls_result_off() + zls_node_bytes() instead of hardcoded arithmetic, so the quad can
+         * go.  A box owning no private RW state has a ZERO cell as its FORTH form (the ZERO-LAW mechanism, same as
+         * LEN/ANY/NOTANY/POS) — this closes the SNOBOL4 IR_MATCH_* family, last unconverted kind. */
+        return 0;
     case IR_MATCH_TAB: case IR_MATCH_RTAB:
         /* UNIFORM-BETA WIRING (Claude, this session, per Lon "EVERY BB must be wired properly"): TAB/RTAB
          * OVERWRITE r14d (mov, not add) — the only match primitives whose cursor effect is unrecoverable by
