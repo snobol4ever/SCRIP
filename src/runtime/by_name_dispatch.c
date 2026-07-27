@@ -2891,14 +2891,26 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (int i = 0; i < RK_NAMED_MAX; i++) slots[i] = NULVCL;
         int np = 0; while (np < RK_NAMED_MAX && rt_proc_pname(pname, np)) np++;
         int maxslot = 0;
+        extern int rt_proc_named_rest(const char *name);
+        int nrest = rt_proc_named_rest(pname); int nrx = nrest > 0 ? nrest - 1 : -1;
+        size_t hcap = 1; for (int i = 2 + npos; i + 1 < nargs; i += 2) { char kb0[128], vb0[256]; const char *k0 = to_cstring(args[i], kb0, sizeof kb0); const char *v0 = to_cstring(args[i + 1], vb0, sizeof vb0); hcap += (k0 ? strlen(k0) : 0) + (v0 ? strlen(v0) : 0) + 2; }   /* capacity is MEASURED from the real strings, never a fixed per-pair budget: to_cstring fills the scratch buffer ONLY for INT/REAL and returns the descriptor's own pointer for a STRING (see its VARVAL_fn tail), so the kb/vb2 scratch sizes below do NOT bound strlen(k)/strlen(v) — a fixed 512/pair segfaulted on a 2MB named value and silently corrupted the workspace arena below that.  Over-estimates by the params that later bind to a declared name, which is safe. */
+        char *hbuf = rt_ws_alloc(hcap); size_t hp = 0; hbuf[0] = '\0';
         for (int i = 0; i < npos && (2 + i) < nargs; i++) { slots[i] = args[2 + i]; if (i + 1 > maxslot) maxslot = i + 1; }
         for (int i = 2 + npos; i + 1 < nargs; i += 2) {
             char kb[128]; const char *k = to_cstring(args[i], kb, sizeof kb);
             int found = -1;
-            for (int s = 0; s < np; s++) { const char *pn = rt_proc_pname(pname, s); if (pn && k && !strcmp(pn, k)) { found = s; break; } }
-            if (found < 0) continue;
+            for (int s = 0; s < np; s++) { if (s == nrx) continue; const char *pn = rt_proc_pname(pname, s); if (pn && k && !strcmp(pn, k)) { found = s; break; } }
+            if (found < 0) {
+                if (nrx < 0) continue;
+                char vb2[256]; const char *v = to_cstring(args[i + 1], vb2, sizeof vb2); if (!k) k = ""; if (!v) v = "";
+                if (hp > 0) hbuf[hp++] = SOH;
+                size_t kl = strlen(k); memcpy(hbuf + hp, k, kl); hp += kl; hbuf[hp++] = '\x02';
+                size_t vl = strlen(v); memcpy(hbuf + hp, v, vl); hp += vl; hbuf[hp] = '\0';
+                continue;
+            }
             slots[found] = args[i + 1]; if (found + 1 > maxslot) maxslot = found + 1;
         }
+        if (nrx >= 0 && nrx < RK_NAMED_MAX) { slots[nrx] = STRVAL(hbuf); if (nrx + 1 > maxslot) maxslot = nrx + 1; }
         int total = np > maxslot ? np : maxslot;
         if (total > RK_NAMED_MAX) total = RK_NAMED_MAX;
         *out = invoke_method_proc(pname, slots, total); return 1;

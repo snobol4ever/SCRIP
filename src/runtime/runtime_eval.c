@@ -127,6 +127,7 @@ static void eval_thunks_emit_from(int pc0)
         rt_proc_set_generator(pname, g_stage2.proc_table[pi].is_generator);
         rt_proc_set_variadic(pname, g_stage2.proc_table[pi].is_variadic);
         rt_proc_set_rest_kind(pname, g_stage2.proc_table[pi].rest_kind);
+        rt_proc_set_named_rest(pname, g_stage2.proc_table[pi].named_rest);
         rt_proc_set_dyn_scope(pname, g_stage2.proc_table[pi].dyn_scope);
         if (g_stage2.proc_table[pi].result_name) rt_proc_set_result_name(pname, g_stage2.proc_table[pi].result_name);
     }

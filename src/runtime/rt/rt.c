@@ -349,7 +349,7 @@ __attribute__((visibility("hidden"))) int rt_k_level = 1;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int jmp_entry; int redefined; int zstatic; int pnames_owned;   /* rest_kind names WHAT differs about the variadic tail binding, never WHICH language asked: REST_LIST(0) = the DT_DATA list rt_make_list builds; REST_FLAT_AGG(1) = the SOH-joined flat aggregate (canonical from-slurpy-flat, List.rakumod:271) that .elems/subscripts/reductions already understand. NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate.  PS-1b (s151): zstatic = 1 iff this proc's blob graph was DEFER/VALUE-free with a known region (emit-side emit_graph_zstatic); default 0 = conservative, so an unregistered proc reads as chain-path safe. */
+    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned;   /* rest_kind names WHAT differs about the variadic tail binding, never WHICH language asked: REST_LIST(0) = the DT_DATA list rt_make_list builds; REST_FLAT_AGG(1) = the SOH-joined flat aggregate (canonical from-slurpy-flat, List.rakumod:271) that .elems/subscripts/reductions already understand. NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate.  PS-1b (s151): zstatic = 1 iff this proc's blob graph was DEFER/VALUE-free with a known region (emit-side emit_graph_zstatic); default 0 = conservative, so an unregistered proc reads as chain-path safe. */
 } rt_proc_t;
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
@@ -394,7 +394,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_result_name(const char *name, const char *rname)
@@ -554,6 +554,17 @@ void rt_proc_set_rest_kind(const char *name, int kind)
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].rest_kind = kind; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_named_rest(const char *name, int slot)
+{
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].named_rest = slot; return; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_named_rest(const char *name)
+{
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].named_rest; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1d REGIME RECORD — the driver proc loops (the same four that bracket emit_jmp_entry_for_proc) record here whether the proc's EMITTED body is a jmp-entry blob, in-process for mode 3 and via the
  * printed startup registration for mode 4.  Blocks/rules/methods registered through rt_proc_set_fn outside those loops keep the default 0 and stay on the call-regime C window. */
 void rt_proc_set_jmpentry(const char *name, int on)
@@ -577,7 +588,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -612,6 +623,7 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
     }
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
     for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL;
+    if (p->named_rest > 0 && p->named_rest <= npc) { DESCR_t *slot = (DESCR_t *)(fb + 16 * p->named_rest); if (slot->v == NULVCL.v && slot->i == NULVCL.i) { char *e = (char *)rt_ws_alloc(1); e[0] = '\0'; *slot = STRVAL(e); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_g_ret_by_name = 0;

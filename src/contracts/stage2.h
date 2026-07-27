@@ -27,6 +27,7 @@ typedef struct ProcEntry {
     int                 is_generator;
     int                 is_variadic;
     int                 rest_kind;
+    int                 named_rest;
     int                 dyn_scope;
     const char         *result_name;
     uint64_t            byref_mask;

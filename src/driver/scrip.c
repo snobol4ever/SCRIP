@@ -831,6 +831,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
+                { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
@@ -1175,6 +1176,11 @@ int main(int argc, char **argv)
                         emit_textf("  mov esi, %d\n", pe->rest_kind);
                         emit_textf("  call rt_proc_set_rest_kind@PLT\n");
                     }
+                    if (pe->named_rest) {   /* the m4 twin of the in-process rt_proc_set_named_rest — same ALLOWLIST law as rest_kind directly above: without it the standalone binary leaves the *%h collector slot unbound and every named-arg key silently vanishes while m3 reads clean.  Emits pe->named_rest, never a literal, so a second collector slot cannot be downgraded (the s2026-07-27 hardcoded-mov-esi-1 lesson). */
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, %d\n", pe->named_rest);
+                        emit_textf("  call rt_proc_set_named_rest@PLT\n");
+                    }
                     {   /* NCB-1d: record the body's regime for the C transfer fns — the mode-4 twin of the in-process rt_proc_set_jmpentry.  GENP slice-2: the generator flag now ALSO embeds (rt_proc_call_gen_h's per-instance-stack arm discriminates on p->jmp_entry && rt_proc_is_generator — without this twin the m4 runtime took the det one-shot arm and rt_genp_yield aborted with no current coexpression). */
                         emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                         emit_textf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
@@ -1485,6 +1491,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
+                { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
@@ -1511,6 +1518,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
+                { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }

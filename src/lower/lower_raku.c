@@ -499,7 +499,9 @@ static void rk_register_proc(const tree_t * proc, const char * name, int nparams
       if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "*@")) {
           g_stage2.proc_table[pi].is_variadic = 1; g_stage2.proc_table[pi].rest_kind = 1; }
       else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "**@")) {
-          g_stage2.proc_table[pi].is_variadic = 1; g_stage2.proc_table[pi].rest_kind = 2; } }
+          g_stage2.proc_table[pi].is_variadic = 1; g_stage2.proc_table[pi].rest_kind = 2; }
+      else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "*%")) {
+          g_stage2.proc_table[pi].named_rest = nparams; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_proc_known(const char * name) {
