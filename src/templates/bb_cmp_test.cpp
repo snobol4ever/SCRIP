@@ -19,8 +19,8 @@ std::string bb_cmp_test() {
                  + x86("call", "rt_cmp_d", (uint64_t)(uintptr_t)(void *)rt_cmp_d)
                  + x86("test", "eax", "eax")
                  + x86_omega((int)_.op_ival == 0 ? "jne" : (int)_.op_ival == 1 ? "je" : (int)_.op_ival == 2 ? "jns" : (int)_.op_ival == 3 ? "jg" : (int)_.op_ival == 4 ? "jle" : "js")
-                 + x86("mov",  FRQ(_.op_off),     (long)0)
-                 + x86("mov",  FRQ(_.op_off + 8), (long)0)
+                 + IF(_.op_res_live, x86("mov",  FRQ(_.op_off),     (long)0)
+                                   + x86("mov",  FRQ(_.op_off + 8), (long)0))
                  + x86_gamma()
                  + x86_beta_trampoline()
              : x86_bomb("bb_cmp_test: needs two coerced operand slots (op_sa/op_sb) + own value slot (op_off)");
