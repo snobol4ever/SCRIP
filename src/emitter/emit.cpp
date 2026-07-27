@@ -1010,6 +1010,7 @@ extern int           bb_slot_get(IR_t *nd);
 extern void          bb_slot_register(IR_t *nd, int off);
 extern int           bb_varslot_peek(const char *name);
 extern int           is_global(const char *name);
+extern int           zls_result_live(const IR_t *nd);
 extern int           gva_index_of(const char *name);
 extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
@@ -1301,6 +1302,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int sa = a0 ? emit_binop_opnd_slot(a0) : -1; int sb = a1 ? emit_binop_opnd_slot(a1) : -1;
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_res_live = zls_result_live(nd);   /* ZB-VAL-8b: promoted HERE, beside the operand slots it qualifies -- NOT in DRIVE_FILL, which runs for every box in the tree, where a wrong answer would be a silent wrong-code bug across 120 templates at once; this arm is the only consumer today */
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LEN: {

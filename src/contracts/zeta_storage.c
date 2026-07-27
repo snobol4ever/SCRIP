@@ -16,7 +16,7 @@ static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sva
 #define ZLS_MAX_GRAPHS  4096
 #define ZLS_MAX_VSLOTS  4096
 #define ZLS_MAX_MARKS   65536   /* SN4 (2026-07-22): was 8192. Each entry-in-main DEFINE (labelled-range-in-main idiom) re-lowers the full statement array to build its own correctly-framed graph, re-marking every main label; beauty (~163 labels x ~39 such DEFINEs) blows 8192 mid-lowering. Sharing main's graph would cut the marks but hands a called DEFINE main's oversized frame (SIGBUS at scale) — so per-DEFINE graphs stay and the table grows instead (~24B/entry). */
-typedef struct { const IR_t * nd; int scope_id; int off; int loff; } zls_entry_t;
+typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;   /* anchor: SN4-FLAT-PROC (s176) -- the label's statement anchor by pointer, orphan-proof emission root (see zls_group_mark_anchor) */
@@ -82,7 +82,7 @@ static void zls_field(int scope_id, int off, int size, int kind, int audit, cons
 static int zls_locals_shifted(IR_e op);
 static void zls_entry(const IR_t * nd, int scope_id, int off) {
     if (ze_n >= ZLS_MAX_ENTRIES) { fprintf(stderr, "zls: entry table overflow (%d)\n", ZLS_MAX_ENTRIES); abort(); }
-    ze[ze_n] = (zls_entry_t){ nd, scope_id, off, off + (zls_locals_shifted(nd->op) ? 16 : 0) };
+    ze[ze_n] = (zls_entry_t){ nd, scope_id, off, off + (zls_locals_shifted(nd->op) ? 16 : 0), 1 };   /* ZB-VAL-8b: live DEFAULTS to 1 -- every entry site that is not the elide path (which stamps the measured value below) stays conservatively READ, so the use predicate can only ever REMOVE work that was proven dead, never assume deadness it did not measure */
     zx[zx_n++] = &ze[ze_n];
     ze_n++;
 }
@@ -251,7 +251,7 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
  * POSITIVELY KNOWN to own zero locals may elide (zls_elide_ok — the default-grant leaf class; a kind with locals keeps its result so the locals@+16 layout law is untouched); (2) liveness marks a node
  * on ANY operand reference EXCEPT from the four SNOBOL4 constructs whose operands are pure entry/resume wiring (ALT/SEQ/ARBNO/FENCE1 + MOVE_LABEL's label operand); DISJUNCTION/HEAD/REPALT/the Icon
  * scan twins stay in the reader class because their operand lists mix wiring with real slot reads (emit.cpp op_parts/op_sa/op_off) — conservative toward LIVE.  SCRIP_SLOT_ELIDE=0 is the kill-switch. */
-static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING; }
+static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN; }   /* ZB-VAL-8b: IR_CMP_TEST joins the zero-locals class -- AUDITED, not assumed: it appears in NO arm of zls_grant_locals (owns no locals, so the locals@+16 layout law is untouched), its template bb_cmp_test.cpp reads only FRQ(op_sa)/FRQ(op_sb)/FRQ(op_off) with no cross-box reader of its front quad, and its control result travels in EAX via test/jcc -- never through the cell.  The cell holds the SPITBOL predicate value (manual p.33: "when any of these functions succeed, they produce a null string value"), which is REAL when read (OUTPUT = LT(A,B) 'yes' feeds it to str_concat_d) and DEAD when the statement consumes only the S/F branches -- exactly the per-instance discrimination zls_mark_value_refs measures */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SLOT-ELIDE S4a (Lon directive s138: "reduce the RSP adjustments to ZERO for BB's whose result is NOT USED and have just the local BB memory if any").  The locals-shifted SNOBOL4 match family's front
  * 16B "result" quad is runtime-DEAD BY CONSTRUCTION: every runtime accessor (drive_value_slot -> nd_slot -> zls_off, bb_prepare's scratch, the fc window bases, sealed-DEFER's watermark repoint) reads
@@ -272,12 +272,18 @@ static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
 static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
     if (zls_is_wiring(nd->op)) return 0;
     if (!live && zls_elide_ok(nd->op)) {
-        if (*scratch_off < 0) { *scratch_off = off; zls_entry(nd, scope_id, off); zls_field(scope_id, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); return 1; }
-        zls_entry(nd, scope_id, *scratch_off); return 0;
+        if (*scratch_off < 0) { *scratch_off = off; zls_entry(nd, scope_id, off); ze[ze_n - 1].live = 0; zls_field(scope_id, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); return 1; }
+        zls_entry(nd, scope_id, *scratch_off); ze[ze_n - 1].live = 0; return 0;
     }
-    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; return zls_grant_locals(nd, scope_id, off); }
-    return zls_grant(nd, scope_id, off);
+    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; ze[ze_n - 1].live = 0; return zls_grant_locals(nd, scope_id, off); }
+    int ei = ze_n; int n = zls_grant(nd, scope_id, off); if (ze_n > ei) ze[ei].live = live; return n;   /* zls_grant_locals adds FIELDS, never entries, so the node's own entry is exactly ze[ei] */
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZB-VAL-8b USE PREDICATE (Lon directive s182: "allocate its RESULT value, IF it has one and if it is used").  The measured answer to "is THIS INSTANCE's result cell ever read as a VALUE", which the IR
+ * itself cannot express: IR.h carries no n_uses/use_count/consumed field and ir_node_produces_value() is OPCODE-keyed (it answers "can this KIND produce a value", never "is this instance's value read").
+ * zls_mark_value_refs already computes exactly this fact -- an operands[] reference is a VALUE use, a gamma/omega wire is a CONTROL use and grants nothing -- but until now it died as a local array inside
+ * zls_build after steering layout alone.  Persisting it on the entry lets the EMITTER ask, so a box whose result no one reads can also skip WRITING it.  Conservative by construction: unknown node -> 1. */
+int zls_result_live(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; return e ? e->live : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_scope_new(int parent, int klass, const char * name) {
     if (zs_n >= ZLS_MAX_SCOPES) { fprintf(stderr, "zls: scope table overflow (%d)\n", ZLS_MAX_SCOPES); abort(); }
