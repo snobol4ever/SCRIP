@@ -278,6 +278,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         if (!ce || !clv) return NULL;
         IR_t * ut = build(cx, IR_NULLTEST_VAR, NULL, ω); IR_LIT(ut).sval = (t->t == TT_NONNULL) ? "nonnull" : "null";
         ir_operand_push(ut, clv); lc_γ_to(clv, ut);
+        if (clv && ir_is_generator_kind(clv->op)) lc_ω_to_β(ut, clv);   /* LVALUE re-pump: a failing null-test over a GENERATOR lvalue (every /(!L) := v) must resume that generator's β for the next element. Gated on generator-kind because bare ω_to's non-generator arm RETARGETS ω to the operand, which breaks the /x := v init idiom (initial/static: 12 rungs, s168). */
         *var_res = ut; return ce;
     }
     return NULL;
@@ -380,6 +381,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_NULL: {
         if (t->n > 0 && t->c[0]) {
             IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op;
+            IR_t * nβ = cx->beta;   /* operand's resume edge (β): TT_NULL is NOT in is_unop_tt, so it never reaches the L373 re-pump that TT_NONNULL gets — without this, a failing /x over a generator operand (/(!L), irgen.icn ir_a_Call "every /(!p.args.exprList) := a_Key(...)") exits instead of pumping the next element, so elided call arguments past the first are never defaulted. */
+            if (nβ && nβ != ω && nβ != op) { ω_to(op, nβ); cx->beta = nβ; }
             return ea;
         } IR_t * nd = build(cx, IR_FAIL, γ, ω);
         *res = nd; return nd;

@@ -4941,6 +4941,42 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
         if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
             const char *_s9 = VARVAL_fn(d); \
             if (!_s9 || !*_s9) { (d) = INTVAL(0); } else { _OPCOERCE(d); } } } while(0)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_cvpos(long long pos, int len, int *out_p) {
+    if (pos < -(long long)len || pos > (long long)len + 1) return 0;
+    *out_p = (int)(pos > 0 ? pos : (long long)len + pos + 1);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_str_anal(DESCR_t *args, int nargs, int si, const char **out_s, int *out_i, int *out_j) {
+    extern const char *scan_subj;
+    extern int scan_pos;
+    int have_s = (nargs >= si + 1) && !IS_FAIL_fn(args[si])     && args[si].v     != DT_SNUL;
+    int have_i = (nargs >= si + 2) && !IS_FAIL_fn(args[si + 1]) && args[si + 1].v != DT_SNUL;
+    int have_j = (nargs >= si + 3) && !IS_FAIL_fn(args[si + 2]) && args[si + 2].v != DT_SNUL;
+    const char *s;
+    int i, j, slen;
+    if (!have_s) {
+        if (!scan_subj) return 0;
+        s = scan_subj;
+        i = scan_pos;
+    } else {
+        s = VARVAL_fn(args[si]);
+        if (!s) s = "";
+        i = 1;
+    }
+    slen = (int)strlen(s);
+    if (have_i && !bn_cvpos((long long)to_int(args[si + 1]), slen, &i)) return 0;
+    if (!have_j) j = slen + 1;
+    else {
+        if (!bn_cvpos((long long)to_int(args[si + 2]), slen, &j)) return 0;
+        if (i > j) { int t = i; i = j; j = t; }
+    }
+    if (i < 1 || i > slen + 1 || j < 1 || j > slen + 1) return 0;
+    *out_s = s; *out_i = i; *out_j = j;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_numrel(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     if (nargs != 2) return -1;
     if (IS_FAIL_fn(args[0]) || IS_FAIL_fn(args[1])) { *out = FAILDESCR; return 1; }
@@ -6157,63 +6193,31 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     L_bidjmp_5920: ;
     if ((_bid == BID_any) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
-        if (nargs >= 2) {
-            const char *s = VARVAL_fn(args[1]); if (!s) s = "";
-            int slen = (int)strlen(s);
-            int i1 = (nargs >= 3) ? (int)args[2].i : 1;
-            int i2 = (nargs >= 4) ? (int)args[3].i : slen + 1;
-            if (i1 <= 0 || i1 > slen) { *out = FAILDESCR; return 1; }
-            if (i2 <= 0) i2 = slen + 1;
-            int p = i1 - 1, end = i2 - 1;
-            if (p < 0 || p >= slen || p >= end || !strchr(cv, s[p])) { *out = FAILDESCR; return 1; }
-            *out = INTVAL(p + 2); return 1;
-        }
-        if (!scan_subj) { *out = FAILDESCR; return 1; }
-        int slen = (int)strlen(scan_subj), p0 = scan_pos - 1;
-        if (p0 < 0 || p0 >= slen || !strchr(cv, scan_subj[p0])) { *out = FAILDESCR; return 1; }
-        *out = INTVAL(p0 + 2); return 1;
+        const char *s; int i1, i2;
+        if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
+        if (i1 >= i2) { *out = FAILDESCR; return 1; }
+        if (!strchr(cv, s[i1 - 1])) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(i1 + 1); return 1;
     }
     L_bidjmp_5938: ;
     if ((_bid == BID_many) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
-        if (nargs >= 2) {
-            const char *s = VARVAL_fn(args[1]); if (!s) s = "";
-            int slen = (int)strlen(s);
-            int i1 = (nargs >= 3) ? (int)args[2].i : 1;
-            int i2 = (nargs >= 4) ? (int)args[3].i : slen + 1;
-            if (i1 <= 0 || i1 > slen) { *out = FAILDESCR; return 1; }
-            if (i2 <= 0) i2 = slen + 1;
-            int p = i1 - 1, end = i2 - 1;
-            if (p < 0 || p >= slen || p >= end || !strchr(cv, s[p])) { *out = FAILDESCR; return 1; }
-            while (p < end && p < slen && strchr(cv, s[p])) p++;
-            *out = INTVAL(p + 1); return 1;
-        }
-        if (!scan_subj) { *out = FAILDESCR; return 1; }
-        int slen = (int)strlen(scan_subj), p0 = scan_pos - 1;
-        if (p0 < 0 || p0 >= slen || !strchr(cv, scan_subj[p0])) { *out = FAILDESCR; return 1; }
-        while (p0 < slen && strchr(cv, scan_subj[p0])) p0++;
-        *out = INTVAL(p0 + 1); return 1;
+        const char *s; int i1, i2;
+        if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
+        int p = i1;
+        while (p < i2 && strchr(cv, s[p - 1])) p++;
+        if (p == i1) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(p); return 1;
     }
     L_bidjmp_5958: ;
     if ((_bid == BID_upto) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
-        if (nargs >= 2) {
-            const char *s = VARVAL_fn(args[1]); if (!s) s = "";
-            int slen = (int)strlen(s);
-            int i1 = (nargs >= 3) ? (int)args[2].i : 1;
-            int i2 = (nargs >= 4) ? (int)args[3].i : slen + 1;
-            if (i1 <= 0 || i1 > slen) { *out = FAILDESCR; return 1; }
-            if (i2 <= 0) i2 = slen + 1;
-            int p = i1 - 1, end = (i2 - 1 < slen ? i2 - 1 : slen);
-            while (p < end && !strchr(cv, s[p])) p++;
-            if (p >= end) { *out = FAILDESCR; return 1; }
-            *out = INTVAL(p + 1); return 1;
-        }
-        if (!scan_subj) { *out = FAILDESCR; return 1; }
-        int slen = (int)strlen(scan_subj), p0 = scan_pos - 1;
-        while (p0 < slen && !strchr(cv, scan_subj[p0])) p0++;
-        if (p0 >= slen) { *out = FAILDESCR; return 1; }
-        *out = INTVAL(p0 + 1); return 1;
+        const char *s; int i1, i2;
+        if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
+        int p = i1;
+        while (p < i2 && !strchr(cv, s[p - 1])) p++;
+        if (p >= i2) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(p); return 1;
     }
     L_bidjmp_5978: ;
     if ((_bid == BID_tab) && nargs == 1 && scan_pos > 0) {
@@ -6255,24 +6259,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     L_bidjmp_6012: ;
     if ((_bid == BID_match) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *pat = VARVAL_fn(args[0]); if (!pat) { *out = FAILDESCR; return 1; }
-        if (nargs >= 2) {
-            const char *s = VARVAL_fn(args[1]); if (!s) s = "";
-            int slen = (int)strlen(s); int plen2 = (int)strlen(pat);
-            int i1 = (nargs >= 3 && !IS_FAIL_fn(args[2]) && args[2].v != DT_SNUL) ? (int)args[2].i : 1;
-            int i2 = (nargs >= 4 && !IS_FAIL_fn(args[3]) && args[3].v != DT_SNUL) ? (int)args[3].i : slen + 1;
-            if (i1 <= 0 || i1 > slen + 1) { *out = FAILDESCR; return 1; }
-            if (i2 <= 0 || i2 > slen + 1) i2 = slen + 1;
-            if (i1 > i2) { int _t = i1; i1 = i2; i2 = _t; }
-            int p0 = i1 - 1;
-            if (p0 + plen2 > slen || i1 + plen2 > i2) { *out = FAILDESCR; return 1; }
-            if (strncmp(s + p0, pat, (size_t)plen2) != 0) { *out = FAILDESCR; return 1; }
-            *out = INTVAL(i1 + plen2); return 1;
-        }
-        if (!scan_subj) { *out = FAILDESCR; return 1; }
-        int plen = (int)strlen(pat), p0 = scan_pos - 1;
-        int slen = (int)strlen(scan_subj);
-        if (p0 + plen > slen || strncmp(scan_subj + p0, pat, plen) != 0) { *out = FAILDESCR; return 1; }
-        *out = INTVAL(scan_pos + plen); return 1;
+        const char *s; int i1, i2;
+        if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
+        int slen = (int)strlen(s), plen2 = (int)strlen(pat), p0 = i1 - 1;
+        if (p0 + plen2 > slen || i1 + plen2 > i2) { *out = FAILDESCR; return 1; }
+        if (strncmp(s + p0, pat, (size_t)plen2) != 0) { *out = FAILDESCR; return 1; }
+        *out = INTVAL(i1 + plen2); return 1;
     }
     L_bidjmp_6033: ;
     if ((_bid == BID_bal) && (scan_pos > 0 || nargs >= 4)) {
