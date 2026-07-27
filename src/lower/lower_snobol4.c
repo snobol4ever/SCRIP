@@ -1043,6 +1043,11 @@ static int fc_leaf_walk(IR_graph_t * g, int k0, int k1, int pfx) {
     for (int k = k0; k < k1; k++) {
         IR_t * x = g->all[k];
         if (!x || x->op == IR_GOTO) continue;
+        if ((x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM) && x->n_operands > 1 && k + 1 < k1 && g->all[k + 1] == x->operands[1]) {   /* FLATDISP-LEAF-ORDER: pair allocates [COND,SAVE,inner] but flows save->inner->cond; walk the pair range FIRST, register COND at the resulting pfx (= SAVE's 16 + inner's own-sum, the S10c suspended depth), then skip past -- the fc_alt_extent skip idiom.  No registered extent (ARBNO-deferred sno_cap_fc class, table overflow) keeps the old at-pfx registration verbatim (degrade never die). */
+            extern int fc_pair_extent(const IR_t *);
+            int _E = fc_pair_extent(x);
+            if (_E > k + 1 && _E <= k1) { pfx = fc_leaf_walk(g, k + 1, _E, pfx); fc_leaf_register(x, pfx); k = _E - 1; continue; }
+        }
         if (x->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(x) >= 0) {
             int _nA = fc_alt_n(x), _elast = k + 1;
             fc_leaf_register(x, pfx + 16);
@@ -1325,6 +1330,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
              * anchored statement keeps the flat array (rsp still moves per iteration on that machinery). */
             sno_cap_fc(g, nd, save, before_i);
         }
+        { extern void fc_pair_extent_register(const IR_t *, int); fc_pair_extent_register(nd, g->n); }   /* FLATDISP-LEAF-ORDER: inner allocation ends here; fc_leaf_walk registers COND at the depth AFTER this range */
         return save;                                               /* capture entry is the SAVE node */
     }
     case TT_CAPT_IMMED_ASGN: {
@@ -1352,6 +1358,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
              * two phases); same shared walk, same two-directional fence, same registrations, same in-ARBNO deferral. */
             sno_cap_fc(g, nd, save, before_i);
         }
+        { extern void fc_pair_extent_register(const IR_t *, int); fc_pair_extent_register(nd, g->n); }   /* FLATDISP-LEAF-ORDER: twin of the COND arm above */
         return save;
     }
     case TT_SEQ: {
