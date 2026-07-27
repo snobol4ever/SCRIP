@@ -17,335 +17,87 @@ proc_LBL__upcase_α:
 proc_LBL__upcase_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_goto_α:
-                                                                                        jmp   n2_var_α
+                                                                                        jmp   n1_var_α
 n0_goto_β:
-                                                                                        jmp   proc_LBL__upcase_ω
-#-----------------------------------------------------------------------------------------------------------------------
-n1_goto_α:
-                                                                                        jmp   n3_lit_string_α
-n1_goto_β:
                                                                                         jmp   proc_LBL__upcase_ω
 #=======================================================================================================================
 # upcase  upcase = REPLACE(s, &LCASE, &UCASE)                       :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-n2_var_α:
+n1_var_α:
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rbp + 112], rax
-                        mov              qword ptr [rbp + 120], rdx
-                                                                                        jmp   n4_keyword_snobol4_α
-#=======================================================================================================================
-#         DEFINE('upcase(s)')                                         :(upcase_end)
-#         OUTPUT = upcase('hello')
+                        mov              qword ptr [rsp + 112], rax
+                        mov              qword ptr [rsp + 120], rdx
+                                                                                        jmp   n2_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_string_α:
-                        mov              qword ptr [rbp + 208], 1
-                        mov              rax, qword ptr [rip + .Lx17_0]
-                        mov              qword ptr [rbp + 216], rax
-                                                                                        jmp   n6_call_α
-.Lx17_0:
-                        .quad            .Lx17_0_s
-.Lx17_0_s:
-                        .string          "hello"
-#-----------------------------------------------------------------------------------------------------------------------
-n4_keyword_snobol4_α:
-                        mov              rdi, qword ptr [rip + .Lx18_0]
+n2_keyword_snobol4_α:
+                        mov              rdi, qword ptr [rip + .Lx9_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rbp + 128], rax
-                        mov              qword ptr [rbp + 136], rdx
-                                                                                        jmp   n7_keyword_snobol4_α
-.Lx18_0:
-                        .quad            .Lx18_0_s
-.Lx18_0_s:
+                        mov              qword ptr [rsp + 128], rax
+                        mov              qword ptr [rsp + 136], rdx
+                                                                                        jmp   n4_keyword_snobol4_α
+.Lx9_0:
+                        .quad            .Lx9_0_s
+.Lx9_0_s:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-n5_op14_α:
+n3_op14_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
-n6_call_α:
-                        sub              rsp, 32
-                        mov              rax, qword ptr [1879052304]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 8], rax
-                        mov              rax, qword ptr [1879052288]
-                        mov              qword ptr [rsp + 16], rax
-                        mov              rax, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 24], rax
-                        mov              rdi, qword ptr [rip + .Lx22_0]
-                        mov              esi, 1
-                        mov              edx, 1
-                        call             rt_proc_call_open_slim@PLT
-                        test             rax, rax
-                                                                                        je    .Lx22_5
-                        mov              rax, qword ptr [rbp + 208]
-                        mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rbp + 216]
-                        mov              qword ptr [1879052312], rax
-                        call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx22_6]
-                        lea              rdx, [rip + .Lx22_7]
-                                                                                        jmp   rax
-.Lx22_6:
-                        mov              rdi, qword ptr [1879052288]
-                        mov              rsi, qword ptr [1879052296]
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              qword ptr [1879052288], rax
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              qword ptr [1879052296], rax
-                        mov              rax, qword ptr [rsp + 0]
-                        mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052312], rax
-                        add              rsp, 32
-                        call             rt_proc_call_epilogue_slim_γ@PLT
-                                                                                        jmp   .Lx22_2
-.Lx22_7:
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              qword ptr [1879052288], rax
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              qword ptr [1879052296], rax
-                        mov              rax, qword ptr [rsp + 0]
-                        mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052312], rax
-                        add              rsp, 32
-                        call             rt_proc_call_epilogue_slim_ω@PLT
-                                                                                        jmp   .Lx22_2
-.Lx22_5:
-                        add              rsp, 32
-                        lea              r11, [rip + g_gc_pending]
-                        mov              eax, dword ptr [r11 + 0]
-                        test             eax, eax
-                                                                                        jne   .Lx22_20
-                        mov              rax, qword ptr [rbp + 208]
-                        mov              rdx, qword ptr [rbp + 216]
-                        lea              r10, [rip + g_call_args]
-                        mov              qword ptr [r10 + 0], rax
-                        mov              qword ptr [r10 + 8], rdx
-                                                                                        jmp   .Lx22_21
-.Lx22_20:
-                        mov              edi, 0
-                        mov              rsi, qword ptr [rbp + 208]
-                        mov              rdx, qword ptr [rbp + 216]
-                        call             rt_arg_stage@PLT
-.Lx22_21:
-                        mov              rdi, qword ptr [rip + .Lx22_0]
-                        mov              esi, 1
-                        call             rt_proc_call_open@PLT
-                        test             rax, rax
-                                                                                        je    .Lx22_1
-                        call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx22_3]
-                        lea              rdx, [rip + .Lx22_4]
-                                                                                        jmp   rax
-.Lx22_3:
-                        call             rt_proc_call_epilogue_γ@PLT
-                                                                                        jmp   .Lx22_2
-.Lx22_4:
-                        call             rt_proc_call_epilogue_ω@PLT
-                                                                                        jmp   .Lx22_2
-.Lx22_1:
-                        call             rt_faildescr@PLT
-.Lx22_2:
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
-                        cmp              eax, 99
-                                                                                        je    n9_lit_string_α
-                                                                                        jmp   n8_assign_α
-n6_call_β:
-                                                                                        jmp   n9_lit_string_α
-.Lx22_0:
-                        .quad            .Lx22_0_s
-.Lx22_0_s:
-                        .string          "upcase"
-#-----------------------------------------------------------------------------------------------------------------------
-n7_keyword_snobol4_α:
-                        mov              rdi, qword ptr [rip + .Lx23_0]
+n4_keyword_snobol4_α:
+                        mov              rdi, qword ptr [rip + .Lx12_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rbp + 144], rax
-                        mov              qword ptr [rbp + 152], rdx
-                                                                                        jmp   n10_call_α
-.Lx23_0:
-                        .quad            .Lx23_0_s
-.Lx23_0_s:
+                        mov              qword ptr [rsp + 144], rax
+                        mov              qword ptr [rsp + 152], rdx
+                                                                                        jmp   n5_call_α
+.Lx12_0:
+                        .quad            .Lx12_0_s
+.Lx12_0_s:
                         .string          "UCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-n8_assign_α:
-                        mov              rsi, qword ptr [rbp + 160]
-                        mov              rdx, qword ptr [rbp + 168]
-                        mov              rdi, qword ptr [rip + .Lx24_0]
-                        call             NV_SET_fn@PLT
-                                                                                        jmp   n9_lit_string_α
-.Lx24_0:
-                        .quad            .Lx24_0_s
-.Lx24_0_s:
-                        .string          "OUTPUT"
-#=======================================================================================================================
-#         OUTPUT = upcase('world')
-#-----------------------------------------------------------------------------------------------------------------------
-n9_lit_string_α:
-                        mov              qword ptr [rbp + 272], 1
-                        mov              rax, qword ptr [rip + .Lx25_0]
-                        mov              qword ptr [rbp + 280], rax
-                                                                                        jmp   n11_call_α
-.Lx25_0:
-                        .quad            .Lx25_0_s
-.Lx25_0_s:
-                        .string          "world"
-#-----------------------------------------------------------------------------------------------------------------------
-n10_call_α:
-                        mov              rax, qword ptr [rbp + 112]
-                        mov              qword ptr [rbp + 48], rax
-                        mov              rax, qword ptr [rbp + 120]
-                        mov              qword ptr [rbp + 56], rax
-                        mov              rax, qword ptr [rbp + 128]
-                        mov              qword ptr [rbp + 64], rax
-                        mov              rax, qword ptr [rbp + 136]
-                        mov              qword ptr [rbp + 72], rax
-                        mov              rax, qword ptr [rbp + 144]
-                        mov              qword ptr [rbp + 80], rax
-                        mov              rax, qword ptr [rbp + 152]
-                        mov              qword ptr [rbp + 88], rax
+n5_call_α:
+                        mov              rax, qword ptr [rsp + 112]
+                        mov              qword ptr [rsp + 48], rax
+                        mov              rax, qword ptr [rsp + 120]
+                        mov              qword ptr [rsp + 56], rax
+                        mov              rax, qword ptr [rsp + 128]
+                        mov              qword ptr [rsp + 64], rax
+                        mov              rax, qword ptr [rsp + 136]
+                        mov              qword ptr [rsp + 72], rax
+                        mov              rax, qword ptr [rsp + 144]
+                        mov              qword ptr [rsp + 80], rax
+                        mov              rax, qword ptr [rsp + 152]
+                        mov              qword ptr [rsp + 88], rax
                         .section         .rodata
-.Lrkfn27:               .string          "REPLACE"
+.Lrkfn14:               .string          "REPLACE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn27]
-                        lea              rsi, [rbp + 48]
+                        lea              rdi, [rip + .Lrkfn14]
+                        lea              rsi, [rsp + 48]
                         mov              edx, 3
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
+                        mov              qword ptr [rsp + 32], rax
+                        mov              qword ptr [rsp + 40], rdx
                         cmp              eax, 99
-                                                                                        je    n5_op14_α
-                                                                                        jmp   n12_assign_α
-n10_call_β:
-                                                                                        jmp   n5_op14_α
+                                                                                        je    n3_op14_α
+                                                                                        jmp   n6_assign_α
+n5_call_β:
+                                                                                        jmp   n3_op14_α
 #-----------------------------------------------------------------------------------------------------------------------
-n11_call_α:
-                        sub              rsp, 32
-                        mov              rax, qword ptr [1879052304]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 8], rax
-                        mov              rax, qword ptr [1879052288]
-                        mov              qword ptr [rsp + 16], rax
-                        mov              rax, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 24], rax
-                        mov              rdi, qword ptr [rip + .Lx29_0]
-                        mov              esi, 1
-                        mov              edx, 1
-                        call             rt_proc_call_open_slim@PLT
-                        test             rax, rax
-                                                                                        je    .Lx29_5
-                        mov              rax, qword ptr [rbp + 272]
-                        mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rbp + 280]
-                        mov              qword ptr [1879052312], rax
-                        call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx29_6]
-                        lea              rdx, [rip + .Lx29_7]
-                                                                                        jmp   rax
-.Lx29_6:
-                        mov              rdi, qword ptr [1879052288]
-                        mov              rsi, qword ptr [1879052296]
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              qword ptr [1879052288], rax
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              qword ptr [1879052296], rax
-                        mov              rax, qword ptr [rsp + 0]
-                        mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052312], rax
-                        add              rsp, 32
-                        call             rt_proc_call_epilogue_slim_γ@PLT
-                                                                                        jmp   .Lx29_2
-.Lx29_7:
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              qword ptr [1879052288], rax
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              qword ptr [1879052296], rax
-                        mov              rax, qword ptr [rsp + 0]
-                        mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052312], rax
-                        add              rsp, 32
-                        call             rt_proc_call_epilogue_slim_ω@PLT
-                                                                                        jmp   .Lx29_2
-.Lx29_5:
-                        add              rsp, 32
-                        lea              r11, [rip + g_gc_pending]
-                        mov              eax, dword ptr [r11 + 0]
-                        test             eax, eax
-                                                                                        jne   .Lx29_20
-                        mov              rax, qword ptr [rbp + 272]
-                        mov              rdx, qword ptr [rbp + 280]
-                        lea              r10, [rip + g_call_args]
-                        mov              qword ptr [r10 + 0], rax
-                        mov              qword ptr [r10 + 8], rdx
-                                                                                        jmp   .Lx29_21
-.Lx29_20:
-                        mov              edi, 0
-                        mov              rsi, qword ptr [rbp + 272]
-                        mov              rdx, qword ptr [rbp + 280]
-                        call             rt_arg_stage@PLT
-.Lx29_21:
-                        mov              rdi, qword ptr [rip + .Lx29_0]
-                        mov              esi, 1
-                        call             rt_proc_call_open@PLT
-                        test             rax, rax
-                                                                                        je    .Lx29_1
-                        call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx29_3]
-                        lea              rdx, [rip + .Lx29_4]
-                                                                                        jmp   rax
-.Lx29_3:
-                        call             rt_proc_call_epilogue_γ@PLT
-                                                                                        jmp   .Lx29_2
-.Lx29_4:
-                        call             rt_proc_call_epilogue_ω@PLT
-                                                                                        jmp   .Lx29_2
-.Lx29_1:
-                        call             rt_faildescr@PLT
-.Lx29_2:
-                        mov              qword ptr [rbp + 224], rax
-                        mov              qword ptr [rbp + 232], rdx
-                        cmp              eax, 99
-                                                                                        je    proc_LBL__upcase_γ
-                                                                                        jmp   n13_assign_α
-n11_call_β:
-                                                                                        jmp   proc_LBL__upcase_γ
-.Lx29_0:
-                        .quad            .Lx29_0_s
-.Lx29_0_s:
-                        .string          "upcase"
-#-----------------------------------------------------------------------------------------------------------------------
-n12_assign_α:
-                        mov              rax, qword ptr [rbp + 32]
-                        mov              rdx, qword ptr [rbp + 40]
+n6_assign_α:
+                        mov              rax, qword ptr [rsp + 32]
+                        mov              rdx, qword ptr [rsp + 40]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n5_op14_α
-#-----------------------------------------------------------------------------------------------------------------------
-n13_assign_α:
-                        mov              rsi, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
-                        mov              rdi, qword ptr [rip + .Lx31_0]
-                        call             NV_SET_fn@PLT
-                                                                                        jmp   proc_LBL__upcase_γ
-.Lx31_0:
-                        .quad            .Lx31_0_s
-.Lx31_0_s:
-                        .string          "OUTPUT"
+                                                                                        jmp   n3_op14_α
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_res:
                         add              rsp, 8
-                        pop              rbp
+                        pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_β:
                                                                                         jmp   proc_LBL__upcase_ω
@@ -381,28 +133,28 @@ proc_upcase_α:
                         rep stosb
 proc_upcase_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n32_op14_α:
+n16_op14_α:
                         mov              rdi, qword ptr [rbp + 296]
                         mov              rsi, qword ptr [rbp + 304]
                         lea              rdx, [rbp + 320]
                         mov              rcx, qword ptr [rbp + 312]
                         call             rt_flat_wire_adopt@PLT
-                                                                                        jmp   n33_goto_deferred_α
+                                                                                        jmp   n17_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n33_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx37_0]
+n17_goto_deferred_α:
+                        mov              rdi, qword ptr [rip + .Lx21_0]
                         call             rt_goto_transfer@PLT
-                                                                                        jmp   .Lx37_1
-.Lx37_0:
-                        .quad            .Lx37_0_s
-.Lx37_0_s:
+                                                                                        jmp   .Lx21_1
+.Lx21_0:
+                        .quad            .Lx21_0_s
+.Lx21_0_s:
                         .string          "upcase"
-.Lx37_1:
+.Lx21_1:
                                                                                         jmp   proc_upcase_γ
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_res:
                         add              rsp, 8
-                        pop              rbp
+                        pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_β:
                                                                                         jmp   proc_upcase_ω
@@ -514,27 +266,27 @@ main_α_body:
 #         DEFINE('upcase(s)')                                         :(upcase_end)
 #         OUTPUT = upcase('hello')
 #-----------------------------------------------------------------------------------------------------------------------
-n38_lit_string_α:
-                        mov              qword ptr [rbp + 208], 1
-                        mov              rax, qword ptr [rip + .Lx52_0]
-                        mov              qword ptr [rbp + 216], rax
-                                                                                        jmp   n41_call_α
-.Lx52_0:
-                        .quad            .Lx52_0_s
-.Lx52_0_s:
+n22_lit_string_α:
+                        mov              qword ptr [rsp + 208], 1
+                        mov              rax, qword ptr [rip + .Lx36_0]
+                        mov              qword ptr [rsp + 216], rax
+                                                                                        jmp   n25_call_α
+.Lx36_0:
+                        .quad            .Lx36_0_s
+.Lx36_0_s:
                         .string          "hello"
 #-----------------------------------------------------------------------------------------------------------------------
-n39_goto_α:
-                                                                                        jmp   n42_var_α
-n39_goto_β:
+n23_goto_α:
+                                                                                        jmp   n26_var_α
+n23_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-n40_goto_α:
-                                                                                        jmp   n38_lit_string_α
-n40_goto_β:
+n24_goto_α:
+                                                                                        jmp   n22_lit_string_α
+n24_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-n41_call_α:
+n25_call_α:
                         sub              rsp, 32
                         mov              rax, qword ptr [1879052304]
                         mov              qword ptr [rsp + 0], rax
@@ -544,21 +296,21 @@ n41_call_α:
                         mov              qword ptr [rsp + 16], rax
                         mov              rax, qword ptr [1879052296]
                         mov              qword ptr [rsp + 24], rax
-                        mov              rdi, qword ptr [rip + .Lx56_0]
+                        mov              rdi, qword ptr [rip + .Lx40_0]
                         mov              esi, 1
                         mov              edx, 1
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
-                                                                                        je    .Lx56_5
-                        mov              rax, qword ptr [rbp + 208]
+                                                                                        je    .Lx40_5
+                        mov              rax, qword ptr [rsp + 208]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rbp + 216]
+                        mov              rax, qword ptr [rsp + 216]
                         mov              qword ptr [1879052312], rax
                         call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx56_6]
-                        lea              rdx, [rip + .Lx56_7]
+                        lea              rcx, [rip + .Lx40_6]
+                        lea              rdx, [rip + .Lx40_7]
                                                                                         jmp   rax
-.Lx56_6:
+.Lx40_6:
                         mov              rdi, qword ptr [1879052288]
                         mov              rsi, qword ptr [1879052296]
                         mov              rax, qword ptr [rsp + 16]
@@ -571,8 +323,8 @@ n41_call_α:
                         mov              qword ptr [1879052312], rax
                         add              rsp, 32
                         call             rt_proc_call_epilogue_slim_γ@PLT
-                                                                                        jmp   .Lx56_2
-.Lx56_7:
+                                                                                        jmp   .Lx40_2
+.Lx40_7:
                         mov              rax, qword ptr [rsp + 16]
                         mov              qword ptr [1879052288], rax
                         mov              rax, qword ptr [rsp + 24]
@@ -583,106 +335,106 @@ n41_call_α:
                         mov              qword ptr [1879052312], rax
                         add              rsp, 32
                         call             rt_proc_call_epilogue_slim_ω@PLT
-                                                                                        jmp   .Lx56_2
-.Lx56_5:
+                                                                                        jmp   .Lx40_2
+.Lx40_5:
                         add              rsp, 32
                         lea              r11, [rip + g_gc_pending]
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
-                                                                                        jne   .Lx56_20
-                        mov              rax, qword ptr [rbp + 208]
-                        mov              rdx, qword ptr [rbp + 216]
+                                                                                        jne   .Lx40_20
+                        mov              rax, qword ptr [rsp + 208]
+                        mov              rdx, qword ptr [rsp + 216]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
-                                                                                        jmp   .Lx56_21
-.Lx56_20:
+                                                                                        jmp   .Lx40_21
+.Lx40_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rbp + 208]
-                        mov              rdx, qword ptr [rbp + 216]
+                        mov              rsi, qword ptr [rsp + 208]
+                        mov              rdx, qword ptr [rsp + 216]
                         call             rt_arg_stage@PLT
-.Lx56_21:
-                        mov              rdi, qword ptr [rip + .Lx56_0]
+.Lx40_21:
+                        mov              rdi, qword ptr [rip + .Lx40_0]
                         mov              esi, 1
                         call             rt_proc_call_open@PLT
                         test             rax, rax
-                                                                                        je    .Lx56_1
+                                                                                        je    .Lx40_1
                         call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx56_3]
-                        lea              rdx, [rip + .Lx56_4]
+                        lea              rcx, [rip + .Lx40_3]
+                        lea              rdx, [rip + .Lx40_4]
                                                                                         jmp   rax
-.Lx56_3:
+.Lx40_3:
                         call             rt_proc_call_epilogue_γ@PLT
-                                                                                        jmp   .Lx56_2
-.Lx56_4:
+                                                                                        jmp   .Lx40_2
+.Lx40_4:
                         call             rt_proc_call_epilogue_ω@PLT
-                                                                                        jmp   .Lx56_2
-.Lx56_1:
+                                                                                        jmp   .Lx40_2
+.Lx40_1:
                         call             rt_faildescr@PLT
-.Lx56_2:
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
+.Lx40_2:
+                        mov              qword ptr [rsp + 160], rax
+                        mov              qword ptr [rsp + 168], rdx
                         cmp              eax, 99
-                                                                                        je    n44_lit_string_α
-                                                                                        jmp   n43_assign_α
-n41_call_β:
-                                                                                        jmp   n44_lit_string_α
-.Lx56_0:
-                        .quad            .Lx56_0_s
-.Lx56_0_s:
+                                                                                        je    n28_lit_string_α
+                                                                                        jmp   n27_assign_α
+n25_call_β:
+                                                                                        jmp   n28_lit_string_α
+.Lx40_0:
+                        .quad            .Lx40_0_s
+.Lx40_0_s:
                         .string          "upcase"
 #=======================================================================================================================
 # upcase  upcase = REPLACE(s, &LCASE, &UCASE)                       :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-n42_var_α:
+n26_var_α:
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rbp + 112], rax
-                        mov              qword ptr [rbp + 120], rdx
-                                                                                        jmp   n45_keyword_snobol4_α
+                        mov              qword ptr [rsp + 112], rax
+                        mov              qword ptr [rsp + 120], rdx
+                                                                                        jmp   n29_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
-n43_assign_α:
-                        mov              rsi, qword ptr [rbp + 160]
-                        mov              rdx, qword ptr [rbp + 168]
-                        mov              rdi, qword ptr [rip + .Lx58_0]
+n27_assign_α:
+                        mov              rsi, qword ptr [rsp + 160]
+                        mov              rdx, qword ptr [rsp + 168]
+                        mov              rdi, qword ptr [rip + .Lx42_0]
                         call             NV_SET_fn@PLT
-                                                                                        jmp   n44_lit_string_α
-.Lx58_0:
-                        .quad            .Lx58_0_s
-.Lx58_0_s:
+                                                                                        jmp   n28_lit_string_α
+.Lx42_0:
+                        .quad            .Lx42_0_s
+.Lx42_0_s:
                         .string          "OUTPUT"
 #=======================================================================================================================
 #         OUTPUT = upcase('world')
 #-----------------------------------------------------------------------------------------------------------------------
-n44_lit_string_α:
-                        mov              qword ptr [rbp + 272], 1
-                        mov              rax, qword ptr [rip + .Lx59_0]
-                        mov              qword ptr [rbp + 280], rax
-                                                                                        jmp   n47_call_α
-.Lx59_0:
-                        .quad            .Lx59_0_s
-.Lx59_0_s:
+n28_lit_string_α:
+                        mov              qword ptr [rsp + 272], 1
+                        mov              rax, qword ptr [rip + .Lx43_0]
+                        mov              qword ptr [rsp + 280], rax
+                                                                                        jmp   n31_call_α
+.Lx43_0:
+                        .quad            .Lx43_0_s
+.Lx43_0_s:
                         .string          "world"
 #-----------------------------------------------------------------------------------------------------------------------
-n45_keyword_snobol4_α:
-                        mov              rdi, qword ptr [rip + .Lx60_0]
+n29_keyword_snobol4_α:
+                        mov              rdi, qword ptr [rip + .Lx44_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rbp + 128], rax
-                        mov              qword ptr [rbp + 136], rdx
-                                                                                        jmp   n48_keyword_snobol4_α
-.Lx60_0:
-                        .quad            .Lx60_0_s
-.Lx60_0_s:
+                        mov              qword ptr [rsp + 128], rax
+                        mov              qword ptr [rsp + 136], rdx
+                                                                                        jmp   n32_keyword_snobol4_α
+.Lx44_0:
+                        .quad            .Lx44_0_s
+.Lx44_0_s:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-n46_op14_α:
+n30_op14_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
-n47_call_α:
+n31_call_α:
                         sub              rsp, 32
                         mov              rax, qword ptr [1879052304]
                         mov              qword ptr [rsp + 0], rax
@@ -692,21 +444,21 @@ n47_call_α:
                         mov              qword ptr [rsp + 16], rax
                         mov              rax, qword ptr [1879052296]
                         mov              qword ptr [rsp + 24], rax
-                        mov              rdi, qword ptr [rip + .Lx64_0]
+                        mov              rdi, qword ptr [rip + .Lx48_0]
                         mov              esi, 1
                         mov              edx, 1
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
-                                                                                        je    .Lx64_5
-                        mov              rax, qword ptr [rbp + 272]
+                                                                                        je    .Lx48_5
+                        mov              rax, qword ptr [rsp + 272]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rbp + 280]
+                        mov              rax, qword ptr [rsp + 280]
                         mov              qword ptr [1879052312], rax
                         call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx64_6]
-                        lea              rdx, [rip + .Lx64_7]
+                        lea              rcx, [rip + .Lx48_6]
+                        lea              rdx, [rip + .Lx48_7]
                                                                                         jmp   rax
-.Lx64_6:
+.Lx48_6:
                         mov              rdi, qword ptr [1879052288]
                         mov              rsi, qword ptr [1879052296]
                         mov              rax, qword ptr [rsp + 16]
@@ -719,8 +471,8 @@ n47_call_α:
                         mov              qword ptr [1879052312], rax
                         add              rsp, 32
                         call             rt_proc_call_epilogue_slim_γ@PLT
-                                                                                        jmp   .Lx64_2
-.Lx64_7:
+                                                                                        jmp   .Lx48_2
+.Lx48_7:
                         mov              rax, qword ptr [rsp + 16]
                         mov              qword ptr [1879052288], rax
                         mov              rax, qword ptr [rsp + 24]
@@ -731,112 +483,112 @@ n47_call_α:
                         mov              qword ptr [1879052312], rax
                         add              rsp, 32
                         call             rt_proc_call_epilogue_slim_ω@PLT
-                                                                                        jmp   .Lx64_2
-.Lx64_5:
+                                                                                        jmp   .Lx48_2
+.Lx48_5:
                         add              rsp, 32
                         lea              r11, [rip + g_gc_pending]
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
-                                                                                        jne   .Lx64_20
-                        mov              rax, qword ptr [rbp + 272]
-                        mov              rdx, qword ptr [rbp + 280]
+                                                                                        jne   .Lx48_20
+                        mov              rax, qword ptr [rsp + 272]
+                        mov              rdx, qword ptr [rsp + 280]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
-                                                                                        jmp   .Lx64_21
-.Lx64_20:
+                                                                                        jmp   .Lx48_21
+.Lx48_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rbp + 272]
-                        mov              rdx, qword ptr [rbp + 280]
+                        mov              rsi, qword ptr [rsp + 272]
+                        mov              rdx, qword ptr [rsp + 280]
                         call             rt_arg_stage@PLT
-.Lx64_21:
-                        mov              rdi, qword ptr [rip + .Lx64_0]
+.Lx48_21:
+                        mov              rdi, qword ptr [rip + .Lx48_0]
                         mov              esi, 1
                         call             rt_proc_call_open@PLT
                         test             rax, rax
-                                                                                        je    .Lx64_1
+                                                                                        je    .Lx48_1
                         call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx64_3]
-                        lea              rdx, [rip + .Lx64_4]
+                        lea              rcx, [rip + .Lx48_3]
+                        lea              rdx, [rip + .Lx48_4]
                                                                                         jmp   rax
-.Lx64_3:
+.Lx48_3:
                         call             rt_proc_call_epilogue_γ@PLT
-                                                                                        jmp   .Lx64_2
-.Lx64_4:
+                                                                                        jmp   .Lx48_2
+.Lx48_4:
                         call             rt_proc_call_epilogue_ω@PLT
-                                                                                        jmp   .Lx64_2
-.Lx64_1:
+                                                                                        jmp   .Lx48_2
+.Lx48_1:
                         call             rt_faildescr@PLT
-.Lx64_2:
-                        mov              qword ptr [rbp + 224], rax
-                        mov              qword ptr [rbp + 232], rdx
+.Lx48_2:
+                        mov              qword ptr [rsp + 224], rax
+                        mov              qword ptr [rsp + 232], rdx
                         cmp              eax, 99
                                                                                         je    main_γ
-                                                                                        jmp   n49_assign_α
-n47_call_β:
+                                                                                        jmp   n33_assign_α
+n31_call_β:
                                                                                         jmp   main_γ
-.Lx64_0:
-                        .quad            .Lx64_0_s
-.Lx64_0_s:
+.Lx48_0:
+                        .quad            .Lx48_0_s
+.Lx48_0_s:
                         .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
-n48_keyword_snobol4_α:
-                        mov              rdi, qword ptr [rip + .Lx65_0]
+n32_keyword_snobol4_α:
+                        mov              rdi, qword ptr [rip + .Lx49_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rbp + 144], rax
-                        mov              qword ptr [rbp + 152], rdx
-                                                                                        jmp   n50_call_α
-.Lx65_0:
-                        .quad            .Lx65_0_s
-.Lx65_0_s:
+                        mov              qword ptr [rsp + 144], rax
+                        mov              qword ptr [rsp + 152], rdx
+                                                                                        jmp   n34_call_α
+.Lx49_0:
+                        .quad            .Lx49_0_s
+.Lx49_0_s:
                         .string          "UCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-n49_assign_α:
-                        mov              rsi, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
-                        mov              rdi, qword ptr [rip + .Lx66_0]
+n33_assign_α:
+                        mov              rsi, qword ptr [rsp + 224]
+                        mov              rdx, qword ptr [rsp + 232]
+                        mov              rdi, qword ptr [rip + .Lx50_0]
                         call             NV_SET_fn@PLT
                                                                                         jmp   main_γ
-.Lx66_0:
-                        .quad            .Lx66_0_s
-.Lx66_0_s:
+.Lx50_0:
+                        .quad            .Lx50_0_s
+.Lx50_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n50_call_α:
-                        mov              rax, qword ptr [rbp + 112]
-                        mov              qword ptr [rbp + 48], rax
-                        mov              rax, qword ptr [rbp + 120]
-                        mov              qword ptr [rbp + 56], rax
-                        mov              rax, qword ptr [rbp + 128]
-                        mov              qword ptr [rbp + 64], rax
-                        mov              rax, qword ptr [rbp + 136]
-                        mov              qword ptr [rbp + 72], rax
-                        mov              rax, qword ptr [rbp + 144]
-                        mov              qword ptr [rbp + 80], rax
-                        mov              rax, qword ptr [rbp + 152]
-                        mov              qword ptr [rbp + 88], rax
+n34_call_α:
+                        mov              rax, qword ptr [rsp + 112]
+                        mov              qword ptr [rsp + 48], rax
+                        mov              rax, qword ptr [rsp + 120]
+                        mov              qword ptr [rsp + 56], rax
+                        mov              rax, qword ptr [rsp + 128]
+                        mov              qword ptr [rsp + 64], rax
+                        mov              rax, qword ptr [rsp + 136]
+                        mov              qword ptr [rsp + 72], rax
+                        mov              rax, qword ptr [rsp + 144]
+                        mov              qword ptr [rsp + 80], rax
+                        mov              rax, qword ptr [rsp + 152]
+                        mov              qword ptr [rsp + 88], rax
                         .section         .rodata
-.Lrkfn68:               .string          "REPLACE"
+.Lrkfn52:               .string          "REPLACE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn68]
-                        lea              rsi, [rbp + 48]
+                        lea              rdi, [rip + .Lrkfn52]
+                        lea              rsi, [rsp + 48]
                         mov              edx, 3
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
+                        mov              qword ptr [rsp + 32], rax
+                        mov              qword ptr [rsp + 40], rdx
                         cmp              eax, 99
-                                                                                        je    n46_op14_α
-                                                                                        jmp   n51_assign_α
-n50_call_β:
-                                                                                        jmp   n46_op14_α
+                                                                                        je    n30_op14_α
+                                                                                        jmp   n35_assign_α
+n34_call_β:
+                                                                                        jmp   n30_op14_α
 #-----------------------------------------------------------------------------------------------------------------------
-n51_assign_α:
-                        mov              rax, qword ptr [rbp + 32]
-                        mov              rdx, qword ptr [rbp + 40]
+n35_assign_α:
+                        mov              rax, qword ptr [rsp + 32]
+                        mov              rdx, qword ptr [rsp + 40]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n46_op14_α
+                                                                                        jmp   n30_op14_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω
