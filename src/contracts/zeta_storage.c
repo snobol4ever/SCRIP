@@ -830,9 +830,11 @@ int fc_head_fp(const IR_t * nd) {
  * must add the box's static depth D = 32 (HEAD's self-cell) + prefix (granted cells suspended before this box on the LINEAR spine, S10c: every passed box is gamma-suspended) + own cell.  LOWER fills
  * this in the SAME fc_head walk that computes fp_stmt (allocation order = flow order for linear spines -- SEQ lowers elements left-to-right); the v1 fence declines ALTERNATE statements wholesale so
  * the prefix is exact by the same argument as fp.  Consumed by FR/FRQ via g_emit.op_flat_disp (dispatch-delivered, default 0); R12/RBP builds never read it.  Side table keyed by node ptr (fch style). */
-static struct { const IR_t * nd; int d; } fcl[1024];
-static int fcl_n = 0;
-void fc_leaf_register(const IR_t * nd, int d) { if (!nd || fcl_n >= 1024) return; fcl[fcl_n].nd = nd; fcl[fcl_n].d = d; fcl_n++; }   /* R12-EXIT-1: negative d is legal (element-region rebase = prefix+own-window_min); the unregistered sentinel moved -1 -> INT_MIN (0x80000000) so -1 is an ordinary displacement */
+static struct { const IR_t * nd; int d; } * fcl = NULL;
+static int fcl_n = 0, fcl_cap = 0, fcl_hi = 0;
+static void fcl_stat_report(void) { fprintf(stderr, "[FCL] leaf-displacement registrations: high-water=%d (the pre-s190 fixed cap was 1024; anything above it was silently dropped)\n", fcl_hi); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void fc_leaf_register(const IR_t * nd, int d) { if (!nd) return; { static int _st = 0; if (!_st) { _st = 1; if (getenv("SCRIP_FCL_STAT")) atexit(fcl_stat_report); } } if (fcl_n >= fcl_cap) { int nc = fcl_cap ? fcl_cap * 2 : 1024; void * p = realloc((void *)fcl, (size_t)nc * sizeof *fcl); if (!p) return; fcl = (struct { const IR_t * nd; int d; } *)p; fcl_cap = nc; } fcl[fcl_n].nd = nd; fcl[fcl_n].d = d; fcl_n++; if (fcl_n > fcl_hi) fcl_hi = fcl_n; }   /* R12-EXIT-1: negative d is legal (element-region rebase = prefix+own-window_min); the unregistered sentinel moved -1 -> INT_MIN (0x80000000) so -1 is an ordinary displacement.  FLATDISP-2a s190: was a fixed fcl[1024] that SILENTLY dropped every registration past 1024 (fc_tables_reset is wired only to the runtime EVAL/CODE recompiles, never to a normal compile, so the table accumulates across the whole program); a dropped node reads the INT_MIN sentinel, emit.cpp then LEAVES op_flat_disp at the previous node's value, and the box addresses a stale depth.  Growable now -- the cap cannot be reached, so widening the walk is safe.  fcl_hi is the high-water mark, reported by SCRIP_FCL_STAT=1. */
 int fc_leaf_disp(const IR_t * nd) {
     for (int i = 0; i < fcl_n; i++) if (fcl[i].nd == nd) return fcl[i].d;
     return (int)0x80000000;
@@ -958,6 +960,7 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {   /* PS-3 s153: is n
  * tables before lowering: emission consults them only for the graph lowered SINCE the reset, and all pre-reset graphs are already emitted (mode-3 emits main wholesale before run).  The zls tables
  * share the pointer-keying and are NOT reset here (bb_compile_pat_tree's zls_reset is the existing precedent; the zls lifecycle question routes to GC-W-1's frame-map design). */
 void fc_tables_reset(void) { fcl_n = 0; fct_n = 0; }
+int fc_leaf_highwater(void) { return fcl_hi; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* emit_patzeta_* -- PS-3 (s152, Lon directive: "implement ZETA size calculation for DT_P type DESCR_t").  The compile-time ζ size of an ACTIVATED DT_P is its blob's suspension footprint: entry carve
  * align16(32 + frame_bytes) PLUS the interior FORTH port cells suspended at γ (S10c law -- measured in t1.s: SPAN's 16 stays carved on the hit path) PLUS the 16B γ-frontier record {res-addr, saved
