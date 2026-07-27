@@ -347,8 +347,6 @@ n28_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n29_call_α:
@@ -812,8 +810,6 @@ n57_assign_α:
                         mov              rdx, qword ptr [rbp + 184]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   n65_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n58_call_α:
@@ -843,8 +839,6 @@ n59_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1010/002: opsyn alias'          :(end)
@@ -866,8 +860,6 @@ n61_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n62_assign_α:
@@ -875,8 +867,6 @@ n62_assign_α:
                         mov              rdx, qword ptr [rbp + 1112]
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   n68_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n63_call_α:
@@ -906,8 +896,6 @@ n64_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n65_goto_deferred_α:
@@ -972,8 +960,6 @@ n67_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n68_goto_deferred_α:
@@ -1037,8 +1023,6 @@ n70_assign_α:
                         mov              rdx, qword ptr [rbp + 312]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   n72_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n71_assign_α:
@@ -1046,8 +1030,6 @@ n71_assign_α:
                         mov              rdx, qword ptr [rbp + 1240]
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   n73_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n72_goto_deferred_α:

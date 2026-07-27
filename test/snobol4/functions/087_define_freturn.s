@@ -253,8 +253,6 @@ n17_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx46_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   n11_lit_integer_α
 .Lx46_0:
                         .quad            .Lx46_0_s
@@ -267,8 +265,6 @@ n18_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx47_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   n11_lit_integer_α
 .Lx47_0:
                         .quad            .Lx47_0_s
@@ -289,8 +285,6 @@ n20_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx49_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   proc_LBL__ispos_γ
 .Lx49_0:
                         .quad            .Lx49_0_s
@@ -303,8 +297,6 @@ n21_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx50_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   proc_LBL__ispos_γ
 .Lx50_0:
                         .quad            .Lx50_0_s
@@ -875,8 +867,6 @@ n84_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx113_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   n79_lit_integer_α
 .Lx113_0:
                         .quad            .Lx113_0_s
@@ -889,8 +879,6 @@ n85_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx114_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   n79_lit_integer_α
 .Lx114_0:
                         .quad            .Lx114_0_s
@@ -911,8 +899,6 @@ n87_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx116_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   main_γ
 .Lx116_0:
                         .quad            .Lx116_0_s
@@ -925,8 +911,6 @@ n88_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx117_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 32], rax
-                        mov              qword ptr [rbp + 40], rdx
                                                                                         jmp   main_γ
 .Lx117_0:
                         .quad            .Lx117_0_s

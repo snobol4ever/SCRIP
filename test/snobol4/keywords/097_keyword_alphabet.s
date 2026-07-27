@@ -66,8 +66,6 @@ n2_assign_α:
                         mov              rdx, qword ptr [rbp + 24]
                         mov              rdi, qword ptr [rip + .Lx12_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n3_keyword_snobol4_α
 .Lx12_0:
                         .quad            .Lx12_0_s
@@ -113,8 +111,6 @@ n5_assign_α:
                         mov              rdx, qword ptr [rbp + 88]
                         mov              rdi, qword ptr [rip + .Lx16_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n6_keyword_snobol4_α
 .Lx16_0:
                         .quad            .Lx16_0_s
@@ -160,8 +156,6 @@ n8_assign_α:
                         mov              rdx, qword ptr [rbp + 152]
                         mov              rdi, qword ptr [rip + .Lx20_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx20_0:
                         .quad            .Lx20_0_s

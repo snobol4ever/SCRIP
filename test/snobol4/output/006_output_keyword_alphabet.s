@@ -66,8 +66,6 @@ n2_assign_α:
                         mov              rdx, qword ptr [rbp + 24]
                         mov              rdi, qword ptr [rip + .Lx6_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx6_0:
                         .quad            .Lx6_0_s

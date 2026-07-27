@@ -136,8 +136,6 @@ n5_assign_α:
                         mov              rdx, qword ptr [rbp + 88]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n6_var_α
 #=======================================================================================================================
 #         OUTPUT = REPLACE(DATATYPE(N), &LCASE, &UCASE)
@@ -227,8 +225,6 @@ n12_assign_α:
                         mov              rdx, qword ptr [rbp + 360]
                         mov              rdi, qword ptr [rip + .Lx31_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   main_γ
 .Lx31_0:
                         .quad            .Lx31_0_s
@@ -269,8 +265,6 @@ n14_assign_α:
                         mov              rdx, qword ptr [rbp + 184]
                         mov              rdi, qword ptr [rip + .Lx34_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n8_var_α
 .Lx34_0:
                         .quad            .Lx34_0_s

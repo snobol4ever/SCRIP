@@ -156,8 +156,6 @@ n12_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx30_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n9_lit_string_α
 .Lx30_0:
                         .quad            .Lx30_0_s
@@ -170,8 +168,6 @@ n13_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx31_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n9_lit_string_α
 .Lx31_0:
                         .quad            .Lx31_0_s
@@ -205,8 +201,6 @@ n15_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx34_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   main_γ
 .Lx34_0:
                         .quad            .Lx34_0_s
@@ -219,8 +213,6 @@ n16_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx35_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   main_γ
 .Lx35_0:
                         .quad            .Lx35_0_s
