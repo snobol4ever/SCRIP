@@ -21,7 +21,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-/home/claude/corpus}"
 BENCH="$CORPUS/benchmarks/snobol4"
-BASELINE="${RBP_CENSUS_MAX:-237}"
+BASELINE="${RBP_CENSUS_MAX:-119}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$BENCH" ]  || { echo "SKIP no benchmark corpus at $BENCH"; exit 0; }
 ALL=0; D=0; TABLE=""

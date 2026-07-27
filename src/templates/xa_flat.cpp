@@ -136,6 +136,17 @@ static std::string xaf_frame_rsp_rm(uint32_t disp, unsigned char op) {
     c += (char)(0x80 | (4 << 3) | (lo == 4 ? 4 : lo)); if (lo == 4) c += (char)0x24;
     c += u32le(disp); return c;
 }
+static std::string xaf_ld64_rsp(int reg, int disp) {   /* FLATDISP-7 (s194): mov r64, [rsp+disp] — as-matching mod selection (no-disp / disp8 / disp32), SIB base=rsp.  Serves the depth-static determinate epilogue's wire/result reads, where rsp == base by LIFO balance. */
+    std::string c; c += (char)(0x48 | (reg >= 8 ? 0x04 : 0x00)); c += (char)0x8B; int lo = reg & 7;
+    if (disp == 0)                        { c += (char)(0x00 | (lo << 3) | 4); c += (char)0x24; }
+    else if (disp >= -128 && disp <= 127) { c += (char)(0x40 | (lo << 3) | 4); c += (char)0x24; c += (char)(unsigned char)disp; }
+    else                                  { c += (char)(0x80 | (lo << 3) | 4); c += (char)0x24; c += u32le((uint32_t)disp); }
+    return c;
+}
+static std::string xaf_addq_rsp(int imm) {   /* FLATDISP-7 (s194): add rsp, imm — as-matching imm8/imm32 short form (the xaf_add_rdi_imm_bin discipline applied to rsp).  The depth-static determinate epilogue's ENTIRE frame teardown. */
+    if (imm >= -128 && imm <= 127) { std::string c = bytes(3, "\x48\x83\xC4"); c += (char)(unsigned char)imm; return c; }
+    return bytes(3, "\x48\x81\xC4") + u32le((uint32_t)imm);
+}
 static std::string xaf_anchor_enter_bin(void) {
     if (!x86_port_cstack()) return std::string();
     if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
@@ -154,9 +165,9 @@ static std::string xaf_jmp_hdr_x86(void) {
     return x86("sub", "rsp", (long)kt)
          + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 24) + "]").c_str(), "rcx")
          + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 16) + "]").c_str(), "rdx")
-         + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 8)  + "]").c_str(), "rbp")
-         + x86("mov", "rbp", "rsp");
-}   /* XA-FLAT-CONVERT slice B: x86() twin of the jmp-entry raw-byte `hdr` — HEADER ABOVE THE FRAME (outside-γ wire at kt-24, outside-ω wire at kt-16, caller rbp at kt-8), then rbp seeded to this activation's flat base.  Parameterless per R5 (reads g_emit, no locals leak into the arm's concat).  ⚠ THE BYTES ARE NOT THE LEGACY BYTES AND THAT IS CORRECT (R10): the legacy arm hand-encoded `sub rsp,imm32` + three disp32 stores unconditionally, while the encoder picks the as-matching imm8/disp8 short form whenever kt fits, so a small-frame blob converts SHORTER.  Byte-identity vs the legacy BINARY is therefore NOT the acceptance test here — behavioral gates are (s149 §5). */
+         + (emit_jmp_pin_rbp() ? x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 8)  + "]").c_str(), "rbp")
+                               + x86("mov", "rbp", "rsp") : std::string());
+}   /* XA-FLAT-CONVERT slice B: x86() twin of the jmp-entry raw-byte `hdr` — HEADER ABOVE THE FRAME (outside-γ wire at kt-24, outside-ω wire at kt-16, caller rbp at kt-8), then rbp seeded to this activation's flat base.  FLATDISP-7 GATE (s194): the save+seed pair rides emit_jmp_pin_rbp — see the raw-byte hdr twin and emit.h.  Parameterless per R5 (reads g_emit, no locals leak into the arm's concat).  ⚠ THE BYTES ARE NOT THE LEGACY BYTES AND THAT IS CORRECT (R10): the legacy arm hand-encoded `sub rsp,imm32` + three disp32 stores unconditionally, while the encoder picks the as-matching imm8/disp8 short form whenever kt fits, so a small-frame blob converts SHORTER.  Byte-identity vs the legacy BINARY is therefore NOT the acceptance test here — behavioral gates are (s149 §5). */
 static int xaf_deep(void) { extern int g_flat_outer_nparams; return g_emit.flat_deep_arrival || g_flat_outer_nparams >= 1; }   /* FLATDISP-5b/5c (s193): THE one outer-frame rbp condition — every gate site (anchor-leave, prologue save+seed, epilogue reload, BOTH media) reads THIS, never the raw field, so save/seed/read/restore cannot drift apart.  The nparams conjunct: the ICNBENCH-ARGS param-0 bind stores through [rbp+16]/[rbp+24], so an outer graph taking params REQUIRES the seed even when its own kinds are depth-static — before this, the TEXT arm gated the seed on the raw field but stored through rbp unconditionally (latent, unhit only because Icon mains carry scan/gen kinds). */
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
@@ -201,8 +212,8 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     std::string hdr = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                   /* sub rsp, K_total */
                                     + bytes(4, "\x48\x89\x8C\x24") + u32le((uint32_t)(kt - 24))        /* mov [rsp + kt-24], rcx — outside-γ wire */
                                     + bytes(4, "\x48\x89\x94\x24") + u32le((uint32_t)(kt - 16))        /* mov [rsp + kt-16], rdx — outside-ω wire */
-                                    + bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(kt - 8))         /* mov [rsp + kt-8], rbp — REG-7 U2: caller rbp saved in the TOP header pad (kt-8 picked over kt-32 to keep the pad adjacent to the region free; both were unused, FINDING s81 measurement 5) */
-                                    + bytes(3, "\x48\x89\xE5");                                          /* mov rbp, rsp — REG-7 U2 seed: rbp = this activation's flat base (mirror of the s79 pat-blob save/seed at [rsp+24]/zr; restored on BOTH exit edges in the epilogue arm) */
+                                    + (emit_jmp_pin_rbp() ? bytes(4, "\x48\x89\xAC\x24") + u32le((uint32_t)(kt - 8))         /* FLATDISP-7 GATE (s194): mov [rsp + kt-8], rbp — REG-7 U2: caller rbp saved in the TOP header pad, ONLY when the seed below is about to clobber it (kt-8 picked over kt-32 to keep the pad adjacent to the region free; both were unused, FINDING s81 measurement 5).  Depth-static determinate graphs never clobber rbp — nothing to save, slot unwritten and unread. */
+                                                            + bytes(3, "\x48\x89\xE5") : std::string());  /* mov rbp, rsp — REG-7 U2 seed: rbp = this activation's flat base (mirror of the s79 pat-blob save/seed at [rsp+24]/zr; restored on BOTH exit edges in the epilogue arm).  Seeded only when an arrival can be deep or the γ RETAINS (suspend record protocol) — emit_jmp_pin_rbp, the s193 xaf_deep discipline. */
                     if (g_emit.flat_lex && g_emit.flat_seed_off >= 16) {   /* PL-REGAIN-4 lazy arm: NO rep stosb — rt_jmp_frame_lexprep2 seeds slot0 + [suffix,region) only; box grants first-write-wins (SCRIP_ZLS_POISON=1 lane lives inside the leaf) */
                         xaf_mark("LEXPREP2");
                         std::string r = xaf_jmp_hdr_x86()
@@ -339,8 +350,9 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (g_emit.flat_lex && g_emit.flat_seed_off >= 16) {   /* PL-REGAIN-4 lazy arm (TEXT twin): NO rep stosb — rt_jmp_frame_lexprep2 seeds slot0 + [suffix,region) only; box grants first-write-wins (SCRIP_ZLS_POISON=1 lane lives inside the leaf) */
                         char b2[640];
                         snprintf(b2, sizeof b2,
-                            "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n",
-                            kt, kt - 24, kt - 16, kt - 8);
+                            "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n",
+                            kt, kt - 24, kt - 16);
+                        if (emit_jmp_pin_rbp()) { char rp2[96]; snprintf(rp2, sizeof rp2, "  mov [rsp + %d], rbp\n  mov rbp, rsp\n", kt - 8); strncat(b2, rp2, sizeof b2 - strlen(b2) - 1); }   /* FLATDISP-7 GATE (s194): caller-rbp save + seed only when pinned — TEXT twin of the BINARY hdr gate, same predicate (emit_jmp_pin_rbp) */
                         char lx2[192];
                         snprintf(lx2, sizeof lx2, "  mov rdi, rsp\n  mov esi, %d\n  mov edx, %d\n  call rt_jmp_frame_lexprep2@PLT\n", g_emit.flat_seed_off, kt - 32);   /* seed suffix + region; rsp = base ≡ 0 mod 16, the SysV pre-call parity */
                         return banner + b2 + xaf_anchor_enter_text() + lx2;
@@ -349,8 +361,9 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                         int rgn = kt - 32, fz = xaf_nofill_from(g_emit.flat_seed_off, rgn);
                         char b3[640];
                         snprintf(b3, sizeof b3,
-                            "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n",
-                            kt, kt - 24, kt - 16, kt - 8);
+                            "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n",
+                            kt, kt - 24, kt - 16);
+                        if (emit_jmp_pin_rbp()) { char rp3[96]; snprintf(rp3, sizeof rp3, "  mov [rsp + %d], rbp\n  mov rbp, rsp\n", kt - 8); strncat(b3, rp3, sizeof b3 - strlen(b3) - 1); }   /* FLATDISP-7 GATE (s194): caller-rbp save + seed only when pinned — TEXT twin of the BINARY hdr gate, same predicate (emit_jmp_pin_rbp) */
                         std::string r3 = std::string(b3) + xaf_slot0_seed_text();                        /* DB-2a TEXT twin — see the BINARY arm */
                         if (xaf_poison() && fz > 16) { char p3[200]; snprintf(p3, sizeof p3, "  mov rdi, rsp\n  add rdi, 16\n  mov ecx, %d\n  mov al, 0xA5\n  rep stosb\n", fz - 16); r3 += p3; }
                         for (int ci = 0; ci < g_emit.flat_cap_n; ci++) { int o = g_emit.flat_cap_off[ci]; if (o >= 16 && o + 16 <= rgn) { char c3[96]; snprintf(c3, sizeof c3, "  mov qword ptr [rsp + %d], 0\n  mov qword ptr [rsp + %d], 0\n", o, o + 8); r3 += c3; } }   /* CAP-NOFILL (s143) TEXT twin — see the BINARY arm */
@@ -360,8 +373,10 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     }
                     char b[640];
                     snprintf(b, sizeof b,
-                        "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n  mov [rsp + %d], rbp\n  mov rbp, rsp\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n",
-                        kt, kt - 24, kt - 16, kt - 8, kt - 32);
+                        "  sub rsp, %d\n  mov [rsp + %d], rcx\n  mov [rsp + %d], rdx\n",
+                        kt, kt - 24, kt - 16);
+                    if (emit_jmp_pin_rbp()) { char rpe[96]; snprintf(rpe, sizeof rpe, "  mov [rsp + %d], rbp\n  mov rbp, rsp\n", kt - 8); strncat(b, rpe, sizeof b - strlen(b) - 1); }   /* FLATDISP-7 GATE (s194): caller-rbp save + seed only when pinned — TEXT twin of the BINARY hdr gate, same predicate (emit_jmp_pin_rbp) */
+                    { char zf[128]; snprintf(zf, sizeof zf, "  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", kt - 32); strncat(b, zf, sizeof b - strlen(b) - 1); }
                     char lx[160]; lx[0] = 0;
                     if (g_emit.flat_lex) snprintf(lx, sizeof lx, "  mov rdi, rsp\n  mov esi, %d\n  call rt_jmp_frame_lexprep@PLT\n", kt - 32);   /* NCB-1d TEXT twin of the BINARY lexprep tail: NULVCL fill + arg-bind on the self-allocated frame; rsp = base ≡ 0 mod 16, the SysV pre-call parity */
                     return banner + b + xaf_anchor_enter_text() + lx;
@@ -448,9 +463,23 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = fo;
                     return succB;
                 }
+                if (ZC_FRAME == ZC_FRAME_RSP && !emit_jmp_pin_rbp()) {   /* FLATDISP-7 (s194): DEPTH-STATIC determinate exits — the classifier proved every arrival lands with rsp == base (LIFO balance), which is EXACTLY the every-ω-pops guarded assumption the s90 comment below records as "true for SNOBOL4's determinate procs"; the rbp-absolute form was adopted because Icon procs falsified it, and the per-graph classifier now separates the two language-blind.  All reads rsp-relative, teardown = one add, NO rbp touch anywhere (never saved, never seeded, never restored — a free GPR for the whole activation).  FALSIFIABLE BY CONSTRUCTION: an off-base arrival here reads garbage wires and the crosscheck fails loudly at once — the s193 tripwire discipline. */
+                    std::string sg = xaf_ld64_rsp(7, 0)                                    /* mov rdi, [rsp] — result DESCR word0 (frame slot 0, IR_RETURN's write); rsp == base */
+                                   + xaf_ld64_rsp(6, 8)                                    /* mov rsi, [rsp + 8] — result word1 */
+                                   + xaf_ld64_rsp(0, kt - 24)                              /* mov rax, [rsp + kt-24] — γ wire at the header, base-relative */
+                                   + xaf_addq_rsp(kt)                                      /* add rsp, kt — the ENTIRE teardown (as-matching imm8/imm32) */
+                                   + bytes(2, "\xFF\xE0");                                 /* jmp rax */
+                    std::string fo = xaf_ld64_rsp(0, kt - 16)                              /* mov rax, [rsp + kt-16] — ω wire */
+                                   + xaf_addq_rsp(kt)
+                                   + bytes(2, "\xFF\xE0");
+                    out_site = 0; out_lbl = (bb_label_t *)0; out_def = false;
+                    if (out_succ) *out_succ = sg;
+                    if (out_fail) *out_fail = fo;
+                    return std::string();
+                }
                 if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute form (the pat-arm ω discipline applied to BOTH edges).  The old rsp-relative reads ([rsp+0/8], [rsp+kt-24/-16], lea rsp,[rsp+kt]) rode the every-ω-pops
                      * GUARDED ASSUMPTION (line-429 comment) that arrivals land with rsp == base — true for SNOBOL4's determinate procs, FALSE for Icon: `return expr` from inside nested generator/scan depth arrives DEEP.  All reads now go through the PINNED rbp (== base, the U2 seed),
-                     * the unwind is ABSOLUTE lea rsp,[rbp+kt], reads-before-motion (γ wire + result + lea all read rbp before its self-referential restore).  Byte-different, semantics-identical on at-base arrivals — the SN4 crosscheck watermark is the tripwire. */
+                     * the unwind is ABSOLUTE lea rsp,[rbp+kt], reads-before-motion (γ wire + result + lea all read rbp before its self-referential restore).  Byte-different, semantics-identical on at-base arrivals — the SN4 crosscheck watermark is the tripwire.  FLATDISP-7 (s194): this arm now serves PINNED graphs only (deep arrivals or suspend protocols) — the depth-static arm above restores the cheap form for exactly the graphs where the assumption was always sound. */
                     std::string sg = bytes(4, "\x48\x8B\x7D\x00")                          /* mov rdi, [rbp] — result DESCR word0 via the pinned base (frame slot 0, IR_RETURN's write) */
                                    + bytes(4, "\x48\x8B\x75\x08")                          /* mov rsi, [rbp+8] — result word1 */
                                    + bytes(3, "\x48\x8B\x85") + u32le((uint32_t)(kt - 24))   /* mov rax, [rbp + kt-24] — γ wire via base */
@@ -562,9 +591,17 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = xaf_ω_label() + fb2;
                     return std::string(sb2);
                 }
+                if (ZC_FRAME == ZC_FRAME_RSP && !emit_jmp_pin_rbp()) {   /* FLATDISP-7 (s194) TEXT twin of the BINARY depth-static arm: every arrival at these exits is at base (the classifier's proof), so reads are rsp-relative, teardown is one add, rbp untouched end to end.  Same falsifiable tripwire: off-base arrival = garbage wires = loud crosscheck failure. */
+                    char sg[288], fo[352];
+                    snprintf(sg, sizeof sg, "mov rdi, [rsp]\nmov rsi, [rsp + 8]\nmov rax, [rsp + %d]\nadd rsp, %d\njmp rax\n", kt - 24, kt);
+                    snprintf(fo, sizeof fo, "mov rax, [rsp + %d]\nadd rsp, %d\njmp rax\n", kt - 16, kt);
+                    if (out_succ) *out_succ = std::string(sg);
+                    if (out_fail) *out_fail = xaf_ω_label() + fo;
+                    return std::string();
+                }
                 if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute (TEXT twin of the BINARY arm above).  γ loads the result DESCR (frame slot 0, IR_RETURN's write) into rdi:rsi via the PINNED rbp PRE-unwind (the landing's
                      * epilogue_γ takes it BY VALUE — the frame is dead memory after the lea), reads the outside-γ wire at [rbp+kt−24], unwinds ABSOLUTELY lea rsp,[rbp+kt] (Icon `return`/`fail` from nested generator/scan depth arrives with rsp DEEP — the old rsp-relative form's
-                     * every-ω-pops assumption holds only for SNOBOL4's determinate procs), restores caller rbp self-referentially LAST (reads-before-motion), and jmps the wire — no resume record (det: β fires only on a post-return re-entry, UB).  ω mirrors with the [rbp+kt−16] wire. */
+                     * every-ω-pops assumption holds only for SNOBOL4's determinate procs), restores caller rbp self-referentially LAST (reads-before-motion), and jmps the wire — no resume record (det: β fires only on a post-return re-entry, UB).  ω mirrors with the [rbp+kt−16] wire.  FLATDISP-7 (s194): pinned graphs only — see the depth-static arm above. */
                     char sg[288], fo[352];
                     snprintf(sg, sizeof sg, "mov rdi, [rbp]\nmov rsi, [rbp + 8]\nmov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 24, kt, kt - 8);
                     snprintf(fo, sizeof fo, "mov rax, [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 16, kt, kt - 8);
