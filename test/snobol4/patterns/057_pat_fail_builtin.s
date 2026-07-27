@@ -113,8 +113,8 @@ n5_lit_string_β:
 n6_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rbp + 112], rax
-                        mov              qword ptr [rbp + 120], rdx
+                        mov              qword ptr [rsp + 112], rax
+                        mov              qword ptr [rsp + 120], rdx
                                                                                         jmp   n9_match_head_α
 n6_var_β:
                                                                                         jmp   n5_lit_string_α
@@ -148,13 +148,13 @@ n8_assign_β:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_head_α:
-                        mov              qword ptr [rbp + 88], rbp
-                        mov              rdi, qword ptr [rbp + 112]
-                        mov              rsi, qword ptr [rbp + 120]
+                        mov              qword ptr [rsp + 88], rbp
+                        mov              rdi, qword ptr [rsp + 112]
+                        mov              rsi, qword ptr [rsp + 120]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
-                        mov              qword ptr [rbp + 80], r12
+                        mov              qword ptr [rsp + 80], r12
                         mov              rax, rsp
                         sub              rsp, 32
                         mov              qword ptr [rsp + 16], rax
@@ -180,8 +180,8 @@ n9_match_head_β:
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
-                        mov              r12, qword ptr [rbp + 80]
-                        mov              rbp, qword ptr [rbp + 88]
+                        mov              r12, qword ptr [rsp + 80]
+                        mov              rbp, qword ptr [rsp + 88]
                                                                                         jmp   n5_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_sequence_α:
@@ -231,8 +231,8 @@ n11_match_release_α:
                         pop              r13
                         pop              r15
                         pop              r14
-                        mov              r12, qword ptr [rbp + 80]
-                        mov              rbp, qword ptr [rbp + 88]
+                        mov              r12, qword ptr [rsp + 80]
+                        mov              rbp, qword ptr [rsp + 88]
                                                                                         jmp   n4_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_lit_α:

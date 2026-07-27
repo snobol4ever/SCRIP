@@ -30,9 +30,9 @@ main_α_body:
 #         INTEGER('42')                                               :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rbp + 48], 1
+                        mov              qword ptr [rsp + 48], 1
                         mov              rax, qword ptr [rip + .Lx17_0]
-                        mov              qword ptr [rbp + 56], rax
+                        mov              qword ptr [rsp + 56], rax
                                                                                         jmp   n6_call_α
 .Lx17_0:
                         .quad            .Lx17_0_s
@@ -65,20 +65,20 @@ n5_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n6_call_α:
-                        mov              rax, qword ptr [rbp + 48]
-                        mov              qword ptr [rbp + 16], rax
-                        mov              rax, qword ptr [rbp + 56]
-                        mov              qword ptr [rbp + 24], rax
+                        mov              rax, qword ptr [rsp + 48]
+                        mov              qword ptr [rsp + 16], rax
+                        mov              rax, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 24], rax
                         .section         .rodata
 .Lrkfn24:               .string          "INTEGER"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lrkfn24]
-                        lea              rsi, [rbp + 16]
+                        lea              rsi, [rsp + 16]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 99
                                                                                         je    n8_lit_string_α
                                                                                         jmp   n7_lit_string_α
@@ -115,9 +115,9 @@ n8_lit_string_α:
 # NEXT    INTEGER('abc')                                              :S(YES2)F(NO2)
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_string_α:
-                        mov              qword ptr [rbp + 160], 1
+                        mov              qword ptr [rsp + 160], 1
                         mov              rax, qword ptr [rip + .Lx27_0]
-                        mov              qword ptr [rbp + 168], rax
+                        mov              qword ptr [rsp + 168], rax
                                                                                         jmp   n14_call_α
 .Lx27_0:
                         .quad            .Lx27_0_s
@@ -175,20 +175,20 @@ n13_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n14_call_α:
-                        mov              rax, qword ptr [rbp + 160]
-                        mov              qword ptr [rbp + 128], rax
-                        mov              rax, qword ptr [rbp + 168]
-                        mov              qword ptr [rbp + 136], rax
+                        mov              rax, qword ptr [rsp + 160]
+                        mov              qword ptr [rsp + 128], rax
+                        mov              rax, qword ptr [rsp + 168]
+                        mov              qword ptr [rsp + 136], rax
                         .section         .rodata
 .Lrkfn33:               .string          "INTEGER"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lrkfn33]
-                        lea              rsi, [rbp + 128]
+                        lea              rsi, [rsp + 128]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 112], rax
-                        mov              qword ptr [rbp + 120], rdx
+                        mov              qword ptr [rsp + 112], rax
+                        mov              qword ptr [rsp + 120], rdx
                         cmp              eax, 99
                                                                                         je    n11_lit_string_α
                                                                                         jmp   n10_lit_string_α
