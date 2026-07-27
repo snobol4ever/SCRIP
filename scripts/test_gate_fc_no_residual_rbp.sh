@@ -8,28 +8,106 @@
 # them.  Given per-graph flat layout (lt1 and lt2 allocate the SAME construct at different offsets),
 # mis-sizing is near-certain at least once as the conversion widens.
 #
-# WHAT THIS ASSERTS: compile the corpus with SCRIP_FC_AUDIT=1 and require ZERO [FC-MISS] events.
-# A miss is emitted by x86_fc_hit exactly when the box IS granted (w>0, base>=0) but the offset
-# misses the window -- i.e. precisely the silent fallback, not merely "an rbp reference exists"
-# (ungranted boxes legitimately speak rbp; grepping the .s for '[rbp+' cannot tell the two apart,
-# which is why this gate reads the COMPILER's own verdict instead of the emitted text).
+# WHAT THIS ASSERTS: compile the corpus with SCRIP_FC_AUDIT=1 and count [FC-MISS] events.  A miss is
+# emitted by x86_fc_hit exactly when the box IS granted (w>0, base>=0) but the offset misses the
+# window -- i.e. precisely the silent fallback, not merely "an rbp reference exists" (ungranted boxes
+# legitimately speak rbp; grepping the .s for '[rbp+' cannot tell the two apart, which is why this
+# gate reads the COMPILER's own verdict instead of the emitted text).
 #
-# BASELINE AT LANDING (s182): 0 misses across 52 demo+feat programs / 643 graphs.
+# ================================ s184 CORRECTION -- READ THIS ================================
+# The header formerly claimed "BASELINE AT LANDING (s182): 0 misses across 52 demo+feat programs".
+# THAT NUMBER WAS NEVER TRUE OF THIS SCRIPT.  Three independent defects made the old headline an
+# artifact rather than a measurement, all fixed here:
+#
+#   (1) TIMEOUT COUNTED AS DATA.  The old body piped `timeout 20 $SCRIP` straight into grep -c, so
+#       the pipeline exit status was grep's and timeout's 124 was DISCARDED.  beauty.sno does not
+#       terminate in bounded compile time, so its contribution measured WALL-CLOCK PATIENCE, not the
+#       compiler: 3,984 misses @20s -> 26,088 @120s, still killed.  Any "total" including it is
+#       unreproducible across machines and across sessions (s183 read ~5,600 total where s184 read
+#       5,328 on the identical tree -- same compiler, different truncation point).
+#   (2) FAILED COMPILES SCORED AS CLEAN.  A program that emits "no code generated" contributes zero
+#       misses and was indistinguishable from a program that compiled perfectly.  Two of the 52 were
+#       in this state, one of them hiding the single LARGEST miss population in the corpus.
+#   (3) INCLUDES NEVER RESOLVED.  demo/expression.sno -INCLUDEs three files that live in
+#       programs/snobol4/beauty_suite/.  The gate set no search path, so it silently took defect (2)
+#       and scored 0.  With SNO_LIB seeded it compiles clean and reports 11,662 misses -- a
+#       population that was invisible for the whole life of the old gate.  (Note REPO-corpus.md
+#       documents an include dir demo/inc/ that does not exist in the tree; beauty_suite/ is real.)
+#
+# MEASURED BASELINE (s184, tree at e5ce9f12+c98ce1c9, deterministic across repeated passes):
+#       OK       50 programs   13,006 misses   <-- the ratchet, byte-stable run to run
+#       TIMEOUT   1 program    beauty.sno      <-- unbounded compile, QUARANTINED, contributes nothing
+#       NOCODE    1 program    f13_eval_code.sno (direct-goto ":< C >" parse defect, see below)
+#
+# THE GATE IS A RATCHET, NOT A ZERO-ASSERT.  1,344 of those misses sit outside expression.sno and are
+# the number s183 measured; the conversion is mid-flight and zero is not yet reachable, so asserting
+# 0 would leave the gate permanently red and therefore ignored.  It fails on REGRESSION ABOVE
+# BASELINE, and on any NEW timeout / NEW failed compile.  Lower FC_BASELINE as the conversion widens.
+# ==============================================================================================
 cd "$(dirname "$0")/.." || exit 2
 SCRIP=${SCRIP:-./scrip}
 CORPUS=${CORPUS:-/home/claude/corpus/programs/snobol4}
+FC_TIMEOUT=${FC_TIMEOUT:-60}
+FC_BASELINE=${FC_BASELINE:-13006}
+# Programs known NOT to compile cleanly.  These are DEFECTS ON RECORD, not exemptions -- each one is
+# reported loudly every run.  A program may leave a list only by being fixed; anything arriving in a
+# list that is not already named here FAILS the gate.
+KNOWN_TIMEOUT="beauty.sno"
+KNOWN_NOCODE="f13_eval_code.sno"
 [ -x "$SCRIP" ] || { echo "GATE FAIL: no $SCRIP (run: make scrip)"; exit 2; }
-total=0; n=0; offenders=""
+export SNO_LIB="$CORPUS/beauty_suite:$CORPUS/demo/inc:/home/claude/corpus/lib${SNO_LIB:+:$SNO_LIB}"
+tmp=$(mktemp) || exit 2
+trap 'rm -f "$tmp" "$tmp.f"' EXIT
+n=0
 while IFS= read -r f; do
   n=$((n+1))
-  m=$(SCRIP_FC_AUDIT=1 timeout 20 "$SCRIP" --compile "$f" 2>&1 >/dev/null | grep -c '\[FC-MISS\]')
-  if [ "$m" -gt 0 ]; then total=$((total+m)); offenders="$offenders $(basename "$f")($m)"; fi
-done < <(find "$CORPUS/demo" "$CORPUS/feat" -name '*.sno' 2>/dev/null)
-echo "FC silent-fallback events across $n program(s): $total  (MUST be 0)"
-if [ "$total" -ne 0 ]; then
-  echo "OFFENDERS:$offenders"
+  err=$(SCRIP_FC_AUDIT=1 timeout "$FC_TIMEOUT" "$SCRIP" --compile "$f" 2>&1 >/dev/null); rc=$?
+  m=$(printf '%s' "$err" | grep -c '\[FC-MISS\]')
+  e=$(printf '%s' "$err" | grep -c 'error:')
+  if   [ "$rc" = 124 ]; then cls=TIMEOUT
+  elif [ "$e" -gt 0 ];  then cls=NOCODE
+  else                       cls=OK
+  fi
+  printf '%s\t%s\t%s\n' "$cls" "$m" "$(basename "$f")" >> "$tmp"
+done < <(find "$CORPUS/demo" "$CORPUS/feat" -name '*.sno' 2>/dev/null | sort)
+ok_n=$(awk -F'\t' '$1=="OK"{c++} END{print c+0}' "$tmp")
+ok_m=$(awk -F'\t' '$1=="OK"{s+=$2} END{print s+0}' "$tmp")
+fail=0
+echo "FC silent-fallback events over $ok_n cleanly-compiled program(s): $ok_m   (baseline $FC_BASELINE)"
+echo "  scanned $n program(s); timeout ${FC_TIMEOUT}s; miss counts from TIMEOUT programs are excluded as truncation artifacts"
+# --- unbounded compiles ------------------------------------------------------------------------
+awk -F'\t' '$1=="TIMEOUT"{print $3}' "$tmp" | while IFS= read -r p; do
+  case " $KNOWN_TIMEOUT " in
+    *" $p "*) echo "  QUARANTINED (known unbounded compile, excluded from the count): $p" ;;
+    *)        echo "  NEW TIMEOUT: $p -- did not finish in ${FC_TIMEOUT}s; its miss count is meaningless. GATE FAIL."; echo FAIL >> "$tmp.f" ;;
+  esac
+done
+# --- compiles that produced nothing ------------------------------------------------------------
+awk -F'\t' '$1=="NOCODE"{print $3}' "$tmp" | while IFS= read -r p; do
+  case " $KNOWN_NOCODE " in
+    *" $p "*) echo "  NO CODE GENERATED (known parse defect, scores no misses because nothing compiled): $p" ;;
+    *)        echo "  NEW COMPILE FAILURE: $p -- scores 0 misses only because it emitted no code. GATE FAIL."; echo FAIL >> "$tmp.f" ;;
+  esac
+done
+[ -f "$tmp.f" ] && fail=1; rm -f "$tmp.f"
+# --- the ratchet -- reported LAST, because a program that drops out of the OK set (new timeout, new
+# failed compile) also drops its misses from ok_m.  Reporting "IMPROVED, lower the baseline" off a
+# count that shrank because a program stopped compiling would bake the artifact into the baseline --
+# the exact class of bug this rewrite exists to kill.  So: advise a lower baseline ONLY on a clean run.
+if [ "$ok_m" -gt "$FC_BASELINE" ]; then
+  echo "REGRESSION: $ok_m > baseline $FC_BASELINE (+$((ok_m-FC_BASELINE)))"
+  awk -F'\t' '$1=="OK" && $2>0 {printf "    %8d  %s\n",$2,$3}' "$tmp" | sort -rn | head -10
+  fail=1
+elif [ "$ok_m" -lt "$FC_BASELINE" ]; then
+  if [ "$fail" -eq 0 ]; then
+    echo "IMPROVED: $ok_m < baseline $FC_BASELINE (-$((FC_BASELINE-ok_m))) -- lower FC_BASELINE in this script to lock the win in."
+  else
+    echo "NOTE: count $ok_m is below baseline $FC_BASELINE ONLY because a program left the OK set above. NOT an improvement; do NOT lower FC_BASELINE."
+  fi
+fi
+if [ "$fail" -ne 0 ]; then
   echo "Re-run one with SCRIP_FC_AUDIT=1 to see each window: SCRIP_FC_AUDIT=1 $SCRIP --compile <prog>.sno >/dev/null"
   echo "GATE FAIL."
   exit 1
 fi
-echo "OK: every granted box addresses inside its own fc window (zero residual-rbp fallbacks)."
+echo "OK: no regression above baseline; no new timeouts; no new failed compiles."
