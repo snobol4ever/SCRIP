@@ -62,7 +62,7 @@ static std::string release_pump() {
          + x86_anchor_leave()
          + x86_xfer_leave()
          + x86("mov", "r12", FRQ(_.op_off + 32))
-         + IF(_.op_dval == 0.0, x86("mov", "rbp", FRQ(_.op_off + 40)))
+         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

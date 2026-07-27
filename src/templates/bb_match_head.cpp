@@ -21,7 +21,7 @@ std::string bb_match_head() {
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
-         + x86("mov", FRQ(_.op_off + 40), "rbp")
+         + IF(_.flat_deep_arrival, x86("mov", FRQ(_.op_off + 40), "rbp"))   /* BRACKET-GATE (s193): the +40 save exists to bracket the ARBNO zv() borrow (and any deep repoint); a depth-static graph has no repointer, so save AND both restores gate together on the same predicate the outer quartet reads — drift-proof by shared condition. */
          + IF(ZC_FRAME != ZC_FRAME_RSP, IF(hfc(), x86("sub", "rsp", (long)32))
              + IF(hfc(), x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
                        + x86("mov", FRQ(_.op_off + 8), "rax"))
@@ -72,6 +72,6 @@ std::string bb_match_head() {
                + x86_zls2_release_to_call(_.op_off + 16)
                + x86_align_leave()))
          + x86("mov", "r12", FRQ(_.op_off + 32))
-         + x86("mov", "rbp", FRQ(_.op_off + 40))
+         + IF(_.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): restore only if the save above ran */
          + x86_omega();
 }
