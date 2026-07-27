@@ -15,7 +15,7 @@
 #include "rt_coexpr.h"
 static int inited = 0;
 static pthread_attr_t attribs;
-static long g_coexp_stksize = 1024 * 1024;
+static long g_coexp_stksize = 8L * 1024 * 1024;
 scrip_coctx_t *scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
 static pthread_t g_co_main_thr;
@@ -49,6 +49,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         old->thread = pthread_self();
         old->alive = 1;
         g_co_main_thr = old->thread; g_co_main_set = 1;
+        { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_coexp_stksize = _v; } }
         pthread_attr_init(&attribs);
 #if !ZC_COEXPR_STACK_GCHEAP
         if (pthread_attr_setstacksize(&attribs, (size_t)g_coexp_stksize) != 0)
