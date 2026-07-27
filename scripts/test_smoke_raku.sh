@@ -3840,6 +3840,34 @@ sub f($a, *@r) { say @r.elems; }
 f(0, @x, 9);
 EOF
 
+raku "multi_slurpy_variadic_candidate" "V:2" << 'EOF'
+multi sub f($a, *@r) { say "V:" ~ @r.elems; }
+f(1,2,3);
+EOF
+
+raku "multi_slurpy_exact_beats_variadic" "S" << 'EOF'
+multi sub f($a, *@r) { say "V:" ~ @r.elems; }
+multi sub f($a) { say "S"; }
+f(1);
+EOF
+
+raku "multi_slurpy_both_candidates" "S|V:2" << 'EOF'
+multi sub f($a, *@r) { return "V:" ~ @r.elems; }
+multi sub f($a) { return "S"; }
+say f(1) ~ "|" ~ f(1,2,3);
+EOF
+
+raku "multi_slurpy_lol_candidate" "L:3" << 'EOF'
+multi sub f($a, **@r) { say "L:" ~ @r.elems; }
+f(1,2,3,4);
+EOF
+
+raku "multi_typed_unaffected_by_slurpy" "int" << 'EOF'
+multi sub f(Int $a) { say "int"; }
+multi sub f(Str $a) { say "str"; }
+f(7);
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"

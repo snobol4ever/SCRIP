@@ -2611,21 +2611,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *base = VARVAL_fn(args[0]); if (!base) { *out = FAILDESCR; return 1; }
         int na = nargs - 1; DESCR_t *aa = &args[1];
         char prefix[160]; int pl = snprintf(prefix, sizeof prefix, "%s$", base);
-        static int acc_idx[256]; static char acc_names[256][160]; static char acc_types[256][8][32]; int nacc = 0;
+        static int acc_idx[256]; static char acc_names[256][160]; static char acc_types[256][8][32]; static int acc_var[256]; static int acc_fixed[256]; int nacc = 0;
         extern int rt_proc_enum_count(void); extern const char *rt_proc_enum_name(int i);
         int pcount = rt_proc_enum_count();
         for (int pi = 0; pi < pcount && nacc < 256; pi++) {
             const char *pn = rt_proc_enum_name(pi);
             if (!pn || strncmp(pn, prefix, (size_t)pl)) continue;
             const char *p = pn + pl; const char *e = strchr(p, '$');
-            int arity = atoi(p); if (arity != na) continue;
+            int arity = atoi(p);
             int nt = 0; const char *q = e ? e + 1 : (const char *)0;
             while (q && nt < 8) {
                 const char *nx = strchr(q, '$'); int len = nx ? (int)(nx - q) : (int)strlen(q); if (len > 31) len = 31; memcpy(acc_types[nacc][nt], q, (size_t)len); acc_types[nacc][nt][len] = 0;
                 nt++; if (!nx) break; q = nx + 1;
             }
-            int ok = 1; for (int i = 0; i < na && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], aa[i])) { ok = 0; break; }
+            int isvar = (nt > 0 && !strcmp(acc_types[nacc][nt - 1], "Slurpy"));
+            int fixed = isvar ? arity - 1 : arity;
+            if (isvar ? (na < fixed) : (arity != na)) continue;
+            int ok = 1; for (int i = 0; i < fixed && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], aa[i])) { ok = 0; break; }
             if (!ok) continue;
+            acc_var[nacc] = isvar; acc_fixed[nacc] = fixed;
             acc_idx[nacc] = pi; snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn); nacc++;
         }
         if (nacc == 0) {
@@ -2633,8 +2637,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             rt_script_die_surface(m); *out = FAILDESCR; return 1;
         }
         int win = -1;
-        for (int i = 0; i < nacc; i++) { int beaten = 0;
-            for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], na)) { beaten = 1; break; } }
+        for (int pass = 0; pass < 2 && win < 0; pass++)
+        for (int i = 0; i < nacc; i++) { int beaten = 0; if (acc_var[i] != pass) continue;
+            for (int j = 0; j < nacc; j++) { if (i == j || acc_var[j] != pass) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], acc_fixed[i])) { beaten = 1; break; } }
             if (!beaten) { win = i; break; } }
         if (win < 0) win = 0;
         const char *wname = acc_names[win]; (void)acc_idx;

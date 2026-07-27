@@ -97,6 +97,7 @@ static const char *rk_multi_mangle(const char *base, ExprList *params) {
     int pos = snprintf(buf, sizeof buf, "%s$%d", base, np);
     for (int i = 0; i < np; i++) { tree_t *p = params->items[i];
         const char *ty = (p && p->n > 0 && p->c[0] && p->c[0]->v.sval) ? p->c[0]->v.sval : "Any";
+        if (!strcmp(ty, "*@") || !strcmp(ty, "**@")) ty = "Slurpy";
         char safe[64]; int j = 0;
         for (const char *c = ty; *c && j < 63; c++, j++) safe[j] = (*c == ':') ? '_' : *c; safe[j] = 0;
         pos += snprintf(buf + pos, sizeof buf - pos, "$%s", safe); }
