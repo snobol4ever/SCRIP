@@ -169,6 +169,7 @@ static std::string xaf_anchor_enter_text(void) {
 }
 static std::string xaf_anchor_leave_text(void) {
     if (!x86_port_cstack()) return std::string();
+    if (ZC_FRAME == ZC_FRAME_RSP && !g_emit.flat_deep_arrival) return std::string();   /* FLATDISP-5 GATE: this reset is the BULK unwind that returns rsp to the activation base from whatever depth the arrival happened to land at.  When no arrival can be deep, the LIFO balance has already returned rsp to base and the reset is a provable no-op — so it is DELETED rather than re-spelled, and with it the last reader of rbp in a determinate graph.  FALSIFIABLE BY CONSTRUCTION: if any depth-static graph does arrive off-base this drops rsp reconstruction entirely and the crosscheck fails loudly at once, which is exactly the intended tripwire. */
     if (ZC_FRAME == ZC_FRAME_RSP) return std::string("mov rsp, rbp\n");   /* ALIGN-INV-3: under RSP fb IS the snapshot — U1/U2/s79 seed rbp=base at every frame-active activation, so the s90 frame-base READ collapses to the register (the s90 hazard was rsp-RELATIVE reads at depth; reading rbp keeps its cure).  Enter store retained: s142 NOFILL dead-store-cut assumes it overwrites; reader sweep owed before retiring it. */
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
@@ -378,8 +379,8 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                     char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", K, K); /* K = region+8 (floored 65544); 8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
                     std::string pro = banner + fb + xaf_anchor_enter_text();
                     if (x86_port_mode() == ZC_PORT_HEAP) pro += std::string("  mov rbx, ") + ABSQ(RT_WS_TOP) + "\n"; /* REG-4b OUTER SEED (twin of the BINARY arm's 48 8B 1C 25): outermost graphs only — jmp-entry blobs inherit rbx live through C's callee-saved contract */
-                    { char rbps[64]; snprintf(rbps, sizeof rbps, "  mov [rsp + %d], rbp\n", K - 8); pro += std::string(rbps); } /* CALLER-RBP SAVE (ABI fix, twin of BINARY 48 89 AC 24): store caller rbp at [rsp+K-8] header slot before the seed clobbers it; restored before every ret */
-                    pro += std::string("  mov rbp, rsp\n"); /* REG-7 U1 OUTER SEED (twin of the BINARY arm's 48 89 E5): rbp = activation flat base per REG-MAP law 1 — dead until U3's consumer flip; blobs save/seed/restore their own (s79 pat, U2 non-pat).  Bare clobber safe: the dance restores callee-saved regs, same as rbx/r12 above. */
+                    if (g_emit.flat_deep_arrival) { char rbps[64]; snprintf(rbps, sizeof rbps, "  mov [rsp + %d], rbp\n", K - 8); pro += std::string(rbps); } /* FLATDISP-5 GATE: the caller-rbp header save exists ONLY to protect the register the seed below is about to clobber — no seed, nothing to protect, so the depth-static arm drops BOTH and leaves rbp untouched (a free GPR for the whole activation).  CALLER-RBP SAVE (ABI fix, twin of BINARY 48 89 AC 24): store caller rbp at [rsp+K-8] header slot before the seed clobbers it; restored before every ret */
+                    if (g_emit.flat_deep_arrival) pro += std::string("  mov rbp, rsp\n"); /* FLATDISP-5 GATE: seed the depth-immune base ONLY when an arrival can be deep; a depth-static graph recovers the base by arithmetic on rsp alone.  REG-7 U1 OUTER SEED (twin of the BINARY arm's 48 89 E5): rbp = activation flat base per REG-MAP law 1 — dead until U3's consumer flip; blobs save/seed/restore their own (s79 pat, U2 non-pat).  Bare clobber safe: the dance restores callee-saved regs, same as rbx/r12 above. */
                     { extern int g_flat_outer_nparams; if (g_flat_outer_nparams >= 1) pro += std::string("  push rsi\n  sub rsp, 8\n  call rt_main_args_fetch@PLT\n  add rsp, 8\n  pop rsi\n  mov [rbp + 16], rax\n  mov [rbp + 24], rdx\n"); } /* ICNBENCH-ARGS-RSP TEXT twin: bind staged main(args) into the param-0 slot; esi preserved, rsp call-parity 0 kept */
                     if (g_gen_proc_active || g_resumable_callable_active)
                         pro += std::string("  cmp esi, 0\n") + "  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
@@ -590,7 +591,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                         return sgt + fgt;
                     }
                     int Kt = xaf_outer_frame_k();
-                    char rbpr[64]; snprintf(rbpr, sizeof rbpr, "mov rbp, [rsp + %d]\n", Kt - 8);
+                    char rbpr[64]; if (g_emit.flat_deep_arrival) snprintf(rbpr, sizeof rbpr, "mov rbp, [rsp + %d]\n", Kt - 8); else rbpr[0] = 0;   /* FLATDISP-5 GATE: reload the caller's rbp only if this activation's prologue actually saved it.  Depth-static graphs never clobbered rbp, so there is nothing to restore and the header slot at Kt-8 goes unwritten and unread — the `add rsp, Kt` release below is the ENTIRE frame teardown. */
                     char frel[64]; snprintf(frel, sizeof frel, "add rsp, %d\n", Kt);
                     std::string succ_half = std::string("mov eax, 1\n") + "xor edx, edx\n" + xaf_anchor_leave_text() + rbpr + frel + "ret\n";
                     std::string fail_half = xaf_ω_label()
