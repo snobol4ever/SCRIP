@@ -38,8 +38,6 @@ main_α:
                         mov              ecx, 392
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 384], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         $'qq' = 'x'
@@ -289,16 +287,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 384]
                         add              rsp, 392
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 384]
                         add              rsp, 392
                         ret
                         .section         .note.GNU-stack,"",@progbits

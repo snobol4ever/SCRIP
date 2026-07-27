@@ -344,8 +344,6 @@ main_α:
                         mov              ecx, 648
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 640], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         expr = *('abc' 'def')
@@ -775,16 +773,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 640]
                         add              rsp, 648
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 640]
                         add              rsp, 648
                         ret
                         .section         .note.GNU-stack,"",@progbits

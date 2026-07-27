@@ -36,8 +36,6 @@ main_α:
                         mov              ecx, 488
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 480], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         T = TABLE()
@@ -385,16 +383,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 480]
                         add              rsp, 488
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 480]
                         add              rsp, 488
                         ret
                         .section         .note.GNU-stack,"",@progbits

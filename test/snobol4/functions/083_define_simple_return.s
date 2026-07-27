@@ -268,8 +268,6 @@ main_α:
                         mov              ecx, 216
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 208], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DEFINE('double(s)')                                         :(double_end)
@@ -610,16 +608,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 208]
                         add              rsp, 216
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 208]
                         add              rsp, 216
                         ret
                         .section         .note.GNU-stack,"",@progbits

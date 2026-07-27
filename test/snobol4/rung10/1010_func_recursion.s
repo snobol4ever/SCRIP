@@ -46,8 +46,6 @@ main_α:
                         mov              ecx, 1544
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 1536], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         define('fact(n)')                              :(fact_end)
@@ -1060,16 +1058,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 1536]
                         add              rsp, 1544
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 1536]
                         add              rsp, 1544
                         ret
                         .section         .note.GNU-stack,"",@progbits

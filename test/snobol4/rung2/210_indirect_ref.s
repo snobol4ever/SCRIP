@@ -38,8 +38,6 @@ main_α:
                         mov              ecx, 408
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 400], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         bal = 'the real bal'
@@ -298,16 +296,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 400]
                         add              rsp, 408
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 400]
                         add              rsp, 408
                         ret
                         .section         .note.GNU-stack,"",@progbits

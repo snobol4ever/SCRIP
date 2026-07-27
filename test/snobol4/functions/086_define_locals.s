@@ -317,8 +317,6 @@ main_α:
                         mov              ecx, 264
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 256], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DEFINE('swap(a,b)tmp')                                      :(swap_end)
@@ -626,16 +624,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 256]
                         add              rsp, 264
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 256]
                         add              rsp, 264
                         ret
                         .section         .note.GNU-stack,"",@progbits

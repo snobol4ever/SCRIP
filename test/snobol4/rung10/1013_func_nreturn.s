@@ -40,8 +40,6 @@ main_α:
                         mov              ecx, 664
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 656], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         define('ref_a()')                              :(ref_a_end)
@@ -443,16 +441,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 656]
                         add              rsp, 664
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 656]
                         add              rsp, 664
                         ret
                         .section         .note.GNU-stack,"",@progbits
