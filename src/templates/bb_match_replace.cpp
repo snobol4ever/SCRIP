@@ -29,6 +29,6 @@ std::string bb_match_replace() {
          + x86("label",  LS(0))
          + x86(".string", _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
-         + x86("mov", "rbp", FRQ(_.op_off + 40))
+         + IF(_.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
          + x86_gamma();
 }
