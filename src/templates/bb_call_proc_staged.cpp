@@ -206,10 +206,10 @@ static std::string bcps_det_arm() {
             + x86("je", L(5))
             + FOR(0, (int)_.op_ival, [&](int i) {
                   int slot = bcps_arg_slot(_.node, argblks, i);
-                  return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQ(slot)))
+                  return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
                        + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16), "rax")
-                       + (x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQ(slot + 8)))
-                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })
+                       + (x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
+                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })   /* FLATDISP-LIVE-BUMP: the FRQ fallback now carries the scc_sb the fc_hit arm always had -- FR/FRQ are rsp-relative under the depth-static regime, so the non-window read was 32 short (083: arg staged at [rsp+128] pre-sub, read at [rsp+128] post-sub = zeroed frame -> s=0 -> 2*s=0) */
             + x86("call", "rt_proc_open_fn", openfn_fp)
             + x86_lea_id("rcx", 6)
             + x86_lea_id("rdx", 7)

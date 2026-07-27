@@ -803,6 +803,9 @@ int fc_save_active(const IR_t * nd) {
     for (int i = 0; i < fcv_n; i++) if (fcv[i] == nd) return 1;
     return 0;
 }
+static struct { const IR_t * nd; int e; } fpe[256]; static int fpe_n = 0;   /* FLATDISP-LEAF-ORDER (this session, the rt_dcap_pump segv root): capture pairs allocate [COND, SAVE, inner...] but FLOW save->inner->cond, so fc_leaf_walk's running prefix registered COND BEFORE SAVE's 16 accumulated -- COND then FR-read the SAVE slot 16 short of the true depth (039: [rsp+32] over head's rsp-snapshot cell, low-32 = the 0xffff9b20 gdb saw; SAVE's own write at [rsp+48] was right).  Latent since the walk landed; EXPOSED by s193's HEAD-leaves-deep-list (rbp-seeded FR was depth-immune, the wrong D was never consulted).  The lowerer records each pair's inner allocation END here at build time; fc_leaf_walk recurses [k+1, E) first and registers COND at the RESULT pfx -- the S10c suspended depth. */
+void fc_pair_extent_register(const IR_t * nd, int e) { if (!nd || e <= 0 || fpe_n >= 256) return; for (int i = 0; i < fpe_n; i++) if (fpe[i].nd == nd) return; fpe[fpe_n].nd = nd; fpe[fpe_n].e = e; fpe_n++; }
+int fc_pair_extent(const IR_t * nd) { for (int i = 0; i < fpe_n; i++) if (fpe[i].nd == nd) return fpe[i].e; return -1; }
 static struct { const IR_t * nd; int fp; } fcc[256];
 static int fcc_n = 0;
 void fc_cond_register(const IR_t * nd, int fp_inner) {
