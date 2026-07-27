@@ -351,6 +351,7 @@ typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
     int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned;   /* rest_kind names WHAT differs about the variadic tail binding, never WHICH language asked: REST_LIST(0) = the DT_DATA list rt_make_list builds; REST_FLAT_AGG(1) = the SOH-joined flat aggregate (canonical from-slurpy-flat, List.rakumod:271) that .elems/subscripts/reductions already understand. NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate.  PS-1b (s151): zstatic = 1 iff this proc's blob graph was DEFER/VALUE-free with a known region (emit-side emit_graph_zstatic); default 0 = conservative, so an unregistered proc reads as chain-path safe. */
 } rt_proc_t;
+_Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.S bakes PROC_NAME and PROC_ISGEN");
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
 static int           g_rt_gen_proc_cap = 0;
@@ -628,7 +629,8 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
-static DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
+__attribute__((visibility("hidden"))) DESCR_t rt_nret_fix(DESCR_t r, int wn);
+DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
 /* NCB-1 leaves (defined below, beside the dyn trampolines they were split out of). */
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
@@ -1001,6 +1003,8 @@ typedef struct {
     void       *fb;         /* lexical only: the frame, for the [fb+0] result read */
     int         vtmark;     /* RSP-F-2: value-trail top at call-open — the γ/ω landings tidy dead-stack entries pushed since (see rt_value_trail_tidy_dead_below in resolution.c) */
 } rt_pcall_t;
+_Static_assert(sizeof(rt_pcall_t) == 64 && __builtin_offsetof(rt_pcall_t, p) == 0 && __builtin_offsetof(rt_pcall_t, save_Σ) == 16, "rtx_call.S bakes PC_P/PC_SAVE_S and the shl 6 stride");
+_Static_assert(__builtin_offsetof(rt_pcall_t, save_Σlen) == 24 && __builtin_offsetof(rt_pcall_t, wn) == 32 && __builtin_offsetof(rt_pcall_t, fb) == 48 && __builtin_offsetof(rt_pcall_t, vtmark) == 56, "rtx_call.S slice-2 offsets");
 extern int  rt_value_trail_mark(void);
 extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
 extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
@@ -1153,7 +1157,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     return 1;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)
+DESCR_t c_rt_proc_call_epilogue_slim_γ(DESCR_t result)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
@@ -1165,7 +1169,7 @@ DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)
     return result;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_slim_ω(void)
+DESCR_t c_rt_proc_call_epilogue_slim_ω(void)
 {
     rt_k_level--;
     if (g_pcall_top <= 0) return FAILDESCR;
