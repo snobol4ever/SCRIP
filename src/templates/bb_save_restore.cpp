@@ -27,6 +27,16 @@ std::string bb_save_restore() {
     long role = (long)_.op_ival;
     if (role == 3) {
         int kt = g_emit.flat_frame_bytes;
+        if (!emit_jmp_pin_rbp()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static): header wires + entry rsp via rsp, caller rbp LIVE IN THE REGISTER -> open pcall record")   /* FLATDISP-7 (s194): the ungated prologue never saved or clobbered rbp, so the caller's value is still IN rbp (marshal it directly, no [kt-8] slot exists) and rsp == base here (wire-adopt is the first box after the prologue, pre-carve) — the rsp-relative reads address the same header bytes the pinned arm reads through rbp.  Same falsifiable tripwire as the epilogue arms. */
+             + x86_alpha()
+             + x86("mov", "rdi", RDQ("rsp", kt - 24))
+             + x86("mov", "rsi", RDQ("rsp", kt - 16))
+             + x86("lea", "rdx", RDQ("rsp", kt))
+             + x86("mov", "rcx", "rbp")
+             + x86_align_enter()
+             + x86("call", "rt_flat_wire_adopt", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt)
+             + x86_align_leave()
+             + x86_gamma();
         return x86("comment", "IR_SAVE_RESTORE wire-adopt: header wires + entry rsp + caller rbp -> open pcall record")
              + x86_alpha()
              + x86("mov", "rdi", RDQ("rbp", kt - 24))
