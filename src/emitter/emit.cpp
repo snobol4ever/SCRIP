@@ -2005,8 +2005,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_zeta_selfload();
         { static int _beo = -1; if (_beo < 0) { const char *_e = getenv("SCRIP_BETA_ELIDE_OFF"); _beo = (_e && _e[0] == '1') ? 1 : 0; } g_emit.op_beta_dead = (_beo || bused[i]) ? 0 : 1; }   /* BP-9 DEAD-β: hatch = same-build A/B, BP-5/BP-6 precedent */
         g_emit.op_wpop = 0;   /* BP-9 (ii): zeroed at TOP of every iteration -- the REPALT/ALT-family dispatches continue before the chase block below, and a stale ΣK from a prior node would poison their emitted jmp-ω hooks (the recorded op_sb/lbl_t1 g_emit-persistence hazard class) */
-        { extern int zls_off(const IR_t *); extern int zls_node_bytes(const IR_t *); int _zo = zls_off(nodes[i]);
-          g_emit.op_own_mark = own_mark; g_emit.op_own_ci = (_zo >= 0) ? _zo + zls_node_bytes(nodes[i]) : 0; }
+        { extern int zls_off(const IR_t *); extern int zls_result_off(const IR_t *); extern int zls_node_bytes(const IR_t *); int _zo = zls_off(nodes[i]); int _zr = zls_result_off(nodes[i]);
+          g_emit.op_own_mark = own_mark; g_emit.op_own_ci = (_zo >= 0) ? ((_zr >= 0 ? _zr : _zo) + zls_node_bytes(nodes[i])) : 0; }   /* C_i BASE FIX: zls_off returns e->loff (the SHIFTED locals base for the zls_locals_shifted family) while zls_node_bytes measures from e->off (the RESULT base), so loff+bytes overstated every shifted node's end by exactly the shift -- e.g. IR_MATCH_BREAK result@63792 + cnt/cur@63808 (true end 63824) reported ci=63840, i.e. 16 bytes INTO the next node. Same base-convention class as ZLS-CALL-BASE. C_i means "everything left of the live box allocated" (ZC_PORT_OWNED, zeta_choices.h), so the node END is result_off+bytes. Non-shifted nodes have loff==off and are unaffected. */
         bb_label_t *node_γ = &lbl_γ;
         bb_label_t *node_ω = &lbl_ω;
         IR_t *gtgt = nodes[i]->γ.node;
