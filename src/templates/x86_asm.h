@@ -303,7 +303,8 @@ inline int x86_port_mode() { return rt_zeta_port_mode(); }
  * port).  x86_jcc_invert(): condition inversion for the conditional-omega pop synth (see x86_jcc). */
 inline int x86_port_cstack() { int m = x86_port_mode(); return m == ZC_PORT_CSTACK || m == ZC_PORT_FORTH; }
 inline int x86_fc_on()       { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_bytes > 0; }
-inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; return x86_port_mode() == ZC_PORT_FORTH && w > 0 && _.op_fc_base >= 0 && off >= _.op_fc_base && off < _.op_fc_base + w; }
+inline int x86_fc_miss(int bump) { static int n = 0; if (bump) n++; return n; }
+inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = x86_port_mode() == ZC_PORT_FORTH && w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-MISS] granted box falls back to [rbp+%d]: window=[%d,%d) w=%d\n", off, _.op_fc_base, _.op_fc_base + w, w); } return hit; }   /* ZB-VAL-8b GATE (s182, closes s181 HEADLINE 6): the fallback is SILENT BY CONSTRUCTION -- an undersized window does not crash and does not emit a WRONG address, it just leaves the box on rbp, so "I converted it" and "it converted" were indistinguishable in the build.  A GRANTED box (w>0, base>=0) whose offset misses its own window is exactly that event; count it always, narrate it under SCRIP_FC_AUDIT=1.  test_gate_fc_no_residual_rbp.sh asserts the count is ZERO across the corpus, which is what makes conversion progress falsifiable */
 inline std::string x86_fc_jcc_omega(const char * mnem);
 inline const char * x86_jcc_invert(const char * m) {
     if (!strcmp(m, "je"))  return "jne";
