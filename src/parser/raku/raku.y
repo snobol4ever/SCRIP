@@ -228,6 +228,10 @@ static tree_t *rk_tree_clone(tree_t *e) {
 static tree_t *rk_slurpy_param(const char *name) {
     tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, intern("*@"))); return p;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_slurpy_lol_param(const char *name) {
+    tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, intern("**@"))); return p;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_param_default(tree_t *p, tree_t *dflt) {
     return expr_binary(TT_ASSIGN, p, dflt);
@@ -374,6 +378,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <sval> OP_REDUCE
 %token <sval> ARR_ALL_SLICE
 %token <sval> SLURPY_POS
+%token <sval> SLURPY_LOL
 %token <sval> KW_HANDLES
 %token <sval> WORDLIST
 %token OP_COLON_D OP_COLON_U
@@ -1314,6 +1319,8 @@ param_list
     | param_list ',' VAR_SCALAR '=' expr { $$=exprlist_append($1,rk_param_default(var_node($3),$5)); }
     | SLURPY_POS             { $$=exprlist_append(exprlist_new(),rk_slurpy_param($1)); }
     | param_list ',' SLURPY_POS { $$=exprlist_append($1,rk_slurpy_param($3)); }
+    | SLURPY_LOL             { $$=exprlist_append(exprlist_new(),rk_slurpy_lol_param($1)); }
+    | param_list ',' SLURPY_LOL { $$=exprlist_append($1,rk_slurpy_lol_param($3)); }
     ;
 block
     : '{' stmt_list '}'  { $$=make_seq($2); }

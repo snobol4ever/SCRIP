@@ -551,7 +551,7 @@ void rt_proc_set_variadic(const char *name, int is_var)
 void rt_proc_set_rest_kind(const char *name, int kind)
 {
     if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].rest_kind = kind ? 1 : 0; return; } }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].rest_kind = kind; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1d REGIME RECORD — the driver proc loops (the same four that bracket emit_jmp_entry_for_proc) record here whether the proc's EMITTED body is a jmp-entry blob, in-process for mode 3 and via the
@@ -600,13 +600,14 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
 {
     extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
+    extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
     int npc = p->nparams; if (npc > CALL_ARGS_MAX) npc = CALL_ARGS_MAX;
     if (p->is_variadic && npc > 0) {
         int fixed = npc - 1;
         for (int i = 0; i < fixed; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = (i < nargs) ? g_call_args[i] : NULVCL;
         int rest = nargs - fixed; if (rest < 0) rest = 0;
         DESCR_t *tail = rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0;
-        *(DESCR_t *)(fb + 16 * (fixed + 1)) = p->rest_kind ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
+        *(DESCR_t *)(fb + 16 * (fixed + 1)) = (p->rest_kind == 2) ? rt_make_nested_agg(tail, rest) : p->rest_kind ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
         return;
     }
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];

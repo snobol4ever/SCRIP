@@ -1172,7 +1172,7 @@ int main(int argc, char **argv)
                     }
                     if (pe->rest_kind) {   /* the m4 twin of the in-process rt_proc_set_rest_kind — WITHOUT this the standalone binary binds the slurpy tail as a DT_DATA list and .elems/subscripts read garbage, the exact silent-wrong-answer shape of the s2026-07-26b pname replay gap: the startup replay is an ALLOWLIST, not a snapshot, so m3 passing proves nothing about m4.  Emitted only when the fact is set, so every peer language's .s stays byte-identical. */
                         emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, 1\n");
+                        emit_textf("  mov esi, %d\n", pe->rest_kind);
                         emit_textf("  call rt_proc_set_rest_kind@PLT\n");
                     }
                     {   /* NCB-1d: record the body's regime for the C transfer fns — the mode-4 twin of the in-process rt_proc_set_jmpentry.  GENP slice-2: the generator flag now ALSO embeds (rt_proc_call_gen_h's per-instance-stack arm discriminates on p->jmp_entry && rt_proc_is_generator — without this twin the m4 runtime took the det one-shot arm and rt_genp_yield aborted with no current coexpression). */
