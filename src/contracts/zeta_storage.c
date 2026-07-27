@@ -11,6 +11,7 @@ extern int rt_proc_is_generator(const char *);
 static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZLS_MAX_ENTRIES 65536
+#define ZLS_FC_SYNTH    0x7F000
 #define ZLS_MAX_FIELDS  131072
 #define ZLS_MAX_SCOPES  4096
 #define ZLS_MAX_GRAPHS  4096
@@ -253,10 +254,13 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
 static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
+static int zls_fc_cell(const IR_t * nd) { if (!nd) return 0; switch (nd->op) { case IR_MATCH_SPAN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_BAL: case IR_MATCH_REM: case IR_MATCH_ARB: return 16; default: return 0; } }   /* PAT$N REGION NET-OUT (s191, Lon directive "99.999% of allocation are now inside the BB's"): the UNCONDITIONAL-cell slice of fc_geom -- these eight kinds each self-push a fixed 16B rsp cell at alpha (x86_asm.h ~1765 arms sub rsp,op_fc_bytes) AND were each granted exactly ONE 16B locals quad in the bulk proc-entry carve, which the fc_hit window rebase then makes UNREACHABLE: FR(off) for off inside [op_fc_base, +16) emits [rsp + off-base], never the flat slot.  Pure double-count, netted out here.  Restricted to the UNCONDITIONAL arms ON PURPOSE: fc_geom's conditional arms (fc_save_active / fc_vlit_active / fc_alt_fpmax) read side tables populated during LOWER, so asking them at zls_build time is registration-order-dependent and could answer 0 here but 16 at emit -- that disagreement would silently misplace a cell.  All eight verified 1:1 (one locals quad, 16B cell) against zls_grant_locals, and all eight are in zls_locals_shifted so the netted quad is the LOCALS quad, never the cross-box-read result quad. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
     zls_entry(nd, scope_id, off);
     zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
+    if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = ZLS_FC_SYNTH; return 1; }   /* NET-OUT: locals are cell-resident; loff becomes the SYNTHETIC window base so fc_hit still rebases every own-cell ref to [rsp + off-base] (the base value is arithmetically irrelevant -- it only ever appears as a difference).  Deliberately far past any real region so an ESCAPING ref (a cross-box reader of a netted quad, which the zls_s4_ok audit says does not exist) emits an obviously-wrong [rsp + 520192+] that greps out of the .s and faults loudly, instead of silently aliasing the neighbouring node's live slot. */
     return 1 + zls_grant_locals(nd, scope_id, off + 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -290,7 +294,7 @@ static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int
         if (*scratch_off < 0) { *scratch_off = off; zls_entry(nd, scope_id, off); ze[ze_n - 1].live = 0; zls_field(scope_id, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); return 1; }
         zls_entry(nd, scope_id, *scratch_off); ze[ze_n - 1].live = 0; return 0;
     }
-    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; ze[ze_n - 1].live = 0; return zls_grant_locals(nd, scope_id, off); }
+    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; ze[ze_n - 1].live = 0; if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = ZLS_FC_SYNTH; return 0; } return zls_grant_locals(nd, scope_id, off); }   /* PAT$N REGION NET-OUT (s191): S4a already dropped the dead front quad, so a netted-out DEAD matcher now consumes ZERO flat quads -- the whole node lives in its own rsp cell.  This is the arm that drives an all-converted graph's region to 0 and lets the DROP-PROLOGUE rung delete its sub rsp entirely. */
     int ei = ze_n; int n = zls_grant(nd, scope_id, off); if (ze_n > ei) ze[ei].live = live; return n;   /* zls_grant_locals adds FIELDS, never entries, so the node's own entry is exactly ze[ei] */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
