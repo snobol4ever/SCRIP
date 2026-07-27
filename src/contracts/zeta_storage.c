@@ -205,31 +205,38 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_DISJUNCTION:   /* IR_INDIRECT_GOTO retired slice 3 (zero producers) */
         if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { zls_field(scope_id, off, 8, ZK_RAW, 0, "disj.alt_i live-alternative index (+16 from box base; nary self-state, MOVE_LABEL-ERAD: α=0, φ-glue ++, β dispatches; value DESCR = the box result slot at [base], option-B per-arm copy in σ-glue) (+24 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "disj.pad (unused)", nd); return 1; }
         zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 1;
+    /* ZLS-CALL-BASE (MEASURED, not assumed): all three call arms below spoke NODE-BASE while zls_grant_locals is handed the LOCALS base (zls_grant calls it with off+16), so every registered
+     * call field sat one quad high; two arms also multiplied the base by the arg index (off*j -- the s92 note below names that typo but repaired only the PROC_GEN/CALL_VALUE arm's SHAPE,
+     * keeping its node-base formula, so that arm stayed +16 high).  Emitter truth (bb_call.cpp, plain and by-name-gen arms alike): argbase = resoff+16, arg j at argbase+16*j, extra quad
+     * (callgen.act / scan.saved_delta) at resoff+16*(1+nargs); with off = resoff+16 those are off+16*j and off+16*nargs -- one truth.  BEFORE: REPLACE(S,'lo','LO') registered argv at
+     * +0/+48/+96 -- a phantom DESCR landing on ANOTHER node's result quad at +0, and a hi_off one quad past the node -- against the emitter's +48/+64/+80; AFTER: exact.  Blast radius was
+     * the FIELD MAP, never addressing (the emitter computes argv addresses itself): what was corrupted is scope lo_off/hi_off, zls_node_bytes (-> g_emit.op_own_ci, emit.cpp) and the GC
+     * kind map.  Gate: mode-3 crosscheck 314/1 with the fail SET identical to a rebuilt pre-change baseline (not merely an equal count), mode-4 14/14 call-heavy with DIVERGE=0. */
     case IR_CALL_BUILTIN_GEN:
-        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off * (1 + nd->n_operands), 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
-        zls_field(scope_id, off * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "callgen.pad (unused)", nd);
         return 1 + nd->n_operands;
     case IR_PROC_GEN: case IR_CALL_VALUE:
         /* GENP-SPINE s92 GRANT REPAIR (pre-existing, exposed by t_poison's 0-operand `return`-generator): this arm returned -1 + n_operands — a 0-operand IR_PROC_GEN moved the cursor BACKWARD one unit, so
          * the graph-scope resume/zeta_mark slots landed ON the call's own result DESCR and every value delivery smashed the anchor ([rbp+zeta_mark+8]) that the ret-epilogue's anchor_leave restores into
          * rsp (rc=139 at graph exit, s91-reproducible).  The unit count is now 2 + n (result + argv + act), matching the staged-gen sibling below; the field offsets drop the off*j multiplication typo for
          * off + 16*(1+j) / off + 16*(1+n) — the act address now equals the emitting arms' formula (off + 16*(1+nargs)) exactly, one truth. */
-        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * (1 + j), 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout", nd);
-        zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+        for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
         return 2 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
-            for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off * j, 16, ZK_DESCR, 0, "call.argv", nd);
+            for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
             if (nd->op == IR_CALL_PROC_STAGED && zls_callee_is_gen(nd)) {
-                zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout.  Offset repaired off*(1+n) → off + 16*(1+n), the emitting arms' exact formula", nd);
-                zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout.  Offset repaired off*(1+n) → off + 16*(1+n), the emitting arms' exact formula", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
                 return 2 + nd->n_operands;
             }
             { const char * cmn = IR_LIT(nd).sval; if (cmn && (!strcmp(cmn, "tab") || !strcmp(cmn, "move"))) {
-                zls_field(scope_id, off + 16 * (1 + nd->n_operands), 8, ZK_RAW, 0, "scan.saved_delta — ICN-BYNAME-CURSOR-RESTORE: a cursor-mover (tab/move, and =s == tab(match(s))) reached by-name through rt_call_arr has no inline bb_scan_tab body, so it also had no saved-δ slot and its β degenerated to a bare jmp ω — the backtrack never restored &pos. This quad is that slot; bb_call_byname_str writes r14 here at α and reloads it in β, mirroring bb_scan_tab's restore-δ-and-FAIL port. Same extra-quad shape as callgen.act above.", nd);
-                zls_field(scope_id, off + 16 * (1 + nd->n_operands) + 8, 8, ZK_RAW, 0, "scan.saved_delta pad (unused)", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "scan.saved_delta — ICN-BYNAME-CURSOR-RESTORE: a cursor-mover (tab/move, and =s == tab(match(s))) reached by-name through rt_call_arr has no inline bb_scan_tab body, so it also had no saved-δ slot and its β degenerated to a bare jmp ω — the backtrack never restored &pos. This quad is that slot; bb_call_byname_str writes r14 here at α and reloads it in β, mirroring bb_scan_tab's restore-δ-and-FAIL port. Same extra-quad shape as callgen.act above.", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "scan.saved_delta pad (unused)", nd);
                 return 2 + nd->n_operands; } }
             return 1 + nd->n_operands;
         }
