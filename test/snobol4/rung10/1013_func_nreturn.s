@@ -191,8 +191,6 @@ n14_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   n20_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n15_call_α:
@@ -230,8 +228,6 @@ n17_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n18_assign_α:
@@ -239,8 +235,6 @@ n18_assign_α:
                         mov              rdx, qword ptr [rbp + 184]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   n24_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n19_goto_deferred_α:
@@ -362,8 +356,6 @@ n27_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1013/003: a updated via nreturn'   :(end)
@@ -422,8 +414,6 @@ n31_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1013/001: nreturn read gives value' :(end)
@@ -445,8 +435,6 @@ n33_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

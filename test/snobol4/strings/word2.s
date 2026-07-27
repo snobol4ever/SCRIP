@@ -429,8 +429,6 @@ n47_assign_α:
                         mov              rdx, qword ptr [rbp + 24]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n46_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n48_assign_α:
@@ -439,8 +437,6 @@ n48_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rdx
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n49_var_α
 #=======================================================================================================================
 #       LINE     ?  PAT                              :F(LOOP)
@@ -708,8 +704,6 @@ n62_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx85_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n46_var_α
 .Lx85_0:
                         .quad            .Lx85_0_s

@@ -76,8 +76,6 @@ n2_assign_α:
                         mov              rdx, qword ptr [rbp + 24]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n3_var_α
 #=======================================================================================================================
 #         A<1> = 'first'
@@ -323,8 +321,6 @@ n27_assign_α:
                         mov              rdx, qword ptr [rbp + 376]
                         mov              rdi, qword ptr [rip + .Lx61_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n17_var_α
 .Lx61_0:
                         .quad            .Lx61_0_s
@@ -358,8 +354,6 @@ n30_assign_α:
                         mov              rdx, qword ptr [rbp + 440]
                         mov              rdi, qword ptr [rip + .Lx64_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n22_var_α
 .Lx64_0:
                         .quad            .Lx64_0_s
@@ -381,8 +375,6 @@ n32_assign_α:
                         mov              rdx, qword ptr [rbp + 504]
                         mov              rdi, qword ptr [rip + .Lx66_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx66_0:
                         .quad            .Lx66_0_s

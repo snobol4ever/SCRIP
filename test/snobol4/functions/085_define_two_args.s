@@ -255,8 +255,6 @@ n9_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 16], rax
-                        mov              qword ptr [rbp + 24], rdx
                                                                                         jmp   n5_op14_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_assign_α:
@@ -264,8 +262,6 @@ n10_assign_α:
                         mov              rdx, qword ptr [rbp + 88]
                         mov              rdi, qword ptr [rip + .Lx27_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 16], rax
-                        mov              qword ptr [rbp + 24], rdx
                                                                                         jmp   n11_lit_integer_α
 .Lx27_0:
                         .quad            .Lx27_0_s
@@ -425,8 +421,6 @@ n14_assign_α:
                         mov              rdx, qword ptr [rbp + 184]
                         mov              rdi, qword ptr [rip + .Lx32_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 16], rax
-                        mov              qword ptr [rbp + 24], rdx
                                                                                         jmp   proc_LBL__add_γ
 .Lx32_0:
                         .quad            .Lx32_0_s
@@ -794,8 +788,6 @@ n47_assign_α:
                         mov              rdx, qword ptr [rbp + 88]
                         mov              rdi, qword ptr [rip + .Lx64_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 16], rax
-                        mov              qword ptr [rbp + 24], rdx
                                                                                         jmp   n48_lit_integer_α
 .Lx64_0:
                         .quad            .Lx64_0_s
@@ -875,8 +867,6 @@ n51_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 16], rax
-                        mov              qword ptr [rbp + 24], rdx
                                                                                         jmp   n46_op14_α
 #-----------------------------------------------------------------------------------------------------------------------
 n52_call_α:
@@ -1014,8 +1004,6 @@ n53_assign_α:
                         mov              rdx, qword ptr [rbp + 184]
                         mov              rdi, qword ptr [rip + .Lx71_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 16], rax
-                        mov              qword ptr [rbp + 24], rdx
                                                                                         jmp   main_γ
 .Lx71_0:
                         .quad            .Lx71_0_s

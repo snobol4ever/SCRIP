@@ -162,8 +162,6 @@ n13_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx37_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n9_lit_integer_α
 .Lx37_0:
                         .quad            .Lx37_0_s
@@ -176,8 +174,6 @@ n14_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx38_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n9_lit_integer_α
 .Lx38_0:
                         .quad            .Lx38_0_s
@@ -198,8 +194,6 @@ n16_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx40_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx40_0:
                         .quad            .Lx40_0_s
@@ -212,8 +206,6 @@ n17_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx41_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx41_0:
                         .quad            .Lx41_0_s

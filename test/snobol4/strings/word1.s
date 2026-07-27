@@ -328,8 +328,6 @@ n28_assign_α:
                         mov              rdx, qword ptr [rbp + 24]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n27_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n29_assign_α:
@@ -338,8 +336,6 @@ n29_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n30_var_α
 #=======================================================================================================================
 #       LINE     ?  PAT                              :(LOOP)

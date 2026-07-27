@@ -170,8 +170,6 @@ n13_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx33_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n9_lit_string_α
 .Lx33_0:
                         .quad            .Lx33_0_s
@@ -184,8 +182,6 @@ n14_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx34_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n9_lit_string_α
 .Lx34_0:
                         .quad            .Lx34_0_s
@@ -208,8 +204,6 @@ n16_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx36_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   main_γ
 .Lx36_0:
                         .quad            .Lx36_0_s
@@ -222,8 +216,6 @@ n17_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx37_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   main_γ
 .Lx37_0:
                         .quad            .Lx37_0_s

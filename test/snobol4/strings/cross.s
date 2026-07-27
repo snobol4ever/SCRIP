@@ -186,8 +186,6 @@ n11_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n15_var_α
 n11_assign_β:
                                                                                         jmp   main_γ
@@ -328,8 +326,6 @@ n19_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n25_var_α
 n19_assign_β:
                                                                                         jmp   main_γ
@@ -562,8 +558,6 @@ n29_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n7_var_α
 n29_assign_β:
                                                                                         jmp   n7_var_α
@@ -798,8 +792,6 @@ n41_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx127_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n44_var_α
 n41_assign_β:
                                                                                         jmp   n44_var_α
@@ -868,8 +860,6 @@ n46_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n8_var_α
 n46_assign_β:
                                                                                         jmp   n8_var_α
@@ -880,8 +870,6 @@ n47_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052400], rax
                         mov              qword ptr [1879052408], rdx
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n48_var_α
 n47_assign_β:
                                                                                         jmp   n48_var_α
@@ -962,8 +950,6 @@ n53_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx141_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n9_var_α
 n53_assign_β:
                                                                                         jmp   n9_var_α
@@ -1203,8 +1189,6 @@ n68_assign_α:
                         mov              rdx, qword ptr [rbp + 952]
                         mov              rdi, qword ptr [rip + .Lx162_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n9_var_α
 n68_assign_β:
                                                                                         jmp   n50_var_α

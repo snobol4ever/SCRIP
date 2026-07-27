@@ -111,8 +111,6 @@ n5_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx12_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   main_γ
 .Lx12_0:
                         .quad            .Lx12_0_s

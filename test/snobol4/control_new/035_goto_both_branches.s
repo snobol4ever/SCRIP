@@ -64,8 +64,6 @@ n2_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   n4_var_α
 #=======================================================================================================================
 # YES     OUTPUT = 'yes'
@@ -96,8 +94,6 @@ n5_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx16_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx16_0:
                         .quad            .Lx16_0_s
@@ -181,8 +177,6 @@ n9_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx22_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 0], rax
-                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx22_0:
                         .quad            .Lx22_0_s

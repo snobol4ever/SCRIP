@@ -132,8 +132,6 @@ n5_assign_α:
                         mov              rdx, qword ptr [rbp + 88]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n6_var_α
 #=======================================================================================================================
 #         OUTPUT = x(P)
@@ -180,8 +178,6 @@ n9_assign_α:
                         mov              rdx, qword ptr [rbp + 184]
                         mov              rdi, qword ptr [rip + .Lx31_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n8_var_α
 .Lx31_0:
                         .quad            .Lx31_0_s
@@ -223,8 +219,6 @@ n12_assign_α:
                         mov              rdx, qword ptr [rbp + 248]
                         mov              rdi, qword ptr [rip + .Lx35_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n11_var_α
 .Lx35_0:
                         .quad            .Lx35_0_s
@@ -301,8 +295,6 @@ n18_assign_α:
                         mov              rdx, qword ptr [rbp + 376]
                         mov              rdi, qword ptr [rip + .Lx42_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   main_γ
 .Lx42_0:
                         .quad            .Lx42_0_s
