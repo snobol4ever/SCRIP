@@ -160,6 +160,8 @@ int  rt_proc_has_native_fn(const char *name);
 void rt_proc_set_generator(const char *name, int is_gen);
 void rt_proc_set_variadic(const char *name, int is_var);
 void rt_proc_set_rest_kind(const char *name, int kind);
+void rt_proc_set_named_rest(const char *name, int slot);
+int rt_proc_named_rest(const char *name);
 int  rt_proc_is_generator(const char *name);
 void rt_grammar_register(const char *qname, const char *body, int flavor);
 int  rt_grammar_count(void);

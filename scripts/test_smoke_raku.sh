@@ -3869,6 +3869,67 @@ f(7);
 EOF
 
 echo ""
+
+raku "slurpy_named_basic" "1|2" << 'EOF'
+sub f($a, *%h) { say $a ~ "|" ~ %h.elems; }
+f(1, x => 2, y => 3);
+EOF
+
+raku "slurpy_named_empty_is_empty_hash" "5|0" << 'EOF'
+sub f($a, *%h) { say $a ~ "|" ~ %h.elems; }
+f(5);
+EOF
+
+raku "slurpy_named_only_param" "3" << 'EOF'
+sub only(*%h) { say %h.elems; }
+only(a => 1, b => 2, c => 3);
+EOF
+
+raku "slurpy_named_only_param_empty" "0" << 'EOF'
+sub only(*%h) { say %h.elems; }
+only();
+EOF
+
+raku "slurpy_named_value_lookup" "4" << 'EOF'
+sub f(*%h) { say %h{'z'}; }
+f(z => 4, w => 5);
+EOF
+
+raku "slurpy_named_declared_named_consumed" "9|2" << 'EOF'
+sub mixed($p, :$n, *%rest) { say $n ~ "|" ~ %rest.elems; }
+mixed(7, n => 9, z => 4, w => 5);
+EOF
+
+raku "slurpy_named_positional_survives" "7" << 'EOF'
+sub mixed($p, :$n, *%rest) { say $p; }
+mixed(7, n => 9, z => 4);
+EOF
+
+raku "slurpy_named_collector_name_is_not_a_param" "42" << 'EOF'
+sub collides(*%h) { say %h{'h'}; }
+collides(h => 42);
+EOF
+
+raku "slurpy_named_modulo_unregressed" "1" << 'EOF'
+my $x = 10; my $y = 3;
+say $x % $y;
+EOF
+
+raku "slurpy_named_multiply_hash_unregressed" "50" << 'EOF'
+my $x = 10; my %h = (a => 5);
+say $x * %h{'a'};
+EOF
+
+raku "slurpy_named_multiply_scalar_unregressed" "30" << 'EOF'
+my $x = 10; my $y = 3;
+say $x * $y;
+EOF
+
+raku "slurpy_named_pos_slurpy_unregressed" "1|2" << 'EOF'
+sub f($a, *@r) { say $a ~ "|" ~ @r.elems; }
+f(1,2,3);
+EOF
+
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
 # COMPLETION BAR (interp deleted 2026-06-15 — two native modes only): ZERO silent m3/m4 FAIL — every native
