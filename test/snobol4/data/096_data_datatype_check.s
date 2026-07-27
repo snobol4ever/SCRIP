@@ -47,8 +47,6 @@ main_α:
                         mov              ecx, 424
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 416], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DATA('node(val,next)')
@@ -277,16 +275,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 416]
                         add              rsp, 424
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 416]
                         add              rsp, 424
                         ret
                         .section         .note.GNU-stack,"",@progbits

@@ -38,8 +38,6 @@ main_α:
                         mov              ecx, 1704
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 1696], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 # jlab    define('jlab(a,b,c)d,e,f')
@@ -988,16 +986,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 1696]
                         add              rsp, 1704
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 1696]
                         add              rsp, 1704
                         ret
                         .section         .note.GNU-stack,"",@progbits

@@ -23,8 +23,6 @@ main_α:
                         mov              ecx, 168
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 160], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         OUTPUT = SIZE(RPAD('hi', 6))
@@ -110,16 +108,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 160]
                         add              rsp, 168
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 160]
                         add              rsp, 168
                         ret
                         .section         .note.GNU-stack,"",@progbits

@@ -23,8 +23,6 @@ main_α:
                         mov              ecx, 152
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 144], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         OUTPUT = REPLACE('hello', 'aeiou', 'AEIOU')
@@ -105,16 +103,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 144]
                         add              rsp, 152
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 144]
                         add              rsp, 152
                         ret
                         .section         .note.GNU-stack,"",@progbits

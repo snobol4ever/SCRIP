@@ -48,8 +48,6 @@ main_α:
                         mov              ecx, 1368
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 1360], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         define('lfunc(a,b,c)d,e,f')               :(lfunc_end)
@@ -977,16 +975,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 1360]
                         add              rsp, 1368
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 1360]
                         add              rsp, 1368
                         ret
                         .section         .note.GNU-stack,"",@progbits

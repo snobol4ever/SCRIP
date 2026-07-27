@@ -2047,8 +2047,6 @@ main_α:
                         mov              ecx, 3096
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 3088], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DEFINE('roman(n)s,v,r,i')                                     :(roman_end)
@@ -4931,16 +4929,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 3088]
                         add              rsp, 3096
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 3088]
                         add              rsp, 3096
                         ret
                         .section         .note.GNU-stack,"",@progbits

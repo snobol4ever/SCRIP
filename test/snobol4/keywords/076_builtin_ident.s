@@ -23,8 +23,6 @@ main_α:
                         mov              ecx, 280
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 272], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         IDENT('abc', 'abc')                                         :S(YES)F(NO)
@@ -253,16 +251,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 272]
                         add              rsp, 280
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 272]
                         add              rsp, 280
                         ret
                         .section         .note.GNU-stack,"",@progbits

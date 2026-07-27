@@ -40,8 +40,6 @@ main_α:
                         mov              ecx, 1672
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 1664], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         data('node(val,lson,rson)')
@@ -972,16 +970,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 1664]
                         add              rsp, 1672
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 1664]
                         add              rsp, 1672
                         ret
                         .section         .note.GNU-stack,"",@progbits
