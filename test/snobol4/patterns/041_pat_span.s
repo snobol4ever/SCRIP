@@ -33,12 +33,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 264
+                        sub              rsp, 232
                         mov              rdi, rsp
-                        mov              ecx, 264
+                        mov              ecx, 232
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 256], rbp
+                        mov              [rsp + 224], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -95,8 +95,8 @@ n5_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx18_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 224], rax
-                        mov              qword ptr [rbp + 232], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx18_0:
                         .quad            .Lx18_0_s
@@ -167,8 +167,8 @@ n9_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx24_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 192], rax
-                        mov              qword ptr [rbp + 200], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx24_0:
                         .quad            .Lx24_0_s
@@ -285,16 +285,16 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 256]
-                        add              rsp, 264
+                        mov              rbp, [rsp + 224]
+                        add              rsp, 232
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 256]
-                        add              rsp, 264
+                        mov              rbp, [rsp + 224]
+                        add              rsp, 232
                         ret
                         .section         .rodata
 .S0:                    .string          "V"
