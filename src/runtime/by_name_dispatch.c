@@ -3259,7 +3259,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "arr_make") && nargs == 1) {
-        long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1; ARBLK_t *b = (ARBLK_t *) rt_ws_alloc(sizeof(ARBLK_t)); b->lo = 0; b->hi = (int) hi; b->ndim = 1;
+        long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1;
+        ARBLK_t *b = (ARBLK_t *) rt_ws_alloc(sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->lo = 0; b->hi = (int) hi;
+        b->ndim = 1;
+        b->ndim = 1;
         b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
         d.slen = 0; d.arr = b; *out = d; return 1;
     }
