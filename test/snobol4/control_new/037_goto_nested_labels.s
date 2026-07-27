@@ -18,12 +18,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 104
+                        sub              rsp, 72
                         mov              rdi, rsp
-                        mov              ecx, 104
+                        mov              ecx, 72
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 96], rbp
+                        mov              [rsp + 64], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -85,8 +85,8 @@ n5_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx11_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 64], rax
-                        mov              qword ptr [rbp + 72], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx11_0:
                         .quad            .Lx11_0_s
@@ -100,15 +100,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 96]
-                        add              rsp, 104
+                        mov              rbp, [rsp + 64]
+                        add              rsp, 72
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 96]
-                        add              rsp, 104
+                        mov              rbp, [rsp + 64]
+                        add              rsp, 72
                         ret
                         .section         .note.GNU-stack,"",@progbits

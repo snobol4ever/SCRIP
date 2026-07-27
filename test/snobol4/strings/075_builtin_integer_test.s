@@ -18,12 +18,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 264
+                        sub              rsp, 216
                         mov              rdi, rsp
-                        mov              ecx, 264
+                        mov              ecx, 216
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 256], rbp
+                        mov              [rsp + 208], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -115,9 +115,9 @@ n8_lit_string_α:
 # NEXT    INTEGER('abc')                                              :S(YES2)F(NO2)
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_string_α:
-                        mov              qword ptr [rbp + 176], 1
+                        mov              qword ptr [rbp + 160], 1
                         mov              rax, qword ptr [rip + .Lx27_0]
-                        mov              qword ptr [rbp + 184], rax
+                        mov              qword ptr [rbp + 168], rax
                                                                                         jmp   n14_call_α
 .Lx27_0:
                         .quad            .Lx27_0_s
@@ -170,8 +170,8 @@ n13_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx31_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 96], rax
-                        mov              qword ptr [rbp + 104], rdx
+                        mov              qword ptr [rbp + 64], rax
+                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   n9_lit_string_α
 .Lx31_0:
                         .quad            .Lx31_0_s
@@ -179,20 +179,20 @@ n13_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n14_call_α:
-                        mov              rax, qword ptr [rbp + 176]
-                        mov              qword ptr [rbp + 144], rax
-                        mov              rax, qword ptr [rbp + 184]
-                        mov              qword ptr [rbp + 152], rax
+                        mov              rax, qword ptr [rbp + 160]
+                        mov              qword ptr [rbp + 128], rax
+                        mov              rax, qword ptr [rbp + 168]
+                        mov              qword ptr [rbp + 136], rax
                         .section         .rodata
 .Lrkfn33:               .string          "INTEGER"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lrkfn33]
-                        lea              rsi, [rbp + 144]
+                        lea              rsi, [rbp + 128]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rbp + 128], rax
-                        mov              qword ptr [rbp + 136], rdx
+                        mov              qword ptr [rbp + 112], rax
+                        mov              qword ptr [rbp + 120], rdx
                         cmp              eax, 99
                                                                                         je    n11_lit_string_α
                                                                                         jmp   n10_lit_string_α
@@ -205,8 +205,8 @@ n15_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx34_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 192], rax
-                        mov              qword ptr [rbp + 200], rdx
+                        mov              qword ptr [rbp + 64], rax
+                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   main_γ
 .Lx34_0:
                         .quad            .Lx34_0_s
@@ -219,8 +219,8 @@ n16_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx35_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 224], rax
-                        mov              qword ptr [rbp + 232], rdx
+                        mov              qword ptr [rbp + 64], rax
+                        mov              qword ptr [rbp + 72], rdx
                                                                                         jmp   main_γ
 .Lx35_0:
                         .quad            .Lx35_0_s
@@ -234,15 +234,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 256]
-                        add              rsp, 264
+                        mov              rbp, [rsp + 208]
+                        add              rsp, 216
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 256]
-                        add              rsp, 264
+                        mov              rbp, [rsp + 208]
+                        add              rsp, 216
                         ret
                         .section         .note.GNU-stack,"",@progbits

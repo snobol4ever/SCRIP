@@ -33,12 +33,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 296
+                        sub              rsp, 264
                         mov              rdi, rsp
-                        mov              ecx, 296
+                        mov              ecx, 264
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 288], rbp
+                        mov              [rsp + 256], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -105,8 +105,8 @@ n5_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx21_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 256], rax
-                        mov              qword ptr [rbp + 264], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 n5_assign_β:
                                                                                         jmp   main_γ
@@ -183,8 +183,8 @@ n9_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx27_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 224], rax
-                        mov              qword ptr [rbp + 232], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 n9_assign_β:
                                                                                         jmp   main_γ
@@ -311,16 +311,16 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 288]
-                        add              rsp, 296
+                        mov              rbp, [rsp + 256]
+                        add              rsp, 264
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 288]
-                        add              rsp, 296
+                        mov              rbp, [rsp + 256]
+                        add              rsp, 264
                         ret
                         .section         .rodata
 .S0:                    .string          "V"

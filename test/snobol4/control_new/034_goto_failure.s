@@ -31,12 +31,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 200
+                        sub              rsp, 152
                         mov              rdi, rsp
-                        mov              ecx, 200
+                        mov              ecx, 152
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 192], rbp
+                        mov              [rsp + 144], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -104,8 +104,8 @@ n5_lit_string_α:
 n6_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rbp + 112], rax
-                        mov              qword ptr [rbp + 120], rdx
+                        mov              qword ptr [rbp + 96], rax
+                        mov              qword ptr [rbp + 104], rdx
                                                                                         jmp   n9_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_assign_α:
@@ -114,8 +114,8 @@ n7_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx19_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 128], rax
-                        mov              qword ptr [rbp + 136], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx19_0:
                         .quad            .Lx19_0_s
@@ -128,8 +128,8 @@ n8_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx20_0]
                         call             NV_SET_fn@PLT
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                                                                                         jmp   main_γ
 .Lx20_0:
                         .quad            .Lx20_0_s
@@ -138,8 +138,8 @@ n8_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_head_α:
                         mov              qword ptr [rbp + 88], rbp
-                        mov              rdi, qword ptr [rbp + 112]
-                        mov              rsi, qword ptr [rbp + 120]
+                        mov              rdi, qword ptr [rbp + 96]
+                        mov              rsi, qword ptr [rbp + 104]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -246,15 +246,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 192]
-                        add              rsp, 200
+                        mov              rbp, [rsp + 144]
+                        add              rsp, 152
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 192]
-                        add              rsp, 200
+                        mov              rbp, [rsp + 144]
+                        add              rsp, 152
                         ret
                         .section         .note.GNU-stack,"",@progbits

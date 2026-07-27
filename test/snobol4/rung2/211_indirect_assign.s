@@ -33,12 +33,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 424
+                        sub              rsp, 392
                         mov              rdi, rsp
-                        mov              ecx, 424
+                        mov              ecx, 392
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 416], rbp
+                        mov              [rsp + 384], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -161,8 +161,8 @@ n10_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
-                        mov              qword ptr [rbp + 384], rax
-                        mov              qword ptr [rbp + 392], rdx
+                        mov              qword ptr [rbp + 192], rax
+                        mov              qword ptr [rbp + 200], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n11_assign_var_α:
@@ -285,8 +285,8 @@ n19_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
-                        mov              qword ptr [rbp + 352], rax
-                        mov              qword ptr [rbp + 360], rdx
+                        mov              qword ptr [rbp + 192], rax
+                        mov              qword ptr [rbp + 200], rdx
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
@@ -296,15 +296,15 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 416]
-                        add              rsp, 424
+                        mov              rbp, [rsp + 384]
+                        add              rsp, 392
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 416]
-                        add              rsp, 424
+                        mov              rbp, [rsp + 384]
+                        add              rsp, 392
                         ret
                         .section         .note.GNU-stack,"",@progbits
