@@ -3,11 +3,17 @@
 #include "sil_macros.h"
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long g_agg_list_ser = 1;
+static long g_agg_table_ser = 1;
+long rt_agg_serial_list(void) { return g_agg_list_ser++; }
+long rt_agg_serial_table(void) { return g_agg_table_ser++; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
     ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
     a->lo   = lo;
     a->hi   = hi;
     a->ndim = 1;
+    a->id   = g_agg_list_ser++;
     a->proto = (const char *)0;
     int sz  = hi - lo + 1;
     if (sz < 1) sz = 1;
@@ -23,6 +29,7 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     a->lo2  = lo2;
     a->hi2  = hi2;
     a->ndim = 2;
+    a->id   = g_agg_list_ser++;
     a->proto = (const char *)0;
     int rows = hi1 - lo1 + 1;
     int cols = hi2 - lo2 + 1;
@@ -77,6 +84,7 @@ static unsigned _tbl_hash(const char *key) {
 TBBLK_t *table_new(void) {
     TBBLK_t *t = rt_agg_alloc(2, sizeof(TBBLK_t));
     memset(t->buckets, 0, sizeof(t->buckets));
+    t->id   = g_agg_table_ser++;
     t->size = 0;
     t->init = 10;
     t->inc  = 10;
@@ -98,6 +106,9 @@ const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
         case DT_I:    { char *p = buf; *p++ = '\001'; *p++ = 'i'; long long v = (long long)kd.i; unsigned long long u; if (v < 0) { *p++ = '-'; u = (unsigned long long)(-(v + 1)) + 1ull; } else u = (unsigned long long)v;
                         char t[24]; int n = 0; do { t[n++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; } while (u); while (n) *p++ = t[--n]; *p = 0; (void)bufn; return buf; }
         case DT_R:    snprintf(buf, bufn, "\001r%.17g", kd.r); return buf;
+        case DT_DATA: { if (!kd.u) return "\001d0"; snprintf(buf, bufn, "\001d%s#%ld", kd.u->type ? kd.u->type->name : "?", kd.u->id); return buf; }
+        case DT_A:    { if (!kd.arr) return "\001l0"; if (!kd.arr->id) kd.arr->id = g_agg_list_ser++; snprintf(buf, bufn, "\001l%ld", kd.arr->id); return buf; }
+        case DT_T:    { if (!kd.tbl) return "\001t0"; if (!kd.tbl->id) kd.tbl->id = g_agg_table_ser++; snprintf(buf, bufn, "\001%c%ld", kd.tbl->is_set ? 'S' : 't', kd.tbl->id); return buf; }
         default:      snprintf(buf, bufn, "\001p%p", kd.ptr); return buf;
     }
 }

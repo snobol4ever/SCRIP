@@ -75,7 +75,10 @@ typedef struct _ARBLK_t {
     int     proto_bare;
     const char *proto;
     DESCR_t *data;
+    long    id;
 } ARBLK_t;
+long rt_agg_serial_list(void);
+long rt_agg_serial_table(void);
 ARBLK_t *array_new(int lo, int hi);
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2);
 DESCR_t    array_get(ARBLK_t *a, int i);
@@ -95,6 +98,7 @@ typedef struct _TBBLK_t {
     int            init, inc;
     int            is_set;
     DESCR_t        dflt;
+    long           id;
 } TBBLK_t;
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);
