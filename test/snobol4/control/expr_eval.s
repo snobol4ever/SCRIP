@@ -1828,21 +1828,21 @@ proc_PAT$0_α:
                         .global          proc_PAT$0_β
                         .global          proc_PAT$0_γ
                         .global          proc_PAT$0_ω
-                        sub              rsp, 80
-                        mov              [rsp + 56], rcx
-                        mov              [rsp + 64], rdx
-                        mov              [rsp + 72], rbp
+                        sub              rsp, 64
+                        mov              [rsp + 40], rcx
+                        mov              [rsp + 48], rdx
+                        mov              [rsp + 56], rbp
                         mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 32], 0
-                        mov              qword ptr [rsp + 40], 0
-                        mov              qword ptr [rbp + 48], r8
-                        mov              dword ptr [rbp + 40], r14d
+                        mov              qword ptr [rsp + 16], 0
+                        mov              qword ptr [rsp + 24], 0
+                        mov              qword ptr [rbp + 32], r8
+                        mov              dword ptr [rbp + 24], r14d
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
                         lea              rax, [rip + n236_match_span_β]
-                        mov              qword ptr [rsp + 32], rax
+                        mov              qword ptr [rsp + 16], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n236_match_span_α:
                         sub              rsp, 16
@@ -1888,24 +1888,24 @@ n236_match_span_β:
                         add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 proc_PAT$0_scanhit:
-                        cmp              qword ptr [rbp + 48], 1
+                        cmp              qword ptr [rbp + 32], 1
                                                                                         jne   7f
-                        mov              ecx, dword ptr [rbp + 40]
+                        mov              ecx, dword ptr [rbp + 24]
                         lea              rdx, [rip + g_scan_hit_start]
                         mov              dword ptr [rdx], ecx
 7:
                                                                                         jmp   proc_PAT$0_γ
 proc_PAT$0_scanfail:
-                        cmp              qword ptr [rbp + 48], 1
+                        cmp              qword ptr [rbp + 32], 1
                                                                                         jne   8f
-                        mov              eax, dword ptr [rbp + 40]
+                        mov              eax, dword ptr [rbp + 24]
                         inc              eax
                         cmp              eax, r15d
                                                                                         jg    8f
                         lea              rcx, [rip + g_anchor]
                         cmp              qword ptr [rcx], 0
                                                                                         jne   8f
-                        mov              dword ptr [rbp + 40], eax
+                        mov              dword ptr [rbp + 24], eax
                         mov              r14d, eax
                         mov              rsp, rbp
                                                                                         jmp   proc_PAT$0_attempt
@@ -1917,20 +1917,20 @@ proc_PAT$0_res:
                         pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_β:
-                                                                                        jmp   qword ptr [rsp + 32]
+                                                                                        jmp   qword ptr [rsp + 16]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_γ:
                         push             rbp
                         lea              rax, [rip + proc_PAT$0_res]
                         push             rax
-                        mov              rax, [rbp + 56]
-                        mov              rbp, [rbp + 72]
+                        mov              rax, [rbp + 40]
+                        mov              rbp, [rbp + 56]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_ω:
-                        mov              rax, [rbp + 64]
-                        lea              rsp, [rbp + 80]
-                        mov              rbp, [rbp + 72]
+                        mov              rax, [rbp + 48]
+                        lea              rsp, [rbp + 64]
+                        mov              rbp, [rbp + 56]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$1_α
@@ -4929,7 +4929,7 @@ proc_startup:
                         mov              esi, 0
                         call             rt_proc_set_nparams@PLT
                         lea              rdi, [rip + .Lstartup_pname8]
-                        mov              esi, 48
+                        mov              esi, 32
                         call             rt_proc_set_frame_bytes@PLT
                         lea              rdi, [rip + .Lstartup_pname8]
                         mov              esi, 1
