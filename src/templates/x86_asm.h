@@ -346,23 +346,21 @@ inline int x86_selfload_mode() {
  * choice unchanged. */
 inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): ONE stream — under RSP zr IS rsp, no conditions.  History: the op_anchored window arms died at U4 (s86); the s79 flat_pat rbp-island died here (pat blobs now ride the U2/U2b header-above protocol — unified prologue + suspend epilogue arm, s87 slice 1). */
 inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): under RSP zr IS rsp, unconditionally — the ONE stream.  flat_pat no longer selects a register anywhere; it survives only as the xa_flat epilogue's suspend-vs-determinate protocol selector.  The s79 pat-blob rbp-island (save [rsp+24] / restore [zr-8] / record re-pin) is RETIRED — pat blobs ride the U2/U2b header-above protocol (prologue unified, suspend epilogue arm added s87 slice 1). */
-/* FLATDISP (s188) — RBP ERADICATION, THE ONE-FUNCTION FORM.  Build constant, NOT an env switch (the
- * COMPILE-TIME-ONLY law above): -DZC_FLATDISP=0 restores the rbp frame base for A/B.  Under it the frame
- * base IS rsp and every frame reference adds the box's STATIC depth D = g_emit.op_flat_disp, the running
- * prefix sum over the known BB sequence that LOWER's fc_leaf_walk already computes (allocation order = flow
- * order on a linear spine; granted ALTERNATE arms pad to fpmax so the post-ALT depth is uniform).  D = 0 is
- * the common case and is EXACT, not a fallback: a statement that pushes no FORTH cell leaves rsp at the
- * activation seed, where rsp == the old rbp by construction (xa_flat `sub rsp,K_total; mov rbp,rsp`).
- * ONE function owns the arithmetic — every other site calls it. */
-#ifndef ZC_FLATDISP
-#define ZC_FLATDISP 1
-#endif
-inline int x86_flatdisp_on() { return ZC_FLATDISP && ZC_FRAME == ZC_FRAME_RSP; }
-inline int x86_frame_off(int off) { return x86_flatdisp_on() ? off + (int)_.op_flat_disp : off; }   /* THE ONE OFFSET FUNCTION: flat-frame offset -> base-relative displacement.  Sole consumers: x86_r12_modrm (BINARY modrm), x86_frame_text_mem (TEXT spelling), FR/FRQ (operand spellings).  Nothing else may add a frame displacement. */
-inline const char * x86_fb()         { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? "rsp" : "rbp") : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U3 FRAME BASE, FLATDISP s188: under RSP+FLATDISP the base is rsp and depth is compensated by x86_frame_off; the rbp arm survives only as the -DZC_FLATDISP=0 A/B control.  Consumers kept in lockstep: fr32/fr64 prefixes, x86_r12_modrm, x86_frame_rex, x86_frame_text_mem. */
-inline int          x86_fb_num()     { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? 4 : 5) : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }
-inline const char * x86_fr32_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? "dword ptr [rsp + " : "dword ptr [rbp + ") : ZC_FRAME == ZC_FRAME_RBP ? "dword ptr [rbp + " : "dword ptr [r12 + "; }
-inline const char * x86_fr64_prefix() { return ZC_FRAME == ZC_FRAME_RSP ? (x86_flatdisp_on() ? "qword ptr [rsp + " : "qword ptr [rbp + ") : ZC_FRAME == ZC_FRAME_RBP ? "qword ptr [rbp + " : "qword ptr [r12 + "; }
+/* FLAT FRAME (s189) — RBP IS ERADICATED FROM FRAME ADDRESSING.  The frame base IS rsp, unconditionally.
+ * Every frame reference adds the box's STATIC depth D = g_emit.op_flat_disp: the running prefix sum over the
+ * known BB sequence that LOWER's fc_leaf_walk computes (allocation order = flow order on a linear spine;
+ * granted ALTERNATE arms pad to fpmax so the post-ALT depth is uniform).  D = 0 is the common case and it is
+ * EXACT, not a fallback — a statement that pushes no FORTH cell leaves rsp at the activation seed, which IS
+ * the frame base by construction (xa_flat `sub rsp, K_total`).
+ * NO SWITCH (Lon directive s189: "we will not be changing back").  ZC_FLATDISP and the rbp/r12 arms of these
+ * five accessors are DELETED — enforcement by deletion, the same discipline that retired the SCRIP_ZETA_FRAME
+ * env override.  There is no A/B control and no way to spell an rbp frame reference any more.
+ * ONE function owns the arithmetic; every other site calls it. */
+inline int x86_frame_off(int off) { return off + (int)_.op_flat_disp; }   /* THE ONE OFFSET FUNCTION: flat-frame offset -> rsp-relative displacement.  Sole consumers: x86_r12_modrm (BINARY modrm), x86_frame_text_mem (TEXT spelling), FR/FRQ (operand spellings).  Nothing else may add a frame displacement. */
+inline const char * x86_fb()         { return "rsp"; }                    /* FRAME BASE.  Was the REG-7 U3 rbp split-off; s188 compensated it, s189 deleted the alternative. */
+inline int          x86_fb_num()     { return 4; }                        /* rsp low3 = 100 -> x86_r12_modrm takes the mandatory-SIB path (0x24), and mod=00 is legal at off 0 */
+inline const char * x86_fr32_prefix() { return "dword ptr [rsp + "; }
+inline const char * x86_fr64_prefix() { return "qword ptr [rsp + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM accessor — runtime-selectable BY DESIGN (Lon 2026-07-09, contrast the ZC_FRAME build
  * constant above); see zeta_choices.h ZC_ZETA block for the rung map.  RUNG-1 seams read THIS, never getenv,
