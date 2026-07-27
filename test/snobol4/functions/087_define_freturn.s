@@ -10,8 +10,6 @@ proc_LBL__ispos_α:
                         sub              rsp, 352
                         mov              [rsp + 328], rcx
                         mov              [rsp + 336], rdx
-                        mov              [rsp + 344], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__ispos_α_body:
@@ -114,17 +112,15 @@ proc_LBL__ispos_β:
                                                                                         jmp   proc_LBL__ispos_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__ispos_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 328]
-                        lea              rsp, [rbp + 352]
-                        mov              rbp, [rbp + 344]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 328]
+                        add              rsp, 352
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__ispos_ω:
-                        mov              rax, [rbp + 336]
-                        lea              rsp, [rbp + 352]
-                        mov              rbp, [rbp + 344]
+                        mov              rax, [rsp + 336]
+                        add              rsp, 352
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_ispos_α
@@ -136,8 +132,6 @@ proc_ispos_α:
                         sub              rsp, 352
                         mov              [rsp + 328], rcx
                         mov              [rsp + 336], rdx
-                        mov              [rsp + 344], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 320
                         xor              eax, eax
@@ -145,10 +139,10 @@ proc_ispos_α:
 proc_ispos_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n21_op14_α:
-                        mov              rdi, qword ptr [rbp + 328]
-                        mov              rsi, qword ptr [rbp + 336]
-                        lea              rdx, [rbp + 352]
-                        mov              rcx, qword ptr [rbp + 344]
+                        mov              rdi, qword ptr [rsp + 328]
+                        mov              rsi, qword ptr [rsp + 336]
+                        lea              rdx, [rsp + 352]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n22_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -171,17 +165,15 @@ proc_ispos_β:
                                                                                         jmp   proc_ispos_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_ispos_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 328]
-                        lea              rsp, [rbp + 352]
-                        mov              rbp, [rbp + 344]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 328]
+                        add              rsp, 352
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_ispos_ω:
-                        mov              rax, [rbp + 336]
-                        lea              rsp, [rbp + 352]
-                        mov              rbp, [rbp + 344]
+                        mov              rax, [rsp + 336]
+                        add              rsp, 352
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

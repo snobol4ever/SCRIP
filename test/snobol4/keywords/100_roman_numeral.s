@@ -10,8 +10,6 @@ proc_LBL__roman_α:
                         sub              rsp, 3120
                         mov              [rsp + 3096], rcx
                         mov              [rsp + 3104], rdx
-                        mov              [rsp + 3112], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__roman_α_body:
@@ -1875,17 +1873,15 @@ proc_LBL__roman_β:
                                                                                         jmp   proc_LBL__roman_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__roman_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 3096]
-                        lea              rsp, [rbp + 3120]
-                        mov              rbp, [rbp + 3112]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 3096]
+                        add              rsp, 3120
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__roman_ω:
-                        mov              rax, [rbp + 3104]
-                        lea              rsp, [rbp + 3120]
-                        mov              rbp, [rbp + 3112]
+                        mov              rax, [rsp + 3104]
+                        add              rsp, 3120
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_roman_α
@@ -1897,8 +1893,6 @@ proc_roman_α:
                         sub              rsp, 3120
                         mov              [rsp + 3096], rcx
                         mov              [rsp + 3104], rdx
-                        mov              [rsp + 3112], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 3088
                         xor              eax, eax
@@ -1906,10 +1900,10 @@ proc_roman_α:
 proc_roman_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n359_op14_α:
-                        mov              rdi, qword ptr [rbp + 3096]
-                        mov              rsi, qword ptr [rbp + 3104]
-                        lea              rdx, [rbp + 3120]
-                        mov              rcx, qword ptr [rbp + 3112]
+                        mov              rdi, qword ptr [rsp + 3096]
+                        mov              rsi, qword ptr [rsp + 3104]
+                        lea              rdx, [rsp + 3120]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n360_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1932,17 +1926,15 @@ proc_roman_β:
                                                                                         jmp   proc_roman_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_roman_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 3096]
-                        lea              rsp, [rbp + 3120]
-                        mov              rbp, [rbp + 3112]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 3096]
+                        add              rsp, 3120
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_roman_ω:
-                        mov              rax, [rbp + 3104]
-                        lea              rsp, [rbp + 3120]
-                        mov              rbp, [rbp + 3112]
+                        mov              rax, [rsp + 3104]
+                        add              rsp, 3120
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

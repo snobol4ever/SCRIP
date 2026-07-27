@@ -10,8 +10,6 @@ proc_LBL__fib_α:
                         sub              rsp, 608
                         mov              [rsp + 584], rcx
                         mov              [rsp + 592], rdx
-                        mov              [rsp + 600], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__fib_α_body:
@@ -483,17 +481,15 @@ proc_LBL__fib_β:
                                                                                         jmp   proc_LBL__fib_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__fib_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 584]
-                        lea              rsp, [rbp + 608]
-                        mov              rbp, [rbp + 600]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 584]
+                        add              rsp, 608
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__fib_ω:
-                        mov              rax, [rbp + 592]
-                        lea              rsp, [rbp + 608]
-                        mov              rbp, [rbp + 600]
+                        mov              rax, [rsp + 592]
+                        add              rsp, 608
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_fib_α
@@ -505,8 +501,6 @@ proc_fib_α:
                         sub              rsp, 608
                         mov              [rsp + 584], rcx
                         mov              [rsp + 592], rdx
-                        mov              [rsp + 600], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 576
                         xor              eax, eax
@@ -514,10 +508,10 @@ proc_fib_α:
 proc_fib_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n44_op14_α:
-                        mov              rdi, qword ptr [rbp + 584]
-                        mov              rsi, qword ptr [rbp + 592]
-                        lea              rdx, [rbp + 608]
-                        mov              rcx, qword ptr [rbp + 600]
+                        mov              rdi, qword ptr [rsp + 584]
+                        mov              rsi, qword ptr [rsp + 592]
+                        lea              rdx, [rsp + 608]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n45_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -540,17 +534,15 @@ proc_fib_β:
                                                                                         jmp   proc_fib_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_fib_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 584]
-                        lea              rsp, [rbp + 608]
-                        mov              rbp, [rbp + 600]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 584]
+                        add              rsp, 608
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_fib_ω:
-                        mov              rax, [rbp + 592]
-                        lea              rsp, [rbp + 608]
-                        mov              rbp, [rbp + 600]
+                        mov              rax, [rsp + 592]
+                        add              rsp, 608
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

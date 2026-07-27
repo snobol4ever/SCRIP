@@ -374,8 +374,6 @@ proc_MATCHIT_α:
                         sub              rsp, 400
                         mov              [rsp + 376], rcx
                         mov              [rsp + 384], rdx
-                        mov              [rsp + 392], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 368
                         xor              eax, eax
@@ -383,10 +381,10 @@ proc_MATCHIT_α:
 proc_MATCHIT_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n44_op14_α:
-                        mov              rdi, qword ptr [rbp + 376]
-                        mov              rsi, qword ptr [rbp + 384]
-                        lea              rdx, [rbp + 400]
-                        mov              rcx, qword ptr [rbp + 392]
+                        mov              rdi, qword ptr [rsp + 376]
+                        mov              rsi, qword ptr [rsp + 384]
+                        lea              rdx, [rsp + 400]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n45_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -409,17 +407,15 @@ proc_MATCHIT_β:
                                                                                         jmp   proc_MATCHIT_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 376]
-                        lea              rsp, [rbp + 400]
-                        mov              rbp, [rbp + 392]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 376]
+                        add              rsp, 400
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_ω:
-                        mov              rax, [rbp + 384]
-                        lea              rsp, [rbp + 400]
-                        mov              rbp, [rbp + 392]
+                        mov              rax, [rsp + 384]
+                        add              rsp, 400
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
