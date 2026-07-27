@@ -538,7 +538,7 @@ n27_lit_string_β:
                         .string          "#"
 #-----------------------------------------------------------------------------------------------------------------------
 n28_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 48]
                         lea              rcx, [rip + .S2]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -623,7 +623,7 @@ n32_match_assign_save_β:
                                                                                         jmp   n31_match_atp_β
 #-----------------------------------------------------------------------------------------------------------------------
 n33_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 48]
                         lea              rcx, [rip + .S1]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax

@@ -299,9 +299,9 @@ n22_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx36_5
-                        mov              rax, qword ptr [rsp + 128]
+                        mov              rax, qword ptr [rsp + 160]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 136]
+                        mov              rax, qword ptr [rsp + 168]
                         mov              qword ptr [1879052312], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx36_6]
@@ -437,9 +437,9 @@ n27_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx42_5
-                        mov              rax, qword ptr [rsp + 192]
+                        mov              rax, qword ptr [rsp + 224]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 200]
+                        mov              rax, qword ptr [rsp + 232]
                         mov              qword ptr [1879052312], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx42_6]

@@ -194,7 +194,7 @@ n11_match_rtab_β:
                                                                                         jmp   n8_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_assign_cond_α:
-                        lea              rdi, [rsp + 192]
+                        lea              rdi, [rsp + 224]
                         call             rt_cap_top@PLT
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx

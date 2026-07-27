@@ -264,7 +264,7 @@ n13_match_assign_save_β:
                                                                                         jmp   n12_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 48]
+                        mov              eax, dword ptr [rsp + 64]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
