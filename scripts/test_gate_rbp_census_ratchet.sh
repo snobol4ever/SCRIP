@@ -28,10 +28,42 @@
 # signatures byte-identical pre/post.  NOT the s197 change, which dropped DEFER wholesale and
 # was correctly reverted — recursive-`*` witnesses stay deep here, verified.)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+#
+# ============================ FLATDISP-9 (s200) — THE RATCHET IS RETIRED ============================
+# THE COUNT ABOVE CAN NO LONGER RATCHET, AND THE 48 WAS MEASURED ON A BROKEN TREE.
+#
+# (1) THE BASELINE WAS TAKEN WHILE THE THING IT MEASURES WAS BROKEN.  48 was set at s199
+#     DEFER-STAR, one commit BELOW s197 FLATDISP-8.  On that tree x86_fb() was unconditionally
+#     rsp while xa_flat still SEEDED rbp for the pinned classes — the s188/s189 drift — and the
+#     watermark it was measured against (SNOBOL4 221/219, Icon 236, Prolog 120/44) was the
+#     DAMAGE, not a healthy baseline.  s197 repaired the frame and the count rose 48 -> 57.
+#     Ratcheting against a number harvested from a broken frame would forfeit that repair.
+# (2) A PER-GRAPH DECISION CANNOT BE RATCHETED BY A PER-FILE COUNT.  FLATDISP-8 made the base
+#     PER-GRAPH (emit_jmp_pin_rbp: flat_deep_arrival || flat_pat || flat_gen).  The file-level
+#     NET therefore moves whenever the pin CLASSIFICATION legitimately changes — in EITHER
+#     direction, with no defect either way.  FLATDISP-5a (inline invariant patterns) will move
+#     it down; a new suspending construct moves it up.  A number that changes for correct
+#     reasons is not a ratchet, it is a tripwire that fires on progress.
+# (3) THE ARGUMENT IS THE ONE THIS GATE ALREADY ACCEPTS FOR CLASS D.  Class D is excluded
+#     because "a scratch use is not a frame reference and no frame-pointer rung can ever remove
+#     it, so a ratchet that counts it can never read zero."  Every [rbp+N] inside a graph whose
+#     prologue SEEDS rbp is that same category: it is the pinned frame model working as
+#     designed, unremovable while the graph is pinned.  Counting it makes zero unreachable.
+#
+# WHAT REPLACES IT — A REAL ZERO-ASSERT ON THE ACTUAL DEFECT CLASS.  The defect FLATDISP exists
+# to prevent is a reference naming a base the prologue never established (s188/s189: Icon
+# 250->236, SNOBOL4 295/294->221/219, Prolog 164->120, three sessions chasing it separately).
+# scripts/util_rbp_region_census.py splits each .s into graph regions, asks per region whether
+# the prologue emitted `mov rbp, rsp`, and counts [rbp+N] frame references in regions where it
+# did NOT.  That count MUST be 0 and 0 is genuinely reachable — it is the drift, nothing else.
+# MEASURED AT LANDING (s200, tree 8d0665c8): unseeded=0 across SNOBOL4 benchmarks (30 seeded),
+# SNOBOL4 demo+feat (44,616), Icon benchmarks (38,115), Icon programs (110,928), Prolog
+# benchmarks (90,677) — ~285,000 frame references, zero drift, all three affected languages.
+# NET is still printed, as CONTEXT for how many graphs are pinned.  It is not a pass condition.
+# ====================================================================================================
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-/home/claude/corpus}"
 BENCH="$CORPUS/benchmarks/snobol4"
-BASELINE="${RBP_CENSUS_MAX:-48}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$BENCH" ]  || { echo "SKIP no benchmark corpus at $BENCH"; exit 0; }
 ALL=0; D=0; TABLE=""
@@ -43,10 +75,22 @@ for f in "$BENCH"/*.sno; do
     rm -f "$s"
 done
 NET=$((ALL-D))
-echo "=== rbp census ratchet (compiler sweep, benchmark corpus) ==="
+echo "=== rbp census (compiler sweep, benchmark corpus) — CONTEXT ONLY, not a pass condition ==="
 printf "$TABLE"
-echo "ALL=$ALL CLASS_D=$D NET=$NET BASELINE=$BASELINE"
-if [ "$NET" -gt "$BASELINE" ]; then echo "GATE FAIL: NET $NET > baseline $BASELINE (a frame-pointer regression, or a new rbp consumer that must be classified)"; exit 1; fi
-if [ "$NET" -lt "$BASELINE" ]; then echo "GATE OK — TIGHTEN: NET $NET < baseline $BASELINE; lower BASELINE in this script in the landing commit."; exit 0; fi
-echo "GATE OK: NET == baseline."
+echo "ALL=$ALL CLASS_D=$D NET=$NET   (NET = how many graphs are pinned; per-graph since FLATDISP-8, see header)"
+echo
+echo "=== THE GATE: per-region drift zero-assert (FLATDISP-9) ==="
+PY="$HERE/util_rbp_region_census.py"
+[ -f "$PY" ] || { echo "GATE FAIL: missing $PY"; exit 2; }
+# ⛔ EXIT STATUS IS READ FROM python DIRECTLY, NEVER THROUGH A PIPE.  `python3 ... | tail` would
+# report TAIL's status and silently discard the verdict — the identical defect
+# test_gate_fc_no_residual_rbp.sh's header records as its own root cause (1) ("the pipeline exit
+# status was grep's and timeout's 124 was DISCARDED").  Capture, then echo, then test.
+OUT=$(SCRIP="$SCRIP" python3 "$PY" "$BENCH"/*.sno 2>&1); RC=$?
+printf '%s\n' "$OUT" | tail -n 24
+if [ "$RC" -ne 0 ]; then
+    echo "GATE FAIL: unseeded [rbp+N] frame reference(s) — a reference naming a base the prologue never established (the s188/s189 drift class that cost Icon 250->236, SNOBOL4 295/294->221/219, Prolog 164->120)."
+    exit 1
+fi
+echo "GATE OK: zero unseeded frame references."
 exit 0
