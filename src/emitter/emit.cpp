@@ -1824,13 +1824,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_initf(&lbl_scanhit,  "%s_scanhit",  prefix);
         emit_label_initf(&lbl_scanfail, "%s_scanfail", prefix);
         int kt = g_emit.flat_frame_bytes;
+        int _sd1 = kt - 32, _sd2 = kt - 40;
         if (g_is_text) {
             char _sc[192];
-            snprintf(_sc, sizeof _sc, "mov qword ptr [rbp + %d], r8\nmov dword ptr [rbp + %d], r14d\n", kt - 32, kt - 40);   /* [kt-32]=scan flag (caller r8: defer fast arm is the SOLE flat_pat entry), [kt-40]=attempt start */
+            snprintf(_sc, sizeof _sc, "mov qword ptr [rsp + %d], r8\nmov dword ptr [rsp + %d], r14d\n", _sd1, _sd2);   /* SCANBASE: rsp-based — these two stores run before any rsp motion past the jmp-entry seed (only [rsp+N] zero-fills intervene), so rsp==rbp==base by construction; [kt-32]=scan flag (caller r8: defer fast arm is the SOLE flat_pat entry), [kt-40]=attempt start */
             emit_text_n(_sc, strlen(_sc));
         } else {
-            ef_b3(0x4C, 0x89, 0x85); bb_emit_u32((uint32_t)(kt - 32));
-            ef_b3(0x44, 0x89, 0xB5); bb_emit_u32((uint32_t)(kt - 40));
+            ef_b2(0x4C, 0x89); if (_sd1 >= -128 && _sd1 <= 127) { ef_b3(0x44, 0x24, (uint8_t)(int8_t)_sd1); } else { ef_b2(0x84, 0x24); bb_emit_u32((uint32_t)_sd1); }
+            ef_b2(0x44, 0x89); if (_sd2 >= -128 && _sd2 <= 127) { ef_b3(0x74, 0x24, (uint8_t)(int8_t)_sd2); } else { ef_b2(0xB4, 0x24); bb_emit_u32((uint32_t)_sd2); }
         }
         emit_label_define_bb(&lbl_attempt);
     }
