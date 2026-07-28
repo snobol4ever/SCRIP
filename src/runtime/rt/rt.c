@@ -1218,7 +1218,7 @@ void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long n
     for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
     zf[0] = NULVCL;
     { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
-    *(long *)((char *)fb - 16) = (long)rt_value_trail_mark();   /* PL-DC FRAME-CELL vtmark (FACT RULE "no §10 global" — the s108 gate red): the stub carved 16 bytes below fb; the mark lives THERE, dies with the frame (longjmp-immune for free), and the γ/ω shims hand it back to the leaves in registers */
+    *(long *)((char *)fb + region_bytes + 32) = (long)rt_value_trail_mark();   /* PL-DC FRAME-CELL vtmark (FACT RULE "no §10 global" — the s108 gate red): the stub carved 16 bytes below fb; the mark lives THERE, dies with the frame (longjmp-immune for free), and the γ/ω shims hand it back to the leaves in registers */
     rt_k_level++;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
