@@ -150,14 +150,19 @@
 #define ZC_ZLS2_MB 512
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define ZC_FRAME_R12 0
+/* ZC_FRAME_R12 (value 0) DELETED (ZR-RSPRBP-1, Lon directive 2026-07-27 "finish new ZETA storage based from RSP and RBP"): the r12-as-ζ basis was
+ * retired in practice at R12-ERAD s65 when RSP became the default, and ARCH-ICON.md has recorded "R12 is FREE" ever since — but the ENUM arm survived
+ * as compile-time-selectable history, so the tree still claimed three ζ bases while only two were reachable.  It had ZERO `#if ZC_FRAME == ZC_FRAME_R12`
+ * consumers at deletion (measured, not assumed) and its only residue was the unreachable third ternary arm in x86_zr/x86_zr_num.  ζ is now based from
+ * RSP and RBP, and that is the whole closed set.  RBP/RSP keep their values 1/2 — NOT renumbered, because nothing passes ZC_FRAME numerically (measured
+ * across Makefile + scripts/) and renumbering would be churn that buys nothing.  The PER-GRAPH selection between the two lives in x86_fb_pinned(). */
 #define ZC_FRAME_RBP 1
 #define ZC_FRAME_RSP 2 /* rsp-as-ζ (Lon directive 2026-07-09): EMIT-side switch only today — runnable only after the
  * proc trampoline retires (no C frame above a live BB frame, zeta_alloc.c ZLS2 note) and escaping
  * activations (suspends/coexprs) live off-spine.  Selectable at BUILD TIME ONLY — set ZC_FRAME here or -DZC_FRAME=…; the env/runtime
  * switch is deleted (Lon 2026-07-09: never flipped at runtime). */
 #ifndef ZC_FRAME
-#define ZC_FRAME ZC_FRAME_RSP  /* R12-ERAD s65: RSP is now the default (replaces ZC_FRAME_R12 that was here through s64) */
+#define ZC_FRAME ZC_FRAME_RSP  /* R12-ERAD s65: RSP is the default (replaced ZC_FRAME_R12, which was here through s64 and is DELETED outright at ZR-RSPRBP-1) */
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM SELECTOR (Lon directive 2026-07-09: "we will want a command line switch to select the ZETA
