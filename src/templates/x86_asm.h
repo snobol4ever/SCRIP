@@ -1431,13 +1431,17 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_align_enter() / x86_align_leave() — THE alignment dance for C calls from emitted code, centralized
- * (2026-07-08 session 2).  Saves rsp in a callee-saved register, 16-aligns, restores.  The save register is
- * ALWAYS the other member of the {r12, rbp} pair (x86_align_save): rbp when the frame is r12 — today's exact
- * bytes at every existing dance site — and r12 when the frame is rbp, which is precisely what makes the dance
- * FRAME-SAFE under ZC_FRAME_RBP (a hand-spelled push-rbp dance would clobber an rbp frame; that hazard is why
- * this pair exists and why templates must use it instead of spelling the dance).  The pair leaves flags
- * meaningless across it (push/and both touch or depend on rsp) — callers already treat a C call as a full
- * clobber, so nothing new. */
+ * (2026-07-08 session 2).  ⭐ CORRECTED s202 — the paragraph that stood here described a mechanism that no
+ * longer exists.  It read: "Saves rsp in a callee-saved register … The save register is ALWAYS the other
+ * member of the {r12, rbp} pair (x86_align_save): rbp when the frame is r12 … and r12 when the frame is rbp,
+ * which is precisely what makes the dance FRAME-SAFE under ZC_FRAME_RBP."  EVERY clause of that is now false:
+ * x86_align_save() has ZERO definitions in the tree (grep: comments only), r12 is not a zeta basis (ZC_FRAME_R12
+ * deleted, ZR-RSPRBP-1 s201), and the ZC_FRAME_RBP config the sentence certified as frame-safe is #error-guarded
+ * as non-running (measured s202: 13 corpus crashes).  What the pair ACTUALLY does today is a push-based dance —
+ * push rsp / push [rsp] / and rsp,-16, undone by mov rsp,[rsp+8] — which touches no callee-saved register at
+ * all.  Under the RSP default both halves are a no-op (see the early return below).  The reason the pair exists
+ * and templates must not hand-spell the dance is unchanged.  The pair leaves flags meaningless across it
+ * (push/and both touch or depend on rsp) — callers already treat a C call as a full clobber, so nothing new. */
 inline std::string x86_align_enter() {
     if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65 (ZB-OWN-1a G1): base ≡ 0 mod 16 (K=65544 phase pad) and every rsp motion in the body is a 16-multiple (32B HEAD cell, 16B leaf cells, 32B xfer, 16-rounded zls blocks) ⇒ rsp ≡ 0 mod 16 at every C-call site ⇒ the dance is a no-op — and MUST be one: its own pushes are what displaced every flat ref inside it.  Pat blobs (r12-island, rsp sinks) keep the dance. */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b1(0x54) + x86_b3(0xFF, 0x34, 0x24) + x86_b2(0x48, 0x83) + x86_b2(0xE4, 0xF0));

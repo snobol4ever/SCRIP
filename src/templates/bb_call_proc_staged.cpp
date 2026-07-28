@@ -118,7 +118,11 @@ static int bcps_result_slot() {
  *                  →  epilogue leaf  →  align_leave (THE FRAME RELEASE, for free)
  *
  * WHY THE SHAPE IS SAFE, verified rather than assumed:
- *  · F2 — rbp is the align-save register TODAY (x86_align_save() = rbp while the ζ frame is r12), so the anchor
+ *  · F2 — ⭐ CORRECTED s202: this line read "rbp is the align-save register TODAY (x86_align_save() = rbp while
+ *    the ζ frame is r12)".  x86_align_save() has ZERO definitions (grep: comments only) and r12 is not a ζ basis
+ *    (ZC_FRAME_R12 deleted, ZR-RSPRBP-1 s201).  x86_align_enter/leave is a PUSH-based dance touching no callee-
+ *    saved register, and is a no-op entirely under the RSP default.  The invariant the line was defending still
+ *    holds and is what matters here: the anchor
  *    is taken with x86_align_enter/leave, never by hand.  align_leave restores rsp FROM the save reg, which is
  *    why the frame release is free and needs no fbytes at the bottom.  EVERY exit passes through it (hence the
  *    two internal labels): skipping it would leave the save reg holding OUR rsp, and the enclosing graph's
@@ -279,6 +283,10 @@ static std::string bcps_det_arm() {
             : is_dyn
             /* LEGACY-CONFIG ONLY (REG-7 s80 audit resolved; was the ⛔ REG-6 hazard flag): reachable solely
              * when ZC_FRAME != ZC_FRAME_RSP after the guard widening above — configs where r12 IS the ζ frame
+             * (⭐ s202: that basis NO LONGER EXISTS.  ZC_FRAME_R12 was deleted at ZR-RSPRBP-1 s201, so `!= RSP`
+             * now means RBP — a basis this arm was never written for, and which is #error-guarded as non-running
+             * in zeta_choices.h after measuring 13 corpus crashes.  This arm is therefore DEAD CODE awaiting the
+             * delete-or-re-establish call; see FINDING-2026-07-28b.)
              * (pre-REG-MAP tenancy), the pend top is NOT register-resident, and this rsp-anchor bracket is the
              * correct suspending-exit protocol.  Under the RSP default this arm is unreachable, so the REG-6
              * unsoundness (a callee capture bumping the anchor) cannot fire.  Delete with the legacy configs. */
