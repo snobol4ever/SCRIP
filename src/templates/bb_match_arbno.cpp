@@ -8,9 +8,11 @@ extern "C" {
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register, named by the scheme itself — rbp under ZC_FRAME_RSP (the s83-measured borrow, statement-bracketed by the head's +40 save), x86_zr()
- * elsewhere (legacy byte-identity).  Decoupling the view from the op_anchored delivery makes the REG-7 U4 zr-arm flip a NO-OP for this template: the chain dance never consults the window predicate. */
-static inline const char * zv() { return ZC_FRAME == ZC_FRAME_RSP ? "rbp" : x86_zr(); }
+/* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register — the s83-measured rbp borrow, statement-bracketed by the head's gated +40 save (bb_match_head.cpp:24, flat_deep_arrival).  Decoupling the
+ * view from the op_anchored delivery makes the REG-7 U4 zr-arm flip a NO-OP for this template: the chain dance never consults the window predicate.  ZR-RSPRBP-3: the ternary is DELETED — it was the same
+ * three-basis residue ZR-RSPRBP-1 collapsed in x86_zr/x86_zr_num and MISSED here.  With ζ closed at {RSP,RBP} both arms yielded "rbp" identically (RSP arm literally; RBP arm via x86_zr()'s own else-arm),
+ * so the choice had no second value left to name.  Proven inert the same way ZR-RSPRBP-1/2 were: 8/8 emitted .s byte-identical, 3 languages, pinned + unpinned, both ARBNO programs in the witness set. */
+static inline const char * zv() { return "rbp"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
