@@ -72,6 +72,31 @@ static inline str_t str(const char * σ, int δ) { return (str_t) {σ, δ}; }
 static inline str_t cat(str_t x, str_t y) { return (str_t) {x.σ, x.δ + y.δ}; }
 static output_t * out = (output_t *) 0;
 /*============================================================================*/
+/*  SNOBOL4 SOURCE -- a Penn-treebank bracket parser.  RECONSTRUCTED from the  */
+/*  box structure below, NOT yet oracle-verified (see note at end).            */
+/*                                                                            */
+/*      DELIM    = SPAN(' ')                                                  */
+/*      WORD     = (NOTANY('( )') BREAK('( )')) $ OUTPUT                      */
+/*      GROUP    = '(' WORD ARBNO(DELIM *GROUP | WORD) ')'                    */
+/*      TREEBANK = POS(0) ARBNO(ARBNO(*GROUP) DELIM) RPOS(0)                  */
+/*      SUBJ     = '(S (NP (FW i)) (VP (VBP am)) (.  .)) '                    */
+/*      SUBJ ? TREEBANK                              :F(FAILED)               */
+/*      OUTPUT = 'Success: ' SUBJ                    :(END)                   */
+/*  FAILED  OUTPUT = 'Failure.'                                               */
+/*  END                                                                       */
+/*                                                                            */
+/*  Recursion uses *GROUP per the manual p.122 ("the unevaluated expression    */
+/*  operator makes the definition possible" -- an eagerly built pattern        */
+/*  cannot name itself).  Procedures here take (ζ, entry) with entry in        */
+/*  {α, β}; the λ port demuxes the returned str_t back into γ / ω.            */
+/*                                                                            */
+/*  KNOWN BROKEN (2026-07-28): this program SIGSEGVs both before and after     */
+/*  the ARBNO null-first correction below.  The ARBNO fix is required by the   */
+/*  manual and is independent of the remaining fault, which is NOT diagnosed.  */
+/*  The reconstructed source above also does not yet reproduce the intended    */
+/*  result under sbl (it reports Failure), so the grammar transcription needs  */
+/*  a second pass before it can be called the oracle for this file.            */
+/*============================================================================*/
 typedef struct _delim {
 } delim_t;
 /*----------------------------------------------------------------------------*/
@@ -211,8 +236,8 @@ str_t group(group_t * ζ, int entry) {
     word18_ω:                                               goto alt14_ω;
     /*------------------------------------------------------------------------*/
     str_t         ARBNO13;
-    ARBNO13_α:    ψ13 = &ζ->_13_a[ζ->_13_i=0];
-                  ψ13->ARBNO = str(Σ+Δ, 0);                 goto alt14_γ;
+    ARBNO13_α:    ζ->_13_i = -1;
+                  ARBNO13 = str(Σ+Δ, 0);                    goto ARBNO13_γ;
     ARBNO13_β:    ψ13 = &ζ->_13_a[++ζ->_13_i];
                   ψ13->ARBNO = ARBNO13;                     goto alt14_α;
     alt14_γ:      ARBNO13 = cat(ψ13->ARBNO, alt14);         goto ARBNO13_γ;
@@ -272,8 +297,8 @@ str_t treebank(treebank_t * ζ, int entry) {
                   else                                      goto group26_γ;
     /*------------------------------------------------------------------------*/
     str_t         ARBNO25;
-    ARBNO25_α:    ψ23->_25_i = 0;
-                  ψ23->_25_s = str(Σ+Δ, 0);                 goto group26_γ;
+    ARBNO25_α:    ψ23->_25_i = -1;
+                  ARBNO25 = str(Σ+Δ, 0);                    goto ARBNO25_γ;
     ARBNO25_β:    ψ23->_25_i++;
                   ψ23->_25_s = ARBNO25;                     goto group26_α;
     group26_γ:    ARBNO25 = cat(ψ23->_25_s, group26);       goto ARBNO25_γ;
@@ -296,8 +321,8 @@ str_t treebank(treebank_t * ζ, int entry) {
     delim27_ω:                                              goto ARBNO25_β;
     /*------------------------------------------------------------------------*/
     str_t         ARBNO23;
-    ARBNO23_α:    ψ23 = &ζ->_23_a[ζ->_23_i=0];
-                  ψ23->ARBNO = str(Σ+Δ, 0);                 goto seq24_γ;
+    ARBNO23_α:    ζ->_23_i = -1;
+                  ARBNO23 = str(Σ+Δ, 0);                    goto ARBNO23_γ;
     ARBNO23_β:    ψ23 = &ζ->_23_a[++ζ->_23_i];
                   ψ23->ARBNO = ARBNO23;                     goto seq24_α;
     seq24_γ:      ARBNO23 = cat(ψ23->ARBNO, seq24);         goto ARBNO23_γ;

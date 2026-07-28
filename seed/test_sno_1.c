@@ -82,7 +82,17 @@ __kernel void snobol(
     int Ω = len(Σ);
     goto main1_α;
     /*------------------------------------------------------------------------*/
-    /*          POS(0) ARBNO('Bird' | 'Blue' | LEN(1)) $ OUTPUT RPOS(0)       */
+    /*  SNOBOL4 SOURCE (verified byte-identical against sbl -b, 2026-07-28):   */
+    /*                                                                        */
+    /*      SUBJ = 'BlueGoldBirdFish'                                         */
+    /*      SUBJ ? (POS(0) ARBNO('Bird' | 'Blue' | LEN(1)) $ OUTPUT           */
+    /*             RPOS(0)) $ OUTPUT                        :F(FAILED)        */
+    /*      OUTPUT = 'Success!'                             :(END)            */
+    /*  FAILED  OUTPUT = 'Failure.'                                           */
+    /*  END                                                                   */
+    /*                                                                        */
+    /*  Oracle output: an EMPTY line (ARBNO's null first match), then Blue,   */
+    /*  BlueG, BlueGo ... BlueGoldBirdFish, BlueGoldBirdFish, Success!        */
     /*------------------------------------------------------------------------*/
     str_t       POS0;
     POS0_α:     if (Δ != 0)                         goto POS0_ω;
@@ -130,19 +140,18 @@ __kernel void snobol(
     /*------------------------------------------------------------------------*/
     str_t       ARBNO;
     int         ARBNO_i;
-    ARBNO_α:    ζ = &_1[ARBNO_i=0];
-                ζ->ARBNO = str(Σ+Δ, 0);             goto alt_α;
+    ARBNO_α:    ARBNO_i = -1;
+                ARBNO = str(Σ+Δ, 0);                goto ARBNO_γ;
     ARBNO_β:    ζ = &_1[++ARBNO_i];
                 ζ->ARBNO = ARBNO;                   goto alt_α;
     alt_γ:      ARBNO = cat(ζ->ARBNO, ζ->alt);      goto ARBNO_γ;
-    alt_ω:      if (ARBNO_i <= 0)                   goto ARBNO_ω;
-                ARBNO_i--; ζ = &_1[ARBNO_i];        goto alt_β;
+    alt_ω:      if (--ARBNO_i < 0)                  goto ARBNO_ω;
+                ζ = &_1[ARBNO_i];                   goto alt_β;
     /*------------------------------------------------------------------------*/
     str_t       assign;
     assign_α:                                       goto ARBNO_α;
     assign_β:                                       goto ARBNO_β;
-    ARBNO_γ:    assign = write_str(out, ARBNO);
-                write_nl(out);                      goto assign_γ;
+    ARBNO_γ:    assign = write_str(out, ARBNO);     goto assign_γ;
     ARBNO_ω:                                        goto assign_ω;
     /*------------------------------------------------------------------------*/
     str_t       RPOS0;
