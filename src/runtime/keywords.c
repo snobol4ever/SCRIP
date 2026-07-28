@@ -210,7 +210,7 @@ DESCR_t rt_keyword_read(const char *sval) {
     lk[li] = '\0';
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
-    if (!strcmp(lk,"control") || !strcmp(lk,"errornumber") || !strcmp(lk,"errortext") || !strcmp(lk,"errorvalue") || !strcmp(lk,"fail")) return FAILDESCR;
+    if (!strcmp(lk,"control") || !strcmp(lk,"errornumber") || !strcmp(lk,"errortext") || !strcmp(lk,"errorvalue") || !strcmp(lk,"fail") || !strcmp(lk,"interval") || !strcmp(lk,"meta") || !strcmp(lk,"shift")) return FAILDESCR;
     return NV_GET_fn(sval);
 }
 /*--- snobol4 keyword reader: own entry over the shared kw table; uppercase-fold handles &ALPHABET etc. ---*/
@@ -254,14 +254,11 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
         return FAILDESCR;
     }
     if (!strcmp(kw,"regions")) {
-        if (idx == 0) return INTVAL(0);
-        if (idx == 1 || idx == 2) { extern size_t rt_slab_pool_bytes(void); return INTVAL((long)rt_slab_pool_bytes()); }
+        if (idx >= 0 && idx <= 2) return INTVAL(0);
         return FAILDESCR;
     }
     if (!strcmp(kw,"storage")) {
-        extern size_t rt_slab_pool_bytes(void); extern long rt_gcheap_free(void); long used = (long)rt_slab_pool_bytes() - rt_gcheap_free();
-        if (idx == 0) return INTVAL(0);
-        if (idx == 1 || idx == 2) return INTVAL(used);
+        if (idx >= 0 && idx <= 2) return INTVAL(0);
         return FAILDESCR;
     }
     if (!strcmp(kw,"collections")) {
