@@ -52,8 +52,6 @@ main_α:
                         mov              ecx, 1208
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 1200], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #       &TRIM    =  1
@@ -200,7 +198,6 @@ n12_var_β:
                                                                                         jmp   n6_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_match_head_α:
-                        mov              qword ptr [rsp + 472], rbp
                         mov              rdi, qword ptr [rsp + 560]
                         mov              rsi, qword ptr [rsp + 568]
                         call             rt_match_enter@PLT
@@ -231,11 +228,9 @@ n13_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 448]
                         mov              r12, qword ptr [rsp + 464]
-                        mov              rbp, qword ptr [rsp + 472]
                                                                                         jmp   n7_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_head_α:
-                        mov              qword ptr [rsp + 824], rbp
                         mov              rdi, qword ptr [rsp + 928]
                         mov              rsi, qword ptr [rsp + 936]
                         call             rt_match_enter@PLT
@@ -268,7 +263,6 @@ n14_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 816]
-                        mov              rbp, qword ptr [rsp + 824]
                                                                                         jmp   n8_var_α
 #=======================================================================================================================
 #       V        =  INPUT                            :F(END)
@@ -331,7 +325,6 @@ n19_assign_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n20_match_head_α:
-                        mov              qword ptr [rsp + 216], rbp
                         mov              rdi, qword ptr [rsp + 384]
                         mov              rsi, qword ptr [rsp + 392]
                         call             rt_match_enter@PLT
@@ -364,7 +357,6 @@ n20_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 208]
-                        mov              rbp, qword ptr [rsp + 216]
                                                                                         jmp   n6_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n21_match_release_α:
@@ -651,7 +643,6 @@ n34_match_replace_α:
 .Lx117_0_s:
                         .string          "VC"
 .Lx117_1:
-                        mov              rbp, qword ptr [rsp + 472]
                                                                                         jmp   n38_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n35_match_release_α:
@@ -783,7 +774,6 @@ n40_match_replace_α:
 .Lx126_0_s:
                         .string          "HC"
 .Lx126_1:
-                        mov              rbp, qword ptr [rsp + 216]
                                                                                         jmp   n43_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n41_assign_α:
@@ -814,7 +804,6 @@ n42_match_replace_α:
 .Lx129_0_s:
                         .string          "PRINTV"
 .Lx129_1:
-                        mov              rbp, qword ptr [rsp + 824]
                                                                                         jmp   n45_var_α
 #=======================================================================================================================
 #       VC       =  V
@@ -980,7 +969,6 @@ n55_lit_string_β:
                         .string          " "
 #-----------------------------------------------------------------------------------------------------------------------
 n56_match_head_α:
-                        mov              qword ptr [rsp + 664], rbp
                         mov              rdi, qword ptr [rsp + 752]
                         mov              rsi, qword ptr [rsp + 760]
                         call             rt_match_enter@PLT
@@ -1013,7 +1001,6 @@ n56_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 16]
                         mov              r12, qword ptr [rsp + 656]
-                        mov              rbp, qword ptr [rsp + 664]
                                                                                         jmp   n9_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n57_var_α:
@@ -1169,7 +1156,6 @@ n66_match_replace_α:
 .Lx160_0_s:
                         .string          "PRINTV"
 .Lx160_1:
-                        mov              rbp, qword ptr [rsp + 664]
                                                                                         jmp   n9_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n67_binop_α:
@@ -1203,16 +1189,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 1200]
                         add              rsp, 1208
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 1200]
                         add              rsp, 1208
                         ret
                         .section         .rodata
