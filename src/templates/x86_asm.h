@@ -1512,6 +1512,38 @@ inline std::string x86_xfer_leave() {
     return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ζ-CELL MACHINE port encoders — CELL-0 / ZB-ACT-0 (GOAL-SN4-CELL-MACHINE.md; contract DESIGN-SN4-CELL-MACHINE.md; Lon green light 2026-07-28).  The WAM/FORTH cell discipline for the SNOBOL4 scan
+ * blob: rbp = CP (newest CHOICE cell; callee-saved so it survives every C runtime call), rsp = ζ frontier, cells 16B-granular so the SysV call-alignment invariant holds by construction.  CHOICE CELL,
+ * 32B, memory ascending from CP: [+0]=resume_addr · [+8]=low32 saved_δ / high32 TAG (0=CHOICE 1=BASE 2=FENCE 3=ARBNO_GUARD) · [+16]=prev_CP · [+24]=saved_MH (MH=r12 from CELL-5; until then the slot
+ * is pushed 0 and discarded on unwind — flipping BOTH sites here is CELL-5's one edit: push rax→push r12, add rsp 8→pop r12).  BACKTRACKABLE-BOX LAW: carve LOCALS first, THEN push the header (header
+ * at TOS, locals at [rsp+32..32+K) while it lives); the unwind tail consumes the header, so every β-resume label entry sees rsp == its own LOCALS base, r14d == the cell's saved δ, rbp == enclosing CP.
+ * Universal failure = x86_cell_fail_body() emitted ONCE per cells-classified graph under a driver-owned label; the driver binds every blob node_ω to that label (the scan_live rebind idiom, emit.cpp
+ * ~2152) so no template ever names it.  OPERAND PROTOCOL: producers deliver a 16B DESCR at TOS; a consumer's operands are the top n cells at [rsp+K..K+16n), ownership by LIFO adjacency — no cross-box
+ * address exists anywhere.  Composed ENTIRELY of pre-verified encoders (push/pop/xor/mov/add/sub dispatch arms + the named disp32 family + x86_lea_rip_id + x86_jmp_reg): CELL-0 adds ZERO new byte
+ * encodings by design, so the keystone byte-verify obligation is discharged by construction.  x86_cell_push clobbers rax and FLAGS.  Everything below is dead code until CELL-1 wires the classifier. */
+inline std::string x86_alpha_carve(long K)          { return K > 0 ? x86("sub", "rsp", K) : std::string(); }
+inline std::string x86_gamma_free(long K)           { return K > 0 ? x86("add", "rsp", K) : std::string(); }
+inline std::string x86_gamma_result(long K, long n) {
+    long drop = K + 16 * (n - 1);
+    return x86("mov", "rax", RDQ("rsp", 0)) + x86("mov", "rdx", RDQ("rsp", 8))
+         + (drop > 0 ? x86("add", "rsp", drop) : std::string())
+         + x86("mov", RDQ("rsp", 0), "rax") + x86("mov", RDQ("rsp", 8), "rdx");
+}
+inline std::string x86_cell_push(int tag, int resume_ilbl) {
+    return x86("xor", "rax", "rax") + x86("push", "rax")
+         + x86("push", "rbp")
+         + x86("push", "r14")
+         + (tag ? x86_rsp_store32_imm(4, (long)tag) : std::string())
+         + x86_lea_rip_id("rax", resume_ilbl)
+         + x86("push", "rax")
+         + x86("mov", "rbp", "rsp");
+}
+inline std::string x86_cell_unwind_tail()           { return x86("pop", "rax") + x86("pop", "r14") + x86("pop", "rbp") + x86("add", "rsp", 8L) + x86_jmp_reg("rax"); }
+inline std::string x86_cell_fail_body()             { return x86("mov", "rsp", "rbp") + x86_cell_unwind_tail(); }
+inline std::string x86_cell_cut_keep(const char * base) { return x86_reg_disp32_load64("rbp", base, 16) + x86_reg_disp32_lea64("rsp", base, 32); }
+inline std::string x86_chain_prev(const char * dst, const char * src) { return x86_reg_disp32_load64(dst, src, 16); }
+inline std::string x86_chain_tag_load(const char * dst32, const char * cell) { return x86_reg_disp32_load32(dst32, cell, 12); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_scan_sync_out/in (ICN-SCAN-CALL-SYNC, 2026-07-11) — THE ICON SCAN-STATE HANDOFF ACROSS A CALL.  Canonical
  * Icon (interp.r k_pos/k_subject; JCON iKeyword) holds &pos/&subject as PROGRAM-GLOBAL dynamic state: a procedure
  * call neither saves nor restores them — a callee's tab/match advance IS the caller's advance.  SCRIP caches the
