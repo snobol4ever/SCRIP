@@ -82,6 +82,24 @@ static inline void * enter(void ** ζζ, size_t size) {
     return ζ;
 }
 /*----------------------------------------------------------------------------*/
+/*  SNOBOL4 SOURCE -- a recursive-descent arithmetic expression grammar.       */
+/*  RECONSTRUCTED from the box structure below; NOT oracle-verified.           */
+/*                                                                            */
+/*      V = ANY('abcdefghijklmnopqrstuvwxyz') $ OUTPUT                        */
+/*      I = SPAN('0123456789') $ OUTPUT                                       */
+/*      E = (V | I | '(' *X ')') $ OUTPUT                                     */
+/*      X = (E '+' *X | E '-' *X | E '*' *X | E '/' *X                        */
+/*      +      | '+' *X | '-' *X | E) $ OUTPUT                                */
+/*      C = (POS(0) X RPOS(0)) $ OUTPUT                                       */
+/*      SUBJ = 'x+y*z'                                                        */
+/*      SUBJ ? C                                    :F(FAILED)                */
+/*                                                                            */
+/*  E and X are MUTUALLY recursive and X is self-recursive, so every forward   */
+/*  or self reference carries the unevaluated expression operator (manual      */
+/*  p.122).  The '$ OUTPUT' on each nonterminal is immediate assignment, so    */
+/*  it fires whenever that subpattern matches even if the whole match later    */
+/*  fails (manual p.87) -- that is what makes the trace show the parse.        */
+/*----------------------------------------------------------------------------*/
 typedef struct _V V_t;
 typedef struct _I I_t;
 typedef struct _E E_t;
