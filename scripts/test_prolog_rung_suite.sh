@@ -148,7 +148,12 @@ VERBOSE=1; [ "$MODE" = "all" ] && VERBOSE=0
 HARD_FAIL=0
 case "$MODE" in
     all)
-        for m in interp run compile; do
+        # MODE COUNT CORRECTED (s160): the loop ran `interp run compile` and reported "x3 modes",
+        # but run_prog's `interp` and `run` arms are the IDENTICAL command ($SCRIP --run) — SCRIP has
+        # exactly TWO modes since 1 and 2 were deleted (REPO-SCRIP.md), so the third arm measured the
+        # same path twice and every "164/164 x3" in the goal-file history was really x2.  `run` is
+        # still accepted as an explicit alias below; it is only dropped from the sweep.
+        for m in interp compile; do
             run_corpus "$m"
             [ "$m" = interp ] && [ "$MODE_FAIL" -ne 0 ] && HARD_FAIL=1
         done

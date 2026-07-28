@@ -507,6 +507,11 @@ int g_flat_outer_nparams = 0;
 int g_gen_proc_active = 0;
 int g_resumable_callable_active = 0;
 int g_scan_regs_live = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fbdiv_n = 0; static int fbdiv_mode = -1; static int fbdiv_hooked = 0;
+static void fbdiv_report(void) { fprintf(stderr, "FB-DIVERGE TOTAL=%d\n", fbdiv_n); }
+void emit_fb_divergence_check(void) { if (fbdiv_mode < 0) { const char * e = getenv("SCRIP_FB_DIVERGE"); fbdiv_mode = (e && *e == '1') ? 1 : 0; } if (!fbdiv_mode) return; if (!fbdiv_hooked) { fbdiv_hooked = 1; atexit(fbdiv_report); } if (emit_jmp_pin_rbp() == emit_rec_pin()) return; fbdiv_n++; fprintf(stderr, "FB-DIVERGE #%d graph=%s data_fb=%s rec_fb=%s deep=%d pat=%d gen=%d genproc=%d rescall=%d\n", fbdiv_n, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", emit_jmp_pin_rbp() ? "rbp" : "rsp", emit_rec_pin() ? "rbp" : "rsp", g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_gen_proc_active, g_resumable_callable_active); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define FLAT_CHAIN_SET_MAX 512
 static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
 static int   g_flat_chain_set_n = 0;
@@ -1813,6 +1818,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_fail_p        = &lbl_ω;
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
+    { extern void emit_fb_divergence_check(void); emit_fb_divergence_check(); }   /* ZETA-FB-1 (s160): the LAST point at which every input to BOTH frame-base predicates is final for this graph and the prologue has not yet run — x86_fb_pinned()=emit_jmp_pin_rbp() picks the base every DATA ref NAMES, emit_rec_pin() picks the base the RECORD protocol names, and the prologue dispatched on the next line is what ESTABLISHES one.  A disagreement here is the s158 land mine latent: store and load naming different registers.  Reports under SCRIP_FB_DIVERGE=1, costs one compare otherwise. */
     if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
     xa_dispatch(XA_FLAT_PROLOGUE);
     if (g_is_text) g_emit_pos += 7;
