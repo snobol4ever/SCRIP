@@ -936,10 +936,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ASSIGN_COND:    { g_emit.op_fc_disp = fc_cond_fp(nd); bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-2 + ZB-FC-3c cross-box read grant */
     case IR_MATCH_ASSIGN_IMM:     { g_emit.op_fc_disp = fc_cond_fp(nd); bb_emit_x86(bb_match_capture()); } return 0;               /* $ immediate capture + ZB-FC-3c (identical mechanism, phase 2) */
     case IR_MATCH_ASSIGN_SAVE:    { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE + ZB-FC-3c fixed-cell grant (δ at cell+0) */
-    case IR_MATCH_ALTERNATE:      { extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_fp(const IR_t *, int);
-                                    { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; g_emit.op_fc_fpmax = fc_alt_fpmax(nd);
-                                      for (int _j = 0; _j < (int)IR_LIT(nd).ival && _j < 16; _j++) g_emit.op_fc_arm_fp[_j] = fc_alt_fp(nd, _j); } }
-                                    bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT + ZB-FC-3a linear-arm grant */
+    case IR_MATCH_ALTERNATE:      { bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT; ALT-FLAT s202 -- zero-cell box, address-dispatch template, no fc staging */
     case IR_MATCH_FENCE1:          { bb_emit_x86(bb_match_fence1()); } return 0;     /* SYNC-POINT ζ RELEASE sync point 2: NO fc_geom BY DESIGN — the watermark quad must stay [rbp+off] (depth-immune) because the σ glue reads it at the dynamic post-P depth */
     case IR_MATCH_ABORT:           { bb_emit_x86(bb_match_abort()); } return 0;      /* ABORT-NODE (s193): first live constructor is lower_snobol4.c TT_ABORT (was bare IR_GOTO); template pre-existed, flat_trivial_beta already anticipated the kind */
     case IR_MATCH_SEQUENCE:       { g_emit.op_fc_seq = (x86_port_mode() == ZC_PORT_FORTH && fc_seq_active(nd)) ? 1 : 0; g_emit.op_seq_static = g_seq_static_cur; bb_emit_x86(bb_match_sequence()); } return 0;   /* SN4-NARY-SEQ + ZB-FC-3b zero-LOCALS grant */
@@ -1137,7 +1134,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
      * AND the FORTH flavor is live; pairs 2N+2..3N+1 = stub defines, bodies emitted by the template.  The
      * fc_sig labels were allocated in the chain-body label loop; sigma edges into a granted ALT resolve to
      * stub[arm_of(source)] there.  Inactive => zero pairs pushed, zero routing, the pre-rung path verbatim. */
-    if (nd->op == IR_MATCH_ALTERNATE && fc_alt_active(nd) && fc_sig && fc_sig[i])
+    if (nd->op == IR_MATCH_ALTERNATE && fc_sig && fc_sig[i])
         for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }   /* CV10: arm-value slots delivered to bb_scan_sequence (op_parts channel, IR_ALT precedent; 32-arm cap) */
@@ -1933,7 +1930,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("n%d_%s_as", _uid, _kn) : NULL;   /* SN4-NARY-ALT/-SEQ success-glue */
         na_f[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("n%d_%s_af", _uid, _kn) : NULL;   /* SN4-NARY-ALT/-SEQ fail-glue */
         fc_sig[i] = NULL;   /* ZB-FC-3a: per-arm sigma pad-stub labels for a LINEAR-ARM granted ALT (FORTH flavor) */
-        if (fc_alt_active(nodes[i])) {
+        if (nodes[i]->op == IR_MATCH_ALTERNATE && nodes[i]->n_operands > 0) {   /* ALT-FLAT s202: sigma stubs for EVERY match-alt (they now store the resume continuation, universal address dispatch), not just FORTH-granted ones */
             int _N = (int)(nodes[i]->n_operands / 2);
             fc_sig[i] = (bb_label_t **)alloca(sizeof(bb_label_t *) * _N);
             for (int _j = 0; _j < _N; _j++) fc_sig[i][_j] = emit_label_alloc("n%d_%s_s%d", _uid, _kn, _j);
@@ -2036,7 +2033,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
              * na_s directly -- the stub subs (FPMAX - fp_arm) so every arm yields at the uniform padded depth
              * (S10d).  arm_of(source) = largest j with pos(entry_j) <= pos(source) in nodes[] order (arms are
              * allocated contiguously after A; entry_j is each arm's first-allocated node, the s31 convention). */
-            if (gamma_is_sig && fc_sig[k] && fc_alt_active(nodes[k])) {
+            if (gamma_is_sig && fc_sig[k]) {   /* ALT-FLAT s202: stubs exist for every match-alt; label presence is the gate */
                 /* arm_of(source) = the arm whose entry is NEAREST AT-OR-BELOW pos(source).  The prior "largest j with pos(entry_j) <= pos(source)" assumed arm entries allocate ASCENDING, but
                  * right-first lowering allocates them DESCENDING (arm N-1's nodes get the LOWEST indices), so every source at-or-after entry_0 spuriously matched the last passing j — measured s71:
                  * SPAN('a')|'b' routed SPAN's yield (already at full arm depth) through the literal arm's +16 pad stub, desyncing every later [rsp+const] until rsp died.  Equal-fp arms (163's

@@ -164,7 +164,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_ASSIGN_SAVE:
         zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack ws u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
     case IR_MATCH_ALTERNATE:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B r14d) + alt_i live-alternative index (+4 4B; α=0, fail-glue ++; β dispatches on it)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "alt.pad (unused — was the dcap height save for the deleted rt_dcap_height/restore_to pair; rbp-dcap s46 proved ALTERNATE needs NO pend-stack state at all: generator LIFO already restores rbp before any alternative switch is visible, MEASURED watermark-exact in both flavors with the save/restore removed.  Quad KEPT at 16B: shrinking it would shift every later node's offset for zero gain)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B r14d; +4 4B dead — was alt_i, killed by ALT-FLAT s202 address dispatch)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (ALT-FLAT s202: each arm's sigma stub stores its own resume trampoline address via lea rip; beta is one indirect jmp — the alt_i cmp-chain is dead.  Retenants the old dcap-pad quad)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_CODE, 0, "alt.next-entry continuation (ALT-FLAT s202: alpha and each entry stub store the NEXT arm's entry-stub address; the fail-advance is delta-restore + one indirect jmp — the entry cmp-chain is dead)", nd); return 2;
     case IR_MATCH_SEQUENCE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "seq.entry cursor save (+0 4B r14d; SU-C result anchor, no reload — elements undo their own δ) + seq_i live-element index (+4 4B; α=0, ns_s ++, ns_f --, β=N; flat-frame array flavor of the two-flavor design — rsp flavor = linked frame chain, lands with ZB-ITER/ZB-OWN)", nd); return 1;
     case IR_SCAN_SEQUENCE:
@@ -254,7 +254,8 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
 static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
-static int zls_fc_cell(const IR_t * nd) { if (!nd) return 0; switch (nd->op) { case IR_MATCH_SPAN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_BAL: case IR_MATCH_REM: case IR_MATCH_ARB: return 16; default: return 0; } }   /* PAT$N REGION NET-OUT (s191, Lon directive "99.999% of allocation are now inside the BB's"): the UNCONDITIONAL-cell slice of fc_geom -- these eight kinds each self-push a fixed 16B rsp cell at alpha (x86_asm.h ~1765 arms sub rsp,op_fc_bytes) AND were each granted exactly ONE 16B locals quad in the bulk proc-entry carve, which the fc_hit window rebase then makes UNREACHABLE: FR(off) for off inside [op_fc_base, +16) emits [rsp + off-base], never the flat slot.  Pure double-count, netted out here.  Restricted to the UNCONDITIONAL arms ON PURPOSE: fc_geom's conditional arms (fc_save_active / fc_vlit_active / fc_alt_fpmax) read side tables populated during LOWER, so asking them at zls_build time is registration-order-dependent and could answer 0 here but 16 at emit -- that disagreement would silently misplace a cell.  All eight verified 1:1 (one locals quad, 16B cell) against zls_grant_locals, and all eight are in zls_locals_shifted so the netted quad is the LOCALS quad, never the cross-box-read result quad. */
+int fc_arm_member(const IR_t * nd);
+static int zls_fc_cell(const IR_t * nd) { if (!nd) return 0; { extern int fc_arm_member(const IR_t *); if (fc_arm_member(nd)) return 0; } switch (nd->op) { case IR_MATCH_SPAN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_BAL: case IR_MATCH_REM: case IR_MATCH_ARB: return 16; default: return 0; } }   /* PAT$N REGION NET-OUT (s191, Lon directive "99.999% of allocation are now inside the BB's"): the UNCONDITIONAL-cell slice of fc_geom -- these eight kinds each self-push a fixed 16B rsp cell at alpha (x86_asm.h ~1765 arms sub rsp,op_fc_bytes) AND were each granted exactly ONE 16B locals quad in the bulk proc-entry carve, which the fc_hit window rebase then makes UNREACHABLE: FR(off) for off inside [op_fc_base, +16) emits [rsp + off-base], never the flat slot.  Pure double-count, netted out here.  Restricted to the UNCONDITIONAL arms ON PURPOSE: fc_geom's conditional arms (fc_save_active / fc_vlit_active / fc_alt_fpmax) read side tables populated during LOWER, so asking them at zls_build time is registration-order-dependent and could answer 0 here but 16 at emit -- that disagreement would silently misplace a cell.  All eight verified 1:1 (one locals quad, 16B cell) against zls_grant_locals, and all eight are in zls_locals_shifted so the netted quad is the LOCALS quad, never the cross-box-read result quad. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
@@ -342,7 +343,7 @@ static int fct_fp_range(IR_graph_t * g, int k0, int k1) {
         if (!x) continue;
         if (x->op == IR_MATCH_ALTERNATE) {
             int _b = 0, _e = 0;
-            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { fp += 16 + fc_alt_fpmax(x); if (_e > j + 1) j = _e - 1; }
+            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > j + 1) j = _e - 1; }   /* ALT-FLAT s202: zero-cell ALT + flat arms contribute 0; extent still skipped off the spine */
             continue;
         }
         if (x->op == IR_MATCH_DEFER && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) fp += s; continue; }   /* PS-3 s153: the licensed defer is a leaf of size SUSP (finalize pre-scan proved s>0 for every defer in range) */
@@ -356,9 +357,8 @@ static int fct_leaf_range(IR_graph_t * g, int k0, int k1, int pfx, int bias, con
         if (!x || x->op == IR_GOTO || x == skip) continue;
         if (x->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(x) >= 0) {
             int _nA = fc_alt_n(x), _elast = j + 1;
-            fc_leaf_register(x, pfx + 16 + bias);
-            for (int a = 0; a < _nA; a++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, a, &_b, &_e)) { fct_leaf_range(g, _b, _e, pfx + 16, bias, skip); if (_e > _elast) _elast = _e; } }
-            pfx += 16 + fc_alt_fpmax(x);
+            fc_leaf_register(x, pfx + bias);   /* ALT-FLAT s202: box executes at its own frontier -- no cell, no window */
+            for (int a = 0; a < _nA; a++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, a, &_b, &_e)) { fct_leaf_range(g, _b, _e, pfx, bias, skip); if (_e > _elast) _elast = _e; } }
             if (_elast > j + 1) j = _elast - 1;
             continue;
         }
@@ -678,8 +678,10 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
 int fc_alt_fpmax(const IR_t * nd);
 int fc_save_active(const IR_t * nd);
 int fc_vlit_active(const IR_t * nd);
+int fc_arm_member(const IR_t * nd);
 int fc_geom(const IR_t * nd, long * k) {
     if (!nd) return 0;
+    if (fc_arm_member(nd)) return 0;   /* ALT-FLAT (s202): arm residents are flat -- zero cell, zero rsp motion; their zls quads are kept (zls_fc_cell twin guard) */
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-FC-3c: delta at cell+0; ungranted SAVE stays zero-cell = the flat rt_cap array path */
     if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR) && fc_vlit_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-VAL-0/2/3 (s177/s178): registered statement-level value producer (scalar lit or global var read) feeding a plain assign; ungranted producers stay flat */
     if (nd->op == IR_MATCH_ARB)    { if (k) *k = 16; return 1; }   /* ZB-FC-4 (Lon s50 S14): the 8-byte counter+saved-cursor cell, ex-zls2, now a clean fixed FORTH cell */
@@ -690,7 +692,7 @@ int fc_geom(const IR_t * nd, long * k) {
     if (nd->op == IR_MATCH_BREAKX) { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_BAL)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_REM)    { if (k) *k = 16; return 1; }
-    if (nd->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(nd) >= 0) { if (k) *k = 16; return 1; }
+    /* IR_MATCH_ALTERNATE: NO cell (ALT-FLAT s202).  The ALT's own state (delta + resume/next continuation ptrs) lives in its flat zls quads; arms are flat (fc_arm_member); the box moves rsp nowhere. */
     if (nd->op == IR_SCAN_TAB)     { if (k) *k = 16; return 1; }   /* ZB-ICN-FC-1 (Icon, first FORTH cell): tab's single saved-cursor scratch at op_off+16 (fscan.r: oldpos saved at alpha, restored at beta then fail); result DESCR stays flat at op_off+0, read cross-box */
     if (nd->op == IR_SCAN_MOVE)    { if (k) *k = 16; return 1; }   /* ZB-ICN-FC-2 (Icon): move is tab's twin — same saved-cursor scratch at op_off+16 (fscan.r move: oldpos saved at alpha, restored at beta then fail), identical layout/shape */
     if (nd->op == IR_SCAN_MATCH)   { if (k) *k = 16; return 1; }   /* ZB-ICN-FC-3 (Icon): match is function{0,1} single-yield (fstranl.r) — needle {ptr,len} scratch at op_off+16/+24 is TRANSIENT within alpha->gamma (written by rt_scan_needle, read by the memcmp, never read at beta); result stays flat at op_off+0. Single-yield = clean alpha-push/omega-pop even inside a scan (unlike the {*} generators) */
@@ -709,6 +711,14 @@ int fc_geom(const IR_t * nd, long * k) {
  * staleness exposure identical to the zls tables (fresh process per compile; EVAL graphs mint fresh nodes). */
 static struct { const IR_t * nd; int n; int fp[16]; int ab[16]; int ae[16]; } fca[256];
 static int fca_n = 0;
+/* fc_arm_member -- ALT-FLAT (s202, Lon design: "fixed offsets all the way down"): every node INSIDE a granted ALT's arm ranges is registered here at fc_alt_register time, and fc_geom/zls_fc_cell
+ * both decline it -- arm residents keep their FLAT zls quads and push NO rsp cell, so every arm's rsp footprint is 0, every arm yields at the ALT's own frontier, and the S10d pad-to-max law is
+ * structurally unnecessary (deleted).  ORDER IS LOAD-BEARING: fc_walk_range's per-arm admission walk (lower_snobol4.c ~1504) runs BEFORE registration, so admission fp math is computed on the
+ * pre-decline answers; every LATER reader (statement walk, fc_leaf_walk, fct twins, zls_build via drive_slots_all, emit staging) sees the decline.  Same node-ptr keying/staleness envelope as fca. */
+static const IR_t * fcm[1024];
+static int fcm_n = 0;
+void fc_arm_member_register(const IR_t * nd) { if (nd && fcm_n < 1024) fcm[fcm_n++] = nd; }
+int fc_arm_member(const IR_t * nd) { for (int i = 0; i < fcm_n; i++) if (fcm[i] == nd) return 1; return 0; }
 void fc_alt_register(const IR_t * nd, int n, const int * fp, const int * ab, const int * ae) {
     if (!nd || n <= 0 || n > 10 || fca_n >= 256) return;   /* N>10 exceeds the 3N+2 <= XA_BB_EMIT_PAIR_MAX(32) stub budget -- silent decline */
     fca[fca_n].nd = nd; fca[fca_n].n = n;
