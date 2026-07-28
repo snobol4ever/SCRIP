@@ -1,148 +1,322 @@
-/* seed/test_sno_cell_1.s — HAND-WRITTEN REFERENCE EMBODIMENT #1 of the ζ-CELL MACHINE (contract: DESIGN-SN4-CELL-MACHINE.md; ladder: GOAL-SN4-CELL-MACHINE.md; Lon + Claude, 2026-07-28).
- * Assembles standalone: gcc -nostdlib -no-pie test_sno_cell_1.s -o t && ./t  →  "CELL MATCH start=2 end=7".  Flip subj to "abhexlo" → "CELL NOMATCH".
- *
- * ═══ WHAT A CELL MACHINE IS ═══
- * A cell machine is an execution model for a Byrd-box graph (every construct a four-port box: α start, β resume, γ succeed, ω fail) in which ALL match-lifetime state lives as
- * uniform typed CELLS on ONE LIFO stack, and in which a control transfer and a stack-depth transfer are THE SAME ACT — you never arrive at a resume point except by popping the
- * cell that names it, and the pop leaves rsp exactly where the pusher stood.  Its laws:
- *   1. PER-BB SELF-ALLOCATION.  Each box allocates its own memory — RESULT and LOCALS — callee-side at its α (`sub rsp, K_box`, a box-local constant; no graph-wide geometry pass
- *      exists).  Freeing is caller-side on both return edges: γ = the consumer consumes/overwrites the result cell (or the box shrinks-to-result itself); ω = the cut reclaims the
- *      box, its consumed operands, and the whole abandoned suffix wholesale.  Recursion, EVAL/CODE, and stored-pattern entry fall out free: a fresh entry carves a fresh frame,
- *      and runtime-created code needs no compile-time frame plan because none exists.
- *   2. ADDRESSING IS SELF-RELATIVE, ALWAYS.  A box reads only its own carve at [rsp+0..K) and its operands — the top n 16-byte DESCR cells its children just left at
- *      [rsp+K..K+16n).  Producers deliver at TOS (a POSITION, not an address); ownership transfers to the consumer by LIFO adjacency.  No box ever holds another box's address,
- *      so the reach-over disease (static cross-box displacements kept honest through dynamic depth — op_flat_disp, fc_geom prefix sums, parked anchors, rbp floors) is not merely
- *      prevented: it is UNREPRESENTABLE.
- *   3. CP CHAIN.  rbp is CP, the pointer to the newest CHOICE cell (WAM's B register; callee-saved, so it survives every C runtime call).  A choice cell is 32 bytes:
- *      [+0]=resume addr · [+8]=low32 saved-δ / high32 TAG (0=CHOICE 1=BASE 2=FENCE 3=ARBNO_GUARD) · [+16]=prev_CP · [+24]=saved mark-head (MH=r12 once capture marks land).
- *      Backtrackable boxes obey the LAW: carve LOCALS first, THEN push the header at TOS — so the fail stub's pops land rsp exactly at the box's own locals base at every β.
- *   4. UNIVERSAL FAILURE.  ω everywhere is ONE shared stub: cut to CP, pop resume/δ/prev-CP, discard MH slot, jmp resume — six instructions, correct from ARBITRARY depth.  The
- *      entire ω-edge topology of the graph dissolves into it.  The cut is also the UNDO: capture marks of the abandoned suffix are orphaned with their memory, for free.
- *   5. SEQUENCE IS NOTHING.  Concatenation is emission order; failure inside it is the stack's business (SPITBOL manual Ch.18 step 6), never the sequence's.  A sequence box
- *      emits zero instructions — it is pure wiring.
- *   6. IT IS THE MANUAL'S OWN MACHINE.  SPITBOL Ch.18 p.204: "a pushdown stack is used to remember backtracking possibilities"; step 3 pushes {alternative, cursor}; step 6 pops
- *      on failure; empty + &ANCHOR=0 advances the start.  The choice cell IS that stack entry, the BASE cell IS the unanchored retry, implemented natively — WAM-flavored FORTH.
- * Registers: r13=Σ subject base · r14=δ cursor (r14d live) · r15=Δ length · rbp=CP · rsp=ζ frontier · r12=MH (from CELL-5).
- *
- * THIS FILE EXECUTES:   SUBJ = 'abhello' ;  SUBJ ? ( 'x' | 'he' ) 'llo'   (unanchored).  Trace: δ=0 BASE pushed; ALT pushes choice; 'x' fails→stub pops CHOICE (δ restored, arm2);
- * 'he' fails→stub pops BASE→advance δ=1 … δ=2: arm2 'he' matches (δ→4); SEQ is the absence between boxes; 'llo' matches (δ→7); scanhit walks the CP chain to TAG==BASE, cuts,
- * consumes — the winning start pops out of the BASE cell itself.  Measured costs: ALT=7 instr total, merge=0, SEQ=0, universal ω=6 shared, retry=4. */
+# seed/test_sno_cell_1.s — ζ-CELL MACHINE reference embodiment #1  (Lon + Claude, 2026-07-28)
+# Assembles: gcc -nostdlib -no-pie test_sno_cell_1.s -o t && ./t
+# Subject "abhello", pattern: ( 'x' | 'he' ) 'llo'  — unanchored, no anchor keyword.
+# Expected: CELL MATCH start=2 end=7   (flip subj to "abhexlo" → CELL NOMATCH)
+#
+# ═══════════════════════════════════════════════════════════════════════════════════
+# WHAT A CELL MACHINE IS
+# ═══════════════════════════════════════════════════════════════════════════════════
+#
+# A cell machine executes a Byrd-box graph — every language construct is a four-port
+# box (α start · β resume · γ succeed · ω fail) — by keeping ALL match-lifetime state
+# as uniform typed CELLS on ONE LIFO stack, where a CONTROL transfer and a DEPTH
+# transfer are THE SAME ACT: you only ever arrive at a resume point by popping the
+# cell that names it, and the pop leaves rsp exactly where the pusher stood.
+#
+# Six laws:
+#
+#   1. PER-BB SELF-ALLOCATION.
+#      Every box allocates its own RESULT and LOCALS callee-side at its α
+#      (sub rsp, K_box; K_box is a box-local constant — no graph-wide geometry
+#      pass exists).  Freeing is caller-side on both exit edges:
+#        γ  the consumer overwrites / shrinks-to-result the cell (net FORTH word).
+#        ω  the cut (mov rsp,rbp) reclaims the failed box, its consumed operands,
+#           and the entire abandoned suffix wholesale — one instruction.
+#      Corollary: recursion, EVAL/CODE, and stored-pattern entry are free.  A fresh
+#      α carves a fresh frame.  Runtime-created code needs no compile-time plan
+#      because none exists.
+#
+#   2. SELF-RELATIVE ADDRESSING ONLY.
+#      A box reads [rsp+0..K) for its own locals and [rsp+K..K+16n) for its
+#      operands — the n 16-byte DESCR cells its children left at TOS by LIFO
+#      adjacency.  Producers deliver at TOS: a POSITION, not an address.  No box
+#      ever holds another box's address.  The reach-over disease (static cross-box
+#      displacements kept consistent through dynamic depth — op_flat_disp, fc_geom,
+#      parked anchors, rbp floors) is UNREPRESENTABLE, not merely prevented.
+#
+#   3. CP CHAIN.
+#      rbp = CP, pointer to the newest CHOICE cell (WAM register B; callee-saved,
+#      survives every C runtime call).  CHOICE cell, 32B, ascending from CP:
+#        [CP+ 0]  resume address  (code pointer)
+#        [CP+ 8]  low32=saved δ · high32=TAG  (0=CHOICE 1=BASE 2=FENCE 3=ARBNO)
+#        [CP+16]  prev_CP
+#        [CP+24]  saved mark-head MH=r12  (0 until CELL-5 capture-mark rung)
+#      BACKTRACKABLE-BOX LAW: carve LOCALS first, THEN push the 32B header.
+#      Header at TOS; locals at [rsp+32..32+K).  The fail-stub's pops land rsp
+#      exactly at the box's own locals base — self-relative at every β entry.
+#
+#   4. UNIVERSAL FAILURE — ONE stub, shared, six instructions.
+#        mov rsp, rbp      # cut: discard abandoned suffix down to CP
+#        pop rax           # resume address
+#        pop r14           # saved δ restored  (TAG rides r14 high32, harmless)
+#        pop rbp           # unlink CP
+#        add rsp, 8        # discard MH slot (pre-CELL-5)
+#        jmp rax           # re-enter at the resume point
+#      Correct from ARBITRARY depth.  Replaces: op_flat_disp, fc_geom prefix sums,
+#      scanbase rebasing, parked anchors, rbp floors, and the entire ω-edge topology
+#      of the blob.  The cut also orphans the abandoned suffix's capture marks —
+#      FREE UNDO, zero instructions.
+#
+#   5. SEQUENCE IS NOTHING.
+#      Concatenation is emission order; failure is the stack's business (SPITBOL
+#      manual Ch.18 step 6).  A SEQUENCE box emits zero instructions — it is pure
+#      wiring.  This file demonstrates it: the SEQ between ALT and LIT 'llo' is the
+#      absence of any label or jump between n2_alt_merge and n3_lit_llo_a.
+#
+#   6. IT IS THE MANUAL'S OWN MACHINE.
+#      SPITBOL Ch.18 p.204: "a pushdown stack is used to remember backtracking
+#      possibilities."  Step 3 pushes {alternative, cursor}; step 6 pops on failure;
+#      empty stack + &ANCHOR=0 advances the start cursor.  The CHOICE cell IS that
+#      stack entry.  The BASE cell IS the unanchored retry engine.  WAM-flavored FORTH.
+#
+# ───────────────────────────────────────────────────────────────────────────────────
+# REGISTER CONTRACT
+#   r13  Σ  subject base (byte pointer)
+#   r14  δ  cursor, 0-based (r14d live; high32 temporarily carries TAG on pop — ok)
+#   r15  Δ  subject length
+#   rbp  CP newest choice cell (callee-saved)
+#   rsp  ζ  frontier
+#   r12  MH mark-head chain (pre-CELL-5: pushed 0, discarded on unwind)
+#   rax rcx rdx rsi rdi  scratch
+#
+# ───────────────────────────────────────────────────────────────────────────────────
+# PROGRAM BEING COMPILED (SNOBOL4 source notation)
+#
+#     SUBJ = 'abhello'
+#     SUBJ  ?  ( 'x'  |  'he' )  'llo'
+#              └── ALT ──────┘  └─SEQ─┘
+#
+# EXECUTION TRACE (unanchored, δ starts at 0)
+#   δ=0: HEAD saves rbp, loads Σ/δ/Δ; pushes BASE{resume=base_resume, δ=0, TAG=1}
+#        n2_alt α: pushes CHOICE{resume=n2_alt_arm2, δ=0, TAG=0}
+#        n1_lit_x α: 'a' ≠ 'x' → cellfail
+#   cellfail: rsp=rbp(CHOICE); pop resume=n2_alt_arm2; pop r14=0; pop rbp=BASE; +8
+#        n2_alt β (arm2): n3_lit_he α: 'ab' ≠ 'he' → cellfail
+#   cellfail: rsp=rbp(BASE); pop resume=base_resume; pop r14=0; pop rbp=prev; +8
+#        base_resume: &ANCHOR=0 → δ=1 → attempt (re-push BASE{δ=1})
+#   δ=1: same; 'b'≠'x', 'bh'≠'he' → base_resume → δ=2 → attempt
+#   δ=2: n1_lit_x: 'a'≠'x' → cellfail (pops CHOICE, restores δ=2, arm2)
+#        n3_lit_he: [r13+2]='h' ✓  [r13+3]='e' ✓ → δ=4
+#        n2_alt_merge: ZERO INSTRUCTIONS (CHOICE cell lives below — nobody reads it)
+#        SEQ: ZERO INSTRUCTIONS (pure wiring — absent between merge and lit_llo)
+#        n4_lit_llo: [r13+4..6]='llo' ✓ → δ=7
+#        scanhit: walk CP chain to TAG==BASE → cut → pop start=2 from the cell
+#        output: "CELL MATCH start=2 end=7"
+# ═══════════════════════════════════════════════════════════════════════════════════
+
     .intel_syntax noprefix
     .globl _start
     .text
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# SCAN BRACKET — HEAD  (the one real box; saves caller rbp; loads Σ/δ/Δ)
+# Ports:  α = _start (statement entry)
+#         γ = scanhit (whole match succeeded; commit walk lives here at CELL-5+)
+#         ω = scan_nomatch (subject exhausted with no match)
+# Cell:   BASE cell pushed at attempt: {resume=base_resume, δ=start, TAG=1}
+# ═══════════════════════════════════════════════════════════════════════════════════
 _start:
-    lea   r13, [rip + subj]           # bracket HEAD: Σ/δ/Δ in
-    xor   r14d, r14d                  #   δ = 0
-    mov   r15d, 7                     #   Δ = len('abhello')
-                                      #   (real HEAD also saves caller rbp + swaps prior Σ/δ/Δ — omitted, _start owns the machine)
-attempt:                              # ── BASE-cell (re)push: {resume=base_resume, δ=start, tag=1} — 8 instr, the whole retry engine
-    xor   rax, rax
-    push  rax                         #   [+24] MH = 0 (pre-CELL-5)
-    push  rbp                         #   [+16] prev_CP
-    push  r14                         #   [+8]  saved δ  (= attempt start)
-    mov   dword ptr [rsp + 4], 1      #        TAG = BASE
-    lea   rax, [rip + base_resume]
-    push  rax                         #   [+0]  resume
-    mov   rbp, rsp                    #   CP = this cell
-                                      # ── pattern α — fallthrough, no jmp needed
-n2_alt_a:                             # ══ ALT('x' | 'he') — ENTIRE box = one cell push; no quads, no stubs, no merge code
-    xor   rax, rax
-    push  rax
-    push  rbp
-    push  r14                         #   TAG=0 (CHOICE) — no tag store needed
-    lea   rax, [rip + n2_alt_arm2]
-    push  rax
-    mov   rbp, rsp
-                                      #   fall into arm1
-n3_lit_x_a:                           # ══ LIT 'x' — K=0 (no carve); bounds + 1-byte compare
-    mov   eax, r14d
-    cmp   eax, r15d                   #   δ < Δ ?
-    jae   cellfail                    #   ω = THE stub. always. every box.
-    cmp   byte ptr [r13 + rax], 120   #   'x'
-    jne   cellfail
-    inc   r14d
-    jmp   n2_alt_merge                #   arm γ → merge (label only — merge emits NOTHING)
-n2_alt_arm2:                          # ── β-delivery: cellfail already restored δ and consumed the cell; rsp = ALT locals base (K=0); CP = BASE
-n4_lit_he_a:                          # ══ LIT 'he'
-    mov   eax, r14d
-    add   eax, 2
-    cmp   eax, r15d                   #   δ+2 ≤ Δ ?
-    ja    cellfail
-    mov   ecx, r14d
-    cmp   byte ptr [r13 + rcx], 104       # 'h'
-    jne   cellfail
-    cmp   byte ptr [r13 + rcx + 1], 101   # 'e'
-    jne   cellfail
-    add   r14d, 2
-n2_alt_merge:                         # ══ ALT γ — zero instructions. depth here DIFFERS by path (arm1: choice live below; arm2: consumed) AND NOBODY CARES.
-n5_lit_llo_a:                         # ══ SEQ = PURE WIRING: 'llo' begins at the very next byte of .text. That absence IS the sequence box.
-    mov   eax, r14d
-    add   eax, 3
-    cmp   eax, r15d
-    ja    cellfail
-    mov   ecx, r14d
-    cmp   byte ptr [r13 + rcx], 108       # 'l'
-    jne   cellfail
-    cmp   byte ptr [r13 + rcx + 1], 108   # 'l'
-    jne   cellfail
-    cmp   byte ptr [r13 + rcx + 2], 111   # 'o'
-    jne   cellfail
-    add   r14d, 3
-    jmp   scanhit
-cellfail:                             # ══ THE UNIVERSAL ω — 6 instructions, correct from ARBITRARY depth. This replaces op_flat_disp,
-    mov   rsp, rbp                    #    fc_geom, scanbase, the parked anchors, and the rbp floor. Control and depth travel together.
-    pop   rax                         #    resume
-    pop   r14                         #    δ restored (high32 carries TAG; first 32-bit op cleans it)
-    pop   rbp                         #    CP unlink
-    add   rsp, 8                      #    MH slot (pre-CELL-5 discard)
-    jmp   rax
-base_resume:                          # ── BASE cell's resume = Ch.18 step 6, &ANCHOR=0 arm: advance start, bound, re-enter.
-                                      #    (&ANCHOR≠0 would `jmp scan_nomatch` here — runtime keyword test, one cmp, at this line.)
-    cmp   r14d, r15d
-    jae   scan_nomatch                #    subject exhausted
-    inc   r14d                        #    start+1  (also zeroes the TAG bits riding r14 high — free)
-    jmp   attempt                     #    re-push BASE at new start; rsp already at pristine depth BY THE POPS — no floor mov
-scanhit:                              # ══ whole-match γ: walk CP chain to BASE (marks/commit-walk arrive at CELL-5), cut, consume.
-find_base:
-    cmp   dword ptr [rbp + 12], 1     #    TAG == BASE ?
-    je    got_base
-    mov   rbp, [rbp + 16]             #    chain prev (live pending choices above BASE die in the cut — free-undo)
-    jmp   find_base
-got_base:
-    mov   rsp, rbp                    #    the cut
-    pop   rax                         #    consume BASE: resume (discard)
-    pop   rcx                         #    cl = winning start δ — the head-slot write-back value, delivered BY the cell
-    pop   rbp                         #    caller rbp restored — bracket exit balanced by construction
-    add   rsp, 8
-    add   cl, 48                      #    '0'+start
-    mov   byte ptr [rip + msg_s], cl
-    mov   eax, r14d
-    add   al, 48                      #    '0'+end
-    mov   byte ptr [rip + msg_e], al
-    mov   eax, 1
-    mov   edi, 1
-    lea   rsi, [rip + msg]
-    mov   edx, OFFSET msg_len
+    lea     r13, [rip + subj]           #  Σ ← &subj
+    xor     r14d, r14d                  #  δ ← 0
+    mov     r15d, 7                     #  Δ ← 7  (len "abhello")
+    # (production HEAD also saves caller rbp here — omitted; _start owns the machine)
+
+# ───────────────────────────────────────────────────────────────────────────────────
+attempt:                                # re-entry point for unanchored retry
+# BASE cell push: {[+0]=base_resume, [+8]=δ|TAG<<32 (TAG=1), [+16]=prev_CP, [+24]=0}
+    xor     rax, rax
+    push    rax                         #  [+24]  MH = 0  (pre-CELL-5)
+    push    rbp                         #  [+16]  prev_CP
+    push    r14                         #  [+ 8]  saved δ  (low32); TAG=1 below
+    mov     dword ptr [rsp + 4], 1      #  [+12]  TAG = BASE (1)
+    lea     rax, [rip + base_resume]
+    push    rax                         #  [+ 0]  resume address
+    mov     rbp, rsp                    #  CP ← this cell
+                                        #  fall through to pattern α (no jmp needed)
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# BOX: IR_MATCH_ALTERNATE  'x' | 'he'        [n2_alt]
+# Ports:  α = n2_alt_a     enter; push CHOICE for arm2; fall into arm1
+#         β = n2_alt_arm2  delivered BY cellfail (δ restored, CP=BASE)
+#         γ = n2_alt_merge any arm success; ZERO INSTRUCTIONS (pending cell harmless)
+#         ω → cellfail     (arm2 fail consumed the CHOICE cell; falls through to BASE)
+# Cell:   CHOICE{[+0]=n2_alt_arm2, [+8]=δ|0<<32, [+16]=prev_CP=BASE, [+24]=0}
+# Locals: K=0  (no carve — header IS the entire allocation)
+# ═══════════════════════════════════════════════════════════════════════════════════
+n2_alt_a:                               # α — push CHOICE, fall into arm 1
+    xor     rax, rax
+    push    rax                         #  [+24]  MH = 0
+    push    rbp                         #  [+16]  prev_CP  (= BASE)
+    push    r14                         #  [+ 8]  saved δ; TAG=0 (CHOICE, no store needed)
+    lea     rax, [rip + n2_alt_arm2]
+    push    rax                         #  [+ 0]  resume = arm2 entry
+    mov     rbp, rsp                    #  CP ← this CHOICE cell
+                                        #  fall into arm 1
+
+# ───────────────────────────────────────────────────────────────────────────────────
+# BOX: IR_MATCH_LIT  'x'                     [n1_lit_x]   (arm 1 of ALT)
+# Ports:  α = n1_lit_x_a   (fall-through from n2_alt_a)
+#         β  — none (transient box; cellfail pops CHOICE and lands in arm2)
+#         γ  — advance δ, fall to n2_alt_merge
+#         ω → cellfail
+# Locals: K=0  (transient — no carve, no retain)
+# ═══════════════════════════════════════════════════════════════════════════════════
+n1_lit_x_a:                             # α
+    mov     eax, r14d
+    cmp     eax, r15d                   #  δ < Δ ?
+    jae     cellfail                    #  ω — the ONE stub; always this label
+    cmp     byte ptr [r13 + rax], 120   #  [Σ+δ] == 'x' ?
+    jne     cellfail                    #  ω
+    inc     r14d                        #  δ += 1  (len 'x')
+    jmp     n2_alt_merge                #  γ
+
+# ───────────────────────────────────────────────────────────────────────────────────
+# n2_alt β-delivery point: cellfail consumed the CHOICE cell, restored δ and rbp=BASE
+n2_alt_arm2:                            # β  (arm 2 entry — rsp = locals base = rsp at α)
+
+# BOX: IR_MATCH_LIT  'he'                    [n3_lit_he]  (arm 2 of ALT)
+# Ports:  α = n2_alt_arm2  (β-delivered; same address by emission order)
+#         β  — none (transient)
+#         γ  — advance δ, fall to n2_alt_merge
+#         ω → cellfail  (pops BASE cell → base_resume → retry or nomatch)
+# Locals: K=0
+# ═══════════════════════════════════════════════════════════════════════════════════
+n3_lit_he_a:                            # α  (coincides with n2_alt_arm2)
+    mov     eax, r14d
+    add     eax, 2
+    cmp     eax, r15d                   #  δ+2 ≤ Δ ?
+    ja      cellfail                    #  ω
+    mov     ecx, r14d
+    cmp     byte ptr [r13 + rcx],     104  #  'h'
+    jne     cellfail                    #  ω
+    cmp     byte ptr [r13 + rcx + 1], 101  #  'e'
+    jne     cellfail                    #  ω
+    add     r14d, 2                     #  δ += 2
+
+# ───────────────────────────────────────────────────────────────────────────────────
+n2_alt_merge:                           # γ of ALT — ZERO INSTRUCTIONS.
+                                        # Depth differs by path (arm1: CHOICE below;
+                                        # arm2: consumed) and no downstream code cares.
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# BOX: IR_MATCH_SEQUENCE                     [implicit — SEQ IS NOTHING]
+# A sequence has no state, no behavior, and no instructions.
+# γ-chain = emission order (fallthrough).
+# ω = the stack's business (Ch.18 step 6) — not the sequence's.
+# The blank line below IS the sequence box.
+# ═══════════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# BOX: IR_MATCH_LIT  'llo'                   [n4_lit_llo]
+# Ports:  α = n4_lit_llo_a (fall-through from SEQ = fall-through from n2_alt_merge)
+#         β  — none (transient)
+#         γ  → scanhit
+#         ω → cellfail
+# Locals: K=0
+# ═══════════════════════════════════════════════════════════════════════════════════
+n4_lit_llo_a:                           # α
+    mov     eax, r14d
+    add     eax, 3
+    cmp     eax, r15d                   #  δ+3 ≤ Δ ?
+    ja      cellfail                    #  ω
+    mov     ecx, r14d
+    cmp     byte ptr [r13 + rcx],     108  #  'l'
+    jne     cellfail                    #  ω
+    cmp     byte ptr [r13 + rcx + 1], 108  #  'l'
+    jne     cellfail                    #  ω
+    cmp     byte ptr [r13 + rcx + 2], 111  #  'o'
+    jne     cellfail                    #  ω
+    add     r14d, 3                     #  δ += 3
+    jmp     scanhit                     #  γ → whole-match success
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# UNIVERSAL FAILURE STUB — cellfail
+# The ONE ω target for every box in the blob.  Six instructions.  Correct from
+# arbitrary depth.  Replaces: op_flat_disp, fc_geom, scanbase, parked anchors,
+# rbp floors, and the entire ω-edge topology.
+#
+# On entry: rsp anywhere ≤ rbp (may be arbitrarily deep inside a carve).
+# On exit:  control transfers to [CP+0] with:
+#             rsp  = caller's locals base (post-pop depth)
+#             r14d = the cell's saved δ  (high32 carries TAG — first 32-bit op clears)
+#             rbp  = prev_CP  (chain unlinked)
+# ═══════════════════════════════════════════════════════════════════════════════════
+cellfail:
+    mov     rsp, rbp                    #  cut: rsp ← CP  (abandon suffix, free-undo marks)
+    pop     rax                         #  resume address  [CP+0]
+    pop     r14                         #  saved δ (+ TAG in high32, harmless)  [CP+8]
+    pop     rbp                         #  prev_CP  [CP+16]
+    add     rsp, 8                      #  discard MH slot  [CP+24]  (pre-CELL-5)
+    jmp     rax                         #  → resume point
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# BASE CELL RESUME — base_resume
+# SPITBOL manual Ch.18 step 6, &ANCHOR=0 arm: advance start cursor, bound-check,
+# re-enter.  (&ANCHOR≠0 path: jmp scan_nomatch — one runtime cmp/je, omitted here.)
+#
+# On entry (from cellfail): rsp at pre-BASE depth; r14d = old start δ (TAG bits
+# in high32 cleared by the inc below); rbp = prev_CP (caller's frame).
+# ═══════════════════════════════════════════════════════════════════════════════════
+base_resume:
+    cmp     r14d, r15d                  #  δ ≥ Δ ?  (subject exhausted)
+    jae     scan_nomatch                #  ω — whole scan failed
+    inc     r14d                        #  start ← start + 1  (also zeros high32 TAG bits)
+    jmp     attempt                     #  re-push BASE at new start; rsp already correct
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# SCAN BRACKET — scanhit  (whole-match γ)
+# Walk CP chain to TAG==BASE, cut there, consume the cell.
+# Winning start δ pops out of the BASE cell itself — no separate head-slot write-back.
+# (CELL-5+: commit-walk over mark chain happens here before the cut.)
+# ═══════════════════════════════════════════════════════════════════════════════════
+scanhit:
+scanhit_find_base:
+    cmp     dword ptr [rbp + 12], 1     #  TAG == BASE ?
+    je      scanhit_got_base
+    mov     rbp, qword ptr [rbp + 16]   #  chain prev  (pending choices die in the cut)
+    jmp     scanhit_find_base
+scanhit_got_base:
+    mov     rsp, rbp                    #  cut to BASE
+    pop     rax                         #  consume: resume  (discard)
+    pop     rcx                         #  consume: saved δ = winning start (low32=ecx)
+    pop     rbp                         #  consume: restore caller rbp  (bracket exit)
+    add     rsp, 8                      #  consume: MH slot
+    movzx   ecx, cl                     #  isolate start digit  (0-based; ≤9 for demo)
+    add     cl,  48                     #  → ASCII
+    mov     byte ptr [rip + msg_s], cl
+    mov     eax, r14d
+    add     al,  48
+    mov     byte ptr [rip + msg_e], al
+    mov     eax, 1                      #  sys_write
+    mov     edi, 1
+    lea     rsi, [rip + msg]
+    mov     edx, OFFSET msg_len
     syscall
-    xor   edi, edi
-    jmp   do_exit
+    xor     edi, edi                    #  exit 0
+    jmp     do_exit
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# SCAN BRACKET — scan_nomatch  (whole-scan ω)
+# ═══════════════════════════════════════════════════════════════════════════════════
 scan_nomatch:
-    mov   eax, 1
-    mov   edi, 1
-    lea   rsi, [rip + nomsg]
-    mov   edx, OFFSET nomsg_len
+    mov     eax, 1
+    mov     edi, 1
+    lea     rsi, [rip + nomsg]
+    mov     edx, OFFSET nomsg_len
     syscall
-    mov   edi, 1
+    mov     edi, 1
 do_exit:
-    mov   eax, 60
+    mov     eax, 60                     #  sys_exit
     syscall
+
+# ═══════════════════════════════════════════════════════════════════════════════════
     .data
-subj:   .ascii "abhello"              # flip to "abhexlo" to watch the exhaust path take scan_nomatch
-msg:    .ascii "CELL MATCH start="
-msg_s:  .byte  63
-        .ascii " end="
-msg_e:  .byte  63
-        .byte  10
-    .set msg_len, . - msg
-nomsg:  .ascii "CELL NOMATCH\n"
-    .set nomsg_len, . - nomsg
+subj:     .ascii  "abhello"
+msg:      .ascii  "CELL MATCH start="
+msg_s:    .byte   63
+          .ascii  " end="
+msg_e:    .byte   63
+          .byte   10
+    .set  msg_len,   . - msg
+nomsg:    .ascii  "CELL NOMATCH\n"
+    .set  nomsg_len, . - nomsg
