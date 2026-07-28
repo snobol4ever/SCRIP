@@ -51,6 +51,7 @@
 #define DT_I      6
 #define DT_R      7
 #define DT_N      9
+#define DT_X     15
 #define DT_FAIL  99
 
 /* CET/IBT is enabled on this toolchain, so every externally reachable entry

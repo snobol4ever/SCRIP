@@ -86,6 +86,22 @@ int main(void) {
     both("int left  (coerce)",        I(1863), S(" years"));
     both("int right (coerce)",        S("year "), I(-77));
     both("int + SNUL (type kept)",    I(3), NUL());
+    /* RTX-3b null-identity arm. SNUL+I is THE idiom shape -- `N = LT(N,lim) N + 1` makes
+     * 10M of these in var_access/func_call -- and the battery was blind to it until now:
+     * SNUL+S, S+SNUL, SNUL+SNUL and I+SNUL were all present, so symmetry made it LOOK
+     * covered. Manual v3.7 p.22: the other operand is returned UNCHANGED, not coerced. */
+    both("SNUL + int (THE idiom)",    NUL(), I(3));
+    both("SNUL + int negative",       NUL(), I(-77));
+    both("SNUL + int zero",           NUL(), I(0));
+    both("SNUL + real (type kept)",   NUL(), R(0.5));
+    both("real + SNUL (type kept)",   R(0.5), NUL());
+    /* guard precedence: FAIL and slen0-DT_S must still beat the null arm, both orders */
+    both("SNUL + FAIL (FAIL wins)",   NUL(), FL());
+    both("FAIL + SNUL (FAIL wins)",   FL(), NUL());
+    both("slen0 left + SNUL",         Sraw("hello", 0), NUL());
+    both("SNUL + slen0 right",        NUL(), Sraw("hello", 0));
+    both("CSET + SNUL",               Sraw("abc", 0xFFFFFFFFu), NUL());
+    both("SNUL + CSET",               NUL(), Sraw("abc", 0xFFFFFFFFu));
     both("real left (coerce)",        R(0.5), S("x"));
     both("real right",                S("x"), R(100.0));
     both("FAIL left",                 FL(), S("x"));
