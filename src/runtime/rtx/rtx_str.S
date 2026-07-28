@@ -128,9 +128,9 @@ RTX_GATE_DEF(str)
 RTX_FUNC(str_concat_d)
     RTX_GATE(str, c_str_concat_d)
     cmp     edi, DT_S                   /* a.v == DT_S (tag aliases edi)        */
-    jne     .Lsc_slow
+    jne     .Lsc_null                   /* not two plain strings -> null arm    */
     cmp     edx, DT_S                   /* b.v == DT_S                          */
-    jne     .Lsc_slow
+    jne     .Lsc_null
     test    rsi, rsi                    /* a.s non-null (else VARVAL_fn strdups)*/
     je      .Lsc_slow
     test    rcx, rcx                    /* b.s non-null                         */
@@ -204,6 +204,73 @@ RTX_FUNC(str_concat_d)
     shl     rax, 32
     or      rax, DT_S                   /* rax = (len << 32) | DT_S             */
     mov     rdx, r10                    /* rdx = buf                            */
+    ret
+/*
+ * .Lsc_null -- THE TYPE-PRESERVING NULL IDENTITY (SPITBOL manual v3.7, p.22).
+ *
+ *   "It is always possible for concatenation to automatically convert a number to a
+ *    string. But there is one important exception ... if either operand is the null
+ *    string, the other operand is returned unchanged. It is not coerced into the
+ *    string data type."          ?= (20 - 17) ''   ==>   3        (the INTEGER 3)
+ *
+ * Reached when the two-plain-strings test above failed on EITHER tag -- which is the
+ * shape of every measured hot call: SNUL+I (the LT(...) loop-guard idiom), I+SNUL and
+ * S+SNUL. c_str_concat_d services those with a full -O0 prologue, an rt_gc_point_arr
+ * call with a 32-byte stack shadow array, and six tag compares, in order to return one
+ * of its own arguments unchanged.
+ *
+ * GUARD ORDER IS DERIVED FROM c_str_concat_d AND MUST STAY EQUIVALENT TO IT:
+ *   1. !g_gc_pending     - else C's gc point relocates a/b and does real work.
+ *   2. neither DT_P/DT_X - pattern concat (pat_cat) takes precedence.
+ *   3. neither DT_FAIL   - FAILDESCR takes precedence, and a DT_FAIL operand is NOT
+ *                          necessarily bit-identical to FAILDESCR{.v=DT_FAIL,.i=0}.
+ *   4. THEN a.v==DT_SNUL => return b ; b.v==DT_SNUL => return a.
+ *
+ * The SNUL test is hoisted above guards 2/3 in the a-arm ONLY because a.v==DT_SNUL(0)
+ * already proves a is not DT_P(3), DT_X(15) or DT_FAIL(99) -- so only the OTHER operand
+ * still needs guarding. Identical condition set to the C, half the compares.
+ *
+ * DT_SNUL ARM ONLY. IS_NULL_fn's second arm (DT_S && slen==0 && empty) is the RTX-3
+ * LENGTH-UNKNOWN trap: slen==0 on a DT_S means "length not computed yet", not "empty".
+ * .Lsc_nb rejects that shape outright instead of dereferencing a.s here.
+ *
+ * REGISTERS (RTX-1, verified empirically):  a = rdi:(slen<<32)|v , rsi:value
+ *                                           b = rdx:(slen<<32)|v , rcx:value
+ *                                      return = rax:(slen<<32)|v , rdx:value
+ * Falls through to .Lsc_slow with rdi/rsi/rdx/rcx untouched (rax/r8 are scratch).
+ */
+.Lsc_null:
+    mov     rax, [rip + g_gc_pending@GOTPCREL]  /* exported => preemptible => GOT */
+    cmp     dword ptr [rax], 0
+    jne     .Lsc_slow                   /* collection pending => C's gc point   */
+    test    edi, edi                    /* a.v == DT_SNUL (0)?                  */
+    jne     .Lsc_nb
+    cmp     edx, DT_P                   /* a is SNUL, so guard b alone          */
+    je      .Lsc_slow
+    cmp     edx, DT_X
+    je      .Lsc_slow
+    cmp     edx, DT_FAIL
+    je      .Lsc_slow
+    mov     rax, rdx                    /* return b -- read rdx BEFORE overwrite*/
+    mov     rdx, rcx
+    ret
+.Lsc_nb:
+    test    edx, edx                    /* b.v == DT_SNUL (0)?                  */
+    jne     .Lsc_slow
+    mov     r8, rdi
+    shr     r8, 32                      /* r8 = a.slen; ZF set when slen == 0   */
+    jne     .Lsc_nb_ok
+    cmp     edi, DT_S                   /* DT_S with slen==0 => IS_NULL_fn(a)   */
+    je      .Lsc_slow                   /*   ambiguous here; let C decide       */
+.Lsc_nb_ok:
+    cmp     edi, DT_P                   /* b is SNUL, so guard a alone          */
+    je      .Lsc_slow
+    cmp     edi, DT_X
+    je      .Lsc_slow
+    cmp     edi, DT_FAIL
+    je      .Lsc_slow
+    mov     rax, rdi                    /* return a                             */
+    mov     rdx, rsi
     ret
 .Lsc_slow:
     jmp     c_str_concat_d
