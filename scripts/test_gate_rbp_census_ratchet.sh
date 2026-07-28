@@ -16,12 +16,22 @@
 # parallel sessions share this file, RULES.md CONCURRENCY note).
 #
 # Baseline history: 237 (s193 — post FLATDISP-5b/5c heal + FLATDISP-6 narrowing; ALL=251,
-# CLASS_D=14, watermark m3 185/130 m4 183/130 DIVERGE=1).
+# CLASS_D=14, watermark m3 185/130 m4 183/130 DIVERGE=1).  119 (s194 FLATDISP-7).  113 (s196
+# SCANBASE).  48 (s199 DEFER-STAR: emit_graph_has_deep_arrival counted EVERY IR_MATCH_DEFER,
+# but that op is built by two lowering arms the node cannot tell apart — TT_DEFER (the `*`
+# unevaluated-expression operator) and TT_VAR (a bare pattern-valued variable in pattern
+# position).  Only `*` can recurse: SPITBOL manual "Recursive Patterns" p.122 — the operator
+# is what "makes the definition possible" and what "allows a forward reference to a pattern
+# not yet defined"; a stored pattern reused by name is built EAGERLY and cannot name itself.
+# Narrowed to star-sourced only via the sno_defer_is_star side table.  Watermark held exactly
+# m3 221/94 m4 219/94 DIVERGE=1, FAIL sets byte-identical both modes, benchmark runtime
+# signatures byte-identical pre/post.  NOT the s197 change, which dropped DEFER wholesale and
+# was correctly reverted — recursive-`*` witnesses stay deep here, verified.)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-/home/claude/corpus}"
 BENCH="$CORPUS/benchmarks/snobol4"
-BASELINE="${RBP_CENSUS_MAX:-113}"
+BASELINE="${RBP_CENSUS_MAX:-48}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$BENCH" ]  || { echo "SKIP no benchmark corpus at $BENCH"; exit 0; }
 ALL=0; D=0; TABLE=""
