@@ -285,7 +285,7 @@ static std::string bcps_det_arm() {
              * when ZC_FRAME != ZC_FRAME_RSP after the guard widening above — configs where r12 IS the ζ frame
              * (⭐ s202: that basis NO LONGER EXISTS.  ZC_FRAME_R12 was deleted at ZR-RSPRBP-1 s201, so `!= RSP`
              * now means RBP — a basis this arm was never written for, and which is #error-guarded as non-running
-             * in zeta_choices.h after measuring 13 corpus crashes.  This arm is therefore DEAD CODE awaiting the
+             * in zeta_choices.h after a matched-pair A/B measured 9 NET NEW crashes (s202).  This arm is therefore DEAD CODE awaiting the
              * delete-or-re-establish call; see FINDING-2026-07-28b.)
              * (pre-REG-MAP tenancy), the pend top is NOT register-resident, and this rsp-anchor bracket is the
              * correct suspending-exit protocol.  Under the RSP default this arm is unreachable, so the REG-6
