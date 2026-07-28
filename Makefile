@@ -31,9 +31,10 @@ CC      := gcc
 CXX     := g++
 WARN    := -w
 RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # FACT RULE O0-DEV (s119): runtime .so DEFAULTS to -O0 — feature-dev builds must be FAST. -O2 is PERF-ONLY, explicit opt-in: make RT_OPT="-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer" libscrip_rt  (or PERF=1 via jcon_selfhost_build.sh). NEVER -O1/-O2 while developing features.
-CBASE   := -O0 -g $(WARN) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
+DEPFLAGS := -MMD -MP
+CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
-CXXRT   := -O0 -g $(WARN) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED $(ZCFLAGS)
+CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED $(ZCFLAGS)
 CRT     := $(CBASE) -DDYN_ENGINE_LINKED $(ZCFLAGS)
 LIBS    := -lm -lpthread
 
@@ -318,11 +319,11 @@ vpath %.S $(sort $(dir $(RT_PIC_SRCS)))
 $(RT_OBJDIR):
 	@mkdir -p $(RT_OBJDIR)
 $(RT_OBJDIR)/%.o: %.c $(RT)/rt/rt.h | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.S | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
 out/libscrip_rt.so: $(RT_PIC_OBJS)
 	@mkdir -p out
 	$(CC) -shared $(RT_PIC_OBJS) -lm -lstdc++ -lpthread -o out/libscrip_rt.so
@@ -448,7 +449,14 @@ run-net: scrip
 # ── Clean ─────────────────────────────────────────────────────────────────────
 
 clean:
-	rm -rf $(OBJ) scrip
+	rm -rf $(OBJ) out scrip
 
 distclean: clean
 	rm -rf $(JVM_CACHE) $(NET_CACHE) /tmp/snobol4_asm_* /tmp/scrip_cc_*
+
+# ── Header dependency tracking (s159) ─────────────────────────────────────────
+# -MMD -MP emits a .d beside every .o; including them makes a header edit rebuild
+# every TU that includes it.  Before this, editing emit.h rebuilt NOTHING and make
+# silently linked an ABI-mismatched binary (the s157 bisect produced impossible
+# results for exactly this reason).  find, not wildcard: objects nest in subdirs.
+-include $(shell find $(OBJ) $(RT_OBJDIR) -name "*.d" 2>/dev/null)
