@@ -1903,6 +1903,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_DISJUNCTION) && c->n_operands > 0) for (int _oi = 0; _oi < c->n_operands; _oi++) if (c->operands[_oi] && qt < Q_MAX) queue[qt++] = c->operands[_oi];   /* SN4-NARY-ALT/-SEQ: alternatives/elements hang off operands, not the γ-spine (BOTH copies of the dup walk — the s31 dedup finding stands) */
     }
     if (qt >= Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= Q_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)Q_MAX, prefix); abort(); }
+    /* CELL-1a (GOAL-SN4-CELL-MACHINE.md): ζ-cell regime classifier, DARK — computed and traceable, consumed by NOTHING this rung (the no-interleave law: a graph is ALL-cells or ALL-legacy; until the
+     * cells bracket+templates exist the classifier must select nothing).  CONVERTED set grows one construct per rung; SCRIP_CELLS: 0=legacy always, 1=force (will bomb on unconverted ops once live —
+     * debug only), unset/auto=classifier.  cells_live stays 0 by the && 0 fuse; CELL-1 proper removes the fuse when the bracket lands. */
+    int cells_ok = scan_live;
+    if (cells_ok) for (int _ci = 0; _ci < n; _ci++) { int _op = nodes[_ci]->op; if (!(_op == IR_MATCH_LIT || _op == IR_MATCH_SEQUENCE)) { cells_ok = 0; break; } }
+    static int _cells_env = -2; if (_cells_env == -2) { const char *_e = getenv("SCRIP_CELLS"); _cells_env = (!_e || !strcmp(_e, "auto")) ? -1 : (_e[0] == '1' ? 1 : 0); }
+    int cells_live = (_cells_env == 0 ? 0 : (_cells_env == 1 ? 1 : cells_ok)) && 0;   /* CELL-1a FUSE: dark until the cells bracket exists */
+    { static int _ct = -1; if (_ct < 0) { const char *_e = getenv("SCRIP_CELLS_TRACE"); _ct = (_e && *_e == '1') ? 1 : 0; }
+      if (_ct) fprintf(stderr, "[CELLS] prefix=%s n=%d scan_live=%d cells_ok=%d cells_live=%d\n", prefix, n, scan_live, cells_ok, cells_live); }
+    (void)cells_live;
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_y  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
