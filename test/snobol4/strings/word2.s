@@ -27,7 +27,7 @@ proc_PAT$0_α:
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
                         lea              rax, [rip + n0_match_sequence_β]
-                        mov              qword ptr [rsp + 288], rax
+                        mov              qword ptr [rbp + 288], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n0_match_sequence_α:
                                                                                         jmp   n1_lit_integer_α
@@ -39,9 +39,9 @@ n0_match_sequence_af:
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_integer_α:
-                        mov              qword ptr [rsp + 48], 6
+                        mov              qword ptr [rbp + 48], 6
                         mov              rax, qword ptr [rip + .Lx19_0]
-                        mov              qword ptr [rsp + 56], rax
+                        mov              qword ptr [rbp + 56], rax
                                                                                         jmp   n2_match_pos_α
 n1_lit_integer_β:
                                                                                         jmp   proc_PAT$0_ω
@@ -80,9 +80,9 @@ n4_match_assign_cond_β:
                                                                                         jmp   n14_match_len_β
 #-----------------------------------------------------------------------------------------------------------------------
 n5_lit_integer_α:
-                        mov              qword ptr [rsp + 128], 6
+                        mov              qword ptr [rbp + 128], 6
                         mov              rax, qword ptr [rip + .Lx25_0]
-                        mov              qword ptr [rsp + 136], rax
+                        mov              qword ptr [rbp + 136], rax
                                                                                         jmp   n6_match_tab_α
 n5_lit_integer_β:
                                                                                         jmp   n4_match_assign_cond_β
@@ -152,9 +152,9 @@ n9_match_lit_β:
                                                                                         jmp   n8_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_integer_α:
-                        mov              qword ptr [rsp + 208], 6
+                        mov              qword ptr [rbp + 208], 6
                         mov              rax, qword ptr [rip + .Lx33_0]
-                        mov              qword ptr [rsp + 216], rax
+                        mov              qword ptr [rbp + 216], rax
                                                                                         jmp   n11_match_tab_α
 n10_lit_integer_β:
                                                                                         jmp   n9_match_lit_β
@@ -277,10 +277,10 @@ proc_PAT$0_scanfail:
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_res:
                         add              rsp, 8
-                        pop              rsp
+                        pop              rbp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_β:
-                                                                                        jmp   qword ptr [rsp + 288]
+                                                                                        jmp   qword ptr [rbp + 288]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_γ:
                         push             rbp
