@@ -263,7 +263,7 @@ int  rt_zeta_mode(void) { return g_zeta_mode; }
  * arithmetic), so its runtime side (rt_zeta_cstack's alloca-vs-arena proc frames) must self-select the SAME
  * mode regardless of the executing shell's env. */
 static int g_zeta_port = -1;
-void rt_zeta_port_set_mode(int m) { g_zeta_port = (m >= ZC_PORT_PLAIN && m <= ZC_PORT_FORTH) ? m : (int)ZC_PORT; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] port=%d\n", g_zeta_port); }
+void rt_zeta_port_set_mode(int m) { g_zeta_port = (m >= ZC_PORT_PLAIN && m <= ZC_PORT_HEAP) ? m : (int)ZC_PORT; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] port=%d\n", g_zeta_port); }
 int  rt_zeta_port_mode(void) { if (g_zeta_port < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); g_zeta_port = e ? atoi(e) : (int)ZC_PORT; } return g_zeta_port; }
 int rt_zeta_cstack(void)
 {
