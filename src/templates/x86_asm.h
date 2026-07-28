@@ -344,8 +344,8 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : ZC_FRAME == ZC_FRAME_RBP ? "rbp" : "r12"; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): ONE stream — under RSP zr IS rsp, no conditions.  History: the op_anchored window arms died at U4 (s86); the s79 flat_pat rbp-island died here (pat blobs now ride the U2/U2b header-above protocol — unified prologue + suspend epilogue arm, s87 slice 1). */
-inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_FRAME == ZC_FRAME_RBP ? 5 : 12; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): under RSP zr IS rsp, unconditionally — the ONE stream.  flat_pat no longer selects a register anywhere; it survives only as the xa_flat epilogue's suspend-vs-determinate protocol selector.  The s79 pat-blob rbp-island (save [rsp+24] / restore [zr-8] / record re-pin) is RETIRED — pat blobs ride the U2/U2b header-above protocol (prologue unified, suspend epilogue arm added s87 slice 1). */
+inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : "rbp"; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): ONE stream — under RSP zr IS rsp, no conditions.  History: the op_anchored window arms died at U4 (s86); the s79 flat_pat rbp-island died here (pat blobs now ride the U2/U2b header-above protocol — unified prologue + suspend epilogue arm, s87 slice 1).  ZR-RSPRBP-1: the third arm ("r12") is DELETED with ZC_FRAME_R12 itself — the ζ basis set is CLOSED at RSP and RBP.  The default arm is untouched, so this is inert by construction. */
+inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : 5; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): under RSP zr IS rsp, unconditionally — the ONE stream.  ZR-RSPRBP-1: the third arm (12) is DELETED with ZC_FRAME_R12 — ζ basis set CLOSED at rsp(4)/rbp(5).  flat_pat no longer selects a register anywhere; it survives only as the xa_flat epilogue's suspend-vs-determinate protocol selector.  The s79 pat-blob rbp-island (save [rsp+24] / restore [zr-8] / record re-pin) is RETIRED — pat blobs ride the U2/U2b header-above protocol (prologue unified, suspend epilogue arm added s87 slice 1). */
 /* FLAT FRAME (s189) — RBP IS ERADICATED FROM FRAME ADDRESSING.  The frame base IS rsp, unconditionally.
  * Every frame reference adds the box's STATIC depth D = g_emit.op_flat_disp: the running prefix sum over the
  * known BB sequence that LOWER's fc_leaf_walk computes (allocation order = flow order on a linear spine;
@@ -357,9 +357,9 @@ inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : ZC_
  * env override.  There is no A/B control and no way to spell an rbp frame reference any more.
  * ONE function owns the arithmetic; every other site calls it. */
 inline int x86_fb_pinned() { return emit_jmp_pin_rbp(); }   /* FLATDISP-8 (s197): THE FRAME-BASE SELECTOR — reads the SAME predicate that decides whether the prologue saves+seeds rbp (emit.h:599, xa_flat's hdr arms), so the base a reference NAMES and the base the prologue ESTABLISHES are one decision and cannot drift.  Seeded `mov rbp,rsp` at the activation flat base => rbp IS the frame base and is DEPTH-IMMUNE; unpinned graphs never touch rbp (free GPR) and keep the s189 rsp regime with its op_flat_disp compensation.  This restores the arm s189 deleted, now per-graph instead of a build constant: s188/s189 made fb unconditionally rsp while xa_flat kept seeding rbp for the pinned classes, and a SUSPENDED generator resumes with rsp at the deep frontier -- no static displacement exists (the FLATDISP-5 wall), which is why the residual 14 were ONE class. */
-inline int x86_frame_off(int off) { return x86_fb_pinned() ? off : off + (int)_.op_flat_disp; }   /* THE ONE OFFSET FUNCTION: flat-frame offset -> frame-base-relative displacement.  Sole consumers: x86_r12_modrm (BINARY modrm), x86_frame_text_mem (TEXT spelling), FR/FRQ (operand spellings).  Nothing else may add a frame displacement.  Under a PINNED rbp the compensation is IDENTICALLY ZERO by construction -- op_flat_disp is the running rsp-depth prefix sum and rbp does not move -- so adding it would double-count the very depth the pin exists to neutralize. */
+inline int x86_frame_off(int off) { return x86_fb_pinned() ? off : off + (int)_.op_flat_disp; }   /* THE ONE OFFSET FUNCTION: flat-frame offset -> frame-base-relative displacement.  Sole consumers: x86_frame_modrm (BINARY modrm), x86_frame_text_mem (TEXT spelling), FR/FRQ (operand spellings).  Nothing else may add a frame displacement.  Under a PINNED rbp the compensation is IDENTICALLY ZERO by construction -- op_flat_disp is the running rsp-depth prefix sum and rbp does not move -- so adding it would double-count the very depth the pin exists to neutralize. */
 inline const char * x86_fb()         { return x86_fb_pinned() ? "rbp" : "rsp"; }   /* FRAME BASE.  The REG-7 U3 rbp split-off, restored per-graph by FLATDISP-8. */
-inline int          x86_fb_num()     { return x86_fb_pinned() ? 5 : 4; }           /* rsp low3 = 100 -> x86_r12_modrm takes the mandatory-SIB path (0x24), mod=00 legal at off 0.  rbp low3 = 101 -> no SIB and mod=00 is UNAVAILABLE ([rbp] encodes RIP-relative), so off 0 takes the disp8 form -- the encoder's `b != 5` guard already spells both, matching `as` byte for byte (R10). */
+inline int          x86_fb_num()     { return x86_fb_pinned() ? 5 : 4; }           /* rsp low3 = 100 -> x86_frame_modrm takes the mandatory-SIB path (0x24), mod=00 legal at off 0.  rbp low3 = 101 -> no SIB and mod=00 is UNAVAILABLE ([rbp] encodes RIP-relative), so off 0 takes the disp8 form -- the encoder's `b != 5` guard already spells both, matching `as` byte for byte (R10). */
 inline const char * x86_fr32_prefix() { return x86_fb_pinned() ? "dword ptr [rbp + " : "dword ptr [rsp + "; }
 inline const char * x86_fr64_prefix() { return x86_fb_pinned() ? "qword ptr [rbp + " : "qword ptr [rsp + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -737,7 +737,7 @@ inline std::string x86_cmp_imm(const char * reg, long imm) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_modrm(int regfield, int off) {
-    /* Literal-RSP modrm (s68): the x86_rsp_* family encodes base=rsp ALWAYS, independent of the zeta frame register.  Pre-s68 these delegated to x86_r12_modrm and free-rode on the r12/rsp low-3-bit pun
+    /* Literal-RSP modrm (s68): the x86_rsp_* family encodes base=rsp ALWAYS, independent of the zeta frame register.  Pre-s68 these delegated to x86_frame_modrm and free-rode on the r12/rsp low-3-bit pun
      * (12&7 == 4&7 == 4, REX.B never emitted) — the pun broke the day zr_num() could be 11.  rm=100 + SIB 0x24, mod by disp width, off==0 legal at mod=00. */
     std::string s; int rf = regfield & 7;
     int mod = (off == 0) ? 0 : (off >= -128 && off <= 127) ? 1 : 2;
@@ -747,13 +747,15 @@ inline std::string x86_rsp_modrm(int regfield, int off) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_r12_modrm(int regfield, int off) {
-    /* Frame-base modrm, generalized 2026-07-08 session 2 (name kept for grep continuity with its 17 call
-     * sites; "r12" in the name now means "the ζ frame register", x86_zr_num()).  r12 (low3=100): SIB byte
-     * 0x24 mandatory, mod=00 legal at off 0 — byte-identical to the pre-generalization encoder.  rbp
-     * (low3=101): no SIB, and mod=00 is UNAVAILABLE ([rbp] with mod=00 encodes disp32/RIP-relative), so
-     * off==0 must take the disp8 form — one extra byte vs r12, matching exactly what `as` emits for
-     * [rbp + 0] (the R10 BINARY-agrees-with-TEXT law). */
+inline std::string x86_frame_modrm(int regfield, int off) {
+    /* Frame-base modrm, generalized 2026-07-08 session 2.  RENAMED from x86_r12_modrm at ZR-RSPRBP-2: the old name
+     * was kept "for grep continuity" while r12 was still a selectable ζ basis, and its own comment had to carry a
+     * correction saying "r12" really meant x86_zr_num().  With ZC_FRAME_R12 deleted (ZR-RSPRBP-1) that continuity is
+     * a liability — the name pointed at a register this encoder no longer has any relationship with — so it now
+     * matches its siblings x86_frame_rex / x86_frame_off / x86_frame_text_mem.  Base is x86_fb_num(), NOT zr.
+     * rsp (low3=100): SIB byte 0x24 mandatory, mod=00 legal at off 0.  rbp (low3=101): no SIB, and mod=00 is
+     * UNAVAILABLE ([rbp] with mod=00 encodes disp32/RIP-relative), so off==0 must take the disp8 form — one extra
+     * byte, matching exactly what `as` emits for [rbp + 0] (the R10 BINARY-agrees-with-TEXT law). */
     off = x86_frame_off(off);   /* FLATDISP s188: compensate BEFORE the mod/disp-width choice, or a depth-shifted ref silently picks the wrong encoding length */
     std::string s; int rf = regfield & 7; int b = x86_fb_num() & 7; int sib = (b == 4);   /* REG-7 U3: base = x86_fb_num() (frame base), no longer zr — lockstep with the fr prefixes */
     int mod = (off == 0 && b != 5) ? 0 : (off >= -128 && off <= 127) ? 1 : 2;
@@ -774,40 +776,40 @@ inline std::string x86_frame_rex(int w, int regfield) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_frame_text_mem(int off) { return std::string("[") + x86_fb() + " + " + std::to_string(x86_frame_off(off)) + "]"; }   /* FLATDISP s188: TEXT twin of the x86_r12_modrm compensation — both mediums read the ONE function, so R10 (BINARY agrees with TEXT) holds by construction */
+inline std::string x86_frame_text_mem(int off) { return std::string("[") + x86_fb() + " + " + std::to_string(x86_frame_off(off)) + "]"; }   /* FLATDISP s188: TEXT twin of the x86_frame_modrm compensation — both mediums read the ONE function, so R10 (BINARY agrees with TEXT) holds by construction */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_lea(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8D; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8D; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" lea ") + reg + ", " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_movsxd_frame(dst64, off) — movsxd dst64, dword ptr [ζ+off]: the FRAME-SOURCE form of movsxd, mirroring
- * x86_frame_lea exactly (REX.W + opcode + x86_r12_modrm) but with opcode 0x63.  The register-source encoder
+ * x86_frame_lea exactly (REX.W + opcode + x86_frame_modrm) but with opcode 0x63.  The register-source encoder
  * x86_movsxd builds a mod=11 reg/reg byte and reads x86_rnum(src) — for a memory operand string that yields
  * reg 0 (eax), so the register encoder emits `movsxd dst, eax` in BINARY while TEXT string-concats the correct
  * memory form: the exact mode-3/mode-4 divergence that corrupted scan-nary saved_δ (2026-07-13).  Source is
  * 32-bit by movsxd definition, so the text form carries `dword ptr`. */
 inline std::string x86_movsxd_frame(const char * dst64, int off) {
     int g = x86_rnum(dst64);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x63; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x63; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" movsxd ") + dst64 + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_mov_imm(int off, long imm) {
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, 0); c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, 0); c += (char)0xC7; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_store(int off, const char * reg) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x89; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x8B; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -820,8 +822,8 @@ inline std::string x86_frame_add_imm(int off, long imm) {
          * match spun forever in mode-3 (found by disassembling the live JIT stream; mode-4 was immune because
          * the TEXT arm below was always spelled from x86_frame_text_mem). */
         std::string c; c += x86_frame_rex(0, 0);
-        if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_r12_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
-        else                           { c += (char)0x81; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); }
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_frame_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
+        else                           { c += (char)0x81; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
     return std::string(" add dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
@@ -829,13 +831,13 @@ inline std::string x86_frame_add_imm(int off, long imm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_add_to_reg(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x03; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x03; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" add ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x2B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x2B; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -844,23 +846,23 @@ inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i +
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8B; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8B; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov ") + reg + ", qword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_store64(int off, const char * reg) {
     int g = x86_rnum(reg);
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x89; c += x86_r12_modrm(g, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x89; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_frame64(int off) {
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xFF; c += x86_r12_modrm(4, off); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xFF; c += x86_frame_modrm(4, off); return x86_Lrec(c); }
     return std::string(" jmp qword ptr ") + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_mov_imm64(int off, long imm) {
-    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xC7; c += x86_r12_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
+    if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xC7; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1068,7 +1070,7 @@ inline std::string x86_load_indexed8(const char * dst, const char * base, const 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_inc64(int off) {
-    std::string code; code += x86_frame_rex(1, 0); code += (char)0xFF; code += x86_r12_modrm(0, off);
+    std::string code; code += x86_frame_rex(1, 0); code += (char)0xFF; code += x86_frame_modrm(0, off);
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" inc qword ptr ") + x86_frame_text_mem(off) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
