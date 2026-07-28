@@ -117,6 +117,30 @@
 #define ZC_PORT ZC_PORT_FORTH
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZC_STORAGE — THE FOUR-CONFIG ζ-STORAGE SELECTOR (Lon directive 2026-07-28, GOAL-ZETA-FOUR.md rung Z4-4 slice 1).  ONE knob replaces the ZC_PORT ladder + the ZC_FRAME axis + ZC_ZETA + SCRIP_ZMODE.
+ * FOUR values, because four techniques were built and each worked with limitations: FRAME_R12 = whole-graph ζ frame (all boxes' results+locals, 1 entry / 1 exit) on an r12-based island stack, the
+ * original; FRAME_RSP = that same whole-graph frame moved onto the C stack, shared with C; CELL_STACK = per-BB cell, fixed rsp carve, with rbp pinned PER GRAPH for the dynamic-sized housekeeping
+ * (ARBNO/FENCE/suspending generators) and rsp for the static-sized; CELL_HEAP = per-BB cell with LOCALS on the rbx-topped GC island and the RESULT on its own island (the VSP value stack).
+ * ONE ENUM, NOT FOUR BOOLEANS, BY DESIGN: a graph mixing two regimes is the s188 failure shape, so the mixed states must be UNREPRESENTABLE rather than merely discouraged; this also collapses the
+ * SCRIP_CELLS × SCRIP_ZMODE interaction matrix that GOAL-SN4-CELL-MACHINE.md flags UNSPECIFIED into four named points.  MEASURED at Z4-0/1/2 (m3, -O0, best-of-3, corpus/probe): FRAME_R12 5/5 correct
+ * (the only 5/5 config, hence the CORRECTNESS ORACLE) · FRAME_RSP 5/5 · CELL_STACK 4/5 (capture defect, a regression bisectable to d79a427a..cca948c5) · CELL_HEAP incomplete (RUNG ZHEAP).
+ * PERF, stated because it is the whole motive: CELL beats FRAME decisively on pattern work (span 3.3x, arbno 1.5x) and LOSES on calls -- z4_fib degraded MONOTONICALLY 71 -> 83 -> 98 ms across the
+ * three generations, so activation cost is the open perf question and z4_fib is its instrument.  SLICE 1 IS THE ENUM ONLY: no consumer reads ZC_STORAGE yet, the legacy axes remain authoritative, and
+ * the default maps to today's compiled behaviour (CELL_STACK == ZC_PORT_FORTH + ZC_FRAME_RSP) so output is byte-identical BY CONSTRUCTION.  Slice 2 adds --zeta-storage= / SCRIP_ZETA_STORAGE + the
+ * runtime setter (clamped over the FULL range -- the s206 lesson, where a stale clamp silently reset port 7 to the default and made every m3-vs-m4 A/B on it invalid) + the mode-4 bake beside the
+ * existing twins at scrip.c:1216/1407, so emitted code and runtime mode can never disagree.  Slice 3+ flips the seams per config; Z4-9 deletes the legacy axes.  ⛔ WHATEVER SURVIVES THE CUT MUST BE
+ * COVERED BY Z4-10's GATE: Z4-0 measured FIVE OF SEVEN ports SEGV-ing at HEAD purely because nothing gated them -- an unguarded config rots by exactly that mechanism. */
+#define ZC_STORAGE_FRAME_R12  0
+#define ZC_STORAGE_FRAME_RSP  1
+#define ZC_STORAGE_CELL_STACK 2
+#define ZC_STORAGE_CELL_HEAP  3
+#ifndef ZC_STORAGE
+#define ZC_STORAGE ZC_STORAGE_CELL_STACK
+#endif
+#if ZC_STORAGE < ZC_STORAGE_FRAME_R12 || ZC_STORAGE > ZC_STORAGE_CELL_HEAP
+#error "ZC_STORAGE must be one of ZC_STORAGE_{FRAME_R12,FRAME_RSP,CELL_STACK,CELL_HEAP} -- the closed four-config set (GOAL-ZETA-FOUR.md)"
+#endif
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZC_INIT_ZERO  0
 #define ZC_INIT_NONE  1
 #define ZC_INIT_CLONE 2
