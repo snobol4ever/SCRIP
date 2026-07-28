@@ -22,8 +22,8 @@ proc_PAT$0_α:
                         mov              qword ptr [rsp + 264], 0
                         mov              qword ptr [rsp + 288], 0
                         mov              qword ptr [rsp + 296], 0
-                        mov              qword ptr [rbp + 304], r8
-                        mov              dword ptr [rbp + 296], r14d
+                        mov              qword ptr [rsp + 304], r8
+                        mov              dword ptr [rsp + 296], r14d
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
                         lea              rax, [rip + n0_match_sequence_β]
@@ -363,8 +363,6 @@ main_α:
                         mov              ecx, 360
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 352], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #       PAT      =  POS(0) LEN(4) . WHEN
@@ -449,7 +447,6 @@ n49_var_α:
                                                                                         jmp   n50_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n50_match_head_α:
-                        mov              qword ptr [rsp + 152], rbp
                         mov              rdi, qword ptr [rsp + 192]
                         mov              rsi, qword ptr [rsp + 200]
                         call             rt_match_enter@PLT
@@ -480,7 +477,6 @@ n50_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 128]
                         mov              r12, qword ptr [rsp + 144]
-                        mov              rbp, qword ptr [rsp + 152]
                                                                                         jmp   n46_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n51_match_defer_α:
@@ -603,7 +599,6 @@ n52_match_release_α:
                         pop              r15
                         pop              r14
                         mov              r12, qword ptr [rsp + 144]
-                        mov              rbp, qword ptr [rsp + 152]
                                                                                         jmp   n53_var_α
 #=======================================================================================================================
 #       OUTPUT   =  WHO " invented the " WHAT " in " WHEN  :(LOOP)
@@ -716,16 +711,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 352]
                         add              rsp, 360
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 352]
                         add              rsp, 360
                         ret
                         .section         .rodata

@@ -16,8 +16,8 @@ proc_PAT$0_α:
                         mov              qword ptr [rsp + 8], 0
                         mov              qword ptr [rsp + 48], 0
                         mov              qword ptr [rsp + 56], 0
-                        mov              qword ptr [rbp + 64], r8
-                        mov              dword ptr [rbp + 56], r14d
+                        mov              qword ptr [rsp + 64], r8
+                        mov              dword ptr [rsp + 56], r14d
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
                         lea              rax, [rip + n0_match_alternate_β]
@@ -207,8 +207,6 @@ main_α:
                         mov              ecx, 312
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 304], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         P = ('a' | 'b' | 'c')
@@ -339,7 +337,6 @@ n23_var_α:
                                                                                         jmp   n24_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n24_match_head_α:
-                        mov              qword ptr [rsp + 152], rbp
                         mov              rdi, qword ptr [rsp + 256]
                         mov              rsi, qword ptr [rsp + 264]
                         call             rt_match_enter@PLT
@@ -370,7 +367,6 @@ n24_match_head_β:
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 128]
                         mov              r12, qword ptr [rsp + 144]
-                        mov              rbp, qword ptr [rsp + 152]
                                                                                         jmp   n17_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n25_match_assign_save_α:
@@ -516,7 +512,6 @@ n28_match_release_α:
                         pop              r15
                         pop              r14
                         mov              r12, qword ptr [rsp + 144]
-                        mov              rbp, qword ptr [rsp + 152]
                                                                                         jmp   n16_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
@@ -525,16 +520,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 304]
                         add              rsp, 312
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 304]
                         add              rsp, 312
                         ret
                         .section         .rodata
