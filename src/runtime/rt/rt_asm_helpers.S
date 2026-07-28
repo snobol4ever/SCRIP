@@ -2,10 +2,29 @@
 /* SysV AMD64 ABI, matched byte-for-byte to the SCRIP emitter's own DESCR_t marshaling (verified vs emitted caller in a mode-4 .s: arg DESCR_t in RDI:RSI = {v(lo32),slen(hi32)} : payload, return   */
 /* DESCR_t in RAX:RDX).  descr.h layout: v @0 (4B), slen @4 (4B), payload @8 (8B); DT_N=9, DT_FAIL=99; NAMETRAP = {v=9,slen=2,p=VCELL*}; VCELL_t.cellp @0.  The three HOT deref shapes are inlined here  */
 /* (slen==1 pointer cell, slen==0 shared-NV name, slen==2 nametrap with a direct cellp); every COLD shape (nametrap table lookup, varref substring, malformed) tail-jumps to the full C rt_deref_slow.  */
+/* RTX-5a (s200): THIS FILE IS NOW UNDER THE RTX KILL-SWITCH CONTRACT (ARCH-SNOBOL4-RTX.md section 4).  It predates the RTX ladder and was invisible to it: ARCH section 7's step-0 existence grep filtered      */
+/* --include=*.c/*.h/*.cpp and so could not see .S files at all, which is why RTX-5's rung listed rt_deref as a PORT TARGET when it has been hand-written asm here all along (sixth phantom class, s200).      */
+/* GATE = SCRIP_RTX_LEAF, byte rtx_gate_leaf, initialised in rtx/rtx_init.c alongside the other four families.  Gate 0 => tail-jump to the untouched C body, whose signature is identical, so the args are     */
+/* already in register and its return goes straight to our caller -- that tail jump IS the byte-identity proof path (same idiom as RTX_GATE in rtx_abi.inc, hand-written here because this file is AT&T        */
+/* syntax while rtx_abi.inc's macros are Intel; ARCH ruling 1 says Intel project-wide, so this file's syntax is a second way it sits outside the contract -- recorded, not fixed, as changing it would rewrite  */
+/* working code for no behavioural gain).  BOTH fallbacks are COMPLETE implementations, not cold-shape handlers: rt_deref_slow (pattern_match.c:1173) covers all four shapes the asm inlines plus the cold      */
+/* table/varref cases, and to_int_slow (core/core.c:1991) covers DT_I as well as the coercions -- verified s200, which is what makes a two-instruction gate sufficient here.                                    */
+    .data
+    .align 1
+    .globl rtx_gate_leaf
+    .hidden rtx_gate_leaf
+    .type  rtx_gate_leaf, @object
+    .size  rtx_gate_leaf, 1
+rtx_gate_leaf:
+    .byte  0
     .text
     .globl rt_deref
     .type  rt_deref, @function
 rt_deref:
+    cmpb   $0, rtx_gate_leaf(%rip)
+    jne    .Lrd_asm
+    jmp    rt_deref_slow@PLT
+.Lrd_asm:
     movl   %edi, %eax
     cmpl   $9, %eax
     jne    .Lrd_retd
@@ -55,6 +74,10 @@ rt_deref:
     .globl to_int
     .type  to_int, @function
 to_int:
+    cmpb   $0, rtx_gate_leaf(%rip)
+    jne    .Lti_asm
+    jmp    to_int_slow@PLT
+.Lti_asm:
     cmpl   $6, %edi
     jne    .Lti_slow
     movq   %rsi, %rax
