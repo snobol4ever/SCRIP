@@ -2215,10 +2215,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
         if (g_is_text) {
             char _res[96];
-            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", x86_fb());   /* REG-7 U5: the record[+8] payload is the FRAME BASE — rbp for RSP pat blobs (Lon FORTH ruling; zr is sealing to rsp and can no longer name it), r12/rbp legacy modes byte-identical via the fb selector */
+            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", (emit_jmp_pin_rbp() ? "rbp" : x86_fb()));   /* REG-7 U5: the record[+8] payload is the FRAME BASE — rbp for RSP pat blobs (Lon FORTH ruling; zr is sealing to rsp and can no longer name it), r12/rbp legacy modes byte-identical via the fb selector */
             emit_text_n(_res, strlen(_res));
         } else {
-            int z = x86_fb_num();
+            int z = emit_jmp_pin_rbp() ? 5 : x86_fb_num();
             ef_b4(0x48, 0x83, 0xC4, 0x08);
             if (z >= 8) ef_b2(0x41, (uint8_t)(0x58 | (z & 7))); else ef_b1((uint8_t)(0x58 | (z & 7)));
         }
@@ -2227,10 +2227,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_suspend_resume_slot >= 0 && (g_gen_proc_active || g_resumable_callable_active)) {
         if (g_is_text) {
             char _ind_jmp[64];
-            snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [%s + %d]\n", x86_fb(), g_suspend_resume_slot);   /* REG-7 U5: frame-slot dispatch via fb (rbp under RSP — re-pinned by the res landing before arrival) */
+            snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [%s + %d]\n", (emit_jmp_pin_rbp() ? "rbp" : x86_fb()), g_suspend_resume_slot);   /* REG-7 U5: frame-slot dispatch via fb (rbp under RSP — re-pinned by the res landing before arrival) */
             emit_text_n(_ind_jmp, strlen(_ind_jmp));
         } else {
-            { int z = x86_fb_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0xFF); if (lo == 4) ef_b2(0xA4, 0x24); else ef_b1((uint8_t)(0xA0 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }   /* REG-7 U5: fb twin */
+            { int z = emit_jmp_pin_rbp() ? 5 : x86_fb_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0xFF); if (lo == 4) ef_b2(0xA4, 0x24); else ef_b1((uint8_t)(0xA0 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }   /* REG-7 U5: fb twin */
         }
     } else {
         bb_label_t *resume_tgt = &lbl_ω;
