@@ -21,20 +21,20 @@ proc_PAT$0_α:
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
                         lea              rax, [rip + n4_match_sequence_β]
-                        mov              qword ptr [rsp + 96], rax
+                        mov              qword ptr [rbp + 96], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n0_var_α:
                         mov              rax, qword ptr [1879052384]
                         mov              rdx, qword ptr [1879052392]
-                        mov              qword ptr [rsp + 80], rax
-                        mov              qword ptr [rsp + 88], rdx
+                        mov              qword ptr [rbp + 80], rax
+                        mov              qword ptr [rbp + 88], rdx
                                                                                         jmp   n1_op73_α
 n0_var_β:
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n1_op73_α:
-                        lea              rdi, [rsp + 80]
-                        lea              rsi, [rsp + 64]
+                        lea              rdi, [rbp + 80]
+                        lea              rsi, [rbp + 64]
                         mov              rdx, 12320956
                         call             rt_coerce_str_d@PLT
                                                                                         jmp   n2_var_α
@@ -44,15 +44,15 @@ n1_op73_β:
 n2_var_α:
                         mov              rax, qword ptr [1879052368]
                         mov              rdx, qword ptr [1879052376]
-                        mov              qword ptr [rsp + 48], rax
-                        mov              qword ptr [rsp + 56], rdx
+                        mov              qword ptr [rbp + 48], rax
+                        mov              qword ptr [rbp + 56], rdx
                                                                                         jmp   n3_op73_α
 n2_var_β:
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n3_op73_α:
-                        lea              rdi, [rsp + 48]
-                        lea              rsi, [rsp + 32]
+                        lea              rdi, [rbp + 48]
+                        lea              rsi, [rbp + 32]
                         mov              rdx, 4522053
                         call             rt_coerce_str_d@PLT
                                                                                         jmp   n4_match_sequence_α
@@ -71,8 +71,8 @@ n4_match_sequence_af:
 n5_match_break_α:
                         sub              rsp, 16
                         mov              dword ptr [rsp + 0], 0
-                        mov              r8, qword ptr [rsp + 40]
-                        mov              r9d, dword ptr [rsp + 36]
+                        mov              r8, qword ptr [rbp + 40]
+                        mov              r9d, dword ptr [rbp + 36]
 .Lx16_0:
                         mov              eax, r14d
                         add              eax, dword ptr [rsp + 0]
@@ -109,8 +109,8 @@ n5_match_break_β:
 n6_match_span_α:
                         sub              rsp, 16
                         mov              dword ptr [rsp + 0], 0
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              r9d, dword ptr [rsp + 68]
+                        mov              r8, qword ptr [rbp + 72]
+                        mov              r9d, dword ptr [rbp + 68]
 .Lx18_0:
                         mov              eax, r14d
                         add              eax, dword ptr [rsp + 0]
@@ -173,10 +173,10 @@ proc_PAT$0_scanfail:
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_res:
                         add              rsp, 8
-                        pop              rsp
+                        pop              rbp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_β:
-                                                                                        jmp   qword ptr [rsp + 96]
+                                                                                        jmp   qword ptr [rbp + 96]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_γ:
                         push             rbp
