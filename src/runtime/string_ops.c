@@ -138,9 +138,54 @@ const char *real_str(double r, char *buf, int bufsz) {
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Real -> string under the SHORTEST-ROUND-TRIP, MANDATORY-FRACTION-DIGIT convention: the shortest
+ * decimal that reads back as the same double, always carrying a decimal point and at least one
+ * digit after it, decimal form while 1e-3 <= |x| < 1e7 and d.ddde<E> outside that band.  This is a
+ * DIFFERENT representation from real_str() above, which implements SPITBOL's trailing-point
+ * convention ("10.", exponential as a normalised 0.<digits>e<E+1> mantissa over a [-1,14] decimal
+ * band) -- both are correct for their own consumers, so they are two functions named by the
+ * convention they produce, never one function branching on a caller.
+ *
+ * DERIVED FROM THE ORACLE CORPUS, NOT ASSUMED.  The first attempt transcribed Arizona Icon's
+ * rtos() (refs/icon-master/src/runtime/cnv.r, sprintf "%.*g" at Precision 10 from cpuconf.h:121)
+ * and REGRESSED rung19_pow_toby_pow_real and rung30_builtins_misc_sqrt, because %.10g truncates
+ * sqrt(2) to 1.414213562 where the corpus wants 1.4142135623730951.  These rung36 programs are
+ * JCON (&version reads "Jcon Version 2.2"), so their .expected files carry Java Double.toString
+ * semantics, not Arizona's.  The band and form are read straight off the corpus:
+ *   2.0e13 · -1.2157665459056929e19 · 1.0275128510570371e-19   (exponential: one leading digit,
+ *       mandatory fraction digit, lowercase 'e', plain signed exponent -- no '+', no zero pad)
+ *   0.05 · 10.0 · 2.718281828459045 · 1.4142135623730951        (decimal, full round-trip digits)
+ * ⚠ Arizona icont/iconx (RULES.md's sanctioned oracle) would print the %.10g form here; where the
+ * two disagree this corpus is JCON's.  Do not "fix" this back to Precision 10 -- that is the
+ * regression above, already measured. */
 const char *icon_real_str(double r, char *buf, int bufsz) {
-    real_str(r, buf, bufsz);
-    size_t n = strlen(buf);
-    if (n > 0 && buf[n - 1] == '.' && (int)n < bufsz - 1) { buf[n] = '0'; buf[n + 1] = '\0'; }
+    if (isnan(r)) { snprintf(buf, (size_t)bufsz, "%s", "nan"); return buf; }
+    if (isinf(r)) { snprintf(buf, (size_t)bufsz, "%s", r < 0 ? "-inf" : "inf"); return buf; }
+    int neg = (r < 0.0); double ar = fabs(r);
+    if (ar == 0.0) { snprintf(buf, (size_t)bufsz, "%s", neg ? "-0.0" : "0.0"); return buf; }
+    char sci[64];
+    for (int prec = 0; prec <= 17; prec++) { snprintf(sci, sizeof sci, "%.*e", prec, ar); if (strtod(sci, (char **)0) == ar) break; }
+    char digits[40]; int nd = 0; int E = 0; const char *p = sci;
+    if (*p >= '0' && *p <= '9') digits[nd++] = *p++;
+    if (*p == '.') { p++; while (*p >= '0' && *p <= '9' && nd < (int)sizeof digits - 1) digits[nd++] = *p++; }
+    if (*p == 'e' || *p == 'E') { p++; E = (int)strtol(p, (char **)0, 10); }
+    while (nd > 1 && digits[nd - 1] == '0') nd--;
+    digits[nd] = '\0';
+    char out[96]; int o = 0;
+    if (neg) out[o++] = '-';
+    if (E >= -3 && E <= 6) {
+        if (E >= 0) {
+            int intdigits = E + 1;
+            if (nd <= intdigits) { for (int i = 0; i < nd; i++) out[o++] = digits[i]; for (int i = nd; i < intdigits; i++) out[o++] = '0'; out[o++] = '.'; out[o++] = '0'; }
+            else { for (int i = 0; i < intdigits; i++) out[o++] = digits[i]; out[o++] = '.'; for (int i = intdigits; i < nd; i++) out[o++] = digits[i]; }
+        } else { out[o++] = '0'; out[o++] = '.'; for (int i = 0; i < -E - 1; i++) out[o++] = '0'; for (int i = 0; i < nd; i++) out[o++] = digits[i]; }
+    } else {
+        out[o++] = digits[0]; out[o++] = '.';
+        if (nd > 1) { for (int i = 1; i < nd; i++) out[o++] = digits[i]; } else out[o++] = '0';
+        out[o++] = 'e';
+        o += snprintf(out + o, sizeof out - (size_t)o, "%d", E);
+    }
+    out[o] = '\0';
+    snprintf(buf, (size_t)bufsz, "%s", out);
     return buf;
 }
