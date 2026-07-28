@@ -1019,7 +1019,7 @@ static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
         if (!x) continue;
         if (x->op == IR_MATCH_ALTERNATE) {
             int _b = 0, _e = 0;
-            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (fp) *fp += 16 + fc_alt_fpmax(x); if (_e > k + 1) k = _e - 1; continue; }
+            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > k + 1) k = _e - 1; continue; }   /* ALT-FLAT s202: zero-cell ALT + flat arms contribute 0 to the spine; extent still skipped */
             lin = 0; continue;
         }
         { long fck; if (fc_geom(x, &fck)) { if (fp) *fp += (int)fck; continue; } }
@@ -1050,9 +1050,8 @@ static int fc_leaf_walk(IR_graph_t * g, int k0, int k1, int pfx) {
         }
         if (x->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(x) >= 0) {
             int _nA = fc_alt_n(x), _elast = k + 1;
-            fc_leaf_register(x, pfx + 16);
-            for (int j = 0; j < _nA; j++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, j, &_b, &_e)) { fc_leaf_walk(g, _b, _e, pfx + 16); if (_e > _elast) _elast = _e; } }
-            pfx += 16 + fc_alt_fpmax(x);
+            fc_leaf_register(x, pfx);   /* ALT-FLAT s202: no cell, no window -- the box's own quad reads happen at its frontier; arms are flat (fc_arm_member) so they recurse at the SAME pfx and nodes AFTER the ALT advance by 0 */
+            for (int j = 0; j < _nA; j++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, j, &_b, &_e)) { fc_leaf_walk(g, _b, _e, pfx); if (_e > _elast) _elast = _e; } }
             if (_elast > k + 1) k = _elast - 1;
             continue;
         }
@@ -1506,7 +1505,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             ir_operand_push(A, ei);
             ir_operand_push(A, ri);
         }
-        if (fc_linear) { extern void fc_alt_register(const IR_t *, int, const int *, const int *, const int *); fc_alt_register(A, (int)na, fc_fp, fc_ab, fc_ae); }
+        if (fc_linear) { extern void fc_alt_register(const IR_t *, int, const int *, const int *, const int *); extern void fc_arm_member_register(const IR_t *); fc_alt_register(A, (int)na, fc_fp, fc_ab, fc_ae); for (int _j = 0; _j < (int)na; _j++) for (int _k = fc_ab[_j]; _k < fc_ae[_j] && _k < g->n; _k++) if (g->all[_k]) fc_arm_member_register(g->all[_k]); }   /* ALT-FLAT s202: arm residents go flat -- MUST run AFTER the admission walk above (fp math computed pre-decline) */
         IR_LIT(A).ival = (long)na;   /* promoted → _.op_ival = N for the template's dispatch chains (walk_bb_node line ~697); the σ/φ inside-edge tags carry membership, so no extent is needed */
         return A;
     }

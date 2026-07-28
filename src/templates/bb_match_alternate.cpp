@@ -6,35 +6,43 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZB-FC-3a (ARCH-ZETA S13 Tier C, LINEAR-ARM v1): when LOWER registered exact per-arm footprints AND the
- * FORTH flavor is live (afc), A's own delta/dcap/alt_i quad rides an rsp cell and the S10d pad-to-max law is
- * emitted: each arm's sigma edge lands its OWN stub (PAIR 2N+2+j) which subs (FPMAX - fp_j) so every arm
- * yields at the uniform padded depth; A.beta then reads alt_i at [rsp + FPMAX + 8] (the live arm's padded
- * cells sit BELOW the read site; a C call at beta pushes below them, safe) and each resume-dispatch branch
- * adds its arm's pad back so the arm's own beta re-enters at ITS true frontier -- the SEQ transit cascade
- * then pops pure LIFO.  na_f runs at the frontier (arm fully popped before phi), so its accesses auto-rebase
- * through the ordinary fc window; the single unconditional omega carries the one hook pop.  !afc = the
- * pre-rung template verbatim. */
-static inline int  afc()      { return x86_fc_on() && _.op_fc_fpmax >= 0; }
-static inline int  fpad(int j){ return (int)(_.op_fc_fpmax - (long)_.op_fc_arm_fp[j]); }
-static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
-static std::string alt_dispatch_chain(long N, int base, int lo) { std::string r; for (long i = lo; i < N; i++) r += x86("cmp", "eax", (int)i) + x86("je", PAIR((int)(base + i))); return r; }
-static std::string alt_resume_chain_fc(long N) {
+/* ALT-FLAT (s202, Lon design session): the N-ary alternation as a ZERO-CELL flat box with ADDRESS dispatch.
+ * Three facts replace the whole ZB-FC-3a pad-to-max machinery (S10d), which is deleted:
+ *   (1) FLAT ARMS.  Every node inside a granted ALT's arms declines its FORTH cell (fc_arm_member,
+ *       zeta_storage.c) and keeps its flat zls quad -- an arm's rsp footprint is 0, so every arm yields at
+ *       the ALT's own frontier and nodes after the ALT sit at the SAME static depth for every arm.  No pad,
+ *       no per-arm exact footprints, no uniform-depth stubs.  "Fixed offsets all the way down the graph."
+ *   (2) ADDRESS OVER INDEX.  The live-alternative counter alt_i and BOTH of its cmp-chains (beta resume
+ *       dispatch, af entry advance) are dead.  Each arm's sigma stub stores its own resume trampoline's
+ *       address (x86_lea_rip_id -- the encoder whose own comment names this use) into the box's
+ *       alt.resume quad; alpha and each entry stub store the NEXT arm's entry-stub address into alt.next.
+ *       beta = one indirect jmp through resume; af = delta restore + one indirect jmp through next.
+ *   (3) ZETA STORAGE.  Box state is the flat quad pair: FR(op_off+0) delta (4B, +4 dead), FRQ(op_off+8)
+ *       resume (ZK_PTR_CODE), FRQ(op_off+16) next (ZK_PTR_CODE).  Reads/writes happen at alpha/sigma/beta/af,
+ *       all of which execute at the ALT's frontier (flat arms, LIFO downstream), so the registered flat
+ *       displacement is correct in every regime the old !afc legacy path already served.
+ * Pair map unchanged: 0..N-1 arm entries, N..2N-1 arm resumes, 2N merge, 2N+1 fail-advance, 2N+2+j sigma
+ * stubs (driver mints them for EVERY match-alt now, emit.cpp).  Internal labels: 19 = pre-omega terminal,
+ * 20+j = entry stubs (j=1..N-1), 40+j = resume trampolines. */
+static std::string alt_entry_stubs(long N) {
     std::string r;
-    for (long i = 0; i < N - 1; i++)
-        r += x86("cmp", "eax", (int)i)
-           + (fpad((int)i) > 0 ? (x86("jne", L((int)(100 + i))) + x86("add", "rsp", (long)fpad((int)i)) + x86("jmp", PAIR((int)(N + i))) + x86("def", L((int)(100 + i))))
-                               : x86("je", PAIR((int)(N + i))));
-    r += (fpad((int)(N - 1)) > 0 ? x86("add", "rsp", (long)fpad((int)(N - 1))) : std::string())
-       + x86("jmp", PAIR((int)(N + N - 1)));
+    for (long j = 1; j < N; j++)
+        r += x86("def", L((int)(20 + j)))
+           + x86_lea_rip_id("rax", (j + 1 < N) ? (int)(20 + j + 1) : 19)
+           + x86("mov", FRQ(_.op_off + 16), "rax")
+           + x86("jmp", PAIR((int)j));
     return r;
 }
-static std::string alt_pad_stubs(long N) {
+static std::string alt_sigma_stubs(long N) {
     std::string r;
     for (long j = 0; j < N; j++)
         r += x86("def", PAIR((int)(2 * N + 2 + j)))
-           + (fpad((int)j) > 0 ? x86("sub", "rsp", (long)fpad((int)j)) : std::string())
+           + x86_lea_rip_id("rax", (int)(40 + j))
+           + x86("mov", FRQ(_.op_off + 8), "rax")
            + x86("jmp", PAIR((int)(2 * N)));
+    for (long j = 0; j < N; j++)
+        r += x86("def", L((int)(40 + j)))
+           + x86("jmp", PAIR((int)(N + j)));
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -43,37 +51,23 @@ std::string bb_match_alternate() {
     if (!PLATFORM_X86) return std::string();
     return _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ALTERNATE: cursor slot not granted (zls)")
-             : x86("comment", "IR_MATCH_ALT_NARY")
+             : x86("comment", "IR_MATCH_ALT_NARY (ALT-FLAT)")
              + x86_alpha()
-             /* rbp-dcap (s46): ALTERNATE TOUCHES THE PEND STACK NOWHERE.  The old rt_dcap_height (α) /
-              * rt_dcap_restore_to (switch) C-call windows are DELETED OUTRIGHT — not ported to movs.
-              * WHY (Lon's theorem, snobol4python/_backend_pure.py): Π.γ is `for P in self.AP: yield from
-              * P.γ()` — it has NO cstack handling at all, and neither does Σ or ARBNO; the entire assignment
-              * stack is isolated to the capture leaves (Δ/θ/λ), each a balanced append→yield→pop inside its
-              * OWN generator.  Generator scoping IS the LIFO discipline: an alternative cannot fail until
-              * every interior generator has been resumed to exhaustion, and each interior capture runs its
-              * own pop on that resume path BEFORE its exhaustion is visible here.  So rbp is ALREADY at
-              * entry height whenever a switch is taken — there is no height to save because there is no
-              * moment at which it could be wrong.  MEASURED, not assumed (the SZ-2c transit-gap worry was
-              * the reason to doubt it): with both instructions deleted, crosscheck is watermark-exact in
-              * BOTH flavors (default CSTACK and SCRIP_ZETA_PORT=6), smokes 7/7, and the two tests named for
-              * exactly this hazard — 156_pat_cap_alt_abandon_pop and 160_pat_alt_inner_gen_resume — pass.
-              * Quad is now: +0 δ, +4 alt_i, +8 dead pad. */
              + x86("mov", FR(_.op_off), "r14d")
-             + x86("mov", FR(_.op_off + 4), 0)
+             + x86_lea_rip_id("rax", (_.op_ival > 1) ? 21 : 19)
+             + x86("mov", FRQ(_.op_off + 16), "rax")
              + x86("jmp", PAIR(0))
-             + IF(afc(), alt_pad_stubs(_.op_ival))
+             + alt_entry_stubs(_.op_ival)
+             + alt_sigma_stubs(_.op_ival)
              + x86("def", PAIR((int)(2 * _.op_ival)))
              + x86_gamma()
              + x86_beta()
-             + IF(afc(),  x86("mov", "eax", rspd((int)_.op_fc_fpmax + 4)))
-             + IF(!afc(), x86("mov", "eax", FR(_.op_off + 4)))
-             + IF(afc(),  alt_resume_chain_fc(_.op_ival))
-             + IF(!afc(), alt_dispatch_chain(_.op_ival - 1, (int)_.op_ival, 0) + x86("jmp", PAIR((int)(_.op_ival + _.op_ival - 1))))
+             + x86("mov", "rax", FRQ(_.op_off + 8))
+             + x86_jmp_reg("rax")
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
-             + x86("add", FR(_.op_off + 4), 1)
              + x86("mov", "r14d", FR(_.op_off))
-             + x86("mov", "eax", FR(_.op_off + 4))
-             + alt_dispatch_chain(_.op_ival, 0, 1)
+             + x86("mov", "rax", FRQ(_.op_off + 16))
+             + x86_jmp_reg("rax")
+             + x86("def", L(19))
              + x86_omega();
 }
