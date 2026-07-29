@@ -34,7 +34,7 @@ std::string bb_match_head() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + x86("mov", "rax", ABSQ(RT_CAS_TOP)) + x86("mov", FRQ(_.op_off + 32), "rax")   /* R12-FREE-1: bracket-save the CELL top (r12 vacated) */
+         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("add", "r10", (long)24) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER (Lon s8 directive: "instantiate a bottom marker at each start of a new pattern match"): the pend stack carries its OWN bracket -- a tag-0 sentinel entry (varname pointers are never 0) pushed at match start.  Replaces the flat +32 slot save: no frame-addressed read, no compile-time depth, config-blind.  RELEASE and the fail exit below scan down to this marker instead of reloading a slot -- the first of the two variable-depth reaches deleted on the road to pure FORTH cells. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86("sub", "rsp", (long)32)
                                                 + x86("mov", FRQ(_.op_off + 16), "rax")
@@ -71,7 +71,7 @@ std::string bb_match_head() {
                + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
                + x86_zls2_release_to_call(_.op_off + 16)
                + x86_align_leave()))
-         + x86("mov", "rax", FRQ(_.op_off + 32)) + x86("mov", ABSQ(RT_CAS_TOP), "rax")   /* R12-FREE-1: bracket-restore the CELL top */
+         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER: fail-exit pops pend entries AND the marker by scanning to tag 0 -- depth-free, replaces the flat +32 reload */
          + IF(_.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): restore only if the save above ran */
          + x86_omega();
 }
