@@ -67,7 +67,7 @@ std::string bb_match_capture() {
           * because within-alternative failure cascades transit the boxes (balanced, the Python LIFO theorem)
           * and the alternative-SWITCH bypass is bulk-restored by bb_match_alternate's own mark (SZ-2c gap,
           * ported inline).  r12 is ALWAYS live (outer seed + callee-saved inheritance), so nested heads read
-          * the register directly.  The residual rt_cap_top call is the SAVE-stack array read — ZB-FC-3c's
+          * the register directly.  R12-FREE-1 (Lon 2026-07-29, GOAL-ZETA-FOUR): the pend top is now CELL-RESIDENT at [RT_CAS_TOP] -- the same cell the C side already aliases as g_dcap_top (pattern_match.c:644) -- so C-side and emitted-side pushes share ONE authority and r12 is vacated for config 1 (FRAME_R12); r10 stages the entry stores (no C call intervenes), rax the beta pop.  Post-RTX the top returns to a register (r12) per the same directive.  The residual rt_cap_top call is the SAVE-stack array read — ZB-FC-3c's
           * named kill, NOT this rung's. */
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND (pend-park inline pend)")
            + x86_alpha()
@@ -77,16 +77,20 @@ std::string bb_match_capture() {
                       + x86("call", "rt_cap_top", (uint64_t)(uintptr_t)(void *)(int (*)(void *))rt_cap_top)
                       + x86_align_leave())
            + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
-           + x86("mov",  RDQ("r12", 0), "rcx")
+           + x86("mov",  "r10", ABSQ(RT_CAS_TOP))
+           + x86("mov",  RDQ("r10", 0), "rcx")
            + x86("mov",  "esi", "eax")
-           + x86("mov",  RDQ("r12", 8), "rsi")
+           + x86("mov",  RDQ("r10", 8), "rsi")
            + x86("mov",  "edx", "r14d")
            + x86("sub",  "edx", "eax")
-           + x86("mov",  RDQ("r12", 16), "rdx")
-           + x86("add",  "r12", (long)24)
+           + x86("mov",  RDQ("r10", 16), "rdx")
+           + x86("add",  "r10", (long)24)
+           + x86("mov",  ABSQ(RT_CAS_TOP), "r10")
            + x86_gamma()
            + x86_beta()
-           + x86("sub",  "r12", (long)24)
+           + x86("mov",  "rax", ABSQ(RT_CAS_TOP))
+           + x86("sub",  "rax", (long)24)
+           + x86("mov",  ABSQ(RT_CAS_TOP), "rax")
            + x86_omega() )
          : ( x86("comment", "IR_MATCH_CAPTURE_IMM")
            + x86_alpha()

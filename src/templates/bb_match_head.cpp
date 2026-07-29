@@ -34,7 +34,7 @@ std::string bb_match_head() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + x86("mov", FRQ(_.op_off + 32), "r12")
+         + x86("mov", "rax", ABSQ(RT_CAS_TOP)) + x86("mov", FRQ(_.op_off + 32), "rax")   /* R12-FREE-1: bracket-save the CELL top (r12 vacated) */
          + IF(ZC_FRAME == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86("sub", "rsp", (long)32)
                                                 + x86("mov", FRQ(_.op_off + 16), "rax")
@@ -71,7 +71,7 @@ std::string bb_match_head() {
                + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
                + x86_zls2_release_to_call(_.op_off + 16)
                + x86_align_leave()))
-         + x86("mov", "r12", FRQ(_.op_off + 32))
+         + x86("mov", "rax", FRQ(_.op_off + 32)) + x86("mov", ABSQ(RT_CAS_TOP), "rax")   /* R12-FREE-1: bracket-restore the CELL top */
          + IF(_.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): restore only if the save above ran */
          + x86_omega();
 }

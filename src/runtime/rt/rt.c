@@ -25,8 +25,8 @@
 extern const char *Σ;
 extern int Σlen;
 /* R12-EXTERN (Lon s173): mode-3's OUTSIDE sets the environment register — twin of the mode-4 wrapper's `mov r12, [RT_CAS_TOP]` (scrip.c).  The blob no longer self-seeds (xa_flat REG-6 outer seed deleted); every graph assumes r12 = live pend/dcap top on entry.  push/pop r12 also closes the old in-blob seed's caller-r12 ABI clobber.  Literal address drift-locked below. */
-_Static_assert(RT_CAS_TOP == 0x70000000UL, "rt_outer_call: asm literal must equal RT_CAS_TOP (pin_va.h)");
-__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\nrt_outer_call:\n  push %r12\n  mov 0x70000000, %r12\n  mov %rdi, %rax\n  mov %rsi, %rdi\n  mov %rdx, %rsi\n  call *%rax\n  pop %r12\n  ret\n.size rt_outer_call, .-rt_outer_call\n");
+/* R12-FREE-1 (Lon 2026-07-29, GOAL-ZETA-FOUR): the r12 environment seed is DELETED from the outer thunk -- the pend top is cell-resident at [RT_CAS_TOP] (pattern_match.c g_dcap_top alias), nothing reads r12, and r12 is vacated for ZC_STORAGE_FRAME_R12.  The old push r12 was ALSO the 16-byte call-alignment adjuster, so its removal is paired with an explicit sub/add rsp,8 bracket. */
+__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\nrt_outer_call:\n  sub $8, %rsp\n  mov %rdi, %rax\n  mov %rsi, %rdi\n  mov %rdx, %rsi\n  call *%rax\n  add $8, %rsp\n  ret\n.size rt_outer_call, .-rt_outer_call\n");
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
