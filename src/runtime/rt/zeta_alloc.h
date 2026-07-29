@@ -23,5 +23,7 @@ void rt_zeta_set_mode(int m);
 int  rt_zeta_mode(void);
 /* ZETA PORT SELECTOR (Lon directive 2026-07-10) — the ZC_PORT axis (--zeta-port flag); see zeta_alloc.c. */
 void rt_zeta_port_set_mode(int m);
+void rt_zeta_storage_set(int s);
+int  rt_zeta_storage_get(void);
 int  rt_zeta_port_mode(void);
 #endif
