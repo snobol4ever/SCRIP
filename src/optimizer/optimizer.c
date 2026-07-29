@@ -10,8 +10,17 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-VAL-0 (s177) CONSTANT-FOLD GATE: cf_run is OFF by default on the main spine so that IR_LIT_INTEGER
  * nodes survive into the emitter as first-class fixed FORTH cells (per-BB sub-rsp, rsp-relative reads).
- * ALWAYS ON for DEFINE proc graphs (nparams > 0 or resumable_callable — the body STILL benefits from fold
- * because its lit operands are not yet on the FORTH cell ladder) and for pattern graphs (any IR_MATCH_* /
+ * ON for proc graphs that CARRY A BODY (nparams > 0 or resumable_callable — the body STILL benefits from fold
+ * because its lit operands are not yet on the FORTH cell ladder).  ⛔ CORRECTED s205 (MEASURED, not argued): this
+ * arm NEVER FIRES FOR SNOBOL4 and that is CORRECT, not a defect.  A SNOBOL4 DEFINE lowers to the HOOK ONLY
+ * (IR_SAVE_RESTORE + an IR_CALL kind); under SN4-FLAT-PROC (s176) the function BODY is ordinary labelled
+ * statements living in the ONE MAIN GRAPH, so a DEFINE contains nothing foldable and its body is governed by
+ * the expression arm (OFF) by construction.  Measured with SCRIP_OPT_STATS: body-only and spine-only foldable
+ * programs BOTH fold in graph #1; the stub graph folds 0.  The prior wording ("ALWAYS ON for DEFINE proc
+ * graphs") is true only for Icon/Pascal/Prolog, whose proc graphs really do own their bodies — it sent an
+ * s205 session chasing a phantom defect and nearly landed a VACUOUS one-line "fix" (copying nparams onto
+ * sno_build_call_stub's graph, which has no body to fold: green build, zero movement, null misread as "folding
+ * in DEFINEs buys nothing").  Do not re-open this without first re-measuring.  Pattern graphs stay ON (any IR_MATCH_* /
  * IR_PAT_* node present — pat_fold depends on cf_run reducing its inputs).  SCRIP_CF=1 re-enables globally
  * as a diagnostic escape hatch (mirrors the SCRIP_OPT=0 convention). */
 static int g_is_proc_or_pat(const IR_graph_t * g) {
