@@ -85,7 +85,9 @@ RTX_FUNC(rt_assign_var)
     je      .Lav_cell                   /* 1 = direct cell pointer             */
     test    r11d, r11d
     je      .Lav_named                  /* 0 = named global                    */
-    jmp     .Lav_c                      /* 2 = NAMETRAP, or anything else      */
+    cmp     r11d, 2
+    je      .Lav_nametrap               /* 2 = NAMETRAP -> VCELL               */
+    jmp     .Lav_c                      /* anything else                       */
 
 /*--- FAST PATH B: frame slot.  *(DESCR_t *)var.ptr = val; return val; -------
  *   Icon locals and (under the OLD frame-slot backend) globals land here.  It
@@ -97,6 +99,36 @@ RTX_FUNC(rt_assign_var)
     je      .Lav_c
     mov     [rsi], rdx                  /* {v, slen}                           */
     mov     [rsi + 8], rcx              /* value union                         */
+    mov     rax, rdx                    /* return val                          */
+    mov     rdx, rcx
+    ret
+
+/*--- FAST PATH C: NAMETRAP -> VCELL cellp store  (RTX-1b-ICN, s209c) --------
+ *   ⭐ THIS IS THE ARM ICON ACTUALLY TAKES.  s209b measured that all 147 of
+ *   Icon's static rt_assign_var sites are SUBSCRIPTED assignment (L[i] := v);
+ *   local/global/augmented/swap assignment are emitted inline by their own BB
+ *   templates and never reach this symbol.  A subscript lvalue arrives as a
+ *   NAMETRAP (slen==2) over a VCELL_t, so it takes NEITHER fast path A nor B —
+ *   RTX-1-ICN ported two arms its own caller never enters, and excluded this
+ *   one as "cold".  It is the only live arm.
+ *
+ *   C of record:
+ *       VCELL_t *vc = (VCELL_t *)var.p; if (!vc) return FAILDESCR;
+ *       if (vc->cellp) { *vc->cellp = val; return val; }
+ *       ... vc->tbl, tvsubs splice ...            <- stay in C
+ *
+ *   cellp is the FIRST member of VCELL_t => offset 0.  Guarded by a
+ *   _Static_assert in rtx_init.c: a silent layout drift here would store a
+ *   descriptor through whatever pointer happened to land first, which links
+ *   fine and corrupts quietly. */
+.Lav_nametrap:
+    test    rsi, rsi
+    je      .Lav_c                      /* !vc -> C returns FAILDESCR          */
+    mov     r10, [rsi]                  /* vc->cellp (offset 0)                */
+    test    r10, r10
+    je      .Lav_c                      /* tbl / tvsubs arms stay in C         */
+    mov     [r10], rdx                  /* {v, slen}                           */
+    mov     [r10 + 8], rcx              /* value union                         */
     mov     rax, rdx                    /* return val                          */
     mov     rdx, rcx
     ret
