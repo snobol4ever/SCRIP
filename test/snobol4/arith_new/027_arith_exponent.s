@@ -47,8 +47,7 @@ n2_binop_α:
                         mov              rsi, qword ptr [rsp + 40]
                         mov              rdx, qword ptr [rsp + 48]
                         mov              rcx, qword ptr [rsp + 56]
-                        mov              r8d, 18
-                        call             rt_num_arith@PLT
+                        call             rt_pow@PLT
                         cmp              eax, 99
                                                                                         je    main_γ
                         mov              qword ptr [rsp + 16], rax

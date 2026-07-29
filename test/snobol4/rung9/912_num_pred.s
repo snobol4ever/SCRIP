@@ -1129,37 +1129,16 @@ n91_lit_string_α:
                         .string          "FAIL 912/016: ge(7,5) should succeed"
 #-----------------------------------------------------------------------------------------------------------------------
 n92_binop_α:
-.Lx205_1:
-                        mov              rax, 5
-                        mov              rcx, 1
-                        sub              rax, rcx
-                        mov              qword ptr [rsp + 1888], 6
-                        mov              qword ptr [rsp + 1896], rax
-                                                                                        jmp   n109_call_α
-.Lx205_0:
                         mov              rdi, qword ptr [rsp + 1904]
                         mov              rsi, qword ptr [rsp + 1912]
                         mov              rdx, qword ptr [rsp + 1920]
                         mov              rcx, qword ptr [rsp + 1928]
-                        mov              r8d, 1
-                        lea              r9, [rsp + 1888]
-                        call             rt_binop_overload@PLT
-                        test             eax, eax
-                                                                                        jne   n109_call_α
-.Lx205_2:
-                        mov              rdi, qword ptr [rsp + 1904]
-                        mov              rsi, qword ptr [rsp + 1912]
-                        mov              rdx, qword ptr [rsp + 1920]
-                        mov              rcx, qword ptr [rsp + 1928]
-                        mov              r8d, 1
-                        call             rt_num_arith@PLT
+                        call             rt_sub@PLT
                         cmp              eax, 99
                                                                                         je    n37_lit_string_α
                         mov              qword ptr [rsp + 1888], rax
                         mov              qword ptr [rsp + 1896], rdx
                                                                                         jmp   n109_call_α
-n92_binop_β:
-                                                                                        jmp   n37_lit_string_α
 #=======================================================================================================================
 #         output = 'FAIL 912/018: ne(string,int) type mismatch' :(end)
 #-----------------------------------------------------------------------------------------------------------------------

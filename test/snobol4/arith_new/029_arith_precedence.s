@@ -54,44 +54,11 @@ n2_lit_integer_α:
                         .quad            4
 #-----------------------------------------------------------------------------------------------------------------------
 n3_binop_α:
-                        mov              eax, dword ptr [rsp + 16]
-                        cmp              eax, 100
-                                                                                        je    .Lx9_0
-                        mov              eax, dword ptr [rsp + 0]
-                        cmp              eax, 100
-                                                                                        je    .Lx9_0
-                        mov              eax, dword ptr [rsp + 16]
-                        cmp              eax, 6
-                                                                                        jne   .Lx9_2
-                        mov              eax, dword ptr [rsp + 0]
-                        cmp              eax, 6
-                                                                                        jne   .Lx9_2
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rsp + 8]
-                        imul             rax, rcx
-                        add              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
-                        mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n4_binop_α
-.Lx9_0:
                         mov              rdi, qword ptr [rsp + 16]
                         mov              rsi, qword ptr [rsp + 24]
                         mov              rdx, qword ptr [rsp + 0]
                         mov              rcx, qword ptr [rsp + 8]
-                        mov              r8d, 2
-                        lea              r9, [rsp + 16]
-                        call             rt_binop_overload@PLT
-                        test             eax, eax
-                                                                                        je    .Lx9_2
-                        add              rsp, 16
-                                                                                        jmp   n4_binop_α
-.Lx9_2:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
-                        mov              r8d, 2
-                        call             rt_num_arith@PLT
+                        call             rt_mul@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx9_240
                         add              rsp, 48
@@ -103,44 +70,11 @@ n3_binop_α:
                                                                                         jmp   n4_binop_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_binop_α:
-                        mov              eax, dword ptr [rsp + 16]
-                        cmp              eax, 100
-                                                                                        je    .Lx10_0
-                        mov              eax, dword ptr [rsp + 0]
-                        cmp              eax, 100
-                                                                                        je    .Lx10_0
-                        mov              eax, dword ptr [rsp + 16]
-                        cmp              eax, 6
-                                                                                        jne   .Lx10_2
-                        mov              eax, dword ptr [rsp + 0]
-                        cmp              eax, 6
-                                                                                        jne   .Lx10_2
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rsp + 8]
-                        add              rax, rcx
-                        add              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
-                        mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n5_assign_α
-.Lx10_0:
                         mov              rdi, qword ptr [rsp + 16]
                         mov              rsi, qword ptr [rsp + 24]
                         mov              rdx, qword ptr [rsp + 0]
                         mov              rcx, qword ptr [rsp + 8]
-                        mov              r8d, 0
-                        lea              r9, [rsp + 16]
-                        call             rt_binop_overload@PLT
-                        test             eax, eax
-                                                                                        je    .Lx10_2
-                        add              rsp, 16
-                                                                                        jmp   n5_assign_α
-.Lx10_2:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
-                        mov              r8d, 0
-                        call             rt_num_arith@PLT
+                        call             rt_add@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx10_240
                         add              rsp, 32

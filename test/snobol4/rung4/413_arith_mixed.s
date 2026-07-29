@@ -98,8 +98,7 @@ n7_binop_α:
                         mov              rsi, qword ptr [rsp + 88]
                         mov              rdx, qword ptr [rsp + 96]
                         mov              rcx, qword ptr [rsp + 104]
-                        mov              r8d, 0
-                        call             rt_num_arith@PLT
+                        call             rt_add@PLT
                         cmp              eax, 99
                                                                                         je    n5_lit_real_α
                         mov              qword ptr [rsp + 64], rax
@@ -135,8 +134,7 @@ n11_binop_α:
                         mov              rsi, qword ptr [rsp + 248]
                         mov              rdx, qword ptr [rsp + 256]
                         mov              rcx, qword ptr [rsp + 264]
-                        mov              r8d, 3
-                        call             rt_num_arith@PLT
+                        call             rt_div@PLT
                         cmp              eax, 99
                                                                                         je    n6_lit_string_α
                         mov              qword ptr [rsp + 224], rax
