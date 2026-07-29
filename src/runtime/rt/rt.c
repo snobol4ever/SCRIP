@@ -293,7 +293,7 @@ void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, l
     else { out->v = DT_I; out->slen = 0; out->i = si; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_cmp_d(const DESCR_t *a, const DESCR_t *b) {
+int c_rt_cmp_d(const DESCR_t *a, const DESCR_t *b) {
     if ((a->v == DT_S || a->v == DT_SNUL) && (b->v == DT_S || b->v == DT_SNUL)) {
         int c = strcmp((a->v == DT_S && a->s) ? a->s : "", (b->v == DT_S && b->s) ? b->s : "");
         return (c < 0) ? -1 : (c > 0) ? 1 : 0; }
