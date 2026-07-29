@@ -224,6 +224,30 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     g_core_errjmp_n = my;
     return r;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_BINOP_ENTRY(fn, code, fast) \
+DESCR_t fn(DESCR_t a, DESCR_t b) { \
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; \
+    if (a.v == DT_I && b.v == DT_I) { fast } \
+    if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
+    if (g_core_errjmp_n >= 64) return rt_num_arith_impl(a, b, code); \
+    int my = g_core_errjmp_n; \
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; } \
+    g_core_errjmp_n = my + 1; \
+    DESCR_t r = rt_num_arith_impl(a, b, code); \
+    g_core_errjmp_n = my; \
+    return r; \
+}
+RT_BINOP_ENTRY(rt_add,    BINOP_ADD,    return INTVAL(a.i + b.i);)
+RT_BINOP_ENTRY(rt_sub,    BINOP_SUB,    return INTVAL(a.i - b.i);)
+RT_BINOP_ENTRY(rt_mul,    BINOP_MUL,    return INTVAL(a.i * b.i);)
+RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i / b.i);)
+RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i % b.i);)
+RT_BINOP_ENTRY(rt_pow,    BINOP_POW,    )
+RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, )
+RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
+RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
     if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);
