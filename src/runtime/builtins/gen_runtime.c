@@ -142,7 +142,7 @@ ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen) {
+void c_rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen) {
     extern const char *Σ; extern int Σlen; extern uint32_t g_cap_gen;
     Σ = (const char *)(uintptr_t)sig; Σlen = (int)len;
     g_cap_gen = (uint32_t)capgen;   /* PATCTX-2: re-enter the OUTER match's capture generation — see pattern_match.c's well/current split for why the saved id, never a decrement */
