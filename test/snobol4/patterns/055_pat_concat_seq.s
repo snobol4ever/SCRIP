@@ -258,14 +258,14 @@ n12_match_release_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 48], r14d
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n20_match_len_α
 n13_match_assign_save_β:
                         add              rsp, 16
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 48]
+                        mov              eax, dword ptr [rsp + 0]
                         lea              rcx, [rip + .S0]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
@@ -285,14 +285,14 @@ n14_match_assign_cond_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n15_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 64], r14d
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n21_match_len_α
 n15_match_assign_save_β:
                         add              rsp, 16
                                                                                         jmp   n14_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n16_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 64]
+                        mov              eax, dword ptr [rsp + 0]
                         lea              rcx, [rip + .S1]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
@@ -312,14 +312,14 @@ n16_match_assign_cond_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n17_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 80], r14d
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n22_match_len_α
 n17_match_assign_save_β:
                         add              rsp, 16
                                                                                         jmp   n16_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 80]
+                        mov              eax, dword ptr [rsp + 0]
                         lea              rcx, [rip + .S2]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
