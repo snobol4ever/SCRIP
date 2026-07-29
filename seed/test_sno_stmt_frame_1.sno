@@ -1,0 +1,4 @@
+        DEFINE('ADD3(N)')             :(MAIN)
+ADD3    ADD3 = N + 3                  :(RETURN)
+MAIN    OUTPUT = ADD3(4 * 2) + 1
+END
