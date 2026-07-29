@@ -246,7 +246,6 @@ main:
                         lea              rdi, [rip + __gva_names]
                         mov              edx, 7
                         call             gva_register@PLT
-                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
@@ -377,7 +376,8 @@ n29_match_head_α:
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
-                        mov              qword ptr [rsp + 400], r12
+                        mov              rax, qword ptr [1879048192]
+                        mov              qword ptr [rsp + 400], rax
                         mov              qword ptr [rsp + 384], rsp
                         lea              rcx, [rip + g_patstk_sp]
                         mov              rax, qword ptr [rcx + 0]
@@ -401,7 +401,8 @@ n29_match_head_β:
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rsp + 384]
-                        mov              r12, qword ptr [rsp + 400]
+                        mov              rax, qword ptr [rsp + 400]
+                        mov              qword ptr [1879048192], rax
                                                                                         jmp   n24_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_unop_α:
@@ -536,7 +537,7 @@ n35_match_release_α:
                         push             r13
                         sub              rsp, 8
                         mov              rdi, qword ptr [rsp + 432]
-                        mov              rsi, r12
+                        mov              rsi, qword ptr [1879048192]
                         mov              rdx, r13
                         call             rt_dcap_end_ok_open@PLT
 .Lx78_1:
@@ -564,7 +565,8 @@ n35_match_release_α:
                         pop              r13
                         pop              r15
                         pop              r14
-                        mov              r12, qword ptr [rsp + 400]
+                        mov              rax, qword ptr [rsp + 400]
+                        mov              qword ptr [1879048192], rax
                                                                                         jmp   n38_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n36_binop_α:
