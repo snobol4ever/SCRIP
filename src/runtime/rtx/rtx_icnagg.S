@@ -82,4 +82,88 @@ RTX_FUNC(rt_list_bang_at)
     ret
 RTX_ENDF(rt_list_bang_at)
 
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* dat_field_get(fname, obj) -- the Icon record field READ, r.f. RTX-8c-ICN, s216-ICN.
+ *
+ * REUSES THE ICNAGG GATE. It is the same aggregate family, so this is NOT an eleventh gate and NOT a
+ * gate ledger event -- the same ruling s214 applied when rt_str_coerce joined SCRIP_RTX_ICNREL.
+ *
+ * DEFINED IN src/driver/driver_data.c, NOT src/runtime/. That is why a size sweep restricted to
+ * src/runtime/**\/*.c cannot see it; mine did not, and the LIVE CURSOR's own 117-site figure is what
+ * caught it. The renamed C body therefore lives in the driver TU, not beside the other c_* bodies.
+ *
+ * WHAT IS DELETED, AND IT IS NOT -O0 CEREMONY: the exported wrapper's only real work is the callee
+ * data_field_ptr, whose body is a LINEAR SCAN over blk->fields calling libc strcmp ONCE PER FIELD
+ * until it hits. So the cost is O(field index) with a genuine call per step. This port ABSORBS that
+ * scan and replaces the per-field strcmp with an inline byte compare -- a deleted libc call per
+ * field, removable at ANY -O level, the same shape as RTX-6's deleted strtoll and RTX-6b's strcmp.
+ * data_field_ptr's C body STAYS: it is exported (nm: T) and has other C callers (dat_field_set,
+ * rt_field_var, by_name_dispatch), so this absorbs it WITHOUT deleting it -- s211's ruling for
+ * rt_parse_num_d applied to an exported callee instead of a static one.
+ *
+ * step 0(g), MEASURED not assumed: bb_field_get.cpp emits `call dat_field_get@PLT` with NO inline
+ * tag guard (it only tests eax == 99 AFTER the call), so the guard steers nothing and the CHEAP arm
+ * is dominant -- the s214 rt_str_coerce regime, a third time. Interposer over the field workload:
+ * 80,000 arrivals / 80,000 non-fail == 100% take the cell-hit arm ported here.
+ * step 0(d): 80,000 -> 320,000 at N -> 4N, exactly 4x, SCALES 1:1 with the workload.
+ *
+ * ARM SPLIT. Ported: inst.v >= DT_DATA, inst.u != 0, blk != 0, nfields > 0, fields != 0, and a field
+ * name that MATCHES. Everything else tail-jumps to C, which owns the "WHAT" pseudo-field, the
+ * rt_str_method fallback and FAILDESCR. The MISS path costs a duplicated scan (C re-runs
+ * data_field_ptr from the top) -- accepted deliberately, because it is measured at 0% of arrivals
+ * and duplicating a cold scan is cheaper to reason about than threading a partial result into C.
+ *
+ * OFFSETS MEASURED EMPIRICALLY THIS SESSION (gcc offsetof probe vs runtime/core/core.h), never
+ * copied from prose -- s202's rule. DESCR_t 16B: v@0 slen@4 value@8. DATBLK_t 40B: name@0
+ * nfields@8 fields@16. DATINST_t 24B: type@0 fields@8 id@16. DT_DATA=100, DT_FAIL=99.
+ *
+ * ABI: rdi = fname. obj arrives as the descriptor PAIR, rsi = (slen << 32) | v and rdx = value, so
+ * esi IS obj.v and rdx IS obj.u with no unpacking owed. Returns the pair rax = (slen << 32) | v,
+ * rdx = value. NO pin is touched: rdi/rdx/rcx/rsi/rax/r8/r9/r10/r11 are all the RTX working set,
+ * and this routine is a true leaf on the ported arm -- no call, no stack, no red zone. */
+RTX_FUNC(dat_field_get)
+    RTX_GATE(icnagg, c_dat_field_get)
+    cmp     esi, DT_DATA                /* C: inst.v < DT_DATA -> NULL cell, signed compare on int v */
+    jl      c_dat_field_get
+    test    rdx, rdx                    /* C: !inst.u */
+    je      c_dat_field_get
+    mov     r8, [rdx]                   /* r8 = blk = inst.u->type            DATINST_t.type   @0 */
+    test    r8, r8                      /* C: !blk */
+    je      c_dat_field_get
+    mov     ecx, [r8 + 8]               /* ecx = blk->nfields                 DATBLK_t.nfields @8 */
+    test    ecx, ecx
+    jle     c_dat_field_get             /* empty record: C returns NULL cell and takes its own tail */
+    mov     r9, [r8 + 16]               /* r9 = blk->fields (char **)         DATBLK_t.fields  @16 */
+    test    r9, r9
+    je      c_dat_field_get
+    xor     r10d, r10d                  /* i = 0 */
+.Ldfg_field:
+    mov     r11, [r9 + r10*8]           /* r11 = blk->fields[i] */
+    test    r11, r11
+    je      .Ldfg_next                  /* C: `blk->fields[i] &&` -- a NULL slot is skipped, not a hit */
+    xor     eax, eax                    /* k = 0; inline strcmp(blk->fields[i], fname) */
+.Ldfg_byte:
+    movzx   r8d, byte ptr [r11 + rax]
+    cmp     r8b, byte ptr [rdi + rax]
+    jne     .Ldfg_next
+    test    r8b, r8b                    /* equal AND both NUL => strcmp == 0 */
+    je      .Ldfg_hit
+    inc     rax
+    jmp     .Ldfg_byte
+.Ldfg_next:
+    inc     r10d
+    cmp     r10d, ecx
+    jl      .Ldfg_field
+    jmp     c_dat_field_get             /* scan miss: WHAT / rt_str_method / FAILDESCR are all C's */
+.Ldfg_hit:
+    mov     r8, [rdx + 8]               /* r8 = inst.u->fields (DESCR_t *)    DATINST_t.fields @8 */
+    test    r8, r8
+    je      c_dat_field_get
+    shl     r10, 4                      /* i * sizeof(DESCR_t) == i * 16 */
+    add     r8, r10                     /* r8 = &inst.u->fields[i] == the cell */
+    mov     rax, [r8]                   /* C: return *cell -- verbatim, including a stored DT_FAIL */
+    mov     rdx, [r8 + 8]
+    ret
+RTX_ENDF(dat_field_get)
+
 .section .note.GNU-stack,"",@progbits

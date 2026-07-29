@@ -384,7 +384,7 @@ DESCR_t rt_construct_build(DatType *t, DESCR_t *named, int nnamed) {
     return self;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t dat_field_get(const char *fname, DESCR_t obj) {
+DESCR_t c_dat_field_get(const char *fname, DESCR_t obj) {
     DESCR_t *cell = data_field_ptr(fname, obj);
     if (cell) return *cell;
     if (fname && !strcmp(fname, "WHAT")) {
