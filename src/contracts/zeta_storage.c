@@ -255,7 +255,18 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
 static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 int fc_arm_member(const IR_t * nd);
-static int zls_fc_cell(const IR_t * nd) { if (!nd) return 0; { extern int fc_arm_member(const IR_t *); if (fc_arm_member(nd)) return 0; } switch (nd->op) { case IR_MATCH_SPAN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_BAL: case IR_MATCH_REM: case IR_MATCH_ARB: return 16; default: return 0; } }   /* PAT$N REGION NET-OUT (s191, Lon directive "99.999% of allocation are now inside the BB's"): the UNCONDITIONAL-cell slice of fc_geom -- these eight kinds each self-push a fixed 16B rsp cell at alpha (x86_asm.h ~1765 arms sub rsp,op_fc_bytes) AND were each granted exactly ONE 16B locals quad in the bulk proc-entry carve, which the fc_hit window rebase then makes UNREACHABLE: FR(off) for off inside [op_fc_base, +16) emits [rsp + off-base], never the flat slot.  Pure double-count, netted out here.  Restricted to the UNCONDITIONAL arms ON PURPOSE: fc_geom's conditional arms (fc_save_active / fc_vlit_active / fc_alt_fpmax) read side tables populated during LOWER, so asking them at zls_build time is registration-order-dependent and could answer 0 here but 16 at emit -- that disagreement would silently misplace a cell.  All eight verified 1:1 (one locals quad, 16B cell) against zls_grant_locals, and all eight are in zls_locals_shifted so the netted quad is the LOCALS quad, never the cross-box-read result quad. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* fc_cells_on -- Z4-6 (GOAL-ZETA-FOUR): THE ONE PORT OPINION for the whole fixed-cell family.  The s206 root cause (FINDING-2026-07-28 ZHEAP) was PORT-BLIND GRANT vs PORT-GATED CONSUMPTION -- fc_geom
+ * granted on every port while x86_fc_on/hit were FORTH-only, so under any non-FORTH port one box got contradictory answers (geometry said carve, consumers said flat, zls_fc_cell netted out the flat
+ * quad the box then needed, fc_vwpop counted omega pops for cells never pushed).  Z4-0/Z4-6 measured the consequence: the three pattern probes SEGV under frame-rsp while arith/fib run.  This predicate
+ * is consulted at the QUERY SURFACE of every family member below (fc_geom, fc_save_active, fc_vlit_active, fc_cond_fp, fc_head_fp, fc_vwpop, fc_seq_active, fc_leaf_disp, zls_fc_cell), so LOWER's
+ * consumers, the emitter's grants, the layout's quad net-out, and the template predicates all read ONE answer regardless of what the side tables registered.  ALLOWLIST {FORTH, HEAP} on purpose:
+ * FORTH is the live cell protocol (default -- this gate is a no-op there, byte-identity preserved); HEAP keeps today's in-flight granted-but-broken state UNCHANGED so Z4-8's pre/post SEGV proof
+ * stands (Z4-8 refines the HEAP arm here, at the one authority, per its own rung text).  Every other port (CSTACK/PLAIN/INSTRUMENTED/ALLOC/INLINE/OWNED) is ZERO-CELL = the flat frame-slot regime
+ * those ports were built for.  Port is process-global and set before any lowering (CLI/env in m3, the bake in m4), so both call phases read the same stable answer -- none of the registration-order
+ * hazard zls_fc_cell's own comment documents for the side tables. */
+static int fc_cells_on(void) { extern int rt_zeta_port_mode(void); int m = rt_zeta_port_mode(); return m == ZC_PORT_FORTH || m == ZC_PORT_HEAP; }
+static int zls_fc_cell(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd) return 0; { extern int fc_arm_member(const IR_t *); if (fc_arm_member(nd)) return 0; } switch (nd->op) { case IR_MATCH_SPAN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_BAL: case IR_MATCH_REM: case IR_MATCH_ARB: return 16; default: return 0; } }   /* PAT$N REGION NET-OUT (s191, Lon directive "99.999% of allocation are now inside the BB's"): the UNCONDITIONAL-cell slice of fc_geom -- these eight kinds each self-push a fixed 16B rsp cell at alpha (x86_asm.h ~1765 arms sub rsp,op_fc_bytes) AND were each granted exactly ONE 16B locals quad in the bulk proc-entry carve, which the fc_hit window rebase then makes UNREACHABLE: FR(off) for off inside [op_fc_base, +16) emits [rsp + off-base], never the flat slot.  Pure double-count, netted out here.  Restricted to the UNCONDITIONAL arms ON PURPOSE: fc_geom's conditional arms (fc_save_active / fc_vlit_active / fc_alt_fpmax) read side tables populated during LOWER, so asking them at zls_build time is registration-order-dependent and could answer 0 here but 16 at emit -- that disagreement would silently misplace a cell.  All eight verified 1:1 (one locals quad, 16B cell) against zls_grant_locals, and all eight are in zls_locals_shifted so the netted quad is the LOCALS quad, never the cross-box-read result quad. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
@@ -680,7 +691,7 @@ int fc_save_active(const IR_t * nd);
 int fc_vlit_active(const IR_t * nd);
 int fc_arm_member(const IR_t * nd);
 int fc_geom(const IR_t * nd, long * k) {
-    if (!nd) return 0;
+    if (!nd || !fc_cells_on()) return 0;   /* Z4-6: one port opinion (fc_cells_on above) */
     if (fc_arm_member(nd)) return 0;   /* ALT-FLAT (s202): arm residents are flat -- zero cell, zero rsp motion; their zls quads are kept (zls_fc_cell twin guard) */
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-FC-3c: delta at cell+0; ungranted SAVE stays zero-cell = the flat rt_cap array path */
     if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR) && fc_vlit_active(nd)) { if (k) *k = 16; return 1; }   /* ZB-VAL-0/2/3 (s177/s178): registered statement-level value producer (scalar lit or global var read) feeding a plain assign; ungranted producers stay flat */
@@ -771,7 +782,7 @@ static int fcs_n = 0;
 void fc_seq_register(const IR_t * nd) { if (!nd || fcs_n >= 512) return; fcs[fcs_n++] = nd; }
 void fc_seq_unregister(const IR_t * nd) { for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) { fcs[i] = fcs[--fcs_n]; return; } }   /* PS-3 s153: the tail candidate's pat_entry SEQ converts at lower ASSUMING the tail lands; a finalize-decline (defer target unregistered/non-uniform) must revert it or the SEQ's static re-points assume element depths the chain arm never establishes.  Swap-remove; consulted (fc_seq_active) only at emit, after the layout pass where the decline runs. */
 int fc_seq_active(const IR_t * nd) {
-    if (!nd || nd->op != IR_MATCH_SEQUENCE) return 0;
+    if (!nd || nd->op != IR_MATCH_SEQUENCE || !fc_cells_on()) return 0;   /* Z4-6: one port opinion */
     for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) return 1;
     return 0;
 }
@@ -794,7 +805,7 @@ int fc_seq_active(const IR_t * nd) {
  * must pick up nothing else).  IMM is the identical topology at op_phase 2 -- one mechanism, two phases. */
 static const IR_t * fvl[256]; static int fvl_n = 0;
 void fc_vlit_register(const IR_t * nd) { if (!nd || fvl_n >= 256) return; fvl[fvl_n++] = nd; }
-int fc_vlit_active(const IR_t * nd) { if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
+int fc_vlit_active(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; int fp; } fvr[256]; static int fvr_n = 0;
 void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fvr_n >= 256) return; fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; }   /* ZB-VAL-0: consumer-side displacement, the fc_cond_register shape */
 int fc_vread_fp(const IR_t * nd) { for (int i = 0; i < fvr_n; i++) if (fvr[i].nd == nd) return fvr[i].fp; return -1; }
@@ -803,13 +814,13 @@ void fc_vbinop_register(const IR_t * nd) { if (!nd || fvb_n >= 256) return; fvb[
 int fc_vbinop_active(const IR_t * nd) { if (!nd || (nd->op != IR_BINOP && nd->op != IR_UNOP)) return 0; for (int i = 0; i < fvb_n; i++) if (fvb[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; long w; } fvw[512]; static int fvw_n = 0;
 void fc_vwpop_register(const IR_t * nd, long w) { if (!nd || w <= 0 || fvw_n >= 512) return; fvw[fvw_n].nd = nd; fvw[fvw_n].w = w; fvw_n++; }   /* ZB-VAL-5: fallible box's EXTRA omega pop (cells under it); own cell rides the fc hook */
-long fc_vwpop(const IR_t * nd) { for (int i = 0; i < fvw_n; i++) if (fvw[i].nd == nd) return fvw[i].w; return 0; }
+long fc_vwpop(const IR_t * nd) { if (!fc_cells_on()) return 0; for (int i = 0; i < fvw_n; i++) if (fvw[i].nd == nd) return fvw[i].w; return 0; }
 int fc_vcap(int nl, int nr, int nb, int nw) { return fvl_n + nl <= 256 && fvr_n + nr <= 256 && fvb_n + nb <= 256 && fvw_n + nw <= 512; }   /* ZB-VAL-1/5: registration is all-or-nothing per statement -- a dropped member would strand a carve or under-pop an omega */
 static const IR_t * fcv[256];
 static int fcv_n = 0;
 void fc_save_register(const IR_t * nd) { if (!nd || fcv_n >= 256) return; fcv[fcv_n++] = nd; }
 int fc_save_active(const IR_t * nd) {
-    if (!nd || nd->op != IR_MATCH_ASSIGN_SAVE) return 0;
+    if (!nd || nd->op != IR_MATCH_ASSIGN_SAVE || !fc_cells_on()) return 0;   /* Z4-6: one port opinion */
     for (int i = 0; i < fcv_n; i++) if (fcv[i] == nd) return 1;
     return 0;
 }
@@ -826,6 +837,7 @@ void fc_cond_register(const IR_t * nd, int fp_inner) {
     fcc[fcc_n].nd = nd; fcc[fcc_n].fp = fp_inner; fcc_n++;
 }
 int fc_cond_fp(const IR_t * nd) {
+    if (!fc_cells_on()) return -1;   /* Z4-6: one port opinion */
     for (int i = 0; i < fcc_n; i++) if (fcc[i].nd == nd) return fcc[i].fp;
     return -1;
 }
@@ -842,6 +854,7 @@ static struct { const IR_t * nd; int fp; } fch[256];
 static int fch_n = 0;
 void fc_head_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fch_n >= 256) return; fch[fch_n].nd = nd; fch[fch_n].fp = fp; fch_n++; }
 int fc_head_fp(const IR_t * nd) {
+    if (!fc_cells_on()) return -1;   /* Z4-6: one port opinion */
     for (int i = 0; i < fch_n; i++) if (fch[i].nd == nd) return fch[i].fp;
     return -1;
 }
@@ -855,7 +868,7 @@ static int fcl_n = 0, fcl_cap = 0, fcl_hi = 0;
 static void fcl_stat_report(void) { fprintf(stderr, "[FCL] leaf-displacement registrations: high-water=%d (the pre-s190 fixed cap was 1024; anything above it was silently dropped)\n", fcl_hi); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_leaf_register(const IR_t * nd, int d) { if (!nd) return; { static int _st = 0; if (!_st) { _st = 1; if (getenv("SCRIP_FCL_STAT")) atexit(fcl_stat_report); } } if (fcl_n >= fcl_cap) { int nc = fcl_cap ? fcl_cap * 2 : 1024; void * p = realloc((void *)fcl, (size_t)nc * sizeof *fcl); if (!p) return; fcl = (struct { const IR_t * nd; int d; } *)p; fcl_cap = nc; } fcl[fcl_n].nd = nd; fcl[fcl_n].d = d; fcl_n++; if (fcl_n > fcl_hi) fcl_hi = fcl_n; }   /* R12-EXIT-1: negative d is legal (element-region rebase = prefix+own-window_min); the unregistered sentinel moved -1 -> INT_MIN (0x80000000) so -1 is an ordinary displacement.  FLATDISP-2a s190: was a fixed fcl[1024] that SILENTLY dropped every registration past 1024 (fc_tables_reset is wired only to the runtime EVAL/CODE recompiles, never to a normal compile, so the table accumulates across the whole program); a dropped node reads the INT_MIN sentinel, emit.cpp then LEAVES op_flat_disp at the previous node's value, and the box addresses a stale depth.  Growable now -- the cap cannot be reached, so widening the walk is safe.  fcl_hi is the high-water mark, reported by SCRIP_FCL_STAT=1. */
-int fc_leaf_disp(const IR_t * nd) {
+int fc_leaf_disp(const IR_t * nd) {   /* Z4-6 DELIBERATELY UNGATED: registered values are computed AT LOWER TIME from (gated) fc_geom sums plus the HEAD-cell constant, so under a zero-cell port the table self-adjusts and delivers the compensation that matches what is actually pushed.  A query gate here was tried and FALSIFIED by bisect (fib SEGV, rsp odd): its -1 was consumed by emit.cpp op_flat_disp as a REGISTERED displacement of minus one -- the true unregistered sentinel is (int)0x80000000, and the extern declaration prose saying "-1 = unregistered" is stale relative to that consumer. */
     for (int i = 0; i < fcl_n; i++) if (fcl[i].nd == nd) return fcl[i].d;
     return (int)0x80000000;
 }
