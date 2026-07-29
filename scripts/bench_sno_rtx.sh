@@ -48,7 +48,7 @@ GATE="SCRIP_RTX_${FAM}"
 case "$FAM" in
   CALL)  FAMSET="string_manip eval_fixed roman" ;;          # rt_call_arr 10.0M / 1.0M / 400K
   AGG)   FAMSET="table_access mixed_workload" ;;            # rt_subscript_var 5.0M/1.0M, rt_deref 2.5M/500K
-  ARITH) FAMSET="mixed_workload arith_loop" ;;              # rt_num_arith 500K
+  ARITH) FAMSET="mixed_workload arith_loop" ;;              # ⛔ UNUSABLE s203: mixed_workload segfaults on pristine main (rc=139); arith_loop calls rt_num_arith ZERO times (integer arith inlined by emitter). rt_cmp_d is the real ARITH hot symbol (10M/run in var_access/func_call); rated with FAMSET="var_access func_call". FAMSET needs a real/mixed-arith benchmark before rt_num_arith is measurable.
   STR)   FAMSET="func_call var_access string_pattern table_access string_manip" ;;  # str_concat_d 10.0M x3
   ALLOC) FAMSET="string_manip string_pattern table_access" ;;
   *)     FAMSET="string_manip table_access func_call" ;;
