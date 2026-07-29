@@ -35,6 +35,8 @@ main_α:
                         mov              ecx, 88
                         xor              eax, eax
                         rep stosb
+                        mov              [rsp + 80], rbp
+                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         X = 'hello'
@@ -108,12 +110,16 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 80]
                         add              rsp, 88
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
+                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
+                        mov              rbp, [rsp + 80]
                         add              rsp, 88
                         ret
                         .section         .note.GNU-stack,"",@progbits
