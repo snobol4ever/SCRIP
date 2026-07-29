@@ -257,14 +257,16 @@ int  rt_zeta_mode(void) { return g_zeta_mode; }
  * the --zeta-port CLI flag selects.  ONE variable, both worlds: scrip's driver sets it after argv parse
  * (covers mode 3 and every emit-time x86_port_mode() read); mode 4 binaries re-set it at entry via the call
  * the main wrapper BAKES when the resolved mode differs from the ZC_PORT build default (no override = no bake
- * = byte-identical output).  UNSET (-1) resolves lazily: the pre-existing SCRIP_ZETA_PORT env, else ZC_PORT —
+ * = byte-identical output).  UNSET (-1) resolves lazily: SCRIP_ZETA_STORAGE FIRST (Z4-5 — the selector is the
+ * single authority; its setter derives this axis, and a frame-r12 selection that derives nothing falls
+ * through), then the pre-existing SCRIP_ZETA_PORT env, else ZC_PORT —
  * precedence flag > env > default.  The bake also closes the M4 coherence hazard the env alone carried: a .s
  * emitted under one port mode is mode-COMMITTED (CSTACK emits rsp arithmetic, INLINE emits arena-cursor
  * arithmetic), so its runtime side (rt_zeta_cstack's alloca-vs-arena proc frames) must self-select the SAME
  * mode regardless of the executing shell's env. */
 static int g_zeta_port = -1;
 void rt_zeta_port_set_mode(int m) { g_zeta_port = (m >= ZC_PORT_PLAIN && m <= ZC_PORT_HEAP) ? m : (int)ZC_PORT; if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] port=%d\n", g_zeta_port); }
-int  rt_zeta_port_mode(void) { if (g_zeta_port < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); g_zeta_port = e ? atoi(e) : (int)ZC_PORT; } return g_zeta_port; }
+int  rt_zeta_port_mode(void) { if (g_zeta_port < 0) { if (getenv("SCRIP_ZETA_STORAGE")) rt_zeta_storage_get(); if (g_zeta_port < 0) { const char *e = getenv("SCRIP_ZETA_PORT"); g_zeta_port = e ? atoi(e) : (int)ZC_PORT; } } return g_zeta_port; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZC_STORAGE SELECTOR (GOAL-ZETA-FOUR Z4-4 slice 2, Lon directive 2026-07-28) — the FOUR-config axis that subsumes the ZC_PORT ladder + ZC_FRAME + ZC_ZETA + the never-added SCRIP_ZMODE:
  * 0=frame-r12 1=frame-rsp 2=cell-stack 3=cell-heap.  Same one-variable/both-worlds shape as the port selector above: the driver sets it post-argv (m3 + every emit-time read), m4 binaries re-set it
@@ -272,8 +274,9 @@ int  rt_zeta_port_mode(void) { if (g_zeta_port < 0) { const char *e = getenv("SC
  * flag > env > build.  CLAMPED OVER THE FULL 0..3 RANGE — the s206 lesson verbatim: rt_zeta_port_set_mode's stale <=FORTH clamp silently reset port 7 to the default, so a mode-4 heap binary ran
  * FORTH and every m3-vs-m4 A/B on the port was invalid; a clamp that lags its enum is a silent config lie.  THE SETTER DERIVES THE LEGACY TUPLE so zero downstream seams flip this rung:
  * cell-stack->PORT_FORTH, cell-heap->PORT_HEAP, frame-rsp->PORT_CSTACK (the R-B embodiment — ROTTED at HEAD until Z4-6; selecting it is honest, not yet safe); frame-r12 derives NOTHING (no legacy
- * twin survives at HEAD — Z4-7 gives the value its meaning).  KNOWN SEAM, stated not hidden: env-only selection in m3 resolves at the first rt_zeta_storage_get() consumer, and slice 2 adds none on
- * the m3 path — CLI covers m3 today; slice 3's first seam consumer closes it.  THE LAZY DEFAULT SETS THE CELL BARE (no derive, no telem): measured s2, a deriving default STOMPED an explicit --zeta-port=heap back to forth through the bake-site getter — an absent axis must never overwrite a present one.  Legacy axes stay behaviorally authoritative until slices 3+; Z4-9 deletes them. */
+ * twin survives at HEAD — Z4-7 gives the value its meaning).  SEAM CLOSED AT Z4-5: rt_zeta_port_mode's lazy branch now consults SCRIP_ZETA_STORAGE FIRST, so env-only storage selection reaches m3
+ * through the port axis every emit-time read already takes; --zeta-port=forth/cstack/heap are ALIASES routed through THIS setter (scrip.c), making the selector the single authority for the three
+ * mapped ports (the unmapped four stay direct until the Z4-9 cut).  THE LAZY DEFAULT SETS THE CELL BARE (no derive, no telem): measured s2, a deriving default STOMPED an explicit --zeta-port=heap back to forth through the bake-site getter — an absent axis must never overwrite a present one.  Legacy axes stay behaviorally authoritative until slices 3+; Z4-9 deletes them. */
 static const char *g_zeta_storage_names[4] = { "frame-r12", "frame-rsp", "cell-stack", "cell-heap" };
 static int g_zeta_storage = -1;
 void rt_zeta_storage_set(int s) { g_zeta_storage = (s >= ZC_STORAGE_FRAME_R12 && s <= ZC_STORAGE_CELL_HEAP) ? s : (int)ZC_STORAGE; if (g_zeta_storage == ZC_STORAGE_CELL_STACK) rt_zeta_port_set_mode(ZC_PORT_FORTH); else if (g_zeta_storage == ZC_STORAGE_CELL_HEAP) rt_zeta_port_set_mode(ZC_PORT_HEAP); else if (g_zeta_storage == ZC_STORAGE_FRAME_RSP) rt_zeta_port_set_mode(ZC_PORT_CSTACK); if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] storage=%s\n", g_zeta_storage_names[g_zeta_storage]); }
