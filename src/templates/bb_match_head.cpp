@@ -22,7 +22,7 @@ std::string bb_match_head() {
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
          + IF(_.flat_deep_arrival, x86("mov", FRQ(_.op_off + 40), "rbp"))   /* BRACKET-GATE (s193): the +40 save exists to bracket the ARBNO zv() borrow (and any deep repoint); a depth-static graph has no repointer, so save AND both restores gate together on the same predicate the outer quartet reads — drift-proof by shared condition. */
-         + IF(ZC_FRAME != ZC_FRAME_RSP, IF(hfc(), x86("sub", "rsp", (long)32))
+         + IF(x86_zc_frame() != ZC_FRAME_RSP, IF(hfc(), x86("sub", "rsp", (long)32))
              + IF(hfc(), x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
                        + x86("mov", FRQ(_.op_off + 8), "rax"))
              + (hfc() ? x86("mov", "rax", "rsp")
@@ -35,7 +35,7 @@ std::string bb_match_head() {
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
          + x86("mov", "rax", ABSQ(RT_CAS_TOP)) + x86("mov", FRQ(_.op_off + 32), "rax")   /* R12-FREE-1: bracket-save the CELL top (r12 vacated) */
-         + IF(ZC_FRAME == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
+         + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86("sub", "rsp", (long)32)
                                                 + x86("mov", FRQ(_.op_off + 16), "rax")
                                                 : x86_zls2_mark_save(_.op_off + 16))
@@ -57,13 +57,13 @@ std::string bb_match_head() {
          + x86("jne", L(1))
          + x86("jmp", L(0))
          + x86("def", L(1))
-         + IF(ZC_FRAME == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "qword ptr [rsp + 8]")
+         + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "qword ptr [rsp + 8]")
                                                 : x86("mov", "rax", FRQ(_.op_off + 8)))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", RDQ("rcx", 0), "rax"))
-         + (hfc() && ZC_FRAME == ZC_FRAME_RSP
+         + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
              ? x86("mov", "rsp", "qword ptr [rsp + 16]")
-             : ZC_FRAME == ZC_FRAME_RSP
+             : x86_zc_frame() == ZC_FRAME_RSP
              ? x86_zls2_release_to_call(_.op_off + 16)
              : ( IF(hfc(), x86("mov", "rdi", FRQ(_.op_off + 8)))
                + x86_align_enter()

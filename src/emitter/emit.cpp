@@ -901,7 +901,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_DEFER:          { bb_prepare(nd); g_emit.op_seal = nd->seal; if (nd->seal == 1) g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = g_emit_cfg ? fc_tail_defer_susp_g(g_emit_cfg, nd) : -1; bb_emit_x86(bb_match_defer()); } return 0;  /* SN4-PAT-FOLD deferred/stored pattern var; s137 OVER-SEAL: seal state written HERE (post-prologue, both drive paths) from IR_t.seal — op_off repointed at the defer.pad quad (the α rsp watermark) only when FULL-sealed (==1); s142: seal==2 = write-once class, entry-cell only, no pad; s153: op_defer_leaf_susp arms the ZERO-GUARDED β for priced tail-candidate leaves (the ε-resume phantom-pad convention) */
     case IR_MATCH_VALUE:          { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;  /* SN4 kill-manufactured-names: match operand[0]'s pattern value (op_a_slot), no name */
     case IR_MATCH_ARBNO:          { extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); extern int fc_tail_ncap(const IR_t *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
-                                    if (ZC_FRAME == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; g_emit.op_tail_dfr = fc_tail_dfr(nd); }
+                                    if (x86_zc_frame() == ZC_FRAME_RSP && fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl; g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; g_emit.op_tail_dfr = fc_tail_dfr(nd); }
                                     else { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; int _chain = (x86_port_mode() == ZC_PORT_FORTH); g_emit.op_arbno_chain = _chain; g_emit.op_sb = (_sp + (_chain ? 24 : 16) + 15) & ~15; if (_chain) g_emit.op_arbno_nzq = zls_arbno_zq(nd, g_emit.op_arbno_zq, 8); } else { g_emit.op_sa = -1; g_emit.op_sb = -1; g_emit.op_arbno_chain = 0; } }
                                     /* PS-3 (s152) DEFER-TAIL candidacy (decided ENTIRELY here, emit drive time -- LOWER untouched, so a decline is byte-identical chain): body bracket must be EXACTLY one
                                      * WRITE-ONCE defer (seal==2, s142 class: wrcount==1 + fz-safe, so mid-match reassignment cannot exist) whose bound name is PROLOGUE-DOMINATED (assignment executes
@@ -927,9 +927,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                         }
                                     }
                                     bb_emit_x86(bb_match_arbno()); } return 0;   /* SN4-NARY-ARBNO: one node, flat-driven; R12-EXIT-1 carry-the-tail (rsp elements, op_sa = HDRB) or heap COLLECTION / ZB-FC-4 chain / PS-3 defer-tail; geometry staged here */
-    case IR_MATCH_HEAD:           { extern int fc_tail_head(const IR_t *); int _th = (ZC_FRAME == ZC_FRAME_RSP && fc_tail_head(nd)); if (fc_head_fp(nd) >= 0 || _th) { g_emit.op_fc_wbytes = 24; g_emit.op_fc_base = g_emit.op_off; } if (_th) g_emit.op_tail = 1; bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 + ZB-FC-3d self-cell WINDOW + R12-EXIT-1 tail statements self-push too (bracket source) */
+    case IR_MATCH_HEAD:           { extern int fc_tail_head(const IR_t *); int _th = (x86_zc_frame() == ZC_FRAME_RSP && fc_tail_head(nd)); if (fc_head_fp(nd) >= 0 || _th) { g_emit.op_fc_wbytes = 24; g_emit.op_fc_base = g_emit.op_off; } if (_th) g_emit.op_tail = 1; bb_emit_x86(bb_match_head()); } return 0;                  /* SN4-PAT-2 + ZB-FC-3d self-cell WINDOW + R12-EXIT-1 tail statements self-push too (bracket source) */
     case IR_MATCH_RELEASE:        { IR_t * _hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; extern int fc_tail_release(const IR_t *, int *); int _br = -1;
-                                    if (ZC_FRAME == ZC_FRAME_RSP && _hd && fc_tail_release(_hd, &_br)) { g_emit.op_tail = 1; g_emit.op_fc_disp = _br; }
+                                    if (x86_zc_frame() == ZC_FRAME_RSP && _hd && fc_tail_release(_hd, &_br)) { g_emit.op_tail = 1; g_emit.op_fc_disp = _br; }
                                     else g_emit.op_fc_disp = _hd ? fc_head_fp(_hd) : -1;
                                     bb_emit_x86(bb_match_release()); } return 0;               /* BB-OWNED-ζ statement-scope pivot + ZB-FC-3d cross-box cell reads + R12-EXIT-1 tail: bracket read off the TOP ELEMENT then unwind */
     case IR_MATCH_REPLACE:        { bb_emit_x86(bb_match_replace()); } return 0;               /* SN4-REPL stages 4/5 splice */
@@ -1026,7 +1026,7 @@ extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
     g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_seq = 0; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; g_emit.op_flat_disp = 0; \
-    if (ZC_FRAME == ZC_FRAME_RSP) { int _fld = fc_leaf_disp(nd); if (_fld != (int)0x80000000) g_emit.op_flat_disp = _fld; } \
+    if (x86_zc_frame() == ZC_FRAME_RSP) { int _fld = fc_leaf_disp(nd); if (_fld != (int)0x80000000) g_emit.op_flat_disp = _fld; } \
     bb_label_t *_fs__=bb_label_fold((s)), *_ff__=bb_label_fold((f)); \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=_fs__->name; g_emit.lbl_ω=_ff__->name; g_emit.lbl_β=(b)->name; \
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=_fs__; g_emit.lbl_ω_p=_ff__; g_emit.lbl_β_p=(b); \
@@ -1821,7 +1821,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_is_text) g_emit_pos += 7;
     bb_label_t lbl_attempt, lbl_scanhit, lbl_scanfail;
     static int _scan_off = -1; if (_scan_off < 0) { const char *_e = getenv("SCRIP_SCAN_OFF"); _scan_off = (_e && *_e == '1') ? 1 : 0; }   /* SPD-2 hatch: SCRIP_SCAN_OFF=1 = same-build A/B (BP-5/BP-6 precedent) */
-    int scan_live = (!_scan_off && ZC_FRAME == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* SPD-2 RETRY-INTERNAL: RSP/rbp flavor only (fb==rbp hardwired below); legacy frame modes keep the classic per-position round trip */
+    int scan_live = (!_scan_off && x86_zc_frame() == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* SPD-2 RETRY-INTERNAL: RSP/rbp flavor only (fb==rbp hardwired below); legacy frame modes keep the classic per-position round trip */
     if (scan_live) {
         emit_label_initf(&lbl_attempt,  "%s_attempt",  prefix);
         emit_label_initf(&lbl_scanhit,  "%s_scanhit",  prefix);
@@ -2137,7 +2137,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          * the pops are rsp-discipline, and under any other port flavor the trampoline bodies differ.  Hatch:
          * SCRIP_ZPOP_FOLD_OFF=1 = same-build byte-identical baseline (SCRIP_BETA_ELIDE_OFF precedent). */
         { static int _zpf = -1; if (_zpf < 0) { const char *_e = getenv("SCRIP_ZPOP_FOLD_OFF"); _zpf = (_e && _e[0] == '1') ? 1 : 0; }
-          if (!_zpf && ZC_FRAME == ZC_FRAME_RSP && x86_port_mode() == ZC_PORT_FORTH) {
+          if (!_zpf && x86_zc_frame() == ZC_FRAME_RSP && x86_port_mode() == ZC_PORT_FORTH) {
               long _sum = 0; int _fk = -1, _hops = 0;
               for (int _k = 0; _k < n; _k++) if (node_ω == betas[_k]) { _fk = _k; break; }
               while (_fk >= 0 && _hops++ < 64 && flat_trivial_beta(nodes[_fk])) {

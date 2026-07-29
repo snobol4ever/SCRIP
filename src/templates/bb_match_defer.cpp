@@ -17,7 +17,7 @@ extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
-#define dswap() (ZC_FRAME == ZC_FRAME_RSP)
+#define dswap() (x86_zc_frame() == ZC_FRAME_RSP)
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* s142 DEFER-SITE DIET kill-switch (NOFILL precedent): =0 restores the uncached GVA dance for A/B and emergencies */
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
