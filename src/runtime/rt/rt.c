@@ -351,6 +351,7 @@ typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
     int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned;   /* rest_kind names WHAT differs about the variadic tail binding, never WHICH language asked: REST_LIST(0) = the DT_DATA list rt_make_list builds; REST_FLAT_AGG(1) = the SOH-joined flat aggregate (canonical from-slurpy-flat, List.rakumod:271) that .elems/subscripts/reductions already understand. NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate.  PS-1b (s151): zstatic = 1 iff this proc's blob graph was DEFER/VALUE-free with a known region (emit-side emit_graph_zstatic); default 0 = conservative, so an unregistered proc reads as chain-path safe. */
 } rt_proc_t;
+_Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.S bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.S bakes PROC_NAME and PROC_ISGEN");
 static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 static int           g_rt_gen_proc_count = 0;
@@ -1016,8 +1017,8 @@ static int         g_pcall_cap;
  * rbp) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
  * SPITBOL restore protocol stay in the existing γ/ω epilogue leaves the wires land on, so save/restore semantics are byte-identical to the extracted-body regime. */
 typedef struct { void *gw; void *ww; void *rsp; void *rbp; void *r12; } rt_flat_wires_t;
-static rt_flat_wires_t *g_pcall_wires;
-static rt_flat_wires_t  g_flat_ret_snapbuf;
+__attribute__((visibility("hidden"))) rt_flat_wires_t *g_pcall_wires;
+__attribute__((visibility("hidden"))) rt_flat_wires_t  g_flat_ret_snapbuf;
 _Static_assert(sizeof(rt_flat_wires_t) == 40 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, rbp) == 24 && offsetof(rt_flat_wires_t, r12) == 32, "bb_save_restore.cpp bakes these offsets; r12 field Z4-7 slice 2 (island caller-base restore), read only by the island-emitted floater arm");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ws_roots(void)
@@ -1055,7 +1056,7 @@ void rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *rbp, void *r12
     { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; w->r12 = r12v; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_flat_ret_snap(void)
+void *c_rt_flat_ret_snap(void)
 {
     if (g_pcall_top <= 0) { extern void core_runtime_error(int, const char *); core_runtime_error(18, (const char *)0); exit(1); }   /* SN4-FLAT-PROC: manual/SPITBOL error class "Return from level zero" (core_err_msgs[18]) — routed through the core machinery so &ERROR/SETEXIT trapping applies; the exit is unreachable belt-and-braces (core exits or longjmps) */
     { rt_flat_wires_t *w = g_pcall_wires ? &g_pcall_wires[g_pcall_top - 1] : (rt_flat_wires_t *)0;
@@ -1354,7 +1355,7 @@ DESCR_t rt_proc_enter(void *fn);
 /* OPEN-FN LEAF — the emitted call site's fn fetch.  Under the call regime the entry rode back out of
  * rt_frame_prep; under jmp-entry there is no caller-made frame to prep, so the site asks for the entry alone.
  * Strict leaf: reads the pcall record the open just pushed. */
-void *rt_proc_open_fn(void)
+void *c_rt_proc_open_fn(void)
 {
     if (g_pcall_top <= 0) return (void *)0;
     return (void *)g_pcall[g_pcall_top - 1].p->fn;
