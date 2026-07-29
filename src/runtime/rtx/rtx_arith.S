@@ -146,5 +146,112 @@ RTX_FUNC(rt_cmp_d)
     ret
 RTX_ENDF(rt_cmp_d)
 
+/*-----------------------------------------------------------------------------
+ * DESCR_t rt_add/rt_sub/rt_mul(DESCR_t a, DESCR_t b)
+ *
+ * ARG PAIRS (ARCH section 2):  a = rdi:(slen<<32)|v , rsi:value
+ *                              b = rdx:(slen<<32)|v , rcx:value
+ * RETURN PAIR:                     rax:(slen<<32)|v , rdx:value
+ * edi/edx alias the tag, so one 32-bit cmp per operand tests it.
+ * INTVAL/REALVAL (core.h:21-22) leave slen ZERO, so "mov eax,DT_x" -- which
+ * zero-extends into rax -- reproduces the C descriptor exactly.
+ *
+ * TWO FAST ARMS, BOTH MEASURED HOT s210 (LD_PRELOAD census, arith_mixed):
+ *   rt_add is called 80,000,001 times, split 50/50 int-int and real-real,
+ *   and the split is STABLE across a 2x loop scaling (160,000,001 calls).
+ *   Everything else tail-jumps to the untouched C body with args in place.
+ *
+ * WHY BYPASSING setjmp IS SOUND ON THE REAL ARM -- the part that must be
+ * argued, not assumed.  The C entry (arithmetic.c RT_BINOP_ENTRY) arms a
+ * setjmp before calling rt_num_arith_impl so a core_runtime_error deep inside
+ * can longjmp out as FAILDESCR.  For two DT_R operands that path is provably
+ * unreachable for ADD/SUB/MUL: to_real(core.c:2010) returns v.r directly for
+ * DT_R without calling anything, csop is 0, both IS_REAL_fn are 1 so anyf is
+ * 1, and the switch arm is a bare REALVAL(ld op rd) -- no zero test, no fmod,
+ * no pow, no error call.  DIV and MOD are NOT ported for exactly this reason
+ * (both can raise on a zero divisor), and neither is POW (calls pow()).
+ * The errjmp_n bookkeeping is likewise skippable: the C restores it to its
+ * entry value before returning, so skipping the increment/decrement pair is
+ * not observable.
+ *
+ * IEEE: addsd/subsd/mulsd ARE the operations gcc emits for double + - * on
+ * SysV x86-64, so NaN, +-Inf, -0.0 and rounding all propagate bit-identically.
+ */
+RTX_FUNC(rt_add)
+    RTX_GATE(arith, c_rt_add)
+    cmp     edi, DT_I
+    jne     .Ladd_notii
+    cmp     edx, DT_I
+    jne     .Ladd_notii
+    lea     rdx, [rsi + rcx]            /* a.i + b.i, one instruction          */
+    mov     eax, DT_I
+    ret
+.Ladd_notii:
+    cmp     edi, DT_R
+    jne     .Ladd_slow
+    cmp     edx, DT_R
+    jne     .Ladd_slow
+    movq    xmm0, rsi
+    movq    xmm1, rcx
+    addsd   xmm0, xmm1
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Ladd_slow:
+    jmp     c_rt_add                    /* rdi/rsi/rdx/rcx untouched above     */
+RTX_ENDF(rt_add)
+
+/*---------------------------------------------------------------------------*/
+RTX_FUNC(rt_sub)
+    RTX_GATE(arith, c_rt_sub)
+    cmp     edi, DT_I
+    jne     .Lsub_notii
+    cmp     edx, DT_I
+    jne     .Lsub_notii
+    mov     rdx, rsi
+    sub     rdx, rcx                    /* a.i - b.i                           */
+    mov     eax, DT_I
+    ret
+.Lsub_notii:
+    cmp     edi, DT_R
+    jne     .Lsub_slow
+    cmp     edx, DT_R
+    jne     .Lsub_slow
+    movq    xmm0, rsi
+    movq    xmm1, rcx
+    subsd   xmm0, xmm1
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Lsub_slow:
+    jmp     c_rt_sub
+RTX_ENDF(rt_sub)
+
+/*---------------------------------------------------------------------------*/
+RTX_FUNC(rt_mul)
+    RTX_GATE(arith, c_rt_mul)
+    cmp     edi, DT_I
+    jne     .Lmul_notii
+    cmp     edx, DT_I
+    jne     .Lmul_notii
+    mov     rdx, rsi
+    imul    rdx, rcx                    /* a.i * b.i, low 64 bits, wraps       */
+    mov     eax, DT_I
+    ret
+.Lmul_notii:
+    cmp     edi, DT_R
+    jne     .Lmul_slow
+    cmp     edx, DT_R
+    jne     .Lmul_slow
+    movq    xmm0, rsi
+    movq    xmm1, rcx
+    mulsd   xmm0, xmm1
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Lmul_slow:
+    jmp     c_rt_mul
+RTX_ENDF(rt_mul)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
