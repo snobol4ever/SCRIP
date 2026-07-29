@@ -123,6 +123,33 @@ inline std::string x86_movq_xmm_r64(const char * dst, const char * src) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movq ") + dst + ", " + src + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RTX-6r (s206): XMM -> GP, the reverse of x86_movq_xmm_r64.  Same 66/REX/0F prefix train, opcode 7E
+ * instead of 6E, and the modrm roles are swapped: the XMM number rides the REG field, the GP register
+ * rides the RM field.  Byte-verified against gas/objdump, NOT hand-derived:
+ *   movq rax, xmm0 -> 66 48 0f 7e c0   movq rdx, xmm1 -> 66 48 0f 7e ca   movq r9, xmm0 -> 66 49 0f 7e c1
+ * REX.B (0x01) for an extended GP in RM; REX.R (0x04) for an extended XMM in REG — identical rule to 6E. */
+inline std::string x86_movq_r64_xmm(const char * dst, const char * src) {
+    int xn = (src && !strncmp(src, "xmm", 3)) ? atoi(src + 3) : 0; int m = x86_rnum(dst); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; if (xn >= 8) rex |= 0x04;
+    std::string code; code += (char)0x66; code += (char)rex; code += (char)0x0F; code += (char)0x7E; code += (char)(0xC0 | ((xn & 7) << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movq ") + dst + ", " + src + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RTX-6r (s206): scalar-double arithmetic, REGISTER-REGISTER ONLY (xmm0 <op>= xmm1).
+ * ⛔ DELIBERATELY NOT a memory-operand form.  A [base+disp] SSE encoding differs by BASE — [rsp+off]
+ * needs a SIB byte (44 24 / 84 24), [rbp+off] does not (45 / 85) — and per s205 CORRECTION 1 the frame
+ * base is PER-GRAPH (x86_fb_pinned(): rbp for suspended generators / pattern blobs / deep-arrival
+ * graphs, rsp for depth-static determinate graphs).  A hand-rolled mem form would silently encode the
+ * wrong thing on every rbp-based graph.  Operands therefore travel through GP regs via the existing,
+ * already-proven mov encoders, and only these fixed 4-byte reg-reg forms are new.
+ * Byte-verified: addsd f2 0f 58 c1 · subsd f2 0f 5c c1 · mulsd f2 0f 59 c1 */
+inline std::string x86_sse_arith(const char * mnem) {
+    uint8_t opc = 0x58;                                   /* addsd */
+    if (!strcmp(mnem, "subsd")) opc = 0x5C;
+    else if (!strcmp(mnem, "mulsd")) opc = 0x59;
+    std::string code; code += (char)0xF2; code += (char)0x0F; code += (char)opc; code += (char)0xC1;
+    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" ") + mnem + " xmm0, xmm1\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_set_xmm0_double(double d) {
     uint64_t bits = 0; memcpy(&bits, &d, sizeof bits);
     return x86_movabs_r64("rax", bits) + x86_movq_xmm0_r64("rax");
@@ -1423,8 +1450,10 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (b.txt && !strncmp(b.txt, "f64:", 4)) { uint64_t bits = strtoull(b.txt + 4, 0, 10); double d; memcpy(&d, &bits, 8); return x86_set_xmm0_double(d); }
         return std::string();
     }
+    if (!strcmp(mnem, "addsd") || !strcmp(mnem, "subsd") || !strcmp(mnem, "mulsd")) { (void)a; (void)b; return x86_sse_arith(mnem); }   /* RTX-6r: xmm0 <op>= xmm1, reg-reg only */
     if (!strcmp(mnem, "movq")) {
         if (a.kind == XK_REG && b.kind == XK_REG && a.txt && !strncmp(a.txt, "xmm", 3)) return x86_movq_xmm_r64(a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_REG && b.txt && !strncmp(b.txt, "xmm", 3)) return x86_movq_r64_xmm(a.txt, b.txt);           /* RTX-6r: XMM -> GP */
         return std::string();
     }
     return std::string();
