@@ -1193,7 +1193,7 @@ DESCR_t rt_deref_slow(DESCR_t d) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_assign_var(DESCR_t var, DESCR_t val) {
+DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val) {   /* RTX ICNVAR: asm entry is rt_assign_var (rtx_icnvar.S); this is the gate-off body */
     { DESCR_t sh[2]; sh[0] = var; sh[1] = val; rt_gc_point_arr(sh, 2, (const char **)0); var = sh[0]; val = sh[1]; }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }

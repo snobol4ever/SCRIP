@@ -310,6 +310,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 DESCR_t rt_deref(DESCR_t d);
 DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);   /* RTX ICNVAR gate-off body */
 DESCR_t rt_cset_compl(DESCR_t a);
 DESCR_t *NV_PTR_fn(const char *name);
 int NV_bind_gva(const char *name, DESCR_t *cell);
