@@ -22,7 +22,7 @@ static std::string release_pump() {
          + x86_anchor_enter()
          + (ZC_FRAME == ZC_FRAME_RSP ? x86("mov", "rdi", RSP((int)(_.op_off + 32 + 32)))
                                      : x86("mov",  "rdi", FRQ(_.op_off + 32)))
-         + x86("mov",  "rsi", "r12")
+         + x86("mov",  "rsi", ABSQ(RT_CAS_TOP))   /* R12-FREE-1: pass the CELL top */
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          + x86("def",  L(1))
@@ -61,7 +61,7 @@ static std::string release_pump() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("mov", "r12", FRQ(_.op_off + 32))
+         + x86("mov", "rax", FRQ(_.op_off + 32)) + x86("mov", ABSQ(RT_CAS_TOP), "rax")   /* R12-FREE-1: one-mov unwind now restores the CELL */
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
          + x86_gamma();
 }

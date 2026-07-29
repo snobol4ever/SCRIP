@@ -1232,7 +1232,7 @@ int main(int argc, char **argv)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            emit_textf("  mov r12, qword ptr [%lu]\n", (unsigned long)RT_CAS_TOP); /* R12-EXTERN (Lon s173): the OUTSIDE sets the environment register — mode-4 twin of mode-3's rt_outer_call; blobs assume r12 live on entry (xa_flat REG-6 outer seed deleted, outer prologue now shape-identical to a proc's) */
+            /* R12-FREE-1 (Lon 2026-07-29): the r12 environment seed is DELETED -- the pend top is cell-resident at [RT_CAS_TOP]; nothing reads r12 (r12 vacated for ZC_STORAGE_FRAME_R12) */
             emit_textf("  xor esi, esi\n");
             emit_textf("  call main_\xce\xb1\n");
             emit_textf("  xor eax, eax\n");
@@ -1420,7 +1420,7 @@ int main(int argc, char **argv)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            emit_textf("  mov r12, qword ptr [%lu]\n", (unsigned long)RT_CAS_TOP); /* R12-EXTERN (Lon s173): the OUTSIDE sets the environment register — twin of the main_α arm above and mode-3's rt_outer_call */
+            /* R12-FREE-1 (Lon 2026-07-29): the r12 environment seed is DELETED -- the pend top is cell-resident at [RT_CAS_TOP]; nothing reads r12 (r12 vacated for ZC_STORAGE_FRAME_R12) */
             emit_textf("  xor esi, esi\n");
             emit_textf("  call flat_\xce\xb1\n");
             if (ZC_FRAME == ZC_FRAME_RSP) emit_textf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
