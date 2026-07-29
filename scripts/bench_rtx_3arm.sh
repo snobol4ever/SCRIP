@@ -104,8 +104,27 @@ for prog in "$@"; do
     echo "  $(basename "$prog"): NO 'ms:' WINDOW — program is not self-timed, or it crashed. NOT GRADED."
     rc=1; continue
   fi
+  # ARM-STABILITY PRECONDITION (added s209, after ALLOC/string_manip's PRISTINE arm ran
+  # 4769 3903 1898 6509 -- a 3.4x spread INSIDE ONE ARM -- and the harness happily printed
+  # "2.416x" from it. A median computed over a bimodal or wildly dispersed arm is a coin flip,
+  # not a measurement. If any arm's own spread is comparable to the gap BETWEEN arms, the ratio
+  # is unsupported and this refuses to print it as a result. table_churn's OFF arm is the other
+  # documented shape: 2397 1400 2616 1392 -- BIMODAL, median meaningless, and it is exactly what
+  # made the legacy two-arm number read 1.464x against a true 1.084x.
+  spread() { echo "$1" | tr ' ' '\n' | grep -v '^$' | sort -n \
+             | awk '{a[NR]=$1} END{ if(NR<2||a[1]+0==0){print 0; exit} printf "%.3f", a[NR]/a[1] }'; }
+  sp=$(spread "$P"); sf=$(spread "$F"); sn=$(spread "$N")
+  gap=$(awk -v a="$mp" -v b="$mn" 'BEGIN{ if(a+0==0||b+0==0){print 0; exit} printf "%.3f", (a>b)?a/b:b/a }')
+  worst=$(awk -v x="$sp" -v y="$sf" -v z="$sn" 'BEGIN{m=x; if(y>m)m=y; if(z>m)m=z; printf "%.3f", m}')
+  unstable=$(awk -v w="$worst" -v g="$gap" 'BEGIN{ print (w > g) ? 1 : 0 }')
   echo "  $(basename "$prog")"
   echo "      PRISTINE=${mp}ms   OFF=${mf}ms   ON=${mn}ms"
+  echo "      arm spreads (max/min): PRISTINE=${sp}x OFF=${sf}x ON=${sn}x   |   ON-vs-PRISTINE gap=${gap}x"
+  if [ "$unstable" = "1" ]; then
+    echo "      ⛔ UNGRADEABLE — worst intra-arm spread (${worst}x) EXCEEDS the inter-arm gap (${gap}x)."
+    echo "         The ratio below is NOT a result. Re-run with more rounds, or fix the benchmark."
+    rc=1
+  fi
   echo "      ON/PRISTINE = $(ratio "$mp" "$mn")x   <-- THE REAL ANSWER"
   echo "      ON/OFF      = $(ratio "$mf" "$mn")x   (legacy two-arm number; the gap vs the line above IS the artifact)"
   echo "      OFF/PRISTINE= $(ratio "$mp" "$mf")x   (the kill-switch tax on this family)"
