@@ -1,4 +1,5 @@
 #include "descr.h"
+#include "gc_heap.h"
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_misc;
@@ -16,4 +17,5 @@ _Static_assert(DT_SNUL == 0,  "rtx_abi.inc hardcodes DT_SNUL 0; descr.h drifted 
 _Static_assert(DT_S    == 1,  "rtx_abi.inc hardcodes DT_S 1; descr.h drifted -- update src/runtime/rtx/rtx_abi.inc to match");
 _Static_assert(DT_P    == 3,  "rtx_abi.inc hardcodes DT_P 3; descr.h drifted -- str_concat_d's pattern guard would stop routing to pat_cat");
 _Static_assert(DT_X    == 15, "rtx_abi.inc hardcodes DT_X 15; descr.h drifted -- str_concat_d's pattern guard would stop routing to pat_cat");
+_Static_assert(HB_AGGV == 206, "rtx_alloc.S hardcodes HB_AGGV 206; gc_heap.h drifted -- rt_agg_alloc would tag every aggregate cell with the WRONG block type, which links fine, allocates fine, and corrupts the GC's precise-visit classification silently");
 _Static_assert(DT_FAIL == 99, "rtx_abi.inc hardcodes DT_FAIL 99; descr.h drifted -- FAILDESCR precedence in the null-identity arm would break");

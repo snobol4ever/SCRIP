@@ -319,7 +319,7 @@ void *rt_plj_alloc(size_t n)
     return rt_gcheap_alloc((uint16_t)HB_PLJ, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_agg_alloc(int kind, size_t n)
+void *c_rt_agg_alloc(int kind, size_t n)
 {
     uint16_t ty = (uint16_t)(HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind)));
     if (g_alloc_detax != 1 && rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), ty, (uint64_t)n);

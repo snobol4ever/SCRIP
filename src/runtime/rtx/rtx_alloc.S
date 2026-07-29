@@ -41,6 +41,7 @@
 RTX_GATE_DEF(alloc)
 
 #define HBF_TTL 0x0001
+#define HB_AGGV 206                     /* gc_heap.h; anchored by _Static_assert in rtx_init.c */
 
 /*-----------------------------------------------------------------------------
  * void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
@@ -118,6 +119,54 @@ RTX_FUNC(rt_str_alloc)
     mov     edi, DT_S
     jmp     .Lga_armed                  /* armed already proven, r10 loaded     */
 RTX_ENDF(rt_str_alloc)
+
+/*-----------------------------------------------------------------------------
+ * void *rt_agg_alloc(int kind, size_t n)     C of record: gc_heap.c c_rt_agg_alloc
+ *
+ *   Args: edi = kind, rsi = n.   Returns: rax = payload pointer.
+ *
+ *   C being reproduced, exactly:
+ *     ty = HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind));
+ *     if (g_alloc_detax != 1 && rt_alloc_hist_on()) rt_alloc_hist_ra(retaddr, ty, n);
+ *     return rt_gcheap_alloc(ty, n ? n : 1);
+ *
+ *   THE SAME FUSION AS rt_str_alloc, AND IT IS A PROOF, NOT A SKIP: `armed` mirrors
+ *   (g_alloc_detax == 1 && g_ah_on <= 0), so armed set => g_alloc_detax == 1 => the
+ *   guard `g_alloc_detax != 1` is FALSE => the histogram call provably cannot fire.
+ *   It is therefore ELIMINATED on this path, not merely branched around. When armed is
+ *   clear we hand the whole call back to C, which still owns the histogram and lazy init.
+ *
+ *   WHY THIS SYMBOL IS WORTH A PORT AT ALL (measured s204, step 0(d), and stated so a
+ *   null result is informative): rt_agg_alloc is a SIX-LINE WRAPPER whose own body is
+ *   pure -O0 ceremony -- prologue, argument spills, a call to rt_alloc_hist_on(), and a
+ *   second call frame for rt_gcheap_alloc, which is ITSELF already asm (RTX-2). The port
+ *   deletes the frame and turns the inner call into a fallthrough. Density: table_churn
+ *   8,001,201 calls (scales linearly: 16,001,201 at 2x passes) . table_access 7,506,501 .
+ *   string_manip 0.  Gate on AGG/ALLOC programs, NEVER on string_manip or the rail.
+ *
+ *   CLAMP IS SIGNED (kind is int): cmovs for kind<0, cmovg for kind>2 -- branchless, and
+ *   the two cmovs cost less than the single mispredict the C version's branches invite.
+ */
+RTX_FUNC(rt_agg_alloc)
+    RTX_GATE(alloc, c_rt_agg_alloc)
+    mov     r10, [rip + g_hp_fr@GOTPCREL]  /* exported+preemptible => GOT, not lea */
+    mov     eax, dword ptr [r10 + 24]   /* armed: mirrors detax==1 && hist off  */
+    test    eax, eax
+    je      c_rt_agg_alloc              /* not armed -> C owns hist + init      */
+    mov     eax, edi
+    xor     ecx, ecx
+    test    eax, eax
+    cmovs   eax, ecx                    /* kind < 0 -> 0                        */
+    mov     ecx, 2
+    cmp     eax, 2
+    cmovg   eax, ecx                    /* kind > 2 -> 2                        */
+    add     eax, HB_AGGV
+    mov     edi, eax                    /* type = HB_AGGV + clamp(kind,0,2)     */
+    mov     rcx, 1
+    test    rsi, rsi
+    cmove   rsi, rcx                    /* n ? n : 1                            */
+    jmp     .Lga_armed                  /* armed already proven, r10 loaded     */
+RTX_ENDF(rt_agg_alloc)
 
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
