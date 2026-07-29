@@ -128,8 +128,10 @@ n8_match_head_α:
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
-                        mov              rax, qword ptr [1879048192]
-                        mov              qword ptr [rbp + 96], rax
+                        mov              r10, qword ptr [1879048192]
+                        mov              qword ptr [r10 + 0], 0
+                        add              r10, 24
+                        mov              qword ptr [1879048192], r10
                         mov              qword ptr [rbp + 80], rsp
                         lea              rcx, [rip + g_patstk_sp]
                         mov              rax, qword ptr [rcx + 0]
@@ -153,8 +155,13 @@ n8_match_head_β:
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rbp + 80]
-                        mov              rax, qword ptr [rbp + 96]
-                        mov              qword ptr [1879048192], rax
+                        mov              r10, qword ptr [1879048192]
+.Lx24_2:
+                        sub              r10, 24
+                        mov              rax, qword ptr [r10 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx24_2
+                        mov              qword ptr [1879048192], r10
                         mov              rbp, qword ptr [rbp + 104]
                                                                                         jmp   n9_lit_string_α
 #=======================================================================================================================
@@ -293,8 +300,14 @@ n14_match_release_α:
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        mov              rdi, qword ptr [rsp + 128]
                         mov              rsi, qword ptr [1879048192]
+                        mov              r10, rsi
+.Lx33_5:
+                        sub              r10, 24
+                        mov              rax, qword ptr [r10 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx33_5
+                        lea              rdi, [r10 + 24]
                         mov              rdx, r13
                         call             rt_dcap_end_ok_open@PLT
 .Lx33_1:
@@ -322,8 +335,13 @@ n14_match_release_α:
                         pop              r13
                         pop              r15
                         pop              r14
-                        mov              rax, qword ptr [rbp + 96]
-                        mov              qword ptr [1879048192], rax
+                        mov              r10, qword ptr [1879048192]
+.Lx33_6:
+                        sub              r10, 24
+                        mov              rax, qword ptr [r10 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx33_6
+                        mov              qword ptr [1879048192], r10
                         mov              rbp, qword ptr [rbp + 104]
                                                                                         jmp   n3_var_α
 #-----------------------------------------------------------------------------------------------------------------------
