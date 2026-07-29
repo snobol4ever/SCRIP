@@ -10,8 +10,6 @@ proc_LBL__swap_α:
                         sub              rsp, 288
                         mov              [rsp + 264], rcx
                         mov              [rsp + 272], rdx
-                        mov              [rsp + 280], rbp
-                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__swap_α_body:
@@ -147,23 +145,21 @@ n13_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__swap_res:
                         add              rsp, 8
-                        pop              rbp
+                        pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__swap_β:
                                                                                         jmp   proc_LBL__swap_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__swap_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 264]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 264]
+                        add              rsp, 288
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__swap_ω:
-                        mov              rax, [rbp + 272]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rax, [rsp + 272]
+                        add              rsp, 288
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_swap_α
@@ -175,8 +171,6 @@ proc_swap_α:
                         sub              rsp, 288
                         mov              [rsp + 264], rcx
                         mov              [rsp + 272], rdx
-                        mov              [rsp + 280], rbp
-                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 256
                         xor              eax, eax
@@ -184,10 +178,10 @@ proc_swap_α:
 proc_swap_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n29_op14_α:
-                        mov              rdi, qword ptr [rbp + 264]
-                        mov              rsi, qword ptr [rbp + 272]
-                        lea              rdx, [rbp + 288]
-                        mov              rcx, qword ptr [rbp + 280]
+                        mov              rdi, qword ptr [rsp + 264]
+                        mov              rsi, qword ptr [rsp + 272]
+                        lea              rdx, [rsp + 288]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n30_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -204,23 +198,21 @@ n30_goto_deferred_α:
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_res:
                         add              rsp, 8
-                        pop              rbp
+                        pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_β:
                                                                                         jmp   proc_swap_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 264]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rdi, [rsp]
+                        mov              rsi, [rsp + 8]
+                        mov              rax, [rsp + 264]
+                        add              rsp, 288
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_ω:
-                        mov              rax, [rbp + 272]
-                        lea              rsp, [rbp + 288]
-                        mov              rbp, [rbp + 280]
+                        mov              rax, [rsp + 272]
+                        add              rsp, 288
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -316,17 +308,15 @@ main_α:
                         mov              ecx, 264
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 256], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DEFINE('swap(a,b)tmp')                                      :(swap_end)
 #         swap('hello', 'world')
 #-----------------------------------------------------------------------------------------------------------------------
 n35_lit_string_α:
-                        mov              qword ptr [rbp + 224], 1
+                        mov              qword ptr [rsp + 224], 1
                         mov              rax, qword ptr [rip + .Lx53_0]
-                        mov              qword ptr [rbp + 232], rax
+                        mov              qword ptr [rsp + 232], rax
                                                                                         jmp   n38_lit_string_α
 .Lx53_0:
                         .quad            .Lx53_0_s
@@ -344,9 +334,9 @@ n37_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n38_lit_string_α:
-                        mov              qword ptr [rbp + 240], 1
+                        mov              qword ptr [rsp + 240], 1
                         mov              rax, qword ptr [rip + .Lx56_0]
-                        mov              qword ptr [rbp + 248], rax
+                        mov              qword ptr [rsp + 248], rax
                                                                                         jmp   n40_call_α
 .Lx56_0:
                         .quad            .Lx56_0_s
@@ -387,13 +377,13 @@ n40_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx59_5
-                        mov              rax, qword ptr [rbp + 224]
+                        mov              rax, qword ptr [rsp + 288]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rbp + 232]
+                        mov              rax, qword ptr [rsp + 296]
                         mov              qword ptr [1879052312], rax
-                        mov              rax, qword ptr [rbp + 240]
+                        mov              rax, qword ptr [rsp + 304]
                         mov              qword ptr [1879052320], rax
-                        mov              rax, qword ptr [rbp + 248]
+                        mov              rax, qword ptr [rsp + 312]
                         mov              qword ptr [1879052328], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx59_6]
@@ -447,32 +437,32 @@ n40_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx59_20
-                        mov              rax, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
+                        mov              rax, qword ptr [rsp + 224]
+                        mov              rdx, qword ptr [rsp + 232]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx59_21
 .Lx59_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rbp + 224]
-                        mov              rdx, qword ptr [rbp + 232]
+                        mov              rsi, qword ptr [rsp + 224]
+                        mov              rdx, qword ptr [rsp + 232]
                         call             rt_arg_stage@PLT
 .Lx59_21:
                         lea              r11, [rip + g_gc_pending]
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx59_22
-                        mov              rax, qword ptr [rbp + 240]
-                        mov              rdx, qword ptr [rbp + 248]
+                        mov              rax, qword ptr [rsp + 240]
+                        mov              rdx, qword ptr [rsp + 248]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 16], rax
                         mov              qword ptr [r10 + 24], rdx
                                                                                         jmp   .Lx59_23
 .Lx59_22:
                         mov              edi, 1
-                        mov              rsi, qword ptr [rbp + 240]
-                        mov              rdx, qword ptr [rbp + 248]
+                        mov              rsi, qword ptr [rsp + 240]
+                        mov              rdx, qword ptr [rsp + 248]
                         call             rt_arg_stage@PLT
 .Lx59_23:
                         mov              rdi, qword ptr [rip + .Lx59_0]
@@ -493,8 +483,8 @@ n40_call_α:
 .Lx59_1:
                         call             rt_faildescr@PLT
 .Lx59_2:
-                        mov              qword ptr [rbp + 160], rax
-                        mov              qword ptr [rbp + 168], rdx
+                        mov              qword ptr [rsp + 160], rax
+                        mov              qword ptr [rsp + 168], rdx
                         cmp              eax, 99
                                                                                         je    main_γ
                                                                                         jmp   main_γ
@@ -625,16 +615,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 256]
                         add              rsp, 264
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 256]
                         add              rsp, 264
                         ret
                         .section         .note.GNU-stack,"",@progbits

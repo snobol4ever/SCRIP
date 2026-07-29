@@ -22,16 +22,14 @@ main_α:
                         mov              ecx, 216
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 208], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         LGT('b', 'a')                                               :S(A)F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rbp + 32], 1
+                        mov              qword ptr [rsp + 32], 1
                         mov              rax, qword ptr [rip + .Lx24_0]
-                        mov              qword ptr [rbp + 40], rax
+                        mov              qword ptr [rsp + 40], rax
                                                                                         jmp   n5_lit_string_α
 .Lx24_0:
                         .quad            .Lx24_0_s
@@ -59,9 +57,9 @@ n4_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n5_lit_string_α:
-                        mov              qword ptr [rbp + 16], 1
+                        mov              qword ptr [rsp + 16], 1
                         mov              rax, qword ptr [rip + .Lx29_0]
-                        mov              qword ptr [rbp + 24], rax
+                        mov              qword ptr [rsp + 24], rax
                                                                                         jmp   n10_op77_α
 .Lx29_0:
                         .quad            .Lx29_0_s
@@ -121,8 +119,8 @@ n9_lit_string_α:
                         .string          "cat != dog"
 #-----------------------------------------------------------------------------------------------------------------------
 n10_op77_α:
-                        lea              rdi, [rbp + 32]
-                        lea              rsi, [rbp + 16]
+                        lea              rdi, [rsp + 32]
+                        lea              rsi, [rsp + 16]
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         jle   main_γ
@@ -179,9 +177,9 @@ n14_assign_α:
 #         LLT('a', 'b')                                               :S(B)F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n15_lit_string_α:
-                        mov              qword ptr [rbp + 80], 1
+                        mov              qword ptr [rsp + 80], 1
                         mov              rax, qword ptr [rip + .Lx40_0]
-                        mov              qword ptr [rbp + 88], rax
+                        mov              qword ptr [rsp + 88], rax
                                                                                         jmp   n18_lit_string_α
 .Lx40_0:
                         .quad            .Lx40_0_s
@@ -191,9 +189,9 @@ n15_lit_string_α:
 #         LEQ('cat', 'cat')                                           :S(C)F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n16_lit_string_α:
-                        mov              qword ptr [rbp + 128], 1
+                        mov              qword ptr [rsp + 128], 1
                         mov              rax, qword ptr [rip + .Lx41_0]
-                        mov              qword ptr [rbp + 136], rax
+                        mov              qword ptr [rsp + 136], rax
                                                                                         jmp   n19_lit_string_α
 .Lx41_0:
                         .quad            .Lx41_0_s
@@ -203,9 +201,9 @@ n16_lit_string_α:
 #         LNE('cat', 'dog')                                           :S(D)F(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n17_lit_string_α:
-                        mov              qword ptr [rbp + 176], 1
+                        mov              qword ptr [rsp + 176], 1
                         mov              rax, qword ptr [rip + .Lx42_0]
-                        mov              qword ptr [rbp + 184], rax
+                        mov              qword ptr [rsp + 184], rax
                                                                                         jmp   n20_lit_string_α
 .Lx42_0:
                         .quad            .Lx42_0_s
@@ -213,9 +211,9 @@ n17_lit_string_α:
                         .string          "cat"
 #-----------------------------------------------------------------------------------------------------------------------
 n18_lit_string_α:
-                        mov              qword ptr [rbp + 64], 1
+                        mov              qword ptr [rsp + 64], 1
                         mov              rax, qword ptr [rip + .Lx43_0]
-                        mov              qword ptr [rbp + 72], rax
+                        mov              qword ptr [rsp + 72], rax
                                                                                         jmp   n21_op77_α
 .Lx43_0:
                         .quad            .Lx43_0_s
@@ -223,9 +221,9 @@ n18_lit_string_α:
                         .string          "b"
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_string_α:
-                        mov              qword ptr [rbp + 112], 1
+                        mov              qword ptr [rsp + 112], 1
                         mov              rax, qword ptr [rip + .Lx44_0]
-                        mov              qword ptr [rbp + 120], rax
+                        mov              qword ptr [rsp + 120], rax
                                                                                         jmp   n22_op77_α
 .Lx44_0:
                         .quad            .Lx44_0_s
@@ -233,9 +231,9 @@ n19_lit_string_α:
                         .string          "cat"
 #-----------------------------------------------------------------------------------------------------------------------
 n20_lit_string_α:
-                        mov              qword ptr [rbp + 160], 1
+                        mov              qword ptr [rsp + 160], 1
                         mov              rax, qword ptr [rip + .Lx45_0]
-                        mov              qword ptr [rbp + 168], rax
+                        mov              qword ptr [rsp + 168], rax
                                                                                         jmp   n23_op77_α
 .Lx45_0:
                         .quad            .Lx45_0_s
@@ -243,24 +241,24 @@ n20_lit_string_α:
                         .string          "dog"
 #-----------------------------------------------------------------------------------------------------------------------
 n21_op77_α:
-                        lea              rdi, [rbp + 80]
-                        lea              rsi, [rbp + 64]
+                        lea              rdi, [rsp + 80]
+                        lea              rsi, [rsp + 64]
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         jns   main_γ
                                                                                         jmp   n7_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n22_op77_α:
-                        lea              rdi, [rbp + 128]
-                        lea              rsi, [rbp + 112]
+                        lea              rdi, [rsp + 128]
+                        lea              rsi, [rsp + 112]
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         jne   main_γ
                                                                                         jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n23_op77_α:
-                        lea              rdi, [rbp + 176]
-                        lea              rsi, [rbp + 160]
+                        lea              rdi, [rsp + 176]
+                        lea              rsi, [rsp + 160]
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         je    main_γ
@@ -272,16 +270,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 208]
                         add              rsp, 216
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 208]
                         add              rsp, 216
                         ret
                         .section         .note.GNU-stack,"",@progbits

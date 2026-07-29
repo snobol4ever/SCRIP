@@ -22,8 +22,6 @@ main_α:
                         mov              ecx, 72
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 64], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         OUTPUT = 1 + 2
@@ -80,16 +78,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 64]
                         add              rsp, 72
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
-                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 64]
                         add              rsp, 72
                         ret
                         .section         .note.GNU-stack,"",@progbits
