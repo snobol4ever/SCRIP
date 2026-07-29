@@ -238,9 +238,9 @@ DESCR_t fn(DESCR_t a, DESCR_t b) { \
     g_core_errjmp_n = my; \
     return r; \
 }
-RT_BINOP_ENTRY(rt_add,    BINOP_ADD,    return INTVAL(a.i + b.i);)
-RT_BINOP_ENTRY(rt_sub,    BINOP_SUB,    return INTVAL(a.i - b.i);)
-RT_BINOP_ENTRY(rt_mul,    BINOP_MUL,    return INTVAL(a.i * b.i);)
+RT_BINOP_ENTRY(c_rt_add,  BINOP_ADD,    return INTVAL(a.i + b.i);)
+RT_BINOP_ENTRY(c_rt_sub,  BINOP_SUB,    return INTVAL(a.i - b.i);)
+RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    return INTVAL(a.i * b.i);)
 RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i / b.i);)
 RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i % b.i);)
 RT_BINOP_ENTRY(rt_pow,    BINOP_POW,    )
