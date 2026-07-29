@@ -6,12 +6,14 @@ extern "C" {
 #include "bb_templates.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
+void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
 void * rt_zls_mark(void);
 void   rt_zls_release_to(void *mark);
 extern long g_anchor;
 }
 #include "x86_asm.h"
 extern "C" uint64_t g_patstk_sp;
+extern "C" uint32_t g_cap_gen;
 #define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_head() {
@@ -21,6 +23,12 @@ std::string bb_match_head() {
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
+         + x86("mov", FRQ(_.op_off + 48), "r13")   /* PATCTX (Lon directive 2026-07-29): save the OUTER Σ/δ/Δ before rt_match_enter sets them anew; both exits restore.  α depth == the FRQ-baked depth (the hfc 32B cell is carved below), so the plain slot spelling is valid in every port/frame arm. */
+         + x86("mov", FRQ(_.op_off + 56), "r14")
+         + x86("mov", FRQ(_.op_off + 64), "r15")
+         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
+         + x86("mov", "eax", RDD("rcx", 0))
+         + x86("mov", FRQ(_.op_off + 72), "rax")   /* PATCTX-2: the capture generation id is pattern context too -- read BEFORE rt_match_enter draws a fresh id from the well; both exits hand it back via rt_match_ctx_restore arg 3 */
          + IF(_.flat_deep_arrival, x86("mov", FRQ(_.op_off + 40), "rbp"))   /* BRACKET-GATE (s193): the +40 save exists to bracket the ARBNO zv() borrow (and any deep repoint); a depth-static graph has no repointer, so save AND both restores gate together on the same predicate the outer quartet reads — drift-proof by shared condition. */
          + IF(x86_zc_frame() != ZC_FRAME_RSP, IF(hfc(), x86("sub", "rsp", (long)32))
              + IF(hfc(), x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
@@ -72,6 +80,13 @@ std::string bb_match_head() {
                + x86_zls2_release_to_call(_.op_off + 16)
                + x86_align_leave()))
          + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER: fail-exit pops pend entries AND the marker by scanning to tag 0 -- depth-free, replaces the flat +32 reload */
+         + x86("mov", "r13", FRQ(_.op_off + 48))   /* PATCTX restore on the failure exit -- post-unwind rsp is back at α depth in every arm, so the slot spelling holds */
+         + x86("mov", "r14", FRQ(_.op_off + 56))
+         + x86("mov", "r15", FRQ(_.op_off + 64))
+         + x86("mov", "rdi", "r13")
+         + x86("mov", "rsi", "r15")
+         + x86("mov", "rdx", FRQ(_.op_off + 72))
+         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror (pattern_match.c / runtime_eval.c readers) */
          + IF(_.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): restore only if the save above ran */
          + x86_omega();
 }
