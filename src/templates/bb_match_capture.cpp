@@ -27,7 +27,7 @@ extern "C" int rt_cap_top(void *slot);
  * path VERBATIM (degrade never die); the pend/rbp-dcap machinery is identical on both paths (F2: by-value). */
 static inline int  sfc()      { return x86_fc_on(); }
 static inline int  cfc()      { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }
-static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }
+static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp# + %d]", off); return b[i]; }   /* Z4 s8 (capture-start fix): RAW rsp marker -- the plain spelling collides with the unpinned fr32 prefix in x86_parse and gains op_flat_disp, which displaced SAVE's delta store AND lifted COND's cross-depth read 16 past it (double-counted depth difference).  The '#' routes XK_RSP32 raw, restoring this family's designed cell addressing on both the writer (alpha delta store) and the readers (COND/IMM op_fc_disp) in one move -- the pair cannot desync. */
 std::string bb_match_capture() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
