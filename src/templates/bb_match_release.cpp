@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" void rt_zls_release_to(void *mark);
+extern "C" void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
 extern "C" long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
 extern "C" long rt_dcap_step(DESCR_t fret);
 extern "C" uint64_t g_patstk_sp;
@@ -67,6 +68,13 @@ static std::string release_pump() {
          + x86_anchor_leave()
          + x86_xfer_leave()
          + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER: success path re-scans (the pump's C calls clobber r10; nested matches inside pumped assignments push balanced markers, so top returns) and pops entries + marker wholesale */
+         + x86("mov", "r13", FRQ(_.op_off + 48))   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten. */
+         + x86("mov", "r14", FRQ(_.op_off + 56))
+         + x86("mov", "r15", FRQ(_.op_off + 64))
+         + x86("mov", "rdi", "r13")
+         + x86("mov", "rsi", "r15")
+         + x86("mov", "rdx", FRQ(_.op_off + 72))
+         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror */
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
          + x86_gamma();
 }

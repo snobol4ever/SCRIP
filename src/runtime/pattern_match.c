@@ -734,9 +734,10 @@ void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-s
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
-static uint32_t g_cap_gen = 1;
+uint32_t g_cap_gen = 1;   /* PATCTX-2 (2026-07-29): un-static'd — IR_MATCH_HEAD's α reads it via [rip+g_cap_gen] (both media) into head.capgen_save (+72) BEFORE rt_match_enter issues a fresh id.  nest1 autopsy: with nesting live (PATCTX), the inner match's stamp invalidated the OUTER match's open brackets — pop no-op'd on stale gen, top returned 0, R captured [0,end).  The id is pattern context. */
+static uint32_t g_cap_gen_next = 1;   /* PATCTX-2: the monotonic WELL.  Exits restore g_cap_gen to the SAVED id (an old draw) — never the counter itself, because a restored-then-re-bumped counter would re-issue the inner match's retired stamp and zombie its success-exited frames.  Retired ids never re-issue (modulo the same 2^32 wrap exposure the old counter had), so the lazy-kill invariant — stale gen ⟹ dead frames — survives nesting. */
+void rt_cap_match_begin(void) { g_cap_gen = ++g_cap_gen_next; if (!g_cap_gen) g_cap_gen = g_cap_gen_next = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cap_match_begin(void) { g_cap_gen++; if (!g_cap_gen) g_cap_gen = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_push(void *slot, int delta)
 {
