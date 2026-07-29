@@ -282,7 +282,7 @@ static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes) {
+void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
     int64_t si = 0, oi = 0; double sr = 0, orr = 0; int sreal = 0, oreal = 0;
