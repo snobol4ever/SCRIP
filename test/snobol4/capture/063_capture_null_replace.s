@@ -30,9 +30,9 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 168
+                        sub              rsp, 200
                         mov              rdi, rsp
-                        mov              ecx, 168
+                        mov              ecx, 200
                         xor              eax, eax
                         rep stosb
 main_α_body:
@@ -63,13 +63,19 @@ n1_assign_α:
 n2_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 128], rax
-                        mov              qword ptr [rsp + 136], rdx
+                        mov              qword ptr [rsp + 160], rax
+                        mov              qword ptr [rsp + 168], rdx
                                                                                         jmp   n3_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
-                        mov              rdi, qword ptr [rsp + 128]
-                        mov              rsi, qword ptr [rsp + 136]
+                        mov              qword ptr [rsp + 96], r13
+                        mov              qword ptr [rsp + 104], r14
+                        mov              qword ptr [rsp + 112], r15
+                        lea              rcx, [rip + g_cap_gen]
+                        mov              eax, dword ptr [rcx + 0]
+                        mov              qword ptr [rsp + 120], rax
+                        mov              rdi, qword ptr [rsp + 160]
+                        mov              rsi, qword ptr [rsp + 168]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -109,6 +115,13 @@ n3_match_head_β:
                         test             rax, rax
                                                                                         jne   .Lx14_2
                         mov              qword ptr [1879048192], r10
+                        mov              r13, qword ptr [rsp + 96]
+                        mov              r14, qword ptr [rsp + 104]
+                        mov              r15, qword ptr [rsp + 112]
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rsp + 120]
+                        call             rt_match_ctx_restore@PLT
                                                                                         jmp   n4_var_α
 #=======================================================================================================================
 #         OUTPUT = X
@@ -208,12 +221,19 @@ n7_match_release_α:
                         test             rax, rax
                                                                                         jne   .Lx20_6
                         mov              qword ptr [1879048192], r10
+                        mov              r13, qword ptr [rsp + 96]
+                        mov              r14, qword ptr [rsp + 104]
+                        mov              r15, qword ptr [rsp + 112]
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rsp + 120]
+                        call             rt_match_ctx_restore@PLT
                                                                                         jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_string_α:
-                        mov              qword ptr [rsp + 112], 1
+                        mov              qword ptr [rsp + 144], 1
                         mov              rax, qword ptr [rip + .Lx21_0]
-                        mov              qword ptr [rsp + 120], rax
+                        mov              qword ptr [rsp + 152], rax
                                                                                         jmp   n9_match_replace_α
 .Lx21_0:
                         .quad            .Lx21_0_s
@@ -222,11 +242,11 @@ n8_lit_string_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_replace_α:
                         mov              rdi, qword ptr [rip + .Lx23_0]
-                        mov              rsi, qword ptr [rsp + 128]
-                        mov              rdx, qword ptr [rsp + 136]
+                        mov              rsi, qword ptr [rsp + 160]
+                        mov              rdx, qword ptr [rsp + 168]
                         mov              ecx, dword ptr [rsp + 48]
                         mov              r8, qword ptr [rsp + 72]
-                        lea              r9, [rsp + 112]
+                        lea              r9, [rsp + 144]
                         call             rt_match_replace@PLT
                                                                                         jmp   .Lx23_1
 .Lx23_0:
@@ -242,12 +262,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 168
+                        add              rsp, 200
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 168
+                        add              rsp, 200
                         ret
                         .section         .note.GNU-stack,"",@progbits
