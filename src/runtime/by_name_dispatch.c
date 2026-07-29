@@ -4773,7 +4773,7 @@ DESCR_t rt_str_coerce(DESCR_t d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
-int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
+int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (g_core_errjmp_n >= 64) return rt_jct_relop_impl(lhs, rhs, op);
     int my = g_core_errjmp_n;
