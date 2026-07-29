@@ -1671,7 +1671,7 @@ static int g_last_ok = 0;
 extern void rt_set_last_ok(int v);
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_size_d(uint64_t lo, uint64_t hi)
+DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
 {
     DESCR_t v;
     v.v    = (DTYPE_t)(uint32_t)(lo & 0xFFFFFFFFu);
@@ -1695,7 +1695,7 @@ DESCR_t rt_size_d(uint64_t lo, uint64_t hi)
 }
 extern int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t *out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_list_bang_at(DESCR_t obj, int64_t idx)
+DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t idx)
 {
     DESCR_t out;
     if (list_bang_at(obj, idx, &out)) return out;
