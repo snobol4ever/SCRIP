@@ -25,5 +25,6 @@ int  rt_zeta_mode(void);
 void rt_zeta_port_set_mode(int m);
 void rt_zeta_storage_set(int s);
 int  rt_zeta_storage_get(void);
+int  rt_zc_frame_live(void);
 int  rt_zeta_port_mode(void);
 #endif

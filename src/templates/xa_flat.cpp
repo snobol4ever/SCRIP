@@ -149,12 +149,12 @@ static std::string xaf_addq_rsp(int imm) {   /* FLATDISP-7 (s194): add rsp, imm 
 }
 static std::string xaf_anchor_enter_bin(void) {
     if (!x86_port_cstack()) return std::string();
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
     return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x89);
 }
 static std::string xaf_anchor_enter_x86(void) {
     if (!x86_port_cstack()) return std::string();
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
     return x86("mov", (std::string("qword ptr [") + x86_zr() + " + " + std::to_string(xaf_anchor_off()) + "]").c_str(), "rsp");
 }   /* XA-FLAT-CONVERT: x86() twin of xaf_anchor_enter_bin — same store (anchor slot <- rsp), frame-register-agnostic via x86_zr() so ZC_FRAME_RSP and ZC_FRAME_RBP both encode correctly, and medium-invisible because the encoder switches internally. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -171,19 +171,19 @@ static std::string xaf_jmp_hdr_x86(void) {
 static int xaf_deep(void) { extern int g_flat_outer_nparams; return g_emit.flat_deep_arrival || g_flat_outer_nparams >= 1; }   /* FLATDISP-5b/5c (s193): THE one outer-frame rbp condition — every gate site (anchor-leave, prologue save+seed, epilogue reload, BOTH media) reads THIS, never the raw field, so save/seed/read/restore cannot drift apart.  The nparams conjunct: the ICNBENCH-ARGS param-0 bind stores through [rbp+16]/[rbp+24], so an outer graph taking params REQUIRES the seed even when its own kinds are depth-static — before this, the TEXT arm gated the seed on the raw field but stored through rbp unconditionally (latent, unhit only because Icon mains carry scan/gen kinds). */
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
-    if (ZC_FRAME == ZC_FRAME_RSP && !xaf_deep()) return std::string();   /* FLATDISP-5c (s193): BINARY twin of the TEXT gate below — the bulk unwind reads the rbp seed, so a depth-static graph (which never seeded) must not emit it; LIFO balance has rsp at base already.  This line is WHY m3 held at 185 while m4 broke in s192: the TEXT arm was gated without this twin (BOTH-MEDIUM violation, recorded not hidden). */
-    if (ZC_FRAME == ZC_FRAME_RSP) return bytes(3, "\x48\x89\xEC");   /* mov rsp, rbp — ALIGN-INV-3 twin of the TEXT arm (as-form 48 89 EC); the s90 rsp-relative-read lesson lives in the TEXT arm comment */
+    if (x86_zc_frame() == ZC_FRAME_RSP && !xaf_deep()) return std::string();   /* FLATDISP-5c (s193): BINARY twin of the TEXT gate below — the bulk unwind reads the rbp seed, so a depth-static graph (which never seeded) must not emit it; LIFO balance has rsp at base already.  This line is WHY m3 held at 185 while m4 broke in s192: the TEXT arm was gated without this twin (BOTH-MEDIUM violation, recorded not hidden). */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return bytes(3, "\x48\x89\xEC");   /* mov rsp, rbp — ALIGN-INV-3 twin of the TEXT arm (as-form 48 89 EC); the s90 rsp-relative-read lesson lives in the TEXT arm comment */
     return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x8B);
 }
 static std::string xaf_anchor_enter_text(void) {
     if (!x86_port_cstack()) return std::string();
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
     char b[160]; snprintf(b, sizeof b, "  mov qword ptr [%s + %d], rsp\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 static std::string xaf_anchor_leave_text(void) {
     if (!x86_port_cstack()) return std::string();
-    if (ZC_FRAME == ZC_FRAME_RSP && !xaf_deep()) return std::string();   /* FLATDISP-5 GATE (s193: condition unified into xaf_deep, see its comment): this reset is the BULK unwind that returns rsp to the activation base from whatever depth the arrival happened to land at.  When no arrival can be deep, the LIFO balance has already returned rsp to base and the reset is a provable no-op — so it is DELETED rather than re-spelled, and with it the last reader of rbp in a determinate graph.  FALSIFIABLE BY CONSTRUCTION: if any depth-static graph does arrive off-base this drops rsp reconstruction entirely and the crosscheck fails loudly at once, which is exactly the intended tripwire. */
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string("mov rsp, rbp\n");   /* ALIGN-INV-3: under RSP fb IS the snapshot — U1/U2/s79 seed rbp=base at every frame-active activation, so the s90 frame-base READ collapses to the register (the s90 hazard was rsp-RELATIVE reads at depth; reading rbp keeps its cure).  Enter store retained: s142 NOFILL dead-store-cut assumes it overwrites; reader sweep owed before retiring it. */
+    if (x86_zc_frame() == ZC_FRAME_RSP && !xaf_deep()) return std::string();   /* FLATDISP-5 GATE (s193: condition unified into xaf_deep, see its comment): this reset is the BULK unwind that returns rsp to the activation base from whatever depth the arrival happened to land at.  When no arrival can be deep, the LIFO balance has already returned rsp to base and the reset is a provable no-op — so it is DELETED rather than re-spelled, and with it the last reader of rbp in a determinate graph.  FALSIFIABLE BY CONSTRUCTION: if any depth-static graph does arrive off-base this drops rsp reconstruction entirely and the crosscheck fails loudly at once, which is exactly the intended tripwire. */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string("mov rsp, rbp\n");   /* ALIGN-INV-3: under RSP fb IS the snapshot — U1/U2/s79 seed rbp=base at every frame-active activation, so the s90 frame-base READ collapses to the register (the s90 hazard was rsp-RELATIVE reads at depth; reading rbp keeps its cure).  Enter store retained: s142 NOFILL dead-store-cut assumes it overwrites; reader sweep owed before retiring it. */
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -208,7 +208,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (!g_frame_active || g_emit_frame_caller_dl > 0) { fprintf(stderr, "FATAL xa_flat: jmp-entry blob must be frame-active with no display reg (frame_active=%d caller_dl=%d)\n", g_frame_active, g_emit_frame_caller_dl); abort(); }
                 int kt = g_emit.flat_frame_bytes;
                 if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat: jmp-entry K_total=%d (must be 16-mult >= 48: 32B wire header + region)\n", kt); abort(); }
-                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 BINARY twin: header above the frame.  REG-7 U5 (Lon FORTH ruling): pat blobs now take THIS arm too — rbp pinned at base, cells ride the one rsp stream; the legacy zr arm below serves non-RSP builds only */
+                if (x86_zc_frame() == ZC_FRAME_RSP) {   /* R12-ERAD s65 BINARY twin: header above the frame.  REG-7 U5 (Lon FORTH ruling): pat blobs now take THIS arm too — rbp pinned at base, cells ride the one rsp stream; the legacy zr arm below serves non-RSP builds only */
                     std::string hdr = bytes(3, "\x48\x81\xEC") + u32le((uint32_t)kt)                   /* sub rsp, K_total */
                                     + bytes(4, "\x48\x89\x8C\x24") + u32le((uint32_t)(kt - 24))        /* mov [rsp + kt-24], rcx — outside-γ wire */
                                     + bytes(4, "\x48\x89\x94\x24") + u32le((uint32_t)(kt - 16))        /* mov [rsp + kt-16], rdx — outside-ω wire */
@@ -234,7 +234,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                                       + bytes(2, "\xB0\xA5")                                              /* mov al, 0xA5 */
                                       + bytes(2, "\xF3\xAA");                                             /* rep stosb — poison lane */
                         for (int ci = 0; ci < g_emit.flat_cap_n; ci++) { int o = g_emit.flat_cap_off[ci]; if (o >= 16 && o + 16 <= rgn) r = r + xaf_zero_q_rsp_bin(o) + xaf_zero_q_rsp_bin(o + 8); }   /* CAP-NOFILL (s143): zero each 16B rt_cap grant (+0 buf, +8 gen|sp) individually — AFTER the poison fill so the lane still proves no other implicit-zero reader; see emit.cpp emit_jmp_entry_arm_region */
-                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (ZC_FRAME != ZC_FRAME_RSP && o == xaf_anchor_off()) continue; r = r + xaf_zero_q_rsp_bin(o); } }   /* SPD-NOFILL-B (s139): short suffix (the universal case — resume+mark quads, 32B) unrolls to plain quad zeros, eliminating the ~30-40 cycle REP startup per activation.  s142 DEAD-STORE CUT (the s141-proven free store): the anchor quad is unconditionally overwritten by xaf_anchor_enter appended immediately below (mov [rsp+anchor_off], rsp) with no intervening reader — skip its zero in BOTH twins; the guard is equality-based so an anchor outside [fz,rgn) leaves the unroll untouched */
+                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (x86_zc_frame() != ZC_FRAME_RSP && o == xaf_anchor_off()) continue; r = r + xaf_zero_q_rsp_bin(o); } }   /* SPD-NOFILL-B (s139): short suffix (the universal case — resume+mark quads, 32B) unrolls to plain quad zeros, eliminating the ~30-40 cycle REP startup per activation.  s142 DEAD-STORE CUT (the s141-proven free store): the anchor quad is unconditionally overwritten by xaf_anchor_enter appended immediately below (mov [rsp+anchor_off], rsp) with no intervening reader — skip its zero in BOTH twins; the guard is equality-based so an anchor outside [fz,rgn) leaves the unroll untouched */
                         else if (fz < rgn) r = r + bytes(3, "\x48\x89\xE7")                                /* mov rdi, rsp */
                                       + xaf_add_rdi_imm_bin(fz)
                                       + bytes(1, "\xB9") + u32le((uint32_t)(rgn - fz))                    /* ecx = suffix span */
@@ -276,7 +276,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
-                if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH self-alloc, byte twin of the TEXT arm — sub rsp,K / mov rdi,rsp / mov ecx,K / xor eax,eax / rep stosb */
+                if (x86_zc_frame() == ZC_FRAME_RSP) { /* R12-ERAD: FORTH self-alloc, byte twin of the TEXT arm — sub rsp,K / mov rdi,rsp / mov ecx,K / xor eax,eax / rep stosb */
                     extern int g_gen_proc_active; extern int g_resumable_callable_active; extern int g_flat_outer_nparams;
                     if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix: a generator/resumable proc's frame MUST survive beta-resume, so it lives on the heap (rt_proc_call_gen_h -> rt_zls_alloc) and arrives in rdi; the box ADOPTS it as its rbp frame base (args already bound at [rbp+16]+, region pre-zeroed) instead of carving a throwaway rsp frame that discards the fb.  Restores the pre-s65 non-RSP `mov zr,rdi` the RSP conversion dropped when it applied the outer-graph self-alloc prologue to gen procs.  rsp stays free; both alpha and beta re-enter through this prefix. */
                         std::string rg = bytes(1, "\x55") + bytes(3, "\x48\x89\xFD")
@@ -344,7 +344,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_emit.flat_jmp_entry) {
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 (+ REG-7 U5: pat blobs unified onto this arm — Lon FORTH ruling): HEADER ABOVE THE FRAME — [E-32, E) holds the wires, frame = [base, E-32), rsp = base.  The old header-below layout put the wires
+                if (x86_zc_frame() == ZC_FRAME_RSP) {   /* R12-ERAD s65 (+ REG-7 U5: pat blobs unified onto this arm — Lon FORTH ruling): HEADER ABOVE THE FRAME — [E-32, E) holds the wires, frame = [base, E-32), rsp = base.  The old header-below layout put the wires
                      * directly under rsp, where the FIRST push (a HEAD cell, a callee's sub) clobbered them — recursive procs and any pattern inside a proc died exactly there.  Wires at
                      * [rsp + kt-24/-16]; the rep stosb count kt-32 stops below the header; the LIFO exits unwind the full kt.  Pat blobs fall through to the zr arms (zr = r12 for them). */
                     if (g_emit.flat_lex && g_emit.flat_seed_off >= 16) {   /* PL-REGAIN-4 lazy arm (TEXT twin): NO rep stosb — rt_jmp_frame_lexprep2 seeds slot0 + [suffix,region) only; box grants first-write-wins (SCRIP_ZLS_POISON=1 lane lives inside the leaf) */
@@ -367,7 +367,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                         std::string r3 = std::string(b3) + xaf_slot0_seed_text();                        /* DB-2a TEXT twin — see the BINARY arm */
                         if (xaf_poison() && fz > 16) { char p3[200]; snprintf(p3, sizeof p3, "  mov rdi, rsp\n  add rdi, 16\n  mov ecx, %d\n  mov al, 0xA5\n  rep stosb\n", fz - 16); r3 += p3; }
                         for (int ci = 0; ci < g_emit.flat_cap_n; ci++) { int o = g_emit.flat_cap_off[ci]; if (o >= 16 && o + 16 <= rgn) { char c3[96]; snprintf(c3, sizeof c3, "  mov qword ptr [rsp + %d], 0\n  mov qword ptr [rsp + %d], 0\n", o, o + 8); r3 += c3; } }   /* CAP-NOFILL (s143) TEXT twin — see the BINARY arm */
-                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (ZC_FRAME != ZC_FRAME_RSP && o == xaf_anchor_off()) continue; char q3[64]; snprintf(q3, sizeof q3, "  mov qword ptr [rsp + %d], 0\n", o); r3 += q3; } }   /* SPD-NOFILL-B TEXT twin — see the BINARY arm (s142 dead-store cut mirrored: the anchor quad is re-stored by anchor_enter immediately below) */
+                        if (fz < rgn && rgn - fz <= 64) { for (int o = fz; o < rgn; o += 8) { if (x86_zc_frame() != ZC_FRAME_RSP && o == xaf_anchor_off()) continue; char q3[64]; snprintf(q3, sizeof q3, "  mov qword ptr [rsp + %d], 0\n", o); r3 += q3; } }   /* SPD-NOFILL-B TEXT twin — see the BINARY arm (s142 dead-store cut mirrored: the anchor quad is re-stored by anchor_enter immediately below) */
                         else if (fz < rgn) { char s3[200]; snprintf(s3, sizeof s3, "  mov rdi, rsp\n  add rdi, %d\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", fz, rgn - fz); r3 += s3; }
                         return banner + r3 + xaf_anchor_enter_text();
                     }
@@ -389,7 +389,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
-                if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
+                if (x86_zc_frame() == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
                     if (g_gen_proc_active || g_resumable_callable_active)   /* PL-GEN-RSP fix (TEXT twin): adopt the heap fb (rdi) as the rbp frame base; frame survives beta-resume on the heap, rsp stays free */
                         return banner + "  push rbp\n  mov rbp, rdi\n  cmp esi, 0\n  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
                     int K = xaf_outer_frame_k();
@@ -443,7 +443,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                  * (out_site/out_lbl/out_def describe THAT patch); the RETURN VALUE is γ piece B; out_fail =
                  * the ω-half. */
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP && (g_emit.flat_pat || g_emit.flat_gen)) {   /* REG-7 U5 (Lon FORTH ruling) BINARY twin: pat-blob SUSPEND exits on the rbp/header-above protocol; GENP-SPINE (Lon "generator procedures on the main spine", 2026-07-17 s92) widens the arm to flat_gen — generator procs suspend on the ONE ζ stack, LIFO law, no per-instance coexpr stack.  γ retains the activation — 16B resume record {landing, rbp} pushed at the DEEP frontier, wires read through the PINNED rbp ([rbp+kt-24/-16], depth-immune), caller rbp restored self-referentially [rbp+kt-8] (U2b discipline); flat_gen ADDITIONALLY preloads the result DESCR into rdi:rsi pre-record (frame slot 0, bb_suspend/bb_return's write — the det delivery protocol the caller's γ landing expects).  ω unwinds ABSOLUTELY: lea rsp,[rbp+kt] rejoins pre-entry rsp at ANY arrival depth (seal cuts), reads-before-motion (rax and the lea both read rbp before its restore). */
+                if (x86_zc_frame() == ZC_FRAME_RSP && (g_emit.flat_pat || g_emit.flat_gen)) {   /* REG-7 U5 (Lon FORTH ruling) BINARY twin: pat-blob SUSPEND exits on the rbp/header-above protocol; GENP-SPINE (Lon "generator procedures on the main spine", 2026-07-17 s92) widens the arm to flat_gen — generator procs suspend on the ONE ζ stack, LIFO law, no per-instance coexpr stack.  γ retains the activation — 16B resume record {landing, rbp} pushed at the DEEP frontier, wires read through the PINNED rbp ([rbp+kt-24/-16], depth-immune), caller rbp restored self-referentially [rbp+kt-8] (U2b discipline); flat_gen ADDITIONALLY preloads the result DESCR into rdi:rsi pre-record (frame slot 0, bb_suspend/bb_return's write — the det delivery protocol the caller's γ landing expects).  ω unwinds ABSOLUTELY: lea rsp,[rbp+kt] rejoins pre-entry rsp at ANY arrival depth (seal cuts), reads-before-motion (rax and the lea both read rbp before its restore). */
                     std::string succA = (g_emit.flat_gen ? bytes(4, "\x48\x8B\x7D\x00")      /* mov rdi, [rbp] — result word0 via pinned base (flat_gen only) */
                                                          + bytes(4, "\x48\x8B\x75\x08")      /* mov rsi, [rbp + 8] — result word1 */
                                                          : std::string())
@@ -463,7 +463,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = fo;
                     return succB;
                 }
-                if (ZC_FRAME == ZC_FRAME_RSP && !emit_jmp_pin_rbp()) {   /* FLATDISP-7 (s194): DEPTH-STATIC determinate exits — the classifier proved every arrival lands with rsp == base (LIFO balance), which is EXACTLY the every-ω-pops guarded assumption the s90 comment below records as "true for SNOBOL4's determinate procs"; the rbp-absolute form was adopted because Icon procs falsified it, and the per-graph classifier now separates the two language-blind.  All reads rsp-relative, teardown = one add, NO rbp touch anywhere (never saved, never seeded, never restored — a free GPR for the whole activation).  FALSIFIABLE BY CONSTRUCTION: an off-base arrival here reads garbage wires and the crosscheck fails loudly at once — the s193 tripwire discipline. */
+                if (x86_zc_frame() == ZC_FRAME_RSP && !emit_jmp_pin_rbp()) {   /* FLATDISP-7 (s194): DEPTH-STATIC determinate exits — the classifier proved every arrival lands with rsp == base (LIFO balance), which is EXACTLY the every-ω-pops guarded assumption the s90 comment below records as "true for SNOBOL4's determinate procs"; the rbp-absolute form was adopted because Icon procs falsified it, and the per-graph classifier now separates the two language-blind.  All reads rsp-relative, teardown = one add, NO rbp touch anywhere (never saved, never seeded, never restored — a free GPR for the whole activation).  FALSIFIABLE BY CONSTRUCTION: an off-base arrival here reads garbage wires and the crosscheck fails loudly at once — the s193 tripwire discipline. */
                     std::string sg = xaf_ld64_rsp(7, 0)                                    /* mov rdi, [rsp] — result DESCR word0 (frame slot 0, IR_RETURN's write); rsp == base */
                                    + xaf_ld64_rsp(6, 8)                                    /* mov rsi, [rsp + 8] — result word1 */
                                    + xaf_ld64_rsp(0, kt - 24)                              /* mov rax, [rsp + kt-24] — γ wire at the header, base-relative */
@@ -477,7 +477,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = fo;
                     return std::string();
                 }
-                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute form (the pat-arm ω discipline applied to BOTH edges).  The old rsp-relative reads ([rsp+0/8], [rsp+kt-24/-16], lea rsp,[rsp+kt]) rode the every-ω-pops
+                if (x86_zc_frame() == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute form (the pat-arm ω discipline applied to BOTH edges).  The old rsp-relative reads ([rsp+0/8], [rsp+kt-24/-16], lea rsp,[rsp+kt]) rode the every-ω-pops
                      * GUARDED ASSUMPTION (line-429 comment) that arrivals land with rsp == base — true for SNOBOL4's determinate procs, FALSE for Icon: `return expr` from inside nested generator/scan depth arrives DEEP.  All reads now go through the PINNED rbp (== base, the U2 seed),
                      * the unwind is ABSOLUTE lea rsp,[rbp+kt], reads-before-motion (γ wire + result + lea all read rbp before its self-referential restore).  Byte-different, semantics-identical on at-base arrivals — the SN4 crosscheck watermark is the tripwire.  FLATDISP-7 (s194): this arm now serves PINNED graphs only (deep arrivals or suspend protocols) — the depth-static arm above restores the cheap form for exactly the graphs where the assumption was always sound. */
                     std::string sg = bytes(4, "\x48\x8B\x7D\x00")                          /* mov rdi, [rbp] — result DESCR word0 via the pinned base (frame slot 0, IR_RETURN's write) */
@@ -511,7 +511,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (out_fail) *out_fail = fail_half;
                 return succB;
             }
-            if (g_frame_active && ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: BINARY twin of the TEXT RSP epilogue — eax code, anchor-leave normalize, FAILDESCR at [rsp+0], add rsp,K, ret */
+            if (g_frame_active && x86_zc_frame() == ZC_FRAME_RSP) { /* R12-ERAD: BINARY twin of the TEXT RSP epilogue — eax code, anchor-leave normalize, FAILDESCR at [rsp+0], add rsp,K, ret */
                 extern int g_gen_proc_active; extern int g_resumable_callable_active;
                 if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix: gen/resumable frame is the heap fb in rbp — result (IR_RETURN) and FAILDESCR land at [rbp+0]; pop caller rbp and ret, NO add rsp (the gen prologue carved no rsp frame) */
                     std::string sg = bytes(1, "\x5D") + bytes(1, "\xC3");
@@ -582,7 +582,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_emit.flat_jmp_entry) {
                 int kt = g_emit.flat_frame_bytes;
-                if (ZC_FRAME == ZC_FRAME_RSP && (g_emit.flat_pat || g_emit.flat_gen)) {   /* REG-7 U5 (Lon FORTH ruling) TEXT twin: pat-blob SUSPEND exits, rbp/header-above; GENP-SPINE (s92) widens to flat_gen — generator procs suspend on the main ζ spine, flat_gen preloading the result DESCR into rdi:rsi pre-record (det delivery protocol).  γ retains the activation (16B record {landing, rbp} at the deep frontier, wires via pinned rbp, self-referential caller restore); ω unwinds ABSOLUTELY lea rsp,[rbp+kt] (seal cuts arrive at any depth), reads-before-motion. */
+                if (x86_zc_frame() == ZC_FRAME_RSP && (g_emit.flat_pat || g_emit.flat_gen)) {   /* REG-7 U5 (Lon FORTH ruling) TEXT twin: pat-blob SUSPEND exits, rbp/header-above; GENP-SPINE (s92) widens to flat_gen — generator procs suspend on the main ζ spine, flat_gen preloading the result DESCR into rdi:rsi pre-record (det delivery protocol).  γ retains the activation (16B record {landing, rbp} at the deep frontier, wires via pinned rbp, self-referential caller restore); ω unwinds ABSOLUTELY lea rsp,[rbp+kt] (seal cuts arrive at any depth), reads-before-motion. */
                     char sa[288], sb2[224], fb2[320];
                     snprintf(sa, sizeof sa, "%spush rbp\nlea rax, [rip + %s]\n", g_emit.flat_gen ? "mov rdi, [rbp]\nmov rsi, [rbp + 8]\n" : "", (g_emit.flat_res_p && g_emit.flat_res_p->name) ? g_emit.flat_res_p->name : "?");
                     snprintf(sb2, sizeof sb2, "push rax\nmov rax, [rbp + %d]\nmov rbp, [rbp + %d]\njmp rax\n", kt - 24, kt - 8);
@@ -591,7 +591,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = xaf_ω_label() + fb2;
                     return std::string(sb2);
                 }
-                if (ZC_FRAME == ZC_FRAME_RSP && !emit_jmp_pin_rbp()) {   /* FLATDISP-7 (s194) TEXT twin of the BINARY depth-static arm: every arrival at these exits is at base (the classifier's proof), so reads are rsp-relative, teardown is one add, rbp untouched end to end.  Same falsifiable tripwire: off-base arrival = garbage wires = loud crosscheck failure. */
+                if (x86_zc_frame() == ZC_FRAME_RSP && !emit_jmp_pin_rbp()) {   /* FLATDISP-7 (s194) TEXT twin of the BINARY depth-static arm: every arrival at these exits is at base (the classifier's proof), so reads are rsp-relative, teardown is one add, rbp untouched end to end.  Same falsifiable tripwire: off-base arrival = garbage wires = loud crosscheck failure. */
                     char sg[288], fo[352];
                     snprintf(sg, sizeof sg, "mov rdi, [rsp]\nmov rsi, [rsp + 8]\nmov rax, [rsp + %d]\nadd rsp, %d\njmp rax\n", kt - 24, kt);
                     snprintf(fo, sizeof fo, "mov rax, [rsp + %d]\nadd rsp, %d\njmp rax\n", kt - 16, kt);
@@ -599,7 +599,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = xaf_ω_label() + fo;
                     return std::string();
                 }
-                if (ZC_FRAME == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute (TEXT twin of the BINARY arm above).  γ loads the result DESCR (frame slot 0, IR_RETURN's write) into rdi:rsi via the PINNED rbp PRE-unwind (the landing's
+                if (x86_zc_frame() == ZC_FRAME_RSP) {   /* R12-ERAD s65 → NCB-1d (s90): DETERMINATE exits, DEPTH-IMMUNE rbp-absolute (TEXT twin of the BINARY arm above).  γ loads the result DESCR (frame slot 0, IR_RETURN's write) into rdi:rsi via the PINNED rbp PRE-unwind (the landing's
                      * epilogue_γ takes it BY VALUE — the frame is dead memory after the lea), reads the outside-γ wire at [rbp+kt−24], unwinds ABSOLUTELY lea rsp,[rbp+kt] (Icon `return`/`fail` from nested generator/scan depth arrives with rsp DEEP — the old rsp-relative form's
                      * every-ω-pops assumption holds only for SNOBOL4's determinate procs), restores caller rbp self-referentially LAST (reads-before-motion), and jmps the wire — no resume record (det: β fires only on a post-return re-entry, UB).  ω mirrors with the [rbp+kt−16] wire.  FLATDISP-7 (s194): pinned graphs only — see the depth-static arm above. */
                     char sg[288], fo[352];
@@ -619,7 +619,7 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
             }
             if (g_frame_active) {
                 extern int g_emit_frame_caller_dl;
-                if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: anchor-leave normalizes rsp to frame base, FAILDESCR lands at [rsp+0], add rsp,K rejoins the caller's ret-addr */
+                if (x86_zc_frame() == ZC_FRAME_RSP) { /* R12-ERAD: anchor-leave normalizes rsp to frame base, FAILDESCR lands at [rsp+0], add rsp,K rejoins the caller's ret-addr */
                     extern int g_gen_proc_active; extern int g_resumable_callable_active;
                     if (g_gen_proc_active || g_resumable_callable_active) {   /* PL-GEN-RSP fix (TEXT twin): result/FAILDESCR at [rbp+0] (heap frame); pop rbp; ret; no add rsp */
                         std::string sgt = std::string("pop rbp\nret\n");
@@ -748,7 +748,7 @@ static std::string xa_flat_dc_stub_str(void) {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     int kt = g_emit.flat_frame_bytes;
-    int anchor = (ZC_FRAME != ZC_FRAME_RSP) ? xaf_anchor_off() : -1;   /* ALIGN-INV-3c: DC stub mirrors the jmp-entry prologue -- under RSP the anchor store is dead there too */
+    int anchor = (x86_zc_frame() != ZC_FRAME_RSP) ? xaf_anchor_off() : -1;   /* ALIGN-INV-3c: DC stub mirrors the jmp-entry prologue -- under RSP the anchor store is dead there too */
     int suffix = (g_emit.flat_seed_off >= 16) ? g_emit.flat_seed_off : 16;
     extern int g_flat_dc_np;
     int np = g_flat_dc_np;

@@ -289,6 +289,9 @@ inline std::string x86_jcc(const char * mnem, int port) {
  * zeta_alloc.c (flag > SCRIP_ZETA_PORT env > ZC_PORT default), exactly the x86_zeta_mode() pattern below.
  * Emit-side seams read THIS, never getenv, never argv. */
 extern "C" int rt_zeta_port_mode(void);
+extern "C" int rt_zc_frame_live(void);
+inline int x86_zc_frame() { return rt_zc_frame_live(); }   /* Z4-7 slice 1: THE live frame value.  Every former compile-time `ZC_FRAME ==/!= ZC_FRAME_RSP` comparison in templates/emitter routes here; rt_zc_frame_live (zeta_alloc.c) is the ONE authority (the Z4-6 law applied to the frame axis) and returns ZC_FRAME_ISLE iff the four-config selector says ZC_STORAGE_FRAME_R12, else the build constant -- so every non-island selection folds to the identical truth table and default emission is byte-identical by construction. */
+inline int x86_isle()     { return x86_zc_frame() == ZC_FRAME_ISLE; }   /* Z4-7: the island (frame-r12) config is live -- the whole-graph zeta frame is the r12 arena, depth-immune, zero flat-displacement compensation. */
 extern "C" void *rt_zh_bump_slow(long bytes);
 inline void *rt_zh_bump_slow_addr() { return (void *)rt_zh_bump_slow; }
 inline int x86_port_mode() { return rt_zeta_port_mode(); }
@@ -344,8 +347,8 @@ inline int x86_selfload_mode() {
  * fine (callee-saved either way, same as r12) but gdb frame-walking of emitted code gets weirder; (c) the
  * six-register coexpr save contract (bb_create.cpp) already saves BOTH r12 and rbp, so it covers either
  * choice unchanged. */
-inline const char * x86_zr()         { return ZC_FRAME == ZC_FRAME_RSP ? "rsp" : "rbp"; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): ONE stream — under RSP zr IS rsp, no conditions.  History: the op_anchored window arms died at U4 (s86); the s79 flat_pat rbp-island died here (pat blobs now ride the U2/U2b header-above protocol — unified prologue + suspend epilogue arm, s87 slice 1).  ZR-RSPRBP-1: the third arm ("r12") is DELETED with ZC_FRAME_R12 itself — the ζ basis set is CLOSED at RSP and RBP.  The default arm is untouched, so this is inert by construction. */
-inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : 5; }   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): under RSP zr IS rsp, unconditionally — the ONE stream.  ZR-RSPRBP-1: the third arm (12) is DELETED with ZC_FRAME_R12 — ζ basis set CLOSED at rsp(4)/rbp(5).  flat_pat no longer selects a register anywhere; it survives only as the xa_flat epilogue's suspend-vs-determinate protocol selector.  The s79 pat-blob rbp-island (save [rsp+24] / restore [zr-8] / record re-pin) is RETIRED — pat blobs ride the U2/U2b header-above protocol (prologue unified, suspend epilogue arm added s87 slice 1). */
+inline const char * x86_zr()         { return x86_isle() ? "r12" : x86_zc_frame() == ZC_FRAME_RSP ? "rsp" : "rbp"; }   /* Z4-7 slice 1: the island arm RETURNS — re-connecting the basis the 17 arms encode (EXTRACT-Z4-R12.md §2: the epoch third arm). */   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): ONE stream — under RSP zr IS rsp, no conditions.  History: the op_anchored window arms died at U4 (s86); the s79 flat_pat rbp-island died here (pat blobs now ride the U2/U2b header-above protocol — unified prologue + suspend epilogue arm, s87 slice 1).  ZR-RSPRBP-1: the third arm ("r12") is DELETED with ZC_FRAME_R12 itself — the ζ basis set is CLOSED at RSP and RBP.  The default arm is untouched, so this is inert by construction. */
+inline int          x86_zr_num()     { return x86_isle() ? 12 : x86_zc_frame() == ZC_FRAME_RSP ? 4 : 5; }   /* Z4-7 slice 1: island arm restored (12). */   /* REG-7 U5 SEAL (Lon FORTH ruling, s87): under RSP zr IS rsp, unconditionally — the ONE stream.  ZR-RSPRBP-1: the third arm (12) is DELETED with ZC_FRAME_R12 — ζ basis set CLOSED at rsp(4)/rbp(5).  flat_pat no longer selects a register anywhere; it survives only as the xa_flat epilogue's suspend-vs-determinate protocol selector.  The s79 pat-blob rbp-island (save [rsp+24] / restore [zr-8] / record re-pin) is RETIRED — pat blobs ride the U2/U2b header-above protocol (prologue unified, suspend epilogue arm added s87 slice 1). */
 /* FLAT FRAME (s189) — RBP IS ERADICATED FROM FRAME ADDRESSING.  The frame base IS rsp, unconditionally.
  * Every frame reference adds the box's STATIC depth D = g_emit.op_flat_disp: the running prefix sum over the
  * known BB sequence that LOWER's fc_leaf_walk computes (allocation order = flow order on a linear spine;
@@ -357,11 +360,11 @@ inline int          x86_zr_num()     { return ZC_FRAME == ZC_FRAME_RSP ? 4 : 5; 
  * env override.  There is no A/B control and no way to spell an rbp frame reference any more.
  * ONE function owns the arithmetic; every other site calls it. */
 inline int x86_fb_pinned() { return emit_rec_pin(); }   /* ZETA-FB-2 (s160): ONE PREDICATE.  Was emit_jmp_pin_rbp(), which named only ONE of the TWO prologue arms that establish rbp as the frame base: xa_flat's jmp-entry hdr (save+seed, gated emit_jmp_pin_rbp) AND xa_flat.cpp:281's gen-proc/resumable HEAP-FRAME ADOPT (`push rbp; mov rbp,rdi`, gated g_gen_proc_active||g_resumable_callable_active, carving no rsp frame at all).  emit_rec_pin() IS that disjunction, so the base a DATA ref names, the base the RECORD protocol names, and the base the PROLOGUE establishes are now one decision and cannot drift.  THE GAP WAS REACHABLE, NOT THEORETICAL: flat_gen = is_generator && emit_graph_has_suspend(g) (emit.cpp:2399) while g_gen_proc_active = is_generator, so a SUSPEND-FREE generator graph took the adopt prologue (rbp = heap frame) while every data ref still spelled rsp — the exact s158 land mine, latent.  MEASURED BYTE-NEUTRAL: the ZETA-FB-1 divergence gate reports 0 disagreements over 592 corpus programs across four frontends, so today this widens nothing and the .s output is byte-identical; it closes the seam before a graph reaches it.  NOT the blind widening s158 measured as a regression — that rebased fb while op_flat_disp still double-counted; FLATDISP-8 gated the compensation (x86_frame_off below), which is what makes the union safe now.  FLATDISP-8 (s197) provenance: THE FRAME-BASE SELECTOR — reads the SAME predicate that decides whether the prologue saves+seeds rbp (emit.h:599, xa_flat's hdr arms), so the base a reference NAMES and the base the prologue ESTABLISHES are one decision and cannot drift.  Seeded `mov rbp,rsp` at the activation flat base => rbp IS the frame base and is DEPTH-IMMUNE; unpinned graphs never touch rbp (free GPR) and keep the s189 rsp regime with its op_flat_disp compensation.  This restores the arm s189 deleted, now per-graph instead of a build constant: s188/s189 made fb unconditionally rsp while xa_flat kept seeding rbp for the pinned classes, and a SUSPENDED generator resumes with rsp at the deep frontier -- no static displacement exists (the FLATDISP-5 wall), which is why the residual 14 were ONE class. */
-inline int x86_frame_off(int off) { return x86_fb_pinned() ? off : off + (int)_.op_flat_disp; }   /* THE ONE OFFSET FUNCTION: flat-frame offset -> frame-base-relative displacement.  Sole consumers: x86_frame_modrm (BINARY modrm), x86_frame_text_mem (TEXT spelling), FR/FRQ (operand spellings).  Nothing else may add a frame displacement.  Under a PINNED rbp the compensation is IDENTICALLY ZERO by construction -- op_flat_disp is the running rsp-depth prefix sum and rbp does not move -- so adding it would double-count the very depth the pin exists to neutralize. */
-inline const char * x86_fb()         { return x86_fb_pinned() ? "rbp" : "rsp"; }   /* FRAME BASE.  The REG-7 U3 rbp split-off, restored per-graph by FLATDISP-8. */
-inline int          x86_fb_num()     { return x86_fb_pinned() ? 5 : 4; }           /* rsp low3 = 100 -> x86_frame_modrm takes the mandatory-SIB path (0x24), mod=00 legal at off 0.  rbp low3 = 101 -> no SIB and mod=00 is UNAVAILABLE ([rbp] encodes RIP-relative), so off 0 takes the disp8 form -- the encoder's `b != 5` guard already spells both, matching `as` byte for byte (R10). */
-inline const char * x86_fr32_prefix() { return x86_fb_pinned() ? "dword ptr [rbp + " : "dword ptr [rsp + "; }
-inline const char * x86_fr64_prefix() { return x86_fb_pinned() ? "qword ptr [rbp + " : "qword ptr [rsp + "; }
+inline int x86_frame_off(int off) { return (x86_isle() || x86_fb_pinned()) ? off : off + (int)_.op_flat_disp; }   /* Z4-7: the island base is depth-immune -- compensation identically zero, same argument as the pinned rbp. */   /* THE ONE OFFSET FUNCTION: flat-frame offset -> frame-base-relative displacement.  Sole consumers: x86_frame_modrm (BINARY modrm), x86_frame_text_mem (TEXT spelling), FR/FRQ (operand spellings).  Nothing else may add a frame displacement.  Under a PINNED rbp the compensation is IDENTICALLY ZERO by construction -- op_flat_disp is the running rsp-depth prefix sum and rbp does not move -- so adding it would double-count the very depth the pin exists to neutralize. */
+inline const char * x86_fb()         { return x86_isle() ? "r12" : x86_fb_pinned() ? "rbp" : "rsp"; }   /* Z4-7: island frame base is r12 (whole-graph arena). */   /* FRAME BASE.  The REG-7 U3 rbp split-off, restored per-graph by FLATDISP-8. */
+inline int          x86_fb_num()     { return x86_isle() ? 12 : x86_fb_pinned() ? 5 : 4; }   /* Z4-7: r12 low3 = 100 -> mandatory-SIB path with REX.B, x86_frame_modrm already generic (EXTRACT-Z4-R12.md §5: renamed encoder serves r12 unchanged). */           /* rsp low3 = 100 -> x86_frame_modrm takes the mandatory-SIB path (0x24), mod=00 legal at off 0.  rbp low3 = 101 -> no SIB and mod=00 is UNAVAILABLE ([rbp] encodes RIP-relative), so off 0 takes the disp8 form -- the encoder's `b != 5` guard already spells both, matching `as` byte for byte (R10). */
+inline const char * x86_fr32_prefix() { return x86_isle() ? "dword ptr [r12 + " : x86_fb_pinned() ? "dword ptr [rbp + " : "dword ptr [rsp + "; }
+inline const char * x86_fr64_prefix() { return x86_isle() ? "qword ptr [r12 + " : x86_fb_pinned() ? "qword ptr [rbp + " : "qword ptr [rsp + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM accessor — runtime-selectable BY DESIGN (Lon 2026-07-09, contrast the ZC_FRAME build
  * constant above); see zeta_choices.h ZC_ZETA block for the rung map.  RUNG-1 seams read THIS, never getenv,
@@ -1443,12 +1446,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
  * and templates must not hand-spell the dance is unchanged.  The pair leaves flags meaningless across it
  * (push/and both touch or depend on rsp) — callers already treat a C call as a full clobber, so nothing new. */
 inline std::string x86_align_enter() {
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65 (ZB-OWN-1a G1): base ≡ 0 mod 16 (K=65544 phase pad) and every rsp motion in the body is a 16-multiple (32B HEAD cell, 16B leaf cells, 32B xfer, 16-rounded zls blocks) ⇒ rsp ≡ 0 mod 16 at every C-call site ⇒ the dance is a no-op — and MUST be one: its own pushes are what displaced every flat ref inside it.  Pat blobs (r12-island, rsp sinks) keep the dance. */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65 (ZB-OWN-1a G1): base ≡ 0 mod 16 (K=65544 phase pad) and every rsp motion in the body is a 16-multiple (32B HEAD cell, 16B leaf cells, 32B xfer, 16-rounded zls blocks) ⇒ rsp ≡ 0 mod 16 at every C-call site ⇒ the dance is a no-op — and MUST be one: its own pushes are what displaced every flat ref inside it.  Pat blobs (r12-island, rsp sinks) keep the dance. */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b1(0x54) + x86_b3(0xFF, 0x34, 0x24) + x86_b2(0x48, 0x83) + x86_b2(0xE4, 0xF0));
     return std::string(" push rsp\n push qword ptr [rsp]\n and rsp, -16\n");
 }
 inline std::string x86_align_leave() {
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65: paired with the enter no-op above */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65: paired with the enter no-op above */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x48, 0x8B, 0x64) + x86_b2(0x24, 0x08));
     return std::string(" mov rsp, [rsp + 8]\n");
 }
@@ -1504,11 +1507,11 @@ inline std::string x86_frame_unsink() {
  * call sites (no live cursor) — that is why bcps_det_arm is safe today, and it stops being safe the moment a
  * deterministic call is reached with r14 live. */
 inline std::string x86_xfer_enter() {
-    if (ZC_FRAME == ZC_FRAME_RSP) return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L);   /* R12-ERAD s65: 32B keeps the G1 16-align invariant; the ONE interior flat ref (RELEASE's mark read) is hand-compensated +32 at the template */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L);   /* R12-ERAD s65: 32B keeps the G1 16-align invariant; the ONE interior flat ref (RELEASE's mark read) is hand-compensated +32 at the template */
     return x86("push", "r14") + x86("push", "r15") + x86("push", "r13");
 }
 inline std::string x86_xfer_leave() {
-    if (ZC_FRAME == ZC_FRAME_RSP) return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
+    if (x86_zc_frame() == ZC_FRAME_RSP) return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
     return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1885,7 +1888,7 @@ inline std::string x86_port_hook(int site, int port) {
  * plain assignment. Confirmed via hex dump of the corrupted bytes, not assumed; then confirmed the fix by
  * finding bb_emit_x86's actual tag loop, the same consumer every ordinary bb_*.cpp template already uses.) */
 inline std::string x86_zeta_mark_call(int off) {
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap in the BB equation — the FORTH frame IS the zeta; anchor slot already holds the rsp snapshot */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap in the BB equation — the FORTH frame IS the zeta; anchor slot already holds the rsp snapshot */
     return x86("push", "rsi")
          + x86_align_enter()
          + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_zls_mark)
@@ -1895,7 +1898,7 @@ inline std::string x86_zeta_mark_call(int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zeta_release_to_call(int off) {
-    if (ZC_FRAME == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap release — the FORTH frame unwinds via add rsp,K at ω */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string(); /* R12-ERAD: no heap release — the FORTH frame unwinds via add rsp,K at ω */
     return x86_align_enter()
          + x86("mov",  "rdi", FRQ(off))
          + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release_to)

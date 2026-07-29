@@ -1657,7 +1657,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
         /* REG-7 U4 sweep (s86): the s66 ANCHOR-WINDOW decline fallback is DELETED -- a !tail_ok statement now runs the same unconditional-rbp frame as everything else (U1/U2/s79 seeds; FR/FRQ rbp-based
          * post-U3; the ARBNO chain arm's zv() view decoupled s85).  Proof of deadness: the s85 flip probe -- crosscheck watermark-exact, .s byte-identical on 070/117/142/164/165 -- no live emission
          * consulted the window predicate.  Candidacy below is unchanged; the only decline consequence left is the TAIL_DIAG print. */
-        if (!fc_lin && ZC_FRAME == ZC_FRAME_RSP) {
+        if (!fc_lin && rt_zc_frame_live() == ZC_FRAME_RSP) {
             /* R12-EXIT-1 CARRY-THE-TAIL candidacy (tried BEFORE the anchored fallback): exactly ONE spine ARBNO, no REPLACE, no runtime-arg pre-chain (cx->npre), no capture allocated left of the
              * ARBNO (a COND/SAVE preceding it may wrap it -- conservative decline), left/body/right ranges walk clean, ARBNO body-bracket operands resolve.  A candidate registers with zeta_storage's
              * fct (geometry finalizes in the layout pass where zls offsets exist) and its spine SEQ converts to the static-wiring grant (an ungranted SEQ's runtime seq_i is a FLAT slot read at every

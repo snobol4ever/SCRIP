@@ -165,7 +165,7 @@ static std::string bcps_det_arm() {
     { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp[3] = (uint64_t)(uintptr_t)(void*)f3; }
     { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
     static const char *detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && ZC_FRAME == ZC_FRAME_RSP && det_nA >= 0 && det_nA <= 4);
+    int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && x86_zc_frame() == ZC_FRAME_RSP && det_nA >= 0 && det_nA <= 4);
     /* PL-DC (REGAIN-1 SLICE C, 2026-07-20 s108) — the DIRECT det call: `call proc_X_dcα` (m4 named / m3 through the fixed dc slot), args as CELL POINTERS in the SAME rsi/rdx/rcx/r8 the fused open
      * took, result lands rax:rdx by the callee's ret-shims — no open crossing, no wire leas, no landing pair, no epilogue calls; the callee's stub+prep+leave carry the whole per-call residue.
      * Eligibility = the callee-side table predicate verbatim (rt_pl_dc_ok: registered !dyn !gen nparams==nargs<=4 jmp_entry, hatch SCRIP_NO_DC) so site and stub agree by construction; any decline
@@ -184,7 +184,7 @@ static std::string bcps_det_arm() {
     long scc_fp_g; { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_slim_γ; scc_fp_g = (long)(uint64_t)(uintptr_t)(void*)fp; }
     long scc_fp_w; { DESCR_t (*fp)(void) = rt_proc_call_epilogue_slim_ω; scc_fp_w = (long)(uint64_t)(uintptr_t)(void*)fp; }
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
-    if (ZC_FRAME == ZC_FRAME_RSP && is_dyn && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok() && _.op_sval && rt_proc_is_registered(_.op_sval)) {
+    if (x86_zc_frame() == ZC_FRAME_RSP && is_dyn && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok() && _.op_sval && rt_proc_is_registered(_.op_sval)) {
         scc_np = rt_proc_nparams(_.op_sval); int nargs = (int)_.op_ival;
         if (scc_np >= 0 && scc_np <= 60 && nargs <= scc_np) {
             const char *rn = rt_proc_result_name_get(_.op_sval); int ok = rn ? 1 : 0, sh = 0;
@@ -251,7 +251,7 @@ static std::string bcps_det_arm() {
             ? x86("mov32", "edi", det_idx)
             + FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
             + x86("call", detN_nm[det_nA], detN_fp[det_nA])
-            : det_idx >= 0 && ZC_FRAME == ZC_FRAME_RSP
+            : det_idx >= 0 && x86_zc_frame() == ZC_FRAME_RSP
             /* PL-REGAIN-1 slice A (2026-07-19 s100): emit-time-resolved det callee — the index into the dense registry replaces the name (no hash, no strcmp) and the fused leaf returns the fn pointer,
              * eliding the rt_proc_open_fn crossing; rax carries the fn straight to the jmp below.  Eligibility is emit-time-static (!is_dyn, literal target, registered = index >= 0); a runtime guard
              * mismatch returns 0 into the SAME je L(1) FAIL arm as a bodyless proc, side-effect-free.  Inline arg install (kills rt_arg_stage) and the direct cross-box jmp are slices B/C — B blocked
@@ -265,7 +265,7 @@ static std::string bcps_det_arm() {
          + IF(!dc, x86("test", "rax", "rax")
          + x86("je", L(1)))
          + (dc ? std::string("")
-            : ZC_FRAME == ZC_FRAME_RSP
+            : x86_zc_frame() == ZC_FRAME_RSP
             /* R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi.
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call).  Unexercised intersection (census
@@ -282,7 +282,7 @@ static std::string bcps_det_arm() {
             + x86("jmp", L(2))
             : is_dyn
             /* LEGACY-CONFIG ONLY (REG-7 s80 audit resolved; was the ⛔ REG-6 hazard flag): reachable solely
-             * when ZC_FRAME != ZC_FRAME_RSP after the guard widening above — configs where r12 IS the ζ frame
+             * when x86_zc_frame() != ZC_FRAME_RSP after the guard widening above — configs where r12 IS the ζ frame
              * (⭐ s202: that basis NO LONGER EXISTS.  ZC_FRAME_R12 was deleted at ZR-RSPRBP-1 s201, so `!= RSP`
              * now means RBP — a basis this arm was never written for, and which is #error-guarded as non-running
              * in zeta_choices.h after a matched-pair A/B measured 9 NET NEW crashes (s202).  This arm is therefore DEAD CODE awaiting the
@@ -514,7 +514,7 @@ std::string bb_call_proc_staged_str(IR_t * pBB) {
     int is_gen = _.op_sval && rt_proc_is_generator(_.op_sval);
     if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha() + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act ZLS2 handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
     if (is_gen) {
-        if (ZC_FRAME == ZC_FRAME_RSP) { if (MEDIUM_BINARY || MEDIUM_TEXT) return bcps_spine_gen_arm(); return std::string(); }   /* GENP-SPINE s92: spine-resident generators under the RSP default; the pthread arms below serve legacy non-RSP frames only */
+        if (x86_zc_frame() == ZC_FRAME_RSP) { if (MEDIUM_BINARY || MEDIUM_TEXT) return bcps_spine_gen_arm(); return std::string(); }   /* GENP-SPINE s92: spine-resident generators under the RSP default; the pthread arms below serve legacy non-RSP frames only */
         if (MEDIUM_BINARY) return bcps_bin_gen_arm();
         if (MEDIUM_TEXT)   return bcps_txt_gen_arm();
         return std::string();

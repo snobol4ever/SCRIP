@@ -502,7 +502,7 @@ void zls_build(IR_graph_t * g) {
         k += 1;
     }
     r->locals_off = base + k * 16;   /* ALIGN-INV-3c: the boundary where named locals begin (== the old mark position) -- recorded unconditionally so the seed suffix survives the mark reservation going away */
-    if (ZC_FRAME != ZC_FRAME_RSP) {
+    if (rt_zc_frame_live() != ZC_FRAME_RSP) {
         r->zeta_mark_off = base + k * 16;
         zls_field(root, r->zeta_mark_off, 8, ZK_RAW, 0, "graph-scope zeta mark (rt_zls_mark snapshot, prologue-stashed, epilogue-released)", (const IR_t *)0);
         zls_field(root, r->zeta_mark_off + 8, 8, ZK_RAW, 0, "zeta_mark.pad (unused)", (const IR_t *)0);

@@ -1224,7 +1224,7 @@ int main(int argc, char **argv)
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
-            if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
                 if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             } else {
             emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
@@ -1236,7 +1236,7 @@ int main(int argc, char **argv)
             emit_textf("  xor esi, esi\n");
             emit_textf("  call main_\xce\xb1\n");
             emit_textf("  xor eax, eax\n");
-            if (ZC_FRAME == ZC_FRAME_RSP) emit_textf("  add rsp, 24\n"); /* R12-ERAD */
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) emit_textf("  add rsp, 24\n"); /* R12-ERAD */
             else emit_textf("  add rsp, 65536\n  add rsp, 24\n"); /* ZS-1 */
             emit_textf("  ret\n");
             int rc;
@@ -1412,7 +1412,7 @@ int main(int argc, char **argv)
             else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
-            if (ZC_FRAME == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
                 if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             } else {
             emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
@@ -1423,7 +1423,7 @@ int main(int argc, char **argv)
             /* R12-FREE-1 (Lon 2026-07-29): the r12 environment seed is DELETED -- the pend top is cell-resident at [RT_CAS_TOP]; nothing reads r12 (r12 vacated for ZC_STORAGE_FRAME_R12) */
             emit_textf("  xor esi, esi\n");
             emit_textf("  call flat_\xce\xb1\n");
-            if (ZC_FRAME == ZC_FRAME_RSP) emit_textf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) emit_textf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
             else emit_textf("  xor eax, eax\n  add rsp, 65536\n  add rsp, 24\n  ret\n"); /* ZS-1 */
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
@@ -1561,7 +1561,7 @@ int main(int argc, char **argv)
             }
             ir_delete_all(s2);
             void *mf = NULL;
-            if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1: main zeta frame on the driver's own stack (was rt_frame() arena memo); R12-ERAD: under RSP the blob self-allocates, rdi unused */
+            if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1: main zeta frame on the driver's own stack (was rt_frame() arena memo); R12-ERAD: under RSP the blob self-allocates, rdi unused */
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
             { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
@@ -1652,7 +1652,7 @@ int main(int argc, char **argv)
                 ir_delete_all(s2);
                 if (fn) {
                     void *mf = NULL;
-                    if (ZC_FRAME != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
+                    if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
                     if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP */
                     { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20) */
                     { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): twin of the primary mode-3 entry above */

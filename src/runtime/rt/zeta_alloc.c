@@ -281,6 +281,7 @@ static const char *g_zeta_storage_names[4] = { "frame-r12", "frame-rsp", "cell-s
 static int g_zeta_storage = -1;
 void rt_zeta_storage_set(int s) { g_zeta_storage = (s >= ZC_STORAGE_FRAME_R12 && s <= ZC_STORAGE_CELL_HEAP) ? s : (int)ZC_STORAGE; if (g_zeta_storage == ZC_STORAGE_CELL_STACK) rt_zeta_port_set_mode(ZC_PORT_FORTH); else if (g_zeta_storage == ZC_STORAGE_CELL_HEAP) rt_zeta_port_set_mode(ZC_PORT_HEAP); else if (g_zeta_storage == ZC_STORAGE_FRAME_RSP) rt_zeta_port_set_mode(ZC_PORT_CSTACK); if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZETA] storage=%s\n", g_zeta_storage_names[g_zeta_storage]); }
 int  rt_zeta_storage_get(void) { if (g_zeta_storage < 0) { const char *e = getenv("SCRIP_ZETA_STORAGE"); int s = (int)ZC_STORAGE; int i; if (e) { if (e[0] >= '0' && e[0] <= '3' && !e[1]) s = e[0] - '0'; else for (i = 0; i < 4; i++) if (strcmp(e, g_zeta_storage_names[i]) == 0) s = i; } if (e) rt_zeta_storage_set(s); else g_zeta_storage = (int)ZC_STORAGE; } return g_zeta_storage; }
+int  rt_zc_frame_live(void) { return rt_zeta_storage_get() == ZC_STORAGE_FRAME_R12 ? ZC_FRAME_ISLE : ZC_FRAME; }
 int rt_zeta_cstack(void)
 {
     return (rt_zeta_port_mode() == ZC_PORT_CSTACK || rt_zeta_port_mode() == ZC_PORT_FORTH) ? 1 : 0;

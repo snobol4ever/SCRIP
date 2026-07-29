@@ -180,6 +180,7 @@
  * consumers at deletion (measured, not assumed) and its only residue was the unreachable third ternary arm in x86_zr/x86_zr_num.  ζ is now based from
  * RSP and RBP, and that is the whole closed set.  RBP/RSP keep their values 1/2 — NOT renumbered, because nothing passes ZC_FRAME numerically (measured
  * across Makefile + scripts/) and renumbering would be churn that buys nothing.  The PER-GRAPH selection between the two lives in x86_fb_pinned(). */
+#define ZC_FRAME_ISLE 0 /* Z4-7 slice 1 (GOAL-ZETA-FOUR.md): the LIVE-frame value rt_zc_frame_live() returns when the runtime selector says ZC_STORAGE_FRAME_R12.  This is the deleted ZC_FRAME_R12's old value 0 wearing a new name on purpose: the 17 `!= ZC_FRAME_RSP` arms were written FOR that basis (EXTRACT-Z4-R12.md §1 — R12 never named itself, the negative predicate WAS its selector), so making the live comparison resolve to a non-RSP value re-connects them without one positive `== R12` test appearing anywhere, exactly as the extraction doc prescribes.  NOT a ZC_FRAME build value — the build axis stays RSP-only until Z4-9 deletes it; every former compile-time `ZC_FRAME ==/!= ZC_FRAME_RSP` comparison now routes through rt_zc_frame_live()/x86_zc_frame(), which fold to the identical truth table under every non-island selection. */
 #define ZC_FRAME_RBP 1
 #define ZC_FRAME_RSP 2 /* rsp-as-ζ (Lon directive 2026-07-09): EMIT-side switch only today — runnable only after the
  * proc trampoline retires (no C frame above a live BB frame, zeta_alloc.c ZLS2 note) and escaping
