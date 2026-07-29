@@ -193,6 +193,16 @@ n12_var_α:
                                                                                         jmp   n14_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_binop_α:
+                        mov              eax, dword ptr [rsp + 288]
+                        cmp              eax, 6
+                                                                                        jne   .Lx46_0
+                        mov              rax, 80
+                        mov              rcx, qword ptr [rsp + 296]
+                        sub              rax, rcx
+                        mov              qword ptr [rsp + 256], 6
+                        mov              qword ptr [rsp + 264], rax
+                                                                                        jmp   n16_lit_integer_α
+.Lx46_0:
                         mov              rdi, qword ptr [rsp + 272]
                         mov              rsi, qword ptr [rsp + 280]
                         mov              rdx, qword ptr [rsp + 288]
@@ -230,6 +240,16 @@ n16_lit_integer_α:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
 n17_binop_α:
+                        mov              eax, dword ptr [rsp + 464]
+                        cmp              eax, 6
+                                                                                        jne   .Lx50_0
+                        mov              rax, qword ptr [rsp + 472]
+                        mov              rcx, 1
+                        add              rax, rcx
+                        mov              qword ptr [rsp + 448], 6
+                        mov              qword ptr [rsp + 456], rax
+                                                                                        jmp   n20_lit_integer_α
+.Lx50_0:
                         mov              rdi, qword ptr [rsp + 464]
                         mov              rsi, qword ptr [rsp + 472]
                         mov              rdx, qword ptr [rsp + 480]
