@@ -20,9 +20,14 @@ static std::string release_pump() {
     return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
-         + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", "rdi", RSP((int)(_.op_off + 32 + 32)))
-                                     : x86("mov",  "rdi", FRQ(_.op_off + 32)))
-         + x86("mov",  "rsi", ABSQ(RT_CAS_TOP))   /* R12-FREE-1: pass the CELL top */
+         + x86("mov",  "rsi", ABSQ(RT_CAS_TOP))   /* CAS-MARKER: top; mark is recovered by scanning down to HEAD's tag-0 marker -- the flat +32 slot and its zc_frame fork are deleted; one config-blind mechanism serves every basis */
+         + x86("mov",  "r10", "rsi")
+         + x86("def",  L(5))
+         + x86("sub",  "r10", (long)24)
+         + x86("mov",  "rax", RDQ("r10", 0))
+         + x86("test", "rax", "rax")
+         + x86("jne",  L(5))
+         + x86("lea",  "rdi", RDQ("r10", 24))
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          + x86("def",  L(1))
@@ -61,7 +66,7 @@ static std::string release_pump() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("mov", "rax", FRQ(_.op_off + 32)) + x86("mov", ABSQ(RT_CAS_TOP), "rax")   /* R12-FREE-1: one-mov unwind now restores the CELL */
+         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER: success path re-scans (the pump's C calls clobber r10; nested matches inside pumped assignments push balanced markers, so top returns) and pops entries + marker wholesale */
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
          + x86_gamma();
 }
