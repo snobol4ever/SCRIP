@@ -1015,10 +1015,10 @@ static int         g_pcall_cap;
  * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's
  * rbp) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
  * SPITBOL restore protocol stay in the existing γ/ω epilogue leaves the wires land on, so save/restore semantics are byte-identical to the extracted-body regime. */
-typedef struct { void *gw; void *ww; void *rsp; void *rbp; } rt_flat_wires_t;
+typedef struct { void *gw; void *ww; void *rsp; void *rbp; void *r12; } rt_flat_wires_t;
 static rt_flat_wires_t *g_pcall_wires;
 static rt_flat_wires_t  g_flat_ret_snapbuf;
-_Static_assert(sizeof(rt_flat_wires_t) == 32 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, rbp) == 24, "bb_save_restore.cpp bakes these offsets");
+_Static_assert(sizeof(rt_flat_wires_t) == 40 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, rbp) == 24 && offsetof(rt_flat_wires_t, r12) == 32, "bb_save_restore.cpp bakes these offsets; r12 field Z4-7 slice 2 (island caller-base restore), read only by the island-emitted floater arm");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ws_roots(void)
 {
@@ -1046,7 +1046,13 @@ static void rt_pcall_grow(void)
 void rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp)
 {
     if (g_pcall_top <= 0 || !g_pcall_wires) return;
-    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; }
+    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; w->r12 = 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *rbp, void *r12v)
+{
+    if (g_pcall_top <= 0 || !g_pcall_wires) return;
+    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; w->r12 = r12v; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_flat_ret_snap(void)
