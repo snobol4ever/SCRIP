@@ -395,3 +395,109 @@ RTX_ENDF(rt_proc_call_epilogue_slim_ω)
 
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
+
+/*=========================================================================================================
+ * RTX-4 SLICE 3 — THE ENTRY-SIDE LEAVES: rt_flat_ret_snap AND rt_proc_open_fn
+ *
+ * WHY THESE TWO, AND WHY TOGETHER
+ *   Slice 1 ported the two classic epilogue LANDINGS (the gamma/omega exits).  These are the other end of
+ *   the same boundary: the RETURN floater's wire fetch and the call site's fn fetch.  Both are strict
+ *   leaves, both take NO arguments and return a single void*, and both are called EXACTLY ONCE PER
+ *   SNOBOL4 PROCEDURE CALL -- measured 1:1 with the loop count at two scales (1,000,000 and 2,000,000
+ *   calls in func_call.sno), which is what step 0(d) demands and what makes this slice worth doing.
+ *   Manual Ch.8: every DEFINE'd function reaches RETURN (or FRETURN/NRETURN) exactly once per activation,
+ *   so "once per call" is a property of the LANGUAGE here, not an accident of the benchmark.
+ *
+ * WHAT THE -O0 C SPENT, MEASURED BY objdump AT HEAD (not estimated)
+ *   rt_flat_ret_snap  ~48 instructions: a full rbp frame plus a pushed rbx (a PIN, saved only because the
+ *                     40-byte copy was emitted as 5 scalar load/store PAIRS = 10 memory ops); g_pcall_top
+ *                     loaded TWICE; g_pcall_wires loaded TWICE; the w pointer spilled to stack and
+ *                     reloaded THREE times; a jmp to rejoin the ternary's two arms.
+ *   rt_proc_open_fn   16 instructions: an rbp frame for a function that touches no stack at all, and
+ *                     g_pcall_top loaded TWICE to perform ONE decrement.
+ *
+ * WHAT THIS PORT DOES INSTEAD
+ *   Each global is loaded ONCE.  Neither entry builds a frame (both are strict leaves; nothing on the hot
+ *   path calls out, so there is nothing to align for and no return address to protect).  The 40-byte
+ *   wire copy becomes 2 SSE 16-byte moves + 1 qword = 6 memory ops instead of 10, and because no pin is
+ *   used as copy scratch, the rbx save/restore disappears entirely.
+ *
+ * THE ERROR PATHS ARE DELIBERATELY NOT PORTED
+ *   Every failure edge -- level-zero RETURN (manual Ch.8's "Return from level zero", core error 18, which
+ *   must route through the core machinery so &ERROR/SETEXIT trapping still applies) and the
+ *   no-return-wires diagnostic -- TAIL-JUMPS to the C body.  The asm implements the SUCCESS path only.
+ *   Consequence worth stating plainly: this port CANNOT regress error behaviour, because it does not
+ *   contain any.  The diagnostics stay byte-identical by construction, not by testing.
+ *
+ * REGISTER SAFETY
+ *   Uses rax rcx rdx r8 xmm0 xmm1 -- all inside the ARCH section 2 working set.  No pin is touched.
+ *   rdx IS clobbered, and that is provably safe rather than merely assumed: the -O0 C body already
+ *   clobbers rdx (objdump: movslq %eax,%rdx), so no emitted caller can legally depend on it surviving.
+ *   The rt.c comment about "rax:rdx riding untouched through the floater's tail" describes the floater's
+ *   own tail AFTER this call returns, not a guarantee across it -- verified against the emitted site in
+ *   func_call.s, which consumes only rax and then reloads rcx/rbp/rsp from the returned buffer.
+ *
+ * OFFSETS -- ALL ANCHORED BY _Static_assert IN rt.c, SO A STRUCT MOVE BREAKS THE BUILD, NOT THE RUNTIME
+ *   rt_pcall_t      sizeof 64 (stride shl 6), p at 0                    (rt.c assert, pre-existing)
+ *   rt_proc_t       fn at 8                                             (rt.c assert, added this slice)
+ *   rt_flat_wires_t sizeof 40, gw 0, ww 8, rsp 16, rbp 24, r12 32       (rt.c assert, Z4-7 slice 2)
+ *   The 40-byte stride is NOT a power of two: index*40 == ((index*5)<<3), done as lea+shl.
+ *=======================================================================================================*/
+
+#define PROC_FN     8
+#define FW_GW       0
+#define FW_WW       8
+#define FW_SIZE     40
+
+/* void *rt_proc_open_fn(void) -- the emitted call site's callee-entry fetch.
+ * C of record: if (g_pcall_top <= 0) return 0; return g_pcall[g_pcall_top-1].p->fn; */
+RTX_FUNC(rt_proc_open_fn)
+    RTX_GATE(call, c_rt_proc_open_fn)
+    mov     eax, dword ptr [rip + g_pcall_top]      /* the ONE load of top */
+    test    eax, eax
+    jle     .Lopenfn_zero                           /* no open activation: return NULL, exactly as C */
+    dec     eax                                     /* top - 1 */
+    movsxd  rax, eax
+    shl     rax, 6                                  /* * sizeof(rt_pcall_t) == 64 */
+    add     rax, qword ptr [rip + g_pcall]
+    mov     rax, qword ptr [rax + PC_P]             /* c->p   (no NULL check: the C has none either) */
+    mov     rax, qword ptr [rax + PROC_FN]          /* p->fn */
+    ret
+.Lopenfn_zero:
+    xor     eax, eax
+    ret
+RTX_ENDF(rt_proc_open_fn)
+
+/* void *rt_flat_ret_snap(void) -- the RETURN/FRETURN floater's wire fetch.  PEEKS (never pops) the top
+ * activation's wire quad into a private static buffer and returns its address.  The copy is what makes
+ * the peek safe against a re-entrant push landing on the same slot, so it is preserved exactly. */
+RTX_FUNC(rt_flat_ret_snap)
+    RTX_GATE(call, c_rt_flat_ret_snap)
+    mov     eax, dword ptr [rip + g_pcall_top]      /* the ONE load of top */
+    test    eax, eax
+    jle     .Lsnap_c                                /* level-zero RETURN -> C raises core error 18 */
+    mov     rcx, qword ptr [rip + g_pcall_wires]    /* the ONE load of the wire array */
+    test    rcx, rcx
+    jz      .Lsnap_c                                /* no wire array -> C diagnostic */
+    dec     eax
+    movsxd  rax, eax
+    lea     rax, [rax + rax*4]                      /* index * 5 */
+    shl     rax, 3                                  /* * 8  => * 40 == sizeof(rt_flat_wires_t) */
+    add     rcx, rax                                /* rcx = w = &g_pcall_wires[top-1] */
+    mov     rax, qword ptr [rcx + FW_GW]
+    test    rax, rax
+    jz      .Lsnap_c                                /* !w->gw -> C prints the un-adopted diagnostic */
+    mov     rdx, qword ptr [rcx + FW_WW]
+    test    rdx, rdx
+    jz      .Lsnap_c                                /* !w->ww -> same */
+    movdqu  xmm0, xmmword ptr [rcx +  0]            /* gw, ww  */
+    movdqu  xmm1, xmmword ptr [rcx + 16]            /* rsp, rbp */
+    mov     r8,  qword ptr [rcx + 32]               /* r12 (Z4-7 slice 2 island caller-base) */
+    lea     rax, [rip + g_flat_ret_snapbuf]
+    movdqu  xmmword ptr [rax +  0], xmm0
+    movdqu  xmmword ptr [rax + 16], xmm1
+    mov     qword ptr [rax + 32], r8
+    ret                                             /* rax = &g_flat_ret_snapbuf */
+.Lsnap_c:
+    jmp     c_rt_flat_ret_snap                      /* every failure edge is C's, unchanged */
+RTX_ENDF(rt_flat_ret_snap)
