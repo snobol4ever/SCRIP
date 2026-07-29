@@ -23,6 +23,7 @@ DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * rspq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-1: the bb_assign_global rspq precedent */
+static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-5: cell type-dword read, the bb_match_capture rspd precedent */
 static inline int vfcb() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }   /* ZB-VAL-1/5: registered value-spine binop -- operands are the TOP TWO cells (a=[rsp+16..31], b=[rsp+0..15]); leaves may be VARS so the arm carries the FULL type structure */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void * rtop_addr(long long op) {
@@ -57,37 +58,75 @@ static inline const char * rtop_name(long long op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int rtop_is_dyn(long long op) { return rtop_addr(op) == (void*)rt_num_arith; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int inl_ok() { long long o = (long long)_.op_ival; return !_.op_num_real && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok) && (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline std::string fc_tail() {
+    return x86("mov", "rdi", rspq(16)) + x86("mov", "rsi", rspq(24)) + x86("mov", "rdx", rspq(0)) + x86("mov", "rcx", rspq(8))
+         + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
+         + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival)) + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
+         + x86("add", "rsp", (long)16) + x86("mov", rspq(0), "rax") + x86("mov", rspq(8), "rdx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline std::string inl_tail() {
+    return x86("mov", "rdi", FRQ(_.op_sa)) + x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "rdx", FRQ(_.op_sb)) + x86("mov", "rcx", FRQ(_.op_sb + 8))
+         + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
+         + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival)) + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
+         + x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
     if (!PLATFORM_X86) return std::string();
-    return IF(vfcb(),
+    return IF(vfcb() && inl_ok(),
            x86_alpha()
-         + x86("comment", "IR_BINOP_ARITH fc")
-         + x86("mov", "rdi", rspq(16))
-         + x86("mov", "rsi", rspq(24))
-         + x86("mov", "rdx", rspq(0))
+         + x86("comment", "IR_BINOP_ARITH fc inl")
+         + x86("mov", "eax", rspd(16))
+         + x86("cmp", "eax", (long)DT_I)
+         + x86("jne", L(0))
+         + x86("mov", "eax", rspd(0))
+         + x86("cmp", "eax", (long)DT_I)
+         + x86("jne", L(0))
+         + x86("mov", "rax", rspq(24))
          + x86("mov", "rcx", rspq(8))
-         + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-         + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
-         + x86("cmp", "eax", (long)DT_FAIL)
-         + x86_omega("je")
+         + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
+         + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
+         + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))
          + x86("add", "rsp", (long)16)
-         + x86("mov", rspq(0), "rax")
-         + x86("mov", rspq(8), "rdx")
+         + x86("mov", rspq(0), (long)DT_I)
+         + x86("mov", rspq(8), "rax")
+         + x86_gamma()
+         + x86("def", L(0))
+         + fc_tail()
          + x86_gamma()
          + x86_beta_trampoline())
-         + IF(!vfcb() && _.op_off >= 0,
+         + IF(vfcb() && !inl_ok(),
+           x86_alpha()
+         + x86("comment", "IR_BINOP_ARITH fc")
+         + fc_tail()
+         + x86_gamma()
+         + x86_beta_trampoline())
+         + IF(!vfcb() && _.op_off >= 0 && inl_ok(),
+           x86_alpha()
+         + x86("comment", "IR_BINOP_ARITH inl")
+         + IF(!_.op_imm_a_ok, x86("mov", "eax", FR(_.op_sa)) + x86("cmp", "eax", (long)DT_I) + x86("jne", L(0)))
+         + IF(!_.op_imm_b_ok, x86("mov", "eax", FR(_.op_sb)) + x86("cmp", "eax", (long)DT_I) + x86("jne", L(0)))
+         + IF(!_.op_imm_a_ok, x86("mov", "rax", FRQ(_.op_sa + 8)))
+         + IF( _.op_imm_a_ok, x86("mov", "rax", (long)_.op_imm_a))
+         + IF(!_.op_imm_b_ok, x86("mov", "rcx", FRQ(_.op_sb + 8)))
+         + IF( _.op_imm_b_ok, x86("mov", "rcx", (long)_.op_imm_b))
+         + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
+         + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
+         + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))
+         + x86("mov", FRQ(_.op_off),     (long)DT_I)
+         + x86("mov", FRQ(_.op_off + 8), "rax")
+         + x86_gamma()
+         + x86("def", L(0))
+         + inl_tail()
+         + x86_gamma()
+         + x86_beta_trampoline())
+         + IF(!vfcb() && _.op_off >= 0 && !inl_ok(),
            x86_alpha()
          + x86("comment", "IR_BINOP_ARITH")
-         + x86("mov", "rdi", FRQ(_.op_sa))
-         + x86("mov", "rsi", FRQ(_.op_sa + 8))
-         + x86("mov", "rdx", FRQ(_.op_sb))
-         + x86("mov", "rcx", FRQ(_.op_sb + 8))
-         + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-         + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
-         + x86("cmp", "eax", (long)DT_FAIL)
-         + x86_omega("je")
-         + x86("mov", FRQ(_.op_off),     "rax")
-         + x86("mov", FRQ(_.op_off + 8), "rdx")
+         + inl_tail()
          + x86_gamma()
          + x86_beta_trampoline());
 }
