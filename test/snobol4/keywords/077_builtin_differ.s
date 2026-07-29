@@ -22,14 +22,16 @@ main_α:
                         mov              ecx, 152
                         xor              eax, eax
                         rep stosb
+                        mov              [rsp + 144], rbp
+                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DIFFER('abc', 'xyz')                                        :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rsp + 64], 1
+                        mov              qword ptr [rbp + 64], 1
                         mov              rax, qword ptr [rip + .Lx9_0]
-                        mov              qword ptr [rsp + 72], rax
+                        mov              qword ptr [rbp + 72], rax
                                                                                         jmp   n3_lit_string_α
 .Lx9_0:
                         .quad            .Lx9_0_s
@@ -47,9 +49,9 @@ n2_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_string_α:
-                        mov              qword ptr [rsp + 80], 1
+                        mov              qword ptr [rbp + 80], 1
                         mov              rax, qword ptr [rip + .Lx12_0]
-                        mov              qword ptr [rsp + 88], rax
+                        mov              qword ptr [rbp + 88], rax
                                                                                         jmp   n6_call_α
 .Lx12_0:
                         .quad            .Lx12_0_s
@@ -83,24 +85,24 @@ n5_lit_string_α:
                         .string          "same"
 #-----------------------------------------------------------------------------------------------------------------------
 n6_call_α:
-                        mov              rax, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 16], rax
-                        mov              rax, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 24], rax
-                        mov              rax, qword ptr [rsp + 80]
-                        mov              qword ptr [rsp + 32], rax
-                        mov              rax, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 40], rax
+                        mov              rax, qword ptr [rbp + 64]
+                        mov              qword ptr [rbp + 16], rax
+                        mov              rax, qword ptr [rbp + 72]
+                        mov              qword ptr [rbp + 24], rax
+                        mov              rax, qword ptr [rbp + 80]
+                        mov              qword ptr [rbp + 32], rax
+                        mov              rax, qword ptr [rbp + 88]
+                        mov              qword ptr [rbp + 40], rax
                         .section         .rodata
 .Lrkfn16:               .string          "DIFFER"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lrkfn16]
-                        lea              rsi, [rsp + 16]
+                        lea              rsi, [rbp + 16]
                         mov              edx, 2
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rbp + 0], rax
+                        mov              qword ptr [rbp + 8], rdx
                         cmp              eax, 99
                                                                                         je    n5_lit_string_α
                                                                                         jmp   n4_lit_string_α
@@ -137,12 +139,16 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 144]
                         add              rsp, 152
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
+                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
+                        mov              rbp, [rsp + 144]
                         add              rsp, 152
                         ret
                         .section         .note.GNU-stack,"",@progbits

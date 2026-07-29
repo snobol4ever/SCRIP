@@ -10,6 +10,8 @@ proc_LBL__bumpit_α:
                         sub              rsp, 176
                         mov              [rsp + 152], rcx
                         mov              [rsp + 160], rdx
+                        mov              [rsp + 168], rbp
+                        mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__bumpit_α_body:
@@ -71,21 +73,23 @@ n5_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_res:
                         add              rsp, 8
-                        pop              rsp
+                        pop              rbp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_β:
                                                                                         jmp   proc_LBL__bumpit_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 152]
-                        add              rsp, 176
+                        mov              rdi, [rbp]
+                        mov              rsi, [rbp + 8]
+                        mov              rax, [rbp + 152]
+                        lea              rsp, [rbp + 176]
+                        mov              rbp, [rbp + 168]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_ω:
-                        mov              rax, [rsp + 160]
-                        add              rsp, 176
+                        mov              rax, [rbp + 160]
+                        lea              rsp, [rbp + 176]
+                        mov              rbp, [rbp + 168]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_bumpit_α
@@ -97,6 +101,8 @@ proc_bumpit_α:
                         sub              rsp, 176
                         mov              [rsp + 152], rcx
                         mov              [rsp + 160], rdx
+                        mov              [rsp + 168], rbp
+                        mov              rbp, rsp
                         mov              rdi, rsp
                         mov              ecx, 144
                         xor              eax, eax
@@ -104,10 +110,10 @@ proc_bumpit_α:
 proc_bumpit_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_op14_α:
-                        mov              rdi, qword ptr [rsp + 152]
-                        mov              rsi, qword ptr [rsp + 160]
-                        lea              rdx, [rsp + 176]
-                        mov              rcx, rbp
+                        mov              rdi, qword ptr [rbp + 152]
+                        mov              rsi, qword ptr [rbp + 160]
+                        lea              rdx, [rbp + 176]
+                        mov              rcx, qword ptr [rbp + 168]
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n14_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -124,21 +130,23 @@ n14_goto_deferred_α:
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bumpit_res:
                         add              rsp, 8
-                        pop              rsp
+                        pop              rbp
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bumpit_β:
                                                                                         jmp   proc_bumpit_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bumpit_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 152]
-                        add              rsp, 176
+                        mov              rdi, [rbp]
+                        mov              rsi, [rbp + 8]
+                        mov              rax, [rbp + 152]
+                        lea              rsp, [rbp + 176]
+                        mov              rbp, [rbp + 168]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bumpit_ω:
-                        mov              rax, [rsp + 160]
-                        add              rsp, 176
+                        mov              rax, [rbp + 160]
+                        lea              rsp, [rbp + 176]
+                        mov              rbp, [rbp + 168]
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -226,15 +234,17 @@ main_α:
                         mov              ecx, 152
                         xor              eax, eax
                         rep stosb
+                        mov              [rsp + 144], rbp
+                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DEFINE('bumpit(v)', .bumpit)                                :(bumpend)
 #         OUTPUT = bumpit(41)
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_integer_α:
-                        mov              qword ptr [rsp + 128], 6
+                        mov              qword ptr [rbp + 128], 6
                         mov              rax, qword ptr [rip + .Lx29_0]
-                        mov              qword ptr [rsp + 136], rax
+                        mov              qword ptr [rbp + 136], rax
                                                                                         jmp   n22_call_α
 .Lx29_0:
                         .quad            41
@@ -265,9 +275,9 @@ n22_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx33_5
-                        mov              rax, qword ptr [rsp + 160]
+                        mov              rax, qword ptr [rbp + 128]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 168]
+                        mov              rax, qword ptr [rbp + 136]
                         mov              qword ptr [1879052312], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx33_6]
@@ -305,16 +315,16 @@ n22_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx33_20
-                        mov              rax, qword ptr [rsp + 128]
-                        mov              rdx, qword ptr [rsp + 136]
+                        mov              rax, qword ptr [rbp + 128]
+                        mov              rdx, qword ptr [rbp + 136]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx33_21
 .Lx33_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 128]
-                        mov              rdx, qword ptr [rsp + 136]
+                        mov              rsi, qword ptr [rbp + 128]
+                        mov              rdx, qword ptr [rbp + 136]
                         call             rt_arg_stage@PLT
 .Lx33_21:
                         mov              rdi, qword ptr [rip + .Lx33_0]
@@ -335,8 +345,8 @@ n22_call_α:
 .Lx33_1:
                         call             rt_faildescr@PLT
 .Lx33_2:
-                        mov              qword ptr [rsp + 80], rax
-                        mov              qword ptr [rsp + 88], rdx
+                        mov              qword ptr [rbp + 80], rax
+                        mov              qword ptr [rbp + 88], rdx
                         cmp              eax, 99
                                                                                         je    main_γ
                                                                                         jmp   n24_assign_α
@@ -358,8 +368,8 @@ n23_var_α:
                                                                                         jmp   n25_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n24_assign_α:
-                        mov              rsi, qword ptr [rsp + 80]
-                        mov              rdx, qword ptr [rsp + 88]
+                        mov              rsi, qword ptr [rbp + 80]
+                        mov              rdx, qword ptr [rbp + 88]
                         mov              rdi, qword ptr [rip + .Lx35_0]
                         call             NV_SET_fn@PLT
                                                                                         jmp   main_γ
@@ -414,12 +424,16 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 144]
                         add              rsp, 152
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
+                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
+                        mov              rbp, [rsp + 144]
                         add              rsp, 152
                         ret
                         .section         .note.GNU-stack,"",@progbits

@@ -35,6 +35,8 @@ main_α:
                         mov              ecx, 168
                         xor              eax, eax
                         rep stosb
+                        mov              [rsp + 160], rbp
+                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         N = 0
@@ -101,8 +103,8 @@ n6_lit_integer_α:
 n7_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 128], rax
-                        mov              qword ptr [rsp + 136], rdx
+                        mov              qword ptr [rbp + 128], rax
+                        mov              qword ptr [rbp + 136], rdx
                                                                                         jmp   n10_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n8_assign_α:
@@ -134,9 +136,9 @@ n9_binop_α:
                                                                                         jmp   n11_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_integer_α:
-                        mov              qword ptr [rsp + 112], 6
+                        mov              qword ptr [rbp + 112], 6
                         mov              rax, qword ptr [rip + .Lx25_0]
-                        mov              qword ptr [rsp + 120], rax
+                        mov              qword ptr [rbp + 120], rax
                                                                                         jmp   n12_op75_α
 .Lx25_0:
                         .quad            5
@@ -150,54 +152,54 @@ n11_assign_α:
                                                                                         jmp   n7_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_op75_α:
-                        mov              eax, dword ptr [rsp + 128]
+                        mov              eax, dword ptr [rbp + 128]
                         cmp              eax, 7
                                                                                         je    .Lx28_1
                         cmp              eax, 6
                                                                                         jne   .Lx28_0
-                        mov              eax, dword ptr [rsp + 112]
+                        mov              eax, dword ptr [rbp + 112]
                         cmp              eax, 6
                                                                                         jne   .Lx28_0
 .Lx28_1:
-                        mov              rax, qword ptr [rsp + 128]
-                        mov              qword ptr [rsp + 96], rax
-                        mov              rax, qword ptr [rsp + 136]
-                        mov              qword ptr [rsp + 104], rax
+                        mov              rax, qword ptr [rbp + 128]
+                        mov              qword ptr [rbp + 96], rax
+                        mov              rax, qword ptr [rbp + 136]
+                        mov              qword ptr [rbp + 104], rax
                                                                                         jmp   n13_op75_α
 .Lx28_0:
-                        lea              rdi, [rsp + 128]
-                        lea              rsi, [rsp + 112]
-                        lea              rdx, [rsp + 96]
+                        lea              rdi, [rbp + 128]
+                        lea              rsi, [rbp + 112]
+                        lea              rdx, [rbp + 96]
                         mov              rcx, 111
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n13_op75_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_op75_α:
-                        mov              eax, dword ptr [rsp + 112]
+                        mov              eax, dword ptr [rbp + 112]
                         cmp              eax, 7
                                                                                         je    .Lx30_1
                         cmp              eax, 6
                                                                                         jne   .Lx30_0
-                        mov              eax, dword ptr [rsp + 128]
+                        mov              eax, dword ptr [rbp + 128]
                         cmp              eax, 6
                                                                                         jne   .Lx30_0
 .Lx30_1:
-                        mov              rax, qword ptr [rsp + 112]
-                        mov              qword ptr [rsp + 80], rax
-                        mov              rax, qword ptr [rsp + 120]
-                        mov              qword ptr [rsp + 88], rax
+                        mov              rax, qword ptr [rbp + 112]
+                        mov              qword ptr [rbp + 80], rax
+                        mov              rax, qword ptr [rbp + 120]
+                        mov              qword ptr [rbp + 88], rax
                                                                                         jmp   n14_op77_α
 .Lx30_0:
-                        lea              rdi, [rsp + 112]
-                        lea              rsi, [rsp + 128]
-                        lea              rdx, [rsp + 80]
+                        lea              rdi, [rbp + 112]
+                        lea              rsi, [rbp + 128]
+                        lea              rdx, [rbp + 80]
                         mov              rcx, 112
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n14_op77_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_op77_α:
-                        lea              rdi, [rsp + 96]
-                        lea              rsi, [rsp + 80]
+                        lea              rdi, [rbp + 96]
+                        lea              rsi, [rbp + 80]
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         jle   n4_var_α
@@ -209,12 +211,16 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 160]
                         add              rsp, 168
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
+                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
+                        mov              rbp, [rsp + 160]
                         add              rsp, 168
                         ret
                         .section         .note.GNU-stack,"",@progbits

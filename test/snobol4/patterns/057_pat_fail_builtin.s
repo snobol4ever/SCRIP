@@ -35,6 +35,8 @@ main_α:
                         mov              ecx, 200
                         xor              eax, eax
                         rep stosb
+                        mov              [rsp + 192], rbp
+                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         X = 'abc'
@@ -110,8 +112,8 @@ n5_lit_string_β:
 n6_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 144], rax
-                        mov              qword ptr [rsp + 152], rdx
+                        mov              qword ptr [rbp + 144], rax
+                        mov              qword ptr [rbp + 152], rdx
                                                                                         jmp   n9_match_head_α
 n6_var_β:
                                                                                         jmp   n5_lit_string_α
@@ -145,14 +147,15 @@ n8_assign_β:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_head_α:
-                        mov              qword ptr [rsp + 96], r13
-                        mov              qword ptr [rsp + 104], r14
-                        mov              qword ptr [rsp + 112], r15
+                        mov              qword ptr [rbp + 96], r13
+                        mov              qword ptr [rbp + 104], r14
+                        mov              qword ptr [rbp + 112], r15
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
-                        mov              qword ptr [rsp + 120], rax
-                        mov              rdi, qword ptr [rsp + 144]
-                        mov              rsi, qword ptr [rsp + 152]
+                        mov              qword ptr [rbp + 120], rax
+                        mov              qword ptr [rbp + 88], rbp
+                        mov              rdi, qword ptr [rbp + 144]
+                        mov              rsi, qword ptr [rbp + 152]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -192,13 +195,14 @@ n9_match_head_β:
                         test             rax, rax
                                                                                         jne   .Lx24_2
                         mov              qword ptr [1879048192], r10
-                        mov              r13, qword ptr [rsp + 96]
-                        mov              r14, qword ptr [rsp + 104]
-                        mov              r15, qword ptr [rsp + 112]
+                        mov              r13, qword ptr [rbp + 96]
+                        mov              r14, qword ptr [rbp + 104]
+                        mov              r15, qword ptr [rbp + 112]
                         mov              rdi, r13
                         mov              rsi, r15
-                        mov              rdx, qword ptr [rsp + 120]
+                        mov              rdx, qword ptr [rbp + 120]
                         call             rt_match_ctx_restore@PLT
+                        mov              rbp, qword ptr [rbp + 88]
                                                                                         jmp   n5_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_sequence_α:
@@ -261,13 +265,14 @@ n11_match_release_α:
                         test             rax, rax
                                                                                         jne   .Lx28_6
                         mov              qword ptr [1879048192], r10
-                        mov              r13, qword ptr [rsp + 96]
-                        mov              r14, qword ptr [rsp + 104]
-                        mov              r15, qword ptr [rsp + 112]
+                        mov              r13, qword ptr [rbp + 96]
+                        mov              r14, qword ptr [rbp + 104]
+                        mov              r15, qword ptr [rbp + 112]
                         mov              rdi, r13
                         mov              rsi, r15
-                        mov              rdx, qword ptr [rsp + 120]
+                        mov              rdx, qword ptr [rbp + 120]
                         call             rt_match_ctx_restore@PLT
+                        mov              rbp, qword ptr [rbp + 88]
                                                                                         jmp   n4_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_lit_α:
@@ -302,12 +307,16 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
+                        mov              rsp, rbp
+                        mov              rbp, [rsp + 192]
                         add              rsp, 200
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
+                        mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
+                        mov              rbp, [rsp + 192]
                         add              rsp, 200
                         ret
                         .section         .note.GNU-stack,"",@progbits
