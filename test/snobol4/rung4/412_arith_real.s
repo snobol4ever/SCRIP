@@ -158,8 +158,7 @@ n15_binop_α:
                         mov              rsi, qword ptr [rsp + 88]
                         mov              rdx, qword ptr [rsp + 96]
                         mov              rcx, qword ptr [rsp + 104]
-                        mov              r8d, 0
-                        call             rt_num_arith@PLT
+                        call             rt_add@PLT
                         cmp              eax, 99
                                                                                         je    n9_lit_real_α
                         mov              qword ptr [rsp + 64], rax
@@ -227,8 +226,7 @@ n23_binop_α:
                         mov              rsi, qword ptr [rsp + 248]
                         mov              rdx, qword ptr [rsp + 256]
                         mov              rcx, qword ptr [rsp + 264]
-                        mov              r8d, 1
-                        call             rt_num_arith@PLT
+                        call             rt_sub@PLT
                         cmp              eax, 99
                                                                                         je    n10_lit_real_α
                         mov              qword ptr [rsp + 224], rax
@@ -240,8 +238,7 @@ n24_binop_α:
                         mov              rsi, qword ptr [rsp + 392]
                         mov              rdx, qword ptr [rsp + 400]
                         mov              rcx, qword ptr [rsp + 408]
-                        mov              r8d, 2
-                        call             rt_num_arith@PLT
+                        call             rt_mul@PLT
                         cmp              eax, 99
                                                                                         je    n11_lit_real_α
                         mov              qword ptr [rsp + 368], rax
@@ -253,8 +250,7 @@ n25_binop_α:
                         mov              rsi, qword ptr [rsp + 536]
                         mov              rdx, qword ptr [rsp + 544]
                         mov              rcx, qword ptr [rsp + 552]
-                        mov              r8d, 3
-                        call             rt_num_arith@PLT
+                        call             rt_div@PLT
                         cmp              eax, 99
                                                                                         je    n12_lit_real_α
                         mov              qword ptr [rsp + 512], rax
@@ -266,8 +262,7 @@ n26_binop_α:
                         mov              rsi, qword ptr [rsp + 680]
                         mov              rdx, qword ptr [rsp + 688]
                         mov              rcx, qword ptr [rsp + 696]
-                        mov              r8d, 18
-                        call             rt_num_arith@PLT
+                        call             rt_pow@PLT
                         cmp              eax, 99
                                                                                         je    n13_lit_real_α
                         mov              qword ptr [rsp + 656], rax
@@ -465,8 +460,7 @@ n39_binop_α:
                         mov              rsi, qword ptr [rsp + 856]
                         mov              rdx, qword ptr [rsp + 864]
                         mov              rcx, qword ptr [rsp + 872]
-                        mov              r8d, 1
-                        call             rt_num_arith@PLT
+                        call             rt_sub@PLT
                         cmp              eax, 99
                                                                                         je    n14_lit_string_α
                         mov              qword ptr [rsp + 832], rax

@@ -43,38 +43,16 @@ n1_lit_integer_α:
                         .quad            4
 #-----------------------------------------------------------------------------------------------------------------------
 n2_binop_α:
-.Lx6_1:
-                        mov              rax, 10
-                        mov              rcx, 4
-                        cqo
-                        idiv             rcx
-                        mov              qword ptr [rsp + 16], 6
-                        mov              qword ptr [rsp + 24], rax
-                                                                                        jmp   n3_assign_α
-.Lx6_0:
                         mov              rdi, qword ptr [rsp + 32]
                         mov              rsi, qword ptr [rsp + 40]
                         mov              rdx, qword ptr [rsp + 48]
                         mov              rcx, qword ptr [rsp + 56]
-                        mov              r8d, 3
-                        lea              r9, [rsp + 16]
-                        call             rt_binop_overload@PLT
-                        test             eax, eax
-                                                                                        jne   n3_assign_α
-.Lx6_2:
-                        mov              rdi, qword ptr [rsp + 32]
-                        mov              rsi, qword ptr [rsp + 40]
-                        mov              rdx, qword ptr [rsp + 48]
-                        mov              rcx, qword ptr [rsp + 56]
-                        mov              r8d, 3
-                        call             rt_num_arith@PLT
+                        call             rt_div@PLT
                         cmp              eax, 99
                                                                                         je    main_γ
                         mov              qword ptr [rsp + 16], rax
                         mov              qword ptr [rsp + 24], rdx
                                                                                         jmp   n3_assign_α
-n2_binop_β:
-                                                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:
                         mov              rsi, qword ptr [rsp + 16]

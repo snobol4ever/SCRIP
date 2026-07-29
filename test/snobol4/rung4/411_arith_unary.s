@@ -136,37 +136,16 @@ n11_lit_integer_α:
                         .quad            4
 #-----------------------------------------------------------------------------------------------------------------------
 n12_binop_α:
-.Lx31_1:
-                        mov              rax, 0
-                        mov              rcx, 5
-                        sub              rax, rcx
-                        mov              qword ptr [rsp + 96], 6
-                        mov              qword ptr [rsp + 104], rax
-                                                                                        jmp   n14_call_α
-.Lx31_0:
                         mov              rdi, qword ptr [rsp + 112]
                         mov              rsi, qword ptr [rsp + 120]
                         mov              rdx, qword ptr [rsp + 128]
                         mov              rcx, qword ptr [rsp + 136]
-                        mov              r8d, 1
-                        lea              r9, [rsp + 96]
-                        call             rt_binop_overload@PLT
-                        test             eax, eax
-                                                                                        jne   n14_call_α
-.Lx31_2:
-                        mov              rdi, qword ptr [rsp + 112]
-                        mov              rsi, qword ptr [rsp + 120]
-                        mov              rdx, qword ptr [rsp + 128]
-                        mov              rcx, qword ptr [rsp + 136]
-                        mov              r8d, 1
-                        call             rt_num_arith@PLT
+                        call             rt_sub@PLT
                         cmp              eax, 99
                                                                                         je    n5_lit_string_α
                         mov              qword ptr [rsp + 96], rax
                         mov              qword ptr [rsp + 104], rdx
                                                                                         jmp   n14_call_α
-n12_binop_β:
-                                                                                        jmp   n5_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_call_α:
                         mov              rax, qword ptr [rsp + 240]
