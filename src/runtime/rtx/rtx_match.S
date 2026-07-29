@@ -334,5 +334,67 @@ RTX_ENDF(rt_defer_close)
 .Lrtx_dfx_nul:
     .byte 0
 
+/*=====================================================================================================================
+ * SLICE 4 — rt_match_ctx_restore: THE PATCTX 3-WORD RESTORE.
+ *
+ * C OF RECORD: src/runtime/builtins/gen_runtime.c:145, renamed c_rt_match_ctx_restore in this same commit.
+ *
+ * SCOPE, STATED HONESTLY AND UP FRONT: this is an ERADICATION slice (RTX-12), NOT a speed rung, and no speed number
+ * may be quoted off it.  The C body is three stores; even a perfect port saves ~10 -O0 instructions against a 205 ms
+ * window on pattern_bt.sno, i.e. well under the +-3% null floor the ladder has already established twice (RTX-7's
+ * 0.58% rdtsc bound, RTX-5b's falsified 1.03-1.10x board).  What this slice buys is C deleted from the SNOBOL4-
+ * reachable runtime.  Grade it on correctness and on kill-switch byte-identity, never on the clock.
+ *
+ * WHY IT IS THE RIGHT NEXT TARGET ANYWAY (ARCH section 7 step 0, all six checks, re-measured s217 not cited):
+ *   0(a) live definition + TWO real template call sites (bb_match_head.cpp:89, bb_match_release.cpp:77)
+ *   0(b) name round-trips byte-identical -- plain ASCII, no Greek codepoints, no truncation
+ *   0(c) run ON THE OBJECTS: Σ/Σlen are `B` in stmt_exec.o, g_cap_gen is `D` in pattern_match.o -- all three GLOBAL;
+ *        and all three appear in the .so DYNAMIC TABLE with DEFAULT visibility (g_cap_gen_next, hidden, correctly
+ *        absent -- which is what proves the instrument discriminates).  => @GOTPCREL IS MANDATORY ON ALL THREE.
+ *        A direct [rip+sym] would bind a DIFFERENT VARIABLE via copy relocation from a -no-pie executable, with no
+ *        diagnostic at any stage (s214).  The idiom is copied verbatim from .Ldc_str above.
+ *   0(d) 500,001 entries on pattern_bt.sno; 250,001 at half the loop literal => EXACTLY 2.000x, scaling proven.
+ *   0(e) zero .S hits before this commit => not already ported.
+ *   0(f) THE ARM CHECK, AND THIS IS THE POINT: the C body is STRAIGHT-LINE -- three unconditional stores, ZERO arms,
+ *        ZERO calls, no early return, no predicate of any kind.  There is NO cold arm to bail to and therefore NO
+ *        bail edge at all: ENTRIES ARE COMMITS BY CONSTRUCTION.  This is exactly the property rt_cap_push lacked at
+ *        s216 (57,578 entries, 57,578 bails, 0 commits, reverted).  A straight-line body is the one shape where
+ *        0(f) can be discharged before the asm exists, because the tool that measures it needs a c_* edge to count.
+ *
+ * SEMANTICS, FROM THE MANUAL (ARCH section 7 step 1, Lon standing directive):
+ *   Ch.7 p.86 -- the deferred evaluation operator `*` builds the pattern ONCE but fetches the THEN-CURRENT value at
+ *     every match-time reference, and is legal on a pattern's alternate clause, subsequent clause, or the whole
+ *     pattern.  So a match can reach arbitrary user expressions mid-scan.
+ *   Ch.9 p.123 -- SPITBOL applies NO quickscan heuristics: matching is exhaustive, "deferred expressions are not
+ *     assumed to match at least one character, and recursive patterns always work properly."
+ *   => RE-ENTRANT MATCHING IS A GUARANTEED LANGUAGE PROPERTY, NOT AN EDGE CASE.  A deferred expression evaluated
+ *   mid-match may itself run a pattern match, which installs its own subject and draws its own capture generation.
+ *   That is why the outer match's Σ/Σlen mirror and g_cap_gen id must be saved at alpha and restored LIFO at BOTH
+ *   exits, and why this function must be an UNCONDITIONAL restore of three saved words with ZERO interpretation:
+ *   it is handed the outer values by the template (head.sigma_save +48, head.capgen_save +72) and its whole job is
+ *   to put them back.  Any cleverness here -- a skip-if-equal, a decrement instead of a store -- would break the
+ *   nest1 invariant (an inner match's stamp must not invalidate the outer match's open capture brackets).
+ *
+ * WHAT IT DOES NOT TOUCH: the Σ PIN.  r13 is the subject base pointer and the template restores it directly; this
+ * function syncs only the C-side global mirror that pattern_match.c / runtime_eval.c read.  Two different stores of
+ * the same logical value, and this one is the C half.  Every blob pin (rbx r13 r14 r15 rbp rsp) is preserved here by
+ * construction: the body touches rax-class scratch only (r10), never a pin, never the stack.
+ *
+ * SysV in: rdi = sig (Σ, 8 bytes) . rsi = len (Σlen, int, 4 bytes) . rdx = capgen (g_cap_gen, uint32_t, 4 bytes)
+ * The two narrow stores use esi/edx deliberately: the C body casts to (int) and (uint32_t), so a 4-byte store is
+ * the FAITHFUL transliteration -- an 8-byte store would clobber the adjacent global (Σlen sits at +0x14 in
+ * stmt_exec.o, 4 bytes wide) and that is precisely the class of bug that links fine and passes short tests.
+ *===================================================================================================================*/
+RTX_FUNC(rt_match_ctx_restore)
+    RTX_GATE(match, c_rt_match_ctx_restore)
+    mov     r10, qword ptr [rip + Σ@GOTPCREL]       /* &Σ   -- exported, GOT-indirect per 0(c)   */
+    mov     qword ptr [r10], rdi                        /* Σ = (const char *)sig                        */
+    mov     r10, qword ptr [rip + Σlen@GOTPCREL]     /* &Σlen                                     */
+    mov     dword ptr [r10], esi                        /* Σlen = (int)len          -- 4-byte store   */
+    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]   /* &g_cap_gen                                    */
+    mov     dword ptr [r10], edx                        /* g_cap_gen = (uint32_t)capgen -- 4-byte store  */
+    ret
+RTX_ENDF(rt_match_ctx_restore)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
