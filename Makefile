@@ -75,6 +75,7 @@ RT_PIC_SRCS := \
     $(RT)/rtx/rtx_icnnum.S \
     $(RT)/rtx/rtx_icnrel.S \
     $(RT)/rtx/rtx_icnagg.S \
+    $(RT)/rtx/rtx_match.S \
     $(RT)/rtx/rtx_init.c \
     $(RT)/rt/rt_slab.c \
     $(RT)/rt/rt_arena.c \

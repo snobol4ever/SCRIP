@@ -734,9 +734,14 @@ void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-s
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
-uint32_t g_cap_gen = 1;   /* PATCTX-2 (2026-07-29): un-static'd — IR_MATCH_HEAD's α reads it via [rip+g_cap_gen] (both media) into head.capgen_save (+72) BEFORE rt_match_enter issues a fresh id.  nest1 autopsy: with nesting live (PATCTX), the inner match's stamp invalidated the OUTER match's open brackets — pop no-op'd on stale gen, top returned 0, R captured [0,end).  The id is pattern context. */
-static uint32_t g_cap_gen_next = 1;   /* PATCTX-2: the monotonic WELL.  Exits restore g_cap_gen to the SAVED id (an old draw) — never the counter itself, because a restored-then-re-bumped counter would re-issue the inner match's retired stamp and zombie its success-exited frames.  Retired ids never re-issue (modulo the same 2^32 wrap exposure the old counter had), so the lazy-kill invariant — stale gen ⟹ dead frames — survives nesting. */
-void rt_cap_match_begin(void) { g_cap_gen = ++g_cap_gen_next; if (!g_cap_gen) g_cap_gen = g_cap_gen_next = 1; }
+__attribute__((visibility("hidden"))) uint32_t g_cap_gen = 1;   /* PATCTX-2 (2026-07-29): un-static'd — IR_MATCH_HEAD's α reads it via [rip+g_cap_gen] (both media) into head.capgen_save (+72) BEFORE rt_match_enter issues a fresh id.  nest1 autopsy: with nesting live (PATCTX), the inner match's stamp invalidated the OUTER match's open brackets — pop no-op'd on stale gen, top returned 0, R captured [0,end).  The id is pattern context. */
+__attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;   /* PATCTX-2: the monotonic WELL.  Exits restore g_cap_gen to the SAVED id (an old draw) — never the counter itself, because a restored-then-re-bumped counter would re-issue the inner match's retired stamp and zombie its success-exited frames.  Retired ids never re-issue (modulo the same 2^32 wrap exposure the old counter had), so the lazy-kill invariant — stale gen ⟹ dead frames — survives nesting. */
+_Static_assert(__builtin_offsetof(rt_cap_stk_t, buf) == 0, "rtx_match.S hardcodes rt_cap_stk_t.buf at +0; the struct drifted -- rt_cap_top would read the span array through the wrong member, which links fine and returns garbage capture cursors silently");
+_Static_assert(__builtin_offsetof(rt_cap_stk_t, gen) == 8, "rtx_match.S hardcodes rt_cap_stk_t.gen at +8; the struct drifted -- the generation compare would test the wrong word and stale frames would resurrect across statements");
+_Static_assert(__builtin_offsetof(rt_cap_stk_t, sp) == 12, "rtx_match.S hardcodes rt_cap_stk_t.sp at +12; the struct drifted -- rt_cap_pop/rt_cap_top would index the wrong word");
+_Static_assert(sizeof(uint32_t) == 4, "rtx_match.S scales the sp index by 4 in [rdx+rcx*4]; uint32_t drifted");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void c_rt_cap_match_begin(void) { g_cap_gen = ++g_cap_gen_next; if (!g_cap_gen) g_cap_gen = g_cap_gen_next = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_push(void *slot, int delta)
@@ -762,9 +767,9 @@ void rt_cap_push(void *slot, int delta)
     s->buf[1 + s->sp++] = (uint32_t)delta;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cap_pop(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; if (s->gen == g_cap_gen && s->sp) s->sp--; }
+void c_rt_cap_pop(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; if (s->gen == g_cap_gen && s->sp) s->sp--; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s->gen == g_cap_gen && s->sp) ? (int)s->buf[s->sp] : 0; }
+int c_rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s->gen == g_cap_gen && s->sp) ? (int)s->buf[s->sp] : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1c M2 (2026-07-11): rt_cap_assign_cursor split into strict leaves — the computed-name (*VAR) transfer
  * moves OUT of C into the emitted capture box (the NCB-1b arm).  rt_cap_open does everything up to the
