@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 void  rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp);
+void  rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *rbp, void *r12v);
 void *rt_flat_ret_snap(void);
 }
 #include "x86_asm.h"
@@ -27,6 +28,17 @@ std::string bb_save_restore() {
     long role = (long)_.op_ival;
     if (role == 3) {
         int kt = g_emit.flat_frame_bytes;
+        if (x86_zc_frame() != ZC_FRAME_RSP) return x86("comment", "IR_SAVE_RESTORE wire-adopt (island, Z4-7 slice 2): the JMP_NONRSP prologue parks the LOW header — outside-γ at [rsp+8], outside-ω at [rsp+16], caller zr at [rsp+24], zr = rsp+32, pad at [rsp+0] — so the reads mirror THAT geometry, not the RSP high header; caller rbp is LIVE (the island arm never clobbers it) and the saved caller r12 rides as the 5th marshal into the widened wire quad the floaters restore from")
+             + x86_alpha()
+             + x86("mov", "rdi", RDQ("rsp", 8))
+             + x86("mov", "rsi", RDQ("rsp", 16))
+             + x86("lea", "rdx", RDQ("rsp", kt))
+             + x86("mov", "rcx", "rbp")
+             + x86("mov", "r8", RDQ("rsp", 24))
+             + x86_align_enter()
+             + x86("call", "rt_flat_wire_adopt_isle", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt_isle)
+             + x86_align_leave()
+             + x86_gamma();
         if (!emit_jmp_pin_rbp()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static): header wires + entry rsp via rsp, caller rbp LIVE IN THE REGISTER -> open pcall record")   /* FLATDISP-7 (s194): the ungated prologue never saved or clobbered rbp, so the caller's value is still IN rbp (marshal it directly, no [kt-8] slot exists) and rsp == base here (wire-adopt is the first box after the prologue, pre-carve) — the rsp-relative reads address the same header bytes the pinned arm reads through rbp.  Same falsifiable tripwire as the epilogue arms. */
              + x86_alpha()
              + x86("mov", "rdi", RDQ("rsp", kt - 24))
@@ -56,6 +68,7 @@ std::string bb_save_restore() {
              + x86_align_leave()
              + x86("mov", "rcx", RDQ("rax", role == 1 ? 0 : 8))
              + x86("mov", "rbp", RDQ("rax", 24))
+             + (x86_zc_frame() != ZC_FRAME_RSP ? x86("mov", "r12", RDQ("rax", 32)) : std::string())
              + x86("mov", "rsp", RDQ("rax", 16))
              + x86("jmp", "rcx");
     }
