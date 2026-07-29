@@ -4764,7 +4764,8 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
     *out = (endd > endi) ? REALVAL(dv) : INTVAL((int64_t)iv); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_str_coerce(DESCR_t d) {
+DESCR_t rt_str_coerce(DESCR_t d);
+DESCR_t c_rt_str_coerce(DESCR_t d) {
     if (!IS_CSET_fn(d)) return d;
     const char *cp; int cl; if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
     char *b = rt_ws_alloc((size_t)cl + 1); memcpy(b, cp, (size_t)cl); b[cl] = 0;

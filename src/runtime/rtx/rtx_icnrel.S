@@ -197,4 +197,48 @@ RTX_FUNC(rt_jct_relop)
 /* Every argument register is still exactly as the caller left it. */
     jmp     c_rt_jct_relop
 RTX_ENDF(rt_jct_relop)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_str_coerce(d) -- ADDED s214-ICN. Icon-EXCLUSIVE, ledger row FREE, family COERCE, which is the
+ * SAME family the icnrel gate already covers (rt_jct_relop is COERCE too), so this reuses the ninth
+ * gate rather than minting a thirteenth. No new gate => NOT a ledger gate event.
+ *
+ * The C body (by_name_dispatch.c:4767) is:
+ *     if (!IS_CSET_fn(d)) return d;            <= THE ARM PORTED HERE: pure identity, zero memory ops
+ *     cset_resolve + rt_ws_alloc + memcpy + insertion sort + STRVAL   <= STAYS IN C
+ * Only the guard arm is taken in asm. The cset arm allocates and sorts, and getting it wrong is a
+ * silently mis-ordered cset, so it tail-jumps to C untouched.
+ *
+ * PREDICATE READ FROM SOURCE, NOT FROM PROSE (core.h:32):
+ *     IS_CSET_fn(v) == (v.v == DT_S && v.slen == 0xFFFFFFFF)
+ * s213 introduced AND fixed a cset bug on this exact predicate in rt_size_d, so it is checked against
+ * core.h every time rather than recalled. A cset that is NOT recognised falls into the identity arm and
+ * is returned unconverted -- silently wrong, never a crash.
+ *
+ * STEP 0 MEASURED s214-ICN (both of s209's independent questions, which a rung must pass BOTH of):
+ *   (f) 146 `call rt_str_coerce@PLT` sites in a COMPILER sweep of 316 programs -- the stale ledger row
+ *       says 38, i.e. UNDERstated 3.8x, the same direction s213 measured for rt_relop_overload.
+ *   (g) WHICH ARM: interposer over all 303 corpus programs => 861 arrivals, identity arm 802 = 93.1%,
+ *       cset arm 59 = 6.9%. The ported arm is DOMINANT. bb_unop/relop emit this call with NO inline tag
+ *       guard, so unlike RTX-6 the guard does not steer arrivals away from the cheap arm -- a THIRD
+ *       distinct regime, confirming s212's law that the regime never transfers between rungs.
+ *   (d) SCALES: the triggering construct is LEXICAL COMPARISON (<<, <<=, ==, ~==, >>=, >>) on operands
+ *       that may be csets -- found by ranking corpus programs by arrivals (rung36_jcon_lexcmp &c.), NOT
+ *       guessed. A cset-CONCAT loop reaches the symbol ZERO times even though the program runs
+ *       correctly, which is exactly why the construct was measured instead of assumed. On the real
+ *       construct: 100 -> 400 arrivals at N -> 4N, EXACTLY 4x, both arms scaling.
+ * ⛔ NO SPEED CLAIM. Not benchmarked; no isolation arm was run, so per s204 no ratio may be quoted for
+ * this symbol or for the icnrel family after this edit. */
+RTX_FUNC(rt_str_coerce)
+    RTX_GATE(icnrel, c_rt_str_coerce)
+    cmp     edi, DT_S
+    jne     .Lsc_ident                  /* not DT_S => cannot be a cset => identity */
+    mov     rax, rdi
+    shr     rax, 32                     /* rax = slen */
+    cmp     eax, -1                     /* slen == 0xFFFFFFFF => IS_CSET => C owns it */
+    je      c_rt_str_coerce
+.Lsc_ident:
+    mov     rax, rdi
+    mov     rdx, rsi
+    ret
+RTX_ENDF(rt_str_coerce)
 .section .note.GNU-stack,"",@progbits
