@@ -6,7 +6,6 @@ main:
                         push             rdi
                         push             rsi
                         call             core_lib_init@PLT
-                        mov              r12, qword ptr [1879048192]
                         xor              esi, esi
                         call             main_α
                         xor              eax, eax
