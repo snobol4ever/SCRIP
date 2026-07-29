@@ -125,5 +125,214 @@ RTX_FUNC(rt_cap_top)
     ret
 RTX_ENDF(rt_cap_top)
 
+/*=============================================================================
+ * RTX-8 SLICE 2 (s215) -- THE DEFER OPEN/CLOSE PAIR.
+ *
+ * MEASURED TARGET, NOT AN INHERITED ONE. 0(d) re-run this session with
+ * scripts/util_rtx_defer_arm_census.c (arm-level, because the s214 census counts
+ * CALLS and s212's WRONG-TEMPLATE-ARM lesson says a call count never identifies
+ * an ARM). json.sno + twitter.json, mode 3:
+ *     open: plain=402121  star=0  fail=0  null=0  ival_nonzero=0
+ *     close=402121 (exactly balanced with open)   step=0
+ *     close arms: fail=363155 (90.3%)  advance-by-1=38966  adv0/adv2-8/adv>8=0
+ * THREE CONSEQUENCES, ALL LOAD-BEARING:
+ *  (1) The hot arm is the PLAIN NV_GET arm. The '*' star arm is DEAD here, so a
+ *      port of the star path would grade a guaranteed 1.000x -- exactly the batch
+ *      s213 lost. The star arm is left in C and tail-jumped to.
+ *  (2) ival_flag is provably 0 on every call (bb_match_defer emits xor esi,esi at
+ *      both call sites). Nonzero is still handled -- by bailing to C.
+ *  (3) close's hot work is a ONE-BYTE literal compare that C reaches through a
+ *      strncmp@PLT call inside an -O0 frame carrying a 40-byte char nb[40]
+ *      scratch buffer it does not use on this arm. That call is the win.
+ * rt_defer_step is NOT ported: 432 static sites tree-wide, 82 in json.s, and
+ * ZERO dynamic calls -- confirmed by re-running the census rather than citing
+ * s214's numbers (the s210 STALE CENSUS rule).
+ *
+ * NO SPEED NUMBER IS QUOTED FOR THIS SLICE AND THE REASON IS THE INSTRUMENT:
+ * json.sno on twitter.json self-times its match window at 176 ms, and the
+ * harness's own hard gate suppresses any ratio from a window under MIN_MS=800.
+ * A longer-window defer benchmark is owed BEFORE this slice may claim a ratio;
+ * see the FINDING. Correctness and code-size are what this slice may be graded
+ * on today. Quoting 176 ms as a board would be the RTX-0b/0c/0d mistake again.
+ *
+ * BAIL-BEFORE-MUTATE IS THE STRUCTURAL RULE HERE. Both C bodies mutate the LIFO
+ * top (open pushes, close pops) and the C fallback would repeat that mutation,
+ * so every tail-jump to c_* MUST happen while g_dfx_top is still untouched.
+ * open therefore tests all of its bail conditions before the push, and close
+ * PEEKS at g_dfx[top-1] and only decrements once it has committed to an arm it
+ * handles end to end. Getting this backwards double-pushes or double-pops a
+ * recursion stack, which the manual's own recursion section (p.122-123) says is
+ * reachable by design: a deferred value may itself be a pattern whose match runs
+ * another deferred reference, so these frames nest.
+ */
+
+/*-----------------------------------------------------------------------------
+ * long rt_defer_open(const char *varname, int ival_flag)
+ *   C of record: pattern_match.c c_rt_defer_open. rdi = varname, esi = ival_flag.
+ *   Returns fbytes when a call is owed, 0 when resolved or failed.
+ *
+ * ASM ARM: non-null varname, varname[0] != '*', name != "FAIL", ival_flag == 0,
+ * dfx already carved and not full. Everything else -> c_rt_defer_open untouched.
+ * Manual p.86: the deferred operator fetches the THEN-CURRENT value at match
+ * time, which is why the NV_GET cannot be hoisted or cached here.
+ */
+RTX_FUNC(rt_defer_open)
+    RTX_GATE(match, c_rt_defer_open)
+    test    esi, esi
+    jne     c_rt_defer_open             /* ival_flag != 0: NAMEVAL/NAMEPTR deref */
+    test    rdi, rdi
+    jz      c_rt_defer_open             /* NULL name                            */
+    mov     al, byte ptr [rdi]
+    cmp     al, 0x2A                    /* '*' -> star transfer, C owns it       */
+    je      c_rt_defer_open
+    cmp     al, 0x46                    /* 'F' -- only then can it be "FAIL"     */
+    jne     .Ldo_push
+    cmp     dword ptr [rdi], 0x4C494146 /* 'F''A''I''L' little-endian            */
+    jne     .Ldo_push
+    cmp     byte ptr [rdi + 4], 0
+    je      c_rt_defer_open             /* exactly "FAIL" -> C sets failed       */
+.Ldo_push:
+    mov     r10, qword ptr [rip + g_dfx]
+    test    r10, r10
+    jz      c_rt_defer_open             /* not yet carved: C does the rt_cas     */
+    mov     eax, dword ptr [rip + g_dfx_top]
+    cmp     eax, dword ptr [rip + g_dfx_cap]
+    jge     c_rt_defer_open             /* overflow: C reports and aborts        */
+    lea     r11, [rax + rax*2]          /* top*3 ... *8 below == stride 24       */
+    lea     r11, [r10 + r11*8]          /* r11 = &g_dfx[top]                     */
+    add     eax, 1
+    mov     dword ptr [rip + g_dfx_top], eax
+    /* s->val = NULVCL: v=DT_SNUL(0), slen=0, s=&"" ; then failed=0, dtx_used=0.
+     * The empty-string pointer is a distinct address from the C's "" literal and
+     * that is observationally identical: close reads (val.s ? val.s : "") and
+     * derives llen from strlen when slen==0, so both spell length 0. */
+    xor     eax, eax
+    mov     qword ptr [r11], rax
+    lea     rdx, [rip + .Lrtx_dfx_nul]
+    mov     qword ptr [r11 + 8], rdx
+    mov     dword ptr [r11 + 16], eax
+    mov     dword ptr [r11 + 20], eax
+    RTX_CALL_ALIGN
+    push    r11
+    sub     rsp, 8
+    call    NV_GET_fn                   /* rdi still = varname; -> rdx:rax       */
+    add     rsp, 8
+    pop     r11
+    RTX_CALL_UNALIGN
+    cmp     eax, DT_X
+    je      .Ldo_dtx                    /* unevaluated expression: owed call     */
+    mov     qword ptr [r11], rax        /* s->val = val (v|slen then value)      */
+    mov     qword ptr [r11 + 8], rdx
+    xor     eax, eax
+    ret
+.Ldo_dtx:
+    /* s->dtx_used = 1; fb = rt_proc_call_open(val.s ? val.s : "", 0);
+     * if (!fb) s->failed = 1; return fb;   -- val.s is in rdx from NV_GET_fn. */
+    mov     dword ptr [r11 + 20], 1
+    test    rdx, rdx
+    jnz     .Ldo_dtx_arg
+    lea     rdx, [rip + .Lrtx_dfx_nul]
+.Ldo_dtx_arg:
+    RTX_CALL_ALIGN
+    push    r11
+    sub     rsp, 8
+    mov     rdi, rdx
+    xor     esi, esi
+    call    rt_proc_call_open
+    add     rsp, 8
+    pop     r11
+    RTX_CALL_UNALIGN
+    test    rax, rax
+    jnz     .Ldo_dtx_ret
+    mov     dword ptr [r11 + 16], 1     /* s->failed = 1                        */
+.Ldo_dtx_ret:
+    ret
+RTX_ENDF(rt_defer_open)
+
+/*-----------------------------------------------------------------------------
+ * int rt_defer_close(int cur_delta)
+ *   C of record: pattern_match.c c_rt_defer_close. edi = cur_delta.
+ *   Returns the new cursor, or -1 to fail the match.
+ *
+ * ASM ARM: top > 0 and the popped frame is failed, DT_FAIL, or a DT_S/DT_SNUL
+ * whose slen is AUTHORITATIVE (nonzero, high bit clear). Bails to C for DT_I and
+ * DT_R (which stringify through snprintf), for DT_P/DT_X/anything else, and for
+ * the two slen encodings RTX-3 had to learn the hard way: slen==0 means LENGTH
+ * UNKNOWN (strlen is owed), and slen==0xFFFFFFFF means CSET -- and a CSET still
+ * carries tag DT_S, so the tag alone cannot be trusted to mean "plain string".
+ * The peek happens before any decrement so those bails leave the LIFO untouched.
+ */
+RTX_FUNC(rt_defer_close)
+    RTX_GATE(match, c_rt_defer_close)
+    mov     eax, dword ptr [rip + g_dfx_top]
+    test    eax, eax
+    jle     .Ldc_empty                  /* top <= 0 -> -1, nothing to pop        */
+    mov     r10, qword ptr [rip + g_dfx]
+    test    r10, r10
+    jz      c_rt_defer_close
+    lea     r11d, [rax - 1]             /* peek index = top-1                    */
+    lea     r11, [r11 + r11*2]
+    lea     r11, [r10 + r11*8]          /* r11 = &g_dfx[top-1], NOT popped yet   */
+    cmp     dword ptr [r11 + 16], 0     /* s.failed                             */
+    jne     .Ldc_pop_fail
+    mov     ecx, dword ptr [r11]        /* val.v                                */
+    cmp     ecx, DT_FAIL
+    je      .Ldc_pop_fail
+    cmp     ecx, DT_S
+    je      .Ldc_str
+    cmp     ecx, DT_SNUL
+    jne     c_rt_defer_close            /* DT_I/DT_R/DT_P/DT_X/other -> C        */
+.Ldc_str:
+    mov     ecx, dword ptr [r11 + 4]    /* val.slen                             */
+    test    ecx, ecx
+    jz      c_rt_defer_close            /* 0 == LENGTH UNKNOWN, strlen owed      */
+    test    ecx, 0x80000000
+    jnz     c_rt_defer_close            /* CSET / absurd length -> C verbatim    */
+    mov     rdx, qword ptr [r11 + 8]    /* val.s                                */
+    test    rdx, rdx
+    jz      c_rt_defer_close            /* NULL payload with nonzero slen -> C   */
+    /* Committed to this arm: pop, then bounds-check and compare. */
+    sub     dword ptr [rip + g_dfx_top], 1
+    mov     r10, qword ptr [rip + Σlen@GOTPCREL]
+    mov     r10d, dword ptr [r10]       /* Σlen                                */
+    mov     eax, edi                    /* cur_delta                            */
+    add     eax, ecx                    /* cur_delta + llen                     */
+    cmp     eax, r10d
+    jg      .Ldc_fail                   /* runs off the end of the subject       */
+    mov     r10, qword ptr [rip + Σ@GOTPCREL]
+    mov     r10, qword ptr [r10]        /* Σ base pointer                   */
+    mov     esi, edi
+    add     r10, rsi                    /* Σ + cur_delta                    */
+    cmp     ecx, 1
+    jne     .Ldc_cmpn
+    mov     sil, byte ptr [r10]         /* the 90.3%-of-traffic single byte      */
+    cmp     sil, byte ptr [rdx]
+    jne     .Ldc_fail
+    ret                                 /* eax already == cur_delta + 1          */
+.Ldc_cmpn:
+    mov     r8, rdi                     /* preserve nothing else is live         */
+    mov     rsi, r10
+    mov     rdi, rdx
+    push    rax
+    mov     ecx, ecx                    /* zero-extend llen into rcx             */
+    cld
+    repe    cmpsb
+    pop     rax
+    mov     rdi, r8
+    jne     .Ldc_fail
+    ret
+.Ldc_pop_fail:
+    sub     dword ptr [rip + g_dfx_top], 1
+.Ldc_fail:
+.Ldc_empty:
+    mov     eax, -1
+    ret
+RTX_ENDF(rt_defer_close)
+
+.section .rodata
+.align 1
+.Lrtx_dfx_nul:
+    .byte 0
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits

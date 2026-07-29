@@ -884,15 +884,34 @@ extern int Σlen;
  *   rt_defer_step  -> fbytes (another call owed) | 0 (resolved or failed)   [after each transfer]
  *   rt_defer_close -> new cursor | -1 */
 typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
-static rt_dfx_t *g_dfx; static int g_dfx_top, g_dfx_cap;
+/* RTX-8 SLICE 2 (s215): these three were `static`, i.e. LOCAL in pattern_match.o and per ARCH section 7 step
+ * 0(c) NOT REFERENCEABLE FROM A .S AT ALL. Promoted to non-static hidden so rtx_match.S can reach them with a
+ * direct [rip+sym] -- NOT through the GOT. `hidden` and not default is the correct tier, VERIFIED not assumed
+ * (the s214 g_cap_gen defect): none of the three is named by any template and none appears in any emitted .s,
+ * so they are .so-internal only. scripts/test_gate_no_hidden_global_in_emitted.sh keeps that true.
+ * The offsets below are the asm's contract. Anchored so a struct change breaks the BUILD, not the runtime --
+ * the RTX-4 slice-3 stride lesson: a probe can miss a layout drift, a _Static_assert cannot. */
+__attribute__((visibility("hidden"))) rt_dfx_t *g_dfx;
+__attribute__((visibility("hidden"))) int g_dfx_top, g_dfx_cap;
+_Static_assert(sizeof(rt_dfx_t) == 24, "rtx_match.S strides g_dfx by 24");
+_Static_assert(__builtin_offsetof(rt_dfx_t, val) == 0, "rtx_match.S reads val at +0");
+_Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.S reads failed at +16");
+_Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.S reads dtx_used at +20");
+_Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S assumes the 16-byte DESCR pair");
 static rt_dfx_t *rt_dfx_push(void) {
     if (!g_dfx) { g_dfx = (rt_dfx_t *)rt_cas_carve((size_t)RT_CAS_DFX_MAX * sizeof(rt_dfx_t)); g_dfx_cap = RT_CAS_DFX_MAX; }
     if (g_dfx_top >= g_dfx_cap) { fprintf(stderr, "rt_cas: dfx overflow (%d) — raise RT_CAS_DFX_MAX\n", g_dfx_cap); abort(); }
     rt_dfx_t *s = &g_dfx[g_dfx_top++]; s->val = NULVCL; s->failed = 0; s->dtx_used = 0; return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static struct { const char *nm; DESCR_t val; int valid; } g_star_peek;
-long rt_defer_open(const char *varname, int ival_flag)
+/* RTX-8 SLICE 2 (s215): promoted off `static` for the same step-0(c) reason as the g_dfx trio above. This is
+ * the ONE-ENTRY LATCH the rung is required to FIX rather than transliterate (the s161 EVAL/deferred slot
+ * collision). It is NOT touched by the slice-2 asm: measured 0(d) on json.sno + twitter.json is star=0 of
+ * 402,121 opens, so the star path this latch serves carries ZERO traffic on the graded workload and cannot be
+ * graded by it. The fix is therefore a SEPARATE correctness deliverable with its own canary (140/141), not a
+ * clause of a speed rung -- keeping them apart is what stops a correctness fix borrowing a speed number. */
+__attribute__((visibility("hidden"))) struct { const char *nm; DESCR_t val; int valid; } g_star_peek;
+long c_rt_defer_open(const char *varname, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
@@ -922,7 +941,7 @@ long rt_defer_step(DESCR_t val)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_defer_close(int cur_delta)
+int c_rt_defer_close(int cur_delta)
 {
     if (g_dfx_top <= 0) return -1;
     rt_dfx_t s = g_dfx[--g_dfx_top];
