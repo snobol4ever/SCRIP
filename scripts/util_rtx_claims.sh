@@ -19,7 +19,10 @@
 #
 # THE FIVE ASSERTIONS (RTX-CLAIMS.md "THE GATE"):
 #   1 DOUBLE-CLAIM     symbol OUT: to two ladders                    -> FATAL
-#   2 PHANTOM-LEDGER   ledger symbol, no live def AND no live call   -> FATAL
+#   2 PHANTOM-LEDGER   THREE diseases, reported apart (s216, was a single AND):
+#                      no def + calls -> FATAL (the rt_frame class: unportable symbol)
+#                      def + no calls -> WARN  (fails step 0(f): NOT-A-TARGET)
+#                      neither        -> FATAL (ledger rot)
 #   3 STALE-PORTED     row not DONE for a symbol already assembly    -> FATAL
 #   4 UNLEDGERED-HOT   symbol above threshold, absent from ledger    -> warn
 #   5 STALE-CHECKOUT   an OUT: older than 2 sessions                 -> warn
@@ -63,39 +66,91 @@ warn()  { echo "  ⚠  WARN   $*"; WARN=$((WARN+1)); }
 
 # ---------------------------------------------------------------------------
 # TREE TRUTH 1 -- symbols that are ALREADY ASSEMBLY. Step 0(e)'s instrument.
-# Match the RTX_FUNC(name) macro and a bare `name:` label at column 0.
-grep -rhoE '^[[:space:]]*RTX_FUNC\([A-Za-z_][A-Za-z_0-9]*\)' \
+# BYTE-CLASS pattern, NOT [A-Za-z_0-9]: the four Greek-named runtime symbols
+# (rt_proc_call_epilogue_gamma/omega, rt_gen_spine_pass_gamma/omega) are multi-byte
+# UTF-8 and an ASCII-only class TRUNCATES them silently.  That is the ARCH section
+# 5(ii) trap, documented after s214 made it -- and this script was making it too.
+grep -rhoE '^[[:space:]]*RTX_FUNC\([^)]+\)' \
      "$SCRIP_ROOT/src" --include=*.S 2>/dev/null \
-  | sed -E 's/.*RTX_FUNC\(([A-Za-z_][A-Za-z_0-9]*)\).*/\1/' > "$TMP/asm_syms"
-grep -rhoE '^[A-Za-z_][A-Za-z_0-9]*:' "$SCRIP_ROOT/src" --include=*.S 2>/dev/null \
-  | tr -d ':' >> "$TMP/asm_syms"
+  | sed -E 's/.*RTX_FUNC\(([^)]+)\).*/\1/' > "$TMP/asm_syms"
+grep -rhoE '^[^[:space:]:;.#/][^[:space:]:;]*:' "$SCRIP_ROOT/src" --include=*.S 2>/dev/null \
+  | sed -E 's/:$//' >> "$TMP/asm_syms"
 sort -u "$TMP/asm_syms" -o "$TMP/asm_syms"
 
-# TREE TRUTH 2 -- symbols with a C definition (exported or c_-renamed fallback).
-grep -rhoE '^[[:space:]]*[A-Za-z_][A-Za-z_0-9 \*]*[[:space:]]\**(c_)?rt_[A-Za-z_0-9]*\(' \
-     "$SCRIP_ROOT/src" --include=*.c 2>/dev/null \
-  | grep -oE '(c_)?rt_[A-Za-z_0-9]*' | sort -u > "$TMP/c_syms"
-grep -rhoE '\b(NV_GET_fn|NV_SET_fn|to_int|str_concat_d|junction_is)\b' \
-     "$SCRIP_ROOT/src" --include=*.c --include=*.S 2>/dev/null | sort -u >> "$TMP/c_syms"
+# TREE TRUTH 2 -- symbols that HAVE A DEFINITION, taken from the BUILT .so via nm.
+# REWRITTEN s216.  The previous version grepped C sources for a definition whose name
+# matched `(c_)?rt_[A-Za-z_0-9]*` PLUS A HAND-MAINTAINED ALLOWLIST of five names.  Two
+# consequences, both measured: (a) every runtime symbol NOT named rt_* was invisible --
+# dat_field_get, data_field_ptr, subscript_set, subscript_get2, DATCON_fn all read as
+# HAVING NO DEFINITION; (b) a hand-maintained symbol list is the doc-rot class this very
+# script exists to police (util_rtx_arm_census.sh says so in its own header).
+# nm on the linked .so is the HONEST definition of "this symbol exists and is callable",
+# it needs no prefix rule and no allowlist, and it cannot rot.
+: > "$TMP/c_syms"
+SO="$SCRIP_ROOT/out/libscrip_rt.so"
+if [ -f "$SO" ]; then
+  nm -D --defined-only "$SO" 2>/dev/null | awk '{print $3}' >> "$TMP/c_syms"
+  nm    --defined-only "$SO" 2>/dev/null | awk '{print $3}' >> "$TMP/c_syms"
+else
+  warn "out/libscrip_rt.so not built -- definition truth is UNAVAILABLE, so PHANTOM checks are SUPPRESSED (build first: make libscrip_rt)"
+  NO_SO=1
+fi
+sed -i '/^$/d' "$TMP/c_syms" 2>/dev/null || true
 sort -u "$TMP/c_syms" -o "$TMP/c_syms"
 
-# TREE TRUTH 3 -- static call surface, LIVE artifacts only, @PLT only (step 0(f)).
+# TREE TRUTH 3 -- static call surface, DERIVED FROM THE COMPILER (step 0(i)).
+# REWRITTEN s216.  The previous version swept corpus/**/*.s with a first-line
+# `.intel_syntax` live-marker filter.  s213 PROVED that tree is permanently frozen:
+# 255 of Icon's 265 "live" artifacts were last regenerated 2026-06-27, RULES.md step 4
+# FORBIDS regenerating them, and update_icon_bench_asm.sh actively REFUSES to.  All 255
+# call rt_frame@PLT -- a symbol DELETED at RUNG ZS-1 s57 that has no definition anywhere
+# and that the current compiler emits ZERO times.  So the ledger GATE was itself computed
+# on the stale tree it exists to police.  Step 0(i): sweep the COMPILER, never artifacts.
+# Cached on the md5 of the driver + .so, so a repeat run inside one session is instant.
 : > "$TMP/live_calls"
 if [ -n "${CORPUS_ROOT:-}" ]; then
-  for lang in icon snobol4 prolog; do
-    : > "$TMP/live_$lang"
-    while IFS= read -r f; do
-      head -1 "$f" 2>/dev/null | grep -q 'intel_syntax' && echo "$f"
-    done < <(find "$CORPUS_ROOT/programs/$lang" "$CORPUS_ROOT/benchmarks/$lang" \
-                  -name '*.s' 2>/dev/null) > "$TMP/live_$lang"
-    n=$(wc -l < "$TMP/live_$lang" 2>/dev/null || echo 0)
-    echo "    live $lang artifacts: $n"
-    if [ "$n" -gt 0 ]; then
-      xargs -a "$TMP/live_$lang" grep -hoE 'call[[:space:]]+[A-Za-z_][A-Za-z_0-9]*@PLT' 2>/dev/null \
-        | sed -E 's/.*call[[:space:]]+([A-Za-z_][A-Za-z_0-9]*)@PLT/\1/' \
+  KEY="$( { md5sum "$SCRIP_ROOT/scrip" "$SCRIP_ROOT/out/libscrip_rt.so" 2>/dev/null || echo none; } | md5sum | cut -c1-16)"
+  CACHE="${TMPDIR:-/tmp}/rtx_callsurf_$KEY.txt"
+  if [ -s "$CACHE" ] && [ "${RTX_CLAIMS_NOCACHE:-0}" != "1" ]; then
+    echo "    call surface: CACHED for this exact binary ($CACHE)"
+    cp "$CACHE" "$TMP/live_calls"
+  else
+    for lang in icon snobol4 prolog; do
+      case "$lang" in icon) ext=icn ;; snobol4) ext=sno ;; prolog) ext=pl ;; esac
+      # RECURSIVE, and the count is PRINTED.  s216: a -maxdepth 1 sweep saw 316/20/192
+      # programs against 1365/210/839 on disk, so a "ZERO call sites" verdict was really a
+      # COVERAGE artifact wearing the costume of a measurement -- this ladder's own
+      # recurring failure, caught inside the fix for it.  The count is printed and carried
+      # into the verdict text so a thin surface can never read as proof of absence.
+      find "$CORPUS_ROOT/programs/$lang" "$CORPUS_ROOT/benchmarks/$lang" \
+           -name "*.$ext" 2>/dev/null > "$TMP/progs_$lang"
+      n=$(wc -l < "$TMP/progs_$lang" 2>/dev/null || echo 0)
+      echo "$lang $n" >> "$TMP/surface_sizes"
+      echo "    compiling $n $lang programs for the call surface (recursive) ..."
+      [ "$n" -eq 0 ] && continue
+      # BYTE-CLASS pattern (step 0(f) / section 5(ii) Greek trap) and @PLT ONLY, so locally
+      # emitted BB labels (`call main_alpha`, `call proc_X_dcalpha`) are NOT counted as
+      # runtime symbols -- that is the phantom class step 0(f) was minted for.
+      # EACH WORKER WRITES ITS OWN FILE, then we concatenate.  s216: piping `xargs -P 8`
+      # output straight into one grep INTERLEAVES eight compilers' stdout and corrupts
+      # matches mid-line.  The tell was unmistakable and is worth recording: a sweep of
+      # 2414 programs produced FEWER distinct symbols (142) than a sweep of 316 (152), and
+      # subscript_get2 -- which has 52 real sites -- came back ZERO.  A parallel sweep whose
+      # shards share a pipe is not a measurement.
+      mkdir -p "$TMP/shard_$lang"
+      xargs -a "$TMP/progs_$lang" -P 8 -I{} bash -c '
+          out="$1/$(echo "$2" | md5sum | cut -c1-16)"
+          timeout 25 "$3" --compile "$2" 2>/dev/null \
+            | grep -aoE "call[[:space:]]+[^[:space:],;()]+@PLT" > "$out" || true
+        ' _ "$TMP/shard_$lang" {} "$SCRIP_ROOT/scrip"
+      cat "$TMP/shard_$lang"/* 2>/dev/null \
+        | sed -E 's/^call[[:space:]]+//; s/@PLT$//' \
         | sort | uniq -c | awk -v L="$lang" '{print $2" "L" "$1}' >> "$TMP/live_calls"
-    fi
-  done
+      rm -rf "$TMP/shard_$lang"
+    done
+    cp "$TMP/live_calls" "$CACHE" 2>/dev/null || true
+  fi
+  echo "    call-surface rows: $(wc -l < "$TMP/live_calls")"
 fi
 echo
 
@@ -119,21 +174,48 @@ done < "$TMP/ledger_syms"
 [ "$FATAL" -eq 0 ] && echo "  ok"
 echo
 
-echo "--- 2. PHANTOM-LEDGER (no live definition AND no live call site) ---"
+echo "--- 2. PHANTOM-LEDGER (three separate diseases; s213 flagged the AND, s216 fixed it) ---"
+# WAS: `if hasdef == 0 AND hascall == 0`.  s213 measured why that is wrong and asked for an
+# OR; three sessions passed and nobody changed it.  The AND cannot see the ONE case that
+# actually occurred: rt_frame has 255 call sites and NO definition, so hascall==1 makes the
+# conjunction false and a symbol that CANNOT BE PORTED BECAUSE IT DOES NOT EXIST passes CLEAN.
+# The two halves are DIFFERENT DISEASES with different remedies, so they are reported apart:
+#   NO-DEF + CALLS  -> the surface names a symbol the tree cannot define.  Either the artifacts
+#                      are stale (pre-s216 bug) or a real link break.  FATAL.
+#   DEF + NO-CALLS  -> the symbol exists but nothing reaches it across the call boundary, so it
+#                      FAILS step 0(f) and is NOT-A-TARGET.  WARN, because it is a legitimate
+#                      ledger state to record (subscript_set, rt_case_eq at s216) but must never
+#                      be presented as an available port.
+#   NEITHER         -> total ledger rot.  FATAL.
 P=0
+if [ "${NO_SO:-0}" = "1" ]; then
+  echo "  SUPPRESSED (no .so: definition truth unavailable -- a missing build must not manufacture phantoms)"
+else
 while IFS= read -r sym; do
   hasdef=0
-  grep -qx "$sym" "$TMP/asm_syms" && hasdef=1
-  grep -qx "$sym" "$TMP/c_syms" && hasdef=1
-  grep -qx "c_$sym" "$TMP/c_syms" && hasdef=1
+  grep -qx "$sym"   "$TMP/asm_syms" && hasdef=1
+  grep -qx "$sym"   "$TMP/c_syms"   && hasdef=1
+  grep -qx "c_$sym" "$TMP/c_syms"   && hasdef=1
   hascall=0
   [ -s "$TMP/live_calls" ] && grep -q "^$sym " "$TMP/live_calls" && hascall=1
-  if [ "$hasdef" -eq 0 ] && [ "$hascall" -eq 0 ]; then
-    grep -qE 'static' <<<"$(state_of "$sym")" \
-      && echo "  note: $sym is ledgered *static* -- no exported def expected, skipping" \
-      || { fatal "$sym: no definition in src/ and no live @PLT call site -- ledger rot"; P=1; }
+  row="$(state_of "$sym")"
+  if grep -qE 'static' <<<"$row"; then
+    [ "$hasdef" -eq 0 ] && echo "  note: $sym is ledgered *static* -- no exported def expected, skipping"
+    continue
+  fi
+  if [ "$hasdef" -eq 0 ] && [ "$hascall" -eq 1 ]; then
+    sites=$(awk -v s="$sym" '$1==s {t+=$3} END{print t+0}' "$TMP/live_calls")
+    fatal "$sym: NO DEFINITION but $sites live @PLT call site(s) -- the surface names a symbol the tree cannot define (the rt_frame class). A row like this looks like a legal claim on an unportable symbol."
+    P=1
+  elif [ "$hasdef" -eq 1 ] && [ "$hascall" -eq 0 ]; then
+    grep -qE 'NOT-A-TARGET|PHANTOM|DONE|BLOCKED' <<<"$row" \
+      || { warn "$sym: defined but ZERO live @PLT call sites across the swept surface ($(tr '\n' ' ' < "$TMP/surface_sizes" 2>/dev/null)programs). Fails step 0(f) ON THIS SURFACE => probably NOT-A-TARGET, but a zero is a COVERAGE statement until the surface is known complete -- confirm before marking the row."; P=1; }
+  elif [ "$hasdef" -eq 0 ] && [ "$hascall" -eq 0 ]; then
+    fatal "$sym: no definition in the built .so AND no live @PLT call site -- ledger rot"
+    P=1
   fi
 done < "$TMP/ledger_syms"
+fi
 [ "$P" -eq 0 ] && echo "  ok"
 echo
 
