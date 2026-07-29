@@ -71,8 +71,8 @@ std::string bb_match_release() {
     return !PLATFORM_X86 ? std::string()
          : _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)")
-         : _.op_tail
-         ? x86("comment", "IR_MATCH_RELEASE (R12-EXIT-1 tail: bracket read off the TOP ELEMENT, then the one-mov unwind collapses every element, every suspended cell, and HEAD's cell together)")
+         : _.op_tail && rfc()
+         ? x86("comment", "IR_MATCH_RELEASE (R12-EXIT-1 tail: bracket read off the TOP ELEMENT, then the one-mov unwind collapses every element, every suspended cell, and HEAD's cell together; Z4-6 residual: the one-mov unwind is FORTH-cell physics, so a non-FORTH port takes the general FRQ bracket arm below -- the CSTACK reader was reading fc cells nothing carved, rsp=1 at the arbno probe)")
          + x86_alpha()
          + x86("mov", "rax", RSP((int)_.op_fc_disp + 0))
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
