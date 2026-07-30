@@ -139,7 +139,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, ZC_PORT_ALLOC only: reuses this node's existing pad, same reuse precedent as IR_MATCH_HEAD.zeta_mark; block itself is a separate ZLS2 allocation, header +0 chains the previous activation's ptr)", nd); return 1;
     case IR_MATCH_REM:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
-    case IR_MATCH_DEFER:
+    case IR_MATCH_DEFER: case IR_MATCH_PATREF:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "defer.pad (ZS-2 jmp-entry, Lon s58: the fn/frame cell pair is DELETED — the blob is a jmp-entered new activation that self-allocates on rsp with a 32B wire header, so there is nothing to stash and nothing to guard; quad KEPT at 16B so no later node's offset shifts. s137 OVER-SEAL: when IR_t.seal, quad +0 is REPURPOSED as the fence-demarked sync watermark — α stamps rsp there, the γ/ω glues and β bulk-restore it; +8 stays pad)", nd); return 1;
     case IR_MATCH_VALUE:
         /* ZB-FC-VALUE (s186): RETIRED — this quad was never read or written by anything.  The grant predates the
@@ -253,7 +253,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     }
 }
 static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_RELEASE; }
-static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
+static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_HEAD || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_PATREF || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 int fc_arm_member(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* fc_cells_on -- Z4-6 (GOAL-ZETA-FOUR): THE ONE PORT OPINION for the whole fixed-cell family.  The s206 root cause (FINDING-2026-07-28 ZHEAP) was PORT-BLIND GRANT vs PORT-GATED CONSUMPTION -- fc_geom
@@ -292,7 +292,7 @@ static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_N
  * ALTERNATE/SEQUENCE (entry-cursor+index quads), FENCE1 (watermark quad), DEFER/VALUE (pad quads; sealed DEFER's watermark IS the pad quad via zls_off).  EXCLUDED: HEAD (RELEASE/REPLACE cross-box flat
  * reads), ARBNO (body-window geometry + COLLECTION), ARB (zls2 save-slot), ASSIGN_SAVE (COND cross-reads), SCAN_* (Icon scans use the front quad as the value DESCR -- "the value DESCR is the box
  * result slot at [base]"), INITIAL.  Same SCRIP_SLOT_ELIDE=0 kill-switch reverts to zls_grant wholesale. */
-static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_CALL_BUILTIN_PROLOG; }
+static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_SEQUENCE || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_PATREF || op == IR_MATCH_VALUE || op == IR_CALL_BUILTIN_PROLOG; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
@@ -341,7 +341,7 @@ static int fct_pricing = 0;   /* PS-3 s153: 1 ONLY inside the fct ARBNO finalize
                                * mode-divergence mine.  Context-gated, the pricing is confined to finalize, where the registry is complete for every reachable target by loop order). */
 static int fct_defer_susp(const IR_t * nd) {   /* the licensed defer's compile-time retention: SUSP = align16(32+fb)+fp+16 via the emit_patzeta registry keyed by the node's PAT$ operand literal;
                                                 * -1 = not licensed here (no PAT$ operand / unregistered / non-uniform target) -- the caller declines the candidate wholesale. */
-    if (!nd || nd->op != IR_MATCH_DEFER || nd->seal != 2) return -1;
+    if (!nd || (nd->op != IR_MATCH_DEFER && nd->op != IR_MATCH_PATREF) || nd->seal != 2) return -1;
     const char * pn = 0; for (int j = 0; j < nd->n_operands; j++) { const IR_t * o = nd->operands[j]; if (o && o->op == IR_LIT_STRING && IR_LIT(o).sval && !strncmp(IR_LIT(o).sval, "PAT$", 4)) { pn = IR_LIT(o).sval; break; } }
     int susp = 0;
     if (!pn || !emit_patzeta_lookup(pn, &susp) || susp <= 0) return -1;
@@ -357,7 +357,7 @@ static int fct_fp_range(IR_graph_t * g, int k0, int k1) {
             if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > j + 1) j = _e - 1; }   /* ALT-FLAT s202: zero-cell ALT + flat arms contribute 0; extent still skipped off the spine */
             continue;
         }
-        if (x->op == IR_MATCH_DEFER && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) fp += s; continue; }   /* PS-3 s153: the licensed defer is a leaf of size SUSP (finalize pre-scan proved s>0 for every defer in range) */
+        if ((x->op == IR_MATCH_DEFER || x->op == IR_MATCH_PATREF) && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) fp += s; continue; }   /* PS-3 s153: the licensed defer is a leaf of size SUSP (finalize pre-scan proved s>0 for every defer in range) */
         if (fc_geom(x, &fck)) fp += (int)fck;
     }
     return fp;
@@ -373,7 +373,7 @@ static int fct_leaf_range(IR_graph_t * g, int k0, int k1, int pfx, int bias, con
             if (_elast > j + 1) j = _elast - 1;
             continue;
         }
-        if (x->op == IR_MATCH_DEFER && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) pfx += s; continue; }   /* PS-3 s153: the defer registers NO fcl displacement (its retention is the CALLEE's carve, never addressed [rsp+const] from outside; β finds the γ-record at [rsp+0] by LIFO) but nodes after it sit SUSP deeper -- the prefix advances */
+        if ((x->op == IR_MATCH_DEFER || x->op == IR_MATCH_PATREF) && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) pfx += s; continue; }   /* PS-3 s153: the defer registers NO fcl displacement (its retention is the CALLEE's carve, never addressed [rsp+const] from outside; β finds the γ-record at [rsp+0] by LIFO) but nodes after it sit SUSP deeper -- the prefix advances */
         long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
         fc_leaf_register(x, pfx + (int)own + bias);
         pfx += (int)own;
@@ -577,7 +577,7 @@ void zls_fct_finalize(IR_graph_t * g, int late) {
       for (int c = 0; c < fct_n; c++) {
         if (fct[c].fin) continue;
         { int in = 0; for (int j = 0; j < g->n; j++) if (g->all[j] == fct[c].arbno) { in = 1; break; } if (!in) continue; }
-        { int hd = 0; for (int j = fct[c].i0; j < fct[c].r1 && j < g->n && !hd; j++) { IR_t * x = g->all[j]; if (x && x->op == IR_MATCH_DEFER) hd = 1; }
+        { int hd = 0; for (int j = fct[c].i0; j < fct[c].r1 && j < g->n && !hd; j++) { IR_t * x = g->all[j]; if (x && (x->op == IR_MATCH_DEFER || x->op == IR_MATCH_PATREF)) hd = 1; }
           if (hd && !late) continue; }   /* pending until the registry is fed */
         int b0 = fct[c].b0, b1 = fct[c].b1, i0 = fct[c].i0, ia = fct[c].ia, r1 = fct[c].r1; long k1 = 0;
         int bmn = 0x7fffffff, bmx = 0, rmn = 0x7fffffff, rmx = 0;
@@ -590,7 +590,7 @@ void zls_fct_finalize(IR_graph_t * g, int late) {
          * (fct_defer_susp > 0) or the WHOLE candidate declines to the chain arm -- head+arbno NULLED so fc_tail_head (fin-blind, consulted by IR_MATCH_HEAD before this ARBNO emits) and every other
          * fct consumer miss it coherently: a half-tail statement (head self-pushing, arbno chaining) is the mismatch this wholesale null exists to make impossible. */
         { int _dok = 1, _dfr = 0;
-          for (int j = i0; j < r1 && j < g->n && _dok; j++) { IR_t * x = g->all[j]; if (x && x->op == IR_MATCH_DEFER) { _dfr = 1; if (fct_defer_susp(x) <= 0) _dok = 0; } }
+          for (int j = i0; j < r1 && j < g->n && _dok; j++) { IR_t * x = g->all[j]; if (x && (x->op == IR_MATCH_DEFER || x->op == IR_MATCH_PATREF)) { _dfr = 1; if (fct_defer_susp(x) <= 0) _dok = 0; } }
           fct[c].dfr = _dfr;
           if (!_dok) { if (getenv("SCRIP_TAIL_DIAG")) fprintf(stderr, "[TAIL-DIAG] finalize decline: defer target unregistered/non-uniform\n");
                        { extern void fc_seq_unregister(const IR_t *); extern int fc_seq_active(const IR_t *);
@@ -827,9 +827,6 @@ int fc_save_active(const IR_t * nd) {
 static struct { const IR_t * nd; int e; } fpe[256]; static int fpe_n = 0;   /* FLATDISP-LEAF-ORDER (this session, the rt_dcap_pump segv root): capture pairs allocate [COND, SAVE, inner...] but FLOW save->inner->cond, so fc_leaf_walk's running prefix registered COND BEFORE SAVE's 16 accumulated -- COND then FR-read the SAVE slot 16 short of the true depth (039: [rsp+32] over head's rsp-snapshot cell, low-32 = the 0xffff9b20 gdb saw; SAVE's own write at [rsp+48] was right).  Latent since the walk landed; EXPOSED by s193's HEAD-leaves-deep-list (rbp-seeded FR was depth-immune, the wrong D was never consulted).  The lowerer records each pair's inner allocation END here at build time; fc_leaf_walk recurses [k+1, E) first and registers COND at the RESULT pfx -- the S10c suspended depth. */
 void fc_pair_extent_register(const IR_t * nd, int e) { if (!nd || e <= 0 || fpe_n >= 256) return; for (int i = 0; i < fpe_n; i++) if (fpe[i].nd == nd) return; fpe[fpe_n].nd = nd; fpe[fpe_n].e = e; fpe_n++; }
 int fc_pair_extent(const IR_t * nd) { for (int i = 0; i < fpe_n; i++) if (fpe[i].nd == nd) return fpe[i].e; return -1; }
-static const IR_t * dstar[512]; static int dstar_n = 0;   /* DEFER-PROVENANCE (s199): IR_MATCH_DEFER is built by TWO lowering arms that the node itself cannot tell apart -- TT_DEFER (the `*` unevaluated-expression operator) and TT_VAR (a bare pattern-valued variable in pattern position). The SPITBOL manual separates them: `*` is what "makes the definition possible" for a recursive pattern and "allows a forward reference to a pattern not yet defined" (Recursive Patterns, p.122), while a stored pattern reused by name is constructed EAGERLY and therefore cannot name itself. Only the `*` arm can plunge unboundedly, so only it forces conservative deep arrival; this table records which nodes came from it. Twin of fpe above -- side table, not an IR_t field (PEERS RULE). */
-void sno_defer_star_register(const IR_t * nd) { if (!nd || dstar_n >= 512) return; for (int i = 0; i < dstar_n; i++) if (dstar[i] == nd) return; dstar[dstar_n++] = nd; }
-int sno_defer_is_star(const IR_t * nd) { for (int i = 0; i < dstar_n; i++) if (dstar[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; int fp; } fcc[256];
 static int fcc_n = 0;
 void fc_cond_register(const IR_t * nd, int fp_inner) {
@@ -977,7 +974,7 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {   /* PS-3 s153: is n
                                              * the defer's raw `jmp [rsp+0]` on the pad is a jump through NULL, the t3 rip=0 crash.  The guarded β tests the record and, on zero, pops its own SUSP
                                              * share and ω-transits: the exhausted-leaf behavior, consuming the pad exactly as granted leaves consume theirs).  -1 everywhere else -- flat defers,
                                              * DT-arm defers, declined/pending candidates all keep the original β byte-verbatim (default md5 identity). */
-    if (!g || !nd || nd->op != IR_MATCH_DEFER) return -1;
+    if (!g || !nd || (nd->op != IR_MATCH_DEFER && nd->op != IR_MATCH_PATREF)) return -1;
     for (int i = 0; i < fct_n; i++) if (fct[i].fin && fct[i].arbno) {
         int in = 0; for (int j = 0; j < g->n; j++) if (g->all[j] == fct[i].arbno) { in = 1; break; }
         if (!in) continue;

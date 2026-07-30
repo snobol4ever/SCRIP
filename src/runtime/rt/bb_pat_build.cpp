@@ -74,7 +74,7 @@ extern "C" void bb_build_break_blob(const char *name, const char *cset) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_graph_zstatic(const IR_graph_t *g) {
-    for (int k = 0; k < g->n; k++) { const IR_t *c = g->all[k]; if (!c) continue; if (c->op == IR_MATCH_DEFER || c->op == IR_MATCH_VALUE) return 0; }
+    for (int k = 0; k < g->n; k++) { const IR_t *c = g->all[k]; if (!c) continue; if (c->op == IR_MATCH_DEFER || c->op == IR_MATCH_PATREF || c->op == IR_MATCH_VALUE) return 0; }
     return 1;
 }   /* PS-1 (s150): extent is sound for frame arithmetic iff no node can transfer into an arriving blob of unknown size — DEFER/VALUE are exactly those transfers; everything else grants through zls and is inside ktotal */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

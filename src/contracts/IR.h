@@ -139,6 +139,7 @@ typedef enum {
     IR_MATCH_ATP,
     IR_MATCH_CALLOUT,
     IR_MATCH_DEFER,
+    IR_MATCH_PATREF,         /* OP-SPLIT (Lon s200 directive, landed s21x-f): the EAGER twin of IR_MATCH_DEFER -- a stored-pattern reference by bare NAME (TT_VAR in pattern position, plus the PATTMP$ eager-call materialization), built from a pattern that CANNOT name itself (manual p.122: only `*` permits the self-reference that recurses).  IR_MATCH_DEFER now carries ONLY the `*` unevaluated arm.  This slice is BEHAVIOR-PRESERVING: every consumer treats the pair identically, including deep-arrival (PATCTX s21x-e: gamma-retention, not star-ness, is the pinning property, so BOTH stay deep in the default regime); the opcode is the provenance carrier that retires the s199 dstar side table and is the classifier axis the dynamic-flat glue work will read under the statement-frame regime. */
     IR_MATCH_VALUE,         /* SN4 kill-manufactured-names (2026-07-22): match a pattern VALUE carried in operand[0]
                              * (a fresh slot, drive_value_slot) instead of a manufactured global name; the eager
                              * TT_FNC pattern-position call lowers its result once into operand[0] and this node
