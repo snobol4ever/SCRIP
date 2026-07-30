@@ -353,8 +353,8 @@ typedef struct {
 } rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.S bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.S bakes PROC_NAME and PROC_ISGEN");
-static rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
-static int           g_rt_gen_proc_count = 0;
+__attribute__((visibility("hidden"))) rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
+__attribute__((visibility("hidden"))) int           g_rt_gen_proc_count = 0;
 static int           g_rt_gen_proc_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int          *g_proc_hsl = (int *)0;
@@ -1011,7 +1011,7 @@ extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
 extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 __attribute__((visibility("hidden"))) rt_pcall_t *g_pcall;
 __attribute__((visibility("hidden"))) int         g_pcall_top;
-static int         g_pcall_cap;
+__attribute__((visibility("hidden"))) int         g_pcall_cap;
 /* SN4-FLAT-PROC (s176) — the flat-return wires ride a PARALLEL array, index-locked to g_pcall, NOT new rt_pcall_t fields: rtx_call.S bakes sizeof(rt_pcall_t)==64 (stride shl 6) and its field offsets,
  * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's
  * rbp) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
