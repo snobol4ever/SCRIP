@@ -186,6 +186,10 @@ RTX_FUNC(rt_subscript_var)
      * base.v=9 slen=1 idx.v=DT_I. Two arms, one prologue, disjoint selectors. */
     cmp     dword ptr [rsp + 16], DT_S
     je      .Lsub_table
+    /* Past here the SUBSCRIPT is DT_I, so the deref'd BASE selects the arm:
+     * DT_S -> RTX-27's substring-trap arm, DT_DATA -> RTX-24's list arm. */
+    cmp     eax, DT_S
+    je      .Lsub_string
     cmp     eax, DT_DATA                /* only the list/record family here      */
     jne     .Lsub_bail
     mov     rsi, rdx                    /* rsi = base.u (DATINST_t *)            */
@@ -378,6 +382,76 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 56
     mov     rdx, rax                    /* rdx = vc                              */
     mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    ret
+
+/*-----------------------------------------------------------------------------
+ * RTX-27-ICN — THE DT_S SUBSTRING-TRAP ARM, DT_I subscript, lvalue-shaped.
+ *
+ * C of record: the `(base.v == DT_S || base.v == DT_SNUL) && IS_VARREF_fn(bvar)`
+ * arm. It mints a one-character substring trapped variable: cellp/tbl/key all 0,
+ * sv = bvar, pos = i, len = 1.
+ *
+ * ⛔ THREE THINGS THIS ARM DELIBERATELY DOES NOT DO, EACH ONE A BAIL:
+ *  (1) DT_SNUL. C would take slen from strlen("") and then fail every index, so
+ *      the arm is pure ceremony; bail rather than reproduce a guaranteed FAIL.
+ *  (2) slen == 0. C falls back to `strlen(sp)`. Porting a strlen call to keep a
+ *      slow path slow buys nothing; the traffic has slen != 0 (RTX-16 populates
+ *      it for string literals). Bail.
+ *  (3) A NULL byte pointer with a nonzero slen. C substitutes ""; that shape is
+ *      incoherent and unmeasured, so it is C's to keep.
+ *
+ * ⛔ `vc->sv = bvar`, THE **ORIGINAL** BASE, NOT THE DEREF'D ONE. The trap has to
+ *    name the VARIABLE so a write-back can reach it; storing the deref'd string
+ *    descriptor would produce a trap over a temporary and lose the assignment
+ *    silently. bvar is [rsp+0]/[rsp+8] -- the reason the prologue spills all four
+ *    arguments rather than just the two it needs to bail with.
+ *
+ * ⚠ THE WRAP RULE IS `i <= 0`, NOT `i < 0`. RTX-24's list arm wraps on `i < 0`.
+ *   Two arms, two rules, one function, and the difference is load-bearing: at
+ *   i == 0 the list arm leaves 0 and fails the `i < 1` test, while this arm maps
+ *   0 to slen+1 and fails the `i > slen` test. Both fail, by different routes.
+ *   DO NOT UNIFY THEM (s222's standing instruction, reconfirmed by reading the C).
+ *
+ * ⚠ 64-BIT INDEX, unlike RTX-24. C casts `(long)to_int(idx)` here and
+ *   `(int)to_int(idx)` in the list arm, so this arm loads the full qword.
+ */
+.Lsub_string:
+    mov     r8, rax
+    shr     r8, 32                      /* r8 = base.slen (zero-extended)        */
+    test    r8d, r8d
+    je      .Lsub_bail                  /* slen == 0 => C's strlen path; bail (2) */
+    test    rdx, rdx
+    je      .Lsub_bail                  /* NULL bytes => C's ""; bail (3)         */
+    mov     rax, [rsp + 24]             /* i = (long)to_int(idx), full qword      */
+    test    rax, rax
+    jg      .Lsub_str_nowrap
+    lea     rax, [rax + r8 + 1]         /* i <= 0 => i = slen + 1 + i             */
+.Lsub_str_nowrap:
+    cmp     rax, 1
+    jl      .Lsub_fail                  /* i < 1                                  */
+    cmp     rax, r8
+    jg      .Lsub_fail                  /* i > slen                               */
+    mov     [rsp + 40], rax             /* pos must survive the carve             */
+    xor     edi, edi
+    mov     esi, VCELL_SIZE
+    call    rt_agg_alloc
+    mov     qword ptr [rax + VCELL_CELLP], 0
+    mov     qword ptr [rax + VCELL_TBL], 0
+    mov     qword ptr [rax + VCELL_KEY], 0
+    mov     r8, [rsp + 16]
+    mov     r9, [rsp + 24]
+    mov     [rax + VCELL_KEY_D], r8     /* vc->key_d = idx                       */
+    mov     [rax + VCELL_KEY_D + 8], r9
+    mov     r8, [rsp + 0]               /* vc->sv = bvar, the ORIGINAL varref    */
+    mov     r9, [rsp + 8]
+    mov     [rax + VCELL_SV], r8
+    mov     [rax + VCELL_SV + 8], r9
+    mov     rcx, [rsp + 40]
+    mov     [rax + VCELL_POS], rcx      /* vc->pos = i                           */
+    mov     qword ptr [rax + VCELL_LEN], 1        /* one character                */
+    add     rsp, 56
+    mov     rdx, rax
+    mov     rax, 0x200000009            /* NAMETRAP                              */
     ret
 
 .Lsub_fail:
