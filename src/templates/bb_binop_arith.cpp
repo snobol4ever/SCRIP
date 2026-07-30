@@ -22,8 +22,7 @@ DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
 #include "x86_asm.h"
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * rspq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-1: the bb_assign_global rspq precedent */
-static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-5: cell type-dword read, the bb_match_capture rspd precedent */
+/* ZTOS-1 (Lon s21x-o "Do not put RSP references directly into the templates"): private raw-rsp helper RETIRED -- call sites now speak the sanctioned spine accessor ZTOS/ZTOSD (x86_asm.h), which adds op_zdepth so a box's own carve and its own TOS reads compose instead of colliding.  Byte-identical while this kind is unarmed (op_zdepth==0); correct once it is armed, which is what lets the _spine exclusion list retire. */
 static inline int vfcb() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }   /* ZB-VAL-1/5: registered value-spine binop -- operands are the TOP TWO cells (a=[rsp+16..31], b=[rsp+0..15]); leaves may be VARS so the arm carries the FULL type structure */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void * rtop_addr(long long op) {
@@ -61,10 +60,10 @@ static inline int rtop_is_dyn(long long op) { return rtop_addr(op) == (void*)rt_
 static inline int inl_ok() { long long o = (long long)_.op_ival; return !_.op_num_real && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok) && (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string fc_tail() {
-    return x86("mov", "rdi", rspq(16)) + x86("mov", "rsi", rspq(24)) + x86("mov", "rdx", rspq(0)) + x86("mov", "rcx", rspq(8))
+    return x86("mov", "rdi", ZTOS(16)) + x86("mov", "rsi", ZTOS(24)) + x86("mov", "rdx", ZTOS(0)) + x86("mov", "rcx", ZTOS(8))
          + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
          + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival)) + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
-         + x86("add", "rsp", (long)16) + x86("mov", rspq(0), "rax") + x86("mov", rspq(8), "rdx");
+         + x86("add", "rsp", (long)16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string inl_tail() {
@@ -79,20 +78,20 @@ std::string bb_binop_arith() {
     return IF(vfcb() && inl_ok(),
            x86_alpha()
          + x86("comment", "IR_BINOP_ARITH fc inl")
-         + x86("mov", "eax", rspd(16))
+         + x86("mov", "eax", ZTOSD(16))
          + x86("cmp", "eax", (long)DT_I)
          + x86("jne", L(0))
-         + x86("mov", "eax", rspd(0))
+         + x86("mov", "eax", ZTOSD(0))
          + x86("cmp", "eax", (long)DT_I)
          + x86("jne", L(0))
-         + x86("mov", "rax", rspq(24))
-         + x86("mov", "rcx", rspq(8))
+         + x86("mov", "rax", ZTOS(24))
+         + x86("mov", "rcx", ZTOS(8))
          + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
          + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
          + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))
          + x86("add", "rsp", (long)16)
-         + x86("mov", rspq(0), (long)DT_I)
-         + x86("mov", rspq(8), "rax")
+         + x86("mov", ZTOS(0), (long)DT_I)
+         + x86("mov", ZTOS(8), "rax")
          + x86_gamma()
          + x86("def", L(0))
          + fc_tail()

@@ -14,19 +14,22 @@ struct DESCR_t rt_deref(struct DESCR_t d);
 #include "x86_asm.h"
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * rspq(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }   /* ZB-VAL-6b: the bb_binop_arith rspq precedent */
+/* ZTOS-1 (Lon s21x-o "Do not put RSP references directly into the templates"): the private rspq helper is RETIRED -- its four call sites below now speak ZTOS, the sanctioned spine accessor in x86_asm.h.
+ * This template is the first conversion and the measured witness: rspq spelled a bare [rsp+off] on the assumption that nothing was carved between the producer's push and this box's read, which stopped
+ * being true the moment the universal per-BB carve armed this kind.  028_arith_unary_minus printed 5 for -5 because alpha's own sub rsp,16 slid the operand cell out from under rspq(0)/rspq(8): the box
+ * negated its own uninitialised cell, stored the answer there, and popped it.  ZTOS adds op_zdepth, so the read follows the carve instead of being displaced by it. */
 static inline int vfcu() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0 && _.op_node_kind == IR_UNOP && ((int)_.op_ival == TT_MNS || (int)_.op_ival == TT_PLS); }   /* ZB-VAL-6b: registered value-spine unary minus/plus.  THE NET IS ZERO -- release the operand cell (16) and carve the result cell (16) cancel exactly, so the box emits NO rsp instruction and writes its result straight over its operand in place.  rt_num_neg/rt_num_pos own the string->number coercion and the null-string-is-0 identity (SPITBOL manual p.22); both are infallible calls, so there is no omega edge here */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {
     if (PLATFORM_X86 && vfcu())
         return x86_alpha()
              + x86("comment", "IR_UNOP fc")
-             + x86("mov", "rdi", rspq(0))
-             + x86("mov", "rsi", rspq(8))
+             + x86("mov", "rdi", ZTOS(0))
+             + x86("mov", "rsi", ZTOS(8))
              + IF((int)_.op_ival == TT_MNS, x86("call", "rt_num_neg", (uint64_t)(uintptr_t)(void *)rt_num_neg))
              + IF((int)_.op_ival != TT_MNS, x86("call", "rt_num_pos", (uint64_t)(uintptr_t)(void *)rt_num_pos))
-             + x86("mov", rspq(0), "rax")
-             + x86("mov", rspq(8), "rdx")
+             + x86("mov", ZTOS(0), "rax")
+             + x86("mov", ZTOS(8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline();
     if (PLATFORM_X86)
