@@ -16,6 +16,8 @@ extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 #include "x86_asm.h"
 #define rfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0)
+#define stfh() (_.flat_stmt_frame)
+static const char * HKQ(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rbp + %d]", -48 + 8 * k); return b[i]; }   /* SUBJ-ARM-2: the head's statement-bracket rbp housekeeping slots (bb_match_head.cpp twin, same k map: 0=deep-rbp 1=r13 2=r14 3=r15 4=capgen) -- RELEASE runs inside the SAME bracket, so [rbp-48+8k] is depth-free at the post-unwind read exactly as at the head's alpha write */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string release_pump() {
     return std::string()
@@ -68,14 +70,14 @@ static std::string release_pump() {
          + x86_anchor_leave()
          + x86_xfer_leave()
          + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER: success path re-scans (the pump's C calls clobber r10; nested matches inside pumped assignments push balanced markers, so top returns) and pops entries + marker wholesale */
-         + x86("mov", "r13", FRQ(_.op_off + 48))   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten. */
-         + x86("mov", "r14", FRQ(_.op_off + 56))
-         + x86("mov", "r15", FRQ(_.op_off + 64))
+         + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten. */
+         + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
+         + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
-         + x86("mov", "rdx", FRQ(_.op_off + 72))
+         + x86("mov", "rdx", stfh() ? HKQ(4) : FRQ(_.op_off + 72))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror */
-         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
+         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
