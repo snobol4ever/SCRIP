@@ -13,6 +13,7 @@ int ir_is_generator_kind(IR_e t) {
         case IR_MATCH_BREAKX:
         case IR_MATCH_ARBNO:
         case IR_MATCH_DEFER:
+        case IR_MATCH_PATREF:
         case IR_MATCH_VALUE:
         case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_SAVE:
         case IR_MATCH_ALTERNATE:
