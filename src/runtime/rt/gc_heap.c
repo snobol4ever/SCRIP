@@ -44,11 +44,11 @@ _Static_assert(__builtin_offsetof(rt_hp_fr_t, zfull)  == 40, "RTX-2 bakes g_hp_f
 static char *g_hp_arena = (char *)0;
 static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
-static char *g_wsi_base = (char *)0;
-static char *g_wsi_ws = (char *)0;
-static char *g_wsi_wss = (char *)0;
-static char *g_wsi_end = (char *)0;
-static long  g_wsi_blocks = 0;
+__attribute__((visibility("hidden"))) char *g_wsi_base = (char *)0;
+__attribute__((visibility("hidden"))) char *g_wsi_ws = (char *)0;
+__attribute__((visibility("hidden"))) char *g_wsi_wss = (char *)0;
+__attribute__((visibility("hidden"))) char *g_wsi_end = (char *)0;
+__attribute__((visibility("hidden"))) long  g_wsi_blocks = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
