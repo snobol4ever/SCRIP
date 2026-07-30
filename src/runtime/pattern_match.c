@@ -617,7 +617,7 @@ uint64_t g_scan_hit_start = 0;   /* SPD-2 RETRY-INTERNAL: flat_pat blob publishe
 uint64_t g_sno_defer_cells[4096];   /* s142 DEFER-SITE DIET: per-site fn cache for WRITE-ONCE deferred names (IR_t.seal==2) — emit assigns indices via g_emit.sn4_defer_cell_n; the site's cold path runs the full GVA/DT_P/dtp_fn_of dance once and stores the fn here; steady state = lea+load+test.  Write-once (single program-wide assignment, fz-safe — the g_sno_seal eligibility) is what makes the cache sound: once DT_P appears the fn can never change.  Zero-init .bss; a 0 store on the not-yet-DT_P path is a harmless no-op. */
 uint64_t g_pat_main_rsp = 0;
 static const char *g_patstk_base = 0;
-void rt_patstk_lazy_init(void) {
+void c_rt_patstk_lazy_init(void) {
     extern void *rt_slab_region(size_t);
     if (!g_patstk_sp) {
         g_patstk_base = (const char *)rt_slab_region(RT_PATSTK_ISLAND_BYTES);
