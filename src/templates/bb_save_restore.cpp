@@ -97,7 +97,7 @@ std::string bb_save_restore() {
     uint64_t slim_fp; { long (*fp)(const char *, int, int) = rt_proc_call_open_slim; slim_fp = (uint64_t)(uintptr_t)(void *)fp; }
     std::string s = x86("comment", "IR_SAVE_RESTORE role 0 (CALL2BB slice 2): own sub-rsp carve, save-set spill (GVA -> own slots), open_slim, staged args -> NV globals; outcome rides rax into the staged call box")
          + x86_alpha()
-         + x86("sub", "rsp", sb)
+         + x86_zclaim(sb)
          + FOR(0, c2nsave, [&](int k) {
                return x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
                     + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
@@ -109,7 +109,7 @@ std::string bb_save_restore() {
          + x86_scan_sync_in_rr()
          + x86("test", "rax", "rax")
          + x86("jne", L(1))
-         + x86("add", "rsp", sb)
+         + x86_zrelease(sb)
          + x86("jmp", L(2))
          + x86("def", L(1))
          + FOR(0, (int)c2nargs, [&](int i) { int slot = _.op_arg_slot[i];

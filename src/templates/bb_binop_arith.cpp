@@ -63,7 +63,7 @@ static inline std::string fc_tail() {
     return x86("mov", "rdi", ZTOS(16)) + x86("mov", "rsi", ZTOS(24)) + x86("mov", "rdx", ZTOS(0)) + x86("mov", "rcx", ZTOS(8))
          + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
          + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival)) + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
-         + x86("add", "rsp", (long)16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx");
+         + x86_zrelease(16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string inl_tail() {
@@ -89,7 +89,7 @@ std::string bb_binop_arith() {
          + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
          + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
          + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))
-         + x86("add", "rsp", (long)16)
+         + x86_zrelease(16)
          + x86("mov", ZTOS(0), (long)DT_I)
          + x86("mov", ZTOS(8), "rax")
          + x86_gamma()
