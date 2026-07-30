@@ -659,7 +659,7 @@ void rt_dcap_lazy_init(void) {
  * have silently corrupted that.  g_rt_dcap_n is re-read every iteration, exactly as the old for-loop did, so
  * pends recorded by a nested match are still swept by the outer pump. */
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
-static rt_dcf_t *g_dcf; static int g_dcf_top, g_dcf_cap;
+static rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; static int g_dcf_cap;
 static long rt_dcap_pump(void)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
@@ -714,7 +714,7 @@ long rt_dcap_step(DESCR_t nm)
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_end_ok_close(void)
+void c_rt_dcap_end_ok_close(void)
 {
     /* rbp-dcap: the ctx pops; the TRUNCATION is the box's own `mov rbp, mark` + mirror store after this
      * returns (bb_match_release exit) — no C-side stack state remains to reset. */
