@@ -433,5 +433,137 @@ RTX_FUNC(rt_patstk_lazy_init)
     ret                                                  /* ARM 2 HOT: nothing to do                         */
 RTX_ENDF(rt_patstk_lazy_init)
 
+/*===================================================================================================================
+ * rt_match_enter — RTX-8 SLICE 6: THE HOT-PATH COLLAPSE.  The first MATCH rung that removes CALLS, not instructions.
+ *
+ * C OF RECORD: src/runtime/builtins/gen_runtime.c:127, renamed c_rt_match_enter in this same commit.
+ *
+ * WHY THIS RUNG EXISTS: s219 measured that the fixed per-match chain is SIX calls, one per match, and that porting
+ * the LEAVES moves nothing -- toggling the whole MATCH family gate on the graded workload gave medians 903 vs 890 ms,
+ * i.e. ZERO.  Three of those six links were already asm and the board had not moved.  So the lever is not another
+ * leaf: it is collapsing the callees INTO their one caller, which is this function.  Per match the C performs
+ *   rt_cap_match_begin() . rt_dcap_lazy_init() . rt_patstk_lazy_init() . VARVAL_fn() . strlen()
+ * and FOUR of those five are inlined here.  Only strlen survives as a call, because the C's own semantics demand a
+ * fresh length every match (see THE SLEN FINDING below) and glibc's SSE strlen beats any hand byte-loop on the
+ * 50-byte subjects this workload uses.
+ *
+ * ⛔⛔ THE SLEN FINDING, AND IT INVERTED THIS RUNG'S FIRST DESIGN -- READ IT BEFORE EDITING ANY ARM.
+ * The obvious fast arm is "DT_S with a cached slen => return slen, no strlen."  MEASURED on pattern_bt at
+ * LT(N,2000000): that arm fires 0 times out of 2,000,001, and the slen==0 arm fires 2,000,001 -- ONE HUNDRED
+ * PERCENT.  Cause: STRVAL (core.h) mints DT_S with .slen = 0, and only BSTRVAL populates it, so a plain SNOBOL4
+ * string assignment never carries its length.  A port built on the cached-slen arm would assemble, gate green, be
+ * byte-identical over the whole suite, and move NOTHING -- the s217 slice-3 vacuous-rung mode exactly.
+ * ⭐ THIS IS NOW A CROSS-LANGUAGE FACT WITH TWO INDEPENDENT MEASUREMENTS: the Icon side reached the identical
+ * conclusion at s217-ICN (FINDING ...ICN-RTX-9-SUBSCRIPT-GET2-FAST-ARM-WOULD-HAVE-BEEN-VACUOUS-AND-SLEN-IS-NEVER-
+ * POPULATED: arr.slen == 0 on 100% of arrivals, "slen usable = 0" on both a synthetic and a real corpus).
+ * ⇒ NO RTX FAST ARM IN EITHER LANGUAGE MAY BE KEYED ON slen != 0 until a LOWER-side rung populates it.  Populating
+ * slen at assignment would delete 2,000,001 strlens per run here -- a LOWER/descriptor rung, NOT an RTX rung, and
+ * worth more than this collapse.  Recorded rather than acted on, same discipline as RTX-5's "an asm port would
+ * faithfully reproduce a poor algorithm at high speed."
+ *
+ * ARMS, AS MEASURED (interposer classifying rdi/rsi per call, 2,000,001 arrivals, pattern_bt at K=2M):
+ *   ARM-FAST-B  DT_S . s != NULL . slen == 0 . *s != 0   -> 2,000,001 (100%).  Inlined here; L = strlen(s).
+ *   ARM-FAST-A  DT_S . s != NULL . slen != 0             ->         0.  Inlined anyway (one branch): L = slen,
+ *                                                           which is what the C computes because VARVAL_fn's DT_S
+ *                                                           arm returns v.s, making the C's `s == sv.s` conjunct
+ *                                                           trivially true.  A BSTRVAL subject lands here.
+ *   DELEGATED   v != DT_S (INT/REAL need descr_to_str, and every other tag needs VARVAL_fn's switch)
+ *               s == NULL (VARVAL_fn ALLOCATES via rt_ws_strdup_c -- never replicate an allocation in asm)
+ *               slen == 0 && *s == 0 (IS_NULL_fn true => C returns the "" LITERAL, a different pointer than v.s;
+ *                               Σ must receive that literal, so this arm is C's by right, not by convenience)
+ *
+ * ⛔ BAIL-BEFORE-MUTATE IS LOAD-BEARING HERE AND IS NOT FREE THE WAY IT WAS IN SLICE 5.  rt_cap_match_begin is NOT
+ * idempotent -- it bumps the monotonic generation well on every call.  So a delegation that happened AFTER the
+ * inlined bump would make c_rt_match_enter bump a SECOND time, issuing two generations for one match and retiring
+ * capture brackets the outer match still owns: the s215 double-push/double-pop hazard, silent, no diagnostic.
+ * THEREFORE all three delegation edges are placed BEFORE .Lme_mutate and nothing above that label writes memory.
+ * The two COLD edges below .Lme_mutate call the INDIVIDUAL helpers, never the whole body, for the same reason.
+ *
+ * 0(c) LINKAGE, READ ON out/rt_pic/*.o AND NEVER ON THE .so (ARCH §7):
+ *   Σ  B  + in dyn table  -> @GOTPCREL      Σlen  B @0x14 + in dyn table -> @GOTPCREL
+ *   g_cap_gen  D + in dyn table -> @GOTPCREL          g_patstk_sp  B + in dyn table -> @GOTPCREL
+ *   g_cap_gen_next  D in the object but ABSENT from the dyn table (hidden) -> direct [rip+sym]
+ * ⛔ g_cap_gen @0x0 and g_cap_gen_next @0x4 are ADJACENT and BOTH 4 bytes, and NOTHING in the tree defends that
+ * adjacency (s218).  Every store to either is therefore `dword ptr`, and each is addressed BY ITS OWN NAME rather
+ * than as [r10+4] off its sibling, so this port carries no dependency on the layout it cannot enforce.  Σlen is
+ * likewise `int`, so its store is dword: an 8-byte store there clobbers the neighbour, links fine, passes short
+ * tests -- the s217 store-width class, now gated by scripts/test_gate_rtx_store_width.sh.
+ *
+ * g_dcap_top is NOT a symbol: it is #define g_dcap_top (*(const char **)RT_CAS_TOP), a BUILD-CONSTANT pinned VA
+ * (pin_va.h, RT_PIN_BASE 0x70000000).  It is reached by absolute disp32 -- the same 48 8b 04 25 / 48 83 3c 25 form
+ * ABSQ() bakes in the templates, no GOT and no RIP-relative -- and rtx_init.c carries a _Static_assert tying
+ * RTX_CAS_TOP_VA below to RT_CAS_TOP, so moving the pin breaks the BUILD rather than the runtime.
+ *
+ * PINS: touches rax rdx rdi rsi r8 r10 and a balanced rsp only.  rbx r13 r14 r15 rbp are untouched by construction,
+ * and the cold edges deliberately DO NOT use RTX_CALL_ALIGN because that macro borrows rbp, which is a per-graph pin
+ * (FLATDISP-8); they align by push count instead -- entry rsp is 8 (mod 16), so push+push+sub 8 reaches 0, and in
+ * the strlen edge the single `push rsi` both aligns AND preserves the subject pointer.
+ *
+ * NO SPEED NUMBER IS CLAIMED IN THIS COMMENT.  The rung's grading is in the FINDING, min-of-N on pattern_bt, and
+ * the s219 refusal precedent stands: if the measurement does not clear the null floor, it is reported as a null.
+ *===================================================================================================================*/
+#define RTX_CAS_TOP_VA 0x70000000
+RTX_FUNC(rt_match_enter)
+    RTX_GATE(match, c_rt_match_enter)
+    cmp     edi, DT_S                                    /* edi aliases the tag word; v == DT_S?              */
+    jne     c_rt_match_enter                             /* DELEGATE: INT/REAL/every other tag                */
+    test    rsi, rsi                                     /* sv.s == NULL?                                     */
+    jz      c_rt_match_enter                             /* DELEGATE: VARVAL_fn allocates on that arm          */
+    mov     r8, rdi
+    shr     r8, 32                                       /* r8 = slen, zero-extended; ZF set from the result  */
+    jnz     .Lme_mutate                                  /* ARM-FAST-A: cached length, no strlen owed         */
+    cmp     byte ptr [rsi], 0                            /* slen == 0: is the string empty?                   */
+    je      c_rt_match_enter                             /* DELEGATE: IS_NULL_fn true -> C's "" literal        */
+.Lme_mutate:
+    mov     eax, dword ptr [rip + g_cap_gen_next]        /* --- inlined rt_cap_match_begin ---                */
+    add     eax, 1
+    jne     .Lme_gen_ok                                  /* wrapped to 0? generation 0 is the fresh sentinel  */
+    mov     eax, 1                                       /* reset BOTH to 1 so they stay in agreement          */
+.Lme_gen_ok:
+    mov     dword ptr [rip + g_cap_gen_next], eax        /* hidden -> direct; DWORD, adjacency-safe            */
+    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     dword ptr [r10], eax                         /* exported -> GOT; DWORD, adjacency-safe             */
+    cmp     qword ptr [RTX_CAS_TOP_VA], 0                /* --- inlined rt_dcap_lazy_init test (pinned VA) --- */
+    je      .Lme_dcap_cold
+.Lme_dcap_done:
+    mov     r10, qword ptr [rip + g_patstk_sp@GOTPCREL]  /* --- inlined rt_patstk_lazy_init test ---           */
+    cmp     qword ptr [r10], 0
+    je      .Lme_patstk_cold
+.Lme_patstk_done:
+    test    r8d, r8d                                     /* ARM-FAST-A already holds L                        */
+    jnz     .Lme_store
+    mov     rdi, rsi                                     /* ARM-FAST-B: L = strlen(s), the one surviving call  */
+    push    rsi                                          /* aligns rsp 8->0 (mod 16) AND preserves the subject */
+    call    strlen@PLT
+    pop     rsi
+    mov     r8, rax                                      /* L is uint64_t in the C -- keep all 64 bits         */
+.Lme_store:
+    mov     r10, qword ptr [rip + Σ@GOTPCREL]
+    mov     qword ptr [r10], rsi                         /* Σ = s                                             */
+    mov     r10, qword ptr [rip + Σlen@GOTPCREL]
+    mov     dword ptr [r10], r8d                         /* Σlen = (int)L -- DWORD, never qword                */
+    mov     rax, rsi                                     /* r.ptr = s                                          */
+    mov     rdx, r8                                      /* r.len = L                                          */
+    ret
+.Lme_dcap_cold:
+    push    rsi
+    push    r8
+    sub     rsp, 8                                       /* 8 -> 0 (mod 16) for the SysV call                  */
+    call    rt_dcap_lazy_init                            /* the INDIVIDUAL helper, never the whole body        */
+    add     rsp, 8
+    pop     r8
+    pop     rsi
+    jmp     .Lme_dcap_done
+.Lme_patstk_cold:
+    push    rsi
+    push    r8
+    sub     rsp, 8
+    call    c_rt_patstk_lazy_init                        /* c_* directly: idempotent, re-tests g_patstk_sp     */
+    add     rsp, 8
+    pop     r8
+    pop     rsi
+    jmp     .Lme_patstk_done
+RTX_ENDF(rt_match_enter)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits

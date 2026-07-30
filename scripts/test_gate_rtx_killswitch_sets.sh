@@ -43,7 +43,7 @@ while IFS= read -r prog; do
   on_set=""; off_set=""
   for arm in 1 0; do
     for i in $(seq 1 "$N"); do
-      out="$(cd "$(dirname "$prog")" && env "$GATE=$arm" timeout 30 "$ROOT/scrip" --run "$prog" 2>/dev/null)"; rc=$?
+      out="$(cd "$(dirname "$prog")" && env "$GATE=$arm" timeout 30 "$ROOT/scrip" --run "$prog" 2>/dev/null < /dev/null)"; rc=$?
       h="$(printf '%s|rc=%d' "$out" "$rc" | md5sum | cut -c1-8)"
       if [ "$arm" = 1 ]; then on_set="$on_set$h
 "; else off_set="$off_set$h
@@ -65,6 +65,7 @@ while IFS= read -r prog; do
 "
   fi
 done < <(find "$DIR" -name '*.sno' | sort)
+[ "$total" -eq 0 ] && { echo "GATE FAIL: zero programs matched $DIR -- a typo'd path must not report PASS (s220)"; exit 1; }
 echo "=== KILL-SWITCH HASH-SET GATE — $GATE, N=$N per arm, $total programs ==="
 echo "  IDENTICAL  = $ident"
 echo "  QUARANTINE = $quar   (non-deterministic in at least one arm; unfalsifiable here)"

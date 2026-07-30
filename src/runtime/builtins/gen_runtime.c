@@ -124,7 +124,7 @@ void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi) {
+ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     extern const char *Σ; extern int Σlen;
     extern void rt_cap_match_begin(void);
     extern void rt_dcap_lazy_init(void);
