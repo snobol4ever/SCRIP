@@ -2253,7 +2253,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
     }
     emit_sep_rule('-'); emit_label_define_bb(&lbl_β);
-    if (g_suspend_resume_slot >= 0 && (g_gen_proc_active || g_resumable_callable_active)) {
+    if (g_suspend_resume_slot >= 0 && emit_heap_fb_adopt()) {   /* ZETA-FB-3 (s161): the SEVENTH copy of the adopt condition, now named — this is the β frame-slot dispatch the emit_rec_pin comment calls out as "ALREADY gates on this pair".  ⚠ OBSERVED, NOT CHANGED: the GUARD is the NARROW adopt-only arm while the body spells emit_rec_fb()/emit_rec_fb_num(), the WIDE union — sound today because adopt ⟹ emit_rec_pin, so the register the body names is right whenever this arm is taken.  A graph that is emit_jmp_pin_rbp() but NOT adopt, carrying a resume slot, therefore takes the ELSE arm by construction; whether it SHOULD is a separate measurable question, and blind widening of exactly this kind is what s158 measured as a regression.  Named here, deliberately NOT widened. */
         if (g_is_text) {
             char _ind_jmp[64];
             snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [%s + %d]\n", emit_rec_fb(), g_suspend_resume_slot);   /* REG-7 U5: frame-slot dispatch via fb (rbp under RSP — re-pinned by the res landing before arrival) */
