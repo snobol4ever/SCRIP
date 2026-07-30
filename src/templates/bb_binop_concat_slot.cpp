@@ -25,7 +25,7 @@ std::string bb_binop_concat_slot() {
          + x86("mov", "rdx", ZTOS(0))
          + x86("mov", "rcx", ZTOS(8))
          + x86("call", "str_concat_d", (uint64_t)(uintptr_t)(void*)str_concat_d)
-         + x86("add", "rsp", (long)16)
+         + x86_zrelease(16)
          + x86("mov", ZTOS(0), "rax")
          + x86("mov", ZTOS(8), "rdx")
          + x86_gamma()

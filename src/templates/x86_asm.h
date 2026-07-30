@@ -1596,6 +1596,16 @@ inline std::string x86_cell_fail_body()             { return x86("mov", "rsp", "
 inline std::string x86_cell_cut_keep(const char * base) { return x86_reg_disp32_load64("rbp", base, 16) + x86_reg_disp32_lea64("rsp", base, 32); }
 inline std::string x86_chain_prev(const char * dst, const char * src) { return x86_reg_disp32_load64(dst, src, 16); }
 inline std::string x86_chain_tag_load(const char * dst32, const char * cell) { return x86_reg_disp32_load32(dst32, cell, 12); }
+/* ZREL-1 (s21x-p, Lon: "Do not put RSP references directly into the templates"): the spine-cell CLAIM/RELEASE verbs, siblings of the ZTOS/ZTOSD address verbs (defined beside x86_ztos above; the verbs
+ * live HERE because they speak x86(...), whose overloads are not yet declared at that point -- the line-419 definition-order convention).  A template that consumes an operand cell (pops it after
+ * reading), carves its own mid-body locals, or releases them, speaks x86_zclaim/x86_zrelease and never spells "rsp" -- same retirement ZTOS performed on the address side.  These are MODE-INVARIANT BY
+ * MEASUREMENT, not oversight: spine cells ride rsp under every current mode (s21x-m law 2, the spine IS already the cell machine -- the killswitch baseline pushes the same cells), so gating them on
+ * ZC_STORAGE would CHANGE behavior where the raw spelling fired unconditionally.  When the CELL_HEAP arm lands (HZ-1), the redirect happens HERE, in one place, loudly -- not in forty template lines.
+ * DISTINCT FROM THE GLUE PAIR by role: bb_glue_flat/framed_enter/leave bracket the box's OWN GRANTED cell (K = _.op_fc_bytes, fired at the ports by x86_port_hook / the drive loop); zclaim/zrelease are
+ * the box's MID-BODY verbs for cells it consumes from producers or carves for itself beyond the grant.  NOT for: C-ABI alignment dances, pcall records, or the CSTACK-mode x86_zr() swap arms -- those
+ * are not ζ cells and naming them so would lie. */
+inline std::string x86_zclaim(long b)   { return x86("sub", "rsp", b); }   /* UNCONDITIONAL BY DESIGN: an exact retirement of the raw spelling, byte-for-byte at every value; a site that wants conditional emission wraps in IF(...) at the template level (R6's job), exactly as the sites already do. */
+inline std::string x86_zrelease(long b) { return x86("add", "rsp", b); }
 /* STATEMENT-FRAME FAMILY (s21x-c, design of record: RBP/RSP FRAMES + FORTH-STYLE VARIABLE-LENGTH ζ CELLS — the LON DIRECTIVE block atop GOAL-SNOBOL4-BB.md; hand embodiments oracle-green in
  * SCRIP/seed/test_sno_stmt_frame_1.s and _2.s, incl. recursion + FRETURN).  GLUE-4 (s21x-p): x86_stmt_enter/leave -- the STATEMENT bracket -- are DELETED; the bracket lives as bb_glue_framed_enter/
  * leave at K=0 (bb_glue_framed.cpp), and the emit.cpp head stubs + chain-exit cuts call the glue directly, so the FOUR RBP CONSTRUCTS (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4) parameterize ONE
