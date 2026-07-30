@@ -111,6 +111,8 @@ RT_PIC_SRCS := \
     $(SRC)/machine/bb_pool.c \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
+    $(SRC)/templates/bb_glue_flat.cpp \
+    $(SRC)/templates/bb_glue_framed.cpp \
     $(SRC)/templates/bb_lit.cpp \
     $(SRC)/templates/bb_save_restore.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \

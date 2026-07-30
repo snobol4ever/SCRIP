@@ -53,6 +53,10 @@ std::string bb_assign_var();
 std::string bb_rev_assign_var();
 std::string bb_goto();
 std::string bb_bound();
+std::string bb_glue_flat_enter();     /* GLUE-1 (Lon s21x-n): per-BB storage bracket, no frame pointer -- the ~99.999% case (s21x-c law 3). */
+std::string bb_glue_flat_leave();
+std::string bb_glue_framed_enter();   /* GLUE-2 (Lon s21x-n): same + rbp activation base; ONLY the four RBP constructs (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4).  Wiring this wires the prologue -- s21x-m law 3. */
+std::string bb_glue_framed_leave();
 std::string bb_disjunction();
 std::string bb_cut();
 std::string bb_fail();
