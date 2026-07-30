@@ -1,4 +1,5 @@
 #include "descr.h"
+#include "core.h"
 #include "gc_heap.h"
 #include "pin_va.h"
 #include <stdlib.h>
@@ -18,10 +19,11 @@ extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icnagg;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_match;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icngen;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icncall;
+extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icnsub;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char rtx_env_on(const char *name, unsigned char dflt) { const char *e = getenv(name); if (!e || !*e) return dflt; return (unsigned char)(e[0] != '0'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((constructor)) static void rtx_gates_init(void) { rtx_gate_misc = rtx_env_on("SCRIP_RTX_MISC", 1); rtx_gate_alloc = rtx_env_on("SCRIP_RTX_ALLOC", 1); rtx_gate_str = rtx_env_on("SCRIP_RTX_STR", 1); rtx_gate_call = rtx_env_on("SCRIP_RTX_CALL", 1); rtx_gate_leaf = rtx_env_on("SCRIP_RTX_LEAF", 1); rtx_gate_arith = rtx_env_on("SCRIP_RTX_ARITH", 1); rtx_gate_icnvar = rtx_env_on("SCRIP_RTX_ICNVAR", 1); rtx_gate_icnnum = rtx_env_on("SCRIP_RTX_ICNNUM", 1); rtx_gate_icnrel = rtx_env_on("SCRIP_RTX_ICNREL", 1); rtx_gate_icnagg = rtx_env_on("SCRIP_RTX_ICNAGG", 1); rtx_gate_match = rtx_env_on("SCRIP_RTX_MATCH", 1); rtx_gate_icngen = rtx_env_on("SCRIP_RTX_ICNGEN", 1); rtx_gate_icncall = rtx_env_on("SCRIP_RTX_ICNCALL", 1); }
+__attribute__((constructor)) static void rtx_gates_init(void) { rtx_gate_misc = rtx_env_on("SCRIP_RTX_MISC", 1); rtx_gate_alloc = rtx_env_on("SCRIP_RTX_ALLOC", 1); rtx_gate_str = rtx_env_on("SCRIP_RTX_STR", 1); rtx_gate_call = rtx_env_on("SCRIP_RTX_CALL", 1); rtx_gate_leaf = rtx_env_on("SCRIP_RTX_LEAF", 1); rtx_gate_arith = rtx_env_on("SCRIP_RTX_ARITH", 1); rtx_gate_icnvar = rtx_env_on("SCRIP_RTX_ICNVAR", 1); rtx_gate_icnnum = rtx_env_on("SCRIP_RTX_ICNNUM", 1); rtx_gate_icnrel = rtx_env_on("SCRIP_RTX_ICNREL", 1); rtx_gate_icnagg = rtx_env_on("SCRIP_RTX_ICNAGG", 1); rtx_gate_match = rtx_env_on("SCRIP_RTX_MATCH", 1); rtx_gate_icngen = rtx_env_on("SCRIP_RTX_ICNGEN", 1); rtx_gate_icncall = rtx_env_on("SCRIP_RTX_ICNCALL", 1); rtx_gate_icnsub = rtx_env_on("SCRIP_RTX_ICNSUB", 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int Σlen; extern uint32_t g_cap_gen; extern uint32_t g_cap_gen_next;
 _Static_assert(sizeof(g_cap_gen) == 4 && sizeof(g_cap_gen_next) == 4, "rtx_match.S stores g_cap_gen/g_cap_gen_next with `dword ptr` because they sit ADJACENT at +0x0/+0x4 in pattern_match.o; if either widens, that dword store truncates and an 8-byte store would clobber the sibling generation well -- links fine, passes short tests (s218)");
@@ -43,3 +45,9 @@ _Static_assert(HB_AGGV == 206, "rtx_alloc.S hardcodes HB_AGGV 206; gc_heap.h dri
 _Static_assert(DT_FAIL == 99, "rtx_abi.inc hardcodes DT_FAIL 99; descr.h drifted -- FAILDESCR precedence in the null-identity arm would break");
 _Static_assert(offsetof(VCELL_t, cellp) == 0, "rtx_icnvar.S hardcodes VCELL_t.cellp at offset 0; descr.h drifted -- the NAMETRAP fast arm would store a DESCR_t through the wrong member, which links fine and corrupts silently");
 _Static_assert(DT_E == 11, "rtx_icncall.S hardcodes DT_E 11; descr.h drifted -- rt_proc_value would mint procedure values with the WRONG TAG, which links fine and silently changes procedure identity rather than crashing");
+_Static_assert(DT_DATA == 100 && DT_S == 1 && DT_I == 6 && DT_N == 9, "rtx_icnsub.S hardcodes the DT_DATA/DT_S/DT_I/DT_N tags; descr.h drifted -- the list-arm guard would admit the wrong datatype and mint a VCELL over a non-list, which links fine and corrupts silently");
+_Static_assert(sizeof(DESCR_t) == 16, "rtx_icnsub.S shifts the element index left by 4 to scale by sizeof(DESCR_t); descr.h drifted -- vc->cellp would point BETWEEN elements");
+_Static_assert(sizeof(VCELL_t) == 72, "rtx_icnsub.S passes sizeof(VCELL_t)=72 to rt_agg_alloc; descr.h drifted -- the carve would be short and the field stores would run off the end of the cell");
+_Static_assert(offsetof(VCELL_t, tbl) == 8 && offsetof(VCELL_t, key) == 16 && offsetof(VCELL_t, key_d) == 24 && offsetof(VCELL_t, sv) == 40 && offsetof(VCELL_t, pos) == 56 && offsetof(VCELL_t, len) == 64, "rtx_icnsub.S hardcodes the VCELL_t field offsets; descr.h drifted -- the list arm would fill the wrong members, which links fine and yields a cell naming the wrong storage");
+_Static_assert(offsetof(DATINST_t, type) == 0 && offsetof(DATINST_t, fields) == 8, "rtx_icnsub.S hardcodes DATINST_t.type/.fields; core.h drifted -- the inlined rt_list_view would read the genus tag from the wrong word");
+_Static_assert(offsetof(DATBLK_t, nfields) == 8 && offsetof(DATBLK_t, fields) == 16, "rtx_icnsub.S hardcodes DATBLK_t.nfields/.fields; core.h drifted -- the frame_elems check would compare the wrong bytes and admit a record as a list");

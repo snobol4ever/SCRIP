@@ -1022,7 +1022,7 @@ long rt_match_value_open(DESCR_t *pval)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx) {
+DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
     if (base.v == DT_A) {
