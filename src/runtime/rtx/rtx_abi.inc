@@ -9,13 +9,26 @@
  * ---------------------------------------------------------------------------
  * BLOB PINS — PRESERVE ACROSS EVERY RTX ENTRY. Phase 1 does not touch them.
  *   rbx  arena heap top / DESCR mint pointer
- *   r12  conditional-assignment stack pointer (own mmap area)
  *   r13  sigma  subject base pointer
  *   r14  delta  subject cursor
  *   r15  Delta  subject length/end
- *   rbp  zeta frame base      rsp  zeta + C stack (ONE stack)
- * These six are exactly the SysV callee-saved GP set, so C-signature RTX
- * routines inherit the guarantee; hand entries that clobber one must save it.
+ *   rbp  zeta frame base IN PINNED GRAPHS ONLY   rsp  zeta + C stack (ONE stack)
+ * ⛔ r12 IS FREE — NOT A PIN (corrected s219; ARCH section 2 corrected it at s205
+ * and this header contradicted the document for FOURTEEN sessions). ZC_FRAME_R12
+ * was DELETED outright at ZR-RSPRBP-1 (Lon directive 2026-07-27, SCRIP da8c2347),
+ * zero #if consumers; the zeta basis set is CLOSED at RSP and RBP. The old entry
+ * here read "r12 conditional-assignment stack pointer (own mmap area)", which is
+ * DEAD HISTORY. This is RULES' (a)-class rot in the worst possible place: an asm
+ * author reads the header, not the document, and needlessly avoids a free GPR.
+ * ⛔ AND rbp IS PER-GRAPH, NOT UNCONDITIONAL (FLATDISP-8, s197): pinned graphs
+ * (suspended generators, pattern blobs, deep-arrival) seed mov rbp,rsp; depth-
+ * static determinate graphs use rsp and rbp is a free GPR. ONE selector,
+ * x86_fb_pinned() == emit_rec_pin(). NEVER hardcode [rbp+off] or [rsp+off] in
+ * RTX asm or a template — use FR(off)/FRQ(off), which resolve through x86_fb().
+ * The five surviving pins are a SUBSET of the SysV callee-saved GP set, so
+ * C-signature RTX routines inherit the guarantee; hand entries that clobber one
+ * must save it. r12 being free does NOT exempt it from that rule when a pinned
+ * graph is live above you — it is free, not scratch-by-fiat.
  *
  * RTX WORKING SET — free at every entry, zero boundary cost:
  *   rax rcx rdx rsi rdi r8 r9 r10 r11 + xmm0-15
