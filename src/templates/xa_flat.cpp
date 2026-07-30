@@ -285,6 +285,14 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                         out_site = (int)rg.size() - 4; out_lbl = g_emit.flat_β_p; out_def = false;
                         return rg;
                     }
+                    if (g_emit.flat_stmt_frame) {   /* STMT-FRAME (s21x-c): the graph carves NOTHING -- one 8B parity pad (entry rsp is 8 mod 16; base must land 0 mod 16, same phase law as the legacy K's +8), no region, no rep stosb, no anchor, no rbx seed, no rbp touch.  Every byte of ζ is carved by the BB that owns it; the statement bracket is the drive loop's business.  cmp/jne β mirrors the legacy arm's mode-3 entry protocol verbatim. */
+                        std::string r0 = x86("sub", "rsp", (long)8)
+                                       + x86("cmp", "esi", (long)0)
+                                       + x86("jne", "extlbl", (unsigned long)(uintptr_t)g_emit.flat_β_p);
+                        xaf_mark("STMT_FRAME");
+                        out_site = -1; out_lbl = nullptr; out_def = false;
+                        return r0;
+                    }
                     int K = xaf_outer_frame_k();
                     std::string r = x86("sub", "rsp", (long)K)
                                   + x86("mov", "rdi", "rsp")
@@ -392,6 +400,7 @@ static std::string xa_flat_prologue_str(int & out_site, bb_label_t * & out_lbl, 
                 if (x86_zc_frame() == ZC_FRAME_RSP) { /* R12-ERAD: FORTH — blob self-allocates on the C stack; ret-addr sits at [rsp+K], above every FR offset; C calls clobber only below rsp */
                     if (g_gen_proc_active || g_resumable_callable_active)   /* PL-GEN-RSP fix (TEXT twin): adopt the heap fb (rdi) as the rbp frame base; frame survives beta-resume on the heap, rsp stays free */
                         return banner + "  push rbp\n  mov rbp, rdi\n  cmp esi, 0\n  jne " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
+                    if (g_emit.flat_stmt_frame) return banner + "  sub rsp, 8\n";   /* STMT-FRAME (s21x-c) TEXT twin: 8B parity pad only -- the seed's "main_α has no frame at all" verbatim; no carve, no fill, no anchor, no rbp.  No cmp/jne: the legacy TEXT arm only emits the β dispatch for gen/resumable, mirrored per-medium exactly. */
                     int K = xaf_outer_frame_k();
                     char fb[224]; snprintf(fb, sizeof fb, "  sub rsp, %d\n  mov rdi, rsp\n  mov ecx, %d\n  xor eax, eax\n  rep stosb\n", K, K); /* K = region+8 (floored 65544); 8 phase pad: entry rsp is 8 mod 16, base must land 0 mod 16 = the R12-mode body parity every bare template call assumes */
                     std::string pro = banner + fb + xaf_anchor_enter_text();
@@ -521,6 +530,14 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                     if (out_fail) *out_fail = fg;
                     return sg + fg;
                 }
+                if (g_emit.flat_stmt_frame) {   /* STMT-FRAME (s21x-c): two-instruction-class exits, the seed's γ/ω shape -- eax code, edx zero, release the 8B parity pad, ret.  No anchor-leave (no anchor was stored), no rbp reload (never clobbered), no frame add (no frame).  Arrival rsp == base by the cut stubs' mov rsp,rbp funnel; β arrivals (jne β -> jmp ω) are at base by construction. */
+                    std::string sg0 = bytes(1, "\xB8") + u32le(1) + bytes(2, "\x31\xD2") + bytes(4, "\x48\x83\xC4\x08") + bytes(1, "\xC3");
+                    std::string fg0 = bytes(1, "\xB8") + u32le(99) + bytes(2, "\x31\xD2") + bytes(4, "\x48\x83\xC4\x08") + bytes(1, "\xC3");
+                    out_site = (int)sg0.size(); out_lbl = g_emit.flat_fail_p; out_def = true;
+                    if (out_succ) *out_succ = sg0;
+                    if (out_fail) *out_fail = fg0;
+                    return sg0 + fg0;
+                }
                 int Ke = xaf_outer_frame_k();
                 std::string succ_half = bytes(1, "\xB8") + u32le(1)
                                       + bytes(2, "\x31\xD2")
@@ -625,6 +642,13 @@ static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, 
                         std::string sgt = std::string("pop rbp\nret\n");
                         std::string fgt = xaf_ω_label()
                              + "mov dword ptr [rbp+0], 99\nmov dword ptr [rbp+4], 0\nmov qword ptr [rbp+8], 0\npop rbp\nret\n";
+                        if (out_succ) *out_succ = sgt;
+                        if (out_fail) *out_fail = fgt;
+                        return sgt + fgt;
+                    }
+                    if (g_emit.flat_stmt_frame) {   /* STMT-FRAME (s21x-c) TEXT twin of the BINARY arm above: eax code, pad release, ret; ω label defined in-string per this arm's convention */
+                        std::string sgt = std::string("mov eax, 1\n") + "xor edx, edx\n" + "add rsp, 8\n" + "ret\n";
+                        std::string fgt = xaf_ω_label() + "mov eax, 99\nxor edx, edx\nadd rsp, 8\nret\n";
                         if (out_succ) *out_succ = sgt;
                         if (out_fail) *out_fail = fgt;
                         return sgt + fgt;
