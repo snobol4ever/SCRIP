@@ -442,6 +442,28 @@ void zls_build(IR_graph_t * g) {
                         else { fc_vlit_register(x); if (x->op == IR_VAR && d > 0) fc_vwpop_register(x, (long)d * 16); d += 1; } }
                     { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg) fprintf(stderr, "[FCC] REGISTERED pn=%d\n", pn); }
                     fc_vread_register(a, 0); } } } }   /* the simulation: d = cells live BEFORE the node's alpha.  A leaf's own cell pops via the fc hook, so its wpop = d*16 (the cells UNDER it); a binop carves nothing at alpha, so its wpop = d*16 covers ALL live cells including its two operands.  Registration stays capacity-atomic and all-or-nothing: any invalid member (DIV/MOD, local var, '&' keyword, broken chain) declines the WHOLE tree to the flat path */
+    { static int subj_on = -1; if (subj_on < 0) { const char * a = getenv("SCRIP_STMT_FRAME"); const char * b = getenv("SCRIP_SUBJ_CELL"); subj_on = (a && *a == '1' && b && *b == '1') ? 1 : 0; }   /* SUBJECT-CELL rung (a) (Lon s21x directive "NO FRAME RELATIVE addressing for operands" -- the s21x-e measured frontier: LIT_STRING 157 / VAR 85 / LIT_INTEGER 29 first-blockers are subject-position scalars): register the subject producer chain with IR_MATCH_HEAD as the reading consumer, MIRRORING the IR_ASSIGN loop above member for member -- same leaves, same tree scan, same gamma-adjacency fence, same d-simulation, same all-or-nothing capacity discipline.  Two-env gate = the fc_call_ok precedent: gate-off registration is ZERO, so the default path is byte-identical.  The head POPS the subject DESCR from TOS at the very top of alpha (bb_match_head subjc arm) BEFORE its own 32B window carve, so fc_leaf_walk's D=32+prefix math for every downstream pattern box is untouched.  fc_call arms cannot appear in subject trees: fc_vtree_scan's call arm requires g_fcc_gfence, which the first zls_build loop zeroes for every IR_MATCH_HEAD-bearing graph. */
+      if (subj_on) for (int vi = 0; vi < g->n; vi++) { IR_t * h = g->all[vi]; if (!(h && h->op == IR_MATCH_HEAD && h->n_operands > 0 && h->operands[0])) continue;
+        IR_t * r = h->operands[0];
+        { int nc = 0; for (int ci = 0; ci < g->n && nc < 2; ci++) { const IR_t * c = g->all[ci]; if (!c || c == h) continue; for (int oi = 0; oi < c->n_operands; oi++) if (c->operands[oi] == r) { nc++; break; } } if (nc) { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg) fprintf(stderr, "[FCS] decline SOLE-CONSUMER head=%p subj=%p extra_consumers>=%d\n", (void*)h, (void*)r, nc); continue; } }   /* SOLE-CONSUMER FENCE (v1, the 062/063/cross/wordcount casualty class measured this session): the head POPS the cell, so any OTHER operand-holder of subjval -- the replacement SPLICE above all (sno_lower_match pushes subjval into it) -- still reads the FLAT slot the registered producer no longer writes.  Pure dataflow, no kind naming: registration requires the head to be subjval's ONLY operand consumer; replacement statements decline wholesale (their subject is an lvalue with post-match readers -- the rung's named follow-up), everything they read stays flat-verbatim.  Degrade never die. */
+        { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg) fprintf(stderr, "[FCS] head=%p subj=%p subj_op=%d gamma=%p gamma_is_head=%d sval=%s\n", (void*)h, (void*)r, (int)r->op, (void*)r->γ.node, r->γ.node == h ? 1 : 0, IR_LIT(r).sval ? IR_LIT(r).sval : "(null)"); }
+        if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL
+             || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
+            && r->γ.node == h && fc_vcap(1, 1, 0, 0)) { fc_vlit_register(r); fc_vread_register(h, 0); continue; }   /* direct pair: scalar lit or global-routed var -> head, gamma-adjacent; LIT_CHARSET stays flat (a cset subject is the runtime type-error path, not a value-spine citizen) */
+        if ((r->op == IR_BINOP || fc_vunop_ok(r)) && r->γ.node == h) {
+            const IR_t * post[49]; int pn = 0;
+            int _ts = fc_vtree_scan(g, r, post, &pn, 49, 0);
+            if (_ts && post[pn - 1] == r) {
+                int ok = 1, L = 0, B = 0;
+                for (int i = 0; i + 1 < pn; i++) if (post[i]->γ.node != post[i + 1]) { ok = 0; break; }   /* strict gamma chain -- no sr0-transparency arm needed: calls cannot register here (gfence 0 in match graphs), so the transparent shape never occurs */
+                for (int i = 0; i < pn; i++) { if (post[i]->op == IR_BINOP || post[i]->op == IR_UNOP) B++; else L++; }
+                if (ok && fc_vcap(L, 1, B, pn)) {
+                    int d = 0;
+                    for (int i = 0; i < pn; i++) { const IR_t * x = post[i];
+                        if (x->op == IR_BINOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); d -= 1; }
+                        else if (x->op == IR_UNOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); }
+                        else { fc_vlit_register(x); if (x->op == IR_VAR && d > 0) fc_vwpop_register(x, (long)d * 16); d += 1; } }
+                    fc_vread_register(h, 0); } } } } }
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {

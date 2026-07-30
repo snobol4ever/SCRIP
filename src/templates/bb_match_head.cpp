@@ -15,14 +15,18 @@ extern long g_anchor;
 extern "C" uint64_t g_patstk_sp;
 extern "C" uint32_t g_cap_gen;
 #define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)
+#define subjc() (_.op_subj_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_head() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    return (_.op_sa < 0 || _.op_off < 0)
+    return ((_.op_sa < 0 && !subjc()) || _.op_off < 0)
          ? x86_bomb("IR_MATCH_HEAD: subject/start slot not promoted (emit_drive)")
          : x86("comment", "IR_MATCH_HEAD")
          + x86_alpha()
+         + IF(subjc(), x86("mov", "rdi", "qword ptr [rsp + 0]")
+                     + x86("mov", "rsi", "qword ptr [rsp + 8]")
+                     + x86("add", "rsp", (long)16))   /* SUBJECT-CELL rung (a) (Lon: "index operands from RSP... pop into Sigma/delta/Delta"): the registered subject producer chain left its 16B DESCR at TOS; POP IT FIRST -- before ANY flat-spelled access below -- so alpha's remaining depth equals the flat arm's exactly and fc_leaf_walk's D=32+prefix for every downstream pattern box holds untouched.  rdi/rsi survive to the rt_match_enter call: the intervening saves touch only rcx/rax/r13/r14/r15/rbp (the non-RSP-frame rt_zls_mark arm cannot fire here -- promotion is gated ZC_FRAME_RSP). */
          + x86("mov", FRQ(_.op_off + 48), "r13")   /* PATCTX (Lon directive 2026-07-29): save the OUTER Σ/δ/Δ before rt_match_enter sets them anew; both exits restore.  α depth == the FRQ-baked depth (the hfc 32B cell is carved below), so the plain slot spelling is valid in every port/frame arm. */
          + x86("mov", FRQ(_.op_off + 56), "r14")
          + x86("mov", FRQ(_.op_off + 64), "r15")
@@ -37,8 +41,8 @@ std::string bb_match_head() {
                       + x86("add", "rax", (long)32)
                       + x86("mov", FRQ(_.op_off + 16), "rax")
                       : x86_zls2_mark_save(_.op_off + 16)))
-         + x86("mov", "rdi", FRQ(_.op_sa))
-         + x86("mov", "rsi", FRQ(_.op_sa + 8))
+         + IF(!subjc(), x86("mov", "rdi", FRQ(_.op_sa))
+                      + x86("mov", "rsi", FRQ(_.op_sa + 8)))   /* legacy flat-slot subject read -- the arm the SUBJECT-CELL rung retires; under subjc the DESCR already rides rdi/rsi from the TOS pop above */
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
