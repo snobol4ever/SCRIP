@@ -1057,3 +1057,29 @@ int zls_node_has_fields(const IR_t * nd) { if (!nd) return 0; for (int f = 0; f 
  * FR/FRQ spelling stays byte-identical, and the ONLY new machine effect is the rsp motion at the alpha/omega hook -- one variable isolated, the crosscheck fail-set becomes the rung ladder.  Window
  * migration (front quad + locals riding the cell) is the crawl's second axis, per family, against the RESULT-IS-THE-CELL and SUSPENDED-CELL laws. */
 long zw_node_k(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; if (!e) return 0; long b = (long)zls_node_bytes(nd); if (!e->live && b <= 16) return 0; return b; }
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZOP-1 MIX AUDIT (Lon s21x-n "parameterize the access to operands via the FOUR modes").  Tallies, over a whole compile, how many emitted graphs resolved their operand addresses through MORE THAN ONE
+ * whole-graph regime.  The regimes are x86_zop's named arms: 1 = r12 island frame, 3 = pinned rbp whole-graph frame, 4 = rsp whole-graph frame + op_flat_disp compensation.  Arm 2 (the box's own per-BB
+ * rsp cell) is deliberately NOT counted as a regime -- it is a WINDOW into whichever regime the graph is in, and composing one window with one frame is the design, not the defect.  Two or more of {1,3,4}
+ * on a single graph is the s188 mixed shape zeta_choices.h declares must be UNREPRESENTABLE; it stayed silently representable for as long as the deciding booleans lived in three separate accessors, and
+ * "silently" is the operative word -- x86_fc_hit's fallback is documented as returning a WRONG-BASE address without crashing, so a mixed graph produced plausible code and a wrong answer.  Reported under
+ * SCRIP_ZOP_AUDIT=1; the gate script asserts mixed == 0. */
+#include <stdio.h>
+#include <stdlib.h>
+static long zop_g_total = 0, zop_g_mixed = 0, zop_hist[16];
+void zop_audit_report(void);
+void zop_audit_graph_close(void);
+void zop_audit_graph_close(void) {
+    extern int zop_audit_seen(void); extern void zop_audit_seen_clear(void); int m, frames;
+    { static int reg = 0; if (!reg) { reg = 1; atexit(zop_audit_report); } }   /* ZOP-1: registered UNCONDITIONALLY on first call, never inside the m!=0 guard -- the guarded form made the exit report itself conditional on some graph having already been tallied, so a program whose only graph was still open at exit registered nothing and reported nothing. */
+    m = zop_audit_seen(); if (m == 0) return; zop_audit_seen_clear();
+    frames = ((m >> 1) & 1) + ((m >> 3) & 1) + ((m >> 4) & 1);
+    zop_g_total++; if (frames > 1) zop_g_mixed++; zop_hist[(m >> 1) & 15]++;
+}
+void zop_audit_report(void) {
+    zop_audit_graph_close();   /* ZOP-1 FINAL-GRAPH FIX: close fires at the START of each new graph, so the LAST graph of every compile was never tallied -- and a single-graph program tallied NOTHING AT ALL, which is how the first run of this instrument reported 38 graphs across 120 programs and a clean mixed=0.  A zero from an instrument that never ran is not a measurement; closing here is what makes the number mean anything. */
+    if (!getenv("SCRIP_ZOP_AUDIT")) return;
+    fprintf(stderr, "[ZOP] graphs=%ld mixed=%ld\n", zop_g_total, zop_g_mixed);
+    { int k; const char * nm[16] = {"-","isle","cell","isle+cell","rbp","isle+rbp","cell+rbp","isle+cell+rbp","rsp","isle+rsp","cell+rsp","isle+cell+rsp","rbp+rsp","+","cell+rbp+rsp","all"};
+      for (k = 0; k < 16; k++) if (zop_hist[k]) fprintf(stderr, "[ZOP]   %-18s %ld\n", nm[k], zop_hist[k]); }
+}
