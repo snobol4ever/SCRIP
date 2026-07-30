@@ -1048,7 +1048,7 @@ __attribute__((visibility("hidden"))) void rt_pcall_grow(void)
  * ever peek — a silent no-op is correct there because such an entry's RETURN legitimately belongs to the ENCLOSING open call, whose own adopt already filled the top record.  ret_snap: the floaters
  * PEEK (never pop) the top record's wires into a static quad and return its address; rax:rdx ride untouched through the floater's tail so the γ landing's epilogue sees exactly what it sees today.
  * Level-0 transfer to RETURN/FRETURN = runtime error (Lon s175 ruling; SPITBOL erred here too rather than exiting). */
-void rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp)
+void c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp)
 {
     if (g_pcall_top <= 0 || !g_pcall_wires) return;
     { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; w->r12 = 0; }
