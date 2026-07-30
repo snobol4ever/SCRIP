@@ -322,6 +322,8 @@ inline const char * x86_jcc_invert(const char * m) {
     if (!strcmp(m, "jge")) return "jl";
     if (!strcmp(m, "jle")) return "jg";
     if (!strcmp(m, "jg"))  return "jle";
+    if (!strcmp(m, "js"))  return "jns";
+    if (!strcmp(m, "jns")) return "js";
     fprintf(stderr, "[x86] FATAL x86_jcc_invert: unknown condition '%s' (add the pair)\n", m); abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
