@@ -413,13 +413,13 @@ n25_match_assign_save_α:
                         lea              rdi, [rbp + 224]
                         mov              esi, r14d
                         call             rt_cap_push@PLT
-                                                                                        jmp   n26_match_defer_α
+                                                                                        jmp   n26_match_patref_α
 n25_match_assign_save_β:
                         lea              rdi, [rbp + 224]
                         call             rt_cap_pop@PLT
                                                                                         jmp   n24_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
-n26_match_defer_α:
+n26_match_patref_α:
                         lea              rsi, [rip + g_sno_defer_cells+0]
                         mov              rax, qword ptr [rsi + 0]
                         test             rax, rax
@@ -494,7 +494,7 @@ n26_match_defer_α:
 .Lx46_6:
                         add              rsp, 16
                                                                                         jmp   n25_match_assign_save_β
-n26_match_defer_β:
+n26_match_patref_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n27_match_assign_cond_α:
@@ -515,7 +515,7 @@ n27_match_assign_cond_β:
                         mov              rax, qword ptr [1879048192]
                         sub              rax, 24
                         mov              qword ptr [1879048192], rax
-                                                                                        jmp   n26_match_defer_β
+                                                                                        jmp   n26_match_patref_β
 #-----------------------------------------------------------------------------------------------------------------------
 n28_match_release_α:
                         mov              rax, qword ptr [rbp + 120]

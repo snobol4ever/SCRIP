@@ -397,7 +397,7 @@ n29_match_head_α:
                         mov              dword ptr [rbp + 368], 0
 .Lx71_0:
                         mov              r14d, dword ptr [rbp + 368]
-                                                                                        jmp   n32_match_defer_α
+                                                                                        jmp   n32_match_patref_α
 n29_match_head_β:
                         add              dword ptr [rbp + 368], 1
                         mov              eax, dword ptr [rbp + 368]
@@ -452,7 +452,7 @@ n31_lit_string_α:
 .Lx73_0_s:
                         .string          "0123456789"
 #-----------------------------------------------------------------------------------------------------------------------
-n32_match_defer_α:
+n32_match_patref_α:
                         lea              rsi, [rip + g_sno_defer_cells+0]
                         mov              rax, qword ptr [rsi + 0]
                         test             rax, rax
@@ -530,7 +530,7 @@ n32_match_defer_α:
 .Lx74_6:
                         add              rsp, 16
                                                                                         jmp   n29_match_head_β
-n32_match_defer_β:
+n32_match_patref_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n33_lit_string_α:
