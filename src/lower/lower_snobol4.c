@@ -182,15 +182,22 @@ static IR_t * sx_pred_cmp(scx_t * cx, const tree_t * t, int argbase, int lex, in
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbase, IR_t * γ, IR_t * ω, IR_t ** res) {
+    /* CALL2BB slice 1 (Lon directive s21x: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: IR_SAVE_RESTORE and IR_CALL") — behind SCRIP_CALL2BB=1 the call site becomes the two-BB pair: role-0
+     * IR_SAVE_RESTORE (carves its OWN slots, saves the fname/formals/locals save-set, opens the pcall residue, installs staged args into the NV globals) chained γ-wise INTO the slimmed IR_CALL (frame
+     * dance + transfer + restore landings).  sr0 carries the SAME sval (shared strdup, read-only) and the SAME arg operand list so its drive arm marshals slots exactly like the call family; args chain
+     * terminates at sr0 instead of call.  Gate OFF = this function byte-identical to its prior body (sr0 never built, tail == call). */
     IR_t * call = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
+    IR_t * sr0 = NULL; static int c2bb = -1; if (c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); c2bb = (e2 && *e2 == '1') ? 1 : 0; }
+    if (c2bb) { sr0 = lc_build(cx->g, IR_SAVE_RESTORE, call, ω); IR_LIT(sr0).ival = 0; IR_LIT(sr0).sval = IR_LIT(call).sval; }
+    IR_t * tail = sr0 ? sr0 : call;
     int nargs = t ? (t->n - argbase) : 0;
-    IR_t * prev = NULL; IR_t * entry = call;
+    IR_t * prev = NULL; IR_t * entry = tail;
     for (int k = 0; k < nargs; k++) {
-        IR_t * ar = NULL; IR_t * ae = sx_lower(cx, t->c[argbase + k], (k == nargs - 1) ? call : NULL, ω, &ar);
+        IR_t * ar = NULL; IR_t * ae = sx_lower(cx, t->c[argbase + k], (k == nargs - 1) ? tail : NULL, ω, &ar);
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
         prev = ar;
-        if (ar) ir_operand_push(call, ar);
+        if (ar) { ir_operand_push(call, ar); if (sr0) ir_operand_push(sr0, ar); }
     }
     if (res) *res = call; return entry;
 }
@@ -1208,13 +1215,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
     case TT_DEFER: {
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
-        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); { extern void sno_defer_star_register(const IR_t *); sno_defer_star_register(nd); } nd->seal = sno_defer_sealed(in->v.sval) ? 1 : (sno_seal_pat(in->v.sval) ? 2 : 0);   /* s142: 1 = full right-seal (s137 whack); 2 = WRITE-ONCE only (name eligibly resolves in g_sno_seal: single write, fz-safe) — enables the defer-site entry-cell, NOT the whack.  s199: star-registered — this is the `*X` arm, the only one the manual lets recurse. */ sno_ω_to(nd, fail); return nd; }
+        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval) ? 1 : (sno_seal_pat(in->v.sval) ? 2 : 0);   /* s142: 1 = full right-seal (s137 whack); 2 = WRITE-ONCE only (name eligibly resolves in g_sno_seal: single write, fz-safe) — enables the defer-site entry-cell, NOT the whack.  OP-SPLIT s21x-f: this is the `*X` arm, the only one the manual lets recurse (p.122) — IR_MATCH_DEFER is star-ONLY by construction now; the s199 dstar registration is deleted, the opcode IS the provenance. */ sno_ω_to(nd, fail); return nd; }
         { const char * bn = sno_expr_collect(in); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn);
-          IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); { extern void sno_defer_star_register(const IR_t *); sno_defer_star_register(nd); } sno_ω_to(nd, fail); return nd; }
+          IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); sno_ω_to(nd, fail); return nd; }
     }
     case TT_VAR: {                                                 /* SN4-BAREKW: the REM/ARB/FENCE strcmp bandages that lived here are now in sno_pat_eff_kind() */
         const char * nm = t->v.sval;
-        { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class, twin of the TT_VAR arm above */ sno_ω_to(nd, fail); return nd; }
+        { IR_t * nd = lc_build(g, IR_MATCH_PATREF, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class; OP-SPLIT s21x-f: the EAGER twin — a bare stored-pattern NAME, built eagerly, cannot self-reference (manual p.122), lowers to IR_MATCH_PATREF; every consumer treats the pair identically this slice */ sno_ω_to(nd, fail); return nd; }
     }
     case TT_REM: {
         IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL);
