@@ -709,5 +709,199 @@ RTX_FUNC(rt_dcap_end_ok_close)
     ret
 RTX_ENDF(rt_dcap_end_ok_close)
 
+/*=====================================================================================================================
+ * SLICE 9 — rt_match_replace: THE PATTERN-MATCH-WITH-REPLACEMENT SINK (manual Ch.6 p.72, "Pattern Matching with
+ * Replacement": `S ? PAT = REPL` splices the replacement over the matched span and reassigns the SUBJECT VARIABLE).
+ *
+ * C OF RECORD: src/runtime/builtins/gen_runtime.c, renamed c_rt_match_replace in this same commit.
+ *   void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp)
+ *   rdi=name  rsi=sub_lo  rdx=sub_hi  ecx=start  r8=end  r9=replp.  Returns void.
+ * sub_lo/sub_hi are the subject DESCR_t as its SysV register pair: sv.v = esi, sv.slen = rsi>>32, sv.s = rdx.
+ * Confirmed against the EMITTED artifact, not inferred from the prototype (string_pattern.s:765 n44_match_replace_α):
+ * the template loads start with `mov ecx, dword ptr` (zero-extended, so >= 0 from THAT site) and replp with `lea`
+ * (never NULL from THAT site).  Both are still handled generally here -- a second call site need not agree.
+ *
+ * 0(d) MEASURED, TWO LOOP COUNTS, PREDICTED BEFORE MEASURING: corpus/benchmarks/snobol4/string_pattern.sno is
+ * 500,000 outer iterations x 10 comma-separated words = 5,000,000 entries, and the count is EXPLAINED by the source
+ * rather than merely correlated with it (the failing INNER match does not reach a replacement, so there is NO `+1`
+ * term -- unlike the lazy-init slices 5 and 8).  Halving the literal gave exactly 2,500,000 = 0.500x.
+ * ⭐ THIS IS THE FIRST MATCH-FAMILY SLICE WHOSE WINDOW CLEARS MIN_MS=800: 5704 ms at 500K, 2798 ms at 250K.  Slices
+ * 4/7/8 each had to REFUSE a number against a sub-floor window; this one may legitimately be railed.
+ *
+ * 0(c) ON THE OBJECT FILES, NEVER THE .so: VARVAL_fn NV_SET_fn descr_to_str rt_str_alloc are all `T` (global text,
+ * linkable from a .S).  ⭐ THIS PORT NEEDS ZERO static->hidden PROMOTIONS AND TOUCHES ZERO GLOBALS on its hot path,
+ * so it sits entirely outside the g_cap_gen visibility-narrowing class -- the ONE exception is g_repl_trace below,
+ * and that direction is a WIDENING.
+ *
+ * THE ARMS (0(f) pre-port half -- read from the C body, since the census tool needs a c_* edge and is post-port by
+ * construction).  This body is NOT straight-line, so entries are NOT commits by construction and the arm census is
+ * owed AFTER the port.  Everything the asm declines is tail-jumped to the untouched C:
+ *   BAIL  gate off                                     -> byte-identity path
+ *   BAIL  g_repl_trace != 0   (incl. -1 = first call)  -> the SCRIP_REPL_TRACE fprintf arm
+ *   BAIL  name == NULL || name[0] == 0                 -> C allocates+copies then discards; not worth an arm
+ *   BAIL  sv.v != DT_S                                 -> DT_I/DT_R need descr_to_str; other tags need VARVAL_fn's
+ *                                                         rt_ws_strdup_c arms, which ALLOCATE
+ *   BAIL  sv.s == NULL, or (sv.slen == 0 && *sv.s == 0) -> IS_NULL_fn(sv) is then TRUE and C substitutes the ""
+ *                                                         LITERAL, a pointer that differs from sv.s (the exact trap
+ *                                                         slice 6 hit on rt_match_enter's slen==0 && *s==0 edge)
+ *   BAIL  replp != NULL && rv.v not in {DT_S, DT_SNUL}  -> descr_to_str / strdup arms again
+ *   BAIL  replp != NULL && rv.v == DT_S && rv.s == NULL -> VARVAL_fn would strdup("")
+ *   HOT   subject is a real DT_S string, replacement is DT_S/DT_SNUL/absent, name is a live variable
+ *
+ * ⛔ NO FAST ARM IS KEYED ON slen != 0, AND THAT IS A STANDING RULE, NOT A PREFERENCE (s220, corroborated
+ * independently by s217-ICN in Icon): STRVAL mints DT_S with .slen = 0 and only BSTRVAL populates it, so `slen != 0`
+ * measured 0 of 2,000,001 -- an arm keyed on it assembles, gates green over all 316, and moves NOTHING.  The C's own
+ * `(sv.v == DT_S && sv.slen && s == sv.s) ? sv.slen : strlen(s)` conditional is transliterated FAITHFULLY, including
+ * the strlen, because glibc's SSE strlen beats any hand byte-loop (also s220).
+ *
+ * WHAT THE ASM ACTUALLY SAVES, AND IT IS NOT A CLEVERNESS -- IT IS THREE libc CALLS THAT COPY OR MEASURE NOTHING:
+ *   (1) memcpy(buf, s, start)                with start == 0  -- the head is empty whenever the match begins at the
+ *                                            cursor origin, which is EVERY iteration of the benchmark's INNER loop
+ *   (2) memcpy(buf + start, rs, rlen)        with rlen  == 0  -- `S PAT = ''` is deletion; the manual's replacement
+ *                                            form permits a null replacement and that is the common idiom
+ *   (3) strlen(rs)                           with rs == ""    -- rlen is 0 BY CONSTRUCTION on the !replp/IS_NULL arm,
+ *                                            so the C measures a string it already knows the length of
+ * Each guard is universally correct (a zero-length copy is a no-op for ALL inputs), not a workload-shaped special
+ * case.  Plus the -O0 frame: the C carries a `uint64_t w[2]` + memcpy-to-DESCR dance and spills every one of its ten
+ * locals.  This asm keeps ONE 64-byte frame and r12 (free since ZR-RSPRBP-1 deleted ZC_FRAME_R12, but callee-saved in
+ * SysV, so it is PUSHED -- "free, not scratch-by-fiat", rtx_abi.inc).
+ *
+ * ⛔ CEILING COMPUTED BEFORE THE ASM WAS WRITTEN, AND NO NUMBER IS CLAIMED FROM IT: ~3 libc round-trips (~20 cycles
+ * each) + ~50 cycles of -O0 spill traffic ~= 110 cycles x 5,000,001 / ~3 GHz ~= 180 ms of a 5704 ms window ~= 3.2%,
+ * i.e. astride the +-3% null floor.  A 3-arm rail (ON/PRISTINE is THE answer; ON/OFF only shows artifact; OFF/PRISTINE
+ * is the kill-switch tax) is the ONLY thing that may put a number on this, min-of-N with ROTATED arm order -- s220
+ * measured the fixed-order rail bimodal and anti-correlated BY POSITION, and single runs swinging 4.7x within one arm.
+ *
+ * BAIL-BEFORE-MUTATE: the only two mutating acts are rt_str_alloc (bumps the heap) and NV_SET_fn (writes the
+ * variable), and BOTH sit after every bail edge, so a delegation can never double-allocate or double-assign.  Nothing
+ * above .Lmr_call writes memory or calls anything.
+ *===================================================================================================================*/
+RTX_FUNC(rt_match_replace)
+    RTX_GATE(match, c_rt_match_replace)
+    cmp     dword ptr [rip + g_repl_trace], 0        /* -1 unresolved (every process's 1st call) or 1 tracing -> C   */
+    jne     c_rt_match_replace
+    test    rdi, rdi                                 /* name == NULL                                                 */
+    jz      c_rt_match_replace
+    cmp     byte ptr [rdi], 0                        /* name[0] == 0: C would build the string and discard it         */
+    je      c_rt_match_replace
+    cmp     esi, DT_S                                /* sv.v: esi aliases the tag word of the descriptor pair         */
+    jne     c_rt_match_replace
+    test    rdx, rdx                                 /* sv.s == NULL -> VARVAL_fn's rt_ws_strdup_c arm                */
+    jz      c_rt_match_replace
+    mov     r11, rsi
+    shr     r11, 32                                  /* r11 = sv.slen. ⛔ NOT rax: the replacement-analysis block below   */
+                                                     /* loads rv.v into eax, and holding sv.slen there made `S PAT = ''` */
+                                                     /* read slen = DT_S = 1, clamp end to 1, compute nlen = 0 and empty */
+                                                     /* the subject -- the INNER loop then failed on its 2nd pass and    */
+                                                     /* printed `result: alpha`. Caught by the smoke, before any gate.   */
+    jnz     .Lmr_subj_ok                             /* slen != 0 -> IS_NULL_fn(sv) is false whatever *s is            */
+    cmp     byte ptr [rdx], 0                        /* slen == 0 && *s == 0 -> IS_NULL_fn true, C uses the "" LITERAL  */
+    je      c_rt_match_replace
+.Lmr_subj_ok:
+    xor     r10d, r10d                               /* r10 = rs, 0 meaning "empty, rlen is 0 with no strlen"          */
+    test    r9, r9
+    jz      .Lmr_repl_done                           /* replp == NULL -> C forces rs = "" via the !replp disjunct       */
+    mov     eax, dword ptr [r9 + 0]                  /* rv.v                                                           */
+    cmp     eax, DT_SNUL
+    je      .Lmr_repl_done                           /* IS_NULL_fn(rv) true                                            */
+    cmp     eax, DT_S
+    jne     c_rt_match_replace                       /* DT_I/DT_R -> descr_to_str; other tags -> strdup arms            */
+    mov     r10, qword ptr [r9 + 8]                  /* rv.s                                                           */
+    test    r10, r10
+    jz      c_rt_match_replace                       /* DT_S with NULL s -> VARVAL_fn strdups ""                        */
+    cmp     dword ptr [r9 + 4], 0                    /* rv.slen                                                        */
+    jnz     .Lmr_repl_done                           /* slen != 0 -> not IS_NULL_fn, rs = rv.s                          */
+    cmp     byte ptr [r10], 0
+    jne     .Lmr_repl_done
+    xor     r10d, r10d                               /* slen == 0 && *rs == 0 -> IS_NULL_fn true -> rs = "", rlen 0      */
+.Lmr_repl_done:
+.Lmr_call:                                           /* ---- FIRST CALL BELOW; NOTHING ABOVE MUTATES OR CALLS ----      */
+    push    r12                                      /* r12 is FREE since ZR-RSPRBP-1 but still SysV callee-saved        */
+    sub     rsp, 80                                  /* entry rsp==8 (mod 16); push->0; sub 80->0 ⇒ aligned at every call*/
+    mov     qword ptr [rsp + 0], rdi                 /* name                                                            */
+    mov     qword ptr [rsp + 8], rdx                 /* s = sv.s (VARVAL_fn's DT_S arm inlined: `return v.s`)            */
+    mov     qword ptr [rsp + 16], rcx                /* start -- FULL rcx, NOT movsx ecx: the C parameter is int64_t and */
+    mov     qword ptr [rsp + 24], r8                 /* end       a sign-extend would corrupt any value >= 2^31          */
+    mov     qword ptr [rsp + 32], r10                /* rs (0 = empty, meaning rlen is 0 with no strlen owed)            */
+    mov     r12, r11                                 /* r12 = sv.slen, carried in r11 precisely because eax is not safe  */
+    mov     rdi, rdx
+    call    strlen@PLT                               /* C: strlen(s) unless (slen && s == sv.s); s IS sv.s on this arm   */
+    test    r12, r12
+    cmovnz  rax, r12                                 /* so the C's 3-way guard reduces to slen != 0 -- transliterated    */
+    mov     qword ptr [rsp + 40], rax                /* slen                                                            */
+    xor     eax, eax
+    mov     rdi, qword ptr [rsp + 32]
+    test    rdi, rdi
+    jz      .Lmr_rlen_zero                           /* SAVING (3): rs == "" ⇒ rlen 0 by construction, strlen call gone  */
+    call    strlen@PLT
+.Lmr_rlen_zero:
+    mov     qword ptr [rsp + 48], rax                /* rlen                                                            */
+    mov     rcx, qword ptr [rsp + 16]                /* --- the four C clamps, in the C's own order, signed throughout --*/
+    mov     r8,  qword ptr [rsp + 24]
+    mov     rsi, qword ptr [rsp + 40]
+    xor     r11d, r11d
+    test    rcx, rcx
+    cmovs   rcx, r11                                 /* if (start < 0) start = 0                                        */
+    cmp     rcx, rsi
+    cmovg   rcx, rsi                                 /* if (start > slen) start = slen                                  */
+    cmp     r8, rcx
+    cmovl   r8, rcx                                  /* if (end < start) end = start                                    */
+    cmp     r8, rsi
+    cmovg   r8, rsi                                  /* if (end > slen) end = slen                                      */
+    mov     qword ptr [rsp + 16], rcx
+    mov     qword ptr [rsp + 24], r8
+    mov     rax, rsi
+    sub     rax, r8                                  /* tail = slen - end                                               */
+    mov     qword ptr [rsp + 56], rax
+    add     rax, rcx
+    add     rax, qword ptr [rsp + 48]
+    mov     r12, rax                                 /* r12 = nlen = start + rlen + (slen - end); survives every call    */
+    mov     rdi, rax
+    call    rt_str_alloc                             /* allocates nlen + 1 -- the C stores buf[nlen] = 0 below           */
+    mov     qword ptr [rsp + 64], rax                /* buf                                                             */
+    test    rax, rax
+    jz      .Lmr_nobuf                               /* C skips ALL copies and the NUL when the alloc fails              */
+    mov     rdx, qword ptr [rsp + 16]
+    test    rdx, rdx
+    jz      .Lmr_mid                                 /* SAVING (1): start == 0 ⇒ empty head, memcpy call gone            */
+    mov     rdi, rax
+    mov     rsi, qword ptr [rsp + 8]
+    call    memcpy@PLT                               /* memcpy(buf, s, start)                                           */
+.Lmr_mid:
+    mov     rdx, qword ptr [rsp + 48]
+    test    rdx, rdx
+    jz      .Lmr_tail                                /* SAVING (2): rlen == 0 ⇒ deletion, memcpy call gone               */
+    mov     rdi, qword ptr [rsp + 64]
+    add     rdi, qword ptr [rsp + 16]
+    mov     rsi, qword ptr [rsp + 32]
+    call    memcpy@PLT                               /* memcpy(buf + start, rs, rlen)                                   */
+.Lmr_tail:
+    mov     rdx, qword ptr [rsp + 56]
+    test    rdx, rdx
+    jz      .Lmr_nul                                 /* tail == 0 when the match ran to end of subject                   */
+    mov     rdi, qword ptr [rsp + 64]
+    add     rdi, qword ptr [rsp + 16]
+    add     rdi, qword ptr [rsp + 48]
+    mov     rsi, qword ptr [rsp + 8]
+    add     rsi, qword ptr [rsp + 24]
+    call    memcpy@PLT                               /* memcpy(buf + start + rlen, s + end, slen - end)                  */
+.Lmr_nul:
+    mov     rax, qword ptr [rsp + 64]
+    mov     byte ptr [rax + r12], 0                  /* buf[nlen] = '\0'                                                */
+    mov     rdx, rax                                 /* d.s = buf                                                       */
+    jmp     .Lmr_setnv
+.Lmr_nobuf:
+    lea     rdx, [rip + .Lrtx_dfx_nul]               /* d.s = "" -- the C's literal on the alloc-failure path             */
+.Lmr_setnv:
+    mov     rsi, r12
+    shl     rsi, 32                                  /* d.slen = (uint32_t)nlen at +4; the shl IS that truncation        */
+    or      rsi, DT_S                                /* d.v at +0 -- one aligned qword, the descriptor's low half        */
+    mov     rdi, qword ptr [rsp + 0]
+    call    NV_SET_fn                                /* rt_match_replace is void; NV_SET_fn's DESCR_t return is dropped  */
+    add     rsp, 80
+    pop     r12
+    ret
+RTX_ENDF(rt_match_replace)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits

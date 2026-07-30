@@ -38,6 +38,9 @@ _Static_assert(sizeof(Σlen) == 4, "rtx_match.S stores Σlen with `dword ptr` (r
  * ELF symbol sizes, which additionally catches a store to a global these asserts do not name. Item closed as CORRECTED,
  * not as done-as-asked. */
 _Static_assert(RT_CAS_TOP == 0x70000000UL, "rtx_match.S's rt_match_enter hardcodes RTX_CAS_TOP_VA 0x70000000 as an absolute disp32 to inline the rt_dcap_lazy_init test; pin_va.h moved the pin -- the asm would test a DEAD page, read 0 forever, and call the initializer on EVERY match instead of once");
+extern __attribute__((visibility("hidden"))) int g_repl_trace;
+_Static_assert(sizeof(g_repl_trace) == 4, "rtx_match.S SLICE 9 tests g_repl_trace with `cmp dword ptr`; if it widens, the compare reads half the flag and the asm would run the hot arm while tracing is on -- silently swallowing every [REPL] line the flag exists to produce");
+_Static_assert(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, slen) == 4 && offsetof(DESCR_t, s) == 8, "rtx_match.S SLICE 9 reads *replp field-by-field as [r9+0]/[r9+4]/[r9+8] and mints its result descriptor as rsi = (nlen << 32) | DT_S with rdx = buf; descr.h drifted -- the replacement's datatype/length would be read from the wrong words and the assignment would link fine and write a malformed descriptor");
 _Static_assert(DT_SNUL == 0,  "rtx_abi.inc hardcodes DT_SNUL 0; descr.h drifted -- the asm tag compares would link fine and silently mis-compare");
 _Static_assert(DT_S    == 1,  "rtx_abi.inc hardcodes DT_S 1; descr.h drifted -- update src/runtime/rtx/rtx_abi.inc to match");
 _Static_assert(DT_P    == 3,  "rtx_abi.inc hardcodes DT_P 3; descr.h drifted -- str_concat_d's pattern guard would stop routing to pat_cat");
