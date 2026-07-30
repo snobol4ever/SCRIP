@@ -28,6 +28,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rsp + 64], 1
+                        mov              dword ptr [rsp + 68], 3
                         mov              rax, qword ptr [rip + .Lx9_0]
                         mov              qword ptr [rsp + 72], rax
                                                                                         jmp   n3_lit_string_α
@@ -48,6 +49,7 @@ n2_goto_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_string_α:
                         mov              qword ptr [rsp + 80], 1
+                        mov              dword ptr [rsp + 84], 3
                         mov              rax, qword ptr [rip + .Lx12_0]
                         mov              qword ptr [rsp + 88], rax
                                                                                         jmp   n6_call_α
@@ -61,6 +63,7 @@ n3_lit_string_α:
 n4_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 9
                         mov              rax, qword ptr [rip + .Lx13_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n7_assign_α
@@ -74,6 +77,7 @@ n4_lit_string_α:
 n5_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 4
                         mov              rax, qword ptr [rip + .Lx14_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n8_assign_α

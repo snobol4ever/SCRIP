@@ -257,6 +257,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n22_lit_string_α:
                         mov              qword ptr [rsp + 208], 1
+                        mov              dword ptr [rsp + 212], 5
                         mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rsp + 216], rax
                                                                                         jmp   n25_call_α
@@ -397,6 +398,7 @@ n27_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n28_lit_string_α:
                         mov              qword ptr [rsp + 272], 1
+                        mov              dword ptr [rsp + 276], 5
                         mov              rax, qword ptr [rip + .Lx43_0]
                         mov              qword ptr [rsp + 280], rax
                                                                                         jmp   n31_call_α

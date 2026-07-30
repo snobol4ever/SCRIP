@@ -45,6 +45,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rsp + 144], 1
+                        mov              dword ptr [rsp + 148], 7
                         mov              rax, qword ptr [rip + .Lx34_0]
                         mov              qword ptr [rsp + 152], rax
                                                                                         jmp   n7_call_α
@@ -108,6 +109,7 @@ n7_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_string_α:
                         mov              qword ptr [rsp + 224], 1
+                        mov              dword ptr [rsp + 228], 1
                         mov              rax, qword ptr [rip + .Lx42_0]
                         mov              qword ptr [rsp + 232], rax
                                                                                         jmp   n13_call_α
@@ -131,6 +133,7 @@ n9_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_string_α:
                         mov              qword ptr [rsp + 384], 1
+                        mov              dword ptr [rsp + 388], 0
                         mov              rax, qword ptr [rip + .Lx44_0]
                         mov              qword ptr [rsp + 392], rax
                                                                                         jmp   n15_call_α
@@ -153,6 +156,7 @@ n11_var_α:
 n12_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 28
                         mov              rax, qword ptr [rip + .Lx46_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n17_assign_α
@@ -287,6 +291,7 @@ n21_call_β:
 n22_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 43
                         mov              rax, qword ptr [rip + .Lx59_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n27_assign_α
@@ -360,6 +365,7 @@ n27_assign_α:
 n28_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 36
                         mov              rax, qword ptr [rip + .Lx66_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n31_assign_α
@@ -418,6 +424,7 @@ n31_assign_α:
 n32_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 39
                         mov              rax, qword ptr [rip + .Lx70_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n33_assign_α

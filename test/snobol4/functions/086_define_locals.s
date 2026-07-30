@@ -86,6 +86,7 @@ n7_var_α:
 n8_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx22_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n10_binop_α
@@ -315,6 +316,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n35_lit_string_α:
                         mov              qword ptr [rsp + 224], 1
+                        mov              dword ptr [rsp + 228], 5
                         mov              rax, qword ptr [rip + .Lx53_0]
                         mov              qword ptr [rsp + 232], rax
                                                                                         jmp   n38_lit_string_α
@@ -335,6 +337,7 @@ n37_goto_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n38_lit_string_α:
                         mov              qword ptr [rsp + 240], 1
+                        mov              dword ptr [rsp + 244], 5
                         mov              rax, qword ptr [rip + .Lx56_0]
                         mov              qword ptr [rsp + 248], rax
                                                                                         jmp   n40_call_α
@@ -552,6 +555,7 @@ n46_var_α:
 n47_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx66_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n49_binop_α

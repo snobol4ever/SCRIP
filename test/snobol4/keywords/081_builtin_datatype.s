@@ -28,6 +28,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rsp + 144], 1
+                        mov              dword ptr [rsp + 148], 5
                         mov              rax, qword ptr [rip + .Lx18_0]
                         mov              qword ptr [rsp + 152], rax
                                                                                         jmp   n1_call_α
