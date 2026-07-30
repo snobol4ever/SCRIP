@@ -34,9 +34,9 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 344
+                        sub              rsp, 328
                         mov              rdi, rsp
-                        mov              ecx, 344
+                        mov              ecx, 328
                         xor              eax, eax
                         rep stosb
 main_α_body:
@@ -84,8 +84,8 @@ n3_assign_β:
 n4_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 256], rax
-                        mov              qword ptr [rsp + 264], rdx
+                        mov              qword ptr [rsp + 240], rax
+                        mov              qword ptr [rsp + 248], rdx
                                                                                         jmp   n6_var_α
 n4_var_β:
                                                                                         jmp   main_γ
@@ -107,8 +107,8 @@ n5_lit_integer_β:
 n6_var_α:
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 240], rax
-                        mov              qword ptr [rsp + 248], rdx
+                        mov              qword ptr [rsp + 224], rax
+                        mov              qword ptr [rsp + 232], rdx
                                                                                         jmp   n8_op74_α
 n6_var_β:
                                                                                         jmp   main_γ
@@ -125,8 +125,8 @@ n7_assign_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_op74_α:
                         sub              rsp, 16
-                        lea              rdi, [rsp + 256]
-                        lea              rsi, [rsp + 240]
+                        lea              rdi, [rsp + 240]
+                        lea              rsi, [rsp + 224]
                         mov              rdx, 10682530
                         call             rt_coerce_int_d@PLT
                         add              rsp, 16
@@ -143,8 +143,8 @@ n9_match_head_α:
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rsp + 136], rax
-                        mov              rdi, qword ptr [rsp + 256]
-                        mov              rsi, qword ptr [rsp + 264]
+                        mov              rdi, qword ptr [rsp + 240]
+                        mov              rsi, qword ptr [rsp + 248]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -263,7 +263,7 @@ n11_match_release_α:
                                                                                         jmp   n15_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_pos_α:
-                        mov              rax, qword ptr [rsp + 264]
+                        mov              rax, qword ptr [rsp + 248]
                         cmp              r14d, eax
                                                                                         jne   n9_match_head_β
                                                                                         jmp   n13_match_assign_save_α
@@ -311,12 +311,10 @@ n15_var_β:
                                                                                         jmp   n18_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n16_match_lit_α:
-                        sub              rsp, 16
                         mov              eax, r14d
                         add              eax, 1
                         cmp              eax, r15d
                                                                                         jle   .Lx45_239
-                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n9_match_head_β
 .Lx45_239:
@@ -325,16 +323,12 @@ n16_match_lit_α:
                         cmp              eax, 97
                                                                                         je    .Lx45_240
                         add              rsp, 16
-                        add              rsp, 16
                                                                                         jmp   n9_match_head_β
 .Lx45_240:
                         add              r14d, 1
-                        add              rsp, 16
                                                                                         jmp   n14_match_assign_cond_α
 n16_match_lit_β:
-                        sub              rsp, 16
                         sub              r14d, 1
-                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n9_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
@@ -426,13 +420,13 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 344
+                        add              rsp, 328
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 344
+                        add              rsp, 328
                         ret
                         .section         .rodata
 .S0:                    .string          "V"

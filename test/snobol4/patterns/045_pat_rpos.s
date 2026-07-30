@@ -32,9 +32,9 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 280
+                        sub              rsp, 264
                         mov              rdi, rsp
-                        mov              ecx, 280
+                        mov              ecx, 264
                         xor              eax, eax
                         rep stosb
 main_α_body:
@@ -89,8 +89,8 @@ n3_var_β:
 n4_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 224], rax
-                        mov              qword ptr [rsp + 232], rdx
+                        mov              qword ptr [rsp + 208], rax
+                        mov              qword ptr [rsp + 216], rdx
                                                                                         jmp   n6_match_head_α
 n4_var_β:
                                                                                         jmp   n7_lit_string_α
@@ -116,8 +116,8 @@ n6_match_head_α:
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rsp + 120], rax
-                        mov              rdi, qword ptr [rsp + 224]
-                        mov              rsi, qword ptr [rsp + 232]
+                        mov              rdi, qword ptr [rsp + 208]
+                        mov              rsi, qword ptr [rsp + 216]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -314,22 +314,17 @@ n14_match_assign_cond_β:
                                                                                         jmp   n15_match_len_β
 #-----------------------------------------------------------------------------------------------------------------------
 n15_match_len_α:
-                        sub              rsp, 16
                         mov              eax, r14d
                         add              eax, 2
                         cmp              eax, r15d
                                                                                         jle   .Lx36_240
                         add              rsp, 16
-                        add              rsp, 16
                                                                                         jmp   n6_match_head_β
 .Lx36_240:
                         add              r14d, 2
-                        add              rsp, 16
                                                                                         jmp   n14_match_assign_cond_α
 n15_match_len_β:
-                        sub              rsp, 16
                         sub              r14d, 2
-                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
@@ -339,13 +334,13 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 280
+                        add              rsp, 264
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 280
+                        add              rsp, 264
                         ret
                         .section         .rodata
 .S0:                    .string          "V"

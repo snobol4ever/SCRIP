@@ -24,6 +24,7 @@ proc_PAT$0_α_body:
                         mov              qword ptr [rbp + 64], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n0_match_alternate_α:
+                        sub              rsp, 32
                         mov              dword ptr [rbp + 16], r14d
                         lea              rax, [rip + .Lx5_21]
                         mov              qword ptr [rbp + 32], rax
@@ -37,14 +38,17 @@ n0_match_alternate_α:
                         mov              qword ptr [rbp + 32], rax
                                                                                         jmp   n3_match_lit_α
 n0_match_alternate_s0:
+                        sub              rsp, 32
                         lea              rax, [rip + .Lx5_40]
                         mov              qword ptr [rbp + 24], rax
                                                                                         jmp   n0_match_alternate_as
 n0_match_alternate_s1:
+                        sub              rsp, 32
                         lea              rax, [rip + .Lx5_41]
                         mov              qword ptr [rbp + 24], rax
                                                                                         jmp   n0_match_alternate_as
 n0_match_alternate_s2:
+                        sub              rsp, 32
                         lea              rax, [rip + .Lx5_42]
                         mov              qword ptr [rbp + 24], rax
                                                                                         jmp   n0_match_alternate_as
@@ -55,15 +59,20 @@ n0_match_alternate_s2:
 .Lx5_42:
                                                                                         jmp   n3_match_lit_β
 n0_match_alternate_as:
+                        sub              rsp, 32
+                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_γ
 n0_match_alternate_β:
+                        sub              rsp, 32
                         mov              rax, qword ptr [rbp + 24]
                                                                                         jmp   rax
 n0_match_alternate_af:
+                        sub              rsp, 32
                         mov              r14d, dword ptr [rbp + 16]
                         mov              rax, qword ptr [rbp + 32]
                                                                                         jmp   rax
 .Lx5_19:
+                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n1_match_lit_α:
@@ -213,12 +222,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 344
+                        sub              rsp, 328
                         mov              rdi, rsp
-                        mov              ecx, 344
+                        mov              ecx, 328
                         xor              eax, eax
                         rep stosb
-                        mov              [rsp + 336], rbp
+                        mov              [rsp + 320], rbp
                         mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
@@ -348,8 +357,8 @@ n22_assign_α:
 n23_var_α:
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rbp + 288], rax
-                        mov              qword ptr [rbp + 296], rdx
+                        mov              qword ptr [rbp + 272], rax
+                        mov              qword ptr [rbp + 280], rdx
                                                                                         jmp   n24_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n24_match_head_α:
@@ -360,8 +369,8 @@ n24_match_head_α:
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rbp + 184], rax
                         mov              qword ptr [rbp + 152], rbp
-                        mov              rdi, qword ptr [rbp + 288]
-                        mov              rsi, qword ptr [rbp + 296]
+                        mov              rdi, qword ptr [rbp + 272]
+                        mov              rsi, qword ptr [rbp + 280]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -410,13 +419,13 @@ n24_match_head_β:
                                                                                         jmp   n17_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n25_match_assign_save_α:
-                        lea              rdi, [rbp + 224]
-                        mov              esi, r14d
-                        call             rt_cap_push@PLT
+                        sub              rsp, 32
+                        mov              dword ptr [rsp + 0], r14d
+                        add              rsp, 32
                                                                                         jmp   n26_match_patref_α
 n25_match_assign_save_β:
-                        lea              rdi, [rbp + 224]
-                        call             rt_cap_pop@PLT
+                        sub              rsp, 32
+                        add              rsp, 32
                                                                                         jmp   n24_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n26_match_patref_α:
@@ -585,16 +594,16 @@ main_γ:
                         mov              eax, 1
                         xor              edx, edx
                         mov              rsp, rbp
-                        mov              rbp, [rsp + 336]
-                        add              rsp, 344
+                        mov              rbp, [rsp + 320]
+                        add              rsp, 328
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
                         mov              eax, 99
                         xor              edx, edx
-                        mov              rbp, [rsp + 336]
-                        add              rsp, 344
+                        mov              rbp, [rsp + 320]
+                        add              rsp, 328
                         ret
                         .section         .rodata
 .S0:                    .string          "P"
