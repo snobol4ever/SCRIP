@@ -337,6 +337,7 @@ n16_match_rpos_β:
                                                                                         jmp   n14_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n17_match_arbno_α:
+                        sub              rsp, 48
                         sub              rsp, 352
                         mov              eax, 0
                         mov              qword ptr [rsp + 0], rax
@@ -387,8 +388,10 @@ n17_match_arbno_α:
                         mov              qword ptr [rsp + 328], rax
                         mov              rax, qword ptr [rsp + 352]
                         mov              qword ptr [rsp + 336], rax
+                        add              rsp, 48
                                                                                         jmp   n14_match_assign_cond_α
 n17_match_arbno_β:
+                        sub              rsp, 48
                         mov              r14d, dword ptr [rsp + 308]
                         mov              rax, qword ptr [rsp + 320]
                         mov              rcx, qword ptr [rsp + 328]
@@ -442,12 +445,15 @@ n17_match_arbno_β:
                         mov              qword ptr [rsp + 336], rax
                                                                                         jmp   n18_match_lit_α
 n17_match_arbno_as:
+                        sub              rsp, 48
                         mov              eax, dword ptr [rsp + 304]
                         cmp              r14d, eax
                                                                                         je    n18_match_lit_β
                         mov              dword ptr [rsp + 308], r14d
+                        add              rsp, 48
                                                                                         jmp   n14_match_assign_cond_α
 n17_match_arbno_af:
+                        sub              rsp, 48
                         mov              eax, dword ptr [rsp + 312]
                         test             eax, eax
                                                                                         jnz   .Lx42_2
@@ -456,21 +462,32 @@ n17_match_arbno_af:
 .Lx42_2:
                         mov              r14d, dword ptr [rsp + 304]
                         add              rsp, 352
+                        add              rsp, 48
                                                                                         jmp   n13_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_match_lit_α:
+                        sub              rsp, 16
                         mov              eax, r14d
                         add              eax, 1
                         cmp              eax, r15d
-                                                                                        jg    n17_match_arbno_af
+                                                                                        jle   .Lx44_239
+                        add              rsp, 16
+                                                                                        jmp   n17_match_arbno_af
+.Lx44_239:
                         movsxd           rcx, r14d
                         movzx            eax, byte ptr [r13+rcx]
                         cmp              eax, 97
-                                                                                        jne   n17_match_arbno_af
+                                                                                        je    .Lx44_240
+                        add              rsp, 16
+                                                                                        jmp   n17_match_arbno_af
+.Lx44_240:
                         add              r14d, 1
+                        add              rsp, 16
                                                                                         jmp   n17_match_arbno_as
 n18_match_lit_β:
+                        sub              rsp, 16
                         sub              r14d, 1
+                        add              rsp, 16
                                                                                         jmp   n17_match_arbno_af
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

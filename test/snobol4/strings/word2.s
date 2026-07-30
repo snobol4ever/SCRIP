@@ -218,17 +218,22 @@ n13_match_assign_cond_β:
                                                                                         jmp   n16_match_rem_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_len_α:
+                        sub              rsp, 16
                         mov              eax, r14d
                         add              eax, 4
                         cmp              eax, r15d
                                                                                         jle   .Lx39_240
                         add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_ω
 .Lx39_240:
                         add              r14d, 4
+                        add              rsp, 16
                                                                                         jmp   n4_match_assign_cond_α
 n14_match_len_β:
+                        sub              rsp, 16
                         sub              r14d, 4
+                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------

@@ -844,10 +844,12 @@ n58_lit_string_α:
                         .string          "FAIL 1115/006: mutate field and read back"
 #-----------------------------------------------------------------------------------------------------------------------
 n59_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx130_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 416], rax
                         mov              qword ptr [rsp + 424], rdx
+                        add              rsp, 16
                                                                                         jmp   n62_keyword_snobol4_α
 .Lx130_0:
                         .quad            .Lx130_0_s
@@ -877,10 +879,12 @@ n61_assign_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n62_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx133_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 432], rax
                         mov              qword ptr [rsp + 440], rdx
+                        add              rsp, 16
                                                                                         jmp   n64_call_α
 .Lx133_0:
                         .quad            .Lx133_0_s

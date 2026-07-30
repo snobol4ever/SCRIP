@@ -189,9 +189,11 @@ n9_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_notany_α:
+                        sub              rsp, 16
                         mov              eax, r14d
                         cmp              eax, r15d
                                                                                         jl    .Lx25_239
+                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_match_head_β
 .Lx25_239:
@@ -201,12 +203,16 @@ n10_match_notany_α:
                         cmp              byte ptr [rdi+rsi], 0
                                                                                         je    .Lx25_240
                         add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n6_match_head_β
 .Lx25_240:
                         add              r14d, 1
+                        add              rsp, 16
                                                                                         jmp   n11_match_assign_cond_α
 n10_match_notany_β:
+                        sub              rsp, 16
                         sub              r14d, 1
+                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------

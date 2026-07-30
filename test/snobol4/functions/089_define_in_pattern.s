@@ -29,10 +29,12 @@ n1_var_α:
                                                                                         jmp   n2_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx9_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 128], rax
                         mov              qword ptr [rsp + 136], rdx
+                        add              rsp, 16
                                                                                         jmp   n4_keyword_snobol4_α
 .Lx9_0:
                         .quad            .Lx9_0_s
@@ -47,10 +49,12 @@ n3_op14_α:
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 n4_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx12_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 144], rax
                         mov              qword ptr [rsp + 152], rdx
+                        add              rsp, 16
                                                                                         jmp   n5_call_α
 .Lx12_0:
                         .quad            .Lx12_0_s
@@ -408,10 +412,12 @@ n28_lit_string_α:
                         .string          "world"
 #-----------------------------------------------------------------------------------------------------------------------
 n29_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx44_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 128], rax
                         mov              qword ptr [rsp + 136], rdx
+                        add              rsp, 16
                                                                                         jmp   n32_keyword_snobol4_α
 .Lx44_0:
                         .quad            .Lx44_0_s
@@ -524,10 +530,12 @@ n31_call_β:
                         .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
 n32_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx49_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 144], rax
                         mov              qword ptr [rsp + 152], rdx
+                        add              rsp, 16
                                                                                         jmp   n34_call_α
 .Lx49_0:
                         .quad            .Lx49_0_s

@@ -27,10 +27,12 @@ main_α_body:
 #         OUTPUT = SIZE(&ALPHABET)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx9_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 64], rax
                         mov              qword ptr [rsp + 72], rdx
+                        add              rsp, 16
                                                                                         jmp   n1_call_α
 .Lx9_0:
                         .quad            .Lx9_0_s
@@ -72,10 +74,12 @@ n2_assign_α:
 #         OUTPUT = SIZE(&UCASE)
 #-----------------------------------------------------------------------------------------------------------------------
 n3_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx13_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 128], rax
                         mov              qword ptr [rsp + 136], rdx
+                        add              rsp, 16
                                                                                         jmp   n4_call_α
 .Lx13_0:
                         .quad            .Lx13_0_s
@@ -117,10 +121,12 @@ n5_assign_α:
 #         OUTPUT = SIZE(&LCASE)
 #-----------------------------------------------------------------------------------------------------------------------
 n6_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx17_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 192], rax
                         mov              qword ptr [rsp + 200], rdx
+                        add              rsp, 16
                                                                                         jmp   n7_call_α
 .Lx17_0:
                         .quad            .Lx17_0_s

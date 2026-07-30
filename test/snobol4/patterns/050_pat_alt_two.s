@@ -206,6 +206,7 @@ n9_assign_β:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_alternate_α:
+                        sub              rsp, 48
                         mov              dword ptr [rsp + 240], r14d
                         lea              rax, [rip + .Lx28_21]
                         mov              qword ptr [rsp + 256], rax
@@ -215,10 +216,12 @@ n10_match_alternate_α:
                         mov              qword ptr [rsp + 256], rax
                                                                                         jmp   n13_match_lit_α
 n10_match_alternate_s0:
+                        sub              rsp, 48
                         lea              rax, [rip + .Lx28_40]
                         mov              qword ptr [rsp + 248], rax
                                                                                         jmp   n10_match_alternate_as
 n10_match_alternate_s1:
+                        sub              rsp, 48
                         lea              rax, [rip + .Lx28_41]
                         mov              qword ptr [rsp + 248], rax
                                                                                         jmp   n10_match_alternate_as
@@ -227,15 +230,20 @@ n10_match_alternate_s1:
 .Lx28_41:
                                                                                         jmp   n13_match_lit_β
 n10_match_alternate_as:
+                        sub              rsp, 48
+                        add              rsp, 48
                                                                                         jmp   n11_match_assign_cond_α
 n10_match_alternate_β:
+                        sub              rsp, 48
                         mov              rax, qword ptr [rsp + 248]
                                                                                         jmp   rax
 n10_match_alternate_af:
+                        sub              rsp, 48
                         mov              r14d, dword ptr [rsp + 240]
                         mov              rax, qword ptr [rsp + 256]
                                                                                         jmp   rax
 .Lx28_19:
+                        add              rsp, 48
                                                                                         jmp   n8_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_assign_cond_α:

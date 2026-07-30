@@ -33,12 +33,16 @@ n0_var_β:
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n1_op73_α:
+                        sub              rsp, 16
                         lea              rdi, [rbp + 80]
                         lea              rsi, [rbp + 64]
                         mov              rdx, 12320956
                         call             rt_coerce_str_d@PLT
+                        add              rsp, 16
                                                                                         jmp   n2_var_α
 n1_op73_β:
+                        sub              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
@@ -51,12 +55,16 @@ n2_var_β:
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n3_op73_α:
+                        sub              rsp, 16
                         lea              rdi, [rbp + 48]
                         lea              rsi, [rbp + 32]
                         mov              rdx, 4522053
                         call             rt_coerce_str_d@PLT
+                        add              rsp, 16
                                                                                         jmp   n4_match_sequence_α
 n3_op73_β:
+                        sub              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:
@@ -431,11 +439,13 @@ n29_match_head_β:
                                                                                         jmp   n24_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_unop_α:
-                        mov              rdi, qword ptr [rsp + 0]
-                        mov              rsi, qword ptr [rsp + 8]
+                        sub              rsp, 16
+                        mov              rdi, qword ptr [rsp + 16]
+                        mov              rsi, qword ptr [rsp + 24]
                         call             rt_num_pos@PLT
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 16], rax
+                        mov              qword ptr [rsp + 24], rdx
+                        add              rsp, 16
                                                                                         jmp   n33_lit_string_α
 #=======================================================================================================================
 #       NUMERALS =  '0123456789'
@@ -716,10 +726,12 @@ n44_var_α:
                                                                                         jmp   n47_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n45_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx89_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 208], rax
                         mov              qword ptr [rbp + 216], rdx
+                        add              rsp, 16
                                                                                         jmp   n48_binop_α
 .Lx89_0:
                         .quad            .Lx89_0_s
@@ -792,10 +804,12 @@ n50_binop_α:
                                                                                         jmp   n53_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n51_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx95_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rbp + 224], rax
                         mov              qword ptr [rbp + 232], rdx
+                        add              rsp, 16
                                                                                         jmp   n54_binop_α
 .Lx95_0:
                         .quad            .Lx95_0_s

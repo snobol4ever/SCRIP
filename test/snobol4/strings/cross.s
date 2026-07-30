@@ -338,12 +338,16 @@ n15_var_β:
                         .string          "INPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n16_op73_α:
+                        sub              rsp, 16
                         lea              rdi, [rbp + 400]
                         lea              rsi, [rbp + 384]
                         mov              rdx, 3866683
                         call             rt_coerce_str_d@PLT
+                        add              rsp, 16
                                                                                         jmp   n20_match_head_α
 n16_op73_β:
+                        sub              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n6_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n17_match_sequence_α:
@@ -574,17 +578,22 @@ n23_match_patref_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n24_match_len_α:
+                        sub              rsp, 16
                         mov              eax, r14d
                         add              eax, 1
                         cmp              eax, r15d
                                                                                         jle   .Lx101_240
                         add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n14_match_head_β
 .Lx101_240:
                         add              r14d, 1
+                        add              rsp, 16
                                                                                         jmp   n28_match_assign_cond_α
 n24_match_len_β:
+                        sub              rsp, 16
                         sub              r14d, 1
+                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n14_match_head_β
 #=======================================================================================================================
@@ -844,9 +853,11 @@ n36_lit_string_β:
                         .string          "*"
 #-----------------------------------------------------------------------------------------------------------------------
 n37_match_any_α:
+                        sub              rsp, 16
                         mov              eax, r14d
                         cmp              eax, r15d
                                                                                         jl    .Lx122_239
+                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n31_match_atp_β
 .Lx122_239:
@@ -859,6 +870,7 @@ n37_match_any_α:
                         cmp              edx, r9d
                                                                                         jl    .Lx122_240
                         add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n31_match_atp_β
 .Lx122_240:
                         movzx            edi, byte ptr [r8 + rdx]
@@ -868,9 +880,12 @@ n37_match_any_α:
                                                                                         jmp   .Lx122_5
 .Lx122_6:
                         add              r14d, 1
+                        add              rsp, 16
                                                                                         jmp   n33_match_assign_cond_α
 n37_match_any_β:
+                        sub              rsp, 16
                         sub              r14d, 1
+                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n31_match_atp_β
 #=======================================================================================================================
@@ -1095,12 +1110,16 @@ n53_assign_β:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n54_op74_α:
+                        sub              rsp, 16
                         lea              rdi, [rbp + 832]
                         lea              rsi, [rbp + 816]
                         mov              rdx, 10682530
                         call             rt_coerce_int_d@PLT
+                        add              rsp, 16
                                                                                         jmp   n56_match_head_α
 n54_op74_β:
+                        sub              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n9_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n55_lit_string_α:

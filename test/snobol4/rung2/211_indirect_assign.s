@@ -188,13 +188,18 @@ n12_lit_string_α:
                         .string          "x"
 #-----------------------------------------------------------------------------------------------------------------------
 n13_deref_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 288]
                         mov              rsi, qword ptr [rsp + 296]
                         call             rt_deref@PLT
                         cmp              eax, 99
-                                                                                        je    n6_lit_string_α
+                                                                                        jne   .Lx35_240
+                        add              rsp, 16
+                                                                                        jmp   n6_lit_string_α
+.Lx35_240:
                         mov              qword ptr [rsp + 272], rax
                         mov              qword ptr [rsp + 280], rdx
+                        add              rsp, 16
                                                                                         jmp   n15_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_call_α:

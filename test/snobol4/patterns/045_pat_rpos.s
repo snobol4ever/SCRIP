@@ -314,17 +314,22 @@ n14_match_assign_cond_β:
                                                                                         jmp   n15_match_len_β
 #-----------------------------------------------------------------------------------------------------------------------
 n15_match_len_α:
+                        sub              rsp, 16
                         mov              eax, r14d
                         add              eax, 2
                         cmp              eax, r15d
                                                                                         jle   .Lx36_240
                         add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n6_match_head_β
 .Lx36_240:
                         add              r14d, 2
+                        add              rsp, 16
                                                                                         jmp   n14_match_assign_cond_α
 n15_match_len_β:
+                        sub              rsp, 16
                         sub              r14d, 2
+                        add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
