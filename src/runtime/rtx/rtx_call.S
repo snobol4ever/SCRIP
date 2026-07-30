@@ -501,3 +501,76 @@ RTX_FUNC(rt_flat_ret_snap)
 .Lsnap_c:
     jmp     c_rt_flat_ret_snap                      /* every failure edge is C's, unchanged */
 RTX_ENDF(rt_flat_ret_snap)
+
+/*=======================================================================================================
+ * RTX-4 SLICE 3A — rt_flat_wire_adopt, THE WRITE SIDE OF THE RECORD SLICE 3 ALREADY READS
+ *
+ * WHY THIS ONE, AND WHY IT WAS INVISIBLE UNTIL NOW
+ *   The benchmark artifacts carry only SIX static call sites for this symbol, which ranks it 16th of the
+ *   46 symbols the SNOBOL4 benchmarks call -- below rt_call_arr (99 sites), NV_SET_fn (43) and every
+ *   rt_proc_set_* (16 each).  Measured with the s217 interposer across all 21 benchmarks it takes
+ *   23,743,053 ENTRIES, fourth-highest in the whole still-C set, and on func_call/func_call_overhead it
+ *   is EXACTLY 10,000,000 == the loop count, i.e. 1:1 with SNOBOL4 procedure calls at two scales.
+ *   Static site rank is a property of the EMITTER'S REACH; this is the s188/s225 lesson arriving a third
+ *   time, and the only instrument that sees it is step 0(d).
+ *
+ * IT IS THE EXACT COUNTERPART OF rt_flat_ret_snap ABOVE
+ *   snap PEEKS the top activation's wire quad on the RETURN floater; adopt WRITES that same quad on the
+ *   stub blob's WIRE-ADOPT box right after the jmp-entry prologue.  Same two globals, same struct, same
+ *   stride, same family gate.  Every 0(c) fact this port needs was therefore already proven by its
+ *   sibling and RE-VERIFIED on the OBJECT FILE this session (never the .so -- ARCH section 7 step 0(c)):
+ *   g_pcall_top and g_pcall_wires are GLOBAL HIDDEN, absent from the .so dynamic table, so [rip+sym] is
+ *   direct and @GOTPCREL is NOT owed.
+ *
+ * WHAT THE -O0 C SPENDS (objdump at HEAD, measured not estimated)
+ *   A full rbp frame for a leaf that touches no stack, all FOUR pointer arguments spilled to [rbp-N] and
+ *   reloaded, g_pcall_top loaded TWICE, g_pcall_wires loaded TWICE, and the w pointer spilled and
+ *   reloaded across the five stores.  The port loads each global ONCE, keeps all four arguments in their
+ *   incoming SysV registers, builds no frame, and stores five fields straight through r8.
+ *
+ * THE GUARD IS A SILENT NO-OP AND THAT IS LOAD-BEARING, NOT AN OVERSIGHT
+ *   rt.c's own comment records why: a blob entered with no open activation (LBL__/CODE chain-enter) has
+ *   nothing to adopt into, and its RETURN legitimately belongs to the ENCLOSING open call, whose adopt
+ *   already filled the top record.  So the C RETURNS on the guard rather than erroring, and this port
+ *   returns on the same two conditions in the same order.  There is no error path here to get wrong --
+ *   unlike snap above, which tail-jumps to C on all four of its failure edges.
+ *
+ * REGISTER SAFETY
+ *   Uses rax and r8 only, both inside the ARCH section 2 working set; rdi/rsi/rdx/rcx are read in place
+ *   and never written.  No pin is touched, so nothing needs saving.  Return value is void, so rax is
+ *   free scratch by the SysV contract.
+ *
+ * OFFSETS -- anchored by the _Static_assert at rt.c:1026 (sizeof 40, gw 0, ww 8, rsp 16, rbp 24, r12 32),
+ *   so a struct move breaks the BUILD rather than the runtime.  40 is not a power of two: index*40 is
+ *   done as lea(index*5) + shl 3, identical to snap's arithmetic above.
+ *=======================================================================================================*/
+
+#define FW_RSP     16
+#define FW_RBP     24
+#define FW_R12     32
+
+/* void rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp)
+ * C of record (rt.c:1051):
+ *   if (g_pcall_top <= 0 || !g_pcall_wires) return;
+ *   w = &g_pcall_wires[g_pcall_top - 1]; w->gw=gw; w->ww=ww; w->rsp=rsp; w->rbp=rbp; w->r12=0; */
+RTX_FUNC(rt_flat_wire_adopt)
+    RTX_GATE(call, c_rt_flat_wire_adopt)
+    mov     eax, dword ptr [rip + g_pcall_top]      /* the ONE load of top */
+    test    eax, eax
+    jle     .Ladopt_done                            /* no open activation: silent no-op, exactly as C */
+    mov     r8, qword ptr [rip + g_pcall_wires]     /* the ONE load of the wire array */
+    test    r8, r8
+    jz      .Ladopt_done                            /* no wire array: silent no-op, same order as C */
+    dec     eax                                     /* top - 1 */
+    movsxd  rax, eax
+    lea     rax, [rax + rax*4]                      /* index * 5 */
+    shl     rax, 3                                  /* * 8  => * 40 == sizeof(rt_flat_wires_t) */
+    add     r8, rax                                 /* r8 = w = &g_pcall_wires[top-1] */
+    mov     qword ptr [r8 + FW_GW],  rdi            /* w->gw  = gw   (arg1, still in place) */
+    mov     qword ptr [r8 + FW_WW],  rsi            /* w->ww  = ww   (arg2) */
+    mov     qword ptr [r8 + FW_RSP], rdx            /* w->rsp = rsp  (arg3) */
+    mov     qword ptr [r8 + FW_RBP], rcx            /* w->rbp = rbp  (arg4) */
+    mov     qword ptr [r8 + FW_R12], 0              /* w->r12 = 0    (the _isle variant is a SEPARATE symbol and is untouched) */
+.Ladopt_done:
+    ret
+RTX_ENDF(rt_flat_wire_adopt)
