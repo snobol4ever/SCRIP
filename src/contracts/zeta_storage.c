@@ -296,8 +296,8 @@ static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BRE
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
-        if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_FENCE1 || c->op == IR_MOVE_LABEL) continue;   /* ARBNO deliberately NOT here: operands[2] geometry bracket is a REAL slot read (s133 crosscheck caught it — 075/164/167/W04 arbno family) */
-        for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; for (int i = 0; i < g->n; i++) if (g->all[i] == p) { live[i] = 1; break; } } }
+        if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_FENCE1 || c->op == IR_MOVE_LABEL) continue;   /* ARBNO deliberately NOT here: operands[2] geometry bracket is a REAL slot read (s133 crosscheck caught it — 075/164/167/W04 arbno family).  COND/IMM operands[0] excluded PER-INDEX below (s21x-p, the roman LEN ghost-cell finding): lower_snobol4.c ~1327/~1355 pushes "[0] inner entry" -- the backtrack-in WIRING edge -- and "[1] SAVE" -- the ZB-FC-3c cross-box slot read.  [0] is control, [1] is value; a blanket kind exclusion would kill the SAVE liveness the s4 audit protects, so the skip is (kind, j==0), not (kind). */
+        for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue; for (int i = 0; i < g->n; i++) if (g->all[i] == p) { live[i] = 1; break; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
