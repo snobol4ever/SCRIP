@@ -4700,6 +4700,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) {
     DESCR_t out = FAILDESCR;
+    if (fn && resume && fn[1] == 'b' && !strcmp(fn, "$between") && nargs >= 3) return rt_pl_between_gen(args, nargs, resume);
     if (fn && resume && !strcmp(fn, "$dyn_iter") && nargs >= 1) {
         extern DESCR_t rt_pl_dyn_iter_gen(DESCR_t *, int, int64_t *);
         { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
