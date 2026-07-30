@@ -1816,6 +1816,15 @@ inline std::string x86_zls2_release_to_reg(const char * reg, long disp) {
          + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls2_release_to)
          + x86_align_leave();
 }
+/* GLUE-3 (Lon s21x-o): the two glue codes, forward-declared so x86_port_hook can route the per-BB allocation through them.  Defined in src/templates/bb_glue_flat.cpp and bb_glue_framed.cpp -- templates, not
+ * encoders, because the four-mode variance they carry wants R6's IF() combinator inside one concatenation.  The FRAMED pair is declared beside the FLAT pair deliberately even though only FLAT is wired at this
+ * rung: the framed glue is the RBP half of "finish the RSP/RBP once and for all", its customers are closed by the s21x-c design of record (STATEMENT/FUNCTION/ARBNO/FENCE1 -- the four constructs whose extent is
+ * not knowable at emit time), and wiring it is a LAYOUT CONTRACT change (it establishes rbp, so the graph's prologue must save/seed rbp in the same breath -- the s21x-m measured SEGV), not a spelling switch. */
+std::string bb_glue_flat_enter();
+std::string bb_glue_flat_leave();
+std::string bb_glue_framed_enter();
+std::string bb_glue_framed_leave();
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_port_hook(int site, int port) {
     std::string s;
     if (site == X86H_JMP) s += x86_port_canary();
@@ -1885,12 +1894,21 @@ inline std::string x86_port_hook(int site, int port) {
      * gamma SUSPENDS the cell (S10c law: live through all gamma/beta cycling); beta emits NOTHING (pure LIFO
      * put rsp back at the frontier -- the s7 alpha/omega-only ruling, re-derived for cells).  16-multiple K
      * preserves ambient call alignment (S10a item 6), same argument as the CSTACK k16 above. */
+    /* GLUE-3 WIRED (Lon s21x-o "The actual allocation is always tied through x86_alpha() and x86_beta()" + "Do not put RSP references directly into the templates").  The four lines that used to spell
+     * x86_sub/x86_add("rsp", K) inline HERE now route to the two glue templates promoted at s21x-n, which had been declared, built and left with zero callers.  Three things change and one deliberately does not:
+     * (a) the allocation is expressed ONCE, in a template, where R6's IF() combinator can carry the four-mode variance -- x86_asm.h goes back to owning ENCODINGS only, which is the taxonomy the project already
+     * states; (b) ZC_STORAGE becomes LOAD-BEARING AT THE ALLOCATION SITE -- until now the hook allocated identically under all four modes, so FRAME_R12/FRAME_RSP would have carved a per-BB cell on top of a
+     * whole-graph frame they had already carved (the roman anti-pattern from the other direction) and CELL_HEAP would have silently taken the rsp arm instead of its rbx frontier; the glue answers each mode
+     * explicitly and BOMBS on the unimplemented one rather than emitting plausible-but-wrong code, which is the x86_fc_hit silent-fallback lesson; (c) the carve is now reached through x86_alpha/x86_beta exactly
+     * as Lon specifies.  WHAT DOES NOT CHANGE: under the compiled default (CELL_STACK) bb_glue_flat_enter emits precisely `sub rsp, op_fc_bytes` and _leave precisely `add rsp, op_fc_bytes`, so this rung is
+     * BYTE-IDENTICAL BY CONSTRUCTION -- the seam moves, no bytes move, which is what makes it separable from the ZTOS measurement above.  The carve-only/windowed asymmetry (zwco) stays HERE and is not pushed
+     * into the glue: it is a property of THIS NODE's grant, not of the allocation mechanism, and the glue's own header comment is explicit that the leave side is not the mirror of the enter side. */
     if (x86_fc_on()) {
         int zwco = _.op_fc_base < 0;   /* ZW-1 CARVE-ONLY class (Lon s21x-m "across the board, then crawl"): bytes granted, NO window (base -1) -- the cell is UNREFERENCED, so gamma suspension (S10c) buys nothing and costs depth: every flat [rsp+off] read below a suspended carve-only cell is displaced (the armed-run 023_arith_add witness).  The carve-only discipline is the full BRACKET: both entries allocate (alpha AND beta), both exits free (gamma AND omega) -- rsp-neutral at every box boundary, which is what makes across-the-board arming survivable while window migration crawls per family.  WINDOWED cells (base >= 0) keep S10c suspension verbatim: their gamma-live state is the whole point. */
-        if (site == X86H_DEF && port == X86P_ALPHA) s += x86_sub("rsp", _.op_fc_bytes);
-        if (zwco && site == X86H_DEF && port == X86P_BETA) s += x86_sub("rsp", _.op_fc_bytes);
-        if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += x86_add("rsp", _.op_fc_bytes);
-        if (site == X86H_JMP && port == X86P_OMEGA) s += x86_add("rsp", _.op_fc_bytes);
+        if (site == X86H_DEF && port == X86P_ALPHA) s += bb_glue_flat_enter();
+        if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
+        if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
+        if (site == X86H_JMP && port == X86P_OMEGA) s += bb_glue_flat_leave();
     }
     /* BP-9 (ii) ΣK ζ-POP FOLD (the rung's accumulate mechanism): op_wpop = the summed fc-cell pops of every
      * whitelisted trivial-β trampoline the driver's ω-wire chase inlined past (flat_trivial_beta, emit.cpp)

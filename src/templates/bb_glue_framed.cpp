@@ -17,7 +17,10 @@ extern "C" {
  * preserves the ambient call-site alignment the bare-call idiom depends on -- the same argument as the CSTACK k16 rounding. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_framed_enter() {
-    x86_begin();
+    /* GLUE-3 (Lon s21x-o): NO x86_begin() here BY DESIGN.  x86_begin mints a fresh x86_uid from g_flat_node_id in TEXT medium, and that uid names the box's RO constant labels (.Lx<uid>_0).  The glue is not a
+     * top-level box template -- it is a FRAGMENT emitted inside another box's alpha/beta/gamma/omega port, so it must inherit that box's uid rather than mint one.  Calling x86_begin advanced the counter once
+     * per port and renumbered every downstream label, which is exactly what the byte-identity A/B caught: instructions identical, .Lx5_0 became .Lx8_0.  A pure label rename is harmless to execution and would
+     * have been invisible in a run-only test -- and would then have churned every committed .s artifact for no reason, which is precisely the kind of unexplained diff the artifact discipline exists to prevent. */
     if (!PLATFORM_X86) return std::string();
     return x86("push", "rbp")
          + x86("mov", "rbp", "rsp")
@@ -29,7 +32,6 @@ std::string bb_glue_framed_enter() {
  * This is also why the four constructs are the ONLY ones that get it: paying for a frame pointer buys nothing for a box whose depth was statically known, and costs a GPR for the whole activation. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_framed_leave() {
-    x86_begin();
     if (!PLATFORM_X86) return std::string();
     return x86("mov", "rsp", "rbp")
          + x86("pop", "rbp");
