@@ -178,10 +178,12 @@ n8_var_α:
                                                                                         jmp   n10_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n9_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx27_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 320], rax
                         mov              qword ptr [rsp + 328], rdx
+                        add              rsp, 16
                                                                                         jmp   n11_keyword_snobol4_α
 .Lx27_0:
                         .quad            .Lx27_0_s
@@ -210,10 +212,12 @@ n10_call_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n11_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx30_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 336], rax
                         mov              qword ptr [rsp + 344], rdx
+                        add              rsp, 16
                                                                                         jmp   n13_call_α
 .Lx30_0:
                         .quad            .Lx30_0_s

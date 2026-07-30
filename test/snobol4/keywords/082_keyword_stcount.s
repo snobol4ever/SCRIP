@@ -316,10 +316,12 @@ n21_call_β:
                                                                                         jmp   n22_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
 n22_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx55_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 96], rax
                         mov              qword ptr [rsp + 104], rdx
+                        add              rsp, 16
                                                                                         jmp   n23_lit_integer_α
 .Lx55_0:
                         .quad            .Lx55_0_s

@@ -27,10 +27,12 @@ main_α_body:
 #         OUTPUT = &UCASE
 #-----------------------------------------------------------------------------------------------------------------------
 n0_keyword_snobol4_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx2_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 16], rax
                         mov              qword ptr [rsp + 24], rdx
+                        add              rsp, 16
                                                                                         jmp   n1_assign_α
 .Lx2_0:
                         .quad            .Lx2_0_s

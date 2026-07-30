@@ -80,6 +80,7 @@ n3_match_assign_cond_β:
                                                                                         jmp   n5_match_arb_β
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_alternate_α:
+                        sub              rsp, 32
                         mov              dword ptr [rbp + 112], r14d
                         lea              rax, [rip + .Lx17_21]
                         mov              qword ptr [rbp + 128], rax
@@ -89,10 +90,12 @@ n4_match_alternate_α:
                         mov              qword ptr [rbp + 128], rax
                                                                                         jmp   n7_match_lit_α
 n4_match_alternate_s0:
+                        sub              rsp, 32
                         lea              rax, [rip + .Lx17_40]
                         mov              qword ptr [rbp + 120], rax
                                                                                         jmp   n4_match_alternate_as
 n4_match_alternate_s1:
+                        sub              rsp, 32
                         lea              rax, [rip + .Lx17_41]
                         mov              qword ptr [rbp + 120], rax
                                                                                         jmp   n4_match_alternate_as
@@ -101,15 +104,20 @@ n4_match_alternate_s1:
 .Lx17_41:
                                                                                         jmp   n7_match_lit_β
 n4_match_alternate_as:
+                        sub              rsp, 32
+                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_γ
 n4_match_alternate_β:
+                        sub              rsp, 32
                         mov              rax, qword ptr [rbp + 120]
                                                                                         jmp   rax
 n4_match_alternate_af:
+                        sub              rsp, 32
                         mov              r14d, dword ptr [rbp + 112]
                         mov              rax, qword ptr [rbp + 128]
                                                                                         jmp   rax
 .Lx17_19:
+                        add              rsp, 32
                                                                                         jmp   n3_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_arb_α:

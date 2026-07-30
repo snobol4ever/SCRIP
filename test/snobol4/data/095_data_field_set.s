@@ -224,14 +224,19 @@ n12_assign_α:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n13_field_var_α:
+                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx36_0]
                         mov              rsi, qword ptr [rsp + 304]
                         mov              rdx, qword ptr [rsp + 312]
                         call             rt_field_var@PLT
                         cmp              eax, 99
-                                                                                        je    n14_var_α
+                                                                                        jne   .Lx36_240
+                        add              rsp, 16
+                                                                                        jmp   n14_var_α
+.Lx36_240:
                         mov              qword ptr [rsp + 320], rax
                         mov              qword ptr [rsp + 328], rdx
+                        add              rsp, 16
                                                                                         jmp   n15_lit_integer_α
 .Lx36_0:
                         .quad            .Lx36_0_s

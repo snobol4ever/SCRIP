@@ -169,13 +169,13 @@ n7_lit_string_α:
                         .string          "fail"
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_assign_save_α:
-                        lea              rdi, [rsp + 192]
-                        mov              esi, r14d
-                        call             rt_cap_push@PLT
+                        sub              rsp, 32
+                        mov              dword ptr [rsp + 0], r14d
+                        add              rsp, 32
                                                                                         jmp   n10_lit_integer_α
 n8_match_assign_save_β:
-                        lea              rdi, [rsp + 192]
-                        call             rt_cap_pop@PLT
+                        sub              rsp, 32
+                        add              rsp, 32
                                                                                         jmp   n6_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_assign_α:
