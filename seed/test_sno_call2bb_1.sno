@@ -1,0 +1,6 @@
+        DEFINE('DOUBLE(X)')             :(D.END)
+DOUBLE  DOUBLE = X + X                  :(RETURN)
+D.END
+        OUTPUT = DOUBLE(2) + DOUBLE(3)
+        OUTPUT = DOUBLE(21)
+END
