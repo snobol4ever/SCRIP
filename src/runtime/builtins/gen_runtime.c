@@ -148,7 +148,8 @@ void c_rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen) {
     g_cap_gen = (uint32_t)capgen;   /* PATCTX-2: re-enter the OUTER match's capture generation — see pattern_match.c's well/current split for why the saved id, never a decrement */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
+__attribute__((visibility("hidden"))) int g_repl_trace = -1;   /* RTX-8 SLICE 9: was a function-local `static int _rpt` inside the body below, which a .S cannot reach at all. static->hidden is a WIDENING (absent from the dynamic table, direct [rip+sym], interposition-proof) — NOT the g_cap_gen default->hidden NARROWING that cost 173/316 mode-4 LINK failures. -1 means unresolved, so the FIRST call of every process delegates to C by design; that is the s223 lazy-resolution shape and a probe must be sized from COMMITS, never entries */
+void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
     extern char * rt_str_alloc(long n);
     uint64_t w[2]; w[0] = sub_lo; w[1] = sub_hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
@@ -159,7 +160,7 @@ void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
     int64_t rlen = (int64_t)strlen(rs);
     if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
-    { static int _rpt = -1; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)start, (long long)end, rs, (long long)rlen); }   /* BP-2c: cached getenv — ran on EVERY replacement (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
+    { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)start, (long long)end, rs, (long long)rlen); }   /* BP-2c: cached getenv — ran on EVERY replacement (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
     int64_t nlen = start + rlen + (slen - end);
     char *buf = rt_str_alloc((long)nlen);
     if (buf) { memcpy(buf, s, (size_t)start); memcpy(buf + start, rs, (size_t)rlen); memcpy(buf + start + rlen, s + end, (size_t)(slen - end)); buf[nlen] = '\0'; }
