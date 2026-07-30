@@ -1597,18 +1597,18 @@ inline std::string x86_cell_cut_keep(const char * base) { return x86_reg_disp32_
 inline std::string x86_chain_prev(const char * dst, const char * src) { return x86_reg_disp32_load64(dst, src, 16); }
 inline std::string x86_chain_tag_load(const char * dst32, const char * cell) { return x86_reg_disp32_load32(dst32, cell, 12); }
 /* STATEMENT-FRAME FAMILY (s21x-c, design of record: RBP/RSP FRAMES + FORTH-STYLE VARIABLE-LENGTH ζ CELLS — the LON DIRECTIVE block atop GOAL-SNOBOL4-BB.md; hand embodiments oracle-green in
- * SCRIP/seed/test_sno_stmt_frame_1.s and _2.s, incl. recursion + FRETURN).  x86_stmt_enter/leave = the STATEMENT bracket: rbp dance forward (16B total, C-call parity preserved), cut backward —
- * fail edges jump the cut, never hand-counted pops.  x86_call_frame_enter = BB IR_CALL: the 32B header {[rbp+0] pad · [rbp+8] caller rbp · [rbp+16] γ wire · [rbp+24] ω wire}, wires as internal
- * labels; the jmp into the body and the IR_SAVE_RESTORE slot carve (x86_alpha_carve, above) stay template business.  x86_return/freturn_floater = IR_SAVE_RESTORE roles 1/2: cut to the frame from
- * ANY statement/BB depth, restore caller rbp, jmp the wire.  Composed ENTIRELY of pre-verified encoders (push/pop/mov/add/sub dispatch arms + the named disp32 family + x86_lea_rip_id +
+ * SCRIP/seed/test_sno_stmt_frame_1.s and _2.s, incl. recursion + FRETURN).  GLUE-4 (s21x-p): x86_stmt_enter/leave -- the STATEMENT bracket -- are DELETED; the bracket lives as bb_glue_framed_enter/
+ * leave at K=0 (bb_glue_framed.cpp), and the emit.cpp head stubs + chain-exit cuts call the glue directly, so the FOUR RBP CONSTRUCTS (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4) parameterize ONE
+ * shape instead of a fourth spelling of the same three instructions.  x86_call_frame_enter = BB IR_CALL: the 32B header {[rbp+0] pad · [rbp+8] caller rbp · [rbp+16] γ wire · [rbp+24] ω wire}, wires
+ * as internal labels; the jmp into the body and the IR_SAVE_RESTORE slot carve (x86_alpha_carve, above) stay template business.  x86_return/freturn_floater = IR_SAVE_RESTORE roles 1/2: cut to the
+ * frame from ANY statement/BB depth, restore caller rbp, jmp the wire.  Composed ENTIRELY of pre-verified encoders (push/pop/mov/add/sub dispatch arms + the named disp32 family + x86_lea_rip_id +
  * x86_jmp_reg): ZERO new byte encodings by design, so the keystone byte-verify obligation is discharged by construction.  x86_call_frame_enter clobbers rcx/rdx; the floaters clobber rcx and
- * FLAGS (add).  Everything here is dead code until the statement-frame classifier wires a consumer — the CELL-0 landing discipline, verbatim. */
-inline std::string x86_stmt_enter()  { return x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", 8L); }
-inline std::string x86_stmt_leave()  { return x86("mov", "rsp", "rbp") + x86("pop", "rbp"); }
+ * FLAGS (add). */
 /* ZW-1 TWO GLUE CODES (Lon s21x-m directive, the s21x-f dynamic-box companion made concrete): the closed pair every four-port graph invocation composes from.  FLAT = pure rsp-cell discipline, zero frame
  * -- enter carves K, leave releases K, everything else is branches to alpha/beta from gamma/omega (the port verbs).  FRAMED = the same PLUS the rbp dance forward/backward: enter saves caller rbp, pins
- * rbp = the box's depth-immune base, and carves K below it with C-call 16-parity preserved (pad = ceil16(K+8)-8, so K=0 reproduces x86_stmt_enter BYTE-EXACT -- the statement bracket IS this glue's K=0
- * instance, and ARBNO/FUNCTION/FENCE1 conversions parameterize the same pair instead of minting new shapes).  Both media by construction: composed entirely of pre-verified encoder dispatch arms. */
+ * rbp = the box's depth-immune base, and carves K below it with C-call 16-parity preserved (pad = ceil16(K+8)-8; K=0 IS the statement bracket -- WIRED s21x-p GLUE-4: the emit.cpp head stubs and
+ * chain-exit cuts call bb_glue_framed_enter/leave directly, x86_stmt_enter/leave deleted -- and ARBNO/FUNCTION/FENCE1 conversions parameterize the same pair instead of minting new shapes).
+ * Both media by construction: composed entirely of pre-verified encoder dispatch arms. */
 inline std::string x86_call_frame_enter(int gamma_ilbl, int omega_ilbl) {
     return x86_lea_rip_id("rcx", gamma_ilbl)
          + x86_lea_rip_id("rdx", omega_ilbl)
