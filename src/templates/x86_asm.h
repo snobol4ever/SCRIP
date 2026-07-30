@@ -272,12 +272,14 @@ enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2 };
 inline std::string x86_port_hook(int site, int port);
 inline int x86_fc_on();
 inline std::string x86_fc_jcc_omega(const char * mnem);
+inline std::string x86_fc_jcc_gamma(const char * mnem);
 inline std::string x86_jcc(const char * mnem, int port) {
     /* ZB-FC-0: under the FORTH cell a conditional omega must ALSO pop the box's own cell, and a bare jcc can
      * carry no pop (add rsp,K clobbers flags and a jcc is a single branch).  The synth inverts the condition
      * over a 2-instruction skip: jcc' L(synth); [hook pops via the one X86H_JMP/OMEGA arm] jmp omega;
      * L(synth):  -- S10b's G3 as a visible per-path pop, zero template edits, ONE pop arm serving every exit. */
     if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop > 0)) return x86_fc_jcc_omega(mnem);   /* BP-9 (ii): a pending ΣK chain-pop needs the same invert+pop+jmp synth a box's own fc cell does */
+    if (port == X86P_GAMMA && x86_fc_on() && _.op_fc_base < 0) return x86_fc_jcc_gamma(mnem);   /* ZW-1: a conditional gamma in the carve-only class must free the bracket too -- same invert+pop+jmp synth, gamma flavor, so the ONE X86H_JMP/GAMMA hook arm serves every success path */
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : (std::string(" ") + mnem + " " + x86_portname(port) + "\n"));
@@ -647,6 +649,13 @@ inline std::string x86_fc_jcc_omega(const char * mnem) {
     int id = _.x86_fc_synth--;
     return x86_jcc_id(x86_jcc_invert(mnem), id)
          + x86_jmp(X86P_OMEGA)
+         + x86_deflabel_id(id);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_fc_jcc_gamma(const char * mnem) {
+    int id = _.x86_fc_synth--;
+    return x86_jcc_id(x86_jcc_invert(mnem), id)
+         + x86_jmp(X86P_GAMMA)
          + x86_deflabel_id(id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1559,6 +1568,14 @@ inline std::string x86_chain_tag_load(const char * dst32, const char * cell) { r
  * FLAGS (add).  Everything here is dead code until the statement-frame classifier wires a consumer — the CELL-0 landing discipline, verbatim. */
 inline std::string x86_stmt_enter()  { return x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", 8L); }
 inline std::string x86_stmt_leave()  { return x86("mov", "rsp", "rbp") + x86("pop", "rbp"); }
+/* ZW-1 TWO GLUE CODES (Lon s21x-m directive, the s21x-f dynamic-box companion made concrete): the closed pair every four-port graph invocation composes from.  FLAT = pure rsp-cell discipline, zero frame
+ * -- enter carves K, leave releases K, everything else is branches to alpha/beta from gamma/omega (the port verbs).  FRAMED = the same PLUS the rbp dance forward/backward: enter saves caller rbp, pins
+ * rbp = the box's depth-immune base, and carves K below it with C-call 16-parity preserved (pad = ceil16(K+8)-8, so K=0 reproduces x86_stmt_enter BYTE-EXACT -- the statement bracket IS this glue's K=0
+ * instance, and ARBNO/FUNCTION/FENCE1 conversions parameterize the same pair instead of minting new shapes).  Both media by construction: composed entirely of pre-verified encoder dispatch arms. */
+inline std::string x86_glue_flat_enter(long K)   { return K > 0 ? x86("sub", "rsp", K) : std::string(); }
+inline std::string x86_glue_flat_leave(long K)   { return K > 0 ? x86("add", "rsp", K) : std::string(); }
+inline std::string x86_glue_framed_enter(long K) { long pad = ((K + 8 + 15) & ~15L) - 8; return x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", pad); }
+inline std::string x86_glue_framed_leave()       { return x86("mov", "rsp", "rbp") + x86("pop", "rbp"); }
 inline std::string x86_call_frame_enter(int gamma_ilbl, int omega_ilbl) {
     return x86_lea_rip_id("rcx", gamma_ilbl)
          + x86_lea_rip_id("rdx", omega_ilbl)
@@ -1836,7 +1853,10 @@ inline std::string x86_port_hook(int site, int port) {
      * put rsp back at the frontier -- the s7 alpha/omega-only ruling, re-derived for cells).  16-multiple K
      * preserves ambient call alignment (S10a item 6), same argument as the CSTACK k16 above. */
     if (x86_fc_on()) {
+        int zwco = _.op_fc_base < 0;   /* ZW-1 CARVE-ONLY class (Lon s21x-m "across the board, then crawl"): bytes granted, NO window (base -1) -- the cell is UNREFERENCED, so gamma suspension (S10c) buys nothing and costs depth: every flat [rsp+off] read below a suspended carve-only cell is displaced (the armed-run 023_arith_add witness).  The carve-only discipline is the full BRACKET: both entries allocate (alpha AND beta), both exits free (gamma AND omega) -- rsp-neutral at every box boundary, which is what makes across-the-board arming survivable while window migration crawls per family.  WINDOWED cells (base >= 0) keep S10c suspension verbatim: their gamma-live state is the whole point. */
         if (site == X86H_DEF && port == X86P_ALPHA) s += x86_sub("rsp", _.op_fc_bytes);
+        if (zwco && site == X86H_DEF && port == X86P_BETA) s += x86_sub("rsp", _.op_fc_bytes);
+        if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += x86_add("rsp", _.op_fc_bytes);
         if (site == X86H_JMP && port == X86P_OMEGA) s += x86_add("rsp", _.op_fc_bytes);
     }
     /* BP-9 (ii) ΣK ζ-POP FOLD (the rung's accumulate mechanism): op_wpop = the summed fc-cell pops of every
