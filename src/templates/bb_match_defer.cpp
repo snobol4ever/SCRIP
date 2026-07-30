@@ -165,7 +165,7 @@ std::string bb_match_defer() {
                       + x86("mov",  "rax", RDQ("rsp", 0))
                       + x86("test", "rax", "rax")
                       + x86("jne",  L(12))
-                      + x86("add",  "rsp", (long)_.op_defer_leaf_susp)
+                      + x86_zrelease((long)_.op_defer_leaf_susp)
                       + x86_omega()
                       + x86("def",  L(12))
                       + x86_jmp_reg("rax"))
