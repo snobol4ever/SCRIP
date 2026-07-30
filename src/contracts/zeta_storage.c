@@ -403,7 +403,7 @@ static void zls_slot_census(IR_graph_t * g) {
 void zls_fct_finalize(IR_graph_t * g, int late);
 void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int); void fc_vbinop_register(const IR_t *); int fc_vcap(int, int, int, int); int is_global(const char *); void fc_vwpop_register(const IR_t *, long);
 static int fc_vvar_ok(const IR_graph_t * g, const IR_t * r) { const char * vn = IR_LIT(r).sval; return vn && vn[0] != '&' && ((is_global(vn) && !graph_has_local(g, vn)) || !strcmp(vn, "write") || !strcmp(vn, "writes")); }   /* ZB-VAL-3/5: MIRRORS the IR_VAR walk routing -- bb_var_global only */
-static int fc_vbinop_ok(long long v) { return v == 0 || v == 1 || v == 2 || v == 11; }   /* ZB-VAL-4/6a: ADD/SUB/MUL (BinopKind 0/1/2) + CONCAT (11) -- the numeral is deliberate: gen.h owns BinopKind but drags the runtime box header into this contracts-layer TU, and binop_slot_kind (emit.cpp) is the single mapping authority both sides quote.  DIV/MOD decline (the lean fc arm has no idiv fault path); relops are ZB-VAL-7's own shape (zero-or-one-result, omega at depth) */
+static int fc_vbinop_ok(long long v) { return v == 0 || v == 1 || v == 2 || v == 3 || v == 4 || v == 11 || v == 18; }   /* ZB-VAL-4/6a widened s21x-e (Lon ACROSS-THE-BOARD): ADD/SUB/MUL/CONCAT + DIV(3)/MOD(4)/POW(18).  The prior DIV/MOD decline ("the lean fc arm has no idiv fault path") is STALE vs the collapsed one-per-op-call arm (bb_binop_arith rtop dispatch): non-fast ops take the generic rt_num_arith call whose DT_FAIL lands x86_omega -- the fault path IS the arm's default, measured on 026/027 (the original regime casualties) this session.  Relops stay out (ZB-VAL-7's own zero-or-one-result shape) */
 static int fc_vunop_ok(const IR_t * nd) { return nd->op == IR_UNOP && nd->n_operands == 1 && ((int)IR_LIT(nd).ival == TT_MNS || (int)IR_LIT(nd).ival == TT_PLS); }   /* ZB-VAL-6b: SNOBOL4's ONLY arithmetic unaries (manual p.181 -- unary * is DEFER, not size; ~ ? @ $ . & are pattern/name operators with their own shapes).  Both route to the bb_unop rt_num_neg/rt_num_pos tail, which is a single infallible call: the operand cell IS the result cell, so the box nets ZERO and emits no rsp instruction */
 static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, const IR_t ** post, int * pn, int cap, int depth) {
     if (!nd || depth > 24 || *pn >= cap) return 0;
@@ -473,7 +473,7 @@ void zls_build(IR_graph_t * g) {
         zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int cur = 0;
-    { static int eon = -1; if (eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); eon = (e && *e == '0') ? 0 : 1; }
+    { static int eon = -1; if (eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); eon = (e && *e == '0') ? 0 : 1; { const char * sf = getenv("SCRIP_STMT_FRAME"); if (sf && *sf == '1') eon = 0; } }   /* s21x-e (Lon: "remove temporarily the ELIDE OPTIMIZATION which eliminates RESULTS that are unreferenced"): the STMT-FRAME regime implies elide OFF -- every result carves unconditionally so the accumulated-offset traversal (each BB's stack position = running sum of prior zeta sizes) is hole-free.  Rides the regime env; the default arm keeps elide, byte-identical. */
       char lv_sbuf[1024]; char * lv = (g->n <= (int)sizeof lv_sbuf) ? lv_sbuf : (char *)malloc((size_t)g->n);
       memset(lv, 0, (size_t)g->n);
       if (eon) zls_mark_value_refs(g, lv);
