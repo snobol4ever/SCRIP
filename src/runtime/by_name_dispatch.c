@@ -145,7 +145,7 @@ static inline __attribute__((always_inline)) DESCR_t *plw_entry(DESCR_t *tmp) {
     if (tmp->v == DT_N && tmp->slen == 2 && tmp->p && ((VCELL_t *)tmp->p)->cellp) return ((VCELL_t *)tmp->p)->cellp;
     return tmp;
 }
-static int plw_unify_vals(DESCR_t va, DESCR_t vb) {
+__attribute__((visibility("hidden"))) int plw_unify_vals(DESCR_t va, DESCR_t vb) {
     DESCR_t ta = va, tb = vb;
     return plw_unify_cells(plw_entry(&ta), plw_entry(&tb));
 }
@@ -1505,7 +1505,7 @@ static int dop_cmp_ge(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ge", a, n
 static int dop_cmp_eq(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("eq", a, n, o); }
 static int dop_cmp_ne(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ne", a, n, o); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_unify(DESCR_t *args, int nargs) {
+DESCR_t c_rt_pl_dop_unify(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs != 2) return FAILDESCR;
     { char *fl = g_plw_unwind_floor; DESCR_t out;
