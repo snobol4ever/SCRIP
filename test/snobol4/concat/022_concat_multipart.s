@@ -29,6 +29,7 @@ main_α_body:
 n0_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx8_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_lit_string_α
@@ -40,6 +41,7 @@ n0_lit_string_α:
 n1_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx9_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n2_binop_α
@@ -62,6 +64,7 @@ n2_binop_α:
 n3_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx11_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n4_binop_α
@@ -84,6 +87,7 @@ n4_binop_α:
 n5_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx13_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n6_binop_α

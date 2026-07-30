@@ -43,6 +43,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         mov              qword ptr [rsp + 64], 1
+                        mov              dword ptr [rsp + 68], 4
                         mov              rax, qword ptr [rip + .Lx31_0]
                         mov              qword ptr [rsp + 72], rax
                                                                                         jmp   n2_lit_integer_α
@@ -131,6 +132,7 @@ n6_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:
                         mov              qword ptr [rsp + 224], 1
+                        mov              dword ptr [rsp + 228], 1
                         mov              rax, qword ptr [rip + .Lx39_0]
                         mov              qword ptr [rsp + 232], rax
                                                                                         jmp   n9_lit_integer_α

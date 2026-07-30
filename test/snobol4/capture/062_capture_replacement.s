@@ -42,6 +42,7 @@ main_α_body:
 n0_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 11
                         mov              rax, qword ptr [rip + .Lx10_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_assign_α
@@ -229,6 +230,7 @@ n7_match_release_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_string_α:
                         mov              qword ptr [rsp + 144], 1
+                        mov              dword ptr [rsp + 148], 5
                         mov              rax, qword ptr [rip + .Lx21_0]
                         mov              qword ptr [rsp + 152], rax
                                                                                         jmp   n9_match_replace_α

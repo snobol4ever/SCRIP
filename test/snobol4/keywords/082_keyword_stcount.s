@@ -160,6 +160,7 @@ n9_assign_α:
 n10_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 7
                         mov              rax, qword ptr [rip + .Lx40_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n13_assign_α
@@ -171,6 +172,7 @@ n10_lit_string_α:
 n11_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx41_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n14_assign_α

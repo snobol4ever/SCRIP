@@ -17,6 +17,7 @@ proc_EXPR$0_α_body:
 n0_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx4_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_lit_string_α
@@ -28,6 +29,7 @@ n0_lit_string_α:
 n1_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx5_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n2_binop_α
@@ -337,6 +339,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n21_lit_string_α:
                         mov              qword ptr [rsp + 64], 1
+                        mov              dword ptr [rsp + 68], 6
                         mov              rax, qword ptr [rip + .Lx54_0]
                         mov              qword ptr [rsp + 72], rax
                                                                                         jmp   n26_call_α
@@ -391,6 +394,7 @@ n26_call_β:
 n27_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx61_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n32_assign_α
@@ -403,6 +407,7 @@ n27_lit_string_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n28_lit_string_α:
                         mov              qword ptr [rsp + 528], 1
+                        mov              dword ptr [rsp + 532], 6
                         mov              rax, qword ptr [rip + .Lx62_0]
                         mov              qword ptr [rsp + 536], rax
                                                                                         jmp   n33_call_α
@@ -416,6 +421,7 @@ n28_lit_string_α:
 n29_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 20
                         mov              rax, qword ptr [rip + .Lx63_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n34_assign_α
@@ -506,6 +512,7 @@ n35_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n36_lit_string_α:
                         mov              qword ptr [rsp + 304], 1
+                        mov              dword ptr [rsp + 308], 6
                         mov              rax, qword ptr [rip + .Lx72_0]
                         mov              qword ptr [rsp + 312], rax
                                                                                         jmp   n40_call_α
@@ -532,6 +539,7 @@ n38_var_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n39_lit_string_α:
                         mov              qword ptr [rsp + 208], 1
+                        mov              dword ptr [rsp + 212], 6
                         mov              rax, qword ptr [rip + .Lx75_0]
                         mov              qword ptr [rsp + 216], rax
                                                                                         jmp   n42_call_α
@@ -628,6 +636,7 @@ n44_var_α:
 n45_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 44
                         mov              rax, qword ptr [rip + .Lx84_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n48_assign_α
@@ -641,6 +650,7 @@ n45_lit_string_α:
 n46_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 31
                         mov              rax, qword ptr [rip + .Lx85_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n49_assign_α
@@ -696,6 +706,7 @@ n49_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n50_lit_string_α:
                         mov              qword ptr [rsp + 448], 1
+                        mov              dword ptr [rsp + 452], 3
                         mov              rax, qword ptr [rip + .Lx90_0]
                         mov              qword ptr [rsp + 456], rax
                                                                                         jmp   n51_call_α
@@ -734,6 +745,7 @@ n51_call_β:
 n52_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 27
                         mov              rax, qword ptr [rip + .Lx93_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n53_assign_α

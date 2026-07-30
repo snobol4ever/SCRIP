@@ -85,6 +85,7 @@ n3_call_β:
 n4_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 29
                         mov              rax, qword ptr [rip + .Lx24_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n7_assign_α
@@ -157,6 +158,7 @@ n11_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_string_α:
                         mov              qword ptr [rsp + 128], 1
+                        mov              dword ptr [rsp + 132], 1
                         mov              rax, qword ptr [rip + .Lx32_0]
                         mov              qword ptr [rsp + 136], rax
                                                                                         jmp   n14_assign_var_α
@@ -201,6 +203,7 @@ n15_deref_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n16_lit_string_α:
                         mov              qword ptr [rsp + 288], 1
+                        mov              dword ptr [rsp + 292], 1
                         mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rsp + 296], rax
                                                                                         jmp   n17_call_α
@@ -239,6 +242,7 @@ n17_call_β:
 n18_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 41
                         mov              rax, qword ptr [rip + .Lx38_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n19_assign_α
