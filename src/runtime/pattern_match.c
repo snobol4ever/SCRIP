@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stddef.h>
 #include "dtp.h"
 #include "core.h"
 #include "ast.h"
@@ -659,8 +660,15 @@ void rt_dcap_lazy_init(void) {
  * have silently corrupted that.  g_rt_dcap_n is re-read every iteration, exactly as the old for-loop did, so
  * pends recorded by a nested match are still swept by the outer pump. */
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
-static rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; static int g_dcf_cap;
-static long rt_dcap_pump(void)
+__attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
+__attribute__((visibility("hidden"))) int g_dcap_trace = -1;
+_Static_assert(sizeof(rt_dcf_t) == 40, "rtx_match.S RTX-8 slice 8 hardcodes stride 40 for rt_dcf_t");
+_Static_assert(offsetof(rt_dcf_t, cur) == 0, "rtx_match.S RTX-8 slice 8 hardcodes cur at +0");
+_Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.S RTX-8 slice 8 hardcodes top at +8");
+_Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.S RTX-8 slice 8 hardcodes subj at +16");
+_Static_assert(offsetof(rt_dcf_t, pending) == 24, "rtx_match.S RTX-8 slice 8 hardcodes pending at +24");
+_Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S RTX-8 slice 8 stores pending as v/slen qword + s qword");
+__attribute__((visibility("hidden"))) long rt_dcap_pump(void)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     extern int rt_g_want_name;
@@ -693,9 +701,9 @@ static long rt_dcap_pump(void)
  * immunity here.  Walk range is FIXED [mark, top): nested matches during a transfer push above top, flush
  * their own range through their own open/close, and restore rbp/mirror to their mark == our top — disjoint by
  * construction (the old g_rt_dcap_n re-read compensated for a SHARED counter; ranges need no compensation). */
-long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
+long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
-    { static int _dct = -1; if (_dct < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); _dct = (_e && _e[0]) ? 1 : 0; } if (_dct) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }   /* BP-2c: cached getenv — this ran per match-with-captures (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
+    { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }   /* BP-2c: cached getenv — this ran per match-with-captures (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class.  RTX-8 slice 8: the cache moved from a function-local static to the hidden file-scope g_dcap_trace so the asm entry can TEST it; -1 (unresolved) is nonzero, so the asm's first call delegates here and resolution still happens exactly once. */
     if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
     if (g_dcf_top >= g_dcf_cap) { fprintf(stderr, "rt_cas: dcf overflow (%d) — raise RT_CAS_DCF_MAX\n", g_dcf_cap); abort(); }
     rt_dcf_t *c = &g_dcf[g_dcf_top++];

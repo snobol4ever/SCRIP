@@ -605,6 +605,101 @@ RTX_ENDF(rt_match_enter)
  * lever on this workload is COLLAPSING the four remaining 8M-per-match calls (rt_match_enter, NV_SET_fn,
  * rt_dcap_end_ok_open, this one) into one, which is slice 6's mechanism -- but that edits bb_match_release and
  * fires .s regen x3, so it is RTX-11 and NOT concurrency-safe. */
+/*=====================================================================================================================
+ * SLICE 8 — rt_dcap_end_ok_open: THE DCAP CTX PUSH.  The push half of slice 7's pop.
+ *
+ * C OF RECORD: src/runtime/pattern_match.c:696, renamed c_rt_dcap_end_ok_open in this same commit.
+ *
+ * BOX CONTRACT (bb_match_release): rdi = MARK, rsi = TOP, rdx = SUBJECT base (r13, by value).  Returns long in rax:
+ * nonzero = a *VAR transfer is pending and the box must drive rt_dcap_step; 0 = the flush completed.
+ *
+ * WHAT THE MANUAL REQUIRES OF THIS ENTRY, AND WHY THE PUMP STAYS IN C (SPITBOL manual Ch.6 p.62-63, read this rung):
+ * conditional assignment (.) "assigns the matching subject substring to a variable ... assignment occurs only if the
+ * pattern match is successful" -- so this function IS the on-success flush, and it must be reached on no other path.
+ * The manual then states the property that dictates the STACK: "Conditional assignment may appear at any level of
+ * pattern nesting, and may include other conditional assignments within its embrace", with ((..).FIRST 'EA' (..).LAST)
+ * . WORD flushing THREE captures from ONE match.  Nesting is BY DESIGN, hence a per-match frame pushed here and popped
+ * by slice 7, with a FIXED [mark,top) walk range so a nested match's entries (pushed above our top) are swept by its
+ * own open/close and never by ours.  p.63's replacement ordering -- conditional assignments performed first, THEN the
+ * replacement field evaluated -- is the box's sequencing, not ours.  ⇒ THIS PORT REIMPLEMENTS THE FRAME PUSH ONLY and
+ * tail-jumps the UNTOUCHED C pump, so ordering, nesting and multi-entry walk semantics are structurally unchanged.
+ *
+ * ARM CENSUS (0(f-pre), read from the C body BEFORE the asm -- the s220 discipline that saved slice 6):
+ *   ARM A  g_dcap_trace != 0   -> C. Unresolved (-1) or SCRIP_DCAP_TRACE on. Also swallows the FIRST call of the
+ *                                process, which is what makes the getenv resolution happen exactly once, in C.
+ *   ARM B  g_dcf == NULL       -> C. The lazy carve. Fires EXACTLY ONCE per process. Delegating it is what keeps
+ *                                rt_cas_carve `static` -- the fourth promotion this port would otherwise have needed.
+ *   ARM C  g_dcf_top >= cap    -> C. Overflow; C aborts loudly. Never on a healthy run.
+ *   ARM D  HOT                 -> push the frame, tail-jump the pump. 1,000,000 of 1,000,001 measured.
+ * THE LAZY-INIT SHAPE, same as slice 5: entries - 1 = commits. Measured 0(d) on pattern_bt_deep at TWO loop counts:
+ * 1,000,001 -> 2,000,001, scaling exactly 2.000x with the +1 constant preserved (8,000,001 at the 8M graded window,
+ * reproducing the s221 census independently).  rt_dcap_step measured 0 -- the *VAR arm never fires on this workload,
+ * so ARM D always returns the pump's 0 here; the nonzero path is real but ungraded, and is NOT reimplemented.
+ *
+ * BAIL-BEFORE-MUTATE IS FREE, AND THAT IS A CLAIM ABOUT INSTRUCTION ORDER, NOT AN INTENTION: all four bail tests
+ * (gate, trace, NULL, overflow) sit ABOVE .Ldeoo_mutate and NOTHING above that label writes memory.  This matters
+ * because a delegation AFTER the g_dcf_top bump would push TWO frames for one match and the outer pop would leave a
+ * stale frame owning a dead [mark,top) -- the s215 hazard that made slice 6 delicate.  This is the s219 PREFERRED
+ * test-and-return shape instead.
+ *
+ * 0(c) WAS AGAIN A HARD BLOCKER THE .so WOULD HAVE CONCEALED (s209 class, third time on this family).  In
+ * out/rt_pic/pattern_match.o: g_dcf `b`, g_dcf_cap `b`, rt_dcap_pump `t` -- all THREE `static`, i.e. NOT REFERENCEABLE
+ * FROM A .S AT ALL, while the .so lists none of them and would have read as "localized, use direct [rip+sym]".
+ * Promoted to visibility("hidden") in the same commit (absent from the dynamic table, direct [rip+sym],
+ * interposition-proof, widening only sibling-TU linkage).  ⭐ THE DIRECTION IS WHAT MAKES THIS SAFE ON THE MODE-4
+ * AXIS, AND IT IS THE OPPOSITE OF THE g_cap_gen DISASTER: that was default->hidden, a NARROWING, which cost 173/316
+ * m4 LINK failures (pattern_match.c:737).  static->hidden is a WIDENING and cannot break a link that resolves today,
+ * because a `static` symbol is unreferenceable from outside its TU by definition.  Verified anyway: 0 template refs,
+ * 0 emitted-.s refs across the benchmark+demo artifacts.
+ *
+ * g_dcap_trace IS A HOIST, NOT A NEW FLAG: the cached-getenv `static int _dct` lived INSIDE the C function, where no
+ * .S can reach it.  Dropping the test instead would have silently killed SCRIP_DCAP_TRACE for every gate-ON run --
+ * a debugging facility disappearing with no diagnostic, the quietest possible regression.  The -1 sentinel is load
+ * bearing: it is nonzero, so ARM A routes the first call to C, which resolves the cache and ALSO performs the ARM B
+ * carve, so both cold arms retire on the same single delegation.
+ *
+ * STRIDE 40 AND THE FIELD OFFSETS ARE _Static_assert-ANCHORED IN THE C (the s204 HB_AGGV precedent): a future field
+ * added to rt_dcf_t breaks the BUILD here rather than silently writing the pump's frame at the wrong offsets.
+ * dword ptr for g_dcf_top and g_dcf_cap -- both `int`; the s219b store-width gate exists for exactly this class.
+ *
+ * pending: stored as NULVCL = {v=DT_SNUL(0), slen=0, s=""}. v+slen are one aligned qword of zero.  .s points at this
+ * file's existing .Lrtx_dfx_nul empty byte, so the POINTER VALUE differs from the C literal's address while the
+ * pointee is an identical empty C string.  Stated plainly rather than hidden: this field is DEFENSIVE INIT ONLY and
+ * has no reachable consumer -- bb_match_release calls rt_dcap_step only when this function returns NONZERO, and the
+ * sole nonzero path (the pump's *VAR arm) writes c->pending itself before returning.  The 316-program byte-identity
+ * gate is what tests that reasoning.
+ *
+ * ⛔ NO SPEED NUMBER IS CLAIMED, AND THE CEILING WAS COMPUTED BEFORE THE ASM WAS WRITTEN.  ~15 instructions of -O0
+ * prologue/epilogue and stack traffic saved, x 8,000,001 calls, is ~2% of a ~1600 ms window -- BELOW the +-3% null
+ * floor this ladder has established three times (RTX-7's 0.58% rdtsc bound, slice 4's <=0.5%, slice 7's 1.5-2%).
+ * This is an ERADICATION slice serving RTX-12.  The 3-arm rail is deliberately NOT run: there is nothing gradeable
+ * to grade, and quoting a number off a sub-floor window is how a correct port gets reverted (the s220 anti-evidence
+ * lesson, where a 130 ms window read 1.7x SLOWER for a port that was in fact 1.135x faster).
+ *===================================================================================================================*/
+RTX_FUNC(rt_dcap_end_ok_open)
+    RTX_GATE(match, c_rt_dcap_end_ok_open)
+    cmp     dword ptr [rip + g_dcap_trace], 0            /* ARM A: unresolved(-1) or trace on -> C, incl. 1st call */
+    jne     c_rt_dcap_end_ok_open
+    mov     rax, qword ptr [rip + g_dcf]                 /* ARM B: lazy carve not done yet -> C (keeps rt_cas_carve static) */
+    test    rax, rax
+    jz      c_rt_dcap_end_ok_open
+    mov     ecx, dword ptr [rip + g_dcf_top]             /* int => dword ptr; zero-extends into rcx for the index    */
+    cmp     ecx, dword ptr [rip + g_dcf_cap]             /* ARM C: overflow -> C, which aborts loudly                */
+    jge     c_rt_dcap_end_ok_open
+.Ldeoo_mutate:                                           /* ---- NOTHING ABOVE THIS LABEL WRITES MEMORY ----          */
+    lea     rcx, [rcx + rcx*4]                           /* rcx = 5*top                                              */
+    shl     rcx, 3                                       /* rcx = 40*top == top * sizeof(rt_dcf_t), _Static_assert'd */
+    add     rax, rcx                                     /* rax = &g_dcf[g_dcf_top]                                  */
+    inc     dword ptr [rip + g_dcf_top]                  /* the push. int => dword ptr                               */
+    mov     qword ptr [rax + 0], rdi                     /* c->cur  = mark                                           */
+    mov     qword ptr [rax + 8], rsi                     /* c->top  = top   (FIXED range; nested matches push above) */
+    mov     qword ptr [rax + 16], rdx                    /* c->subj = subj  BY VALUE -- the nested-xfer immunity      */
+    mov     qword ptr [rax + 24], 0                      /* c->pending.v = DT_SNUL, .slen = 0 -- one aligned qword    */
+    lea     rcx, [rip + .Lrtx_dfx_nul]
+    mov     qword ptr [rax + 32], rcx                    /* c->pending.s = "" (empty C string, see header)            */
+    jmp     rt_dcap_pump                                 /* UNCONDITIONAL TAIL CALL: its ret returns to OUR caller,   */
+RTX_ENDF(rt_dcap_end_ok_open)                            /* rsp unchanged since entry, rax already the return reg    */
+
 RTX_FUNC(rt_dcap_end_ok_close)
     RTX_GATE(match, c_rt_dcap_end_ok_close)
     cmp     dword ptr [rip + g_dcf_top], 0               /* ARM split; precedes every write in this function */
