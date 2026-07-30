@@ -102,11 +102,11 @@ n3_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n4_unop_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 176]
-                        mov              rsi, qword ptr [rsp + 184]
+                        mov              rdi, qword ptr [rsp + 192]
+                        mov              rsi, qword ptr [rsp + 200]
                         call             rt_num_neg@PLT
-                        mov              qword ptr [rsp + 160], rax
-                        mov              qword ptr [rsp + 168], rdx
+                        mov              qword ptr [rsp + 176], rax
+                        mov              qword ptr [rsp + 184], rdx
                         add              rsp, 16
                                                                                         jmp   n5_call_α
 #-----------------------------------------------------------------------------------------------------------------------

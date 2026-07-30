@@ -64,11 +64,11 @@ n3_goto_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n4_unop_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 80]
-                        mov              rsi, qword ptr [rsp + 88]
+                        mov              rdi, qword ptr [rsp + 96]
+                        mov              rsi, qword ptr [rsp + 104]
                         call             rt_num_neg@PLT
-                        mov              qword ptr [rsp + 64], rax
-                        mov              qword ptr [rsp + 72], rdx
+                        mov              qword ptr [rsp + 80], rax
+                        mov              qword ptr [rsp + 88], rdx
                         add              rsp, 16
                                                                                         jmp   n7_lit_integer_α
 #=======================================================================================================================
@@ -109,11 +109,11 @@ n7_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_unop_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 256]
-                        mov              rsi, qword ptr [rsp + 264]
+                        mov              rdi, qword ptr [rsp + 272]
+                        mov              rsi, qword ptr [rsp + 280]
                         call             rt_num_pos@PLT
-                        mov              qword ptr [rsp + 240], rax
-                        mov              qword ptr [rsp + 248], rdx
+                        mov              qword ptr [rsp + 256], rax
+                        mov              qword ptr [rsp + 264], rdx
                         add              rsp, 16
                                                                                         jmp   n11_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------

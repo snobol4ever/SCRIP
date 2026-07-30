@@ -207,32 +207,32 @@ n9_assign_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_alternate_α:
                         sub              rsp, 48
-                        mov              dword ptr [rsp + 240], r14d
+                        mov              dword ptr [rsp + 288], r14d
                         lea              rax, [rip + .Lx29_21]
-                        mov              qword ptr [rsp + 256], rax
+                        mov              qword ptr [rsp + 304], rax
                                                                                         jmp   n12_match_lit_α
 .Lx29_21:
                         lea              rax, [rip + .Lx29_22]
-                        mov              qword ptr [rsp + 256], rax
+                        mov              qword ptr [rsp + 304], rax
                                                                                         jmp   n13_match_lit_α
 .Lx29_22:
                         lea              rax, [rip + .Lx29_19]
-                        mov              qword ptr [rsp + 256], rax
+                        mov              qword ptr [rsp + 304], rax
                                                                                         jmp   n14_match_lit_α
 n10_match_alternate_s0:
                         sub              rsp, 48
                         lea              rax, [rip + .Lx29_40]
-                        mov              qword ptr [rsp + 248], rax
+                        mov              qword ptr [rsp + 296], rax
                                                                                         jmp   n10_match_alternate_as
 n10_match_alternate_s1:
                         sub              rsp, 48
                         lea              rax, [rip + .Lx29_41]
-                        mov              qword ptr [rsp + 248], rax
+                        mov              qword ptr [rsp + 296], rax
                                                                                         jmp   n10_match_alternate_as
 n10_match_alternate_s2:
                         sub              rsp, 48
                         lea              rax, [rip + .Lx29_42]
-                        mov              qword ptr [rsp + 248], rax
+                        mov              qword ptr [rsp + 296], rax
                                                                                         jmp   n10_match_alternate_as
 .Lx29_40:
                                                                                         jmp   n12_match_lit_β
@@ -246,12 +246,12 @@ n10_match_alternate_as:
                                                                                         jmp   n11_match_assign_cond_α
 n10_match_alternate_β:
                         sub              rsp, 48
-                        mov              rax, qword ptr [rsp + 248]
+                        mov              rax, qword ptr [rsp + 296]
                                                                                         jmp   rax
 n10_match_alternate_af:
                         sub              rsp, 48
-                        mov              r14d, dword ptr [rsp + 240]
-                        mov              rax, qword ptr [rsp + 256]
+                        mov              r14d, dword ptr [rsp + 288]
+                        mov              rax, qword ptr [rsp + 304]
                                                                                         jmp   rax
 .Lx29_19:
                         add              rsp, 48

@@ -847,8 +847,8 @@ n59_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx130_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 416], rax
-                        mov              qword ptr [rsp + 424], rdx
+                        mov              qword ptr [rsp + 432], rax
+                        mov              qword ptr [rsp + 440], rdx
                         add              rsp, 16
                                                                                         jmp   n62_keyword_snobol4_α
 .Lx130_0:
@@ -882,8 +882,8 @@ n62_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx133_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 432], rax
-                        mov              qword ptr [rsp + 440], rdx
+                        mov              qword ptr [rsp + 448], rax
+                        mov              qword ptr [rsp + 456], rdx
                         add              rsp, 16
                                                                                         jmp   n64_call_α
 .Lx133_0:

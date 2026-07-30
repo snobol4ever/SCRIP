@@ -200,11 +200,11 @@ n19_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n20_unop_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 816]
-                        mov              rsi, qword ptr [rsp + 824]
+                        mov              rdi, qword ptr [rsp + 832]
+                        mov              rsi, qword ptr [rsp + 840]
                         call             rt_num_neg@PLT
-                        mov              qword ptr [rsp + 800], rax
-                        mov              qword ptr [rsp + 808], rdx
+                        mov              qword ptr [rsp + 816], rax
+                        mov              qword ptr [rsp + 824], rdx
                         add              rsp, 16
                                                                                         jmp   n27_lit_real_α
 #-----------------------------------------------------------------------------------------------------------------------
