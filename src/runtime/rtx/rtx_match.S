@@ -565,5 +565,54 @@ RTX_FUNC(rt_match_enter)
     jmp     .Lme_patstk_done
 RTX_ENDF(rt_match_enter)
 
+/*===================================================================================================================
+ * rt_dcap_end_ok_close — RTX-8 SLICE 7. The dcap ctx pop: one test, one decrement, no arguments, no callees.
+ *
+ * C OF RECORD: pattern_match.c:717, renamed c_rt_dcap_end_ok_close in this same commit.
+ *
+ * WHY THIS TARGET, AND HOW IT WAS FOUND: the s220 cursor's next-rung list did NOT name it. It surfaced from a
+ * DYNAMIC census of the graded window, which contradicted the corpus-wide STATIC ranking on every row. Static
+ * call sites across the 48 benchmark+demo .s artifacts rank rt_call_arr 586 / rt_defer_step 432 / dtp_fn_of 200;
+ * measured on pattern_bt_deep.sno those are 6 / 0 / 0. The hot symbols each have exactly ONE static site because
+ * they sit in a loop body, while the cold setup symbols are emitted at many sites — so on this workload the
+ * static count is ANTI-CORRELATED with hotness. Measured 0(d): 8,000,001 entries, one per match.
+ *
+ * ARM CENSUS (0(f-pre), read from the C body):
+ *   ARM 1  g_dcf_top <= 0  -> no-op, return. A pop with nothing pushed.
+ *   ARM 2  g_dcf_top >  0  -> decrement. The hot arm.
+ * Both arms are handled IN ASM; there is no delegation edge except the gate itself, because the whole body is
+ * one test and one decrement. Entries are therefore NOT commits and 0(f) must be read as an arm split, not a
+ * bail count — the s216 lesson: a call count cannot name an arm.
+ *
+ * BAIL-BEFORE-MUTATE IS FREE: the gate compare and the g_dcf_top test BOTH precede the only write in the
+ * function. Nothing above the dec touches memory, so a gate-OFF delegation cannot double-pop (the s215 hazard
+ * that made slice 6 delicate). This is the s219 PREFERRED shape — test-and-return — not the slice-6 shape.
+ *
+ * 0(c) WAS A HARD BLOCKER AND THE .so WOULD HAVE CONCEALED IT (s209 class). g_dcf_top was `static`, printing
+ * lowercase `b` in out/rt_pic/pattern_match.o and therefore UNREFERENCEABLE from a .S at all. In the .so a
+ * `static` and a visibility-hidden global print the SAME lowercase letter, so reading 0(c) off the .so would
+ * have said "localized, use direct [rip+sym]" and hidden the fact that the symbol cannot be linked. Promoted to
+ * __attribute__((visibility("hidden"))) in the same commit: absent from the dynamic table, direct [rip+sym],
+ * interposition-proof, widening only sibling-TU linkage. Siblings g_dcf/g_dcf_cap stay `static` and this port
+ * never touches them.
+ *
+ * dword ptr, NOT qword: g_dcf_top is `int`. The s219b store-width gate exists for exactly this class of error.
+ *
+ * ⛔ NO SPEED NUMBER IS CLAIMED, AND THE CEILING WAS COMPUTED BEFORE THE ASM WAS WRITTEN. ~8-12 cycles saved
+ * against a C -O0 body of ~8-9 instructions plus call/ret/PLT, times 8,000,001 calls, is ~20-30 ms of a ~1600 ms
+ * warm window = ~1.5-2%, BELOW the +-3% null floor this container sustains. Same arithmetic that bounded RTX-7 at
+ * 0.58% and slice 4 at <=0.5%. Graded on correctness and eradication per the RTX-7/s217 precedent. The gradeable
+ * lever on this workload is COLLAPSING the four remaining 8M-per-match calls (rt_match_enter, NV_SET_fn,
+ * rt_dcap_end_ok_open, this one) into one, which is slice 6's mechanism -- but that edits bb_match_release and
+ * fires .s regen x3, so it is RTX-11 and NOT concurrency-safe. */
+RTX_FUNC(rt_dcap_end_ok_close)
+    RTX_GATE(match, c_rt_dcap_end_ok_close)
+    cmp     dword ptr [rip + g_dcf_top], 0               /* ARM split; precedes every write in this function */
+    jle     .Lrtx_deoc_ret                               /* ARM 1: pop with nothing pushed -- no-op          */
+    dec     dword ptr [rip + g_dcf_top]                  /* ARM 2 HOT: the ctx pop. int => dword ptr         */
+.Lrtx_deoc_ret:
+    ret
+RTX_ENDF(rt_dcap_end_ok_close)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
