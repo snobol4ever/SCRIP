@@ -1,7 +1,9 @@
 #include "descr.h"
 #include "gc_heap.h"
+#include "pin_va.h"
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdint.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_misc;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_alloc;
@@ -21,6 +23,18 @@ static unsigned char rtx_env_on(const char *name, unsigned char dflt) { const ch
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rtx_gates_init(void) { rtx_gate_misc = rtx_env_on("SCRIP_RTX_MISC", 1); rtx_gate_alloc = rtx_env_on("SCRIP_RTX_ALLOC", 1); rtx_gate_str = rtx_env_on("SCRIP_RTX_STR", 1); rtx_gate_call = rtx_env_on("SCRIP_RTX_CALL", 1); rtx_gate_leaf = rtx_env_on("SCRIP_RTX_LEAF", 1); rtx_gate_arith = rtx_env_on("SCRIP_RTX_ARITH", 1); rtx_gate_icnvar = rtx_env_on("SCRIP_RTX_ICNVAR", 1); rtx_gate_icnnum = rtx_env_on("SCRIP_RTX_ICNNUM", 1); rtx_gate_icnrel = rtx_env_on("SCRIP_RTX_ICNREL", 1); rtx_gate_icnagg = rtx_env_on("SCRIP_RTX_ICNAGG", 1); rtx_gate_match = rtx_env_on("SCRIP_RTX_MATCH", 1); rtx_gate_icngen = rtx_env_on("SCRIP_RTX_ICNGEN", 1); rtx_gate_icncall = rtx_env_on("SCRIP_RTX_ICNCALL", 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int Σlen; extern uint32_t g_cap_gen; extern uint32_t g_cap_gen_next;
+_Static_assert(sizeof(g_cap_gen) == 4 && sizeof(g_cap_gen_next) == 4, "rtx_match.S stores g_cap_gen/g_cap_gen_next with `dword ptr` because they sit ADJACENT at +0x0/+0x4 in pattern_match.o; if either widens, that dword store truncates and an 8-byte store would clobber the sibling generation well -- links fine, passes short tests (s218)");
+_Static_assert(sizeof(Σlen) == 4, "rtx_match.S stores Σlen with `dword ptr` (rt_match_enter, rt_match_ctx_restore); Σlen is `int` and has a neighbour at +0x14 in stmt_exec.o -- a qword store there is the s217 store-width class");
+/* s220 CORRECTION TO THE s218 ITEM AS WORDED: the s218 cursor asked for a _Static_assert on the g_cap_gen/g_cap_gen_next
+ * and Σ/Σlen ADJACENCIES, and that is why it stayed undone for three sessions -- C cannot express it. offsetof works
+ * only inside an aggregate; two independent globals have no statically-known relative address, so no _Static_assert
+ * can name their distance. WHAT IS EXPRESSIBLE IS THE WIDTH, and width is the whole of what the adjacency endangers:
+ * the hazard is never "they moved apart", it is "a store wider than the target reached the neighbour." The two asserts
+ * above pin that statically; scripts/test_gate_rtx_store_width.sh (s219b) enforces the same property dynamically from
+ * ELF symbol sizes, which additionally catches a store to a global these asserts do not name. Item closed as CORRECTED,
+ * not as done-as-asked. */
+_Static_assert(RT_CAS_TOP == 0x70000000UL, "rtx_match.S's rt_match_enter hardcodes RTX_CAS_TOP_VA 0x70000000 as an absolute disp32 to inline the rt_dcap_lazy_init test; pin_va.h moved the pin -- the asm would test a DEAD page, read 0 forever, and call the initializer on EVERY match instead of once");
 _Static_assert(DT_SNUL == 0,  "rtx_abi.inc hardcodes DT_SNUL 0; descr.h drifted -- the asm tag compares would link fine and silently mis-compare");
 _Static_assert(DT_S    == 1,  "rtx_abi.inc hardcodes DT_S 1; descr.h drifted -- update src/runtime/rtx/rtx_abi.inc to match");
 _Static_assert(DT_P    == 3,  "rtx_abi.inc hardcodes DT_P 3; descr.h drifted -- str_concat_d's pattern guard would stop routing to pat_cat");
