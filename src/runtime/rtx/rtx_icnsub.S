@@ -158,6 +158,12 @@ RTX_GATE_DEF(icnsub)
  * (mod 16). Adjustments must be == 8 (mod 16): 8/24/40/56 work, 16/32/48 do NOT.
  *   [rsp+ 0] original rdi   [rsp+16] original rdx      [rsp+32] elems
  *   [rsp+ 8] original rsi   [rsp+24] original rcx      [rsp+40] i-1 (dword)
+ *   [rsp+56 .. rsp+87] RTX-29 integer-key scratch (32 B). ⛔ 56 -> 88 AT RTX-29,
+ *   and 88 IS NOT ARBITRARY EITHER: it is the same congruence class as 56
+ *   (88 == 8 mod 16), so 8 - 88 == -80 == 0 (mod 16) and the SysV alignment
+ *   invariant above is preserved unchanged. All eight adjustment sites were
+ *   enumerated by grep before the resize; slots 0..47 kept their offsets so
+ *   RTX-24/26/27/28 are byte-untouched by it.
  * The four originals are saved so EVERY bail can restore them and tail-jump to C
  * with its arguments byte-identical to what our caller staged -- the byte-identity
  * proof path survives the fact that this arm must call rt_deref before it can even
@@ -195,7 +201,7 @@ RTX_FUNC(rt_subscript_var)
     test    rsi, rsi                    /* IS_VARREF's `slen==1 && ptr` clause   */
     je      c_rt_subscript_var
 
-    sub     rsp, 56
+    sub     rsp, 88
     mov     [rsp + 0], rdi
     mov     [rsp + 8], rsi
     mov     [rsp + 16], rdx
@@ -212,6 +218,8 @@ RTX_FUNC(rt_subscript_var)
      * DT_S -> RTX-27's substring-trap arm, DT_DATA -> RTX-24's list arm. */
     cmp     eax, DT_S
     je      .Lsub_string
+    cmp     eax, DT_T                   /* RTX-29: DT_T with a DT_I key           */
+    je      .Lsub_table_int
     cmp     eax, DT_DATA                /* only the list/record family here      */
     jne     .Lsub_bail
     mov     rsi, rdx                    /* rsi = base.u (DATINST_t *)            */
@@ -296,7 +304,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
 
-    add     rsp, 56
+    add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
     mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
     ret
@@ -341,6 +349,7 @@ RTX_FUNC(rt_subscript_var)
     je      .Lsub_bail                  /* C substitutes ""; do not emulate it    */
 
     /* --- _tbl_hash, inlined: h = 5381; while (*k) h = h*33 ^ (uchar)*k++ ------ */
+.Lsub_hash_init:                        /* RTX-29 re-enters here with rdi=key,rsi=tb */
     mov     eax, TBL_HASH_SEED
     mov     r8, rdi
 .Lsub_hash:
@@ -401,7 +410,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
-    add     rsp, 56
+    add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
     mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
     ret
@@ -471,7 +480,7 @@ RTX_FUNC(rt_subscript_var)
     mov     rcx, [rsp + 40]
     mov     [rax + VCELL_POS], rcx      /* vc->pos = i                           */
     mov     qword ptr [rax + VCELL_LEN], 1        /* one character                */
-    add     rsp, 56
+    add     rsp, 88
     mov     rdx, rax
     mov     rax, 0x200000009            /* NAMETRAP                              */
     ret
@@ -525,7 +534,7 @@ RTX_FUNC(rt_subscript_var)
     shl     rax, 4                      /* * sizeof(DESCR_t)                     */
     add     rax, r9                     /* &a->data[off]                         */
 
-    sub     rsp, 56
+    sub     rsp, 88
     mov     [rsp + 16], rdx
     mov     [rsp + 24], rcx
     mov     [rsp + 32], rax
@@ -551,7 +560,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
 
-    add     rsp, 56
+    add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
     mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
     ret
@@ -563,8 +572,77 @@ RTX_FUNC(rt_subscript_var)
     xor     edx, edx
     ret
 
+/*-----------------------------------------------------------------------------
+ * RTX-29-ICN — THE DT_T TABLE ARM KEYED BY A DT_I SUBSCRIPT (`t[3]`).
+ *
+ * MEASURED s224: `t[i]` took 400,008 entries / 400,008 bailed / 0 commits. It is
+ * ICON-NATIVE traffic (unlike RTX-28's arrays, which are SNOBOL4's) and it was
+ * bailing because the entry block routes to .Lsub_table only on a DT_S subscript,
+ * so an integer key fell through every arm to .Lsub_bail.
+ *
+ * The C of record is aggregates.c tbl_key_str's `case DT_I`, which is a
+ * HAND-ROLLED itoa, not an snprintf:
+ *
+ *     "\001i" [ '-' ] decimal-digits NUL
+ *
+ * ⛔ THE MAGNITUDE TRICK MUST BE PRESERVED EXACTLY. C computes the negative
+ * magnitude as `(unsigned long long)(-(v + 1)) + 1ull` specifically so that
+ * INT64_MIN does not overflow. A single `neg rax` is EXACTLY equivalent: neg of
+ * INT64_MIN yields INT64_MIN, whose UNSIGNED value is 2^63 -- the correct
+ * magnitude. Same bytes, one instruction, and the edge is safe rather than
+ * accidentally safe.
+ *
+ * ⭐ THE KEY IS BUILT BACKWARDS from the high end of the scratch slab, so the
+ * digits fall out of the div loop in the order they are stored and NO reversal
+ * buffer and no second pass are needed -- the C does `do{}while` into t[] then
+ * reverses; going backwards makes the reverse free. The hash does not care where
+ * the string starts, only that rdi points at its first byte and it is NUL-
+ * terminated, so this arm then RE-ENTERS .Lsub_hash_init and reuses RTX-26's
+ * whole hash + chain + strcmp + hit machinery unchanged. Worst case is
+ * '\001'+'i'+'-'+20 digits+NUL = 24 bytes, inside the 32-byte slab.
+ *
+ * ⚠ A MISS still falls to .Lsub_bail, which is C's key-INSERT trap -- see the
+ * RTX-26 header. That is why `t[i] := v` on a FRESH integer key is correct here:
+ * it bails, C mints the trap, and the assignment has somewhere to land. An arm
+ * returning FAILDESCR would read correct on every rvalue workload and silently
+ * break lvalue insert (s223 finding 3).
+ */
+.Lsub_table_int:
+    mov     rsi, rdx                    /* rsi = tb (TBBLK_t *)                  */
+    test    rsi, rsi
+    je      .Lsub_bail
+    lea     r8, [rsp + 87]              /* one PAST the last usable scratch byte */
+    mov     byte ptr [r8], 0            /* the NUL, written first                */
+    mov     rax, [rsp + 24]             /* the full 64-bit idx payload           */
+    xor     r11d, r11d                  /* r11 = "was negative"                  */
+    test    rax, rax
+    jns     .Lsub_ti_digits
+    mov     r11d, 1
+    neg     rax                         /* magnitude; INT64_MIN-safe, see above  */
+.Lsub_ti_digits:
+    mov     r9d, 10
+.Lsub_ti_loop:
+    xor     edx, edx                    /* div reads rdx:rax -- must clear rdx    */
+    div     r9                          /* rax = u/10, rdx = u%10 (unsigned)      */
+    add     dl, '0'
+    dec     r8
+    mov     [r8], dl
+    test    rax, rax
+    jnz     .Lsub_ti_loop               /* C's do/while: at least one digit       */
+    test    r11d, r11d
+    je      .Lsub_ti_tag
+    dec     r8
+    mov     byte ptr [r8], '-'
+.Lsub_ti_tag:
+    dec     r8
+    mov     byte ptr [r8], 'i'
+    dec     r8
+    mov     byte ptr [r8], 1            /* the \001 discriminator                */
+    mov     rdi, r8                     /* rdi = first byte of the key           */
+    jmp     .Lsub_hash_init             /* reuse RTX-26's walk verbatim          */
+
 .Lsub_fail:
-    add     rsp, 56
+    add     rsp, 88
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -574,7 +652,7 @@ RTX_FUNC(rt_subscript_var)
     mov     rsi, [rsp + 8]
     mov     rdx, [rsp + 16]
     mov     rcx, [rsp + 24]
-    add     rsp, 56
+    add     rsp, 88
     jmp     c_rt_subscript_var
 RTX_ENDF(rt_subscript_var)
 
