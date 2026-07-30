@@ -903,5 +903,84 @@ RTX_FUNC(rt_match_replace)
     ret
 RTX_ENDF(rt_match_replace)
 
+/*=====================================================================================================================
+ * SLICE 10 — rt_dcap_step: THE *VAR (DEFERRED-NAME) TRANSFER ARM OF THE DCAP PUMP.
+ *
+ * C OF RECORD: src/runtime/pattern_match.c:714, renamed c_rt_dcap_step in this same commit.
+ *
+ * BOX CONTRACT: rdi:rsi = nm (DESCR_t by value; edi aliases the tag).  Returns long in rax: nonzero = another *VAR
+ * transfer is owed and the box must call again; 0 = the flush completed.  Slice 8 (rt_dcap_end_ok_open) is what
+ * returns nonzero to make the box drive this entry at all, so the two are one mechanism read at two points.
+ *
+ * WHAT THE MANUAL REQUIRES, AND WHY THE PUMP AND THE STR ARM BOTH STAY IN C (SPITBOL manual Ch.9 p.134, read this
+ * rung): the deferred-name case is the manual's own `'ABCDE' ? LEN(2) . *PUSH()` — "the calls to PUSH() are deferred
+ * until assignment takes place, and new stack entries are allocated only if the pattern match succeeds."  So the
+ * NAME being assigned to is not known until flush time, and computing it may RUN USER CODE (a program-defined
+ * function with NRETURN, Ch.9 p.133).  That is precisely why this port reimplements only the transfer's dispatch and
+ * tail-jumps the UNTOUCHED C pump: re-entrancy, ordering and the NRETURN edge are structurally unchanged.
+ *
+ * ARM CENSUS (0(f-pre) from the C body, THEN MEASURED with an LD_PRELOAD interposer BEFORE any asm was written —
+ * the s216 rt_cap_push discipline; a 0(d) of 29,573 would have licensed a port whose chosen arm never runs):
+ *   ARM A  g_dcf_top <= 0    -> return 0.  Pump with nothing pushed.
+ *   ARM B  nm.v == DT_FAIL   -> C.  MEASURED 0 of 56,540 (json.sno/twitter.json + calculator-1/calculator.input).
+ *   ARM C  nm.v == DT_S|SNUL -> C.  MEASURED 0 of 56,540.  Delegating it is ALSO what keeps NV_SET_fn untouched —
+ *                               the goal file's concurrency contract names NV_SET_fn as DB-1's planned write-barrier
+ *                               choke point, so an asm reimplementation here would collide with an unlanded design.
+ *   ARM D  HOT               -> rt_assign_var(nm, c->pending), then tail-jump the pump.  56,540 of 56,540 = 100%.
+ * ⚠ THE CENSUS IS TWO PROGRAMS, NOT THE CORPUS.  Per the s224 rule (a coverage claim carries its population in the
+ * same sentence) this is a SAMPLE and is not a corpus-wide zero for arms B/C; both are delegated, not deleted.
+ *
+ * ⛔ RETARGETED HERE BY 0(d), AND THE SYMBOL IT REPLACED IS THE FINDING: this rung was aimed at rt_defer_step, which
+ * has 434 STATIC call sites (2nd most in the SNOBOL4 artifacts) and measures ZERO DYNAMIC ENTRIES on json.sno,
+ * calculator-1.sno and calculator-2.sno — the three programs carrying most of those sites.  A static count measures
+ * the emitter's reach, not execution (ARCH section 7 step 0(d)); this is the s188 rt_call_arr class at 434 sites.
+ *
+ * BAIL-BEFORE-MUTATE IS FREE, AND IT IS A CLAIM ABOUT INSTRUCTION ORDER: ARM A's test and BOTH delegation tests sit
+ * ABOVE .Lrtx_dcs_mutate and nothing above that label writes memory.  Delegation therefore re-enters the C at its
+ * own top with state untouched, and the C repeats the g_dcf_top test harmlessly (idempotent) before taking its arm.
+ *
+ * 0(c) — AND THE TWO CLASSES SPLIT INSIDE THIS ONE FUNCTION, WHICH IS THE WHOLE POINT OF RUNNING IT PER SYMBOL:
+ *   g_dcf, g_dcf_top, rt_dcap_pump : ABSENT from `nm -D out/libscrip_rt.so` => hidden => direct [rip+sym].
+ *   rt_g_want_name                 : PRESENT in the dynamic table (B, declared in rt/rt.c:634 with NO visibility
+ *                                    attribute) => exported => PREEMPTIBLE => @GOTPCREL MANDATORY, not lea.
+ * Both read `B` in out/rt_pic/*.o; only the dynamic table separates them.  This is the g_hp_fr link failure that
+ * cost RTX-2 a rung, and it is live inside a single 15-instruction body.  ZERO promotions were needed by this port.
+ *
+ * STRIDE 40 AND pending's OFFSETS (+24 tag|slen, +32 value) ARE _Static_assert-ANCHORED IN THE C by slice 8.
+ *
+ * ⛔ NO SPEED NUMBER IS CLAIMED, AND THE REASON IS THE INSTRUMENT, NOT THE PORT: bench_rtx_3arm.sh currently REFUSES
+ * every window on this machine (s224 measured intra-arm spread 2.1-2.6x, the s201 hugepage bimodality), so nothing
+ * in this family is gradeable until the rail grows a min-of-N/hugepage mode.  The saving here is one -O0 frame plus
+ * the branch ceremony on ~30K calls/run — below the +-3% null floor even if the rail worked.  ERADICATION slice
+ * serving RTX-12.  The 3-arm rail is deliberately NOT run: quoting a number off a refused instrument is how a
+ * correct port gets reverted (the s220 anti-evidence lesson).
+ *===================================================================================================================*/
+RTX_FUNC(rt_dcap_step)
+    RTX_GATE(match, c_rt_dcap_step)
+    mov     r8d, dword ptr [rip + g_dcf_top]             /* int => dword ptr; zero-extends into r8                   */
+    test    r8d, r8d
+    jle     .Lrtx_dcs_ret0                               /* ARM A: pump with nothing pushed -> 0, no pump call       */
+    cmp     edi, 99                                      /* edi aliases nm.v (s162 ABI probe). DT_FAIL == 99         */
+    je      c_rt_dcap_step                               /* ARM B: cold, delegate                                    */
+    cmp     edi, 1                                       /* unsigned <=1 covers DT_SNUL(0) and DT_S(1)               */
+    jbe     c_rt_dcap_step                               /* ARM C: cold, delegate (also keeps NV_SET_fn untouched)   */
+.Lrtx_dcs_mutate:                                        /* ---- NOTHING ABOVE THIS LABEL WRITES MEMORY ----          */
+    dec     r8d                                          /* top-1; 32-bit op re-zeroes the upper half of r8          */
+    lea     r8, [r8 + r8*4]                              /* r8 = 5*(top-1)                                           */
+    shl     r8, 3                                        /* r8 = 40*(top-1) == (top-1) * sizeof(rt_dcf_t)            */
+    add     r8, qword ptr [rip + g_dcf]                  /* r8 = &g_dcf[g_dcf_top-1]                                 */
+    mov     r10, qword ptr [rip + rt_g_want_name@GOTPCREL] /* EXPORTED+preemptible => GOT, not lea (see 0(c) above)  */
+    mov     dword ptr [r10], 0                           /* rt_g_want_name = 0. int => dword ptr                     */
+    mov     rdx, qword ptr [r8 + 24]                     /* arg2 lo = c->pending.v | slen<<32                        */
+    mov     rcx, qword ptr [r8 + 32]                     /* arg2 hi = c->pending.value; arg1 (nm) already in rdi:rsi */
+    sub     rsp, 8                                       /* entry rsp%16==8; realign for the call                    */
+    call    rt_assign_var                                /* DESCR_t return in rax:rdx is discarded, as in the C      */
+    add     rsp, 8
+    jmp     rt_dcap_pump                                 /* TAIL CALL: its ret returns to OUR caller, rax is its rc  */
+.Lrtx_dcs_ret0:
+    xor     eax, eax
+    ret
+RTX_ENDF(rt_dcap_step)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits

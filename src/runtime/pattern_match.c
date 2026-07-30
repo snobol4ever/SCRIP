@@ -711,7 +711,7 @@ long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_dcap_step(DESCR_t nm)
+long c_rt_dcap_step(DESCR_t nm)
 {
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
