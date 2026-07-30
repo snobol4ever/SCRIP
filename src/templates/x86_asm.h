@@ -1550,6 +1550,33 @@ inline std::string x86_cell_fail_body()             { return x86("mov", "rsp", "
 inline std::string x86_cell_cut_keep(const char * base) { return x86_reg_disp32_load64("rbp", base, 16) + x86_reg_disp32_lea64("rsp", base, 32); }
 inline std::string x86_chain_prev(const char * dst, const char * src) { return x86_reg_disp32_load64(dst, src, 16); }
 inline std::string x86_chain_tag_load(const char * dst32, const char * cell) { return x86_reg_disp32_load32(dst32, cell, 12); }
+/* STATEMENT-FRAME FAMILY (s21x-c, design of record: RBP/RSP FRAMES + FORTH-STYLE VARIABLE-LENGTH ζ CELLS — the LON DIRECTIVE block atop GOAL-SNOBOL4-BB.md; hand embodiments oracle-green in
+ * SCRIP/seed/test_sno_stmt_frame_1.s and _2.s, incl. recursion + FRETURN).  x86_stmt_enter/leave = the STATEMENT bracket: rbp dance forward (16B total, C-call parity preserved), cut backward —
+ * fail edges jump the cut, never hand-counted pops.  x86_call_frame_enter = BB IR_CALL: the 32B header {[rbp+0] pad · [rbp+8] caller rbp · [rbp+16] γ wire · [rbp+24] ω wire}, wires as internal
+ * labels; the jmp into the body and the IR_SAVE_RESTORE slot carve (x86_alpha_carve, above) stay template business.  x86_return/freturn_floater = IR_SAVE_RESTORE roles 1/2: cut to the frame from
+ * ANY statement/BB depth, restore caller rbp, jmp the wire.  Composed ENTIRELY of pre-verified encoders (push/pop/mov/add/sub dispatch arms + the named disp32 family + x86_lea_rip_id +
+ * x86_jmp_reg): ZERO new byte encodings by design, so the keystone byte-verify obligation is discharged by construction.  x86_call_frame_enter clobbers rcx/rdx; the floaters clobber rcx and
+ * FLAGS (add).  Everything here is dead code until the statement-frame classifier wires a consumer — the CELL-0 landing discipline, verbatim. */
+inline std::string x86_stmt_enter()  { return x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", 8L); }
+inline std::string x86_stmt_leave()  { return x86("mov", "rsp", "rbp") + x86("pop", "rbp"); }
+inline std::string x86_call_frame_enter(int gamma_ilbl, int omega_ilbl) {
+    return x86_lea_rip_id("rcx", gamma_ilbl)
+         + x86_lea_rip_id("rdx", omega_ilbl)
+         + x86("push", "rdx")
+         + x86("push", "rcx")
+         + x86("push", "rbp")
+         + x86("sub", "rsp", 8L)
+         + x86("mov", "rbp", "rsp");
+}
+inline std::string x86_srf_floater(int wire_disp) {
+    return x86("mov", "rsp", "rbp")
+         + x86_reg_disp32_load64("rcx", "rbp", wire_disp)
+         + x86_reg_disp32_load64("rbp", "rbp", 8)
+         + x86("add", "rsp", 32L)
+         + x86_jmp_reg("rcx");
+}
+inline std::string x86_return_floater()  { return x86_srf_floater(16); }
+inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_scan_sync_out/in (ICN-SCAN-CALL-SYNC, 2026-07-11) — THE ICON SCAN-STATE HANDOFF ACROSS A CALL.  Canonical
  * Icon (interp.r k_pos/k_subject; JCON iKeyword) holds &pos/&subject as PROGRAM-GLOBAL dynamic state: a procedure
