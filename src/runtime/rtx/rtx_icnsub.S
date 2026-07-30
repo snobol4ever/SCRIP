@@ -140,6 +140,15 @@ RTX_GATE_DEF(icnsub)
 #define TBPAIR_NEXT      40      /* TBPAIR_t.next  (TBPAIR_t *)    */
 #define TBBLK_BUCKETS     0      /* TBBLK_t.buckets[TABLE_BUCKETS] */
 #define TBL_HASH_SEED  5381      /* _tbl_hash: djb2-xor, aggregates.c:78 */
+/* RTX-28-ICN: the DT_A arm's layout. ARBLK_t is {int lo, hi; int ndim; int lo2,
+ * hi2; int proto_bare; const char *proto; DESCR_t *data; long id;} = 48 bytes,
+ * so `proto` lands at 24 by natural 8-alignment and `data` at 32. ⚠ DT_A IS
+ * defined (rtx_abi.inc:62) -- checked, not assumed, same reason as DT_T. All
+ * four offsets pinned by _Static_assert in rtx_init.c. */
+#define ARBLK_LO          0      /* ARBLK_t.lo     (int)           */
+#define ARBLK_HI          4      /* ARBLK_t.hi     (int)           */
+#define ARBLK_NDIM        8      /* ARBLK_t.ndim   (int)           */
+#define ARBLK_DATA       32      /* ARBLK_t.data   (DESCR_t *)     */
 
 /*-----------------------------------------------------------------------------
  * DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx)
@@ -164,6 +173,19 @@ RTX_FUNC(rt_subscript_var)
     cmp     edx, DT_S                   /* DT_S  -> RTX-26's DT_T table arm     */
     jne     c_rt_subscript_var
 .Lsub_tag_ok:
+    /* RTX-28: the DT_A array arm branches off HERE, ahead of the DT_N gate,
+     * because a SNOBOL4 array subscript arrives with the base ALREADY DEREF'D --
+     * MEASURED s224: base.v=4 (DT_A) base.slen=0, never the DT_N varref shape.
+     * The gate below would reject it, which is exactly why this arm measured
+     * 200,001 entries / 200,001 bailed / 0 commits before it existed. It is
+     * RTX-24's lesson inverted: that arm had to stop rejecting varrefs, this one
+     * had to stop requiring them. */
+    cmp     edi, DT_A
+    jne     .Lsub_not_array
+    cmp     edx, DT_I                   /* array arm takes DT_I subscripts only  */
+    jne     c_rt_subscript_var
+    jmp     .Lsub_array
+.Lsub_not_array:
     cmp     edi, DT_N                   /* base must be the VARREF shape        */
     jne     c_rt_subscript_var
     mov     rax, rdi
@@ -452,6 +474,93 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 56
     mov     rdx, rax
     mov     rax, 0x200000009            /* NAMETRAP                              */
+    ret
+
+/*-----------------------------------------------------------------------------
+ * RTX-28-ICN — THE DT_A ARRAY ARM, keyed by a DT_I subscript.
+ *
+ * The C of record (pattern_match.c c_rt_subscript_var, the base.v == DT_A arm)
+ * is four lines and its index rule is THE THIRD DISTINCT ONE IN THIS FUNCTION:
+ *
+ *     off = i - a->lo;  if (off < 0 || off >= a->hi - a->lo + 1) FAIL
+ *
+ * ⛔⛔ THERE IS NO NEGATIVE-INDEX WRAP HERE. The DT_DATA list arm wraps on
+ * `i < 0`, the DT_S string arm wraps on `i <= 0`, and this arm wraps NOT AT ALL
+ * -- a negative subscript on a 1-based array simply goes out of range and fails.
+ * Three arms, three rules, one function. The goal file's standing instruction
+ * about the first two applies with more force now: DO NOT "TIDY" THESE.
+ *
+ * This arm needs NO rt_deref call (the base arrives deref'd) and NO frame until
+ * the carve, so every reject costs a handful of compares and a tail jump.
+ *
+ * ⚠ ndim != 1 BAILS. The C body does not consult ndim at all, so a 2-D array
+ * subscripted with ONE index takes C's flat 1-D path. That is C's behaviour and
+ * bailing preserves it exactly -- a bail re-enters the same C body -- while
+ * keeping this arm's arithmetic honest about what it has actually proven.
+ * FRAME: 56 bytes, same alignment reasoning as the entry block above; only the
+ * three slots this arm reads back across the rt_agg_alloc call are written,
+ * because this arm has NO post-frame bail.
+ *   [rsp+16] idx tag word   [rsp+24] idx payload   [rsp+32] &a->data[off]
+ */
+.Lsub_array:
+    test    rsi, rsi
+    je      c_rt_subscript_var          /* a == NULL => C's FAILDESCR            */
+    cmp     dword ptr [rsi + ARBLK_NDIM], 1
+    jne     c_rt_subscript_var          /* 2-D: leave C's flat path alone        */
+    mov     eax, ecx                    /* i = (int)to_int(idx); DT_I => the     */
+                                        /*   payload IS the value, truncated to  */
+                                        /*   32 bits exactly as the C cast does. */
+    mov     r10d, dword ptr [rsi + ARBLK_LO]
+    sub     eax, r10d                   /* off = i - a->lo                       */
+    js      .Lsub_arr_fail              /* off < 0                               */
+    mov     r8d, dword ptr [rsi + ARBLK_HI]
+    sub     r8d, r10d
+    inc     r8d                         /* a->hi - a->lo + 1                     */
+    cmp     eax, r8d
+    jge     .Lsub_arr_fail              /* off >= extent                         */
+    mov     r9, [rsi + ARBLK_DATA]
+    test    r9, r9
+    je      c_rt_subscript_var          /* C forms NULL+off*16; do not emulate   */
+    movsxd  rax, eax
+    shl     rax, 4                      /* * sizeof(DESCR_t)                     */
+    add     rax, r9                     /* &a->data[off]                         */
+
+    sub     rsp, 56
+    mov     [rsp + 16], rdx
+    mov     [rsp + 24], rcx
+    mov     [rsp + 32], rax
+
+    /* --- carve the VCELL. rt_agg_alloc is already asm (ALLOC gate); call it,  */
+    /*     do not fork the bump allocator for a second owner.                   */
+    xor     edi, edi                    /* kind = 0                              */
+    mov     esi, VCELL_SIZE             /* n    = sizeof(VCELL_t)                */
+    call    rt_agg_alloc                /* rax = VCELL_t * (C does not null-check
+                                         *   either, so neither do we)           */
+
+    /* --- fill the seven fields, in the C body's own order ------------------ */
+    mov     rcx, [rsp + 32]
+    mov     [rax + VCELL_CELLP], rcx    /* vc->cellp = &a->data[off]             */
+    mov     qword ptr [rax + VCELL_TBL], 0
+    mov     qword ptr [rax + VCELL_KEY], 0
+    mov     r8, [rsp + 16]
+    mov     r9, [rsp + 24]
+    mov     [rax + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
+    mov     [rax + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL   /* vc->sv = FAILDESCR          */
+    mov     qword ptr [rax + VCELL_SV + 8], 0
+    mov     qword ptr [rax + VCELL_POS], 0
+    mov     qword ptr [rax + VCELL_LEN], 0
+
+    add     rsp, 56
+    mov     rdx, rax                    /* rdx = vc                              */
+    mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    ret
+
+/* The array arm's out-of-range exit. Distinct from .Lsub_fail below because it
+ * fires BEFORE the frame exists and must not adjust rsp. */
+.Lsub_arr_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
     ret
 
 .Lsub_fail:
