@@ -602,7 +602,7 @@ n58_match_head_α:
                         mov              dword ptr [rbp + 112], 0
 .Lx80_0:
                         mov              r14d, dword ptr [rbp + 112]
-                                                                                        jmp   n59_match_defer_α
+                                                                                        jmp   n59_match_patref_α
 n58_match_head_β:
                         add              dword ptr [rbp + 112], 1
                         mov              eax, dword ptr [rbp + 112]
@@ -635,7 +635,7 @@ n58_match_head_β:
                         mov              rbp, qword ptr [rbp + 152]
                                                                                         jmp   n54_var_α
 #-----------------------------------------------------------------------------------------------------------------------
-n59_match_defer_α:
+n59_match_patref_α:
                         lea              rsi, [rip + g_sno_defer_cells+0]
                         mov              rax, qword ptr [rsi + 0]
                         test             rax, rax
@@ -713,7 +713,7 @@ n59_match_defer_α:
 .Lx81_6:
                         add              rsp, 16
                                                                                         jmp   n58_match_head_β
-n59_match_defer_β:
+n59_match_patref_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n60_match_release_α:

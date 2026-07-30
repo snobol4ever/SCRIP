@@ -352,7 +352,7 @@ n17_match_sequence_α:
 n17_match_sequence_as:
                                                                                         jmp   n21_match_release_α
 n17_match_sequence_β:
-                                                                                        jmp   n23_match_defer_β
+                                                                                        jmp   n23_match_patref_β
 n17_match_sequence_af:
                                                                                         jmp   n13_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
@@ -498,11 +498,11 @@ n22_match_atp_α:
                         mov              esi, r14d
                         lea              rdi, [rip + .S0]
                         call             rt_at_cursor@PLT
-                                                                                        jmp   n23_match_defer_α
+                                                                                        jmp   n23_match_patref_α
 n22_match_atp_β:
                                                                                         jmp   n13_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
-n23_match_defer_α:
+n23_match_patref_α:
                         mov              rax, qword ptr [1879052352]
                         mov              rdx, qword ptr [1879052360]
                         cmp              eax, 3
@@ -570,7 +570,7 @@ n23_match_defer_α:
 .Lx100_6:
                         add              rsp, 16
                                                                                         jmp   n22_match_atp_β
-n23_match_defer_β:
+n23_match_patref_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n24_match_len_α:
