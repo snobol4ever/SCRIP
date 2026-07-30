@@ -1145,6 +1145,8 @@ DESCR_t c_rt_proc_call_epilogue_ω(void)
  * (frame slot → GVA cell) INLINE; these leaves carry only the per-call residue the loops never were: Σ save/restore, the pcall context, NRETURN wn, the monitor events, k_level, and the vtmark tidy.
  * open_slim runs AFTER the inline saves and BEFORE the installs, so its null-padding of unpassed formals/locals and the result cell lands exactly where rt_name_save_push's install phase did; every
  * guard is checked BEFORE any side effect so a 0 return falls back to the classic arm with nothing to undo (the inline saves it leaves behind are pure reads, discarded by the fallback's rsp restore). */
+void rt_c2b_arm_trap(void) { fprintf(stderr, "FATAL: CALL2BB 3b — slim open declined at RUNTIME on an fc-armed call site; the flat fallback does not exist as storage on an armed statement (registration excluded OPSYN/redefinition shapes at emit time, so this decline names a guard the planner does not mirror — widen fc_call_ok or the probe)\n"); fflush(stderr); abort(); }
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_proc_call_open_slim(const char *name, int np, int nargs)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;

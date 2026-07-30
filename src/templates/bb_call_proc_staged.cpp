@@ -31,6 +31,7 @@ extern "C" DESCR_t g_call_args[];
 extern "C" int g_gc_pending;
 int  rt_proc_is_registered(const char *name);
 long rt_proc_call_open_slim(const char *name, int np, int nargs);
+void rt_c2b_arm_trap(void);   /* CALL2BB 3b: loud abort for the slim runtime-decline landing on an fc-armed call -- the flat fallback does not exist as storage on an armed statement (correct-or-loud, FLATDISP-6 conservatism) */
 int  rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
 DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result);
@@ -103,6 +104,8 @@ static int bcps_result_slot() {
     { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
     return -1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int c2farm() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0; }   /* CALL2BB 3b: fc-registered value-spine call (the dispatch preamble armed the RESULT window base=own quad) -- the one arg rides the TOP cell at alpha ([rsp + scc_sb] above the save block), the result replaces it IN PLACE at L(2) (net-zero rsp), and the L(2) FRQ stores self-rebase through the window */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CALL2BB slice 2 (Lon s21x-c: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: an IR_SAVE_RESTORE and an IR_CALL") — the SCC eligibility PROBE + the role-0 producer→consumer HANDOFF.
  * bb_scc_probe is the BP-7 emit-time predicate factored to ONE body so the role-0 IR_SAVE_RESTORE template (bb_save_restore.cpp) and this consumer compute the SAME answer from the SAME inputs —
@@ -215,6 +218,7 @@ static std::string bcps_det_arm() {
      * from the result cell BEFORE restoring, restore the save-set in reverse, and close through the slim epilogue leaves.  Runtime residue (Sigma, pcall, wn/NRETURN, monitor, k_level, vtmark) stays
      * in the slim leaves; rt_name_save_push/restore and rt_arg_stage vanish from this path.  ZC_FRAME_RSP only: the callee's LIFO exits land at the jmp's rsp, so the save block is live at both wires. */
     long scc_fp_o; { long (*fp)(const char *, int, int) = rt_proc_call_open_slim; scc_fp_o = (long)(uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t trap_fp; { void (*fp)(void) = rt_c2b_arm_trap; trap_fp = (uint64_t)(uintptr_t)(void*)fp; }
     long scc_fp_g; { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_slim_γ; scc_fp_g = (long)(uint64_t)(uintptr_t)(void*)fp; }
     long scc_fp_w; { DESCR_t (*fp)(void) = rt_proc_call_epilogue_slim_ω; scc_fp_w = (long)(uint64_t)(uintptr_t)(void*)fp; }
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
@@ -222,6 +226,7 @@ static std::string bcps_det_arm() {
     int c2 = _.op_c2 == 1 ? 1 : 0;
     if (_.op_c2 < 0) return x86_alpha() + x86_bomb("bb_call_proc_staged: CALL2BB handoff callee-name mismatch for this exact call node (producer/consumer drift)");
     if (c2 && !scc)  return x86_alpha() + x86_bomb("bb_call_proc_staged: CALL2BB consumer probe disagrees with the role-0 producer that armed for this node (structural drift — bb_scc_probe is supposed to make this impossible)");
+    if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha() + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist as storage on an armed statement; registration and the probe disagreed");
     long scc_sb = 16L * (long)scc_nsave;
     return x86_alpha()
          + (c2 ? IF(g_scan_regs_live, x86("push", "rax") + x86("push", "rax")) + x86_scan_sync_out() + IF(g_scan_regs_live, x86("pop", "rax") + x86("pop", "rax")) : x86_scan_sync_out())   /* c2: rax carries sr0's open_slim outcome across the box edge; sync_out's C call clobbers it, so the pair (two pushes = alignment held) shields it — emits nothing when the site is not scan-live */
@@ -253,6 +258,7 @@ static std::string bcps_det_arm() {
             + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_w)
             + x86("jmp", L(2))
             + x86("def", L(5))
+            + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
             : std::string(""))
          + (scc && !c2
             ? x86("sub", "rsp", scc_sb)
@@ -267,10 +273,10 @@ static std::string bcps_det_arm() {
             + x86("je", L(5))
             + FOR(0, (int)_.op_ival, [&](int i) {
                   int slot = bcps_arg_slot(_.node, argblks, i);
-                  return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
+                  return (c2farm() ? x86_rsp_load64("rax", (int)scc_sb) : x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
                        + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16), "rax")
-                       + (x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
-                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })   /* FLATDISP-LIVE-BUMP: the FRQ fallback now carries the scc_sb the fc_hit arm always had -- FR/FRQ are rsp-relative under the depth-static regime, so the non-window read was 32 short (083: arg staged at [rsp+128] pre-sub, read at [rsp+128] post-sub = zeroed frame -> s=0 -> 2*s=0) */
+                       + (c2farm() ? x86_rsp_load64("rax", (int)scc_sb + 8) : x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
+                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })   /* FLATDISP-LIVE-BUMP: the FRQ fallback now carries the scc_sb the fc_hit arm always had -- FR/FRQ are rsp-relative under the depth-static regime, so the non-window read was 32 short (083: arg staged at [rsp+128] pre-sub, read at [rsp+128] post-sub = zeroed frame -> s=0 -> 2*s=0).  CALL2BB 3b armed arm FIRST: the RESULT window (base=own quad) never covers the arg slot, so fc_hit correctly misses -- the arg CELL is position-known (TOS above the save block, [rsp + scc_sb], v1 nargs==1 by the bomb), read by position not window */
             + x86("call", "rt_proc_open_fn", openfn_fp)
             + x86_lea_id("rcx", 6)
             + x86_lea_id("rdx", 7)
@@ -293,6 +299,7 @@ static std::string bcps_det_arm() {
             + x86("jmp", L(2))
             + x86("def", L(5))
             + x86("add", "rsp", scc_sb)
+            + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
             : std::string(""))
          + (dc
             ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })

@@ -767,6 +767,7 @@ extern "C" int fc_cond_fp(const IR_t *);                      /* zeta_storage.c 
 extern "C" int fc_head_fp(const IR_t *);                      /* zeta_storage.c — ZB-FC-3d statement grant: fp(pattern) for HEAD's window + RELEASE's cross-box reads; -1 = ungranted */
 extern "C" int fc_leaf_disp(const IR_t *);                    /* zeta_storage.c — R12-ERAD s65: per-leaf flat displacement under ZC_FRAME_RSP; -1 = unregistered (deliver 0) */
 extern "C" int fc_seq_active(const IR_t *);                   /* zeta_storage.c — ZB-FC-3b: this SEQUENCE is FORTH-converted (zero LOCALS; sigma/phi become static edge re-points) */
+extern "C" int fc_call_active(const IR_t *);                  /* zeta_storage.c — CALL2BB 3b: registered value-spine call (RESULT window at the call dispatch, ARG window at the paired sr0 dispatch) */
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 extern "C" int zls_arbno_zq(const IR_t *, int *, int);   /* s141 ARBNO-NOFILL: body ASSIGN_SAVE cell offsets (9 = overflow, keep eager fill) */
 static int walk_bb_node_inner(IR_t * nd, FILE * out);
@@ -952,7 +953,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
     case IR_GOTO:                 { static int _mon = -1; if (_mon < 0) _mon = getenv("MONITOR_BIN") ? 1 : 0; extern void emit_mon_label_tap(int32_t); if (_mon && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto());           return 0;
     case IR_GOTO_DEFERRED:             bb_emit_x86(bb_goto_dyn());       return 0;               /* EVAL/CODE runtime label transfer */
-    case IR_SAVE_RESTORE:              bb_emit_x86(bb_save_restore());   return 0;               /* SN4-FLAT-PROC linkage: roles normalized at the UNION-TAG block above (0 CALL2BB site / 1 RETURN / 2 FRETURN / 3 wire-adopt) */
+    case IR_SAVE_RESTORE:              { extern int fc_call_active(const IR_t *); if (g_emit.op_ival == 0 && nd->γ.node && fc_call_active(nd->γ.node) && nd->n_operands == 1 && nd->operands[0]) { extern int zls_off(const IR_t *); int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = zls_off(nd->operands[0]); if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as; } } bb_emit_x86(bb_save_restore()); } return 0;               /* SN4-FLAT-PROC linkage: roles normalized at the UNION-TAG block above (0 CALL2BB site / 1 RETURN / 2 FRETURN / 3 wire-adopt).  CALL2BB 3b: when the gamma-paired call is fc-registered, sr0 gets the ARG window (base = the one arg's quad) so its existing FRQB(slot, sb) staging read self-rebases to [rsp + sb] -- the arg CELL above sr0's own save block -- with ZERO sr0 template edits (the s21x-h "fc arm inside FRQB" window-readiness, now armed); driver-side neighbor resolution is the sanctioned gather-then-deposit pattern. */
     case IR_BOUND:                { g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;   /* Op_Mark: save rsp at bounded-expression entry (interp.r Op_Mark) */
     case IR_UNMARK:               { IR_t * _mk = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; g_emit.op_sb = 0; g_emit.op_off = _mk ? zls_off(_mk) : -1; g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;   /* Op_Unmark: rsp = paired mark — discard abandoned retained-suspension carves (interp.r rsp=efp-1) */
     case IR_SUBSCRIPT:            bb_emit_x86(nd->n_operands == 2 ? bb_subscript() : bb_section()); return 0;
@@ -1004,6 +1005,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_PROC_GEN:
     case IR_CALL: {
         g_emit.op_call_route = bb_call_route_classify(nd);
+        { extern int fc_call_active(const IR_t *); extern long fc_vwpop(const IR_t *); extern int zls_off(const IR_t *); if (fc_call_active(nd)) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = zls_off(nd); long _w = fc_vwpop(nd); if (_w > 0) g_emit.op_wpop += (int)_w; } }   /* CALL2BB 3b: registered value-spine call -- RESULT window only (base = the call's own zls quad = bcps_result_slot's answer, so the L(2) FRQ(off)/FRQ(off+8) stores rebase into the in-place cell), op_fc_wbytes NEVER op_fc_bytes: an alpha-sub hook would sit ON TOP of sr0's live block and shift the c2 landings' rsp_load64(16*k) restores by 16 (s21x-h probed fact).  wpop = the binop total-pop contract: post-L(2) omega live depth released wholesale. */
         bb_emit_x86(bb_call(nd));
         return 0;
     }
