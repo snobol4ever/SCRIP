@@ -817,6 +817,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
       g_emit.op_proc_k = (g_proc_direct_active && nm_op && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
     g_emit.op_stno = (int32_t)IR_LIT(nd).ival;
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : IR_LIT(nd).ival;
+    if (nd->op == IR_SAVE_RESTORE) { int64_t v = IR_LIT(nd).ival; int64_t r = (v == 1 || v == 2 || v == 3) ? v : 0; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }   /* CALL2BB UNION-TAG: IR.h's sval/ival/dval are ONE union — roles 1-3 write ival and never sval; role 0 writes sval (the callee, an lp_strdup heap pointer) and never ival.  A heap pointer is never 1..3, so the arm read back IS the role; normalize HERE (the single dispatch point) so op_ival is a clean 0..3 and op_sval is name-or-null — templates never see the raw union.  The slice-1 code was accidentally correct (the pointer fell past the 1/2/3 role checks into the role-0 body); this makes the tag explicit and keeps the raw union read out of every other op_sval consumer. */
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_fb_rbp = g_emit.flat_fb_refine ? emit_fb_bit_of(nd) : 1;   /* FB-STMT per-node bit (Lon 2026-07-29) — twin lives in DRIVE_FILL */
     g_emit.op_dval = IR_LIT(nd).dval;
@@ -951,7 +952,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CONJUNCTION:                 bb_emit_x86(bb_conjunction());           return 0;
     case IR_GOTO:                 { static int _mon = -1; if (_mon < 0) _mon = getenv("MONITOR_BIN") ? 1 : 0; extern void emit_mon_label_tap(int32_t); if (_mon && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto());           return 0;
     case IR_GOTO_DEFERRED:             bb_emit_x86(bb_goto_dyn());       return 0;               /* EVAL/CODE runtime label transfer */
-    case IR_SAVE_RESTORE:              bb_emit_x86(bb_save_restore());   return 0;               /* SN4-FLAT-PROC linkage: wire-adopt + RETURN/FRETURN floaters (role in ival) */
+    case IR_SAVE_RESTORE:              bb_emit_x86(bb_save_restore());   return 0;               /* SN4-FLAT-PROC linkage: roles normalized at the UNION-TAG block above (0 CALL2BB site / 1 RETURN / 2 FRETURN / 3 wire-adopt) */
     case IR_BOUND:                { g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;   /* Op_Mark: save rsp at bounded-expression entry (interp.r Op_Mark) */
     case IR_UNMARK:               { IR_t * _mk = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; g_emit.op_sb = 0; g_emit.op_off = _mk ? zls_off(_mk) : -1; g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;   /* Op_Unmark: rsp = paired mark — discard abandoned retained-suspension carves (interp.r rsp=efp-1) */
     case IR_SUBSCRIPT:            bb_emit_x86(nd->n_operands == 2 ? bb_subscript() : bb_section()); return 0;
@@ -1246,6 +1247,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
+        { extern int bb_scc_handoff_consume(const void *, const char *); g_emit.op_c2 = bb_scc_handoff_consume((const void *)nd, IR_LIT(nd).sval); }   /* CALL2BB: 1 = this exact node's sr0 armed the prefix; -1 = armed under a different callee name (bomb in the template); 0 = no partner */
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_HEAD: {
@@ -1266,9 +1268,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sval = IR_LIT(nd).sval; DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SAVE_RESTORE: {
-        g_emit.op_ival = IR_LIT(nd).ival; g_emit.op_sval = IR_LIT(nd).sval;
+        { int64_t v = IR_LIT(nd).ival; int64_t r = (v == 1 || v == 2 || v == 3) ? v : 0; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }   /* UNION-TAG normalization, twin of the dispatch-point block (which runs later and would otherwise re-poison these from the raw union) */
+        { extern void bb_scc_handoff_pending_set(const void *, const char *); extern void bb_scc_handoff_pending_clear(void);
+          if (g_emit.op_ival == 0 && g_emit.op_sval && nd->γ.node) bb_scc_handoff_pending_set((const void *)nd->γ.node, g_emit.op_sval); else bb_scc_handoff_pending_clear(); }   /* CALL2BB: deposit the (call-node, callee) pair; the role-0 template ARMS it only if it emits the prefix */
+        g_emit.op_c2 = 0;
         int na = nd->n_operands; drive_arg_slots_reserve(na);
-        for (int i = 0; i < na; i++) g_emit.op_arg_slot[i] = nd_slot(nd->operands[i]);
+        for (int i = 0; i < na; i++) { IR_t * a = nd->operands[i]; int s = a ? bb_slot_get(a) : -1; if (s < 0 && a) s = zls_off(a); g_emit.op_arg_slot[i] = s; }   /* CALL2BB slice 2: bcps_arg_slot's slot_get→zls precedence, -1 on total miss (role-0 declines to pass-through) */
         g_emit.op_arg_slot_n = na;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;   /* SN4-FLAT-PROC: role rides ival (0 CALL2BB call-site save/install slice — sval = callee, op_arg_slot = staged arg slots, mirroring the call-family marshal; 1 RETURN floater, 2 FRETURN floater, 3 wire-adopt — roles 1-3 carry zero operands so the loop is inert for them) */
     }
@@ -1945,7 +1950,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int own_mark = -1;
     { extern int zls_off(const IR_t *); for (int _oi = 0; _oi < n; _oi++) if (nodes[_oi]->op == IR_MATCH_HEAD) { int _ho = zls_off(nodes[_oi]); if (_ho >= 0) own_mark = _ho + 16; break; } }
     for (int i = 0; i < n; i++) {
-        int _uid = g_flat_node_id++; const char * _kn = flat_label_kind(nodes[i]->op);   /* SN4-ASM-CRIT (Lon s173): label = n<uid>_<ir-kind>_<port>, uid from the ONE file-global mint (g_flat_node_id, per-compile reset) so every node label is file-unique by construction — the BYNAMEFN-DEDUP principle applied at birth; "chain" naming retired.  The per-BB kind comment this replaces is silenced in the "comment" encoder. */
+        int _uid = g_flat_node_id++; const char * _kn = flat_label_kind(nodes[i]->op);
         lbls[i]  = emit_label_alloc("n%d_%s_α", _uid, _kn);
         betas[i] = emit_label_alloc("n%d_%s_β", _uid, _kn);
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_ry", _uid, _kn) : NULL;
@@ -2484,6 +2489,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);   /* PS-3 s153 LATE fct finalize: defer-bearing tail candidates were left PENDING by the early pass (drive_slots_all runs before any proc registers its patzeta ζ terms); HERE every earlier-emitted PAT$ is registered, so the SUSP license resolves -- price or decline-to-chain -- before this graph's first node emits (fc_tail_head is consulted at IR_MATCH_HEAD). */
     g_bb_slotmap_n = 0;
     g_flat_chain_set_n = 0;
+    { extern void bb_scc_handoff_reset(void); bb_scc_handoff_reset(); }   /* CALL2BB: per-graph handoff hygiene */
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }   /* ICN-SCAN-SUSPEND-SYNC: scan regions are intragraph; without an emitted IR_SCAN leave box the flag leaked into later graphs, emitting sync brackets at non-scan call sites (r15.s main α garbage publish) */
     g_emit.flat_deep_arrival = emit_graph_has_deep_arrival(g_emit_cfg);   /* FLATDISP-5b (s193): classification moved HERE — FB-STMT rides the same choke point, next line */
     { int _rc_own = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0; g_emit.flat_fb_refine = (g_emit.flat_deep_arrival && !g_emit.flat_pat && !g_emit.flat_gen && !_rc_own) ? emit_fb_stmt_scan(g_emit_cfg) : 0;   /* FB-STMT guard reads THE GRAPH'S OWN resumable field, not g_resumable_callable_active — that global is refreshed only at jmp-entry arm (emit.cpp ~1821), so an outer main emitted after a PAT$ blob inherits the blob's 1 (measured on w1: hook skip rc=1 while mixed's RSUM proc happened to reset it).  The leak is benign for pinning (mains are deep anyway, emit_rec_pin unchanged) but starved the refinement; the stale-global class gets its own rung.  g_gen_proc_active dropped from the guard for the same reason — flat_gen (per-emission, cleared with flat_jmp_entry) is the honest generator signal at this choke point. */
