@@ -284,7 +284,7 @@ void *rt_ws_alloc(size_t n)
     if (!g_wsi_base) rt_wsi_init();
     { uint64_t total = sizeof(rt_hblk_t) + ((((uint64_t)(n ? n : 1)) + 15u) & ~15ull);
       if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise ZC_WSI_MB\n", (int)ZC_WSI_MB, g_wsi_blocks); abort(); }
-      { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = HB_WS; h->flags = HBF_TTL; memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
+      { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = HB_WS; h->flags = HBF_TTL; if (g_hp_fr.zfull < 0) { const char *ze = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (ze && *ze && *ze != '0') ? 1 : 0; } if (g_hp_fr.zfull) memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
         g_wsi_ws += total; g_wsi_blocks += 1; return (void *)(h + 1); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
