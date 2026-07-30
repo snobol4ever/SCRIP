@@ -12,7 +12,7 @@ extern "C" {
  * ⛔ THIS IS A LAYOUT CONTRACT, NOT A SPELLING SWITCH (s21x-m law 3, measured SEGV -- do not retry blind).  Emitting this glue for a graph means that graph's PROLOGUE established rbp; the two decisions
  * are one decision.  Widening emit_jmp_pin_rbp() to make flat reads depth-immune SEGV'd with ZERO BBs armed, because the pin also gates xa_flat's caller-rbp save at [rsp+kt-8] and kt is sized by a
  * layout pass that assumed no pin -- so pinning a never-pinned graph writes its save outside its own header and returns on a clobbered rbp.  Whoever wires this template wires the prologue with it.
- * K=0 REPRODUCES x86_stmt_enter BYTE-EXACT, and that is load-bearing rather than incidental: it means the statement bracket IS this glue's K=0 instance, so converting ARBNO / FUNCTION / FENCE1 onto it
+ * K=0 IS the statement bracket (WIRED s21x-p GLUE-4: emit.cpp head stubs + chain-exit cuts call this pair directly; the old x86_stmt_enter/leave spelling is deleted), so converting ARBNO / FUNCTION / FENCE1 onto it
  * parameterizes ONE shape instead of growing a fourth spelling of the same three instructions.  The pad arithmetic (((K+8+15) & ~15) - 8) keeps rsp 16-aligned mod 16 ACROSS the pushed rbp, which is what
  * preserves the ambient call-site alignment the bare-call idiom depends on -- the same argument as the CSTACK k16 rounding. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
