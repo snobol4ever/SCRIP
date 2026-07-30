@@ -353,6 +353,8 @@ typedef struct {
 } rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.S bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.S bakes PROC_NAME and PROC_ISGEN");
+_Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128, "rtx_plcall.S bakes PROC_DYN_SCOPE and the shl 7 index stride (RTX-1-PL)");
+_Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48, "rtx_plcall.S records this in its offset table; the fbytes computation is elided, not baked");
 __attribute__((visibility("hidden"))) rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 __attribute__((visibility("hidden"))) int           g_rt_gen_proc_count = 0;
 static int           g_rt_gen_proc_cap = 0;
@@ -1006,6 +1008,8 @@ typedef struct {
 } rt_pcall_t;
 _Static_assert(sizeof(rt_pcall_t) == 64 && __builtin_offsetof(rt_pcall_t, p) == 0 && __builtin_offsetof(rt_pcall_t, save_Σ) == 16, "rtx_call.S bakes PC_P/PC_SAVE_S and the shl 6 stride");
 _Static_assert(__builtin_offsetof(rt_pcall_t, save_Σlen) == 24 && __builtin_offsetof(rt_pcall_t, wn) == 32 && __builtin_offsetof(rt_pcall_t, fb) == 48 && __builtin_offsetof(rt_pcall_t, vtmark) == 56, "rtx_call.S slice-2 offsets");
+_Static_assert(__builtin_offsetof(rt_pcall_t, rname) == 8 && __builtin_offsetof(rt_pcall_t, save_base) == 28 && __builtin_offsetof(rt_pcall_t, lex) == 36 && __builtin_offsetof(rt_pcall_t, nargs) == 40, "rtx_plcall.S bakes PC_RNAME/PC_SAVE_BASE/PC_LEX/PC_NARGS for the RTX-1-PL open port");
+_Static_assert(CALL_ARGS_MAX == 64, "rtx_plcall.S bakes the nargs clamp as an immediate");
 extern int  rt_value_trail_mark(void);
 extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
 extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
@@ -1028,7 +1032,7 @@ void rt_gc_ws_roots(void)
     for (int i = 0; i < g_pcall_top; i++) rt_gc_visit_raw(&g_pcall[i].save_Σ);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_pcall_grow(void)
+__attribute__((visibility("hidden"))) void rt_pcall_grow(void)
 {
     if (g_pcall_top < g_pcall_cap) return;
     int nc = g_pcall_cap ? g_pcall_cap * 2 : 1024;
@@ -1422,7 +1426,7 @@ long rt_proc_call_open(const char *name, int nargs)
  * (rt_proc_index_of; registration order is identical in-process and in the mode-4 startup bake, so the index is stable in both media), and calls here with the index — no name, no hash, and no separate
  * rt_proc_open_fn crossing.  Runs the same lex prologue as rt_proc_call_open's lexical arm and returns the callee fn pointer (0 = no body / guard mismatch, landing in the site's existing FAIL arm);
  * guards precede every side effect, so a decline is side-effect-free exactly like the SCC arm's discipline. */
-void *rt_proc_call_open_det(long idx, int nargs)
+void *c_rt_proc_call_open_det(long idx, int nargs)
 {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];

@@ -62,6 +62,11 @@ FAM="${1:?usage: test_gate_rtx_killswitch_sets.sh <FAMILY> [dir] [N] [m3|m4|both
 DIR="${2:-$ROOT/test/snobol4}"
 N="${3:-4}"
 MODE="${4:-both}"
+# EXT added s223-PL: this gate was hardcoded to *.sno, so it had NO PROLOG OR ICON ARM AT ALL while three
+# RTX ladders depend on it — the same shape as the m3-only gap this script documents about itself above.
+# The per-program logic is already language-agnostic (first dispatch selects the frontend from the
+# extension), so one parameter generalizes it; default stays `sno` so every existing invocation is unmoved.
+EXT="${5:-sno}"
 GATE="SCRIP_RTX_${FAM}"
 RT_DIR="$ROOT/out"
 [ -x "$ROOT/scrip" ] || { echo "FATAL: $ROOT/scrip missing"; exit 1; }
@@ -94,7 +99,7 @@ i3=0; q3=0; m3c=0; i4=0; q4=0; m4c=0; s4=0; total=0
 Q3=""; M3=""; Q4=""; M4=""; S4L=""
 while IFS= read -r prog; do
   total=$((total+1))
-  pdir="$(dirname "$prog")"; name="$(basename "$prog" .sno)"
+  pdir="$(dirname "$prog")"; name="$(basename "$prog" ".$EXT")"
   if [ "$MODE" = m3 ] || [ "$MODE" = both ]; then
     on="$(build_set m3 "$pdir" 1 "$prog")"; off="$(build_set m3 "$pdir" 0 "$prog")"
     on_n="$(printf '%s' "$on" | tr ',' '\n' | grep -c .)"; off_n="$(printf '%s' "$off" | tr ',' '\n' | grep -c .)"
@@ -113,7 +118,7 @@ while IFS= read -r prog; do
       rm -f "$bin"
     else s4=$((s4+1)); S4L="$S4L $name"; fi
   fi
-done < <(find "$DIR" -name '*.sno' | sort)
+done < <(find "$DIR" -name "*.$EXT" | sort)
 [ "$total" -eq 0 ] && { echo "GATE FAIL: zero programs matched $DIR -- a typo'd path must not report PASS (s220)"; exit 1; }
 echo "=== KILL-SWITCH HASH-SET GATE — $GATE, N=$N per arm, $total programs, MODE=$MODE ==="
 movers=0
