@@ -58,6 +58,11 @@
  *   rung of the RTX-14-ICN class (an rvalue subscript arm that returns the VALUE and never
  *   mints a VCELL), it is worth multiples of this port, and it is filed as RTX-25-ICN.
  *
+ * ⭐ SUPERSEDED IN PART: the list below is RTX-24's ORIGINAL scope, kept verbatim
+ * because it records what was true when the gate was minted. DT_A landed at
+ * RTX-28, DT_T/DT_S at RTX-26, DT_T/DT_I at RTX-29, DT_S substring at RTX-27,
+ * and the table MISS at RTX-30. Read each arm's own header for current scope.
+ *
  * WHAT IS DELIBERATELY NOT PORTED (C keeps sole ownership):
  *   DT_A arrays . DT_T tables (tbl_key_str + table_find_pair + rt_ws_strdup_c) .
  *   DT_S/DT_SNUL string subscripting . every VARREF base (base.v == DT_N, which the
@@ -327,11 +332,13 @@ RTX_FUNC(rt_subscript_var)
  *    arm cannot delete the compare the way RTX-24 did -- a hash table's key
  *    compare is semantic, not a type tag -- so this arm makes it cheap instead.
  *
- * ⛔ THE MISS IS NOT PORTED AND MUST BAIL, NOT FAIL. On a miss the C body does
- *    NOT fail: it mints a key-INSERT trap (cellp = 0, key = rt_ws_strdup_c(ks)),
- *    which allocates and copies. Returning FAILDESCR here would silently break
- *    `t[k] := v` on a fresh key. The chain-exhausted edge therefore tail-jumps
- *    to C with the arguments byte-identical, exactly like every other bail.
+ * ⛔ THE MISS MUST TRAP, NOT FAIL. On a miss the C body does NOT fail: it mints
+ *    a key-INSERT trap (cellp = 0, key = rt_ws_strdup_c(ks)), which allocates
+ *    and copies. Returning FAILDESCR here would silently break `t[k] := v` on a
+ *    fresh key. ⭐ UPDATED AT RTX-30: the chain-exhausted edge no longer bails --
+ *    it falls to .Lsub_tbl_miss, which mints that trap in asm. The rule it was
+ *    protecting is unchanged and is now enforced there; read that arm's header
+ *    before touching either. Every OTHER edge on this path still bails.
  * ⛔ THE GUARD IS NARROWER THAN THE C, DELIBERATELY. C reaches its DT_T arm for
  *    any base that derefs to DT_T; this arm additionally requires the
  *    VARREF(slen==1) prologue it shares with RTX-24. That is safe by
@@ -370,7 +377,7 @@ RTX_FUNC(rt_subscript_var)
 
 .Lsub_chain:
     test    r10, r10
-    je      .Lsub_bail                  /* MISS -> C's key-insert trap. See above */
+    je      .Lsub_tbl_miss              /* RTX-30: MINT the key-insert trap here  */
     mov     r11, [r10 + TBPAIR_KEY]
     test    r11, r11
     je      .Lsub_bail
@@ -412,6 +419,98 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
+    mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    ret
+
+/*-----------------------------------------------------------------------------
+ * RTX-30-ICN — THE TABLE MISS / KEY-INSERT TRAP.
+ *
+ * C of record, the `else` half of the DT_T arm (pattern_match.c):
+ *     vc->cellp = 0;  vc->tbl = tb;  vc->key = rt_ws_strdup_c(ks);
+ * then the shared tail: key_d = idx, sv = FAILDESCR, pos = 0, len = 0, NAMETRAP.
+ *
+ * ⛔⛔ IT MINTS A TRAP; IT DOES **NOT** FAIL. C's miss does not return FAILDESCR
+ * and neither may this. A miss arm that failed would read CORRECT on every rvalue
+ * workload and silently break `t[k] := v` on a FRESH key -- s223 finding 3, and
+ * the reason RTX-26/29 deliberately left this edge to C rather than guess at it.
+ * The trap is what `t[k] := v` lands in: rt_assign_var's `vc->cellp == 0 &&
+ * vc->tbl` arm calls table_set_descr_keyown(vc->tbl, vc->key, vc->key_d, val),
+ * which TAKES OWNERSHIP of the strdup'd key. Hence the copy is mandatory, not
+ * defensive: the caller's `ks` may be our own stack scratch (the RTX-29 path).
+ *
+ * ⭐ CANONICAL ICON AGREES, AND THAT IS WHY THE INSERT IS NOT DONE HERE.
+ * refs/icon-master/src/runtime/oref.r, operator [] subsc, the `table:` case:
+ * *"Return a table element trapped variable representing the result; defer
+ * actual lookup until later."* -- it allocates a b_tvtbl and returns; the chain
+ * link happens in tvtbl_asgn (oasgn.r), which re-runs memb() at WRITE time. So
+ * an eager bucket insert here would not merely be an optimisation, it would be
+ * the WRONG SEMANTICS in both SCRIP's model and Icon's: `t[k]` alone must not
+ * grow the table. This arm therefore allocates and names, and links NOTHING.
+ *
+ * ⭐ ONE ARM SERVES BOTH KEY SHAPES. It is reached from .Lsub_hash_init, so a
+ * DT_S key (rdi = idx.s, the caller's bytes) and an RTX-29 DT_I key (rdi = our
+ * [rsp+56..87] scratch) both arrive as a NUL-terminated string in rdi and both
+ * strdup correctly. `t[i] := v` on a fresh integer key is covered by the same
+ * six instructions as `t["k"] := v`.
+ *
+ * ⛔ GC SAFETY, AND IT IS NOT INCIDENTAL -- TWO CALLS, ONE LIVE UNTENDED CELL:
+ *  (1) THE FIELD ORDER IS C's, EXACTLY: cellp and tbl are stored BEFORE the
+ *      strdup call, key after it. rt_ws_strdup_c allocates and may collect, and
+ *      gc_heap.c's HB_AGGV walk dereferences vc->key, vc->tbl and vc->cellp on
+ *      every live VCELL it meets. The carve is fully zeroed (gc_heap.c: HB_AGGV
+ *      takes the full memset arm, not the DT_S/HB_WSC 32-byte tail elide), so a
+ *      collection landing mid-arm sees key=0 (skipped), cellp=0 (skipped) and a
+ *      real tb -- coherent at every instruction boundary. Writing key first, or
+ *      carving after the strdup, would both be defensible in C and are NOT
+ *      equivalent here.
+ *  (2) vc IS SPILLED TO [rsp+40] ACROSS THE STRDUP, not held in a register. The
+ *      collector's root set is the conservative C-stack scan; -O0 C gets this
+ *      spill from the compiler and this arm must do it by hand or the only
+ *      reference to a live cell is a caller-saved register the callee may reuse.
+ *
+ * FRAME: the existing 88-byte frame, three slots, all already free on this path:
+ *   [rsp+32] tb   [rsp+40] vc (across the strdup)   [rsp+48] the key bytes
+ * ⭐ [rsp+48] was the 8-byte hole between RTX-24's slots (0..47) and RTX-29's
+ * scratch (56..87) -- enumerated by grep before use, zero prior readers or
+ * writers. No frame resize, so RTX-24/26/27/28/29 are byte-untouched by this.
+ *
+ * ⚠ THE CEILING IS THE ALLOCATION, AND IT IS NOW DOUBLE. This arm removes the
+ * -O0 frame, tbl_key_str and table_find_pair's hash+walk, but it CALLS BOTH
+ * rt_agg_alloc AND rt_ws_strdup_c -- two allocations per subscript where every
+ * previously-landed arm had one. EXPECTATION ON RECORD, STATED BEFORE MEASURING:
+ * 1.05-1.20x, and OVERLAPPING is the expected outcome, not a disappointment.
+ * RTX-28 measured 1.160x with ONE allocation and the cheapest dispatch in the
+ * function; this has more dispatch to remove and twice the allocation floor.
+ * ⛔ Do NOT expect RTX-29's 1.296x. If it lands at or below 1.05x it is a NULL
+ * and must be recorded as one. rt_ws_alloc is separately marked DO-NOT-TAKE:
+ * this rung CALLS it, it does not port it.
+ */
+.Lsub_tbl_miss:
+    mov     [rsp + 32], rsi             /* tb must survive both calls            */
+    mov     [rsp + 48], rdi             /* the key bytes; rt_agg_alloc takes rdi */
+    xor     edi, edi                    /* kind = 0                              */
+    mov     esi, VCELL_SIZE             /* n    = sizeof(VCELL_t)                */
+    call    rt_agg_alloc                /* already asm (ALLOC gate); do not fork  */
+                                        /*   the bump allocator for a 2nd owner   */
+    mov     [rsp + 40], rax             /* vc: GC-visible on the C stack across   */
+                                        /*     the strdup below. See note (2).    */
+    mov     qword ptr [rax + VCELL_CELLP], 0   /* MISS => no cell exists yet     */
+    mov     rcx, [rsp + 32]
+    mov     [rax + VCELL_TBL], rcx      /* vc->tbl = tb, BEFORE the strdup       */
+    mov     rdi, [rsp + 48]
+    call    rt_ws_strdup_c              /* rax = the owned copy of the key       */
+    mov     rcx, [rsp + 40]             /* rcx = vc                              */
+    mov     [rcx + VCELL_KEY], rax      /* vc->key = rt_ws_strdup_c(ks)          */
+    mov     r8, [rsp + 16]
+    mov     r9, [rsp + 24]
+    mov     [rcx + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
+    mov     [rcx + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
+    mov     qword ptr [rcx + VCELL_SV], DT_FAIL   /* vc->sv = FAILDESCR          */
+    mov     qword ptr [rcx + VCELL_SV + 8], 0
+    mov     qword ptr [rcx + VCELL_POS], 0
+    mov     qword ptr [rcx + VCELL_LEN], 0
+    add     rsp, 88
+    mov     rdx, rcx                    /* rdx = vc                              */
     mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
     ret
 
