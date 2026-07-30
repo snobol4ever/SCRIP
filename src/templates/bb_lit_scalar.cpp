@@ -25,6 +25,7 @@ std::string bb_lit_scalar() {
          ? x86("comment", "IR_LIT_STRING")
              + x86_alpha()
              + x86("mov",    FRQ(_.op_off), (long)DT_S)
+             + x86("mov",    FR(_.op_off + 4), (long)(_.op_sval ? strlen(_.op_sval) : 0))
              + x86("mov",    "rax", ROQ(0))
              + x86("mov",    FRQ(_.op_off + 8), "rax")
              + x86_gamma()
