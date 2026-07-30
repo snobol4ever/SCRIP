@@ -396,5 +396,42 @@ RTX_FUNC(rt_match_ctx_restore)
     ret
 RTX_ENDF(rt_match_ctx_restore)
 
+/* rt_patstk_lazy_init — RTX-8 slice 5. THE LAZY-INIT SHAPE: one real init, N-1 no-op tests.
+ *
+ * C OF RECORD: pattern_match.c:620, renamed c_rt_patstk_lazy_init in this same commit.
+ *
+ * ARM CENSUS (0(f-pre), read from the C body, then measured):
+ *   ARM 1  g_patstk_sp == 0  -> COLD. Reserves the 8 MB pend island via rt_slab_region,
+ *                              aborts on failure, computes and 16-aligns the descending sp.
+ *                              Runs EXACTLY ONCE per process. Delegated whole to C.
+ *   ARM 2  g_patstk_sp != 0  -> HOT. Nothing to do; return. 4,000,000 of 4,000,001 calls
+ *                              on pattern_bt.sno at LT(N,4000000).
+ * Measured 0(d): 1,000,001 entries at K=1M and 2,000,001 at K=2M -- EXACTLY 2.000x.
+ *
+ * BAIL-BEFORE-MUTATE IS FREE HERE, AND THAT IS THE WHOLE REASON THIS TARGET IS SAFE:
+ * the asm MUTATES NOTHING. It performs one load and one compare, then either returns or
+ * tail-delegates to a C body that re-does the test itself. So the s215 double-push/double-pop
+ * hazard cannot arise, and the cold path is bit-identical to pristine C by construction.
+ *
+ * g_patstk_sp IS EXPORTED AND MUST GO THROUGH THE GOT (ARCH §7 step 0(c), verified on
+ * out/rt_pic/pattern_match.o -- capital `B`, and present in the .so dynamic table because
+ * bb_match_head/bb_match_fence1/bb_match_release all read it from emitted code). A direct
+ * [rip+g_patstk_sp] here would bind a DIFFERENT variable via copy relocation when a -no-pie
+ * executable owns the storage -- silent island divergence, no diagnostic at any stage (s214).
+ * g_patstk_base stays `static` (lowercase `b` in the object) and is UNREFERENCEABLE from a .S;
+ * this port never touches it, only the C cold path does.
+ *
+ * NO SPEED NUMBER IS CLAIMED. Measured: the whole MATCH family gate moves pattern_bt by zero
+ * (ON median 903 ms vs OFF 890 ms at LT(N,4000000)), and this container throws intermittent
+ * +50% fliers, so the per-call saving here (~5 instructions against ~650 cycles per match)
+ * is far below the floor. Graded on correctness and eradication, per the RTX-7/s217 precedent. */
+RTX_FUNC(rt_patstk_lazy_init)
+    RTX_GATE(match, c_rt_patstk_lazy_init)
+    mov     r10, qword ptr [rip + g_patstk_sp@GOTPCREL]  /* &g_patstk_sp -- exported, GOT-indirect per 0(c) */
+    cmp     qword ptr [r10], 0                           /* the island already reserved?                     */
+    je      c_rt_patstk_lazy_init                        /* ARM 1 COLD: first match -- whole body to C       */
+    ret                                                  /* ARM 2 HOT: nothing to do                         */
+RTX_ENDF(rt_patstk_lazy_init)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
