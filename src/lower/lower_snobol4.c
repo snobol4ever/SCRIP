@@ -995,7 +995,8 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_in_arbno = 0;   /* ZB-FC-3b: >0 while lowering an ARBNO body; balanced, so it always returns to 0 (EVAL/CODE mint fresh graphs in-process) */
+static int sno_in_arbno = 0;
+static int sno_tree_has_varext(const IR_t * n, int d) { if (!n || d > 12) return 0; if (n->op == IR_MATCH_ARBNO || n->op == IR_MATCH_DEFER) return 1; for (int i = 0; i < n->n_operands; i++) if (sno_tree_has_varext(n->operands[i], d + 1)) return 1; return 0; }   /* SEQ-CELL fence (s21x-l, second falsification): the FIRST fence (body-resident SEQs) held but 066/164/165 persisted -- the mechanism is the SUSPENDED cell, not residency: a top-level SEQ's cell stays pushed across gamma while its ARBNO/DEFER descendants run, shifting every depth-sensitive window slot below it (the s202 defer-window class).  A SEQ over any variable-extent descendant therefore declines wholesale, degrade never die. */   /* ZB-FC-3b: >0 while lowering an ARBNO body; balanced, so it always returns to 0 (EVAL/CODE mint fresh graphs in-process) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* sno_cap_defer -- R12-EXIT-1 L1b (Lon ruling this session: "all ARBNO needs to know is what size of children it has" -- the capture joins the predetermined-size list).  A capture lowered INSIDE an
  * ARBNO body cannot register its FORTH cell at lowering time: the grant is only sound if the statement takes the ELEMENT path (LIFO fixed-size pushes, uniform depth), and candidacy is decided later;
@@ -1144,6 +1145,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
         ir_operand_push(S, ri);
     }
     if (fc_linear && sno_in_arbno == 0) { extern void fc_seq_register(const IR_t *); fc_seq_register(S); }
+    if (sno_in_arbno > 0 || sno_tree_has_varext(S, 0)) { extern void fc_arbno_member_register(const IR_t *); fc_arbno_member_register(S); }   /* SEQ-CELL fence (s21x-l): ARBNO-body SEQ declines the cell grant -- iteration-frame extents never counted it (066/164/165 witness) */
     IR_LIT(S).ival = (long)ne;
     return S;
 }
