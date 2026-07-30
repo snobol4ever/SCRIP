@@ -129,6 +129,17 @@ RTX_GATE_DEF(icnsub)
 #define FIELD1_P         24      /* fields[1].i   -- element count n   */
 #define FIELD2_V         32      /* fields[2].v   -- genus tag type    */
 #define FIELD2_P         40      /* fields[2].s   -- genus tag bytes   */
+/* RTX-26-ICN: the DT_T arm's layout. TBPAIR_t is {char *key; DESCR_t key_descr;
+ * DESCR_t val; TBPAIR_t *next;} and TBBLK_t opens with buckets[256], so the
+ * bucket vector is at offset ZERO and indexes as [tb + h*8]. All five pinned by
+ * _Static_assert in rtx_init.c. ⚠ DT_T IS defined (rtx_abi.inc:63) unlike
+ * DT_DATA -- checked, not assumed, because s222 proved an undefined tag compare
+ * assembles cleanly as a relocation and admits the wrong datatype silently. */
+#define TBPAIR_KEY        0      /* TBPAIR_t.key   (char *)        */
+#define TBPAIR_VAL       24      /* TBPAIR_t.val   (DESCR_t)       */
+#define TBPAIR_NEXT      40      /* TBPAIR_t.next  (TBPAIR_t *)    */
+#define TBBLK_BUCKETS     0      /* TBBLK_t.buckets[TABLE_BUCKETS] */
+#define TBL_HASH_SEED  5381      /* _tbl_hash: djb2-xor, aggregates.c:78 */
 
 /*-----------------------------------------------------------------------------
  * DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx)
@@ -148,8 +159,11 @@ RTX_FUNC(rt_subscript_var)
 
     /* Cheap rejects first, BEFORE any frame, so the common bail costs four
      * compares and a tail jump with the arguments never touched. */
-    cmp     edx, DT_I                   /* integer subscript only               */
+    cmp     edx, DT_I                   /* DT_I  -> RTX-24's DT_DATA list arm   */
+    je      .Lsub_tag_ok
+    cmp     edx, DT_S                   /* DT_S  -> RTX-26's DT_T table arm     */
     jne     c_rt_subscript_var
+.Lsub_tag_ok:
     cmp     edi, DT_N                   /* base must be the VARREF shape        */
     jne     c_rt_subscript_var
     mov     rax, rdi
@@ -166,6 +180,12 @@ RTX_FUNC(rt_subscript_var)
     mov     [rsp + 24], rcx
 
     call    rt_deref                    /* base = rt_deref(base); already asm    */
+    /* The SUBSCRIPT tag selects the arm, and it is read from the spill rather
+     * than a live register because rt_deref returns in rax:rdx and clobbers rdx.
+     * MEASURED s223: t["k"] arrives base.v=9 slen=1 idx.v=DT_S; L[3] arrives
+     * base.v=9 slen=1 idx.v=DT_I. Two arms, one prologue, disjoint selectors. */
+    cmp     dword ptr [rsp + 16], DT_S
+    je      .Lsub_table
     cmp     eax, DT_DATA                /* only the list/record family here      */
     jne     .Lsub_bail
     mov     rsi, rdx                    /* rsi = base.u (DATINST_t *)            */
@@ -250,6 +270,111 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
 
+    add     rsp, 56
+    mov     rdx, rax                    /* rdx = vc                              */
+    mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    ret
+
+/*-----------------------------------------------------------------------------
+ * RTX-26-ICN — THE DT_T TABLE ARM, keyed by a DT_S subscript.
+ *
+ * The C of record (pattern_match.c c_rt_subscript_var, the base.v == DT_T arm)
+ * reduces, under exactly this shape, to: ks = idx.s  (tbl_key_str's DT_S case is
+ * a bare `return kd.s` -- no buffer, no formatting) ; e = table_find_pair(tb,ks) ;
+ * carve a VCELL ; cellp = &e->val, tbl = tb, key = 0. TWO CALLS ARE ELIMINATED
+ * rather than skipped, and at RT_OPT=-O0 both are real calls, per subscript:
+ *   (1) _tbl_hash  (aggregates.c:78, static but NOT inlined at -O0) -- here it is
+ *       a 6-instruction loop, no frame, no call.
+ *   (2) strcmp     -- here an inline byte compare that stops on the first
+ *       mismatch or the shared NUL.
+ * ⭐ This is the RTX-13-ICN by-name disease in a THIRD family: a table lookup
+ *    that hashes and then strcmps a key string on every single access. RTX-24
+ *    found it in the list arm (two strcmps for "list"/"frame_elems"); the table
+ *    arm cannot delete the compare the way RTX-24 did -- a hash table's key
+ *    compare is semantic, not a type tag -- so this arm makes it cheap instead.
+ *
+ * ⛔ THE MISS IS NOT PORTED AND MUST BAIL, NOT FAIL. On a miss the C body does
+ *    NOT fail: it mints a key-INSERT trap (cellp = 0, key = rt_ws_strdup_c(ks)),
+ *    which allocates and copies. Returning FAILDESCR here would silently break
+ *    `t[k] := v` on a fresh key. The chain-exhausted edge therefore tail-jumps
+ *    to C with the arguments byte-identical, exactly like every other bail.
+ * ⛔ THE GUARD IS NARROWER THAN THE C, DELIBERATELY. C reaches its DT_T arm for
+ *    any base that derefs to DT_T; this arm additionally requires the
+ *    VARREF(slen==1) prologue it shares with RTX-24. That is safe by
+ *    construction (anything else bails) and it is what the traffic actually is:
+ *    2,000,001 of 2,000,001 arrivals measured base.v=9 slen=1.
+ */
+.Lsub_table:
+    cmp     eax, DT_T
+    jne     .Lsub_bail
+    mov     rsi, rdx                    /* rsi = tb (TBBLK_t *)                  */
+    test    rsi, rsi
+    je      .Lsub_bail
+    mov     rdi, [rsp + 24]             /* rdi = idx.s, the key bytes            */
+    test    rdi, rdi
+    je      .Lsub_bail                  /* C substitutes ""; do not emulate it    */
+
+    /* --- _tbl_hash, inlined: h = 5381; while (*k) h = h*33 ^ (uchar)*k++ ------ */
+    mov     eax, TBL_HASH_SEED
+    mov     r8, rdi
+.Lsub_hash:
+    movzx   ecx, byte ptr [r8]
+    test    cl, cl
+    je      .Lsub_hash_done
+    mov     r9d, eax
+    shl     r9d, 5
+    add     r9d, eax                    /* h * 33 == (h << 5) + h, 32-bit wrap   */
+    xor     r9d, ecx
+    mov     eax, r9d
+    inc     r8
+    jmp     .Lsub_hash
+.Lsub_hash_done:
+    movzx   eax, al                     /* h % TABLE_BUCKETS, and 256 makes that */
+                                        /*   the low byte -- pinned by assert    */
+    mov     r10, [rsi + rax*8 + TBBLK_BUCKETS]   /* e = tb->buckets[h]           */
+
+.Lsub_chain:
+    test    r10, r10
+    je      .Lsub_bail                  /* MISS -> C's key-insert trap. See above */
+    mov     r11, [r10 + TBPAIR_KEY]
+    test    r11, r11
+    je      .Lsub_bail
+    mov     r8, rdi                     /* r8 walks the probe key                */
+.Lsub_cmp:
+    movzx   ecx, byte ptr [r11]
+    movzx   edx, byte ptr [r8]
+    cmp     cl, dl
+    jne     .Lsub_chain_next
+    test    cl, cl
+    je      .Lsub_hit                   /* both hit NUL together == strcmp 0     */
+    inc     r11
+    inc     r8
+    jmp     .Lsub_cmp
+.Lsub_chain_next:
+    mov     r10, [r10 + TBPAIR_NEXT]
+    jmp     .Lsub_chain
+
+.Lsub_hit:
+    lea     rcx, [r10 + TBPAIR_VAL]     /* &e->val                               */
+    mov     [rsp + 32], rsi             /* tb and &e->val must survive the carve */
+    mov     [rsp + 40], rcx             /*   -- rsi/r10 are both caller-saved    */
+    xor     edi, edi                    /* kind = 0                              */
+    mov     esi, VCELL_SIZE
+    call    rt_agg_alloc                /* already asm (ALLOC gate); do not fork  */
+                                        /*   the bump allocator for a 2nd owner   */
+    mov     rcx, [rsp + 40]
+    mov     [rax + VCELL_CELLP], rcx    /* vc->cellp = &e->val                   */
+    mov     rcx, [rsp + 32]
+    mov     [rax + VCELL_TBL], rcx      /* vc->tbl   = tb                        */
+    mov     qword ptr [rax + VCELL_KEY], 0        /* found => no strdup'd key    */
+    mov     r8, [rsp + 16]
+    mov     r9, [rsp + 24]
+    mov     [rax + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
+    mov     [rax + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL   /* vc->sv = FAILDESCR          */
+    mov     qword ptr [rax + VCELL_SV + 8], 0
+    mov     qword ptr [rax + VCELL_POS], 0
+    mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 56
     mov     rdx, rax                    /* rdx = vc                              */
     mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
