@@ -188,7 +188,7 @@ static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int
      * terminates at sr0 instead of call.  Gate OFF = this function byte-identical to its prior body (sr0 never built, tail == call). */
     IR_t * call = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
     IR_t * sr0 = NULL; static int c2bb = -1; if (c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); c2bb = (e2 && *e2 == '1') ? 1 : 0; }
-    if (c2bb) { sr0 = lc_build(cx->g, IR_SAVE_RESTORE, call, ω); IR_LIT(sr0).ival = 0; IR_LIT(sr0).sval = IR_LIT(call).sval; }
+    if (c2bb) { sr0 = lc_build(cx->g, IR_SAVE_RESTORE, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }   /* UNION-TAG (IR.h: sval/ival alias): writing sval IS the role-0 mark — the slice-1 `ival = 0` here was a dead store the sval write clobbered; the dispatch normalizes pointer-vs-1..3 back to role 0..3 */
     IR_t * tail = sr0 ? sr0 : call;
     int nargs = t ? (t->n - argbase) : 0;
     IR_t * prev = NULL; IR_t * entry = tail;

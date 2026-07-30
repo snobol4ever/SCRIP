@@ -104,6 +104,40 @@ static int bcps_result_slot() {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* CALL2BB slice 2 (Lon s21x-c: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: an IR_SAVE_RESTORE and an IR_CALL") — the SCC eligibility PROBE + the role-0 producer→consumer HANDOFF.
+ * bb_scc_probe is the BP-7 emit-time predicate factored to ONE body so the role-0 IR_SAVE_RESTORE template (bb_save_restore.cpp) and this consumer compute the SAME answer from the SAME inputs —
+ * structural agreement, no drift (a disagreement bombs loudly below).  !is_generator is explicit here: the det arm arrives pre-filtered by its dispatch but role-0 has no such gate, and open_slim's
+ * runtime guard declines generators anyway, so the conjunct is redundant-true for this file and load-bearing for role-0.  The handoff is a template-file static (the fc_pair_extent side-table idiom —
+ * PEERS RULE: not an IR_t field; not g_emit: DRIVE_FILL owns that lifecycle): role-0 sets it as its string is built, and THIS box consumes-and-clears on its very next build (sx_call_named chains
+ * sr0.γ → call adjacently, emission is chain-ordered and single-threaded, so the window is exactly one box).  Every shape surprise is an in-band x86_bomb per RULES — loud over silent. */
+extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
+    int np = 0, nsave = 0, res_gk = -1, scc = 0;
+    if (x86_zc_frame() == ZC_FRAME_RSP && fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
+        np = rt_proc_nparams(fname);
+        if (np >= 0 && np <= 60 && nargs <= np) {
+            const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;
+            for (int k = 0; ok && k < np; k++) { const char *nm = rt_proc_pname(fname, k); int gk = nm ? gva_index_of(nm) : -1; if (gk < 0) ok = 0; else { gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; } }
+            if (ok) { res_gk = gva_index_of(rn); if (res_gk < 0) ok = 0; else if (!sh) gk_out[nsave++] = res_gk; }
+            if (ok) scc = 1;
+        }
+    }
+    if (np_out) *np_out = np; if (nsave_out) *nsave_out = nsave; if (res_gk_out) *res_gk_out = res_gk; return scc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Node-exact handoff: BFS emission ORDER interleaves sr0 boxes and their calls freely (measured: two role-0 boxes emitted back-to-back on the operand-position witness), but CONTROL follows the γ edge —
+ * sr0 jmps directly to ITS call's α with rax + the live block riding, so runtime adjacency holds regardless of text order.  The consumer key is therefore the CALL NODE POINTER, deposited by the sr0
+ * DRIVE arm (drivers own nodes; templates never see them), promoted to ARMED only when the role-0 template actually emits the prefix, and consumed in the call-family drive arm which marshals the clean
+ * scalar op_c2 for the template.  Table capacity 64 outstanding pairs; overflow declines the new sr0 to pass-through (safe).  Reset per graph at emit_chain (stale-entry hygiene). */
+#define BB_C2H_MAX 64
+static struct { const void *call; char name[256]; } g_c2h_tab[BB_C2H_MAX]; static int g_c2h_n;
+static struct { const void *call; const char *name; int live; } g_c2h_pend;
+extern "C" void bb_scc_handoff_pending_set(const void *call_nd, const char *fname) { g_c2h_pend.call = call_nd; g_c2h_pend.name = fname; g_c2h_pend.live = call_nd && fname ? 1 : 0; }
+extern "C" void bb_scc_handoff_pending_clear(void) { g_c2h_pend.live = 0; }
+extern "C" int  bb_scc_handoff_arm(void) { if (!g_c2h_pend.live || g_c2h_n >= BB_C2H_MAX) return 0; g_c2h_tab[g_c2h_n].call = g_c2h_pend.call; snprintf(g_c2h_tab[g_c2h_n].name, sizeof g_c2h_tab[g_c2h_n].name, "%s", g_c2h_pend.name); g_c2h_n++; g_c2h_pend.live = 0; return 1; }
+extern "C" int  bb_scc_handoff_room(void) { return g_c2h_pend.live && g_c2h_n < BB_C2H_MAX; }
+extern "C" int  bb_scc_handoff_consume(const void *call_nd, const char *fname) { for (int i = 0; i < g_c2h_n; i++) if (g_c2h_tab[i].call == call_nd) { int ok = fname && !strcmp(g_c2h_tab[i].name, fname) ? 1 : 0; g_c2h_tab[i] = g_c2h_tab[--g_c2h_n]; return ok ? 1 : -1; } return 0; }
+extern "C" void bb_scc_handoff_reset(void) { g_c2h_n = 0; g_c2h_pend.live = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1b — THE DETERMINISTIC CALL SITE, EMITTED.  One R2 concatenation, one medium, invisible: this replaced a
  * hand-written bcps_bin_arm/bcps_txt_arm PAIR (the named FORBIDDEN SHAPE — one instruction stream written
  * twice).  The two arms only ever diverged on the two sanctioned R10 medium-specific encodings — the RO name
@@ -184,20 +218,43 @@ static std::string bcps_det_arm() {
     long scc_fp_g; { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_slim_γ; scc_fp_g = (long)(uint64_t)(uintptr_t)(void*)fp; }
     long scc_fp_w; { DESCR_t (*fp)(void) = rt_proc_call_epilogue_slim_ω; scc_fp_w = (long)(uint64_t)(uintptr_t)(void*)fp; }
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
-    if (x86_zc_frame() == ZC_FRAME_RSP && is_dyn && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok() && _.op_sval && rt_proc_is_registered(_.op_sval)) {
-        scc_np = rt_proc_nparams(_.op_sval); int nargs = (int)_.op_ival;
-        if (scc_np >= 0 && scc_np <= 60 && nargs <= scc_np) {
-            const char *rn = rt_proc_result_name_get(_.op_sval); int ok = rn ? 1 : 0, sh = 0;
-            for (int k = 0; ok && k < scc_np; k++) { const char *nm = rt_proc_pname(_.op_sval, k); int gk = nm ? gva_index_of(nm) : -1; if (gk < 0) ok = 0; else { scc_gk[scc_nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; } }
-            if (ok) { scc_res_gk = gva_index_of(rn); if (scc_res_gk < 0) ok = 0; else if (!sh) scc_gk[scc_nsave++] = scc_res_gk; }
-            if (ok) scc = 1;
-        }
-    }
+    scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);   /* CALL2BB slice 2: the inline BP-7 predicate factored to the shared probe above (identical answer by construction; is_dyn now inside) */
+    int c2 = _.op_c2 == 1 ? 1 : 0;
+    if (_.op_c2 < 0) return x86_alpha() + x86_bomb("bb_call_proc_staged: CALL2BB handoff callee-name mismatch for this exact call node (producer/consumer drift)");
+    if (c2 && !scc)  return x86_alpha() + x86_bomb("bb_call_proc_staged: CALL2BB consumer probe disagrees with the role-0 producer that armed for this node (structural drift — bb_scc_probe is supposed to make this impossible)");
     long scc_sb = 16L * (long)scc_nsave;
     return x86_alpha()
-         + x86_scan_sync_out()
+         + (c2 ? IF(g_scan_regs_live, x86("push", "rax") + x86("push", "rax")) + x86_scan_sync_out() + IF(g_scan_regs_live, x86("pop", "rax") + x86("pop", "rax")) : x86_scan_sync_out())   /* c2: rax carries sr0's open_slim outcome across the box edge; sync_out's C call clobbers it, so the pair (two pushes = alignment held) shields it — emits nothing when the site is not scan-live */
          + x86_anchor_enter()
-         + (scc
+         + (c2
+            /* CALL2BB slice 2 — STAGED-BOX SKIP: the role-0 IR_SAVE_RESTORE box just ahead of this one carved the save block (still LIVE at rsp on the committed path), spilled the save-set, ran
+             * open_slim, and installed the staged args into the NV globals.  rax==1 = slim record OPEN → transfer here (landings restore + release sr0's block through the slim epilogues, exactly the
+             * merged shape); rax==0 = runtime decline (redefined / fastpath-off / prototype drift) → sr0 already released its block → fall to L(5) = the classic sequence verbatim, at base depth. */
+            ? x86("test", "rax", "rax")
+            + x86("je", L(5))
+            + x86("call", "rt_proc_open_fn", openfn_fp)
+            + x86_lea_id("rcx", 6)
+            + x86_lea_id("rdx", 7)
+            + x86_jmp_reg("rax")
+            + x86("def", L(6))
+            + x86("mov", "rdi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
+            + x86("mov", "rsi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
+            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                  return x86_rsp_load64("rax", 16 * k) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                       + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+            + x86("add", "rsp", scc_sb)
+            + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
+            + x86("jmp", L(2))
+            + x86("def", L(7))
+            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                  return x86_rsp_load64("rax", 16 * k) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                       + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+            + x86("add", "rsp", scc_sb)
+            + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_w)
+            + x86("jmp", L(2))
+            + x86("def", L(5))
+            : std::string(""))
+         + (scc && !c2
             ? x86("sub", "rsp", scc_sb)
             + FOR(0, scc_nsave, [&](int k) {
                   return x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
