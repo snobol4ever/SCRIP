@@ -524,11 +524,11 @@ n45_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n46_unop_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 272]
-                        mov              rsi, qword ptr [rsp + 280]
+                        mov              rdi, qword ptr [rsp + 288]
+                        mov              rsi, qword ptr [rsp + 296]
                         call             rt_num_neg@PLT
-                        mov              qword ptr [rsp + 256], rax
-                        mov              qword ptr [rsp + 264], rdx
+                        mov              qword ptr [rsp + 272], rax
+                        mov              qword ptr [rsp + 280], rdx
                         add              rsp, 16
                                                                                         jmp   n50_call_α
 #-----------------------------------------------------------------------------------------------------------------------

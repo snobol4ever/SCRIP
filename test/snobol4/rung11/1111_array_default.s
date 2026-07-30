@@ -155,18 +155,18 @@ n11_var_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n12_subscript_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 336]
-                        mov              rsi, qword ptr [rsp + 344]
-                        mov              rdx, qword ptr [rsp + 352]
-                        mov              rcx, qword ptr [rsp + 360]
+                        mov              rdi, qword ptr [rsp + 352]
+                        mov              rsi, qword ptr [rsp + 360]
+                        mov              rdx, qword ptr [rsp + 368]
+                        mov              rcx, qword ptr [rsp + 376]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx37_240
                         add              rsp, 16
                                                                                         jmp   n6_lit_string_α
 .Lx37_240:
-                        mov              qword ptr [rsp + 368], rax
-                        mov              qword ptr [rsp + 376], rdx
+                        mov              qword ptr [rsp + 384], rax
+                        mov              qword ptr [rsp + 392], rdx
                         add              rsp, 16
                                                                                         jmp   n14_deref_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -180,33 +180,33 @@ n13_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n14_deref_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 368]
-                        mov              rsi, qword ptr [rsp + 376]
+                        mov              rdi, qword ptr [rsp + 384]
+                        mov              rsi, qword ptr [rsp + 392]
                         call             rt_deref@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx39_240
                         add              rsp, 16
                                                                                         jmp   n6_lit_string_α
 .Lx39_240:
-                        mov              qword ptr [rsp + 384], rax
-                        mov              qword ptr [rsp + 392], rdx
+                        mov              qword ptr [rsp + 400], rax
+                        mov              qword ptr [rsp + 408], rdx
                         add              rsp, 16
                                                                                         jmp   n16_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n15_subscript_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 176]
-                        mov              rsi, qword ptr [rsp + 184]
-                        mov              rdx, qword ptr [rsp + 192]
-                        mov              rcx, qword ptr [rsp + 200]
+                        mov              rdi, qword ptr [rsp + 192]
+                        mov              rsi, qword ptr [rsp + 200]
+                        mov              rdx, qword ptr [rsp + 208]
+                        mov              rcx, qword ptr [rsp + 216]
                         call             rt_subscript_var@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx40_240
                         add              rsp, 16
                                                                                         jmp   n5_var_α
 .Lx40_240:
-                        mov              qword ptr [rsp + 208], rax
-                        mov              qword ptr [rsp + 216], rdx
+                        mov              qword ptr [rsp + 224], rax
+                        mov              qword ptr [rsp + 232], rdx
                         add              rsp, 16
                                                                                         jmp   n17_deref_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -220,16 +220,16 @@ n16_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n17_deref_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 208]
-                        mov              rsi, qword ptr [rsp + 216]
+                        mov              rdi, qword ptr [rsp + 224]
+                        mov              rsi, qword ptr [rsp + 232]
                         call             rt_deref@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx42_240
                         add              rsp, 16
                                                                                         jmp   n5_var_α
 .Lx42_240:
-                        mov              qword ptr [rsp + 224], rax
-                        mov              qword ptr [rsp + 232], rdx
+                        mov              qword ptr [rsp + 240], rax
+                        mov              qword ptr [rsp + 248], rdx
                         add              rsp, 16
                                                                                         jmp   n19_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------

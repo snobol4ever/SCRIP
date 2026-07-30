@@ -226,16 +226,16 @@ n12_assign_α:
 n13_field_var_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx36_0]
-                        mov              rsi, qword ptr [rsp + 304]
-                        mov              rdx, qword ptr [rsp + 312]
+                        mov              rsi, qword ptr [rsp + 320]
+                        mov              rdx, qword ptr [rsp + 328]
                         call             rt_field_var@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx36_240
                         add              rsp, 16
                                                                                         jmp   n14_var_α
 .Lx36_240:
-                        mov              qword ptr [rsp + 320], rax
-                        mov              qword ptr [rsp + 328], rdx
+                        mov              qword ptr [rsp + 336], rax
+                        mov              qword ptr [rsp + 344], rdx
                         add              rsp, 16
                                                                                         jmp   n15_lit_integer_α
 .Lx36_0:

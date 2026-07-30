@@ -169,31 +169,31 @@ n10_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n11_deref_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 288]
-                        mov              rsi, qword ptr [rsp + 296]
+                        mov              rdi, qword ptr [rsp + 304]
+                        mov              rsi, qword ptr [rsp + 312]
                         call             rt_deref@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx34_240
                         add              rsp, 16
                                                                                         jmp   n6_lit_string_α
 .Lx34_240:
-                        mov              qword ptr [rsp + 272], rax
-                        mov              qword ptr [rsp + 280], rdx
+                        mov              qword ptr [rsp + 288], rax
+                        mov              qword ptr [rsp + 296], rdx
                         add              rsp, 16
                                                                                         jmp   n13_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_deref_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 112]
-                        mov              rsi, qword ptr [rsp + 120]
+                        mov              rdi, qword ptr [rsp + 128]
+                        mov              rsi, qword ptr [rsp + 136]
                         call             rt_deref@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx35_240
                         add              rsp, 16
                                                                                         jmp   n5_lit_string_α
 .Lx35_240:
-                        mov              qword ptr [rsp + 96], rax
-                        mov              qword ptr [rsp + 104], rdx
+                        mov              qword ptr [rsp + 112], rax
+                        mov              qword ptr [rsp + 120], rdx
                         add              rsp, 16
                                                                                         jmp   n14_var_α
 #-----------------------------------------------------------------------------------------------------------------------

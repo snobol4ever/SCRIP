@@ -189,16 +189,16 @@ n12_lit_string_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_deref_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 288]
-                        mov              rsi, qword ptr [rsp + 296]
+                        mov              rdi, qword ptr [rsp + 304]
+                        mov              rsi, qword ptr [rsp + 312]
                         call             rt_deref@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx35_240
                         add              rsp, 16
                                                                                         jmp   n6_lit_string_α
 .Lx35_240:
-                        mov              qword ptr [rsp + 272], rax
-                        mov              qword ptr [rsp + 280], rdx
+                        mov              qword ptr [rsp + 288], rax
+                        mov              qword ptr [rsp + 296], rdx
                         add              rsp, 16
                                                                                         jmp   n15_call_α
 #-----------------------------------------------------------------------------------------------------------------------

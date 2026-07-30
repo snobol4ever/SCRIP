@@ -32,8 +32,8 @@ n2_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx9_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 128], rax
-                        mov              qword ptr [rsp + 136], rdx
+                        mov              qword ptr [rsp + 144], rax
+                        mov              qword ptr [rsp + 152], rdx
                         add              rsp, 16
                                                                                         jmp   n4_keyword_snobol4_α
 .Lx9_0:
@@ -52,8 +52,8 @@ n4_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx12_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 144], rax
-                        mov              qword ptr [rsp + 152], rdx
+                        mov              qword ptr [rsp + 160], rax
+                        mov              qword ptr [rsp + 168], rdx
                         add              rsp, 16
                                                                                         jmp   n5_call_α
 .Lx12_0:
@@ -415,8 +415,8 @@ n29_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx44_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 128], rax
-                        mov              qword ptr [rsp + 136], rdx
+                        mov              qword ptr [rsp + 144], rax
+                        mov              qword ptr [rsp + 152], rdx
                         add              rsp, 16
                                                                                         jmp   n32_keyword_snobol4_α
 .Lx44_0:
@@ -533,8 +533,8 @@ n32_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx49_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 144], rax
-                        mov              qword ptr [rsp + 152], rdx
+                        mov              qword ptr [rsp + 160], rax
+                        mov              qword ptr [rsp + 168], rdx
                         add              rsp, 16
                                                                                         jmp   n34_call_α
 .Lx49_0:
