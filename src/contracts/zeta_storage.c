@@ -1050,3 +1050,10 @@ int emit_patzeta_lookup(const char * name, int * susp) {
 }
 int zls_g_fp_total(IR_graph_t * g) { return g ? fct_fp_range(g, 0, g->n) : 0; }
 int zls_node_has_fields(const IR_t * nd) { if (!nd) return 0; for (int f = 0; f < zf_n; f++) if (zf[f].nd == nd) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZW-1 UNIVERSAL K AUTHORITY (Lon directive s21x-m "turn on the per-BB allocation across the board, then crawl the rungs"): the ONE per-node cell-size answer for the universal alpha-sub/omega-add
+ * regime (SCRIP_BB_ALLOC).  K = the node's whole zls extent (front result quad + granted locals, ceil16) -- EXCEPT a dead-result node with no locals, which gets ZERO (the zero-cell law: "RESULT iff
+ * it has one and it is used; LOCALS iff any"; no zls entry -> no storage need -> 0).  v0 is CARVE-ONLY BY DESIGN: the consumer sets op_fc_bytes WITHOUT op_fc_base, so x86_fc_hit never fires, every
+ * FR/FRQ spelling stays byte-identical, and the ONLY new machine effect is the rsp motion at the alpha/omega hook -- one variable isolated, the crosscheck fail-set becomes the rung ladder.  Window
+ * migration (front quad + locals riding the cell) is the crawl's second axis, per family, against the RESULT-IS-THE-CELL and SUSPENDED-CELL laws. */
+long zw_node_k(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; if (!e) return 0; long b = (long)zls_node_bytes(nd); if (!e->live && b <= 16) return 0; return b; }
