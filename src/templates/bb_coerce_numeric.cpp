@@ -11,6 +11,31 @@ void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, l
 std::string bb_coerce_numeric() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
+    if (_.op_zres)
+        return x86("comment", "IR_COERCE_NUMERIC zd")
+             + x86_alpha()
+             + x86("mov", "eax", ZOPD(0, 0))
+             + x86("cmp", "eax", (long)DT_R)
+             + x86("je", L(1))
+             + x86("cmp", "eax", (long)DT_I)
+             + x86("jne", L(0))
+             + x86("mov", "eax", ZOPD(1, 0))
+             + x86("cmp", "eax", (long)DT_I)
+             + x86("jne", L(0))
+             + x86("def", L(1))
+             + x86("mov", "rax", ZOPQ(0, 0))
+             + x86("mov", ZRES(0), "rax")
+             + x86("mov", "rax", ZOPQ(0, 8))
+             + x86("mov", ZRES(8), "rax")
+             + x86_gamma()
+             + x86("def", L(0))
+             + x86("lea",  "rdi", ZOPQ(0, 0))
+             + x86("lea",  "rsi", ZOPQ(1, 0))
+             + x86("lea",  "rdx", ZRES(0))
+             + x86("mov",  "rcx", (long)_.op_ival)
+             + x86("call", "rt_coerce_num2_d", (uint64_t)(uintptr_t)(void *)rt_coerce_num2_d)
+             + x86_gamma()
+             + x86_beta_trampoline();   /* ZD-2e: operand 0 is the value, operand 1 the PARTNER whose type is peeked to decide the already-numeric fast path, both at driver-staged differences; the out slot is this box's own cell.  THREE lea sites take the ADDRESS of a cell (self, partner, out) -- ZOPQ/ZRES render the raw-channel marker [rsp# + N] which x86_parse routes to the XK_RSP lea arm, so an address-of-cell is the same one authority as a load.  TWO gamma exits (fast path and post-call) and NO omega: an unparseable operand is a RUNTIME ERROR through core_runtime_error (rt.c:289), not a statement failure -- SPITBOL manual Ch.17 conversion is an error-or-succeed contract, and the failure signal in SNOBOL4 arithmetic comes from the predicates (Ch.4 p.33), never from the coercion itself.  Matches the legacy arm's port topology exactly. */
     return IF(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0, x86_bomb("bb_coerce_numeric: needs self slot (op_sa) + other slot (op_sb) + own value slot (op_off)"))
          + IF(!(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0),
              x86("comment", "IR_COERCE_NUMERIC")
