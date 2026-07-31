@@ -66,7 +66,6 @@ n3_assign_α:
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         call             NV_SET_fn@PLT
-                        add              rsp, 48
                                                                                         jmp   main_stγ
 .Lx7_0:
                         .quad            .Lx7_0_s
