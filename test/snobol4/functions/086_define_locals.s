@@ -95,7 +95,7 @@ n8_lit_string_α:
 .Lx22_0_s:
                         .string          " "
 #-----------------------------------------------------------------------------------------------------------------------
-n9_op14_α:
+n9_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -138,7 +138,7 @@ n13_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx28_0]
                         call             NV_SET_fn@PLT
-                                                                                        jmp   n9_op14_α
+                                                                                        jmp   n9_save_restore_α
 .Lx28_0:
                         .quad            .Lx28_0_s
 .Lx28_0_s:
@@ -178,7 +178,7 @@ proc_swap_α:
                         rep stosb
 proc_swap_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n29_op14_α:
+n29_save_restore_α:
                         mov              rdi, qword ptr [rsp + 24]
                         mov              rsi, qword ptr [rsp + 32]
                         lea              rdx, [rsp + 48]
@@ -564,7 +564,7 @@ n47_lit_string_α:
 .Lx66_0_s:
                         .string          " "
 #-----------------------------------------------------------------------------------------------------------------------
-n48_op14_α:
+n48_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -607,7 +607,7 @@ n52_assign_α:
                         add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx72_0]
                         call             NV_SET_fn@PLT
-                                                                                        jmp   n48_op14_α
+                                                                                        jmp   n48_save_restore_α
 .Lx72_0:
                         .quad            .Lx72_0_s
 .Lx72_0_s:

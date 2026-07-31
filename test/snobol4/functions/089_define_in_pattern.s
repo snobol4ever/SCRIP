@@ -41,7 +41,7 @@ n2_keyword_snobol4_α:
 .Lx9_0_s:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-n3_op14_α:
+n3_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -85,17 +85,17 @@ n5_call_α:
                         mov              qword ptr [rsp + 32], rax
                         mov              qword ptr [rsp + 40], rdx
                         cmp              eax, 99
-                                                                                        je    n3_op14_α
+                                                                                        je    n3_save_restore_α
                                                                                         jmp   n6_assign_α
 n5_call_β:
-                                                                                        jmp   n3_op14_α
+                                                                                        jmp   n3_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_assign_α:
                         mov              rax, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rsp + 40]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n3_op14_α
+                                                                                        jmp   n3_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_res:
                         add              rsp, 8
@@ -131,7 +131,7 @@ proc_upcase_α:
                         rep stosb
 proc_upcase_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n16_op14_α:
+n16_save_restore_α:
                         mov              rdi, qword ptr [rsp + 24]
                         mov              rsi, qword ptr [rsp + 32]
                         lea              rdx, [rsp + 48]
@@ -424,7 +424,7 @@ n29_keyword_snobol4_α:
 .Lx44_0_s:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-n30_op14_α:
+n30_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -577,17 +577,17 @@ n34_call_α:
                         mov              qword ptr [rsp + 32], rax
                         mov              qword ptr [rsp + 40], rdx
                         cmp              eax, 99
-                                                                                        je    n30_op14_α
+                                                                                        je    n30_save_restore_α
                                                                                         jmp   n35_assign_α
 n34_call_β:
-                                                                                        jmp   n30_op14_α
+                                                                                        jmp   n30_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n35_assign_α:
                         mov              rax, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rsp + 40]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n30_op14_α
+                                                                                        jmp   n30_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

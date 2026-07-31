@@ -110,7 +110,7 @@ n6_var_α:
                         mov              rdx, qword ptr [1879052312]
                         mov              qword ptr [rsp + 224], rax
                         mov              qword ptr [rsp + 232], rdx
-                                                                                        jmp   n8_op74_α
+                                                                                        jmp   n8_coerce_integer_α
 n6_var_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
@@ -125,7 +125,7 @@ n7_assign_β:
                         add              rsp, 16
                                                                                         jmp   n4_var_α
 #-----------------------------------------------------------------------------------------------------------------------
-n8_op74_α:
+n8_coerce_integer_α:
                         sub              rsp, 16
                         lea              rdi, [rsp + 240]
                         lea              rsi, [rsp + 224]
@@ -133,7 +133,7 @@ n8_op74_α:
                         call             rt_coerce_int_d@PLT
                         add              rsp, 16
                                                                                         jmp   n9_match_head_α
-n8_op74_β:
+n8_coerce_integer_β:
                         sub              rsp, 16
                         add              rsp, 16
                                                                                         jmp   main_γ

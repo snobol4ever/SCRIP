@@ -61,14 +61,14 @@ n3_binop_α:
                         cmp              eax, 99
                                                                                         jne   .Lx9_240
                         add              rsp, 32
-                                                                                        jmp   n4_op14_α
+                                                                                        jmp   n4_save_restore_α
 .Lx9_240:
                         add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n5_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
-n4_op14_α:
+n4_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -81,7 +81,7 @@ n5_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n4_op14_α
+                                                                                        jmp   n4_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__double_res:
                         add              rsp, 8
@@ -117,7 +117,7 @@ proc_double_α:
                         rep stosb
 proc_double_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n13_op14_α:
+n13_save_restore_α:
                         mov              rdi, qword ptr [rsp + 24]
                         mov              rsi, qword ptr [rsp + 32]
                         lea              rdx, [rsp + 48]
@@ -522,14 +522,14 @@ n28_binop_α:
                         cmp              eax, 99
                                                                                         jne   .Lx43_240
                         add              rsp, 32
-                                                                                        jmp   n29_op14_α
+                                                                                        jmp   n29_save_restore_α
 .Lx43_240:
                         add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n31_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
-n29_op14_α:
+n29_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -553,7 +553,7 @@ n31_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n29_op14_α
+                                                                                        jmp   n29_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

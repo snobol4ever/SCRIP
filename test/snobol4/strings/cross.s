@@ -196,7 +196,7 @@ n12_var_α:
                         mov              rdx, qword ptr [1879052312]
                         mov              qword ptr [rbp + 384], rax
                         mov              qword ptr [rbp + 392], rdx
-                                                                                        jmp   n16_op73_α
+                                                                                        jmp   n16_coerce_string_α
 n12_var_β:
                                                                                         jmp   n6_var_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -338,7 +338,7 @@ n15_var_β:
 .Lx87_0_s:
                         .string          "INPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n16_op73_α:
+n16_coerce_string_α:
                         sub              rsp, 16
                         lea              rdi, [rbp + 384]
                         lea              rsi, [rbp + 368]
@@ -346,7 +346,7 @@ n16_op73_α:
                         call             rt_coerce_str_d@PLT
                         add              rsp, 16
                                                                                         jmp   n20_match_head_α
-n16_op73_β:
+n16_coerce_string_β:
                         sub              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_var_α
@@ -1061,7 +1061,7 @@ n51_var_α:
                         mov              rdx, qword ptr [1879052392]
                         mov              qword ptr [rbp + 816], rax
                         mov              qword ptr [rbp + 824], rdx
-                                                                                        jmp   n54_op74_α
+                                                                                        jmp   n54_coerce_integer_α
 n51_var_β:
                                                                                         jmp   n9_var_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1105,7 +1105,7 @@ n53_assign_β:
 .Lx141_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n54_op74_α:
+n54_coerce_integer_α:
                         sub              rsp, 16
                         lea              rdi, [rbp + 816]
                         lea              rsi, [rbp + 800]
@@ -1113,7 +1113,7 @@ n54_op74_α:
                         call             rt_coerce_int_d@PLT
                         add              rsp, 16
                                                                                         jmp   n56_match_head_α
-n54_op74_β:
+n54_coerce_integer_β:
                         sub              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n9_var_α

@@ -102,7 +102,7 @@ n3_lit_string_α:
                                                                                         jmp   n5_assign_α
 n3_lit_string_β:
                         add              rsp, 16
-                                                                                        jmp   n13_op14_α
+                                                                                        jmp   n13_save_restore_α
 .Lx22_0:
                         .quad            .Lx22_0_s
 .Lx22_0_s:
@@ -123,9 +123,9 @@ n5_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n13_op14_α
+                                                                                        jmp   n13_save_restore_α
 n5_assign_β:
-                                                                                        jmp   n13_op14_α
+                                                                                        jmp   n13_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_release_α:
                         mov              rax, qword ptr [rsp + 192]
@@ -253,7 +253,7 @@ n12_match_rpos_α:
 n12_match_rpos_β:
                                                                                         jmp   n10_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
-n13_op14_α:
+n13_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -271,7 +271,7 @@ n14_var_α:
                                                                                         jmp   n16_assign_α
 n14_var_β:
                         add              rsp, 16
-                                                                                        jmp   n13_op14_α
+                                                                                        jmp   n13_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n15_match_arbno_α:
                         sub              rsp, 48
@@ -376,9 +376,9 @@ n16_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n13_op14_α
+                                                                                        jmp   n13_save_restore_α
 n16_assign_β:
-                                                                                        jmp   n13_op14_α
+                                                                                        jmp   n13_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n17_match_lit_α:
                         sub              rsp, 16
@@ -441,7 +441,7 @@ proc_MATCHIT_α:
                         rep stosb
 proc_MATCHIT_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n44_op14_α:
+n44_save_restore_α:
                         mov              rdi, qword ptr [rsp + 24]
                         mov              rsi, qword ptr [rsp + 32]
                         lea              rdx, [rsp + 48]
@@ -721,7 +721,7 @@ n56_var_α:
                                                                                         jmp   n60_assign_α
 n56_var_β:
                         add              rsp, 16
-                                                                                        jmp   n61_op14_α
+                                                                                        jmp   n61_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n57_assign_α:
                         mov              rsi, qword ptr [rbp + 336]
@@ -806,7 +806,7 @@ n59_lit_string_α:
                                                                                         jmp   n63_assign_α
 n59_lit_string_β:
                         add              rsp, 16
-                                                                                        jmp   n61_op14_α
+                                                                                        jmp   n61_save_restore_α
 .Lx84_0:
                         .quad            .Lx84_0_s
 .Lx84_0_s:
@@ -818,11 +818,11 @@ n60_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n61_op14_α
+                                                                                        jmp   n61_save_restore_α
 n60_assign_β:
-                                                                                        jmp   n61_op14_α
+                                                                                        jmp   n61_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
-n61_op14_α:
+n61_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -844,10 +844,10 @@ n63_assign_α:
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                         add              rsp, 16
-                                                                                        jmp   n61_op14_α
+                                                                                        jmp   n61_save_restore_α
 n63_assign_β:
                         add              rsp, 16
-                                                                                        jmp   n61_op14_α
+                                                                                        jmp   n61_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n64_match_release_α:
                         mov              rax, qword ptr [rsp + 192]
