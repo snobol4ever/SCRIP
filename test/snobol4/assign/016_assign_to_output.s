@@ -17,12 +17,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 56
-                        mov              rdi, rsp
-                        mov              ecx, 56
-                        xor              eax, eax
-                        rep stosb
+                        sub              rsp, 8
 main_α_body:
+n0_lit_string_st:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 8
 #=======================================================================================================================
 #         OUTPUT = 'alpha'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -44,11 +44,18 @@ n1_assign_α:
                         mov              rdi, qword ptr [rip + .Lx5_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
-                                                                                        jmp   n2_lit_string_α
+                                                                                        jmp   n2_lit_string_sx
 .Lx5_0:
                         .quad            .Lx5_0_s
 .Lx5_0_s:
                         .string          "OUTPUT"
+n2_lit_string_sx:
+                        mov              rsp, rbp
+                        pop              rbp
+n2_lit_string_st:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 8
 #=======================================================================================================================
 #         OUTPUT = 'beta'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -70,7 +77,7 @@ n3_assign_α:
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   main_stγ
 .Lx7_0:
                         .quad            .Lx7_0_s
 .Lx7_0_s:
@@ -79,15 +86,24 @@ n3_assign_α:
 main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
+main_stγ:
+                        mov              rsp, rbp
+                        pop              rbp
+                                                                                        jmp   main_γ
+main_stω:
+                        mov              rsp, rbp
+                        pop              rbp
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 56
+                        add              rsp, 8
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 56
+                        add              rsp, 8
                         ret
                         .section         .note.GNU-stack,"",@progbits
