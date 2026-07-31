@@ -808,10 +808,11 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
        * THE LAW THIS ESTABLISHES: a BB may be armed once ALL of its consumers speak the live-depth authority (ZTOS/op_zdepth); arming it while a consumer still speaks the static authority (FRQ/op_flat_disp)
        * displaces that consumer by exactly the new carve.  So the arming frontier is not a property of the ARMED kind, it is a property of its READERS -- which is why widening by kind kept producing the
        * "unknown reasons" of s21x-j..m.  The ordered rung is therefore: migrate the match family's FRQ references onto the live authority FIRST, then this list retires by itself rather than by directive. */
-      if (_ba && nd && !_spine && x86_port_mode() == ZC_PORT_FORTH && nd->op != IR_MATCH_HEAD && nd->op != IR_MATCH_FENCE1 && nd->op != IR_SAVE_RESTORE && ir_norm_call_kind(nd->op) != IR_CALL && nd->op != IR_GOTO_DEFERRED) {
+      { static int _all = -1; if (_all < 0) { const char * e = getenv("SCRIP_BB_ALLOC_ALL"); _all = (e && *e == '1') ? 1 : 0; }   /* ZW-2 ALL-PORTS (Lon s21x-r: "there is no need to convert ANY BB -- the hook is in the ALPHA and BETA, just turn it on EVERYWHERE"): the universal carve already grants every node its own zw_node_k at alpha; the five kind exclusions below are the LAST hand-maintained list standing between it and every box. This flag drops them so ALL boxes self-allocate through the port hook, no per-template conversion. */
+      if (_ba && nd && !_spine && x86_port_mode() == ZC_PORT_FORTH && (_all || (nd->op != IR_MATCH_HEAD && nd->op != IR_MATCH_FENCE1 && nd->op != IR_SAVE_RESTORE && ir_norm_call_kind(nd->op) != IR_CALL && nd->op != IR_GOTO_DEFERRED))) {
           extern int fc_geom(const IR_t *, long *); extern long zw_node_k(const IR_t *); long _d;
           if (!fc_geom(nd, &_d)) { long _k = zw_node_k(nd); int _nid = bb_node_id(nd);
-              if (_k > 0 && !(_bo && *_bo && !zw_nid_listed(_bo, _nid)) && !zw_nid_listed(_bs, _nid)) g_emit.op_fc_bytes = _k; } } }
+              if (_k > 0 && !(_bo && *_bo && !zw_nid_listed(_bo, _nid)) && !zw_nid_listed(_bs, _nid)) g_emit.op_fc_bytes = _k; } } } }
     /* ZTOS-1 SLIDING-OFFSET AUTHORITY (Lon s21x-o "ONE main function that does graph traversal and calculates the zeta offsets"; "no pre-allocation calculation is necessary").  op_zdepth is that calculation,
      * and it is one line because the traversal that needs to happen is the one the emitter is ALREADY doing: walk_bb_node_inner is the single choke every template invocation passes through, and at this point
      * the node's own K is final.  The alpha carve about to be emitted (x86_port_hook's FORTH arm / bb_glue_flat_enter) subtracts exactly op_fc_bytes, so that IS the depth every TOS read inside this body must
