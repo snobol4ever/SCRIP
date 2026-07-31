@@ -121,10 +121,18 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_COERCE_NUMERIC] = "IR_COERCE_NUMERIC",
     [IR_COERCE_REAL] = "IR_COERCE_REAL",
     [IR_CMP_TEST] = "IR_CMP_TEST",
+    [IR_CALL_BUILTIN_PROLOG] = "IR_CALL_BUILTIN_PROLOG",
+    [IR_CUT] = "IR_CUT",
+    [IR_REF_INVARIANT] = "IR_REF_INVARIANT",
+    [IR_PATTERN_CAT] = "IR_PATTERN_CAT",
+    [IR_PATTERN_ALT] = "IR_PATTERN_ALT",
+    [IR_PATTERN_CAPTURE] = "IR_PATTERN_CAPTURE",
+    [IR_PATTERN_DEFER] = "IR_PATTERN_DEFER",
+    [IR_DTP_ASSIGN] = "IR_DTP_ASSIGN",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
-    if (k >= 0 && k < IR_OP_COUNT) return kind_names[k];
+    if (k >= 0 && k < IR_OP_COUNT && kind_names[k]) return kind_names[k];
     return "IR_UNKNOWN";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
