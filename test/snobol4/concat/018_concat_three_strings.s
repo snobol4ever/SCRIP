@@ -17,12 +17,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 104
-                        mov              rdi, rsp
-                        mov              ecx, 104
-                        xor              eax, eax
-                        rep stosb
+                        sub              rsp, 8
 main_α_body:
+n0_lit_string_st:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 8
 #=======================================================================================================================
 #         OUTPUT = 'a' 'b' 'c'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -90,7 +90,7 @@ n5_assign_α:
                         mov              rdi, qword ptr [rip + .Lx11_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 80
-                                                                                        jmp   main_γ
+                                                                                        jmp   main_stγ
 .Lx11_0:
                         .quad            .Lx11_0_s
 .Lx11_0_s:
@@ -99,15 +99,24 @@ n5_assign_α:
 main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
+main_stγ:
+                        mov              rsp, rbp
+                        pop              rbp
+                                                                                        jmp   main_γ
+main_stω:
+                        mov              rsp, rbp
+                        pop              rbp
+                                                                                        jmp   main_ω
+#-----------------------------------------------------------------------------------------------------------------------
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 104
+                        add              rsp, 8
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 104
+                        add              rsp, 8
                         ret
                         .section         .note.GNU-stack,"",@progbits
