@@ -7,9 +7,9 @@ proc_LBL__bump_α:
                         .global          proc_LBL__bump_β
                         .global          proc_LBL__bump_γ
                         .global          proc_LBL__bump_ω
-                        sub              rsp, 400
-                        mov              [rsp + 376], rcx
-                        mov              [rsp + 384], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__bump_α_body:
@@ -93,13 +93,13 @@ proc_LBL__bump_β:
 proc_LBL__bump_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 376]
-                        add              rsp, 400
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bump_ω:
-                        mov              rax, [rsp + 384]
-                        add              rsp, 400
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_bump_α
@@ -108,19 +108,19 @@ proc_bump_α:
                         .global          proc_bump_β
                         .global          proc_bump_γ
                         .global          proc_bump_ω
-                        sub              rsp, 400
-                        mov              [rsp + 376], rcx
-                        mov              [rsp + 384], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              rdi, rsp
-                        mov              ecx, 368
+                        mov              ecx, 16
                         xor              eax, eax
                         rep stosb
 proc_bump_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_op14_α:
-                        mov              rdi, qword ptr [rsp + 376]
-                        mov              rsi, qword ptr [rsp + 384]
-                        lea              rdx, [rsp + 400]
+                        mov              rdi, qword ptr [rsp + 24]
+                        mov              rsi, qword ptr [rsp + 32]
+                        lea              rdx, [rsp + 48]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n14_goto_deferred_α
@@ -146,13 +146,13 @@ proc_bump_β:
 proc_bump_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 376]
-                        add              rsp, 400
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bump_ω:
-                        mov              rax, [rsp + 384]
-                        add              rsp, 400
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -279,9 +279,9 @@ n22_goto_β:
 n23_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   n26_lit_integer_α
 #=======================================================================================================================
 # bump    bump = v + 1                                               :(RETURN)
@@ -351,9 +351,9 @@ n30_var_α:
 n31_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052336], rax
                         mov              qword ptr [1879052344], rdx
+                        add              rsp, 16
                                                                                         jmp   n25_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n32_binop_α:
@@ -442,31 +442,18 @@ n37_binop_α:
                                                                                         jmp   n41_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n38_binop_α:
-                        mov              eax, dword ptr [rsp + 16]
-                        cmp              eax, 6
-                                                                                        jne   .Lx69_0
-                        mov              eax, dword ptr [rsp + 0]
-                        cmp              eax, 6
-                                                                                        jne   .Lx69_0
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rsp + 8]
-                        add              rax, rcx
-                        add              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
-                        mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n42_assign_α
-.Lx69_0:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
+                        sub              rsp, 16
+                        mov              rdi, qword ptr [rsp + 32]
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             rt_add@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx69_240
-                        add              rsp, 32
+                        add              rsp, 16
+                        add              rsp, 64
                                                                                         jmp   n35_var_α
 .Lx69_240:
-                        add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n42_assign_α
@@ -590,9 +577,9 @@ n41_call_β:
 n42_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052336], rax
                         mov              qword ptr [1879052344], rdx
+                        add              rsp, 48
                                                                                         jmp   n35_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n43_op75_α:
@@ -621,9 +608,9 @@ n43_op75_α:
 n44_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx77_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx77_0:
                         .quad            .Lx77_0_s

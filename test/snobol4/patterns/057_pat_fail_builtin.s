@@ -67,11 +67,12 @@ n2_goto_β:
 n3_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 16
                                                                                         jmp   n6_var_α
 n3_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n6_var_α
 #=======================================================================================================================
 # YES     OUTPUT = 'should not reach'
@@ -122,11 +123,12 @@ n6_var_β:
 n7_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx21_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   main_γ
 n7_assign_β:
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx21_0:
                         .quad            .Lx21_0_s
@@ -136,11 +138,12 @@ n7_assign_β:
 n8_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx22_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   main_γ
 n8_assign_β:
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx22_0:
                         .quad            .Lx22_0_s

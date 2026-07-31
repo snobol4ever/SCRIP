@@ -71,11 +71,12 @@ n2_goto_β:
 n3_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 16
                                                                                         jmp   n5_lit_integer_α
 n3_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n5_lit_integer_α
 #=======================================================================================================================
 # LOOP    X POS(N) 'a' . V                                           :F(DONE)
@@ -116,11 +117,12 @@ n6_var_β:
 n7_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   n4_var_α
 n7_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n4_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n8_op74_α:
@@ -335,11 +337,12 @@ n16_match_lit_β:
 n17_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx46_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   n18_var_α
 n17_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n18_var_α
 .Lx46_0:
                         .quad            .Lx46_0_s
@@ -367,51 +370,41 @@ n19_lit_integer_α:
                                                                                         jmp   n20_binop_α
 n19_lit_integer_β:
                         add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n4_var_α
 .Lx48_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
 n20_binop_α:
-                        mov              eax, dword ptr [rsp + 16]
-                        cmp              eax, 6
-                                                                                        jne   .Lx49_0
-                        mov              eax, dword ptr [rsp + 0]
-                        cmp              eax, 6
-                                                                                        jne   .Lx49_0
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rsp + 8]
-                        add              rax, rcx
-                        add              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
-                        mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n21_assign_α
-.Lx49_0:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
+                        sub              rsp, 16
+                        mov              rdi, qword ptr [rsp + 32]
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             rt_add@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx49_240
-                        add              rsp, 32
+                        add              rsp, 16
+                        add              rsp, 64
                                                                                         jmp   n4_var_α
 .Lx49_240:
-                        add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n21_assign_α
 n20_binop_β:
-                        add              rsp, 32
+                        add              rsp, 16
+                        add              rsp, 64
                                                                                         jmp   n4_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n21_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 48
                                                                                         jmp   n4_var_α
 n21_assign_β:
+                        add              rsp, 48
                                                                                         jmp   n4_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

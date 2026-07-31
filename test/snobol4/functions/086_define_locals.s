@@ -7,9 +7,9 @@ proc_LBL__swap_α:
                         .global          proc_LBL__swap_β
                         .global          proc_LBL__swap_γ
                         .global          proc_LBL__swap_ω
-                        sub              rsp, 288
-                        mov              [rsp + 264], rcx
-                        mov              [rsp + 272], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__swap_α_body:
@@ -154,13 +154,13 @@ proc_LBL__swap_β:
 proc_LBL__swap_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 264]
-                        add              rsp, 288
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__swap_ω:
-                        mov              rax, [rsp + 272]
-                        add              rsp, 288
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_swap_α
@@ -169,19 +169,19 @@ proc_swap_α:
                         .global          proc_swap_β
                         .global          proc_swap_γ
                         .global          proc_swap_ω
-                        sub              rsp, 288
-                        mov              [rsp + 264], rcx
-                        mov              [rsp + 272], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              rdi, rsp
-                        mov              ecx, 256
+                        mov              ecx, 16
                         xor              eax, eax
                         rep stosb
 proc_swap_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n29_op14_α:
-                        mov              rdi, qword ptr [rsp + 264]
-                        mov              rsi, qword ptr [rsp + 272]
-                        lea              rdx, [rsp + 288]
+                        mov              rdi, qword ptr [rsp + 24]
+                        mov              rsi, qword ptr [rsp + 32]
+                        lea              rdx, [rsp + 48]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n30_goto_deferred_α
@@ -207,13 +207,13 @@ proc_swap_β:
 proc_swap_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 264]
-                        add              rsp, 288
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_swap_ω:
-                        mov              rax, [rsp + 272]
-                        add              rsp, 288
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -501,9 +501,9 @@ n40_call_β:
 n41_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052336], rax
                         mov              qword ptr [1879052344], rdx
+                        add              rsp, 16
                                                                                         jmp   n42_var_α
 #=======================================================================================================================
 #         a = b
@@ -519,9 +519,9 @@ n42_var_α:
 n43_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   n44_var_α
 #=======================================================================================================================
 #         b = tmp
@@ -537,9 +537,9 @@ n44_var_α:
 n45_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   n46_var_α
 #=======================================================================================================================
 #         OUTPUT = a ' ' b                                            :(RETURN)
