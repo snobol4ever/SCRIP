@@ -1888,7 +1888,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i]);
             } }
         else { for (int r = 0; r < rl; r++) rpos[run[r]] = -1;
-               if (_dg && rl > 0) fprintf(stderr, "[ZD] run h=%d len=%d DECLINED at i=%d (%s)\n", hi, rl, badi, why); }
+               if (_dg && rl > 0) fprintf(stderr, "[ZD] run h=%d len=%d DECLINED at i=%d (%s op=%d)\n", hi, rl, badi, why, badi >= 0 ? (int)nodes[badi]->op : -1); }
     }
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
