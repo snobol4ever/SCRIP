@@ -279,7 +279,7 @@ inline std::string x86_jcc(const char * mnem, int port) {
      * over a 2-instruction skip: jcc' L(synth); [hook pops via the one X86H_JMP/OMEGA arm] jmp omega;
      * L(synth):  -- S10b's G3 as a visible per-path pop, zero template edits, ONE pop arm serving every exit. */
     if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop > 0)) return x86_fc_jcc_omega(mnem);   /* BP-9 (ii): a pending ΣK chain-pop needs the same invert+pop+jmp synth a box's own fc cell does */
-    if (port == X86P_GAMMA && x86_fc_on() && _.op_fc_base < 0) return x86_fc_jcc_gamma(mnem);   /* ZW-1: a conditional gamma in the carve-only class must free the bracket too -- same invert+pop+jmp synth, gamma flavor, so the ONE X86H_JMP/GAMMA hook arm serves every success path */
+    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop > 0)) return x86_fc_jcc_gamma(mnem);   /* ZW-1: a conditional gamma in the carve-only class must free the bracket too -- same invert+pop+jmp synth, gamma flavor, so the ONE X86H_JMP/GAMMA hook arm serves every success path.  ZD-1: a pending statement-terminal release (op_zgpop) needs the same synth for the same reason -- add rsp clobbers flags, so the release rides the synth's inner jmp-gamma where the ONE hook arm emits it. */
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : (std::string(" ") + mnem + " " + x86_portname(port) + "\n"));
@@ -889,6 +889,24 @@ inline const char * x86_ztos(int off, int q) {
 }
 inline const char * ZTOS(int off)  { return x86_ztos(off, 1); }
 inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZD-1 — THE FOUR MODES (Lon s21x-v: "Parameterize the access to operands via the FOUR modes" + "Do not put RSP references directly into the templates").  A ZD box's every data reference is one of exactly
+ * four parameterized shapes, and each has ONE accessor: (1) OWN RESULT — the 16B DESCR cell the box's own alpha carved, at [rsp+0..15] for the whole body, ZRES/ZRESD(w); (2) OWN LOCALS — box-private RW
+ * scratch carved in the same single alpha sub above the result cell, ZLOC/ZLOCD(o) = [rsp+16+o]; (3) OPERAND k — the producer's suspended result cell, at the DRIVER-STAGED difference of two depths
+ * op_zread[k] (zd_plan's execution-order walk; s21x-u's law: a single depth cannot express this), ZOPQ/ZOPD(k,w); (4) LEGACY FRAME — FR/FRQ/FRQB, the whole-graph flat authority for unconverted families,
+ * untouched.  Modes 1-3 spell the RAW-CELL MARKER [rsp# + N] (x86_parse 1188): the offset the driver computed IS the machine offset, no encoder-side op_flat_disp/op_zdepth compensation may touch it in
+ * either medium — one authority, zero hidden additions, which is precisely the property every prior single-depth attempt lacked. */
+inline const char * x86_zref(int off, int q) {
+    static char b[16][48]; static int i; i = (i + 1) & 15;
+    snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
+    return b[i];
+}
+inline const char * ZRES(int w)        { return x86_zref(w, 1); }
+inline const char * ZRESD(int w)       { return x86_zref(w, 0); }
+inline const char * ZLOC(int o)        { return x86_zref(16 + o, 1); }
+inline const char * ZLOCD(int o)       { return x86_zref(16 + o, 0); }
+inline const char * ZOPQ(int k, int w) { return x86_zref(_.op_zread[k] + w, 1); }
+inline const char * ZOPD(int k, int w) { return x86_zref(_.op_zread[k] + w, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * FR(int off)            { return x86_zop(off, 0, 0); }      /* ZOP-1: was the dword arm of the five-boolean cascade; the decision moved into x86_zop, this is now pure width+bump binding. */
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
@@ -1916,12 +1934,13 @@ inline std::string x86_port_hook(int site, int port) {
      * BYTE-IDENTICAL BY CONSTRUCTION -- the seam moves, no bytes move, which is what makes it separable from the ZTOS measurement above.  The carve-only/windowed asymmetry (zwco) stays HERE and is not pushed
      * into the glue: it is a property of THIS NODE's grant, not of the allocation mechanism, and the glue's own header comment is explicit that the leave side is not the mirror of the enter side. */
     if (x86_fc_on()) {
-        int zwco = _.op_fc_base < 0;   /* ZW-1 CARVE-ONLY class (Lon s21x-m "across the board, then crawl"): bytes granted, NO window (base -1) -- the cell is UNREFERENCED, so gamma suspension (S10c) buys nothing and costs depth: every flat [rsp+off] read below a suspended carve-only cell is displaced (the armed-run 023_arith_add witness).  The carve-only discipline is the full BRACKET: both entries allocate (alpha AND beta), both exits free (gamma AND omega) -- rsp-neutral at every box boundary, which is what makes across-the-board arming survivable while window migration crawls per family.  WINDOWED cells (base >= 0) keep S10c suspension verbatim: their gamma-live state is the whole point. */
+        int zwco = _.op_fc_base < 0 && !_.op_zres;   /* ZW-1 CARVE-ONLY class (Lon s21x-m "across the board, then crawl"): bytes granted, NO window (base -1) -- the cell is UNREFERENCED, so gamma suspension (S10c) buys nothing and costs depth: every flat [rsp+off] read below a suspended carve-only cell is displaced (the armed-run 023_arith_add witness).  The carve-only discipline is the full BRACKET: both entries allocate (alpha AND beta), both exits free (gamma AND omega) -- rsp-neutral at every box boundary, which is what makes across-the-board arming survivable while window migration crawls per family.  WINDOWED cells (base >= 0) keep S10c suspension verbatim: their gamma-live state is the whole point.  ZD-1 (s21x-v): an op_zres box is the THIRD class -- its cell IS referenced (its consumers' op_zread differences name it), so it takes the SUSPENDED discipline regardless of window: alpha carves, beta does NOT re-carve (the cell survived suspension, pure LIFO), gamma does NOT release (consumers read it), omega releases own K + op_wpop restores to statement entry.  The !op_zres conjunct is that whole discipline in one term. */
         if (site == X86H_DEF && port == X86P_ALPHA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
         if (site == X86H_JMP && port == X86P_OMEGA) s += bb_glue_flat_leave();
     }
+    if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop > 0) s += x86_add("rsp", (long)_.op_zgpop);   /* ZD-1 STATEMENT-TERMINAL GAMMA RELEASE (Lon s21x-v "ONLY statement level scoping"): the success-path twin of the op_wpop arm below -- when this gamma edge crosses a statement boundary, every ZD cell the statement suspended is dead, and this ONE add returns rsp to statement entry before the jmp lands on the next head.  Fires only at jmp-gamma (flags dead before an unconditional transfer; conditional gammas that need it arrive through the x86_jcc invert synth exactly as conditional omegas do), staged by zd_plan, zero when the edge stays inside the statement. */
     /* BP-9 (ii) ΣK ζ-POP FOLD (the rung's accumulate mechanism): op_wpop = the summed fc-cell pops of every
      * whitelisted trivial-β trampoline the driver's ω-wire chase inlined past (flat_trivial_beta, emit.cpp)
      * -- node_ω already retargeted to the chain's final label, so this ONE add IS the collapsed trampoline
