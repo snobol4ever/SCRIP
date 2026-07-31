@@ -1944,33 +1944,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_fail_p        = &lbl_ω;
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
-    { g_emit.flat_all_zd = 0; if (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && x86_zc_frame() == ZC_FRAME_RSP && g_emit_cfg && g_emit_cfg->n > 0 && g_emit_cfg->n <= 65536) { int _azd = 1; IR_t * _bq[65536]; int _bqh = 0, _bqt = 0; const IR_t * _bseen[65536]; int _bsn = 0; if (entry) _bq[_bqt++] = (IR_t *)entry; while (_bqh < _bqt && _azd) { IR_t * _c = _bq[_bqh++]; if (!_c || _c->op == IR_SUCCEED || _c->op == IR_FAIL) continue; int _dup = 0; for (int _si = 0; _si < _bsn && !_dup; _si++) if (_bseen[_si] == _c) _dup = 1; if (_dup) continue; if (_bsn < 65536) _bseen[_bsn++] = _c; IR_e _op = _c->op; if (_op == IR_GOTO) { if (_c->γ.node && _bqt < 65536) _bq[_bqt++] = _c->γ.node; continue; } if (!zd_wl_kind(_c) || ir_is_call_kind(_op) || _op == IR_CALL || _op == IR_SAVE_RESTORE) { _azd = 0; break; } if (_c->γ.node && _bqt < 65536) _bq[_bqt++] = _c->γ.node; if (_c->ω.node && _bqt < 65536) _bq[_bqt++] = _c->ω.node; } g_emit.flat_all_zd = _azd; } }   /* LP-1 LAYOUT PASS (s22c NEXT(1)): pre-prologue ENTRY-REACHABLE BFS -- walks nodes reachable from `entry` via γ/ω edges, mirroring zd_plan's actual scope.  IR_GOTO is chased transparently (optimizer folds).  IR_CALL, ir_is_call_kind, IR_SAVE_RESTORE REJECT the scan immediately -- they produce values in flat frame slots (not ζ cells), so the carve IS load-bearing for those graphs.  Previously these were skipped (traversed without rejection) which let ASSIGN consumers of CALL results pass zd_wl_kind while the CALL's slot still lived in the legacy frame.  THE ORACLE: arithmetic.sno -- 4 statements, all {LIT_INTEGER, VAR, BINOP, ASSIGN} (no CALL); BFS passes; flat_all_zd=1; `sub rsp, 248` → `sub rsp, 8`.  CONSERVATIVE: cross-statement operand declines (zd_plan-level) still caught by watermark; LP-2 closes by moving RPO pre-prologue. */
-    { extern void emit_fb_divergence_check(void); emit_fb_divergence_check(); }   /* ZETA-FB-1 (s160): the LAST point at which every input to BOTH frame-base predicates is final for this graph and the prologue has not yet run — x86_fb_pinned()=emit_jmp_pin_rbp() picks the base every DATA ref NAMES, emit_rec_pin() picks the base the RECORD protocol names, and the prologue dispatched on the next line is what ESTABLISHES one.  A disagreement here is the s158 land mine latent: store and load naming different registers.  Reports under SCRIP_FB_DIVERGE=1, costs one compare otherwise. */
-    if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
-    xa_dispatch(XA_FLAT_PROLOGUE);
-    if (g_is_text) g_emit_pos += 7;
-    bb_label_t lbl_attempt, lbl_scanhit, lbl_scanfail;
-    bb_label_t lbl_stcγ, lbl_stcω;   /* STMT-FRAME (s21x-c): the two chain-exit LEAVE cuts -- every statement-crossing edge into lbl_γ/lbl_ω funnels through these (mov rsp,rbp; pop rbp; jmp), the seed's stmt_MAIN_1_end/_fail shape at chain scope; bodies emitted just before the lbl_γ define */
-    if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", prefix); emit_label_initf(&lbl_stcω, "%s_stω", prefix); }
-    static int _scan_off = -1; if (_scan_off < 0) { const char *_e = getenv("SCRIP_SCAN_OFF"); _scan_off = (_e && *_e == '1') ? 1 : 0; }   /* SPD-2 hatch: SCRIP_SCAN_OFF=1 = same-build A/B (BP-5/BP-6 precedent) */
-    int scan_live = (!_scan_off && x86_zc_frame() == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* SPD-2 RETRY-INTERNAL: RSP/rbp flavor only (fb==rbp hardwired below); legacy frame modes keep the classic per-position round trip */
-    if (scan_live) {
-        emit_label_initf(&lbl_attempt,  "%s_attempt",  prefix);
-        emit_label_initf(&lbl_scanhit,  "%s_scanhit",  prefix);
-        emit_label_initf(&lbl_scanfail, "%s_scanfail", prefix);
-        int kt = g_emit.flat_frame_bytes;
-        int _sd1 = kt - 32, _sd2 = kt - 40;
-        if (g_is_text) {
-            char _sc[192];
-            snprintf(_sc, sizeof _sc, "mov qword ptr [rsp + %d], r8\nmov dword ptr [rsp + %d], r14d\n", _sd1, _sd2);   /* SCANBASE: rsp-based — these two stores run before any rsp motion past the jmp-entry seed (only [rsp+N] zero-fills intervene), so rsp==rbp==base by construction; [kt-32]=scan flag (caller r8: defer fast arm is the SOLE flat_pat entry), [kt-40]=attempt start */
-            emit_text_n(_sc, strlen(_sc));
-        } else {
-            ef_b2(0x4C, 0x89); if (_sd1 >= -128 && _sd1 <= 127) { ef_b3(0x44, 0x24, (uint8_t)(int8_t)_sd1); } else { ef_b2(0x84, 0x24); bb_emit_u32((uint32_t)_sd1); }
-            ef_b2(0x44, 0x89); if (_sd2 >= -128 && _sd2 <= 127) { ef_b3(0x74, 0x24, (uint8_t)(int8_t)_sd2); } else { ef_b2(0xB4, 0x24); bb_emit_u32((uint32_t)_sd2); }
-        }
-        emit_label_define_bb(&lbl_attempt);
-    }
-    emit_label_define_bb(&lbl_α_body);
     enum { CH_MAX = 65536, Q_MAX = CH_MAX * 16 };
     static IR_t *nodes[CH_MAX]; int n = 0;
     static IR_t *queue[Q_MAX]; int qh = 0, qt = 0;
@@ -2059,6 +2032,35 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
 #undef RPO_MARK
 #undef RPO_VISITED
     if (qt >= Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= Q_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)Q_MAX, prefix); abort(); }
+    unsigned char *zd_on = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int *zd_out = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_gp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_wp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp);   /* ZD-1: the ONE execution-order walk runs ONCE per chain, before any emission, over the same nodes[] the loop below lays down */
+    { g_emit.flat_all_zd = 0; if (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && x86_zc_frame() == ZC_FRAME_RSP && n > 0) { int _azd = 1; for (int _i = 0; _i < n; _i++) if (!zd_on[_i]) { _azd = 0; break; } g_emit.flat_all_zd = _azd; } { static int _lpd = -1; if (_lpd < 0) { const char * _e = getenv("SCRIP_LP_DIAG"); _lpd = (_e && *_e == '1') ? 1 : 0; } if (_lpd) { int _arm = 0; for (int _i = 0; _i < n; _i++) if (zd_on[_i]) _arm++; fprintf(stderr, "[LP] prefix=%s n=%d armed=%d all_zd=%d region=%d jmp=%d pat=%d gen=%d\n", prefix, n, _arm, g_emit.flat_all_zd, (g_emit_cfg ? g_emit_cfg->jcon_value_region : -1), g_emit.flat_jmp_entry, g_emit.flat_pat, g_emit.flat_gen); } } }   /* LP-2 LAYOUT PASS (s22d NEXT(1)): the verdict is now the ZD PLAN ITSELF, not a kind approximation.  The RPO walk + zd_plan moved ABOVE the prologue (both are PURE -- verified: zero emissions, zero g_emit writes in either), so `flat_all_zd` reads the REAL per-node arm results zd_on[] that the drive loop will use.  ONE AUTHORITY: the predicate and the emission now cannot disagree, because they are the same array.  LP-1 asked "do these kinds LOOK armable?" and could answer yes where zd_plan then declined a statement for a STRUCTURAL reason (cross-statement operand, staging failure) -- leaving legacy FR/FRQ readers live against a carve LP-1 had already zeroed.  This asks "did every node ACTUALLY arm?", so flat_all_zd=1 now means the carve is zero BY CONSTRUCTION.  zd_plan self-declines jmp-entry/non-FORTH (leaving zon all-zero, hence all_zd=0); the flat_pat/flat_gen/RSP guards are kept explicit so the flag means what it says at its source.  Widens automatically as kinds arm -- when IR_CALL lands (ZD-7) call-bearing graphs become carve-free with no edit here, which is the DL-ONESHOT rbp-free classifier seed/test_sno_dl_2_norbp.s asks for. */
+    { extern void emit_fb_divergence_check(void); emit_fb_divergence_check(); }   /* ZETA-FB-1 (s160): the LAST point at which every input to BOTH frame-base predicates is final for this graph and the prologue has not yet run — x86_fb_pinned()=emit_jmp_pin_rbp() picks the base every DATA ref NAMES, emit_rec_pin() picks the base the RECORD protocol names, and the prologue dispatched on the next line is what ESTABLISHES one.  A disagreement here is the s158 land mine latent: store and load naming different registers.  Reports under SCRIP_FB_DIVERGE=1, costs one compare otherwise. */
+    if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
+    xa_dispatch(XA_FLAT_PROLOGUE);
+    if (g_is_text) g_emit_pos += 7;
+    bb_label_t lbl_attempt, lbl_scanhit, lbl_scanfail;
+    bb_label_t lbl_stcγ, lbl_stcω;   /* STMT-FRAME (s21x-c): the two chain-exit LEAVE cuts -- every statement-crossing edge into lbl_γ/lbl_ω funnels through these (mov rsp,rbp; pop rbp; jmp), the seed's stmt_MAIN_1_end/_fail shape at chain scope; bodies emitted just before the lbl_γ define */
+    if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", prefix); emit_label_initf(&lbl_stcω, "%s_stω", prefix); }
+    static int _scan_off = -1; if (_scan_off < 0) { const char *_e = getenv("SCRIP_SCAN_OFF"); _scan_off = (_e && *_e == '1') ? 1 : 0; }   /* SPD-2 hatch: SCRIP_SCAN_OFF=1 = same-build A/B (BP-5/BP-6 precedent) */
+    int scan_live = (!_scan_off && x86_zc_frame() == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* SPD-2 RETRY-INTERNAL: RSP/rbp flavor only (fb==rbp hardwired below); legacy frame modes keep the classic per-position round trip */
+    if (scan_live) {
+        emit_label_initf(&lbl_attempt,  "%s_attempt",  prefix);
+        emit_label_initf(&lbl_scanhit,  "%s_scanhit",  prefix);
+        emit_label_initf(&lbl_scanfail, "%s_scanfail", prefix);
+        int kt = g_emit.flat_frame_bytes;
+        int _sd1 = kt - 32, _sd2 = kt - 40;
+        if (g_is_text) {
+            char _sc[192];
+            snprintf(_sc, sizeof _sc, "mov qword ptr [rsp + %d], r8\nmov dword ptr [rsp + %d], r14d\n", _sd1, _sd2);   /* SCANBASE: rsp-based — these two stores run before any rsp motion past the jmp-entry seed (only [rsp+N] zero-fills intervene), so rsp==rbp==base by construction; [kt-32]=scan flag (caller r8: defer fast arm is the SOLE flat_pat entry), [kt-40]=attempt start */
+            emit_text_n(_sc, strlen(_sc));
+        } else {
+            ef_b2(0x4C, 0x89); if (_sd1 >= -128 && _sd1 <= 127) { ef_b3(0x44, 0x24, (uint8_t)(int8_t)_sd1); } else { ef_b2(0x84, 0x24); bb_emit_u32((uint32_t)_sd1); }
+            ef_b2(0x44, 0x89); if (_sd2 >= -128 && _sd2 <= 127) { ef_b3(0x74, 0x24, (uint8_t)(int8_t)_sd2); } else { ef_b2(0xB4, 0x24); bb_emit_u32((uint32_t)_sd2); }
+        }
+        emit_label_define_bb(&lbl_attempt);
+    }
+    emit_label_define_bb(&lbl_α_body);
     /* CELL-1a (GOAL-SN4-CELL-MACHINE.md): ζ-cell regime classifier, DARK — computed and traceable, consumed by NOTHING this rung (the no-interleave law: a graph is ALL-cells or ALL-legacy; until the
      * cells bracket+templates exist the classifier must select nothing).  CONVERTED set grows one construct per rung; SCRIP_CELLS: 0=legacy always, 1=force (will bomb on unconverted ops once live —
      * debug only), unset/auto=classifier.  cells_live stays 0 by the && 0 fuse; CELL-1 proper removes the fuse when the bracket lands. */
@@ -2079,8 +2081,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **st_pre = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);   /* STMT-FRAME (s21x-c): per-statement-head enter stub label -- minted for every bb_src_of head when the regime is live, NULL otherwise; every cross-edge into a head lbls[k] retargets here (slice-1 whitelist has no gotos, so EVERY edge into a head is a genuine statement entry -- no membership map needed) */
     int st_first_seen = 0;
     bb_label_t **st_x   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);   /* STMT-FRAME: the head's LEAVE half -- a statement-crossing edge must cut the SOURCE bracket before the dest's enter (the seed's stmt_*_end/_fail law: leave THEN jmp), so st_x[k] emits bb_glue_framed_leave (GLUE-4) and FALLS THROUGH into st_pre[k].  NULL for the first-emitted head: its only entrant is the prologue fallthrough, which has no bracket to cut (and cutting there would load the CRT caller's rbp into rsp -- the 058 disease). */
-    unsigned char *zd_on = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int *zd_out = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_gp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_wp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp);   /* ZD-1: the ONE execution-order walk runs ONCE per chain, before any emission, over the same nodes[] the loop below lays down */
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     g_suspend_resume_slot = -1;
     if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
