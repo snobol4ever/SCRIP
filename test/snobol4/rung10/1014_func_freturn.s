@@ -40,10 +40,11 @@ main_α_body:
 #         define('always_fail()')                        :(af_end)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rsp + 144], 1
-                        mov              dword ptr [rsp + 148], 13
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 13
                         mov              rax, qword ptr [rip + .Lx12_0]
-                        mov              qword ptr [rsp + 152], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_call_α
 .Lx12_0:
                         .quad            .Lx12_0_s
@@ -51,43 +52,59 @@ n0_lit_string_α:
                         .string          "always_fail()"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_call_α:
-                        mov              rax, qword ptr [rsp + 144]
-                        mov              qword ptr [rsp + 112], rax
-                        mov              rax, qword ptr [rsp + 152]
-                        mov              qword ptr [rsp + 120], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lbynamefn2:            .string          "define"
+.Lbynamefnzd2:          .string          "define"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn2]
-                        lea              rsi, [rsp + 112]
+                        lea              rdi, [rip + .Lbynamefnzd2]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 96], rax
-                        mov              qword ptr [rsp + 104], rdx
+                        add              rsp, 16
                         cmp              eax, 99
-                                                                                        je    n2_call_α
+                                                                                        jne   .Lx13_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n2_call_α
+.Lx13_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        add              rsp, 32
                                                                                         jmp   n2_call_α
 n1_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n2_call_α
 #=======================================================================================================================
 #         always_fail()                                  :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_call_α:
+                        sub              rsp, 16
                         .section         .rodata
-.Lbynamefn3:            .string          "always_fail"
+.Lbynamefnzd3:          .string          "always_fail"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn3]
-                        lea              rsi, [rsp + 176]
+                        lea              rdi, [rip + .Lbynamefnzd3]
+                        xor              esi, esi
                         mov              edx, 0
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 160], rax
-                        mov              qword ptr [rsp + 168], rdx
                         cmp              eax, 99
-                                                                                        je    n5_lit_string_α
+                                                                                        jne   .Lx14_240
+                        add              rsp, 16
+                                                                                        jmp   n5_lit_string_α
+.Lx14_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        add              rsp, 16
                                                                                         jmp   n3_lit_string_α
 n2_call_β:
+                        add              rsp, 16
                                                                                         jmp   n5_lit_string_α
 #=======================================================================================================================
 #         output = 'FAIL 1014/001: freturn should cause statement failure' :(end)

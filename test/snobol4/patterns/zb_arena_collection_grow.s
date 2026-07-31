@@ -457,12 +457,10 @@ n11_match_alternate_α:
                         mov              qword ptr [rbp + 240], rax
                                                                                         jmp   n12_match_len_α
 n11_match_alternate_s0:
-                        sub              rsp, 48
                         lea              rax, [rip + .Lx36_40]
                         mov              qword ptr [rbp + 232], rax
                                                                                         jmp   n11_match_alternate_as
 n11_match_alternate_s1:
-                        sub              rsp, 48
                         lea              rax, [rip + .Lx36_41]
                         mov              qword ptr [rbp + 232], rax
                                                                                         jmp   n11_match_alternate_as
@@ -471,7 +469,6 @@ n11_match_alternate_s1:
 .Lx36_41:
                                                                                         jmp   n12_match_len_β
 n11_match_alternate_as:
-                        sub              rsp, 48
                         add              rsp, 48
                                                                                         jmp   n10_match_arbno_as
 n11_match_alternate_β:
@@ -479,7 +476,6 @@ n11_match_alternate_β:
                         mov              rax, qword ptr [rbp + 232]
                                                                                         jmp   rax
 n11_match_alternate_af:
-                        sub              rsp, 48
                         mov              r14d, dword ptr [rbp + 224]
                         mov              rax, qword ptr [rbp + 240]
                                                                                         jmp   rax
