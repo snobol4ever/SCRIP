@@ -1581,15 +1581,10 @@ inline std::string x86_xfer_leave() {
     return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ζ-CELL MACHINE port encoders — CELL-0 / ZB-ACT-0 (GOAL-SN4-CELL-MACHINE.md; contract DESIGN-SN4-CELL-MACHINE.md; Lon green light 2026-07-28).  The WAM/FORTH cell discipline for the SNOBOL4 scan
- * blob: rbp = CP (newest CHOICE cell; callee-saved so it survives every C runtime call), rsp = ζ frontier, cells 16B-granular so the SysV call-alignment invariant holds by construction.  CHOICE CELL,
- * 32B, memory ascending from CP: [+0]=resume_addr · [+8]=low32 saved_δ / high32 TAG (0=CHOICE 1=BASE 2=FENCE 3=ARBNO_GUARD) · [+16]=prev_CP · [+24]=saved_MH (MH=r12 from CELL-5; until then the slot
- * is pushed 0 and discarded on unwind — flipping BOTH sites here is CELL-5's one edit: push rax→push r12, add rsp 8→pop r12).  BACKTRACKABLE-BOX LAW: carve LOCALS first, THEN push the header (header
- * at TOS, locals at [rsp+32..32+K) while it lives); the unwind tail consumes the header, so every β-resume label entry sees rsp == its own LOCALS base, r14d == the cell's saved δ, rbp == enclosing CP.
- * Universal failure = x86_cell_fail_body() emitted ONCE per cells-classified graph under a driver-owned label; the driver binds every blob node_ω to that label (the scan_live rebind idiom, emit.cpp
- * ~2152) so no template ever names it.  OPERAND PROTOCOL: producers deliver a 16B DESCR at TOS; a consumer's operands are the top n cells at [rsp+K..K+16n), ownership by LIFO adjacency — no cross-box
- * address exists anywhere.  Composed ENTIRELY of pre-verified encoders (push/pop/xor/mov/add/sub dispatch arms + the named disp32 family + x86_lea_rip_id + x86_jmp_reg): CELL-0 adds ZERO new byte
- * encodings by design, so the keystone byte-verify obligation is discharged by construction.  x86_cell_push clobbers rax and FLAGS.  Everything below is dead code until CELL-1 wires the classifier. */
+/* Scan-blob choice-cell port encoders (Lon 2026-07-28).  rbp = CP (newest CHOICE cell; callee-saved, survives every C runtime call), rsp = ζ frontier, cells 16B-granular so SysV alignment holds.
+ * CHOICE CELL, 32B, ascending from CP: [+0]=resume_addr · [+8]=low32 saved_δ / high32 TAG (0=CHOICE 1=BASE 2=FENCE 3=ARBNO_GUARD) · [+16]=prev_CP · [+24]=saved_MH.
+ * BACKTRACKABLE-BOX LAW: carve LOCALS first, THEN push the header; the unwind tail consumes the header, so every β-resume entry sees rsp == own LOCALS base, r14d == saved δ, rbp == enclosing CP.
+ * Composed ENTIRELY of pre-verified encoders: zero new byte encodings.  x86_cell_push clobbers rax and FLAGS. */
 /* GLUE PROMOTED TO TEMPLATES (Lon s21x-n "Would those two glue snippets qualify for each having their own template" -- yes): the four x86_glue_* inline helpers that sat here from s21x-m are now
  * src/templates/bb_glue_flat.cpp and bb_glue_framed.cpp, one file each.  They were compositions of x86(...) calls, not encodings, which is a template's job by this tree's own taxonomy; and the FOUR-MODE
  * variance they now carry wants R6's IF(...) combinator inside one concatenation, which is a template rule.  They had ZERO callers here, so the move is byte-neutral by construction.  K is read from `_`
