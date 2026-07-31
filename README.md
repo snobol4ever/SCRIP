@@ -299,57 +299,62 @@ Frames are **immutable plain JS arrays** — transitions create new arrays,
 old ones are GC'd. No `memcpy`, no snapshot/restore, no arena. The GC *is*
 the stack allocator.
 
-### Benchmark: SCRIP vs SPITBOL
+### Benchmark: SCRIP vs SPITBOL — 2026-07-31, HEAD `a679d993` (s22l-B)
 
-Corpus benchmarks (`corpus/benchmarks/snobol4/*.sno`) run head-to-head against
-the SPITBOL x64 fork oracle (`snobol4ever/x64`). Each figure is the program's
-own `TIME()` compute loop in milliseconds unless marked † (wall time;
-`indirect_dispatch` has no `TIME()` loop). SCRIP is the mode-4 `--compile`
-native binary, gcc `-O0`. Measured 2026-07-18 at HEAD `10bfc42f` (sandbox CPU).
-The SPITBOL column reproduces the 2026-07-10 oracle numbers within a few percent
-— same programs, same box — so the absolute-ms comparison across the two SCRIP
-snapshots is sound this time. **All 16 benchmarks are green.** Lower is faster.
+Full 21-program benchmark corpus (`corpus/benchmarks/snobol4/*.sno`) head-to-head
+against the SPITBOL x64 fork oracle (`snobol4ever/x64`, `sbl -b`). Each figure is
+the program's own `TIME()` compute loop in ms; `—` means the program reports no
+`TIME()` loop (`indirect_dispatch`). SCRIP is the mode-4 `--compile` native binary,
+gcc `-O0`, default regime. Run under `setarch -R` (ASLR off) per the s22l instrument
+law — ASLR is worth ±2 programs on any m4 figure. **ratio > 1.00x means SCRIP is
+faster.**
 
-| Benchmark | SPITBOL | SCRIP native | vs SPITBOL | vs SPITBOL on 2026-07-10 |
-|-----------|--------:|-------------:|-----------:|-------------------------:|
-| var_access | 1,319 | 267 | **4.9× faster** | 5.1× slower |
-| op_dispatch | 116 | 31 | **3.7× faster** | 12.0× slower |
-| arith_loop | 48 | 17 | **2.8× faster** | 13.7× slower |
-| func_call_overhead | 885 | 923 | ~par | 9.5× slower |
-| func_call | 879 | 934 | ~par | 9.1× slower |
-| indirect_dispatch | 4† | 5† | ~par | 2.1× slower |
-| fibonacci | 173 | 268 | 1.5× slower | 13.2× slower |
-| pattern_bt | 222 | 892 | 4.0× slower | 599× slower |
-| mixed_workload | 175 | 866 | 4.9× slower | 91× slower |
-| table_access | 333 | 1,743 | 5.2× slower | 13.5× slower |
-| eval_fixed | 267 | 1,406 | 5.3× slower | 8.3× slower |
-| string_pattern | 688 | 4,643 | 6.7× slower | ~220× slower |
-| string_concat | 142 | 1,013 | 7.1× slower | 13.3× slower |
-| string_manip | 645 | 4,949 | 7.7× slower | 17.5× slower |
-| roman | 180 | 2,618 | 14.5× slower | 20.0× slower |
-| eval_dynamic | 422 | 61,260 | 145× slower | ~172× slower |
+| benchmark | SPITBOL (ms) | SCRIP (ms) | ratio |
+|---|---|---|---|
+| arith_int | 4423 | 1137 | 3.89x |
+| arith_loop | 46 | 12 | 3.83x |
+| arith_mixed | 2259 | 444 | 5.09x |
+| arith_str | 275 | 381 | 0.72x |
+| eval_dynamic | 440 | timeout | — |
+| eval_fixed | 254 | 222 | 1.14x |
+| fibonacci | 168 | 342 | 0.49x |
+| func_call | 841 | 1309 | 0.64x |
+| func_call_overhead | 900 | 1201 | 0.75x |
+| indirect_dispatch | — | — | — |
+| mixed_workload | 144 | 1153 | 0.12x |
+| op_dispatch | 122 | 28 | 4.36x |
+| pattern_bt | 225 | 151 | 1.49x |
+| pattern_bt_deep | 3536 | 2049 | 1.73x |
+| roman | 128 | 287 | 0.45x |
+| string_concat | 131 | 7 | 18.71x |
+| string_manip | 622 | 1788 | 0.35x |
+| string_pattern | 682 | 2448 | 0.28x |
+| table_access | 330 | 1226 | 0.27x |
+| table_churn | 332 | 2036 | 0.16x |
+| var_access | 1328 | 312 | 4.26x |
 
-Since the 2026-07-10 table, **every benchmark got faster and the whole board
-moved** — the register-allocation overhaul and the pattern-arena fix both landed.
-**The scalar/dispatch cluster now beats SPITBOL:** `var_access`, `op_dispatch`,
-and `arith_loop` flipped from 5–14× slower to 2.8–4.9× *faster*, and the call
-cluster closed to par — REG-1 through REG-7 promoted the pend/dcap backtracking
-top out of the pinned `[RT_CAS_TOP]` cell into registers (r12, then rbp/rsp
-frames), shedding the per-match and per-capture absolute-memory traffic.
-**The pattern engine recovered ~150×:** `pattern_bt` went 599× → 4.0× slower once
-ZB-ITER-3 retired the DEFER-island swap and moved suspension onto the single rsp
-stream, killing the per-match `rt_zls_alloc(65536)`/release churn the previous
-note named as the blocker. It is not yet back to the June FZ-engine peak of
-**2.0×** — SPITBOL's scanner still leads on raw backtracking — but the arena tax is
-gone. The GC-U workspace-class overhaul (WS-CLASS SPLIT/WIDENING, AGG-PRECISE)
-cut malloc/strdup churn underneath all of it.
+**The honest reading: SCRIP wins 9, loses 10, and the board is bimodal.** Where the
+work is scalar arithmetic, dispatch, or concatenation, SCRIP is 3.8–18.7× faster —
+`string_concat` 18.71×, `arith_mixed` 5.09×, `op_dispatch` 4.36×, `var_access` 4.26×,
+`arith_int` 3.89×, `arith_loop` 3.83×. Pattern backtracking is now ahead too
+(`pattern_bt_deep` 1.73×, `pattern_bt` 1.49×), which is recent.
 
-**The one benchmark that barely moved is `eval_dynamic`** (172× → 145× slower,
-~61s): the EVAL recompile path did not benefit from the REG/arena work and is now
-the single outstanding pathology — the tracked next rung. CSNOBOL4 column still
-dropped pending re-measurement on current hardware. Re-grounding headline claims
-stays tracked under REC-COV / RC-5. (Attribution here is from the commit log
-since 2026-07-10, not a controlled bisect.)
+Where SCRIP still loses it loses badly, and the cluster is coherent: **aggregates and
+string building** — `table_churn` 0.16×, `mixed_workload` 0.12×, `table_access` 0.27×,
+`string_pattern` 0.28×, `string_manip` 0.35×. These are allocation- and
+copy-dominated, not codegen-dominated, so they are a RUNTIME story (the RTX ladder),
+not a Byrd-box story. The call cluster sits just under par (`func_call` 0.64×,
+`func_call_overhead` 0.75×) and `fibonacci` at 0.49× tracks it.
+
+`eval_dynamic` **times out at 40s against SPITBOL's 440ms.** EVAL remains the one
+structural gap — roughly 150× slower, ~0.09 ms/call. Semantics are correct on a
+3-iteration reduction; this is a throughput defect, not a correctness one.
+
+⛔ **Do not quote a single headline multiplier from this table.** The geometric spread
+runs from 0.12× to 18.71×; any one number is a cherry-pick. The defensible summary is
+"faster on scalar/dispatch/pattern work, slower on aggregate/string-building work,
+and EVAL is unfixed."
+
 
 ### Demo suite: SCRIP vs SPITBOL — the measurement rail (2026-07-24, HEAD `a0b9aa41`)
 
