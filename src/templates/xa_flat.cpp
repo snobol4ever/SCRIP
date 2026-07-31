@@ -127,6 +127,7 @@ static int xaf_anchor_off(void) {
     return g_emit_cfg->zeta_mark_slot + 8;
 }
 static int xaf_outer_frame_k(void) {
+    if (g_emit.flat_all_zd && !g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && x86_zc_frame() == ZC_FRAME_RSP) return 8;   /* LP-1 LAYOUT PASS (s22c NEXT(1)): every chain node self-allocates; the whole-graph region is unused -- return the alignment-only 8B pad, dropping the 240+ byte legacy carve.  Guard: jmp-entry blobs, pat/gen blobs keep legacy (their protocols read the frame slots); non-RSP builds are not on this ladder.  THE ORACLE: arithmetic.sno was `sub rsp, 248` with max offset 40; with this flag set it becomes `sub rsp, 8` -- a correct layout authority that licenses a 0-byte region (the carve-erad prerequisite the LIVE CURSOR named as NEXT(1)). */
     int rg = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     return ((rg + 15) & ~15) + 8;
 }
