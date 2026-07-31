@@ -62,8 +62,20 @@ for p in $progs; do
   if ! grep -q 'DYNAMIC CALL COUNT' "$TMP/r.txt"; then
     echo "  $nm_p: NO DATA (see stderr)"; continue
   fi
-  awk 'NR>2 && NF>=2 && $2+0>0 {print $1"\t"$2}' "$TMP/r.txt" >> "$TMP/tot.txt"
-  n_hot=$(awk 'NR>2 && NF>=2 && $2+0>0' "$TMP/r.txt" | wc -l)
+  # ⛔ THE `/^--- program stdout/{exit}` GUARD IS LOAD-BEARING (added s228, on the
+  # script's FIRST EVER RUN).  util_rtx_count_syms.sh deliberately appends the
+  # measured program's own stdout after a `---` banner so a broken run cannot
+  # masquerade as a measurement — but this awk consumed those lines too, and any
+  # benchmark line of the shape `<word>: <number>` parses as a symbol with a huge
+  # entry count.  Uncaught, it put `result:` (153,885,529) and `iterations:`
+  # (101,000,000) at ranks 1 and 2 of the port queue, above every real symbol.
+  # The contaminants are not exported text symbols at all, so the correct filter
+  # is also available structurally: intersect with the derived candidate list.
+  awk -v CAND="$TMP/cand.txt" '
+    BEGIN { while ((getline s < CAND) > 0) ok[s]=1 }
+    /^--- program stdout/ { exit }
+    NR>2 && NF>=2 && $2+0>0 && ($1 in ok) { print $1"\t"$2 }' "$TMP/r.txt" >> "$TMP/tot.txt"
+  n_hot=$(awk '/^--- program stdout/{exit} NR>2 && NF>=2 && $2+0>0' "$TMP/r.txt" | wc -l)
   echo "  $nm_p: $n_hot symbols with nonzero entries"
 done
 # ---- 4. rank ------------------------------------------------------------------
