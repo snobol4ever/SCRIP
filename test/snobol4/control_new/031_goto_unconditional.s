@@ -17,9 +17,9 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 8
+                        sub              rsp, 40
                         mov              rdi, rsp
-                        mov              ecx, 8
+                        mov              ecx, 40
                         xor              eax, eax
                         rep stosb
 main_α_body:
@@ -61,12 +61,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 8
+                        add              rsp, 40
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 8
+                        add              rsp, 40
                         ret
                         .section         .note.GNU-stack,"",@progbits
