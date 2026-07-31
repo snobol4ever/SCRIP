@@ -1058,6 +1058,29 @@ int zls_node_has_fields(const IR_t * nd) { if (!nd) return 0; for (int f = 0; f 
  * migration (front quad + locals riding the cell) is the crawl's second axis, per family, against the RESULT-IS-THE-CELL and SUSPENDED-CELL laws. */
 long zw_node_k(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; if (!e) return 0; long b = (long)zls_node_bytes(nd); if (!e->live && b <= 16) return 0; return b; }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* CARVE-ERAD step 1 -- THE ONE CARVE AUTHORITY (Lon "complete ZETA CELLS on the RSP FORTH-style stack; remove the whole graph carve").  zw_carve_k answers ONE question -- how many bytes does this node
+ * actually carve on rsp at its own alpha -- and it is the ONLY place that question is answered.  Provenance: the predicate was written INLINE at emit.cpp's walk_bb_node_inner choke, where it decided
+ * op_fc_bytes; the lower-side prefix walk (fc_leaf_walk, the op_flat_disp registrar) accumulated fc_geom cells ONLY and therefore could not see a single universal carve.  THAT SPLIT IS THE DISPLACEMENT:
+ * a spine producer carves K at alpha and holds it live for its consumer (RESULT-IS-THE-CELL), while a consumer still addressing through the static authority compensates by a prefix computed as if the
+ * carve did not exist, and reads K bytes too low -- the emit.cpp:802 negative result ("arming a spine producer that FEEDS a match deepens rsp under a consumer whose compensation cannot see it"), which
+ * is the arming frontier being a property of the READERS, not of the armed box.  With one authority the allocator and the address side cannot hold two opinions, which is the same ONE-K discipline
+ * zw_node_k already established for the size.  Port/regime/bisect conjuncts all live here so the prefix advances by EXACTLY the bytes the alpha hook will spend, node for node. */
+static int zw_nid_listed_c(const char * e, int nid) { if (!e || !*e) return 0; { const char * p = e; while (*p) { long v = strtol(p, (char **)&p, 10); if ((int)v == nid) return 1; while (*p && *p != ',') p++; if (*p) p++; } } return 0; }
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long zw_carve_k(const IR_t * nd) {
+    static int _ba = -1, _all = -1; static const char * _bo; static const char * _bs;
+    extern int rt_zeta_port_mode(void); extern int bb_node_id(IR_t *); long _d, _k; int _spine;
+    if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); { const char * a = getenv("SCRIP_BB_ALLOC_ALL"); _all = (a && *a == '1') ? 1 : 0; } }
+    if (!_ba || !nd) return 0;
+    _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC);
+    if (_spine || rt_zeta_port_mode() != ZC_PORT_FORTH) return 0;
+    if (!_all && (nd->op == IR_MATCH_HEAD || nd->op == IR_MATCH_FENCE1 || nd->op == IR_SAVE_RESTORE || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED)) return 0;
+    if (fc_geom(nd, &_d)) return 0;
+    _k = zw_node_k(nd); if (_k <= 0) return 0;
+    { int _nid = bb_node_id((IR_t *)nd); if (_bo && *_bo && !zw_nid_listed_c(_bo, _nid)) return 0; if (zw_nid_listed_c(_bs, _nid)) return 0; }
+    return _k;
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZOP-1 MIX AUDIT (Lon s21x-n "parameterize the access to operands via the FOUR modes").  Tallies, over a whole compile, how many emitted graphs resolved their operand addresses through MORE THAN ONE
  * whole-graph regime.  The regimes are x86_zop's named arms: 1 = r12 island frame, 3 = pinned rbp whole-graph frame, 4 = rsp whole-graph frame + op_flat_disp compensation.  Arm 2 (the box's own per-BB
  * rsp cell) is deliberately NOT counted as a regime -- it is a WINDOW into whichever regime the graph is in, and composing one window with one frame is the design, not the defect.  Two or more of {1,3,4}
