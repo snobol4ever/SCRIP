@@ -283,6 +283,41 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
+    /* ZD-7 (c): ZD arm -- same shape as bb_call_fn_str ZD arm; by-name route uses rt_call_arr identically. */
+    if (_.op_zres) {
+        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        std::string s = x86_alpha()
+                      + x86("comment", std::string("BOX CALL ZD-7 byname ") + fn + "(...) -> rt_call_arr [ZD: args from ZOPQ, result to ZRES]");
+        if (narg > 0) {
+            s += x86("sub", "rsp", (long)(narg * 16));
+            for (int i = 0; i < (int)narg; i++) {
+                s += x86("mov", "r10", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + (int)narg * 16 + 0) + "]").c_str());
+                s += x86("mov", "r11", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + (int)narg * 16 + 8) + "]").c_str());
+                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 0) + "]").c_str(), "r10");
+                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 8) + "]").c_str(), "r11");
+            }
+        }
+        {
+            std::string fl = std::string(".Lbynamefnzd") + std::to_string((long long)_.nid);
+            s += x86("directive", ".section .rodata");
+            s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
+            s += x86("directive", ".section .text");
+            s += x86("directive", ".intel_syntax noprefix");
+            s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
+        }
+        if (narg > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
+        else          s += x86("xor", "esi", "esi");
+        s += x86("mov32", "edx", (long)narg);
+        s += x86("call", "rt_call_arr", fptr);
+        if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
+        s += x86("cmp", "eax", (long)99);
+        s += x86_omega("je");
+        s += x86("mov", ZRES(0), "rax");
+        s += x86("mov", ZRES(8), "rdx");
+        s += x86_gamma();
+        s += x86_beta_trampoline();
+        return s;
+    }
     int resoff  = zoff(_.node);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
