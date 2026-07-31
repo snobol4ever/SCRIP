@@ -36,6 +36,7 @@ static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
 static const char *trace_set[TRACE_SET_CAP];
 static const char *trace_callback[TRACE_SET_CAP];
 static int trace_set_n = 0;
+static int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_slot_lookup(const char *name) {
@@ -424,8 +425,8 @@ static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
 void comm_var(const char *name, DESCR_t val) {
     if (!name || name[0] == '_') return;
     if (monitor_quiet_depth > 0) return;
-    static int dbg = -1;
-    if (dbg < 0) dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+    if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+    const int dbg = g_comm_dbg;
     if (!dbg && trace_set_n == 0 && monitor_fd < 0) return;
     const char *cbfn = trace_get_callback(name);
     if (dbg)
@@ -2210,7 +2211,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
-    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_bucket_find(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; for (int _ri = 0; _ri < _var_reg_n; _ri++) if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; } comm_var(name, val); return val; } }
+    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_bucket_find(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; for (int _ri = 0; _ri < _var_reg_n; _ri++) if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; } if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
