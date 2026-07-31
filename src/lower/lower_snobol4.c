@@ -1063,7 +1063,7 @@ static int fc_leaf_walk(IR_graph_t * g, int k0, int k1, int pfx) {
             if (_elast > k + 1) k = _elast - 1;
             continue;
         }
-        long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
+        long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }   /* ⛔ CARVE-ERAD FALSIFIED ARM -- DO NOT RETRY (measured, this session).  The obvious reading of step 1 is that this prefix is simply BLIND to the ZW-1 universal carve (true: the carve fires exactly where fc_geom DECLINES, so it contributes nothing here while being fully present on the machine's rsp).  Adding `else own = zw_carve_k(x)` compiles, is default-byte-neutral, and is a MEASURED NO-OP: zw_carve_k returns 0 for every node at this point because it reads the zls plan (zx_find), and THIS WALK RUNS BEFORE THAT PLAN EXISTS -- fc_leaf_walk is driven from line ~1771, zls_build arrives via ir_drive_slot_assign at line ~2411 of this same lowering pass.  The static authority cannot be taught about per-BB carves at any price: the size it would need to sum has not been decided yet.  CONSEQUENCE: step 1 must be an EMIT-TIME running sum (op_zdepth), never a lower-side prefix repair. */
         fc_leaf_register(x, pfx + (int)own);
         pfx += (int)own;
     }
