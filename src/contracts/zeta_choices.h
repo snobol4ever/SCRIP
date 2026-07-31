@@ -122,7 +122,7 @@
  * original; FRAME_RSP = that same whole-graph frame moved onto the C stack, shared with C; CELL_STACK = per-BB cell, fixed rsp carve, with rbp pinned PER GRAPH for the dynamic-sized housekeeping
  * (ARBNO/FENCE/suspending generators) and rsp for the static-sized; CELL_HEAP = per-BB cell with LOCALS on the rbx-topped GC island and the RESULT on its own island (the VSP value stack).
  * ONE ENUM, NOT FOUR BOOLEANS, BY DESIGN: a graph mixing two regimes is the s188 failure shape, so the mixed states must be UNREPRESENTABLE rather than merely discouraged; this also collapses the
- * SCRIP_CELLS × SCRIP_ZMODE interaction matrix that GOAL-SN4-CELL-MACHINE.md flags UNSPECIFIED into four named points.  MEASURED at Z4-0/1/2 (m3, -O0, best-of-3, corpus/probe): FRAME_R12 5/5 correct
+ * SCRIP_CELLS × SCRIP_ZMODE interaction matrix collapsed into four named points.  MEASURED at Z4-0/1/2 (m3, -O0, best-of-3, corpus/probe): FRAME_R12 5/5 correct
  * (the only 5/5 config, hence the CORRECTNESS ORACLE) · FRAME_RSP 5/5 · CELL_STACK 4/5 (capture defect, a regression bisectable to d79a427a..cca948c5) · CELL_HEAP incomplete (RUNG ZHEAP).
  * PERF, stated because it is the whole motive: CELL beats FRAME decisively on pattern work (span 3.3x, arbno 1.5x) and LOSES on calls -- z4_fib degraded MONOTONICALLY 71 -> 83 -> 98 ms across the
  * three generations, so activation cost is the open perf question and z4_fib is its instrument.  SLICE 1 IS THE ENUM ONLY: no consumer reads ZC_STORAGE yet, the legacy axes remain authoritative, and
