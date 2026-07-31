@@ -458,6 +458,45 @@ std::string bb_call_fn_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn = _.op_sval ? _.op_sval : "";
     int nargs = (int) _.op_ival;
+    /* ZD-7 (c): ZD arm for bare IR_CALL (builtins via rt_call_arr, non-registered procs excluded by zd_wl_kind).
+     * Alpha already carved K=16 for the result cell (op_fc_bytes=16 set by zd_plan).
+     * Args are read from predecessor ZD cells via ZOPQ(i,0/8), written into arg scratch on stack, then rt_call_arr called.
+     * rsi = &args[0] via x86_reg_disp32_lea64 DIRECTLY -- bypassing x86() parser which adds +op_zdepth to RSP operands.
+     * Result stored to ZRES(0/8); omega on DT_FAIL; gamma + beta_trampoline (det leaf, no re-entry). */
+    if (_.op_zres) {
+        std::string s = x86_alpha()
+                      + x86("comment", std::string("BOX IR_CALL ZD-7 ") + fn + "(...) -> rt_call_arr [ZD: args from ZOPQ, result to ZRES]");
+        if (nargs > 0) {
+            s += x86("sub", "rsp", (long)(nargs * 16));
+            for (int i = 0; i < nargs; i++) {
+                s += x86("mov", "r10", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + nargs * 16 + 0) + "]").c_str());
+                s += x86("mov", "r11", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + nargs * 16 + 8) + "]").c_str());
+                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 0) + "]").c_str(), "r10");
+                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 8) + "]").c_str(), "r11");
+            }
+        }
+        {
+            std::string fl = std::string(".Lrkfnzd") + std::to_string(g_flat_node_id++);
+            s += x86("directive", ".section .rodata");
+            s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
+            s += x86("directive", ".section .text");
+            s += x86("directive", ".intel_syntax noprefix");
+            s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
+        }
+        /* lea rsi, [rsp + 0]: use encoder directly -- x86("lea","rsi","qword ptr [rsp + 0]") adds +op_zdepth via RSP operand path */
+        if (nargs > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
+        else           s += x86("xor", "esi", "esi");
+        s += x86("mov32", "edx", (long)nargs);
+        s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
+        if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
+        s += x86("cmp", "eax", (long)99);
+        s += x86_omega("je");
+        s += x86("mov", ZRES(0), "rax");
+        s += x86("mov", ZRES(8), "rdx");
+        s += x86_gamma();
+        s += x86_beta_trampoline();
+        return s;
+    }
     int resoff = bcfn_result_slot(pBB);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_fn: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && nargs > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_fn: arg count exceeds LOWER grant (TMP-ERADICATE)");
