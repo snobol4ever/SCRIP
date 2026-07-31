@@ -130,26 +130,26 @@ n5_call_α:
                         mov              qword ptr [rsp + 80], rax
                         mov              qword ptr [rsp + 88], rdx
                         cmp              eax, 99
-                                                                                        je    n6_var_α
-                                                                                        jmp   n7_assign_α
+                                                                                        je    n7_var_α
+                                                                                        jmp   n6_assign_α
 n5_call_β:
-                                                                                        jmp   n6_var_α
+                                                                                        jmp   n7_var_α
+#-----------------------------------------------------------------------------------------------------------------------
+n6_assign_α:
+                        mov              rax, qword ptr [rsp + 80]
+                        mov              rdx, qword ptr [rsp + 88]
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rdx
+                                                                                        jmp   n7_var_α
 #=======================================================================================================================
 #         OUTPUT = real(X)
 #-----------------------------------------------------------------------------------------------------------------------
-n6_var_α:
+n7_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 240], rax
                         mov              qword ptr [rsp + 248], rdx
                                                                                         jmp   n8_call_α
-#-----------------------------------------------------------------------------------------------------------------------
-n7_assign_α:
-                        mov              rax, qword ptr [rsp + 80]
-                        mov              rdx, qword ptr [rsp + 88]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n6_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n8_call_α:
                         mov              rax, qword ptr [rsp + 240]
@@ -167,30 +167,30 @@ n8_call_α:
                         mov              qword ptr [rsp + 192], rax
                         mov              qword ptr [rsp + 200], rdx
                         cmp              eax, 99
-                                                                                        je    n9_var_α
-                                                                                        jmp   n10_assign_α
+                                                                                        je    n10_var_α
+                                                                                        jmp   n9_assign_α
 n8_call_β:
-                                                                                        jmp   n9_var_α
+                                                                                        jmp   n10_var_α
+#-----------------------------------------------------------------------------------------------------------------------
+n9_assign_α:
+                        mov              rsi, qword ptr [rsp + 192]
+                        mov              rdx, qword ptr [rsp + 200]
+                        mov              rdi, qword ptr [rip + .Lx25_0]
+                        call             NV_SET_fn@PLT
+                                                                                        jmp   n10_var_α
+.Lx25_0:
+                        .quad            .Lx25_0_s
+.Lx25_0_s:
+                        .string          "OUTPUT"
 #=======================================================================================================================
 #         OUTPUT = imag(X)
 #-----------------------------------------------------------------------------------------------------------------------
-n9_var_α:
+n10_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 304], rax
                         mov              qword ptr [rsp + 312], rdx
                                                                                         jmp   n11_call_α
-#-----------------------------------------------------------------------------------------------------------------------
-n10_assign_α:
-                        mov              rsi, qword ptr [rsp + 192]
-                        mov              rdx, qword ptr [rsp + 200]
-                        mov              rdi, qword ptr [rip + .Lx26_0]
-                        call             NV_SET_fn@PLT
-                                                                                        jmp   n9_var_α
-.Lx26_0:
-                        .quad            .Lx26_0_s
-.Lx26_0_s:
-                        .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n11_call_α:
                         mov              rax, qword ptr [rsp + 304]

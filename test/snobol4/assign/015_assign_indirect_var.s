@@ -86,55 +86,55 @@ n3_call_α:
                         mov              qword ptr [rsp + 32], rax
                         mov              qword ptr [rsp + 40], rdx
                         cmp              eax, 99
-                                                                                        je    n4_var_α
-                                                                                        jmp   n5_lit_string_α
+                                                                                        je    n6_var_α
+                                                                                        jmp   n4_lit_string_α
 n3_call_β:
-                                                                                        jmp   n4_var_α
-#=======================================================================================================================
-#         OUTPUT = X
+                                                                                        jmp   n6_var_α
 #-----------------------------------------------------------------------------------------------------------------------
-n4_var_α:
-                        sub              rsp, 16
-                        mov              rax, qword ptr [1879052304]
-                        mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n6_assign_α
-#-----------------------------------------------------------------------------------------------------------------------
-n5_lit_string_α:
+n4_lit_string_α:
                         mov              qword ptr [rsp + 96], 1
                         mov              dword ptr [rsp + 100], 5
-                        mov              rax, qword ptr [rip + .Lx14_0]
+                        mov              rax, qword ptr [rip + .Lx13_0]
                         mov              qword ptr [rsp + 104], rax
-                                                                                        jmp   n7_assign_var_α
-.Lx14_0:
-                        .quad            .Lx14_0_s
-.Lx14_0_s:
+                                                                                        jmp   n5_assign_var_α
+.Lx13_0:
+                        .quad            .Lx13_0_s
+.Lx13_0_s:
                         .string          "world"
 #-----------------------------------------------------------------------------------------------------------------------
-n6_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx15_0]
-                        call             NV_SET_fn@PLT
-                        add              rsp, 16
-                                                                                        jmp   main_γ
-.Lx15_0:
-                        .quad            .Lx15_0_s
-.Lx15_0_s:
-                        .string          "OUTPUT"
-#-----------------------------------------------------------------------------------------------------------------------
-n7_assign_var_α:
+n5_assign_var_α:
                         mov              rdi, qword ptr [rsp + 32]
                         mov              rsi, qword ptr [rsp + 40]
                         mov              rdx, qword ptr [rsp + 96]
                         mov              rcx, qword ptr [rsp + 104]
                         call             rt_assign_var@PLT
                         cmp              eax, 99
-                                                                                        je    n4_var_α
+                                                                                        je    n6_var_α
                         mov              qword ptr [rsp + 112], rax
                         mov              qword ptr [rsp + 120], rdx
-                                                                                        jmp   n4_var_α
+                                                                                        jmp   n6_var_α
+#=======================================================================================================================
+#         OUTPUT = X
+#-----------------------------------------------------------------------------------------------------------------------
+n6_var_α:
+                        sub              rsp, 16
+                        mov              rax, qword ptr [1879052304]
+                        mov              rdx, qword ptr [1879052312]
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n7_assign_α
+#-----------------------------------------------------------------------------------------------------------------------
+n7_assign_α:
+                        mov              rsi, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+                        mov              rdi, qword ptr [rip + .Lx16_0]
+                        call             NV_SET_fn@PLT
+                        add              rsp, 16
+                                                                                        jmp   main_γ
+.Lx16_0:
+                        .quad            .Lx16_0_s
+.Lx16_0_s:
+                        .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

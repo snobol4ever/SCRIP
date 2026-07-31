@@ -32,28 +32,28 @@ n0_lit_string_α:
                         mov              dword ptr [rsp + 4], 6
                         mov              rax, qword ptr [rip + .Lx3_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n2_assign_α
+                                                                                        jmp   n1_assign_α
 .Lx3_0:
                         .quad            .Lx3_0_s
 .Lx3_0_s:
                         .string          "before"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_α:
-                                                                                        jmp   main_stγ
-n1_goto_β:
-                                                                                        jmp   main_stω
-#-----------------------------------------------------------------------------------------------------------------------
-n2_assign_α:
+n1_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx5_0]
+                        mov              rdi, qword ptr [rip + .Lx4_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_stγ
-.Lx5_0:
-                        .quad            .Lx5_0_s
-.Lx5_0_s:
+.Lx4_0:
+                        .quad            .Lx4_0_s
+.Lx4_0_s:
                         .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n2_goto_α:
+                                                                                        jmp   main_stγ
+n2_goto_β:
+                                                                                        jmp   main_stω
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω
