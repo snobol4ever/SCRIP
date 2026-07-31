@@ -511,19 +511,19 @@ n28_goto_β:
 # upcase  upcase = REPLACE(s, &LCASE, &UCASE)                       :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
 n29_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 112], rax
-                        mov              qword ptr [rsp + 120], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n30_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx46_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 144], rax
-                        mov              qword ptr [rsp + 152], rdx
-                        add              rsp, 16
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n31_keyword_snobol4_α
 .Lx46_0:
                         .quad            .Lx46_0_s
@@ -534,9 +534,8 @@ n31_keyword_snobol4_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx47_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 160], rax
-                        mov              qword ptr [rsp + 168], rdx
-                        add              rsp, 16
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n32_call_α
 .Lx47_0:
                         .quad            .Lx47_0_s
@@ -544,37 +543,44 @@ n31_keyword_snobol4_α:
                         .string          "UCASE"
 #-----------------------------------------------------------------------------------------------------------------------
 n32_call_α:
-                        mov              rax, qword ptr [rsp + 112]
-                        mov              qword ptr [rsp + 48], rax
-                        mov              rax, qword ptr [rsp + 120]
-                        mov              qword ptr [rsp + 56], rax
-                        mov              rax, qword ptr [rsp + 128]
-                        mov              qword ptr [rsp + 64], rax
-                        mov              rax, qword ptr [rsp + 136]
-                        mov              qword ptr [rsp + 72], rax
-                        mov              rax, qword ptr [rsp + 144]
-                        mov              qword ptr [rsp + 80], rax
-                        mov              rax, qword ptr [rsp + 152]
-                        mov              qword ptr [rsp + 88], rax
+                        sub              rsp, 16
+                        sub              rsp, 48
+                        mov              r10, qword ptr [rsp + 96]
+                        mov              r11, qword ptr [rsp + 104]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 80]
+                        mov              r11, qword ptr [rsp + 88]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 32], r10
+                        mov              qword ptr [rsp + 40], r11
                         .section         .rodata
-.Lrkfn49:               .string          "REPLACE"
+.Lrkfnzd49:             .string          "REPLACE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn49]
-                        lea              rsi, [rsp + 48]
+                        lea              rdi, [rip + .Lrkfnzd49]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 3
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 32], rax
-                        mov              qword ptr [rsp + 40], rdx
+                        add              rsp, 48
                         cmp              eax, 99
-                                                                                        je    n34_save_restore_α
+                                                                                        jne   .Lx48_240
+                        add              rsp, 16
+                                                                                        jmp   n34_save_restore_α
+.Lx48_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n33_assign_α
 n32_call_β:
+                        add              rsp, 16
                                                                                         jmp   n34_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n33_assign_α:
-                        mov              rax, qword ptr [rsp + 32]
-                        mov              rdx, qword ptr [rsp + 40]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n34_save_restore_α
