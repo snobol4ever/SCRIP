@@ -74,8 +74,8 @@ n1_assign_β:
 n2_var_α:
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rbp + 336], rax
-                        mov              qword ptr [rbp + 344], rdx
+                        mov              qword ptr [rsp + 336], rax
+                        mov              qword ptr [rsp + 344], rdx
                                                                                         jmp   n3_match_head_α
 n2_var_β:
                                                                                         jmp   n18_lit_string_α
@@ -238,9 +238,9 @@ n7_assign_β:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_integer_α:
-                        mov              qword ptr [rbp + 320], 6
+                        mov              qword ptr [rsp + 640], 6
                         mov              rax, qword ptr [rip + .Lx33_0]
-                        mov              qword ptr [rbp + 328], rax
+                        mov              qword ptr [rsp + 648], rax
                                                                                         jmp   n9_match_rpos_α
 n8_lit_integer_β:
                                                                                         jmp   n12_match_assign_cond_β
@@ -583,9 +583,9 @@ n15_match_lit_β:
                                                                                         jmp   n13_match_alternate_af
 #-----------------------------------------------------------------------------------------------------------------------
 n16_lit_integer_α:
-                        mov              qword ptr [rbp + 144], 6
+                        mov              qword ptr [rsp + 176], 6
                         mov              rax, qword ptr [rip + .Lx47_0]
-                        mov              qword ptr [rbp + 152], rax
+                        mov              qword ptr [rsp + 184], rax
                                                                                         jmp   n17_match_pos_α
 n16_lit_integer_β:
                                                                                         jmp   n3_match_head_β
