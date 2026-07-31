@@ -27,10 +27,11 @@ main_α_body:
 #         DIFFER('abc', 'xyz')                                        :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rsp + 64], 1
-                        mov              dword ptr [rsp + 68], 3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx9_0]
-                        mov              qword ptr [rsp + 72], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_lit_string_α
 .Lx9_0:
                         .quad            .Lx9_0_s
@@ -38,10 +39,11 @@ n0_lit_string_α:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
-                        mov              qword ptr [rsp + 80], 1
-                        mov              dword ptr [rsp + 84], 3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx10_0]
-                        mov              qword ptr [rsp + 88], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n2_call_α
 .Lx10_0:
                         .quad            .Lx10_0_s
@@ -49,28 +51,38 @@ n1_lit_string_α:
                         .string          "xyz"
 #-----------------------------------------------------------------------------------------------------------------------
 n2_call_α:
-                        mov              rax, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 16], rax
-                        mov              rax, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 24], rax
-                        mov              rax, qword ptr [rsp + 80]
-                        mov              qword ptr [rsp + 32], rax
-                        mov              rax, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 40], rax
+                        sub              rsp, 16
+                        sub              rsp, 32
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 48]
+                        mov              r11, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lrkfn12:               .string          "DIFFER"
+.Lrkfnzd12:             .string          "DIFFER"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn12]
-                        lea              rsi, [rsp + 16]
+                        lea              rdi, [rip + .Lrkfnzd12]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 2
                         call             rt_call_arr@PLT
+                        add              rsp, 32
+                        cmp              eax, 99
+                                                                                        jne   .Lx11_240
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   n5_lit_string_α
+.Lx11_240:
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
-                        cmp              eax, 99
-                                                                                        je    n5_lit_string_α
+                        add              rsp, 48
                                                                                         jmp   n3_lit_string_α
 n2_call_β:
+                        add              rsp, 16
+                        add              rsp, 32
                                                                                         jmp   n5_lit_string_α
 #=======================================================================================================================
 # YES     OUTPUT = 'different'

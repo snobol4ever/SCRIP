@@ -30,9 +30,9 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 488
+                        sub              rsp, 8
                         mov              rdi, rsp
-                        mov              ecx, 488
+                        mov              ecx, 8
                         xor              eax, eax
                         rep stosb
 main_α_body:
@@ -40,27 +40,33 @@ main_α_body:
 #         T = TABLE()
 #-----------------------------------------------------------------------------------------------------------------------
 n0_call_α:
+                        sub              rsp, 16
                         .section         .rodata
-.Lrkfn33:               .string          "TABLE"
+.Lrkfnzd33:             .string          "TABLE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn33]
-                        lea              rsi, [rsp + 32]
+                        lea              rdi, [rip + .Lrkfnzd33]
+                        xor              esi, esi
                         mov              edx, 0
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 16], rax
-                        mov              qword ptr [rsp + 24], rdx
                         cmp              eax, 99
-                                                                                        je    n2_var_α
+                                                                                        jne   .Lx32_240
+                        add              rsp, 16
+                                                                                        jmp   n2_var_α
+.Lx32_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n1_assign_α
 n0_call_β:
+                        add              rsp, 16
                                                                                         jmp   n2_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              rdx, qword ptr [rsp + 24]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 16
                                                                                         jmp   n2_var_α
 #=======================================================================================================================
 #         T['name'] = 'Alice'
@@ -471,12 +477,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 488
+                        add              rsp, 8
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 488
+                        add              rsp, 8
                         ret
                         .section         .note.GNU-stack,"",@progbits

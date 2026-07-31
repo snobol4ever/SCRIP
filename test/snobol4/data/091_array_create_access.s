@@ -30,9 +30,9 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 520
+                        sub              rsp, 8
                         mov              rdi, rsp
-                        mov              ecx, 520
+                        mov              ecx, 8
                         xor              eax, eax
                         rep stosb
 main_α_body:
@@ -40,39 +40,50 @@ main_α_body:
 #         A = ARRAY(5)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_integer_α:
-                        mov              qword ptr [rsp + 64], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx33_0]
-                        mov              qword ptr [rsp + 72], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_call_α
 .Lx33_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n1_call_α:
-                        mov              rax, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 32], rax
-                        mov              rax, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 40], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfn35:               .string          "ARRAY"
+.Lrkfnzd35:             .string          "ARRAY"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn35]
-                        lea              rsi, [rsp + 32]
+                        lea              rdi, [rip + .Lrkfnzd35]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 16], rax
-                        mov              qword ptr [rsp + 24], rdx
+                        add              rsp, 16
                         cmp              eax, 99
-                                                                                        je    n3_var_α
+                                                                                        jne   .Lx34_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n3_var_α
+.Lx34_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n2_assign_α
 n1_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n3_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_assign_α:
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              rdx, qword ptr [rsp + 24]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 32
                                                                                         jmp   n3_var_α
 #=======================================================================================================================
 #         A<1> = 'first'
@@ -468,12 +479,12 @@ main_β:
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 520
+                        add              rsp, 8
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 520
+                        add              rsp, 8
                         ret
                         .section         .note.GNU-stack,"",@progbits

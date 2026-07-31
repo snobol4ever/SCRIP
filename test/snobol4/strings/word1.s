@@ -41,12 +41,10 @@ n1_match_alternate_α:
                         mov              qword ptr [rbp + 128], rax
                                                                                         jmp   n2_match_lit_α
 n1_match_alternate_s0:
-                        sub              rsp, 32
                         lea              rax, [rip + .Lx11_40]
                         mov              qword ptr [rbp + 120], rax
                                                                                         jmp   n1_match_alternate_as
 n1_match_alternate_s1:
-                        sub              rsp, 32
                         lea              rax, [rip + .Lx11_41]
                         mov              qword ptr [rbp + 120], rax
                                                                                         jmp   n1_match_alternate_as
@@ -55,7 +53,6 @@ n1_match_alternate_s1:
 .Lx11_41:
                                                                                         jmp   n2_match_lit_β
 n1_match_alternate_as:
-                        sub              rsp, 32
                         add              rsp, 32
                                                                                         jmp   proc_PAT$0_γ
 n1_match_alternate_β:
@@ -63,7 +60,6 @@ n1_match_alternate_β:
                         mov              rax, qword ptr [rbp + 120]
                                                                                         jmp   rax
 n1_match_alternate_af:
-                        sub              rsp, 32
                         mov              r14d, dword ptr [rbp + 112]
                         mov              rax, qword ptr [rbp + 128]
                                                                                         jmp   rax
@@ -284,10 +280,11 @@ main_α_body:
 #       PAT      =  " the " ARB . OUTPUT (" of " | " a ")
 #-----------------------------------------------------------------------------------------------------------------------
 n24_lit_string_α:
-                        mov              qword ptr [rsp + 64], 1
-                        mov              dword ptr [rsp + 68], 5
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx34_0]
-                        mov              qword ptr [rsp + 72], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n25_call_α
 .Lx34_0:
                         .quad            .Lx34_0_s
@@ -295,31 +292,41 @@ n24_lit_string_α:
                         .string          "PAT$0"
 #-----------------------------------------------------------------------------------------------------------------------
 n25_call_α:
-                        mov              rax, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 32], rax
-                        mov              rax, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 40], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfn36:               .string          "SNO$MKPAT"
+.Lrkfnzd36:             .string          "SNO$MKPAT"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn36]
-                        lea              rsi, [rsp + 32]
+                        lea              rdi, [rip + .Lrkfnzd36]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 16], rax
-                        mov              qword ptr [rsp + 24], rdx
+                        add              rsp, 16
                         cmp              eax, 99
-                                                                                        je    n27_var_α
+                                                                                        jne   .Lx35_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n27_var_α
+.Lx35_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n26_assign_α
 n25_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n27_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n26_assign_α:
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              rdx, qword ptr [rsp + 24]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 32
                                                                                         jmp   n27_var_α
 #=======================================================================================================================
 # LOOP  LINE     =  INPUT                            :F(END)

@@ -512,12 +512,10 @@ n13_match_alternate_α:
                         mov              qword ptr [rbp + 288], rax
                                                                                         jmp   n14_match_lit_α
 n13_match_alternate_s0:
-                        sub              rsp, 48
                         lea              rax, [rip + .Lx42_40]
                         mov              qword ptr [rbp + 280], rax
                                                                                         jmp   n13_match_alternate_as
 n13_match_alternate_s1:
-                        sub              rsp, 48
                         lea              rax, [rip + .Lx42_41]
                         mov              qword ptr [rbp + 280], rax
                                                                                         jmp   n13_match_alternate_as
@@ -526,7 +524,6 @@ n13_match_alternate_s1:
 .Lx42_41:
                                                                                         jmp   n14_match_lit_β
 n13_match_alternate_as:
-                        sub              rsp, 48
                         add              rsp, 48
                                                                                         jmp   n11_match_arbno_as
 n13_match_alternate_β:
@@ -534,7 +531,6 @@ n13_match_alternate_β:
                         mov              rax, qword ptr [rbp + 280]
                                                                                         jmp   rax
 n13_match_alternate_af:
-                        sub              rsp, 48
                         mov              r14d, dword ptr [rbp + 272]
                         mov              rax, qword ptr [rbp + 288]
                                                                                         jmp   rax

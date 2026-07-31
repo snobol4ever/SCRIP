@@ -558,10 +558,11 @@ main_α_body:
 #       PAT      =  POS(0) BREAK(' ') . WHEN (' ' SPAN(' '))
 #-----------------------------------------------------------------------------------------------------------------------
 n51_lit_string_α:
-                        mov              qword ptr [rsp + 64], 1
-                        mov              dword ptr [rsp + 68], 5
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx71_0]
-                        mov              qword ptr [rsp + 72], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n52_call_α
 .Lx71_0:
                         .quad            .Lx71_0_s
@@ -569,31 +570,41 @@ n51_lit_string_α:
                         .string          "PAT$0"
 #-----------------------------------------------------------------------------------------------------------------------
 n52_call_α:
-                        mov              rax, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 32], rax
-                        mov              rax, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 40], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfn73:               .string          "SNO$MKPAT"
+.Lrkfnzd73:             .string          "SNO$MKPAT"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn73]
-                        lea              rsi, [rsp + 32]
+                        lea              rdi, [rip + .Lrkfnzd73]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 16], rax
-                        mov              qword ptr [rsp + 24], rdx
+                        add              rsp, 16
                         cmp              eax, 99
-                                                                                        je    n54_var_α
+                                                                                        jne   .Lx72_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n54_var_α
+.Lx72_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n53_assign_α
 n52_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n54_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n53_assign_α:
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              rdx, qword ptr [rsp + 24]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 32
                                                                                         jmp   n54_var_α
 #=======================================================================================================================
 # LOOP  LINE     =  INPUT                            :F(END)

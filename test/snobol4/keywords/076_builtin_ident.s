@@ -27,10 +27,11 @@ main_α_body:
 #         IDENT('abc', 'abc')                                         :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rsp + 64], 1
-                        mov              dword ptr [rsp + 68], 3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx19_0]
-                        mov              qword ptr [rsp + 72], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_lit_string_α
 .Lx19_0:
                         .quad            .Lx19_0_s
@@ -38,10 +39,11 @@ n0_lit_string_α:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
-                        mov              qword ptr [rsp + 80], 1
-                        mov              dword ptr [rsp + 84], 3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx20_0]
-                        mov              qword ptr [rsp + 88], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n2_call_α
 .Lx20_0:
                         .quad            .Lx20_0_s
@@ -49,28 +51,38 @@ n1_lit_string_α:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n2_call_α:
-                        mov              rax, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 16], rax
-                        mov              rax, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 24], rax
-                        mov              rax, qword ptr [rsp + 80]
-                        mov              qword ptr [rsp + 32], rax
-                        mov              rax, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 40], rax
+                        sub              rsp, 16
+                        sub              rsp, 32
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 48]
+                        mov              r11, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lrkfn22:               .string          "IDENT"
+.Lrkfnzd22:             .string          "IDENT"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn22]
-                        lea              rsi, [rsp + 16]
+                        lea              rdi, [rip + .Lrkfnzd22]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 2
                         call             rt_call_arr@PLT
+                        add              rsp, 32
+                        cmp              eax, 99
+                                                                                        jne   .Lx21_240
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   n5_lit_string_α
+.Lx21_240:
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
-                        cmp              eax, 99
-                                                                                        je    n5_lit_string_α
+                        add              rsp, 48
                                                                                         jmp   n3_lit_string_α
 n2_call_β:
+                        add              rsp, 16
+                        add              rsp, 32
                                                                                         jmp   n5_lit_string_α
 #=======================================================================================================================
 # YES     OUTPUT = 'equal'
@@ -129,10 +141,11 @@ n6_assign_α:
 # NEXT    IDENT('abc', 'xyz')                                         :S(YES2)F(NO2)
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:
-                        mov              qword ptr [rsp + 208], 1
-                        mov              dword ptr [rsp + 212], 3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx27_0]
-                        mov              qword ptr [rsp + 216], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n8_lit_string_α
 .Lx27_0:
                         .quad            .Lx27_0_s
@@ -140,10 +153,11 @@ n7_lit_string_α:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_string_α:
-                        mov              qword ptr [rsp + 224], 1
-                        mov              dword ptr [rsp + 228], 3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx28_0]
-                        mov              qword ptr [rsp + 232], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n9_call_α
 .Lx28_0:
                         .quad            .Lx28_0_s
@@ -151,28 +165,38 @@ n8_lit_string_α:
                         .string          "xyz"
 #-----------------------------------------------------------------------------------------------------------------------
 n9_call_α:
-                        mov              rax, qword ptr [rsp + 208]
-                        mov              qword ptr [rsp + 160], rax
-                        mov              rax, qword ptr [rsp + 216]
-                        mov              qword ptr [rsp + 168], rax
-                        mov              rax, qword ptr [rsp + 224]
-                        mov              qword ptr [rsp + 176], rax
-                        mov              rax, qword ptr [rsp + 232]
-                        mov              qword ptr [rsp + 184], rax
+                        sub              rsp, 16
+                        sub              rsp, 32
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 48]
+                        mov              r11, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lrkfn30:               .string          "IDENT"
+.Lrkfnzd30:             .string          "IDENT"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn30]
-                        lea              rsi, [rsp + 160]
+                        lea              rdi, [rip + .Lrkfnzd30]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 2
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 144], rax
-                        mov              qword ptr [rsp + 152], rdx
+                        add              rsp, 32
                         cmp              eax, 99
-                                                                                        je    n12_lit_string_α
+                                                                                        jne   .Lx29_240
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   n12_lit_string_α
+.Lx29_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        add              rsp, 48
                                                                                         jmp   n10_lit_string_α
 n9_call_β:
+                        add              rsp, 16
+                        add              rsp, 32
                                                                                         jmp   n12_lit_string_α
 #=======================================================================================================================
 # YES2    OUTPUT = 'equal'

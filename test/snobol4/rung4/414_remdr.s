@@ -40,77 +40,99 @@ main_α_body:
 #         differ(remdr(10, 3), 1)                   :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_integer_α:
-                        mov              qword ptr [rsp + 128], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx19_0]
-                        mov              qword ptr [rsp + 136], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_lit_integer_α
 .Lx19_0:
                         .quad            10
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_integer_α:
-                        mov              qword ptr [rsp + 144], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx20_0]
-                        mov              qword ptr [rsp + 152], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n2_call_α
 .Lx20_0:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
 n2_call_α:
-                        mov              rax, qword ptr [rsp + 128]
-                        mov              qword ptr [rsp + 80], rax
-                        mov              rax, qword ptr [rsp + 136]
-                        mov              qword ptr [rsp + 88], rax
-                        mov              rax, qword ptr [rsp + 144]
-                        mov              qword ptr [rsp + 96], rax
-                        mov              rax, qword ptr [rsp + 152]
-                        mov              qword ptr [rsp + 104], rax
+                        sub              rsp, 16
+                        sub              rsp, 32
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 48]
+                        mov              r11, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lbynamefn3:            .string          "remdr"
+.Lbynamefnzd3:          .string          "remdr"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn3]
-                        lea              rsi, [rsp + 80]
+                        lea              rdi, [rip + .Lbynamefnzd3]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 2
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 64], rax
-                        mov              qword ptr [rsp + 72], rdx
+                        add              rsp, 32
                         cmp              eax, 99
-                                                                                        je    n7_lit_integer_α
+                                                                                        jne   .Lx21_240
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   n7_lit_integer_α
+.Lx21_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n3_lit_integer_α
 n2_call_β:
+                        add              rsp, 16
+                        add              rsp, 32
                                                                                         jmp   n7_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_integer_α:
-                        mov              qword ptr [rsp + 160], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx22_0]
-                        mov              qword ptr [rsp + 168], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n4_call_α
 .Lx22_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
 n4_call_α:
-                        mov              rax, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 16], rax
-                        mov              rax, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 24], rax
-                        mov              rax, qword ptr [rsp + 160]
-                        mov              qword ptr [rsp + 32], rax
-                        mov              rax, qword ptr [rsp + 168]
-                        mov              qword ptr [rsp + 40], rax
+                        sub              rsp, 16
+                        sub              rsp, 32
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 48]
+                        mov              r11, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lbynamefn5:            .string          "differ"
+.Lbynamefnzd5:          .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn5]
-                        lea              rsi, [rsp + 16]
+                        lea              rdi, [rip + .Lbynamefnzd5]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 2
                         call             rt_call_arr@PLT
+                        add              rsp, 32
+                        cmp              eax, 99
+                                                                                        jne   .Lx23_240
+                        add              rsp, 16
+                        add              rsp, 64
+                                                                                        jmp   n7_lit_integer_α
+.Lx23_240:
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
-                        cmp              eax, 99
-                                                                                        je    n7_lit_integer_α
+                        add              rsp, 80
                                                                                         jmp   n5_lit_string_α
 n4_call_β:
+                        add              rsp, 16
+                        add              rsp, 64
                                                                                         jmp   n7_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 414/001: remdr(10,3)'           :(end)
@@ -138,77 +160,99 @@ n6_assign_α:
 #         differ(remdr(11, 10), 1)                   :f(e002)
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_integer_α:
-                        mov              qword ptr [rsp + 336], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx26_0]
-                        mov              qword ptr [rsp + 344], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n8_lit_integer_α
 .Lx26_0:
                         .quad            11
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_integer_α:
-                        mov              qword ptr [rsp + 352], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx27_0]
-                        mov              qword ptr [rsp + 360], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n9_call_α
 .Lx27_0:
                         .quad            10
 #-----------------------------------------------------------------------------------------------------------------------
 n9_call_α:
-                        mov              rax, qword ptr [rsp + 336]
-                        mov              qword ptr [rsp + 288], rax
-                        mov              rax, qword ptr [rsp + 344]
-                        mov              qword ptr [rsp + 296], rax
-                        mov              rax, qword ptr [rsp + 352]
-                        mov              qword ptr [rsp + 304], rax
-                        mov              rax, qword ptr [rsp + 360]
-                        mov              qword ptr [rsp + 312], rax
+                        sub              rsp, 16
+                        sub              rsp, 32
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 48]
+                        mov              r11, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lbynamefn10:           .string          "remdr"
+.Lbynamefnzd10:         .string          "remdr"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn10]
-                        lea              rsi, [rsp + 288]
+                        lea              rdi, [rip + .Lbynamefnzd10]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 2
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 272], rax
-                        mov              qword ptr [rsp + 280], rdx
+                        add              rsp, 32
                         cmp              eax, 99
-                                                                                        je    n14_lit_string_α
+                                                                                        jne   .Lx28_240
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   n14_lit_string_α
+.Lx28_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n10_lit_integer_α
 n9_call_β:
+                        add              rsp, 16
+                        add              rsp, 32
                                                                                         jmp   n14_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_integer_α:
-                        mov              qword ptr [rsp + 368], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx29_0]
-                        mov              qword ptr [rsp + 376], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n11_call_α
 .Lx29_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
 n11_call_α:
-                        mov              rax, qword ptr [rsp + 272]
-                        mov              qword ptr [rsp + 224], rax
-                        mov              rax, qword ptr [rsp + 280]
-                        mov              qword ptr [rsp + 232], rax
-                        mov              rax, qword ptr [rsp + 368]
-                        mov              qword ptr [rsp + 240], rax
-                        mov              rax, qword ptr [rsp + 376]
-                        mov              qword ptr [rsp + 248], rax
+                        sub              rsp, 16
+                        sub              rsp, 32
+                        mov              r10, qword ptr [rsp + 64]
+                        mov              r11, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
+                        mov              r10, qword ptr [rsp + 48]
+                        mov              r11, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 16], r10
+                        mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lbynamefn12:           .string          "differ"
+.Lbynamefnzd12:         .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefn12]
-                        lea              rsi, [rsp + 224]
+                        lea              rdi, [rip + .Lbynamefnzd12]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 2
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 208], rax
-                        mov              qword ptr [rsp + 216], rdx
+                        add              rsp, 32
                         cmp              eax, 99
-                                                                                        je    n14_lit_string_α
+                                                                                        jne   .Lx30_240
+                        add              rsp, 16
+                        add              rsp, 64
+                                                                                        jmp   n14_lit_string_α
+.Lx30_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        add              rsp, 80
                                                                                         jmp   n12_lit_string_α
 n11_call_β:
+                        add              rsp, 16
+                        add              rsp, 64
                                                                                         jmp   n14_lit_string_α
 #=======================================================================================================================
 #         output = 'FAIL 414/002: remdr(11,10)'          :(end)

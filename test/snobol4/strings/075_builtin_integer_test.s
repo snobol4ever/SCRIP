@@ -27,10 +27,11 @@ main_α_body:
 #         INTEGER('42')                                               :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        mov              qword ptr [rsp + 48], 1
-                        mov              dword ptr [rsp + 52], 2
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 2
                         mov              rax, qword ptr [rip + .Lx17_0]
-                        mov              qword ptr [rsp + 56], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_call_α
 .Lx17_0:
                         .quad            .Lx17_0_s
@@ -38,24 +39,34 @@ n0_lit_string_α:
                         .string          "42"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_call_α:
-                        mov              rax, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], rax
-                        mov              rax, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfn19:               .string          "INTEGER"
+.Lrkfnzd19:             .string          "INTEGER"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn19]
-                        lea              rsi, [rsp + 16]
+                        lea              rdi, [rip + .Lrkfnzd19]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
+                        add              rsp, 16
+                        cmp              eax, 99
+                                                                                        jne   .Lx18_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n4_lit_string_α
+.Lx18_240:
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
-                        cmp              eax, 99
-                                                                                        je    n4_lit_string_α
+                        add              rsp, 32
                                                                                         jmp   n2_lit_string_α
 n1_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n4_lit_string_α
 #=======================================================================================================================
 # YES     OUTPUT = 'numeric'
@@ -114,10 +125,11 @@ n5_assign_α:
 # NEXT    INTEGER('abc')                                              :S(YES2)F(NO2)
 #-----------------------------------------------------------------------------------------------------------------------
 n6_lit_string_α:
-                        mov              qword ptr [rsp + 160], 1
-                        mov              dword ptr [rsp + 164], 3
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 1
+                        mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx24_0]
-                        mov              qword ptr [rsp + 168], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n7_call_α
 .Lx24_0:
                         .quad            .Lx24_0_s
@@ -125,24 +137,34 @@ n6_lit_string_α:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n7_call_α:
-                        mov              rax, qword ptr [rsp + 160]
-                        mov              qword ptr [rsp + 128], rax
-                        mov              rax, qword ptr [rsp + 168]
-                        mov              qword ptr [rsp + 136], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfn26:               .string          "INTEGER"
+.Lrkfnzd26:             .string          "INTEGER"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn26]
-                        lea              rsi, [rsp + 128]
+                        lea              rdi, [rip + .Lrkfnzd26]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 112], rax
-                        mov              qword ptr [rsp + 120], rdx
+                        add              rsp, 16
                         cmp              eax, 99
-                                                                                        je    n10_lit_string_α
+                                                                                        jne   .Lx25_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n10_lit_string_α
+.Lx25_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        add              rsp, 32
                                                                                         jmp   n8_lit_string_α
 n7_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n10_lit_string_α
 #=======================================================================================================================
 # YES2    OUTPUT = 'numeric'

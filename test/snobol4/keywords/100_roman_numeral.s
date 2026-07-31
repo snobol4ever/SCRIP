@@ -3208,39 +3208,50 @@ n385_assign_α:
 #         v = ARRAY(13)
 #-----------------------------------------------------------------------------------------------------------------------
 n386_lit_integer_α:
-                        mov              qword ptr [rsp + 96], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx589_0]
-                        mov              qword ptr [rsp + 104], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n387_call_α
 .Lx589_0:
                         .quad            13
 #-----------------------------------------------------------------------------------------------------------------------
 n387_call_α:
-                        mov              rax, qword ptr [rsp + 96]
-                        mov              qword ptr [rsp + 64], rax
-                        mov              rax, qword ptr [rsp + 104]
-                        mov              qword ptr [rsp + 72], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfn591:              .string          "ARRAY"
+.Lrkfnzd591:            .string          "ARRAY"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn591]
-                        lea              rsi, [rsp + 64]
+                        lea              rdi, [rip + .Lrkfnzd591]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 48], rax
-                        mov              qword ptr [rsp + 56], rdx
+                        add              rsp, 16
                         cmp              eax, 99
-                                                                                        je    n389_var_α
+                                                                                        jne   .Lx590_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n389_var_α
+.Lx590_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n388_assign_α
 n387_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n389_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n388_assign_α:
-                        mov              rax, qword ptr [rsp + 48]
-                        mov              rdx, qword ptr [rsp + 56]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052336], rax
                         mov              qword ptr [1879052344], rdx
+                        add              rsp, 32
                                                                                         jmp   n389_var_α
 #=======================================================================================================================
 #         v<1> = 1000
@@ -4065,39 +4076,50 @@ n453_assign_var_α:
 #         r = ARRAY(13)
 #-----------------------------------------------------------------------------------------------------------------------
 n454_lit_integer_α:
-                        mov              qword ptr [rsp + 1200], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx658_0]
-                        mov              qword ptr [rsp + 1208], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n455_call_α
 .Lx658_0:
                         .quad            13
 #-----------------------------------------------------------------------------------------------------------------------
 n455_call_α:
-                        mov              rax, qword ptr [rsp + 1200]
-                        mov              qword ptr [rsp + 1168], rax
-                        mov              rax, qword ptr [rsp + 1208]
-                        mov              qword ptr [rsp + 1176], rax
+                        sub              rsp, 16
+                        sub              rsp, 16
+                        mov              r10, qword ptr [rsp + 32]
+                        mov              r11, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 0], r10
+                        mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfn660:              .string          "ARRAY"
+.Lrkfnzd660:            .string          "ARRAY"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfn660]
-                        lea              rsi, [rsp + 1168]
+                        lea              rdi, [rip + .Lrkfnzd660]
+                        lea              rsi, [rsp + 0]
                         mov              edx, 1
                         call             rt_call_arr@PLT
-                        mov              qword ptr [rsp + 1152], rax
-                        mov              qword ptr [rsp + 1160], rdx
+                        add              rsp, 16
                         cmp              eax, 99
-                                                                                        je    n457_var_α
+                                                                                        jne   .Lx659_240
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n457_var_α
+.Lx659_240:
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n456_assign_α
 n455_call_β:
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   n457_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n456_assign_α:
-                        mov              rax, qword ptr [rsp + 1152]
-                        mov              rdx, qword ptr [rsp + 1160]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rdx
+                        add              rsp, 32
                                                                                         jmp   n457_var_α
 #=======================================================================================================================
 #         r<1> = 'M'
