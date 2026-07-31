@@ -171,9 +171,9 @@ n12_call_β:
 n13_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx33_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   n9_lit_string_α
 .Lx33_0:
                         .quad            .Lx33_0_s
@@ -183,9 +183,9 @@ n13_assign_α:
 n14_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx34_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   n9_lit_string_α
 .Lx34_0:
                         .quad            .Lx34_0_s
@@ -206,9 +206,9 @@ n15_lit_string_α:
 n16_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx36_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx36_0:
                         .quad            .Lx36_0_s
@@ -218,9 +218,9 @@ n16_assign_α:
 n17_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx37_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx37_0:
                         .quad            .Lx37_0_s

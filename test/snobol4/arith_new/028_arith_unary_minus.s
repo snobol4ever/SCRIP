@@ -37,20 +37,19 @@ n0_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n1_unop_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 32]
-                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdi, qword ptr [rsp + 16]
+                        mov              rsi, qword ptr [rsp + 24]
                         call             rt_num_neg@PLT
-                        mov              qword ptr [rsp + 32], rax
-                        mov              qword ptr [rsp + 40], rdx
-                        add              rsp, 16
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n2_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx5_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 32
                                                                                         jmp   main_γ
 .Lx5_0:
                         .quad            .Lx5_0_s

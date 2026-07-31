@@ -131,9 +131,9 @@ n8_lit_integer_α:
 n9_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n10_assign_α:
@@ -308,9 +308,9 @@ n21_call_β:
 n22_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1111/001: array default value'  :(end)
@@ -330,9 +330,9 @@ n23_lit_string_α:
 n24_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

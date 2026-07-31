@@ -335,9 +335,9 @@ n32_var_α:
 n33_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n34_lit_string_α:
@@ -1077,9 +1077,9 @@ n82_lit_string_α:
 n83_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n84_call_α:
@@ -1149,9 +1149,9 @@ n86_call_β:
 n87_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1113/002: string key assign/read' :(end)
@@ -1185,9 +1185,9 @@ n89_lit_string_α:
 n90_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1113/006: array->table int key roundtrip' :(end)
@@ -1207,9 +1207,9 @@ n91_lit_string_α:
 n92_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1113/008: [] and <> syntax equivalent' :(end)
@@ -1229,33 +1229,33 @@ n93_lit_string_α:
 n94_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n95_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n96_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n97_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

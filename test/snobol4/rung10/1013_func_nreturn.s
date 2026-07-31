@@ -189,9 +189,9 @@ n13_call_β:
 n14_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   n20_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n15_call_α:
@@ -226,9 +226,9 @@ n16_lit_integer_α:
 n17_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n18_assign_α:
@@ -355,9 +355,9 @@ n26_lit_integer_α:
 n27_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1013/003: a updated via nreturn'   :(end)
@@ -414,9 +414,9 @@ n30_assign_var_α:
 n31_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1013/001: nreturn read gives value' :(end)
@@ -436,9 +436,9 @@ n32_lit_string_α:
 n33_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

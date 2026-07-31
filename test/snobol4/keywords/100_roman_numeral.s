@@ -7,9 +7,9 @@ proc_LBL__roman_α:
                         .global          proc_LBL__roman_β
                         .global          proc_LBL__roman_γ
                         .global          proc_LBL__roman_ω
-                        sub              rsp, 3120
-                        mov              [rsp + 3096], rcx
-                        mov              [rsp + 3104], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__roman_α_body:
@@ -2010,13 +2010,13 @@ proc_LBL__roman_β:
 proc_LBL__roman_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 3096]
-                        add              rsp, 3120
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__roman_ω:
-                        mov              rax, [rsp + 3104]
-                        add              rsp, 3120
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_roman_α
@@ -2025,19 +2025,19 @@ proc_roman_α:
                         .global          proc_roman_β
                         .global          proc_roman_γ
                         .global          proc_roman_ω
-                        sub              rsp, 3120
-                        mov              [rsp + 3096], rcx
-                        mov              [rsp + 3104], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              rdi, rsp
-                        mov              ecx, 3088
+                        mov              ecx, 16
                         xor              eax, eax
                         rep stosb
 proc_roman_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n359_op14_α:
-                        mov              rdi, qword ptr [rsp + 3096]
-                        mov              rsi, qword ptr [rsp + 3104]
-                        lea              rdx, [rsp + 3120]
+                        mov              rdi, qword ptr [rsp + 24]
+                        mov              rsi, qword ptr [rsp + 32]
+                        lea              rdx, [rsp + 48]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n360_goto_deferred_α
@@ -2063,13 +2063,13 @@ proc_roman_β:
 proc_roman_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 3096]
-                        add              rsp, 3120
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_roman_ω:
-                        mov              rax, [rsp + 3104]
-                        add              rsp, 3120
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
@@ -2424,9 +2424,9 @@ n377_lit_integer_α:
 n378_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   n384_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n379_lit_integer_α:
@@ -2641,31 +2641,18 @@ n385_op75_α:
                                                                                         jmp   n390_op75_α
 #-----------------------------------------------------------------------------------------------------------------------
 n386_binop_α:
-                        mov              eax, dword ptr [rsp + 16]
-                        cmp              eax, 6
-                                                                                        jne   .Lx587_0
-                        mov              eax, dword ptr [rsp + 0]
-                        cmp              eax, 6
-                                                                                        jne   .Lx587_0
-                        mov              rax, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rsp + 8]
-                        add              rax, rcx
-                        add              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
-                        mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n391_assign_α
-.Lx587_0:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
+                        sub              rsp, 16
+                        mov              rdi, qword ptr [rsp + 32]
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             rt_add@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx587_240
-                        add              rsp, 32
+                        add              rsp, 16
+                        add              rsp, 64
                                                                                         jmp   n373_var_α
 .Lx587_240:
-                        add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n391_assign_α
@@ -2738,9 +2725,9 @@ n390_op75_α:
 n391_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rdx
+                        add              rsp, 48
                                                                                         jmp   n373_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n392_call_α:
@@ -5144,9 +5131,9 @@ n557_subscript_α:
 n558_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rdx
+                        add              rsp, 16
                                                                                         jmp   n373_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n559_assign_var_α:

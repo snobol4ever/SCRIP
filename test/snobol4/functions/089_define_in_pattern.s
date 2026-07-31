@@ -7,9 +7,9 @@ proc_LBL__upcase_α:
                         .global          proc_LBL__upcase_β
                         .global          proc_LBL__upcase_γ
                         .global          proc_LBL__upcase_ω
-                        sub              rsp, 320
-                        mov              [rsp + 296], rcx
-                        mov              [rsp + 304], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__upcase_α_body:
@@ -107,13 +107,13 @@ proc_LBL__upcase_β:
 proc_LBL__upcase_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 296]
-                        add              rsp, 320
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_ω:
-                        mov              rax, [rsp + 304]
-                        add              rsp, 320
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_upcase_α
@@ -122,19 +122,19 @@ proc_upcase_α:
                         .global          proc_upcase_β
                         .global          proc_upcase_γ
                         .global          proc_upcase_ω
-                        sub              rsp, 320
-                        mov              [rsp + 296], rcx
-                        mov              [rsp + 304], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              rdi, rsp
-                        mov              ecx, 288
+                        mov              ecx, 16
                         xor              eax, eax
                         rep stosb
 proc_upcase_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n16_op14_α:
-                        mov              rdi, qword ptr [rsp + 296]
-                        mov              rsi, qword ptr [rsp + 304]
-                        lea              rdx, [rsp + 320]
+                        mov              rdi, qword ptr [rsp + 24]
+                        mov              rsi, qword ptr [rsp + 32]
+                        lea              rdx, [rsp + 48]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n17_goto_deferred_α
@@ -160,13 +160,13 @@ proc_upcase_β:
 proc_upcase_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 296]
-                        add              rsp, 320
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_ω:
-                        mov              rax, [rsp + 304]
-                        add              rsp, 320
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

@@ -364,17 +364,17 @@ n31_call_β:
 n32_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 16
                                                                                         jmp   n48_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n33_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 16
                                                                                         jmp   n49_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n34_lit_string_α:
@@ -501,9 +501,9 @@ n41_call_β:
 n42_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n43_call_α:
@@ -534,9 +534,9 @@ n43_call_β:
 n44_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n45_call_α:
@@ -567,9 +567,9 @@ n45_call_β:
 n46_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         output = 'FAIL 1012/003: local d should be null' :(end)
@@ -642,9 +642,9 @@ n50_call_β:
 n51_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n52_call_α:
@@ -675,9 +675,9 @@ n52_call_β:
 n53_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         checklocal = 'local-not-null'                  :(return)
@@ -722,25 +722,25 @@ n56_lit_string_α:
 n57_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n58_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   n62_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n59_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052336], rax
                         mov              qword ptr [1879052344], rdx
+                        add              rsp, 16
                                                                                         jmp   n63_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n60_assign_α:
@@ -754,9 +754,9 @@ n60_assign_α:
 n61_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
 #         a = 'aa' ; b = 'bb' ; d = 'dd'
@@ -801,9 +801,9 @@ n64_goto_deferred_α:
 n65_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052336], rax
                         mov              qword ptr [1879052344], rdx
+                        add              rsp, 16
                                                                                         jmp   n67_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n66_lit_string_α:
@@ -977,9 +977,9 @@ n78_assign_α:
 n79_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n80_goto_deferred_α:

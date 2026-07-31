@@ -7,9 +7,9 @@ proc_LBL__bumpit_α:
                         .global          proc_LBL__bumpit_β
                         .global          proc_LBL__bumpit_γ
                         .global          proc_LBL__bumpit_ω
-                        sub              rsp, 176
-                        mov              [rsp + 152], rcx
-                        mov              [rsp + 160], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
 proc_LBL__bumpit_α_body:
@@ -93,13 +93,13 @@ proc_LBL__bumpit_β:
 proc_LBL__bumpit_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 152]
-                        add              rsp, 176
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_ω:
-                        mov              rax, [rsp + 160]
-                        add              rsp, 176
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_bumpit_α
@@ -108,19 +108,19 @@ proc_bumpit_α:
                         .global          proc_bumpit_β
                         .global          proc_bumpit_γ
                         .global          proc_bumpit_ω
-                        sub              rsp, 176
-                        mov              [rsp + 152], rcx
-                        mov              [rsp + 160], rdx
+                        sub              rsp, 48
+                        mov              [rsp + 24], rcx
+                        mov              [rsp + 32], rdx
                         mov              rdi, rsp
-                        mov              ecx, 144
+                        mov              ecx, 16
                         xor              eax, eax
                         rep stosb
 proc_bumpit_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_op14_α:
-                        mov              rdi, qword ptr [rsp + 152]
-                        mov              rsi, qword ptr [rsp + 160]
-                        lea              rdx, [rsp + 176]
+                        mov              rdi, qword ptr [rsp + 24]
+                        mov              rsi, qword ptr [rsp + 32]
+                        lea              rdx, [rsp + 48]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n14_goto_deferred_α
@@ -146,13 +146,13 @@ proc_bumpit_β:
 proc_bumpit_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 152]
-                        add              rsp, 176
+                        mov              rax, [rsp + 24]
+                        add              rsp, 48
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bumpit_ω:
-                        mov              rax, [rsp + 160]
-                        add              rsp, 176
+                        mov              rax, [rsp + 32]
+                        add              rsp, 48
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

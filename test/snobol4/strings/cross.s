@@ -183,11 +183,12 @@ n10_call_β:
 n11_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
+                        add              rsp, 16
                                                                                         jmp   n15_var_α
 n11_assign_β:
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n12_var_α:
@@ -371,11 +372,12 @@ n18_match_assign_save_β:
 n19_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rdx
+                        add              rsp, 16
                                                                                         jmp   n25_var_α
 n19_assign_β:
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n20_match_head_α:
@@ -649,11 +651,12 @@ n28_match_assign_cond_β:
 n29_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rdx
+                        add              rsp, 16
                                                                                         jmp   n7_var_α
 n29_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n7_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_match_release_α:
@@ -928,11 +931,12 @@ n40_match_replace_α:
 n41_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx127_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   n44_var_α
 n41_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n44_var_α
 .Lx127_0:
                         .quad            .Lx127_0_s
@@ -996,21 +1000,23 @@ n45_var_β:
 n46_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rdx
+                        add              rsp, 16
                                                                                         jmp   n8_var_α
 n46_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n8_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n47_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              qword ptr [1879052400], rax
                         mov              qword ptr [1879052408], rdx
+                        add              rsp, 16
                                                                                         jmp   n48_var_α
 n47_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n48_var_α
 #=======================================================================================================================
 #       PRINTV   ?  POS(NV) LEN(1) = '#'
@@ -1087,11 +1093,12 @@ n52_call_β:
 n53_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx141_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   n9_var_α
 n53_assign_β:
+                        add              rsp, 16
                                                                                         jmp   n9_var_α
 .Lx141_0:
                         .quad            .Lx141_0_s

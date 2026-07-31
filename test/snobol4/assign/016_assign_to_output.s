@@ -41,9 +41,9 @@ n0_lit_string_α:
 n1_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx5_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   n2_lit_string_α
 .Lx5_0:
                         .quad            .Lx5_0_s
@@ -67,9 +67,9 @@ n2_lit_string_α:
 n3_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx7_0:
                         .quad            .Lx7_0_s
