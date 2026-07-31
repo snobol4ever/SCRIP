@@ -475,6 +475,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
                 s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 8) + "]").c_str(), "r11");
             }
         }
+        /* ZD-PL-A (s163): THE ZD ARM IS A STORAGE FLAVOR, NOT A DISPATCH ROUTE.  Until this rung the ZD arm above early-returned to a hard-wired rt_call_arr by-name call, so an ARMED call could never reach the dop/sink dispatch at the legacy arm below (measured s163 by line: ZD arm returns 498, dop_direct_fp first consulted 507, the four PL-SINK arms 553-559).  That conflation is FREE in SNOBOL4 -- rt_call_arr IS its dispatch -- and expensive in Prolog, whose entire data plane rides dop: emitted nrev.s counts 65 call rt_pl_dop_* against 2 rt_call_arr, so admitting IR_CALL_BUILTIN_PROLOG into zd_wl_kind while this arm chose its own route would have discarded PL-SINK-1/2/4/8 + PL-REGAIN-5 and stayed GREEN on every correctness gate (rt_call_arr is correct, only slow) -- a silently-green perf regression, the worst class.  The gate consulted here is the SAME dop_direct_fp the legacy arm consults, so the dispatch DECISION is spelled once; only the STORAGE differs (args from this box's own rsp scratch built out of the ZOPQ predecessor cells rather than FRQ(argbase), result to ZRES rather than FRQ(resoff)).  Same law as ONE MEDIUM, INVISIBLE, applied to storage instead of medium.  INERT FOR SNOBOL4 BY CONSTRUCTION: dop_direct_fp's table is 100% Prolog $-builtins, so a SNOBOL4 callee never matches, zdfp stays 0, and the rt_call_arr block below is reached verbatim -- which is the positive control this rung is verified against (SNOBOL4 .s byte-identical).  nargs==0 is EXCLUDED deliberately: the only 0-arity dop is $trail_mark, and with no sub rsp there is no scratch array to point rdi at, so it keeps the by-name path until its own rung ($mkc is ar=-1/narg>=1 and is covered).  The INLINE sinks (sink_unify2_str et al) still live only on the legacy arm because they address operands through FRQ; lifting them needs the addressing parameterized, which is ZD-PL-A slice 2, not this slice. */
+        const char * zdsym = 0; void * zdfp = (nargs > 0) ? dop_direct_fp(fn, (int64_t)nargs, &zdsym) : (void *)0;
+        if (zdfp) {
+            s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf under ZD: ") + zdsym + " (no by-name dispatch)").c_str());
+            s += x86_reg_disp32_lea64("rdi", "rsp", 0);
+            s += x86("mov32", "esi", (long)nargs);
+            s += x86("call", zdsym, (uint64_t)(uintptr_t)zdfp);
+        } else {
         {
             std::string fl = std::string(".Lrkfnzd") + std::to_string(g_flat_node_id++);
             s += x86("directive", ".section .rodata");
@@ -488,6 +496,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
+        }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
         s += x86("cmp", "eax", (long)99);
         s += x86_omega("je");
