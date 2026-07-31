@@ -268,7 +268,7 @@ inline uint8_t x86_jcc_op(const char * mnem) {
     fprintf(stderr, "[x86] FATAL x86_jcc_op: unknown condition code '%s' (no BINARY opcode; add it)\n", mnem); abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2 };
+enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2, X86H_DEF_PAIR = 3 };   /* X86H_DEF_PAIR (s22j) -- an N-ary box's PAIR label define is an INTERNAL REJOIN POINT, not an alternative box entry.  x86_deflabel_pair used to report itself as (X86H_DEF, X86P_BETA), which made every one of a box's 2N+3 pair defs look like a beta ENTRY to the carve-only bracket below; a single traversal of IR_MATCH_ALTERNATE then carved at alpha, again at the arm's sigma stub and again at the merge while freeing only once at gamma (measured -64 per pass on 'aaaxx' ? ('aaa'|'bbb')), after which bb_match_release read bb_match_head's saved-rsp unwind base at the wrong depth and segvd.  The carve-only discipline is rsp-neutral for a box entered through exactly ONE of {alpha,beta} and exited through exactly ONE of {gamma,omega} -- pair rejoins are neither, so they carry this distinct site and the enter arm ignores them.  Every other hook arm is alpha-keyed; the sole beta-keyed arm besides the carve is the ZC_PORT_OWNED mark, which accepts both spellings explicitly so OWNED-mode behavior is unchanged. */
 inline std::string x86_port_hook(int site, int port);
 inline int x86_fc_on();
 inline std::string x86_fc_jcc_omega(const char * mnem);
@@ -1932,6 +1932,7 @@ inline std::string x86_port_hook(int site, int port) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;   /* ZW-1 CARVE-ONLY class (Lon s21x-m "across the board, then crawl"): bytes granted, NO window (base -1) -- the cell is UNREFERENCED, so gamma suspension (S10c) buys nothing and costs depth: every flat [rsp+off] read below a suspended carve-only cell is displaced (the armed-run 023_arith_add witness).  The carve-only discipline is the full BRACKET: both entries allocate (alpha AND beta), both exits free (gamma AND omega) -- rsp-neutral at every box boundary, which is what makes across-the-board arming survivable while window migration crawls per family.  WINDOWED cells (base >= 0) keep S10c suspension verbatim: their gamma-live state is the whole point.  ZD-1 (s21x-v): an op_zres box is the THIRD class -- its cell IS referenced (its consumers' op_zread differences name it), so it takes the SUSPENDED discipline regardless of window: alpha carves, beta does NOT re-carve (the cell survived suspension, pure LIFO), gamma does NOT release (consumers read it), omega releases own K + op_wpop restores to statement entry.  The !op_zres conjunct is that whole discipline in one term. */
         if (site == X86H_DEF && port == X86P_ALPHA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
+        if (zwco && site == X86H_DEF_PAIR && port == X86P_BETA && !_.op_pair_rejoin) s += bb_glue_flat_enter();   /* ALT-NARY REJOIN (s22j): a PAIR define keeps the carve-only beta claim by DEFAULT -- ARBNO's per-iteration pair entries are real claims (the rsp linked-frame chain) and lose nothing here, so this stays byte-identical for every kind except the one that opts out.  op_pair_rejoin (ALTERNATE only, set in emit.cpp's choke) suppresses it, because ALT's pair defines are rejoins inside ONE traversal and each spurious claim drifts rsp down with no matching free. */
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
         if (site == X86H_JMP && port == X86P_OMEGA) s += bb_glue_flat_leave();
     }
@@ -1980,7 +1981,7 @@ inline std::string x86_port_hook(int site, int port) {
     /* RUNG ZB-OWN-0 (Lon 2026-07-11) -- UNIVERSAL BB-owned shadow, absolute cell positioning: cell =
      * statement-mark - C_i at every alpha AND beta define of an entry-holding node.  DEF sites only (flags
      * clean); beta idempotent; no omega code by design.  rax/rcx/rdi, the stated DEF-site register contract. */
-    if (x86_port_mode() == ZC_PORT_OWNED && site == X86H_DEF && (port == X86P_ALPHA || port == X86P_BETA) && _.op_own_mark >= 0 && _.op_own_ci > 0)
+    if (x86_port_mode() == ZC_PORT_OWNED && (site == X86H_DEF || site == X86H_DEF_PAIR) && (port == X86P_ALPHA || port == X86P_BETA) && _.op_own_mark >= 0 && _.op_own_ci > 0)
         s += x86_zls2_cur_lea("rdi")
            + x86("mov", "rax", RDQ("rdi", 0))
            + x86("mov", "rcx", FRQ(_.op_own_mark))
@@ -2072,8 +2073,8 @@ inline std::string x86_pair_loop() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel_pair(int idx) {
-    if (MEDIUM_BINARY) { std::string r; r += (char)'E'; r += (char)(unsigned char)idx; r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA); return r; }
-    return emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[idx] ? g_emit.xa_bb_emit_pair_define[idx]->name : "??") + x86_port_canary() + x86_port_hook(X86H_DEF, X86P_BETA);
+    if (MEDIUM_BINARY) { std::string r; r += (char)'E'; r += (char)(unsigned char)idx; r += x86_port_canary(); r += x86_port_hook(X86H_DEF_PAIR, X86P_BETA); return r; }
+    return emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[idx] ? g_emit.xa_bb_emit_pair_define[idx]->name : "??") + x86_port_canary() + x86_port_hook(X86H_DEF_PAIR, X86P_BETA);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_pair(int idx) {
