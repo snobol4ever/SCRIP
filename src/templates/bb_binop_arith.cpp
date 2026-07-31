@@ -75,6 +75,21 @@ static inline std::string inl_tail() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
     if (!PLATFORM_X86) return std::string();
+    if (_.op_zres)
+        return x86("comment", "IR_BINOP_ARITH zd")
+             + x86_alpha()
+             + x86("mov", "rdi", ZOPQ(0, 0))
+             + x86("mov", "rsi", ZOPQ(0, 8))
+             + x86("mov", "rdx", ZOPQ(1, 0))
+             + x86("mov", "rcx", ZOPQ(1, 8))
+             + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
+             + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+             + x86("cmp", "eax", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("mov", ZRES(0), "rax")
+             + x86("mov", ZRES(8), "rdx")
+             + x86_gamma()
+             + x86_beta_trampoline();   /* ZD-1 (Lon s21x-v): operands are the producers' suspended cells at STAGED DIFFERENCES (mode 3; adjacency retired -- the two producers may sit at ANY depths), result is the box's own cell (mode 1), and the x86_zrelease(16) pop-shuffle is GONE: cells persist to the statement boundary where op_zgpop/op_wpop restore rsp wholesale.  The conditional omega rides the existing invert+pop synth (own K + planner wpop = statement entry). */
     return IF(vfcb() && inl_ok(),
            x86_alpha()
          + x86("comment", "IR_BINOP_ARITH fc inl")

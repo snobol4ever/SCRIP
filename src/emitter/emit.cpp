@@ -800,6 +800,8 @@ extern "C" void emit_sep_rule_c(char ch) { emit_sep_rule(ch); }
  * uniform promotion can only ever hand a template the same answer the arm-local promotion did, or a SAFER one.  This supersedes the s182 arm-local line, which is deleted (one authority, not two). */
 static int zw_nid_listed(const char * e, int nid) { if (!e || !*e) return 0; const char * p = e; while (*p) { long v = strtol(p, (char **)&p, 10); if ((int)v == nid) return 1; while (*p && *p != ',') p++; if (*p) p++; } return 0; }   /* ZW-1: SCRIP_BB_ONLY/SKIP csv membership -- the per-BB arming instrument */
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_zd_stage, g_zd_arm, g_zd_k, g_zd_gpop, g_zd_wpop, g_zd_read[6];   /* ZD-1 driver-handoff staging (R5b): the drive loop fills these from zd_plan's arrays immediately before emit_drive; the choke below applies them to g_emit exactly once and CLEARS the stage flag, so every other walk_bb_node entry path (FILL / EMIT_PAIR_FILL glue) sees zeros and stays byte-identical. */
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { extern int zls_result_live(const IR_t *); g_emit.op_res_live = zls_result_live(nd); }
     { static int _ba = -1; static const char * _bo; static const char * _bs; if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); }
@@ -823,6 +825,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
      * add back.  Set unconditionally from the same field the allocator spends, so the allocator and the accessor CANNOT hold two opinions -- the ONE-K-AUTHORITY discipline (zw_node_k) extended to the address
      * side.  Zero when the box carves nothing, which is what makes every unconverted template byte-identical and lets the family-by-family conversion crawl safely. */
     g_emit.op_zdepth = x86_fc_on() ? (int)g_emit.op_fc_bytes : 0;   /* ZW-1 UNIVERSAL CARVE (Lon s21x-m "across the board, then crawl"): every previously-ungranted node self-allocates its whole zls extent at alpha and releases at every omega, THROUGH THE EXISTING x86_alpha/x86_omega HOOK (x86_asm.h ~1839 arms on op_fc_bytes alone) -- op_fc_base stays -1 so this is CARVE-ONLY: zero FR/FRQ spellings change, the one new machine effect is the rsp motion.  fc_geom-granted kinds keep their per-kind preamble geometry untouched (the !fc_geom conjunct); the FOUR-construct family (HEAD/FENCE1/SAVE_RESTORE/CALL, laws 4/6/7 -- self-managed windows and the frame dance) is excluded by kind; GOTO_DEFERRED is a control sink (abandoned depth by design).  SCRIP_BB_ONLY/SCRIP_BB_SKIP = the per-BB dynamic arming Lon asked for (nid csv), the crawl's bisect instrument. */
+    g_emit.op_zres = 0; g_emit.op_zgpop = 0; for (int _zi = 0; _zi < 6; _zi++) g_emit.op_zread[_zi] = 0;   /* ZD-1: cleared at the choke UNCONDITIONALLY so glue and non-drive fills can never inherit a stale regime */
+    if (g_zd_stage) { if (g_zd_arm) { g_emit.op_zres = 1; g_emit.op_fc_bytes = g_zd_k; g_emit.op_fc_base = -1; g_emit.op_zdepth = g_zd_k; for (int _zi = 0; _zi < 6; _zi++) g_emit.op_zread[_zi] = g_zd_read[_zi]; }
+        g_emit.op_zgpop = g_zd_gpop; g_emit.op_wpop += g_zd_wpop; g_zd_stage = 0; }   /* ZD-1 (Lon s21x-v): the planner's numbers land here, once, at the ONE choke every template invocation passes through.  op_fc_bytes = the planner's K OVERRIDES the zw extent (the alpha carve is exactly the result cell), base stays -1 (the hook's op_zres term supplies the suspended discipline), op_zdepth mirrors K for any residual legacy spelling inside a converted body, op_wpop ADDS the planner's under-cells term to whatever the trampoline chase already accumulated. */
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
     extern int  bb_slot_get(IR_t *nd);
@@ -869,7 +874,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
     case IR_LIT_CHARSET:
-    case IR_LIT_REAL:               { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;   /* ZB-VAL-0: registered-lit fixed-cell grant */
+    case IR_LIT_REAL:               { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;   /* ZB-VAL-0: registered-lit fixed-cell grant; ZD-1 nodes keep base=-1 (op_zres IS the discipline) */
     case IR_KEYWORD_ICON:
     case IR_KEYWORD_ICON_GEN:     bb_emit_x86(bb_keyword_icon());       return 0;
     case IR_KEYWORD_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
@@ -878,7 +883,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         const char * _vn = IR_LIT(nd).sval;
         int _vn_reassignable_builtin = _vn && (!strcmp(_vn, "write") || !strcmp(_vn, "writes"));
         if (_vn && _vn[0] == '&') bb_emit_x86(bb_keyword_icon());
-        else if (_vn && ((is_global(_vn) && !graph_has_local(g_emit_cfg, _vn)) || _vn_reassignable_builtin)) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0) g_emit.op_wpop += (int)_w; } bb_emit_x86(bb_var_global()); }   /* ZB-VAL-3/5: registered global-read fixed-cell grant -- FRQ rebase + the invert+pop+jmp conditional-omega synth serve the template unchanged; wpop ADDS the under-cells release so a mid-tree NV fail restores rsp to statement entry */
+        else if (_vn && ((is_global(_vn) && !graph_has_local(g_emit_cfg, _vn)) || _vn_reassignable_builtin)) { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && !g_emit.op_zres) g_emit.op_wpop += (int)_w; } bb_emit_x86(bb_var_global()); }   /* ZB-VAL-3/5: registered global-read fixed-cell grant -- FRQ rebase + the invert+pop+jmp conditional-omega synth serve the template unchanged; wpop ADDS the under-cells release so a mid-tree NV fail restores rsp to statement entry */
         else bb_emit_x86(bb_var()); } return 0;
     case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval;
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
@@ -1814,6 +1819,79 @@ static int flat_trivial_beta(const IR_t *nd) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ZD-1 -- THE ONE MAIN FUNCTION (Lon s21x-v: "ONE main function that does graph traversal and calculates the zeta offsets based on the ORDER the BB's executed" + "NO FUNCTION-level processing whatsoever,
+ * ONLY statement level scoping").  nodes[] IS the execution order the emitter lays down, so the traversal is a single forward pass over it, segmented into STATEMENTS at bb_src_of heads; depth resets to
+ * zero at every head and never survives a statement, which is the whole of the scoping law.  Per statement the pass renders an ALL-OR-NOTHING VERDICT (the per-graph all-or-nothing law of s21x-t, one
+ * level down): the statement rides ZD iff every node in it is either a whitelisted spine kind whose value operands all resolve to ZD producers inside the same statement, or a passive control node that
+ * carves nothing -- one legacy reader or one foreign carve declines the whole statement, which is exactly the s21x-o reader-frontier law ("a BB may be armed once ALL of its consumers speak the live-depth
+ * authority") enforced at the only granularity where it can be decided locally.  For an accepted statement the pass computes, in bytes: zout[i] = depth-on-exit (the running sum of alpha carves, 16 per
+ * result cell, suspended through gamma per S10c); zgpop[i] = the statement-terminal gamma release (depth at exit when the gamma edge leaves the statement -- rsp returns to statement entry on EVERY
+ * cross-statement success edge); zwpop[i] = the omega twin minus the box's own leave.  Consumers' operand displacements are then s21x-u's DIFFERENCE OF TWO DEPTHS, staged per node in the drive loop as
+ * op_zread[k] = delta_at_read(C) - delta_out(P), the quantity no single depth can express.  SCRIP_ZD=0 kills the regime; SCRIP_ZD_ONLY/SCRIP_ZD_SKIP are the per-BB dynamic arming instruments (nid csv,
+ * zw_nid_listed); SCRIP_ZD_DIAG=1 prints every verdict and every number this function computes. */
+static IR_t * zd_chase(IR_t * t) { int g = 0; while (t && t->op == IR_GOTO && g++ < 128) t = t->γ.node; return t; }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_wl_kind(IR_t * nd) {
+    int op = (int)nd->op;
+    extern int is_global(const char *);
+    if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET) return 1;
+    if (op == IR_UNOP) { int v = (int)IR_LIT(nd).ival; return (v == TT_MNS || v == TT_PLS || v == TT_SIZE || v == TT_CSET_COMPL) ? 1 : 0; }
+    if (op == IR_BINOP) { long long o = (long long)IR_LIT(nd).ival; return (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL || o == BINOP_DIV || o == BINOP_MOD || o == BINOP_POW || o == BINOP_CUNION || o == BINOP_CDIFF || o == BINOP_CINTER) ? 1 : 0; }   /* ZD-1 fix (this session): EXPLICIT arith/cset ops only -- exactly the set bb_binop_arith's ZD arm serves.  IR_BINOP also carries CONCAT/XREP/RELOP categories that dispatch to templates WITHOUT a ZD arm (emit.cpp binop_cat switch); arming those staged op_zres for a template that ignores it, so the legacy body read flat slots the producers never wrote -- the 017_concat_two_strings signature of the first wide run. */
+    if (op == IR_VAR || op == IR_ASSIGN) { const char * vn = IR_LIT(nd).sval; return (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)) ? 1 : 0; }
+    return 0;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_nops(IR_t * nd) { int op = (int)nd->op; return (op == IR_UNOP || op == IR_ASSIGN) ? 1 : (op == IR_BINOP) ? 2 : 0; }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop) {
+    extern const char * bb_src_of(const IR_t *);
+    static int _zd = -1, _dg = -1; static const char * _zo; static const char * _zs;
+    if (_zd < 0) { const char * e = getenv("SCRIP_ZD"); _zd = (e && *e == '0') ? 0 : 1; const char * d = getenv("SCRIP_ZD_DIAG"); _dg = (d && *d == '1') ? 1 : 0; _zo = getenv("SCRIP_ZD_ONLY"); _zs = getenv("SCRIP_ZD_SKIP"); }
+    for (int i = 0; i < n; i++) { zon[i] = 0; zout[i] = -1; zgpop[i] = 0; zwpop[i] = 0; }
+    if (!_zd || x86_port_mode() != ZC_PORT_FORTH || n <= 0 || g_emit.flat_jmp_entry) return;   /* ZD-1 JMP-ENTRY DECLINE (measured this session, the 1019_eval_string casualty -- the ONE real ZD break in the full ledger): runtime-compiled EVAL/CODE chains and PAT$/gen blobs are jmp-entry citizens that speak their OWN enter/exit protocol (32B wire header, value handoff through the protocol's slots -- the s193 discriminator comment at the emit_chain choke records the prior falsification "admitting ALL jmp-entry citizens regressed expr_eval/161/1016/1019").  A ZD-armed fragment spine lands its final value in a suspended CELL and the terminal gpop releases it, while the fragment protocol reads the slot it has always read -- garbage descriptor, m3 segfault at EVAL(P).  flat_jmp_entry is the named per-graph regime bit for exactly this citizenship; the outer main graph never sets it, so ZD lives everywhere it is proven and this family converts later on its own rung by teaching the protocol the cell convention. */
+    int * claim = (int *)alloca(sizeof(int) * (size_t)n); int * run = (int *)alloca(sizeof(int) * (size_t)n); int * rpos = (int *)alloca(sizeof(int) * (size_t)n);
+    for (int i = 0; i < n; i++) { claim[i] = -1; rpos[i] = -1; }
+    /* ZD-1 REDESIGN (this session, the 033/058 falsification): statements are NOT contiguous ranges of nodes[] -- right-first lowering interleaves their members (058: stmt entry i=3, its consumer i=5,
+     * ANOTHER stmt's entry i=4 between them), so range segmentation resolved operands across statements and staged releases on foreign producers.  Lon's words were "the ORDER the BB's EXECUTED": the
+     * walk now follows the gamma wires.  Each bb_src_of head (plus the chain entry) roots a RUN: step cur = zd_chase(cur->gamma) -- GOTOs are chased exactly as the driver's own label resolution chases
+     * them (dead nodes in emission, never members, never staged) -- until the stepped target is off-chain, a head, or already claimed.  The run IS the statement's executed spine, in execution order by
+     * construction; membership, operand resolution, the depth walk, and the crossing classification all read it. */
+    for (int hi = 0; hi < n; hi++) {
+        if (!(hi == 0 || bb_src_of(nodes[hi]))) continue;
+        if (claim[hi] >= 0) continue;
+        int rl = 0; IR_t * cur = nodes[hi]; int guard = 0;
+        while (cur && guard++ <= n) {
+            int ci = -1; for (int k = 0; k < n; k++) if (nodes[k] == cur) { ci = k; break; }
+            if (ci < 0 || claim[ci] >= 0) break;
+            if (rl > 0 && bb_src_of(nodes[ci])) break;
+            run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
+            cur = zd_chase(cur->γ.node);
+        }
+        int ok = (rl > 0); const char * why = ""; int badi = -1;
+        for (int r = 0; r < rl && ok; r++) { int i = run[r];
+            if (!zd_wl_kind(nodes[i])) { ok = 0; why = bb_op_name(nodes[i]->op); badi = i; break; }
+            if ((_zo && !zw_nid_listed(_zo, i)) || (_zs && zw_nid_listed(_zs, i))) { ok = 0; why = "nidgate"; badi = i; break; }
+            { int no = zd_nops(nodes[i]); if (nodes[i]->n_operands < no) { ok = 0; why = "nops"; badi = i; break; }
+              for (int j = 0; j < no; j++) { IR_t * p = nodes[i]->operands[j]; int f = -1; for (int k = 0; k < rl; k++) if (nodes[run[k]] == p) { f = k; break; }
+                  if (f < 0 || f >= r) { ok = 0; why = "opnd"; badi = i; break; } } }
+        }
+        if (ok) { int zd = 0;
+            for (int r = 0; r < rl; r++) { int i = run[r];
+                int K = ((int)nodes[i]->op == IR_ASSIGN) ? 0 : 16;
+                zon[i] = 1; zout[i] = zd + K; zd = zout[i];
+                IR_t * gt = zd_chase(nodes[i]->γ.node); IR_t * ot = zd_chase(nodes[i]->ω.node);
+                int gin = 0; int oin = 0;
+                for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && k > r) gin = 1; if (nodes[run[k]] == ot && k > r) oin = 1; }
+                if (!gin) zgpop[i] = zd;
+                if (!oin) zwpop[i] = zd - ((K > 0) ? 16 : 0);
+                if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i]);
+            } }
+        else { for (int r = 0; r < rl; r++) rpos[run[r]] = -1;
+               if (_dg && rl > 0) fprintf(stderr, "[ZD] run h=%d len=%d DECLINED at i=%d (%s)\n", hi, rl, badi, why); }
+    }
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
     for (int k = 0; k < n; k++) {
@@ -1969,6 +2047,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **st_pre = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);   /* STMT-FRAME (s21x-c): per-statement-head enter stub label -- minted for every bb_src_of head when the regime is live, NULL otherwise; every cross-edge into a head lbls[k] retargets here (slice-1 whitelist has no gotos, so EVERY edge into a head is a genuine statement entry -- no membership map needed) */
     int st_first_seen = 0;
     bb_label_t **st_x   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);   /* STMT-FRAME: the head's LEAVE half -- a statement-crossing edge must cut the SOURCE bracket before the dest's enter (the seed's stmt_*_end/_fail law: leave THEN jmp), so st_x[k] emits bb_glue_framed_leave (GLUE-4) and FALLS THROUGH into st_pre[k].  NULL for the first-emitted head: its only entrant is the prologue fallthrough, which has no bracket to cut (and cutting there would load the CRT caller's rbp into rsp -- the 058 disease). */
+    unsigned char *zd_on = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int *zd_out = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_gp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_wp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp);   /* ZD-1: the ONE execution-order walk runs ONCE per chain, before any emission, over the same nodes[] the loop below lays down */
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     g_suspend_resume_slot = -1;
     if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
@@ -2221,6 +2301,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               if (_hk >= 0) { IR_t *_gt = nodes[_hk]->γ.node; { int _gg = 0; while (_gt && _gt->op == IR_GOTO && _gg++ < 128) _gt = _gt->γ.node; }
                   if (_gt == nodes[i] && node_ω == betas[_hk]) { g_emit.op_scan = 1; g_emit.op_scan_head_off = (int)drive_value_slot(nodes[_hk]); } }
           }
+          if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_zd_stage = 1; g_zd_arm = zd_on[i]; g_zd_gpop = zd_gp[i]; g_zd_wpop = zd_wp[i];
+              g_zd_k = zd_on[i] ? ((int)nodes[i]->op == IR_ASSIGN ? 0 : 16) : 0;
+              for (int _zj = 0; _zj < 6; _zj++) g_zd_read[_zj] = 0;
+              if (zd_on[i]) { int _no = ((int)nodes[i]->op == IR_UNOP || (int)nodes[i]->op == IR_ASSIGN) ? 1 : ((int)nodes[i]->op == IR_BINOP) ? 2 : 0;
+                  for (int _zj = 0; _zj < _no && _zj < 6; _zj++) { IR_t * _p = nodes[i]->operands[_zj]; for (int _k = 0; _k < n; _k++) if (nodes[_k] == _p) { g_zd_read[_zj] = zd_out[i] - zd_out[_k]; break; } } } }   /* ZD-1 staging (R5b driver-handoff): op_zread[k] = the DIFFERENCE OF TWO DEPTHS (s21x-u), zout[consumer] - zout[producer], both from the ONE walk; K duplicates zd_plan's formula (assign stores through NV, no result cell) */
           emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
           if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
     }
