@@ -56,7 +56,6 @@ n1_assign_α:
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                        add              rsp, 16
                                                                                         jmp   n2_var_sx
 n2_var_sx:
                         mov              rsp, rbp
@@ -104,7 +103,6 @@ n5_assign_α:
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx11_0]
                         call             NV_SET_fn@PLT
-                        add              rsp, 48
                                                                                         jmp   main_stγ
 .Lx11_0:
                         .quad            .Lx11_0_s
