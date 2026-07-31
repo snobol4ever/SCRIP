@@ -33,37 +33,27 @@ n0_lit_string_α:
                         mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx6_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n3_assign_α
+                                                                                        jmp   n1_assign_α
 .Lx6_0:
                         .quad            .Lx6_0_s
 .Lx6_0_s:
                         .string          "a"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_α:
-                                                                                        jmp   n0_lit_string_st
-n1_goto_β:
-                                                                                        jmp   main_stω
-#-----------------------------------------------------------------------------------------------------------------------
-n2_goto_α:
-                                                                                        jmp   n4_lit_string_sx
-n2_goto_β:
-                                                                                        jmp   main_stω
-#-----------------------------------------------------------------------------------------------------------------------
-n3_assign_α:
+n1_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx9_0]
+                        mov              rdi, qword ptr [rip + .Lx7_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
-                                                                                        jmp   n4_lit_string_sx
-.Lx9_0:
-                        .quad            .Lx9_0_s
-.Lx9_0_s:
+                                                                                        jmp   n2_lit_string_sx
+.Lx7_0:
+                        .quad            .Lx7_0_s
+.Lx7_0_s:
                         .string          "OUTPUT"
-n4_lit_string_sx:
+n2_lit_string_sx:
                         mov              rsp, rbp
                         pop              rbp
-n4_lit_string_st:
+n2_lit_string_st:
                         push             rbp
                         mov              rbp, rsp
                         sub              rsp, 8
@@ -71,29 +61,39 @@ n4_lit_string_st:
 #         :(B)
 # B       OUTPUT = 'b'
 #-----------------------------------------------------------------------------------------------------------------------
-n4_lit_string_α:
+n2_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 1
                         mov              dword ptr [rsp + 4], 1
-                        mov              rax, qword ptr [rip + .Lx10_0]
+                        mov              rax, qword ptr [rip + .Lx8_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n5_assign_α
-.Lx10_0:
-                        .quad            .Lx10_0_s
-.Lx10_0_s:
+                                                                                        jmp   n3_assign_α
+.Lx8_0:
+                        .quad            .Lx8_0_s
+.Lx8_0_s:
                         .string          "b"
 #-----------------------------------------------------------------------------------------------------------------------
-n5_assign_α:
+n3_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx11_0]
+                        mov              rdi, qword ptr [rip + .Lx9_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_stγ
-.Lx11_0:
-                        .quad            .Lx11_0_s
-.Lx11_0_s:
+.Lx9_0:
+                        .quad            .Lx9_0_s
+.Lx9_0_s:
                         .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n4_goto_α:
+                                                                                        jmp   n0_lit_string_st
+n4_goto_β:
+                                                                                        jmp   main_stω
+#-----------------------------------------------------------------------------------------------------------------------
+n5_goto_α:
+                                                                                        jmp   n2_lit_string_sx
+n5_goto_β:
+                                                                                        jmp   main_stω
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

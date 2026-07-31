@@ -66,43 +66,43 @@ n1_call_α:
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 99
-                                                                                        je    n3_var_α
+                                                                                        je    n4_var_α
                                                                                         jmp   n2_lit_string_α
 n1_call_β:
-                                                                                        jmp   n3_var_α
+                                                                                        jmp   n4_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_lit_string_α:
                         mov              qword ptr [rsp + 64], 1
                         mov              dword ptr [rsp + 68], 5
                         mov              rax, qword ptr [rip + .Lx9_0]
                         mov              qword ptr [rsp + 72], rax
-                                                                                        jmp   n4_assign_var_α
+                                                                                        jmp   n3_assign_var_α
 .Lx9_0:
                         .quad            .Lx9_0_s
 .Lx9_0_s:
                         .string          "hello"
-#=======================================================================================================================
-#         OUTPUT = X
 #-----------------------------------------------------------------------------------------------------------------------
-n3_var_α:
-                        sub              rsp, 16
-                        mov              rax, qword ptr [1879052288]
-                        mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n5_assign_α
-#-----------------------------------------------------------------------------------------------------------------------
-n4_assign_var_α:
+n3_assign_var_α:
                         mov              rdi, qword ptr [rsp + 0]
                         mov              rsi, qword ptr [rsp + 8]
                         mov              rdx, qword ptr [rsp + 64]
                         mov              rcx, qword ptr [rsp + 72]
                         call             rt_assign_var@PLT
                         cmp              eax, 99
-                                                                                        je    n3_var_α
+                                                                                        je    n4_var_α
                         mov              qword ptr [rsp + 80], rax
                         mov              qword ptr [rsp + 88], rdx
-                                                                                        jmp   n3_var_α
+                                                                                        jmp   n4_var_α
+#=======================================================================================================================
+#         OUTPUT = X
+#-----------------------------------------------------------------------------------------------------------------------
+n4_var_α:
+                        sub              rsp, 16
+                        mov              rax, qword ptr [1879052288]
+                        mov              rdx, qword ptr [1879052296]
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n5_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
