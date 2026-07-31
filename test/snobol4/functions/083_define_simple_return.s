@@ -7,11 +7,13 @@ proc_LBL__double_α:
                         .global          proc_LBL__double_β
                         .global          proc_LBL__double_γ
                         .global          proc_LBL__double_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 256
+                        mov              [rsp + 232], rcx
+                        mov              [rsp + 240], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
+                        mov              qword ptr [rsp + 208], 0
+                        mov              qword ptr [rsp + 216], 0
 proc_LBL__double_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_goto_α:
@@ -93,13 +95,13 @@ proc_LBL__double_β:
 proc_LBL__double_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 232]
+                        add              rsp, 256
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__double_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 240]
+                        add              rsp, 256
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_double_α
@@ -108,19 +110,19 @@ proc_double_α:
                         .global          proc_double_β
                         .global          proc_double_γ
                         .global          proc_double_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 64
+                        mov              [rsp + 40], rcx
+                        mov              [rsp + 48], rdx
                         mov              rdi, rsp
-                        mov              ecx, 16
+                        mov              ecx, 32
                         xor              eax, eax
                         rep stosb
 proc_double_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_save_restore_α:
-                        mov              rdi, qword ptr [rsp + 24]
-                        mov              rsi, qword ptr [rsp + 32]
-                        lea              rdx, [rsp + 48]
+                        mov              rdi, qword ptr [rsp + 40]
+                        mov              rsi, qword ptr [rsp + 48]
+                        lea              rdx, [rsp + 64]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n14_goto_deferred_α
@@ -146,13 +148,13 @@ proc_double_β:
 proc_double_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 40]
+                        add              rsp, 64
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_double_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 48]
+                        add              rsp, 64
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

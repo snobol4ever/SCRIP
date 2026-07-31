@@ -7,13 +7,17 @@ proc_LBL__MATCHIT_α:
                         .global          proc_LBL__MATCHIT_β
                         .global          proc_LBL__MATCHIT_γ
                         .global          proc_LBL__MATCHIT_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
-                        mov              [rsp + 40], rbp
+                        sub              rsp, 448
+                        mov              [rsp + 424], rcx
+                        mov              [rsp + 432], rdx
+                        mov              [rsp + 440], rbp
                         mov              rbp, rsp
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
+                        mov              qword ptr [rsp + 192], 0
+                        mov              qword ptr [rsp + 200], 0
+                        mov              qword ptr [rsp + 400], 0
+                        mov              qword ptr [rsp + 408], 0
 proc_LBL__MATCHIT_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_goto_α:
@@ -415,15 +419,15 @@ proc_LBL__MATCHIT_β:
 proc_LBL__MATCHIT_γ:
                         mov              rdi, [rbp]
                         mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 24]
-                        lea              rsp, [rbp + 48]
-                        mov              rbp, [rbp + 40]
+                        mov              rax, [rbp + 424]
+                        lea              rsp, [rbp + 448]
+                        mov              rbp, [rbp + 440]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__MATCHIT_ω:
-                        mov              rax, [rbp + 32]
-                        lea              rsp, [rbp + 48]
-                        mov              rbp, [rbp + 40]
+                        mov              rax, [rbp + 432]
+                        lea              rsp, [rbp + 448]
+                        mov              rbp, [rbp + 440]
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_MATCHIT_α
@@ -432,19 +436,19 @@ proc_MATCHIT_α:
                         .global          proc_MATCHIT_β
                         .global          proc_MATCHIT_γ
                         .global          proc_MATCHIT_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 64
+                        mov              [rsp + 40], rcx
+                        mov              [rsp + 48], rdx
                         mov              rdi, rsp
-                        mov              ecx, 16
+                        mov              ecx, 32
                         xor              eax, eax
                         rep stosb
 proc_MATCHIT_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n44_save_restore_α:
-                        mov              rdi, qword ptr [rsp + 24]
-                        mov              rsi, qword ptr [rsp + 32]
-                        lea              rdx, [rsp + 48]
+                        mov              rdi, qword ptr [rsp + 40]
+                        mov              rsi, qword ptr [rsp + 48]
+                        lea              rdx, [rsp + 64]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n45_goto_deferred_α
@@ -470,13 +474,13 @@ proc_MATCHIT_β:
 proc_MATCHIT_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 40]
+                        add              rsp, 64
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 48]
+                        add              rsp, 64
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

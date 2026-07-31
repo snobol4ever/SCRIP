@@ -7,11 +7,13 @@ proc_LBL__roman_α:
                         .global          proc_LBL__roman_β
                         .global          proc_LBL__roman_γ
                         .global          proc_LBL__roman_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 3136
+                        mov              [rsp + 3112], rcx
+                        mov              [rsp + 3120], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
+                        mov              qword ptr [rsp + 3088], 0
+                        mov              qword ptr [rsp + 3096], 0
 proc_LBL__roman_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_goto_α:
@@ -2010,13 +2012,13 @@ proc_LBL__roman_β:
 proc_LBL__roman_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 3112]
+                        add              rsp, 3136
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__roman_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 3120]
+                        add              rsp, 3136
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_roman_α
@@ -2025,19 +2027,19 @@ proc_roman_α:
                         .global          proc_roman_β
                         .global          proc_roman_γ
                         .global          proc_roman_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 64
+                        mov              [rsp + 40], rcx
+                        mov              [rsp + 48], rdx
                         mov              rdi, rsp
-                        mov              ecx, 16
+                        mov              ecx, 32
                         xor              eax, eax
                         rep stosb
 proc_roman_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n359_save_restore_α:
-                        mov              rdi, qword ptr [rsp + 24]
-                        mov              rsi, qword ptr [rsp + 32]
-                        lea              rdx, [rsp + 48]
+                        mov              rdi, qword ptr [rsp + 40]
+                        mov              rsi, qword ptr [rsp + 48]
+                        lea              rdx, [rsp + 64]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n360_goto_deferred_α
@@ -2063,13 +2065,13 @@ proc_roman_β:
 proc_roman_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 40]
+                        add              rsp, 64
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_roman_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 48]
+                        add              rsp, 64
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8

@@ -7,11 +7,13 @@ proc_EXPR$0_α:
                         .global          proc_EXPR$0_β
                         .global          proc_EXPR$0_γ
                         .global          proc_EXPR$0_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 112
+                        mov              [rsp + 88], rcx
+                        mov              [rsp + 96], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
+                        mov              qword ptr [rsp + 64], 0
+                        mov              qword ptr [rsp + 72], 0
 proc_EXPR$0_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
@@ -67,13 +69,13 @@ proc_EXPR$0_β:
 proc_EXPR$0_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 88]
+                        add              rsp, 112
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$0_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 96]
+                        add              rsp, 112
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_EXPR$1_α
@@ -82,11 +84,13 @@ proc_EXPR$1_α:
                         .global          proc_EXPR$1_β
                         .global          proc_EXPR$1_γ
                         .global          proc_EXPR$1_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 80
+                        mov              [rsp + 56], rcx
+                        mov              [rsp + 64], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
+                        mov              qword ptr [rsp + 32], 0
+                        mov              qword ptr [rsp + 40], 0
 proc_EXPR$1_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_var_α:
@@ -115,13 +119,13 @@ proc_EXPR$1_β:
 proc_EXPR$1_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 56]
+                        add              rsp, 80
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$1_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 64]
+                        add              rsp, 80
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_EXPR$2_α
@@ -130,11 +134,13 @@ proc_EXPR$2_α:
                         .global          proc_EXPR$2_β
                         .global          proc_EXPR$2_γ
                         .global          proc_EXPR$2_ω
-                        sub              rsp, 48
-                        mov              [rsp + 24], rcx
-                        mov              [rsp + 32], rdx
+                        sub              rsp, 160
+                        mov              [rsp + 136], rcx
+                        mov              [rsp + 144], rdx
                         mov              qword ptr [rsp], 0
                         mov              qword ptr [rsp + 8], 0
+                        mov              qword ptr [rsp + 112], 0
+                        mov              qword ptr [rsp + 120], 0
 proc_EXPR$2_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_integer_α:
@@ -195,13 +201,13 @@ proc_EXPR$2_β:
 proc_EXPR$2_γ:
                         mov              rdi, [rsp]
                         mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 24]
-                        add              rsp, 48
+                        mov              rax, [rsp + 136]
+                        add              rsp, 160
                                                                                         jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$2_ω:
-                        mov              rax, [rsp + 32]
-                        add              rsp, 48
+                        mov              rax, [rsp + 144]
+                        add              rsp, 160
                                                                                         jmp   rax
 proc_startup:
                         sub              rsp, 8
