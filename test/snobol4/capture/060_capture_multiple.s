@@ -107,6 +107,7 @@ n5_lit_string_α:
                                                                                         jmp   n8_binop_α
 n5_lit_string_β:
                         add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx27_0:
                         .quad            .Lx27_0_s
@@ -188,17 +189,18 @@ n7_lit_string_β:
                         .string          "fail"
 #-----------------------------------------------------------------------------------------------------------------------
 n8_binop_α:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
+                        sub              rsp, 16
+                        mov              rdi, qword ptr [rsp + 32]
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             str_concat_d@PLT
-                        add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n11_var_α
 n8_binop_β:
-                        add              rsp, 32
+                        add              rsp, 16
+                        add              rsp, 64
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_sequence_α:
@@ -234,7 +236,7 @@ n11_var_α:
                                                                                         jmp   n18_binop_α
 n11_var_β:
                         add              rsp, 16
-                        add              rsp, 16
+                        add              rsp, 48
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_release_α:
@@ -363,17 +365,18 @@ n17_match_assign_cond_β:
                                                                                         jmp   n20_match_rem_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_binop_α:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
+                        sub              rsp, 16
+                        mov              rdi, qword ptr [rsp + 32]
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             str_concat_d@PLT
-                        add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n21_assign_α
 n18_binop_β:
-                        add              rsp, 32
+                        add              rsp, 16
+                        add              rsp, 96
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n19_match_break_α:
@@ -445,11 +448,12 @@ n20_match_rem_β:
 n21_assign_α:
                         mov              rsi, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx51_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 80
                                                                                         jmp   main_γ
 n21_assign_β:
+                        add              rsp, 80
                                                                                         jmp   main_γ
 .Lx51_0:
                         .quad            .Lx51_0_s

@@ -38,7 +38,7 @@ n2_lit_integer_α:
 .Lx8_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
-n3_op14_α:
+n3_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -68,7 +68,7 @@ n4_binop_α:
                         cmp              eax, 99
                                                                                         jne   .Lx11_240
                         add              rsp, 32
-                                                                                        jmp   n3_op14_α
+                                                                                        jmp   n3_save_restore_α
 .Lx11_240:
                         add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
@@ -81,7 +81,7 @@ n5_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n3_op14_α
+                                                                                        jmp   n3_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_res:
                         add              rsp, 8
@@ -117,7 +117,7 @@ proc_bumpit_α:
                         rep stosb
 proc_bumpit_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n13_op14_α:
+n13_save_restore_α:
                         mov              rdi, qword ptr [rsp + 24]
                         mov              rsi, qword ptr [rsp + 32]
                         lea              rdx, [rsp + 48]
@@ -391,7 +391,7 @@ n25_lit_integer_α:
 .Lx36_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
-n26_op14_α:
+n26_save_restore_α:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -421,7 +421,7 @@ n27_binop_α:
                         cmp              eax, 99
                                                                                         jne   .Lx39_240
                         add              rsp, 32
-                                                                                        jmp   n26_op14_α
+                                                                                        jmp   n26_save_restore_α
 .Lx39_240:
                         add              rsp, 16
                         mov              qword ptr [rsp + 0], rax
@@ -434,7 +434,7 @@ n28_assign_α:
                         add              rsp, 16
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n26_op14_α
+                                                                                        jmp   n26_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

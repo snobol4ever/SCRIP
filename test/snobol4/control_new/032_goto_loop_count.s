@@ -99,10 +99,11 @@ n6_lit_integer_α:
 #         GT(N, 5)                                                    :S(DONE)
 #-----------------------------------------------------------------------------------------------------------------------
 n7_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 128], rax
-                        mov              qword ptr [rsp + 136], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n10_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n8_assign_α:
@@ -135,10 +136,11 @@ n9_binop_α:
                                                                                         jmp   n11_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_integer_α:
-                        mov              qword ptr [rsp + 112], 6
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 6
                         mov              rax, qword ptr [rip + .Lx25_0]
-                        mov              qword ptr [rsp + 120], rax
-                                                                                        jmp   n12_op75_α
+                        mov              qword ptr [rsp + 8], rax
+                                                                                        jmp   n12_coerce_numeric_α
 .Lx25_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
@@ -150,58 +152,66 @@ n11_assign_α:
                         add              rsp, 48
                                                                                         jmp   n7_var_α
 #-----------------------------------------------------------------------------------------------------------------------
-n12_op75_α:
-                        mov              eax, dword ptr [rsp + 128]
+n12_coerce_numeric_α:
+                        sub              rsp, 16
+                        mov              eax, dword ptr [rsp + 32]
                         cmp              eax, 7
                                                                                         je    .Lx28_1
                         cmp              eax, 6
                                                                                         jne   .Lx28_0
-                        mov              eax, dword ptr [rsp + 112]
+                        mov              eax, dword ptr [rsp + 16]
                         cmp              eax, 6
                                                                                         jne   .Lx28_0
 .Lx28_1:
-                        mov              rax, qword ptr [rsp + 128]
-                        mov              qword ptr [rsp + 96], rax
-                        mov              rax, qword ptr [rsp + 136]
-                        mov              qword ptr [rsp + 104], rax
-                                                                                        jmp   n13_op75_α
+                        mov              rax, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], rax
+                        mov              rax, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], rax
+                                                                                        jmp   n13_coerce_numeric_α
 .Lx28_0:
-                        lea              rdi, [rsp + 128]
-                        lea              rsi, [rsp + 112]
-                        lea              rdx, [rsp + 96]
+                        lea              rdi, [rsp + 32]
+                        lea              rsi, [rsp + 16]
+                        lea              rdx, [rsp + 0]
                         mov              rcx, 111
                         call             rt_coerce_num2_d@PLT
-                                                                                        jmp   n13_op75_α
+                                                                                        jmp   n13_coerce_numeric_α
 #-----------------------------------------------------------------------------------------------------------------------
-n13_op75_α:
-                        mov              eax, dword ptr [rsp + 112]
+n13_coerce_numeric_α:
+                        sub              rsp, 16
+                        mov              eax, dword ptr [rsp + 32]
                         cmp              eax, 7
                                                                                         je    .Lx30_1
                         cmp              eax, 6
                                                                                         jne   .Lx30_0
-                        mov              eax, dword ptr [rsp + 128]
+                        mov              eax, dword ptr [rsp + 48]
                         cmp              eax, 6
                                                                                         jne   .Lx30_0
 .Lx30_1:
-                        mov              rax, qword ptr [rsp + 112]
-                        mov              qword ptr [rsp + 80], rax
-                        mov              rax, qword ptr [rsp + 120]
-                        mov              qword ptr [rsp + 88], rax
-                                                                                        jmp   n14_op77_α
+                        mov              rax, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], rax
+                        mov              rax, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], rax
+                                                                                        jmp   n14_cmp_test_α
 .Lx30_0:
-                        lea              rdi, [rsp + 112]
-                        lea              rsi, [rsp + 128]
-                        lea              rdx, [rsp + 80]
+                        lea              rdi, [rsp + 32]
+                        lea              rsi, [rsp + 48]
+                        lea              rdx, [rsp + 0]
                         mov              rcx, 112
                         call             rt_coerce_num2_d@PLT
-                                                                                        jmp   n14_op77_α
+                                                                                        jmp   n14_cmp_test_α
 #-----------------------------------------------------------------------------------------------------------------------
-n14_op77_α:
-                        lea              rdi, [rsp + 96]
-                        lea              rsi, [rsp + 80]
+n14_cmp_test_α:
+                        sub              rsp, 16
+                        lea              rdi, [rsp + 32]
+                        lea              rsi, [rsp + 16]
                         call             rt_cmp_d@PLT
                         test             eax, eax
-                                                                                        jle   n4_var_α
+                                                                                        jg    .Lx32_240
+                        add              rsp, 16
+                        add              rsp, 64
+                                                                                        jmp   n4_var_α
+.Lx32_240:
+                        add              rsp, 80
                                                                                         jmp   n5_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
