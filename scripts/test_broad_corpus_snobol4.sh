@@ -102,8 +102,8 @@ T_ALL=$((SECONDS-T0_ALL))
 TOTAL=$((PASS3+FAIL3))
 echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3  ($TOTAL total)"
 echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
-[ -n "$FAILURES2" ] && printf "$FAILURES2" | head -40
-[ -n "$FAILURES3" ] && printf "$FAILURES3" | head -40
-[ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
+[ -n "$FAILURES2" ] && printf "$FAILURES2" | head -400
+[ -n "$FAILURES3" ] && printf "$FAILURES3" | head -400
+[ -n "$FAILURES4" ] && printf "$FAILURES4" | head -400
 
 printf "TIME M3=%ds M4=%ds TOTAL=%ds\n" "$T_M3" "$T_M4" "$T_ALL"
