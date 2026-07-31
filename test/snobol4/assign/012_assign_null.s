@@ -30,12 +30,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 8
+                        sub              rsp, 72
+                        mov              rdi, rsp
+                        mov              ecx, 72
+                        xor              eax, eax
+                        rep stosb
 main_α_body:
-n0_lit_string_st:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
 #=======================================================================================================================
 #         X = 'something'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -56,14 +56,8 @@ n1_assign_α:
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n2_lit_string_sx
-n2_lit_string_sx:
-                        mov              rsp, rbp
-                        pop              rbp
-n2_lit_string_st:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
+                        add              rsp, 16
+                                                                                        jmp   n2_lit_string_α
 #=======================================================================================================================
 #         X =
 #-----------------------------------------------------------------------------------------------------------------------
@@ -84,14 +78,8 @@ n3_assign_α:
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rdx
-                                                                                        jmp   n4_var_sx
-n4_var_sx:
-                        mov              rsp, rbp
-                        pop              rbp
-n4_var_st:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
+                        add              rsp, 16
+                                                                                        jmp   n4_var_α
 #=======================================================================================================================
 #         OUTPUT = X
 #-----------------------------------------------------------------------------------------------------------------------
@@ -108,7 +96,8 @@ n5_assign_α:
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx11_0]
                         call             NV_SET_fn@PLT
-                                                                                        jmp   main_stγ
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx11_0:
                         .quad            .Lx11_0_s
 .Lx11_0_s:
@@ -117,24 +106,15 @@ n5_assign_α:
 main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-main_stγ:
-                        mov              rsp, rbp
-                        pop              rbp
-                                                                                        jmp   main_γ
-main_stω:
-                        mov              rsp, rbp
-                        pop              rbp
-                                                                                        jmp   main_ω
-#-----------------------------------------------------------------------------------------------------------------------
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 8
+                        add              rsp, 72
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 8
+                        add              rsp, 72
                         ret
                         .section         .note.GNU-stack,"",@progbits

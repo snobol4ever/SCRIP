@@ -17,12 +17,12 @@ main_α:
                         .global          main_β
                         .global          main_γ
                         .global          main_ω
-                        sub              rsp, 8
+                        sub              rsp, 72
+                        mov              rdi, rsp
+                        mov              ecx, 72
+                        xor              eax, eax
+                        rep stosb
 main_α_body:
-n0_lit_integer_st:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
 #=======================================================================================================================
 #         OUTPUT = 2 ** 8
 #-----------------------------------------------------------------------------------------------------------------------
@@ -54,8 +54,8 @@ n2_binop_α:
                         cmp              eax, 99
                                                                                         jne   .Lx6_240
                         add              rsp, 16
-                        add              rsp, 64
-                                                                                        jmp   main_stγ
+                        add              rsp, 32
+                                                                                        jmp   main_γ
 .Lx6_240:
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
@@ -66,7 +66,8 @@ n3_assign_α:
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         call             NV_SET_fn@PLT
-                                                                                        jmp   main_stγ
+                        add              rsp, 48
+                                                                                        jmp   main_γ
 .Lx7_0:
                         .quad            .Lx7_0_s
 .Lx7_0_s:
@@ -75,24 +76,15 @@ n3_assign_α:
 main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-main_stγ:
-                        mov              rsp, rbp
-                        pop              rbp
-                                                                                        jmp   main_γ
-main_stω:
-                        mov              rsp, rbp
-                        pop              rbp
-                                                                                        jmp   main_ω
-#-----------------------------------------------------------------------------------------------------------------------
 main_γ:
                         mov              eax, 1
                         xor              edx, edx
-                        add              rsp, 8
+                        add              rsp, 72
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              eax, 99
                         xor              edx, edx
-                        add              rsp, 8
+                        add              rsp, 72
                         ret
                         .section         .note.GNU-stack,"",@progbits

@@ -189,7 +189,7 @@ n10_binop_α:
                         cmp              eax, 99
                                                                                         jne   .Lx34_240
                         add              rsp, 16
-                        add              rsp, 64
+                        add              rsp, 32
                                                                                         jmp   n3_var_α
 .Lx34_240:
                         mov              qword ptr [rsp + 0], rax
