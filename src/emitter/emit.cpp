@@ -1899,7 +1899,9 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i]);
             } }
         else { for (int r = 0; r < rl; r++) rpos[run[r]] = -1;
-               if (_dg && rl > 0) fprintf(stderr, "[ZD] run h=%d len=%d DECLINED at i=%d (%s op=%d)\n", hi, rl, badi, why, badi >= 0 ? (int)nodes[badi]->op : -1); }
+               if (_dg && rl > 0) fprintf(stderr, "[ZD] run h=%d len=%d DECLINED at i=%d (%s op=%d)\n", hi, rl, badi, why, badi >= 0 ? (int)nodes[badi]->op : -1);
+               { static int _cd = -1; if (_cd < 0) { const char *_e = getenv("SCRIP_CALL_DIAG"); _cd = (_e && _e[0] == '1') ? 1 : 0; }   /* ZD-7 TAG-SAFE CALLEE CENSUS: partition declined-run first blockers by kind; tag-safe: IR_CALL_VALUE excluded (no sval); IR_SAVE_RESTORE excluded (ival=role, not a pointer); all other ir_norm_call_kind==IR_CALL sub-kinds write sval in every lowerer. */
+                 if (_cd && rl > 0 && badi >= 0) { IR_t * _bn = nodes[badi]; int _bop = (int)_bn->op; int _is_call = (_bop == (int)IR_CALL || (_bop != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_bop))); const char * _callee = (_is_call && IR_LIT(_bn).sval) ? IR_LIT(_bn).sval : (const char *)0; fprintf(stderr, "[CALL-DIAG] DECLINE blocker op=%s(%d) callee=%s\n", bb_op_name(_bn->op), _bop, _callee ? _callee : "-"); } } }
     }
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
