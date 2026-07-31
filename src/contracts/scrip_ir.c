@@ -115,6 +115,12 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_GSUBRULE] = "IR_GSUBRULE",
     [IR_BOUND] = "IR_BOUND",
     [IR_UNMARK] = "IR_UNMARK",
+    [IR_SAVE_RESTORE] = "IR_SAVE_RESTORE",
+    [IR_COERCE_STRING] = "IR_COERCE_STRING",
+    [IR_COERCE_INTEGER] = "IR_COERCE_INTEGER",
+    [IR_COERCE_NUMERIC] = "IR_COERCE_NUMERIC",
+    [IR_COERCE_REAL] = "IR_COERCE_REAL",
+    [IR_CMP_TEST] = "IR_CMP_TEST",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
