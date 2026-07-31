@@ -1982,16 +1982,31 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int flat_empty_body_fail = (entry && entry->op == IR_FAIL) ? 1 : 0;
     int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
     entry = entry;
-    /* RPO-FILL (s21x-z): replace BFS (which interleaved statement boxes by level) with reverse-post-order DFS.
-     * DFS stack is LIFO: push non-γ successors first, γ last -- so γ is popped and visited first, giving
-     * each statement's γ-spine a contiguous run in nodes[].  Operand/ω edges pushed after γ land later,
-     * giving fall-through layout along the hot γ path.  Visited-set dedup (linear scan, same as prior BFS)
-     * handles merges (multiple predecessors) without double-emission.  Two-pass structure preserved:
-     * pass 1 = main graph from entry + enterable-chain roots; pass 2 = generator ω tails not yet reached. */
-#define RPO_VISITED(p) ({ int _v = 0; for (int _vi = 0; _vi < n; _vi++) if (nodes[_vi] == (p)) { _v = 1; break; } _v; })
+    /* RPO-FILL v2 (s22a): TRUE reverse-post-order.  v1 (s21x-z) named itself RPO but implemented PREORDER
+     * (append on first visit), which does NOT guarantee a node precedes its successors: for A->B, A->C,
+     * B->D, C->D preorder yields A,B,D,C -- D emitted before its predecessor C.  Nothing broke only because
+     * the arithmetic shapes carry no merges (coverage, not correctness).  This walk is the real thing, in the
+     * jcon_irgen.icn:472 ir_a_Binop shape: a node's successors are FINISHED before the node itself is emitted
+     * (children before parent = post-order), then the post-order vector is REVERSED into nodes[], which is
+     * what makes every node precede all of its successors.
+     * Two-phase iterative DFS (the standard explicit-stack post-order): each node is pushed twice -- once
+     * TAGGED_EXPAND (discover + push successors), once TAGGED_EMIT (append to post-order).  Because the stack
+     * is LIFO and the EMIT entry is pushed BEFORE the successors, every successor subtree drains before the
+     * node's own EMIT pops.  Successor push order is INVERTED relative to v1: γ is pushed FIRST so it pops
+     * LAST, hence finishes last, hence -- after the reversal -- lands IMMEDIATELY after its predecessor.
+     * That is the fall-through/contiguity property v1 got by accident and this gets by construction.
+     * The visited set is now its own array (`seen`), not nodes[]: a node is marked at EXPAND time but does
+     * not enter nodes[] until EMIT, so nodes[] is no longer a usable membership test mid-walk.
+     * Two-pass structure preserved: pass 1 = entry + enterable-chain roots; pass 2 = generator ω tails. */
+    static IR_t *postv[CH_MAX]; int pn = 0;
+    static const IR_t *seen[CH_MAX]; int sn = 0;
+#define RPO_VISITED(p) ({ int _v = 0; for (int _vi = 0; _vi < sn; _vi++) if (seen[_vi] == (p)) { _v = 1; break; } _v; })
+#define RPO_MARK(p)    do { if (sn < CH_MAX) seen[sn++] = (const IR_t *)(p); } while (0)
+#define RPO_TAG_EMIT   ((IR_t *)1)
 #define RPO_PUSH(p)    do { if ((p) && (p)->op != IR_SUCCEED && (p)->op != IR_FAIL && !RPO_VISITED(p) && qt < Q_MAX) queue[qt++] = (IR_t *)(p); } while (0)
 #define RPO_PUSH_SUCCS(c) \
-        /* push non-γ successors FIRST (visited last = lower priority in RPO) */ \
+        /* γ FIRST = popped LAST = finishes last = immediately follows (c) after the reversal */ \
+        RPO_PUSH((c)->γ.node); \
         if (((c)->op == IR_MATCH_ALTERNATE || (c)->op == IR_MATCH_SEQUENCE || (c)->op == IR_MATCH_ARBNO || (c)->op == IR_MATCH_FENCE1 || (c)->op == IR_SCAN_SEQUENCE || (c)->op == IR_SCAN_ALTERNATE || (c)->op == IR_DISJUNCTION) && (c)->n_operands > 0) for (int _oi = (c)->n_operands - 1; _oi >= 0; _oi--) RPO_PUSH((c)->operands[_oi]); \
         if (((c)->op >= IR_MATCH_LIT && (c)->op <= IR_MATCH_ASSIGN_SAVE) || (c)->op == IR_MATCH_DEFER || (c)->op == IR_MATCH_PATREF || (c)->op == IR_MATCH_VALUE) RPO_PUSH((c)->ω.node); \
         if ((c)->op == IR_REPALT && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
@@ -2003,32 +2018,44 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KEYWORD_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c)->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN || (c)->op == IR_ACTIVATE) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
-        /* push γ LAST = popped FIRST = visited next = fall-through layout */ \
-        RPO_PUSH((c)->γ.node);
-    /* pass 1: entry + enterable-chain roots (SN4-FLAT-PROC s176: DEFINE bodies, RETURN/FRETURN floaters) */
-    { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
-      if (g_emit_cfg && (!g_is_text || entry == g_emit_cfg->entry)) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = _gc - 1; _k >= 0; _k--) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a) RPO_PUSH(_a); } } }
-    RPO_PUSH(entry);
-    while (qt > qh) {
-        IR_t *c = queue[--qt];   /* LIFO: pop from top */
-        if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        if (RPO_VISITED(c)) continue;
-        if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
-        nodes[n++] = c;
-        RPO_PUSH_SUCCS(c);
+        (void)0;
+    /* THE ONE WALK, run twice.  Drains the stack in two-phase post-order: an EXPAND pop discovers the node,
+     * re-pushes it tagged EMIT, then pushes its successors ON TOP -- so the successors drain first and the
+     * EMIT pop appends the node only after every successor subtree is already in postv[]. */
+#define RPO_DRAIN() \
+    while (qt > qh) { \
+        IR_t *c = queue[--qt]; \
+        if (c == RPO_TAG_EMIT) { IR_t *e = queue[--qt]; if (pn < CH_MAX) postv[pn++] = e; continue; } \
+        if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue; \
+        if (RPO_VISITED(c)) continue; \
+        RPO_MARK(c); \
+        if (pn >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } \
+        if (qt + 2 > Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated at EMIT tag\n"); abort(); } \
+        queue[qt++] = c; queue[qt++] = RPO_TAG_EMIT; \
+        RPO_PUSH_SUCCS(c); \
     }
+    /* THE REVERSAL, PER ROOT-BLOCK -- post-order becomes REVERSE-post-order.  This is the step v1 never had.
+     * ⛔ REVERSING THE WHOLE VECTOR IS WRONG, AND IT COSTS THE ENTRY NODE: RPO_PUSH's visited test fires at
+     * EXPAND time, so if a later root's subtree reaches `entry` first, `entry` is absorbed INTO that root's
+     * post-order block and no longer finishes last -- it stops being nodes[0], the prologue falls into the
+     * wrong statement, and the program starts executing in the middle (measured: 214_indirect_goto printed
+     * "at BETA" forever, never "at ALPHA").  So each ROOT gets its own drain and its own reversal, and the
+     * root blocks are appended in v1's order: entry, then anchors ascending, then the generator ω tails.
+     * Block ORDER is therefore byte-identical to v1/BFS; only the order WITHIN a block changes. */
+#define RPO_FLUSH() do { for (int _i = pn - 1; _i >= 0; _i--) { if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } nodes[n++] = postv[_i]; } pn = 0; } while (0)
+    /* pass 1: entry + enterable-chain roots (SN4-FLAT-PROC s176: DEFINE bodies, RETURN/FRETURN floaters) */
+    RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH();
+    { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
+      if (g_emit_cfg && (!g_is_text || entry == g_emit_cfg->entry)) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }
     /* pass 2: generator ω tails not reached by pass 1 (same logic as prior second BFS pass) */
     for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node && !RPO_VISITED(nodes[i]->ω.node)) RPO_PUSH(nodes[i]->ω.node);
-    while (qt > qh) {
-        IR_t *c = queue[--qt];
-        if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        if (RPO_VISITED(c)) continue;
-        if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); }
-        nodes[n++] = c;
-        RPO_PUSH_SUCCS(c);
-    }
+    RPO_DRAIN(); RPO_FLUSH();
+#undef RPO_FLUSH
+#undef RPO_DRAIN
 #undef RPO_PUSH_SUCCS
 #undef RPO_PUSH
+#undef RPO_TAG_EMIT
+#undef RPO_MARK
 #undef RPO_VISITED
     if (qt >= Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= Q_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)Q_MAX, prefix); abort(); }
     /* CELL-1a (GOAL-SN4-CELL-MACHINE.md): ζ-cell regime classifier, DARK — computed and traceable, consumed by NOTHING this rung (the no-interleave law: a graph is ALL-cells or ALL-legacy; until the
