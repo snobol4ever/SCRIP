@@ -1906,7 +1906,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int gin = 0; int oin = 0;
                 for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && k > r) gin = 1; if (nodes[run[k]] == ot && k > r) oin = 1; }
                 if (!gin) zgpop[i] = zd;
-                if (!oin) zwpop[i] = zd - ((K > 0) ? 16 : 0);
+                if (!oin) zwpop[i] = zd - K;   /* ZD-K2: was `zd - ((K > 0) ? 16 : 0)`, a THIRD spelling of the same rule -- it re-derived K from K and was correct ONLY because zd_k's range is exactly {0,16}.  It silently defeated zd_k's "a kind whose K is neither 0 nor 16 changes THIS LINE ONLY" promise: the first kind admitted at any other K would have had its omega twin subtract 16 while zout added K.  Provably byte-identical today (K==0 -> 0, K==16 -> 16), so this lands neutral and makes the one-authority real rather than coincidental. */
                 if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i]);
             } }
         else { for (int r = 0; r < rl; r++) rpos[run[r]] = -1;
