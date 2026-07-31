@@ -899,6 +899,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         { extern int fc_vread_fp(const IR_t *); g_emit.op_fc_disp = fc_vread_fp(nd); }   /* ZB-VAL-0: granted-lit operand read displacement (-1 = flat) */
         const char * _an = IR_LIT(nd).sval;
         int _an_reassignable_builtin = _an && (!strcmp(_an, "write") || !strcmp(_an, "writes"));
+        { static int _fcd = -1; if (_fcd < 0) { const char *_e = getenv("SCRIP_FC_DIAG"); _fcd = (_e && _e[0] == '1') ? 1 : 0; }
+          if (_fcd && !g_emit.op_zres && g_emit.op_fc_disp >= 0) fprintf(stderr, "[FC-ARM] kind=ASSIGN zres=%d fc_disp=%d stf=%d a_slot=%d off=%d fallback=%s\n", (int)g_emit.op_zres, g_emit.op_fc_disp, (int)g_emit.flat_stmt_frame, g_emit.op_a_slot, g_emit.op_off, (g_emit.op_a_slot >= 0 && g_emit.op_off >= 0) ? "FLAT-OK" : "NONE"); }   /* NON-POP census: same instrument as the BINOP site -- the assign FC arm's pop is additionally gated on !stf(), so stf is carried here */
         if (_an && ((is_global(_an) && !graph_has_local(g_emit_cfg, _an)) || _an_reassignable_builtin)) { bb_emit_x86(bb_assign_global()); return 0; }
         if (_an) { { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
                      if (_dd && !(g_emit.op_sb >= 0 && g_emit.op_off >= 0 && (g_emit.op_a_slot >= 0 || g_emit.op_a_node_kind == (int)IR_OP_COUNT))) {
@@ -912,6 +914,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_BINOP:
         { extern int fc_vbinop_active(const IR_t *); g_emit.op_fc_disp = fc_vbinop_active(nd) ? 0 : -1; }   /* ZB-VAL-1/5: registered value-spine binop -- operands ride rsp cells (rhs@0, lhs@16), result replaces both via one net add rsp,16; -1 = flat */
         { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && g_emit.op_fc_disp >= 0 && !g_emit.op_zres) g_emit.op_wpop += (int)_w; }   /* ZB-VAL-5: generic-path DT_FAIL omega must release ALL live statement cells (binop carves nothing at alpha, so wpop carries the whole depth) */
+        { static int _fcd = -1; if (_fcd < 0) { const char *_e = getenv("SCRIP_FC_DIAG"); _fcd = (_e && _e[0] == '1') ? 1 : 0; }
+          if (_fcd && !g_emit.op_zres && g_emit.op_fc_disp >= 0) fprintf(stderr, "[FC-ARM] kind=BINOP%d zres=%d fc_disp=%d sa=%d sb=%d off=%d fallback=%s\n", (int)g_emit.op_binop_kind, (int)g_emit.op_zres, g_emit.op_fc_disp, g_emit.op_sa, g_emit.op_sb, g_emit.op_off, (g_emit.op_sa >= 0 && g_emit.op_sb >= 0 && g_emit.op_off >= 0) ? "FLAT-OK" : "NONE"); }   /* NON-POP census: nodes still taking the Gen-1 FC consume arm, and whether the legacy flat arm could carry them if it were deleted */
         switch (g_emit.op_binop_kind) {
         case BINOP_CAT_RELOP:  bb_emit_x86(bb_binop_relop());       return 0;
         case BINOP_CAT_CONCAT: bb_emit_x86(bb_binop_concat_slot()); return 0;
