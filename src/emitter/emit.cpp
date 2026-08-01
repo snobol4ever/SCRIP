@@ -1861,6 +1861,16 @@ static int zd_wl_kind(IR_t * nd) {
      * no ZD arms.  Admitting MATCH_HEAD alone causes a segfault: the run partially arms (HEAD passes), then
      * falls into the pattern blob at a depth offset the flat FRQ reads don't expect.  Pattern blob ZD arming
      * is a future rung; MATCH_HEAD admission belongs on that rung, not here. */
+    /* ⛔ SCRIP_ZD_TOTAL IS A MEASUREMENT PROBE, NOT A FEATURE FLAG -- AND THE DISTINCTION IS THE WHOLE POINT OF THIS FUNCTION.  Flipping it default-admits
+     * every kind outside the pattern-blob block and scores Icon 238/25/30 -> 130/133/30.  It does NOT "turn allocation on for every BB"; it makes this
+     * function LIE.  zd_wl_kind is not a policy whitelist that someone was being timid with -- it is a CAPABILITY REGISTRY recording which kinds have a ZD
+     * arm IMPLEMENTED IN THEIR TEMPLATE.  Admitting a kind whose template has no ZD arm arms the node without anyone writing its cell, so its consumer
+     * reads an unwritten rsp slot.  The ledger entry "IR_CALL_BUILTIN_ICON -- 68 declines, absent from the whitelist; likely ONE TEMPLATE ZD ARM" says
+     * exactly this: the unit of work is a template arm, added one kind at a time, after which the kind is admitted here and the registry becomes total BY
+     * CONSTRUCTION.  The probe's value is that its delta MEASURES the size of the remaining capability gap; use it to rank which arm to write next, never
+     * to ship.  Keep it default-off. */
+    { static int _tot = -1; if (_tot < 0) { const char * e = getenv("SCRIP_ZD_TOTAL"); _tot = (e && *e == '1') ? 1 : 0; }
+      if (_tot) return (op >= IR_MATCH_LIT && op <= IR_MATCH_ADVANCE) ? 0 : 1; }
     return 0;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1874,7 +1884,12 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     if (_zd < 0) { const char * e = getenv("SCRIP_ZD"); _zd = (e && *e == '0') ? 0 : 1; const char * d = getenv("SCRIP_ZD_DIAG"); _dg = (d && *d == '1') ? 1 : 0; _zo = getenv("SCRIP_ZD_ONLY"); _zs = getenv("SCRIP_ZD_SKIP"); }
     for (int i = 0; i < n; i++) { zon[i] = 0; zout[i] = -1; zgpop[i] = 0; zwpop[i] = 0; }
     { static int _lp=-1; if(_lp<0){const char*e=getenv("SCRIP_ZDLOCAL");_lp=(e&&*e=='1')?1:0;} if(_lp){ extern int is_global(const char *); for (int i=0;i<n;i++){ int o=(int)nodes[i]->op; if(o==IR_VAR||o==IR_ASSIGN){ const char*vn=IR_LIT(nodes[i]).sval; int gl = (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)); if(!gl) fprintf(stderr,"[ZDLOCAL] %s name=%s pinned=%d fbdata=%d\n", bb_op_name(nodes[i]->op), vn?vn:"<null>", x86_fb_pinned(), x86_fb_data()); } } } }
-    if (!_zd || x86_port_mode() != ZC_PORT_FORTH || n <= 0 || (g_emit.flat_jmp_entry && !zd_stub_ok())) return;   /* ZD-1 JMP-ENTRY DECLINE, REFINED s22k (ZD-9): was a BLANKET decline on flat_jmp_entry.  The EVAL/CODE half of that population must stay flat -- runtime-compiled chains and PAT$/gen blobs speak their OWN enter/exit protocol (32B wire header, value handoff through the protocol's slots), and the s193 discriminator comment records the prior falsification "admitting ALL jmp-entry citizens regressed expr_eval/161/1016/1019": a ZD-armed fragment spine lands its final value in a suspended CELL and the terminal gpop releases it while the fragment protocol reads the slot it has always read -- garbage descriptor, m3 segfault at EVAL(P).  But DEFINE-STUB blobs are NOT that: their bodies are ordinary statements, and declining them cost every user proc its zeta spine.  zd_stub_ok() admits exactly the stub population using the driver's own g_flat_frame_floor verdict, so this line now means what its comment always claimed -- the fragment protocol stays flat, and ZD lives everywhere it is proven. */
+    { static int _ng = -1; if (_ng < 0) { const char * e = getenv("SCRIP_ZD_NOGRAPH"); _ng = (e && *e == '1') ? 1 : 0; }
+      /* ZD-NOGRAPH (Lon s21x-w "NO FUNCTION-level processing for ZETA whatsoever.  ONLY statement level scoping"): the jmp-entry conjunct below is a
+       * WHOLE-GRAPH early return -- one pinned graph declines every statement in it before any per-node arm is consulted (measured s204, queens:
+       * 10/10 graphs deep=1 stub_ok=0).  Runs are already rooted at bb_src_of statement heads, so statement scoping is intact without it; this gate
+       * removes the function-level veto and lets the per-run gate speak for itself. */
+      if (!_zd || x86_port_mode() != ZC_PORT_FORTH || n <= 0 || (!_ng && g_emit.flat_jmp_entry && !zd_stub_ok())) return; }   /* ZD-1 JMP-ENTRY DECLINE, REFINED s22k (ZD-9): was a BLANKET decline on flat_jmp_entry.  The EVAL/CODE half of that population must stay flat -- runtime-compiled chains and PAT$/gen blobs speak their OWN enter/exit protocol (32B wire header, value handoff through the protocol's slots), and the s193 discriminator comment records the prior falsification "admitting ALL jmp-entry citizens regressed expr_eval/161/1016/1019": a ZD-armed fragment spine lands its final value in a suspended CELL and the terminal gpop releases it while the fragment protocol reads the slot it has always read -- garbage descriptor, m3 segfault at EVAL(P).  But DEFINE-STUB blobs are NOT that: their bodies are ordinary statements, and declining them cost every user proc its zeta spine.  zd_stub_ok() admits exactly the stub population using the driver's own g_flat_frame_floor verdict, so this line now means what its comment always claimed -- the fragment protocol stays flat, and ZD lives everywhere it is proven. */
     int * claim = (int *)alloca(sizeof(int) * (size_t)n); int * run = (int *)alloca(sizeof(int) * (size_t)n); int * rpos = (int *)alloca(sizeof(int) * (size_t)n);
     for (int i = 0; i < n; i++) { claim[i] = -1; rpos[i] = -1; }
     /* ZD-1 REDESIGN (this session, the 033/058 falsification): statements are NOT contiguous ranges of nodes[] -- right-first lowering interleaves their members (058: stmt entry i=3, its consumer i=5,
@@ -1893,14 +1908,27 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             cur = zd_chase(cur->γ.node);
         }
-        int ok = (rl > 0); const char * why = ""; int badi = -1;
+        int ok = (rl > 0); const char * why = ""; int badi = -1; int rgood = rl;
         for (int r = 0; r < rl && ok; r++) { int i = run[r];
-            if (!zd_wl_kind(nodes[i])) { ok = 0; why = bb_op_name(nodes[i]->op); badi = i; break; }
-            if ((_zo && !zw_nid_listed(_zo, i)) || (_zs && zw_nid_listed(_zs, i))) { ok = 0; why = "nidgate"; badi = i; break; }
-            { int no = zd_nops(nodes[i]); if (nodes[i]->n_operands < no) { ok = 0; why = "nops"; badi = i; break; }
+            if (!zd_wl_kind(nodes[i])) { ok = 0; why = bb_op_name(nodes[i]->op); badi = i; rgood = r; break; }
+            if ((_zo && !zw_nid_listed(_zo, i)) || (_zs && zw_nid_listed(_zs, i))) { ok = 0; why = "nidgate"; badi = i; rgood = r; break; }
+            { int no = zd_nops(nodes[i]); if (nodes[i]->n_operands < no) { ok = 0; why = "nops"; badi = i; rgood = r; break; }
               for (int j = 0; j < no; j++) { IR_t * p = nodes[i]->operands[j]; int f = -1; for (int k = 0; k < rl; k++) if (nodes[run[k]] == p) { f = k; break; }
-                  if (f < 0 || f >= r) { ok = 0; why = "opnd"; badi = i; break; } } }
+                  if (f < 0 || f >= r) { ok = 0; why = "opnd"; badi = i; rgood = r; break; } } }
         }
+        (void)rgood;   /* ⛔ ZD-PREFIX WAS TRIED AND IS UNSOUND -- MEASURED, DO NOT RE-DERIVE IT.  The tempting relaxation of the ALL-OR-NOTHING gate
+         * above is to arm the MAXIMAL PASSING PREFIX of the run instead of declining the whole statement (the Icon census reads armed=0/declined=271
+         * precisely because one unarmable node vetoes every BB in its statement).  The argument for it is that a declined node's result is not
+         * cell-resident so later consumers must decline too, making arming a PREFIX property; and that the boundary node's gamma/omega targets are
+         * outside the armed set, so the existing !gin/!oin arms already release before control reaches unarmed code.  THAT ARGUMENT IS WRONG AND THE
+         * COUNTEREXAMPLE IS TWO LINES: `x := 1 + 2; write(x)` prints NOTHING under prefix arming (baseline prints 3), and `every i := 1 to 3 do
+         * write(i)` prints 0 (baseline 1 2 3) -- SILENT WRONG ANSWERS at rc=0, the worst class, and note the first has no backtracking at all, so
+         * resume-into-released-storage is NOT the mechanism.  ROOT CAUSE: the operand loop above checks only that an armed node's OPERANDS are
+         * earlier armed nodes.  It never checks the CONVERSE -- that an armed node's CONSUMERS are armed.  An armed producer writes its rsp cell
+         * while an unarmed consumer reads the flat frame slot, and truncating a prefix manufactures exactly that disagreement at the boundary.  The
+         * all-or-nothing gate is therefore not timidity: it is what makes the producer/consumer STORAGE REGIME agreement hold across a whole run.
+         * Any future partial arming must carry a consumer-side check, i.e. arm a CONVEX region closed under both operand and consumer edges, not a
+         * prefix.  Suite: 238/25/30 -> 78/185/30 under prefix arming. */
         if (ok) { int zd = 0;
             for (int r = 0; r < rl; r++) { int i = run[r];
                 int K = zd_k(nodes[i]);   /* ZD-8 (b1) sink -- K comes from zd_k, THE ONE AUTHORITY (defined beside zd_nops).  Do not re-spell the rule here. */
