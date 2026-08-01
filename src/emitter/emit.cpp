@@ -317,7 +317,6 @@ void xa_dispatch(XA_op_t op)
     case XA_FILE_FOOTER:           xa_file_footer();           return;
     case XA_BB_PTR_SLOT:           xa_bb_ptr_slot();           return;
     case XA_ENTRY_DISPATCH:        xa_entry_dispatch();        return;
-    case XA_FLAT_EPILOGUE:         xa_flat_epilogue();         return;
     case XA_FLAT_DATA_SECTION:     xa_flat_data_section();     return;
     case XA_PROLOGUE:              xa_prologue();              return;
     case XA_EPILOGUE:              xa_epilogue();              return;
@@ -2468,7 +2467,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     if (g_emit.flat_stmt_frame) { emit_sep_rule('-'); emit_label_define_bb(&lbl_stcγ); bb_emit_x86(bb_glue_framed_leave()); emit_jmp_label(&lbl_γ, JMP_JMP); emit_label_define_bb(&lbl_stcω); bb_emit_x86(bb_glue_framed_leave()); emit_jmp_label(&lbl_ω, JMP_JMP); }   /* STMT-FRAME chain-exit cuts: leave (mov rsp,rbp; pop rbp) then jmp the port -- every retargeted γ/ω edge lands here; the cut normalizes rsp from ANY statement depth, which is what licenses leaving every template's inline pop untouched.  GLUE-4 (s21x-p): the cut is bb_glue_framed_leave -- takes no K by design, so it is byte-identical unconditionally. */
     emit_sep_rule('-'); emit_label_define_bb(&lbl_γ);
-    xa_dispatch(XA_FLAT_EPILOGUE);
+    /* CARVE-KILL (Lon directive, s22o): XA_FLAT_EPILOGUE dispatch DELETED with its function.  The prologue died first and the epilogue was its surviving half -- it read [rbp+kt-24/-16/-8] and lea rsp,[rbp+kt] against a frame nobody established.  A graph has no prologue and no epilogue: the four ports are the whole protocol.  The six regimes this one function branched over (jmp-entry lexprep / nofill / eager, outer stmt-frame / plain, display-reg legacy) are SIX IR KINDS WITH SIX TEMPLATES, not six arms of one mega-function -- that is the rung this deletion opens. */
     /* PL-DC (REGAIN-1 SLICE C, s108): the per-proc DIRECT-CALL stub, appended after the shared exits when the driver armed the graph (g_flat_dc_np >= 0: registered det-lexical jmp-entry proc,
      * nparams<=4, hatch SCRIP_NO_DC unset — the SAME table facts the site predicate reads, so site and callee agree by construction).  Refinement guards here are LOUD: a driver-armed graph that
      * turns out not to be the lex jmp-entry shape is a predicate drift, not a codegen mode.  m3: the stub label's slab offset rides out in g_last_dc_off for the driver's rt_proc_set_dcfn(pfn+off)
