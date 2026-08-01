@@ -80,9 +80,7 @@ std::string bb_match_defer() {
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
-         + x86_lea_id("rcx", 4)
-         + x86_lea_id("rdx", 5)
-         + x86_jmp_reg("rax")
+         + bb_glue_pass_wires(4, 5)   /* PASS-THROUGH GLUE (s22v): the canonical consumer -- blob entry with this box's L(4)/L(5) as the ride-through γ/ω wires; byte-identical to the hand-rolled trio it replaces */
          + x86("def",  L(4))
          + IF(_.op_seal == 1 && x86_port_cstack(),
                x86("mov",  "rsp", FRQ(_.op_off)))

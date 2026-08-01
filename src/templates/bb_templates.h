@@ -59,6 +59,10 @@ std::string bb_glue_framed_enter();   /* GLUE-2 (Lon s21x-n): same + rbp activat
 std::string bb_glue_framed_leave();
 std::string bb_glue_outer_γ();
 std::string bb_glue_outer_ω();
+std::string bb_glue_wire_exit(int is_gamma);   /* WIRE-EXIT (s22v): snap the open pcall record, restore caller rsp/rbp(/r12 island) from it, jmp the port's wire -- gw for γ (RETURN), ww for ω (FRETURN).  ONE authority; the role-1/2 floaters and the stub-blob shared ports both consume it. */
+std::string bb_glue_wire_γ();
+std::string bb_glue_wire_ω();
+std::string bb_glue_pass_wires(int gid, int wid);   /* PASS-THROUGH (s22v): the bare wire contract -- lea rcx,<L(gid)>; lea rdx,<L(wid)>; jmp rax.  One-shot = this + the pcall record; pass-through = this alone. */
 std::string bb_disjunction();
 std::string bb_cut();
 std::string bb_fail();
