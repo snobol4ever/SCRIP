@@ -391,7 +391,7 @@ static std::string bcps_det_arm() {
          + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
-         + x86("cmp", "eax", (long)99)
+         + x86("cmp", "eax", (long)DT_FAIL)
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
@@ -484,7 +484,7 @@ static std::string bcps_spine_gen_arm() {
          + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
-         + x86("cmp", "eax", (long)99)
+         + x86("cmp", "eax", (long)DT_FAIL)
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
@@ -515,7 +515,7 @@ static std::string bcps_bin_gen_arm() {
          + x86_scan_sync_in_rr()
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
-         + x86("cmp", "eax", (long)99)
+         + x86("cmp", "eax", (long)DT_FAIL)
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
@@ -525,7 +525,7 @@ static std::string bcps_bin_gen_arm() {
          + x86_scan_sync_in_rr()
          + x86_frame_store64(off, "rax")
          + x86_frame_store64(off + 8, "rdx")
-         + x86("cmp", "eax", (long)99)
+         + x86("cmp", "eax", (long)DT_FAIL)
          + x86_omega("je")
          + x86_gamma();
 }
@@ -551,7 +551,7 @@ static std::string bcps_txt_gen_arm() {
          + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
-         + x86("cmp", "eax", "99")
+         + x86("cmp", "eax", std::to_string((long)DT_FAIL))
          + x86_omega("je")
          + x86_gamma()
          + x86("label", _.lbl_β)
@@ -561,7 +561,7 @@ static std::string bcps_txt_gen_arm() {
          + x86_scan_sync_in_rr()
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
-         + x86("cmp", "eax", "99")
+         + x86("cmp", "eax", std::to_string((long)DT_FAIL))
          + x86_omega("je")
          + x86_gamma();
 }

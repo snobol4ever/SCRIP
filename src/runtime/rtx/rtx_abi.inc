@@ -56,16 +56,11 @@
 
 .intel_syntax noprefix
 
-#define DT_SNUL   0
-#define DT_S      1
-#define DT_P      3
-#define DT_A      4
-#define DT_T      5
-#define DT_I      6
-#define DT_R      7
-#define DT_N      9
-#define DT_X     15
-#define DT_FAIL  99
+/* ---- TAG LAYOUT: must stay byte-identical to src/contracts/descr.h (s229).
+ * DT_SNUL is 0 ON PURPOSE (bulk memset mints null strings free). rtx_init.c carries a
+ * _Static_assert per value; a drift here breaks the BUILD, not the runtime.
+ * ⛔ STRING tests are 32-BIT ONLY (test eax, DT_NOTSTR_MASK) -- see descr.h.        ---- */
+#include "descr_tags.inc"   /* s230: THE tag numbers live there and ONLY there -- syntax-neutral so the AT&T files can share them. */
 
 /* CET/IBT is enabled on this toolchain, so every externally reachable entry
  * needs endbr64 (a 4-byte nop where CET is absent). RTX_FUNC plants it. */

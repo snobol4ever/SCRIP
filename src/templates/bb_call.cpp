@@ -183,7 +183,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
     if (lf->op == IR_LIT_INTEGER) {
         std::string s;
         s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = LIT_I -> [zr+" + std::to_string(aoff) + "]");
-        s += x86("mov", FRQ(aoff), (long)6);
+        s += x86("mov", FRQ(aoff), (long)DT_I);
         s += x86_movabs_r64("rax", (uint64_t)IR_LIT(lf).ival);
         s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
@@ -192,7 +192,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         uint64_t bits; double d = IR_LIT(lf).dval; memcpy(&bits, &d, 8);
         std::string s;
         s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = LIT_F -> [zr+" + std::to_string(aoff) + "]");
-        s += x86("mov", FRQ(aoff), (long)7);
+        s += x86("mov", FRQ(aoff), (long)DT_R);
         s += x86_movabs_r64("rax", bits);
         s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
@@ -202,7 +202,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         std::string s;
         s += x86("comment", std::string("marshal arg") + std::to_string(idx)
            + " = LIT_S (string REG-RO sealed in-band) -> [zr+" + std::to_string(aoff) + "]");
-        s += x86("mov", FRQ(aoff), (long)1);
+        s += x86("mov", FRQ(aoff), (long)DT_S);
         s += x86("mov", "rax", ROQ(nseal));
         s += x86("mov", FRQ(aoff + 8), "rax");
         s += x86_jmp_id(nskip);
@@ -310,7 +310,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)narg);
         s += x86("call", "rt_call_arr", fptr);
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
-        s += x86("cmp", "eax", (long)99);
+        s += x86("cmp", "eax", (long)DT_FAIL);
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
@@ -367,7 +367,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
      * result) across the sync so the fail check below is unaffected. Runs on the straight-through path; on the fail
      * (omega) path the scan builtin left &pos unchanged, so r14 is already correct. */
     if (scansync) s += x86_scan_sync_in_rr_force();
-    s += x86("cmp", "eax", (long)99);
+    s += x86("cmp", "eax", (long)DT_FAIL);
     s += x86_omega("je");
     s += x86_gamma();
     s += x86_beta();
@@ -420,7 +420,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
      * through the non-generator path). A sync_in would reload r14 from the unchanged scan_pos, rewinding the
      * register cursor back to this generator's start on every produce and stalling the enclosing scan. The
      * alpha-only sync_out above is sufficient to seed each fresh evaluation. */
-    s += x86("cmp", "eax", (long)99);
+    s += x86("cmp", "eax", (long)DT_FAIL);
     s += x86_omega("je");
     s += x86_gamma();
     s += x86_beta();
@@ -448,9 +448,9 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     std::string s = x86_alpha()
                   + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rt_is_truthy -> branch true=γ / false=ω]");
     if (e->op == IR_LIT_INTEGER) {
-        s += x86("mov32", "edi", (long)6) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
+        s += x86("mov32", "edi", (long)DT_I) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
     } else if (e->op == IR_LIT_STRING) {
-        s += x86("mov32", "edi", (long)1)
+        s += x86("mov32", "edi", (long)DT_S)
            + x86("mov", "rsi", ROQ(0))
            + x86_jmp_id(1)
            + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "")

@@ -68,14 +68,16 @@ RTX_FUNC(rt_cmp_d)
     movsx   eax, r9b
     ret
 .Lcd_notint:
-    /* ---- STRING ARM: both tags in {DT_SNUL=0, DT_S=1}. DT_SNUL is 0 and
-     * DT_S is 1, so "tag == DT_S || tag == DT_SNUL" is exactly the UNSIGNED
-     * test tag <= 1 -- one compare per operand instead of two. Every DTYPE_t
-     * enumerator is non-negative, so the unsigned form is safe.            ---- */
-    cmp     eax, DT_S
-    ja      .Lcd_real
-    cmp     ecx, DT_S
-    ja      .Lcd_real
+    /* ---- STRING ARM (s229 tag renumber): DT_S and DT_SNUL are the only tags
+     * carrying DT_STRING_BIT, so "both operands are string family" is the
+     * SINGLE combined test (a & b) & DT_STRING_BIT -- no per-operand branch.
+     * This REPLACES the old unsigned `tag <= DT_S` range trick, which was only
+     * valid while DT_SNUL==0 && DT_S==1 and would silently admit the wrong
+     * datatypes under the new numbering.                                   ---- */
+    mov     r10d, eax
+    or      r10d, ecx
+    test    r10d, DT_NOTSTR_MASK
+    jnz     .Lcd_real
     /* ptr_a = (a->v == DT_S && a->s) ? a->s : ""   -- DT_SNUL always yields ""
      * even when the union happens to hold a non-null pointer.                 */
     xor     edx, edx

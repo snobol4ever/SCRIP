@@ -28,7 +28,7 @@ std::string bb_gather() {
          + x86_omega("jge")
          + x86("lea",       "rdx", "[rip + __]", s_g.vals_ptr, s_g.lbl)
          + x86("mov",       "rsi", "[rdx + rcx*8]")
-         + x86("mov",       FRQ(s_g.resoff), (long)6)
+         + x86("mov",       FRQ(s_g.resoff), (long)DT_I)
          + x86("mov",       FRQ(s_g.resoff + 8), "rsi")
          + x86("inc",       FRQ(s_g.cursoff))
          + x86_gamma()

@@ -32,7 +32,7 @@ std::string bb_mapgrep() {
          + x86_omega("jge")
          + x86("lea",       "rdx", "[rip + __]", s_mg.vals_ptr, s_mg.lbl)
          + x86("mov",       "rsi", "[rdx + rcx*8]")
-         + x86("mov",       FRQ(s_mg.resoff), (long)6)
+         + x86("mov",       FRQ(s_mg.resoff), (long)DT_I)
          + x86("mov",       FRQ(s_mg.resoff + 8), "rsi")
          + x86("inc",       FRQ(s_mg.cursoff))
          + x86_gamma()

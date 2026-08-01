@@ -311,7 +311,7 @@ RTX_FUNC(rt_subscript_var)
 
     add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
-    mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -419,7 +419,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
-    mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -511,7 +511,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rcx + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rcx                    /* rdx = vc                              */
-    mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -581,7 +581,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_LEN], 1        /* one character                */
     add     rsp, 88
     mov     rdx, rax
-    mov     rax, 0x200000009            /* NAMETRAP                              */
+    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP                              */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -661,7 +661,7 @@ RTX_FUNC(rt_subscript_var)
 
     add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
-    mov     rax, 0x200000009            /* NAMETRAP: (slen 2 << 32) | DT_N 9     */
+    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
     ret
 
 /* The array arm's out-of-range exit. Distinct from .Lsub_fail below because it
