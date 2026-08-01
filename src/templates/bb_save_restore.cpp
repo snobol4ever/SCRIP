@@ -44,11 +44,11 @@ std::string bb_save_restore() {
              + x86("call", "rt_flat_wire_adopt_isle", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt_isle)
              + x86_align_leave()
              + x86_gamma();
-        if (!emit_jmp_pin_rbp()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static): header wires + entry rsp via rsp, caller rbp LIVE IN THE REGISTER -> open pcall record")   /* FLATDISP-7 (s194): the ungated prologue never saved or clobbered rbp, so the caller's value is still IN rbp (marshal it directly, no [kt-8] slot exists) and rsp == base here (wire-adopt is the first box after the prologue, pre-carve) — the rsp-relative reads address the same header bytes the pinned arm reads through rbp.  Same falsifiable tripwire as the epilogue arms. */
+        if (!emit_jmp_pin_rbp()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static, WIREREG): wires READ FROM THE REGISTERS THE CALLER PASSES THEM IN (rcx=gamma, rdx=omega), entry rsp = rsp, caller rbp live -> open pcall record")   /* ⛔⭐⭐ WIREREG (s22u): the [rsp+kt-24]/[rsp+kt-16] header reads this arm used to do were CARVE-ERAD CASUALTIES — those bytes were written by xa_flat's jmp-entry prologue, which CARVE-KILL (s22o) deleted, so the box marshalled CALLER STACK GARBAGE into the wire quad and every DEFINE'd function returned through a wild jmp (witness: roman.sno, both modes, rc=139 with zero output, gamma wire = 0x7ffff4dba3d8 inside libscrip_rt's zero pages).  The wires never needed storage: BOTH call paths (rt_proc_call_open classic and rt_proc_call_open_slim) do `lea rcx,<gamma>; lea rdx,<omega>; jmp rax`, the s22o wire contract, and the wire-adopt box is the FIRST box of the stub blob, so rcx/rdx are still live and rsp is still the blob-entry rsp.  Reading them from the registers is THE MODEL applied: zero header, zero carve, zero prologue dependency.  Marshal order is load-bearing — rdi<-rcx and rsi<-rdx MUST precede the rdx/rcx overwrites. */
              + x86_alpha()
-             + x86("mov", "rdi", RDQ("rsp", kt - 24))
-             + x86("mov", "rsi", RDQ("rsp", kt - 16))
-             + x86("lea", "rdx", RDQ("rsp", kt))
+             + x86("mov", "rdi", "rcx")
+             + x86("mov", "rsi", "rdx")
+             + x86("lea", "rdx", RDQ("rsp", 0))
              + x86("mov", "rcx", "rbp")
              + x86_align_enter()
              + x86("call", "rt_flat_wire_adopt", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt)
