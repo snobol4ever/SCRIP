@@ -20,16 +20,12 @@ n0_var_β:
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n1_coerce_string_α:
-                        sub              rsp, 16
                         lea              rdi, [rbp + 80]
                         lea              rsi, [rbp + 64]
                         mov              rdx, 12320956
                         call             rt_coerce_str_d@PLT
-                        add              rsp, 16
                                                                                         jmp   n2_var_α
 n1_coerce_string_β:
-                        sub              rsp, 16
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
@@ -42,16 +38,12 @@ n2_var_β:
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n3_coerce_string_α:
-                        sub              rsp, 16
                         lea              rdi, [rbp + 48]
                         lea              rsi, [rbp + 32]
                         mov              rdx, 4522053
                         call             rt_coerce_str_d@PLT
-                        add              rsp, 16
                                                                                         jmp   n4_match_sequence_α
 n3_coerce_string_β:
-                        sub              rsp, 16
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:

@@ -107,16 +107,12 @@ n5_var_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n6_coerce_integer_α:
-                        sub              rsp, 16
-                        lea              rdi, [rsp + 240]
-                        lea              rsi, [rsp + 224]
+                        lea              rdi, [rsp + 224]
+                        lea              rsi, [rsp + 208]
                         mov              rdx, 10682530
                         call             rt_coerce_int_d@PLT
-                        add              rsp, 16
                                                                                         jmp   n7_match_head_α
 n6_coerce_integer_β:
-                        sub              rsp, 16
-                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n7_match_head_α:

@@ -6,11 +6,10 @@ proc_EXPR$0_α:
 proc_EXPR$0_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
-                        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1
-                        mov              dword ptr [rsp + 4], 3
+                        mov              qword ptr [rsp + 32], 1
+                        mov              dword ptr [rsp + 36], 3
                         mov              rax, qword ptr [rip + .Lx4_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 40], rax
                                                                                         jmp   n1_lit_string_α
 .Lx4_0:
                         .quad            .Lx4_0_s
@@ -18,11 +17,10 @@ n0_lit_string_α:
                         .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
-                        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1
-                        mov              dword ptr [rsp + 4], 3
+                        mov              qword ptr [rsp + 48], 1
+                        mov              dword ptr [rsp + 52], 3
                         mov              rax, qword ptr [rip + .Lx5_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 56], rax
                                                                                         jmp   n2_binop_α
 .Lx5_0:
                         .quad            .Lx5_0_s
@@ -30,20 +28,18 @@ n1_lit_string_α:
                         .string          "def"
 #-----------------------------------------------------------------------------------------------------------------------
 n2_binop_α:
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
-                        mov              rdx, qword ptr [rsp + 0]
-                        mov              rcx, qword ptr [rsp + 8]
+                        mov              rdi, qword ptr [rsp + 32]
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 48]
+                        mov              rcx, qword ptr [rsp + 56]
                         call             str_concat_d@PLT
-                        add              rsp, 16
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 16], rax
+                        mov              qword ptr [rsp + 24], rdx
                                                                                         jmp   n3_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:
-                        mov              rax, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
+                        mov              rax, qword ptr [rsp + 16]
+                        mov              rdx, qword ptr [rsp + 24]
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rdx
                                                                                         jmp   proc_EXPR$0_γ
@@ -72,17 +68,15 @@ proc_EXPR$1_α:
 proc_EXPR$1_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_var_α:
-                        sub              rsp, 16
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 16], rax
+                        mov              qword ptr [rsp + 24], rdx
                                                                                         jmp   n9_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n9_assign_α:
-                        mov              rax, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        add              rsp, 16
+                        mov              rax, qword ptr [rsp + 16]
+                        mov              rdx, qword ptr [rsp + 24]
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rdx
                                                                                         jmp   proc_EXPR$1_γ

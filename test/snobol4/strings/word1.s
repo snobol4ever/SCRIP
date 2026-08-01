@@ -20,7 +20,6 @@ n0_match_sequence_af:
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n1_match_alternate_α:
-                        sub              rsp, 32
                         mov              dword ptr [rbp + 112], r14d
                         lea              rax, [rip + .Lx11_21]
                         mov              qword ptr [rbp + 128], rax
@@ -42,10 +41,8 @@ n1_match_alternate_s1:
 .Lx11_41:
                                                                                         jmp   n2_match_lit_β
 n1_match_alternate_as:
-                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_γ
 n1_match_alternate_β:
-                        sub              rsp, 32
                         mov              rax, qword ptr [rbp + 120]
                                                                                         jmp   rax
 n1_match_alternate_af:
@@ -53,7 +50,6 @@ n1_match_alternate_af:
                         mov              rax, qword ptr [rbp + 128]
                                                                                         jmp   rax
 .Lx11_19:
-                        add              rsp, 32
                                                                                         jmp   n6_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n2_match_lit_α:

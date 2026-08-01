@@ -11,7 +11,6 @@ proc_PAT$0_α_body:
                         mov              qword ptr [rbp + 64], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n0_match_alternate_α:
-                        sub              rsp, 32
                         mov              dword ptr [rbp + 16], r14d
                         lea              rax, [rip + .Lx5_21]
                         mov              qword ptr [rbp + 32], rax
@@ -43,10 +42,8 @@ n0_match_alternate_s2:
 .Lx5_42:
                                                                                         jmp   n1_match_lit_β
 n0_match_alternate_as:
-                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_γ
 n0_match_alternate_β:
-                        sub              rsp, 32
                         mov              rax, qword ptr [rbp + 24]
                                                                                         jmp   rax
 n0_match_alternate_af:
@@ -54,7 +51,6 @@ n0_match_alternate_af:
                         mov              rax, qword ptr [rbp + 32]
                                                                                         jmp   rax
 .Lx5_19:
-                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n1_match_lit_α:
@@ -341,17 +337,13 @@ n18_match_head_β:
                                                                                         jmp   n25_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n19_match_assign_save_α:
-                        sub              rsp, 32
                         lea              rdi, [rbp + 224]
                         mov              esi, r14d
                         call             rt_cap_push@PLT
-                        add              rsp, 32
                                                                                         jmp   n20_match_patref_α
 n19_match_assign_save_β:
-                        sub              rsp, 32
                         lea              rdi, [rbp + 224]
                         call             rt_cap_pop@PLT
-                        add              rsp, 32
                                                                                         jmp   n18_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n20_match_patref_α:
