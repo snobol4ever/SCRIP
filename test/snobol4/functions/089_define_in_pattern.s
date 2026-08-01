@@ -20,12 +20,10 @@ n1_var_α:
                                                                                         jmp   n2_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_keyword_snobol4_α:
-                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx9_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 144], rax
-                        mov              qword ptr [rsp + 152], rdx
-                        add              rsp, 16
+                        mov              qword ptr [rsp + 128], rax
+                        mov              qword ptr [rsp + 136], rdx
                                                                                         jmp   n3_keyword_snobol4_α
 .Lx9_0:
                         .quad            .Lx9_0_s
@@ -33,12 +31,10 @@ n2_keyword_snobol4_α:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
 n3_keyword_snobol4_α:
-                        sub              rsp, 16
                         mov              rdi, qword ptr [rip + .Lx10_0]
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 160], rax
-                        mov              qword ptr [rsp + 168], rdx
-                        add              rsp, 16
+                        mov              qword ptr [rsp + 144], rax
+                        mov              qword ptr [rsp + 152], rdx
                                                                                         jmp   n4_call_α
 .Lx10_0:
                         .quad            .Lx10_0_s

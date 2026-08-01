@@ -143,17 +143,13 @@ n5_match_head_β:
                                                                                         jmp   n12_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_assign_save_α:
-                        sub              rsp, 32
                         lea              rdi, [rbp + 176]
                         mov              esi, r14d
                         call             rt_cap_push@PLT
-                        add              rsp, 32
                                                                                         jmp   n7_match_defer_α
 n6_match_assign_save_β:
-                        sub              rsp, 32
                         lea              rdi, [rbp + 176]
                         call             rt_cap_pop@PLT
-                        add              rsp, 32
                                                                                         jmp   n5_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n7_match_defer_α:

@@ -407,13 +407,11 @@ n33_lit_integer_α:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
 n34_unop_α:
-                        sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 288]
-                        mov              rsi, qword ptr [rsp + 296]
+                        mov              rdi, qword ptr [rsp + 272]
+                        mov              rsi, qword ptr [rsp + 280]
                         call             rt_num_neg@PLT
-                        mov              qword ptr [rsp + 272], rax
-                        mov              qword ptr [rsp + 280], rdx
-                        add              rsp, 16
+                        mov              qword ptr [rsp + 256], rax
+                        mov              qword ptr [rsp + 264], rdx
                                                                                         jmp   n35_call_α
 #-----------------------------------------------------------------------------------------------------------------------
 n35_call_α:
