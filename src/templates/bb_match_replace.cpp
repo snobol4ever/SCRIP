@@ -29,6 +29,6 @@ std::string bb_match_replace() {
          + x86("label",  LS(0))
          + x86(".string", _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
-         + IF(_.flat_deep_arrival, x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
+         + IF(_.flat_deep_arrival, x86("note", HKN(0)) + x86("mov", "rbp", FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  OBJ-NOTE ON-3 (s23e): third restore site of the same k=0 slot, named from the one HKN table with head and release. */
          + x86_gamma();
 }

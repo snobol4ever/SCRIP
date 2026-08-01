@@ -14,7 +14,7 @@ std::string bb_coerce_string() {
     if (_.op_zres)
         return x86("comment", "IR_COERCE_STRING zd")
              + x86_alpha()
-             + x86("note", ZOPAN()) + x86("lea",  "rdi", ZOPQ(0, 0))
+             + x86("note", ZOPN(0)) + x86("lea",  "rdi", ZOPQ(0, 0))
              + x86("note", ZRESN()) + x86("lea",  "rsi", ZRES(0))
              + x86("mov",  "rdx", (long)_.op_ival)
              + x86("call", "rt_coerce_str_d", (uint64_t)(uintptr_t)(void *)rt_coerce_str_d)
