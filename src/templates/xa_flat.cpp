@@ -56,8 +56,6 @@ static void xa_emit_one(const std::string & out, int site, bb_label_t * lbl, boo
  * (and hand-counting bytes is this repo's named bb_bin_t-era debt anyway). */
 static std::string xaf_push_frame(void)  { int z = x86_zr_num(); std::string c; if (z >= 8) c += (char)0x41; c += (char)(0x50 | (z & 7)); return c; }
 static std::string xaf_pop_frame(void)   { int z = x86_zr_num(); std::string c; if (z >= 8) c += (char)0x41; c += (char)(0x58 | (z & 7)); return c; }
-static std::string xaf_mov_frame_rdi(void) { int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | (7 << 3) | (z & 7)); return c; }
-static std::string xaf_mov_dreg_frame(int d) { int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00) | (d >= 8 ? 0x01 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((z & 7) << 3) | (d & 7)); return c; }
 /* ZS-2 jmp-entry fragments (Lon s58, FINDING-2026-07-14 §5-CORRECTED).  A jmp-entered blob is a NEW ACTIVATION
  * of a BB: it self-allocates on rsp (sub rsp,K_total), and its first 32 bytes are the WIRE HEADER at fixed,
  * universally-known offsets — [rsp+0] β-resume wire, [rsp+8] outside-γ wire, [rsp+16] outside-ω wire,
@@ -69,15 +67,6 @@ static std::string xaf_mov_dreg_frame(int d) { int z = x86_zr_num(); std::string
  * (flat_res_p, defined by codegen_flat_chain_body just before lbl_β) re-pins zr = rsp+32 and falls into the
  * chain's existing resume dispatch.  All fragments route through x86_zr_num() — no literal frame-register
  * bytes, same ZC_FRAME discipline as the five helpers above. */
-static std::string xaf_store_zr_rsp8(int disp8) {   /* mov [rsp+disp8], zr */
-    int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00)); c += (char)0x89; c += (char)(0x40 | ((z & 7) << 3) | 4); c += (char)0x24; c += (char)(disp8 & 0xFF); return c;
-}
-static std::string xaf_lea_zr_rsp8(int disp8) {     /* lea zr, [rsp+disp8] */
-    int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00)); c += (char)0x8D; c += (char)(0x40 | ((z & 7) << 3) | 4); c += (char)0x24; c += (char)(disp8 & 0xFF); return c;
-}
-static std::string xaf_mov_rdi_zr(void) {           /* mov rdi, zr */
-    int z = x86_zr_num(); std::string c; c += (char)(0x48 | (z >= 8 ? 0x04 : 0x00)); c += (char)0x89; c += (char)(0xC0 | ((z & 7) << 3) | 7); return c;
-}
 static std::string xaf_ld64_from_zr8(int dst, int disp8) {   /* mov dst, [zr+disp8] (disp8 may be negative — the wire header lives below the region base) */
     int z = x86_zr_num(); std::string c; uint8_t rex = 0x48; if (dst >= 8) rex |= 0x04; if (z >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B;
     int lo = z & 7; c += (char)(0x40 | ((dst & 7) << 3) | (lo == 4 ? 4 : lo)); if (lo == 4) c += (char)0x24; c += (char)(disp8 & 0xFF); return c;
@@ -148,38 +137,14 @@ static std::string xaf_addq_rsp(int imm) {   /* FLATDISP-7 (s194): add rsp, imm 
     if (imm >= -128 && imm <= 127) { std::string c = bytes(3, "\x48\x83\xC4"); c += (char)(unsigned char)imm; return c; }
     return bytes(3, "\x48\x81\xC4") + u32le((uint32_t)imm);
 }
-static std::string xaf_anchor_enter_bin(void) {
-    if (!x86_port_cstack()) return std::string();
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
-    return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x89);
-}
-static std::string xaf_anchor_enter_x86(void) {
-    if (!x86_port_cstack()) return std::string();
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
-    return x86("mov", (std::string("qword ptr [") + x86_zr() + " + " + std::to_string(xaf_anchor_off()) + "]").c_str(), "rsp");
-}   /* XA-FLAT-CONVERT: x86() twin of xaf_anchor_enter_bin — same store (anchor slot <- rsp), frame-register-agnostic via x86_zr() so ZC_FRAME_RSP and ZC_FRAME_RBP both encode correctly, and medium-invisible because the encoder switches internally. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void xaf_mark(const char * arm) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_XAF_MARK"); on = e ? (atoi(e) != 0) : 0; } if (on) fprintf(stderr, "XAFMARK %s\n", arm); }   /* XA-FLAT-CONVERT reachability instrument (s150).  KEEP: this is not debug residue, it is the measurement that decides convert-vs-delete per arm, and s150 proved it load-bearing — s149 declared four arms dead from a Prolog+Icon sweep alone and NOFILL turned out to fire 2354 times in SNOBOL4.  Env-gated, resolved once, inert by default; emit-time only, never on a runtime path.  Method: SCRIP_XAF_MARK=1 <sweep a corpus> 2>&1 | grep -o "XAFMARK [A-Z0-9_]*" | sort | uniq -c. */
-static std::string xaf_jmp_hdr_x86(void) {
-    int kt = g_emit.flat_frame_bytes;
-    return x86("sub", "rsp", (long)kt)
-         + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 24) + "]").c_str(), "rcx")
-         + x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 16) + "]").c_str(), "rdx")
-         + (emit_jmp_pin_rbp() ? x86("mov", (std::string("qword ptr [rsp + ") + std::to_string(kt - 8)  + "]").c_str(), "rbp")
-                               + x86("mov", "rbp", "rsp") : std::string());
-}   /* XA-FLAT-CONVERT slice B: x86() twin of the jmp-entry raw-byte `hdr` — HEADER ABOVE THE FRAME (outside-γ wire at kt-24, outside-ω wire at kt-16, caller rbp at kt-8), then rbp seeded to this activation's flat base.  FLATDISP-7 GATE (s194): the save+seed pair rides emit_jmp_pin_rbp — see the raw-byte hdr twin and emit.h.  Parameterless per R5 (reads g_emit, no locals leak into the arm's concat).  ⚠ THE BYTES ARE NOT THE LEGACY BYTES AND THAT IS CORRECT (R10): the legacy arm hand-encoded `sub rsp,imm32` + three disp32 stores unconditionally, while the encoder picks the as-matching imm8/disp8 short form whenever kt fits, so a small-frame blob converts SHORTER.  Byte-identity vs the legacy BINARY is therefore NOT the acceptance test here — behavioral gates are (s149 §5). */
 static int xaf_deep(void) { extern int g_flat_outer_nparams; return g_emit.flat_deep_arrival || g_flat_outer_nparams >= 1; }   /* FLATDISP-5b/5c (s193): THE one outer-frame rbp condition — every gate site (anchor-leave, prologue save+seed, epilogue reload, BOTH media) reads THIS, never the raw field, so save/seed/read/restore cannot drift apart.  The nparams conjunct: the ICNBENCH-ARGS param-0 bind stores through [rbp+16]/[rbp+24], so an outer graph taking params REQUIRES the seed even when its own kinds are depth-static — before this, the TEXT arm gated the seed on the raw field but stored through rbp unconditionally (latent, unhit only because Icon mains carry scan/gen kinds). */
 static std::string xaf_anchor_leave_bin(void) {
     if (!x86_port_cstack()) return std::string();
     if (x86_zc_frame() == ZC_FRAME_RSP && !xaf_deep()) return std::string();   /* FLATDISP-5c (s193): BINARY twin of the TEXT gate below — the bulk unwind reads the rbp seed, so a depth-static graph (which never seeded) must not emit it; LIFO balance has rsp at base already.  This line is WHY m3 held at 185 while m4 broke in s192: the TEXT arm was gated without this twin (BOTH-MEDIUM violation, recorded not hidden). */
     if (x86_zc_frame() == ZC_FRAME_RSP) return bytes(3, "\x48\x89\xEC");   /* mov rsp, rbp — ALIGN-INV-3 twin of the TEXT arm (as-form 48 89 EC); the s90 rsp-relative-read lesson lives in the TEXT arm comment */
     return xaf_frame_rsp_rm((uint32_t)xaf_anchor_off(), 0x8B);
-}
-static std::string xaf_anchor_enter_text(void) {
-    if (!x86_port_cstack()) return std::string();
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3b: RSP leaves read rbp directly; no slot reader remains — store removed, regression is the falsifier (s142 NOFILL skip at the short-suffix unroll is now a stale micro-opt if this holds) */
-    char b[160]; snprintf(b, sizeof b, "  mov qword ptr [%s + %d], rsp\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 static std::string xaf_anchor_leave_text(void) {
     if (!x86_port_cstack()) return std::string();
@@ -188,16 +153,7 @@ static std::string xaf_anchor_leave_text(void) {
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xaf_nofill(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PAT_NOFILL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* SPD-NOFILL (s139): default ON; SCRIP_PAT_NOFILL=0 restores the eager stosb (kill-switch, SCRIP_SLOT_ELIDE precedent) */
-static int xaf_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* SPD-NOFILL verification lane (emit-time twin of rt.c's lexprep2 lane): fill the SKIPPED grant span 0xA5 so any read-before-write surfaces loudly; m4 must be COMPILED with the env set for the lane to bake */
-static int xaf_slot0_elide(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SLOT0_ELIDE"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* DB-2a (R1 alpha-diet): OMIT the slot0 16B seed entirely for flat_lex=0 jmp-entry citizens.  slot0 sits at frame offset 0 = the COLDEST end of a downward carve, so for every blob with kt >= 160 it is the ONLY reason cache line 0 is touched at all (census s156: all 31 PAT$ blobs across the 5 demos touch line 0 for exactly these two stores, 2-5 lines away from the suffix/continuation cluster at the top).  Default OFF until the poison lane below proves deadness per corpus. */
-static int xaf_slot0_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SLOT0_POISON"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* DB-2a LIVENESS LANE: seed slot0 with 0xA5A5A5A5A5A5A5A5 instead of 0 so any read-before-write of the NULVCL quad surfaces loudly instead of silently consuming an implicit zero.  Strictly more aggressive than the elision it licenses (elide leaves whatever the stack held, which can COINCIDENTALLY be zero and hide a reader; poison never can), so a green poison lane is the admissible proof for flipping SCRIP_SLOT0_ELIDE on. */
-static int xaf_slot0_pad(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SLOT0_PAD"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* DB-2a CONTROL LANE: when eliding, replace the 17 removed bytes with 17 bytes of multi-byte nop so EVERY downstream byte keeps its address.  The elision removes two stores from a prologue that cannot plausibly cost 10% of wall on its own, so the raw ELIDE A/B measures (memory-touch saving + whole-blob code-layout shift) FUSED.  Padding holds layout constant, isolating the touch saving; ELIDE-vs-ELIDE+PAD then isolates the alignment artifact.  Without this control an alignment swing is indistinguishable from a real win — which is exactly how a 10% claws5 "regression" and a 6.5% treebank "gain" showed up in the same measurement. */
-static std::string xaf_slot0_seed_bin(void) { if (xaf_slot0_elide()) return xaf_slot0_pad() ? bytes(8, "\x0F\x1F\x84\x00\x00\x00\x00\x00") + bytes(8, "\x0F\x1F\x84\x00\x00\x00\x00\x00") + bytes(1, "\x90") : std::string(); uint32_t w = xaf_slot0_poison() ? 0xA5A5A5A5u : 0u; return bytes(4, "\x48\xC7\x04\x24") + u32le(w) + bytes(5, "\x48\xC7\x44\x24\x08") + u32le(w); }   /* slot0 lo+hi seed, BINARY (8+9 = 17 bytes; the pad lane replaces them with 8+8+1 nop bytes).  imm32 sign-extends to 64 bits, so the poison word lands as 0xFFFFFFFFA5A5A5A5 — the TEXT twin spells that same imm as the signed decimal -1515870811 so `as` reproduces these exact bytes (R10 medium agreement). */
-static std::string xaf_slot0_seed_text(void) { if (xaf_slot0_elide()) return xaf_slot0_pad() ? std::string("  .byte 0x0f,0x1f,0x84,0x00,0x00,0x00,0x00,0x00\n  .byte 0x0f,0x1f,0x84,0x00,0x00,0x00,0x00,0x00\n  .byte 0x90\n") : std::string(); char s[128]; snprintf(s, sizeof s, "  mov qword ptr [rsp], %s\n  mov qword ptr [rsp + 8], %s\n", xaf_slot0_poison() ? "-1515870811" : "0", xaf_slot0_poison() ? "-1515870811" : "0"); return std::string(s); }   /* slot0 lo+hi seed, TEXT twin of xaf_slot0_seed_bin — -1515870811 == (int32_t)0xA5A5A5A5, chosen so the assembler emits byte-for-byte what the BINARY arm hand-encodes; the pad lane spells the same 17 nop bytes the BINARY arm emits */
 static std::string xaf_add_rdi_imm_bin(int n) { return (n >= -128 && n <= 127) ? bytes(3, "\x48\x83\xC7") + std::string(1, (char)(unsigned char)n) : bytes(3, "\x48\x81\xC7") + u32le((uint32_t)n); }   /* add rdi, imm — as-matching short form (imm8 when it fits), byte twin of the TEXT "add rdi, N" */
-static int xaf_nofill_from(int sd, int rgn) { static int v = -2; if (v == -2) { const char *e = getenv("SCRIP_NOFILL_FROM"); v = e ? atoi(e) : -1; } if (v >= 0) { int n = v < 16 ? 16 : v; return n > rgn ? rgn : n; } return (sd >= 16 && sd < rgn) ? sd : rgn; }   /* SPD-NOFILL bisect knob: zero [FROM, region); default = seed suffix (rgn = zero nothing beyond slot0).  Diagnostic only — binary-search the offset that must stay zeroed to localize an implicit-zero consumer. */
-static std::string xaf_zero_q_rsp_bin(int off) { return (off >= 0 && off <= 127) ? bytes(4, "\x48\xC7\x44\x24") + std::string(1, (char)(unsigned char)off) + u32le(0) : bytes(4, "\x48\xC7\x84\x24") + u32le((uint32_t)off) + u32le(0); }   /* mov qword ptr [rsp + off], 0 — as-matching disp8/disp32, byte twin of the TEXT spelling */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_epilogue_str(int & out_site, bb_label_t * & out_lbl, bool & out_def, std::string * out_succ, std::string * out_fail) {
     out_site = 0; out_lbl = nullptr; out_def = false;
