@@ -30,8 +30,8 @@ std::string bb_unop() {
              + IF((int)_.op_ival == TT_PLS,        x86("call", "rt_num_pos",   (uint64_t)(uintptr_t)(void *)rt_num_pos))
              + IF((int)_.op_ival == TT_SIZE,       x86("call", "rt_size_d",    (uint64_t)(uintptr_t)(void *)rt_size_d))
              + IF((int)_.op_ival == TT_CSET_COMPL, x86("call", "rt_cset_compl",(uint64_t)(uintptr_t)(void *)rt_cset_compl))
-             + x86("mov", ZRES(0), "rax")
-             + x86("mov", ZRES(8), "rdx")
+             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline();   /* ZD-1 (Lon s21x-v): operand = the producer's suspended cell at the STAGED DIFFERENCE OF TWO DEPTHS (mode 3), result = the box's own alpha-carved cell (mode 1) -- no in-place net-zero trick, no rsp spelling, no release before gamma (the cell suspends for its consumer; omega's hook leave + op_wpop restore statement entry).  Supersedes vfcu for planner-armed nodes; the planner's whitelist is exactly this arm's op set. */
     if (PLATFORM_X86 && vfcu())

@@ -15,7 +15,7 @@ std::string bb_coerce_integer() {
         return x86("comment", "IR_COERCE_INTEGER zd")
              + x86_alpha()
              + x86("lea",  "rdi", ZOPQ(0, 0))
-             + x86("lea",  "rsi", ZRES(0))
+             + x86("note", ZRESN()) + x86("lea",  "rsi", ZRES(0))
              + x86("mov",  "rdx", (long)_.op_ival)
              + x86("call", "rt_coerce_int_d", (uint64_t)(uintptr_t)(void *)rt_coerce_int_d)
              + x86_gamma()

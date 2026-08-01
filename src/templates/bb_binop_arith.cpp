@@ -88,8 +88,8 @@ std::string bb_binop_arith() {
              + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
              + x86("cmp", "eax", (long)DT_FAIL)
              + x86_omega("je")
-             + x86("mov", ZRES(0), "rax")
-             + x86("mov", ZRES(8), "rdx")
+             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline();   /* ZD-1 (Lon s21x-v): operands are the producers' suspended cells at STAGED DIFFERENCES (mode 3; adjacency retired -- the two producers may sit at ANY depths), result is the box's own cell (mode 1), and the x86_zrelease(16) pop-shuffle is GONE: cells persist to the statement boundary where op_zgpop/op_wpop restore rsp wholesale.  The conditional omega rides the existing invert+pop synth (own K + planner wpop = statement entry). */
     return IF(vfcb() && inl_ok(),

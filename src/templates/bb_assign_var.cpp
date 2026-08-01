@@ -20,8 +20,8 @@ std::string bb_assign_var() {
              + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
              + x86("cmp",     "eax", (long)DT_FAIL)
              + x86_omega("je")
-             + x86("mov",     ZRES(0), "rax")
-             + x86("mov",     ZRES(8), "rdx")
+             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline();   /* ZD-2j: TWO operands (the :1570 mapping operands[0] -> op_a_slot -> rdi/rsi = the VARIABLE, operands[1] -> op_sa -> rdx/rcx = the VALUE), both by value at staged differences; result to the box's own cell.  Register order and the DT_FAIL omega are the legacy arm's, unchanged. */
     return IF(_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0, x86_alpha() + x86_bomb("bb_assign_var: needs own slot + variable/value operand slots"))

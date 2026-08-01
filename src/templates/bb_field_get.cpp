@@ -21,8 +21,8 @@ std::string bb_field_get() {
                    : x86("call", "dat_field_get", (uint64_t)(uintptr_t)(void *)dat_field_get))
              + x86("cmp",     "eax", "99")
              + x86_omega("je")
-             + x86("mov",     ZRES(0), "rax")
-             + x86("mov",     ZRES(8), "rdx")
+             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline()
              + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");   /* ZD-2m: the LAST value-spine member, a by-value clone of bb_deref's ZD arm with the RO field-name pointer added as the leading argument.  ONE operand -- the object -- read at its staged difference and passed in rsi/rdx as the two DESCR halves, exactly as the legacy arm passes them; the box's own cell takes the returned field.  The eax==99 omega is NOT a value-spine failure edge and must not be confused with one: it is the datatype/field mismatch guard (manual Ch.8 p.112 -- a field reference function's argument must be an object created by that prototype's creation function), and it is preserved bit-for-bit from the legacy arm.  The RO seal STAYS OUTSIDE the port bracket in both arms: it is sealed adjacent to the blob and reached [rip+disp], never through the frame, so the depth regime cannot touch it. */
