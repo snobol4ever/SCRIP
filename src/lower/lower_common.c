@@ -251,6 +251,9 @@ void bb_src_note(const IR_t * nd, const char * src) {
     if (!nd || !src || !src[0]) return;
     for (int i = 0; i < g_bb_src.n; i++) {
         if (g_bb_src.nd[i] != nd) continue;
+        { const char * h = g_bb_src.src[i]; size_t ls = strlen(src);
+          while (h) { const char * e = strchr(h, '\n'); size_t seg = e ? (size_t)(e - h) : strlen(h);
+                      if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }   /* ⭐ ON-4 (s23e, Lon's ORIGINAL s23b complaint -- "srccomment statement echoes OUT OF ORDER + DUPLICATED"): the append arm below is a legitimate accumulator (one node CAN head several statements), but it accumulated BLINDLY, so a text already present was appended AGAIN -- roman.s carried `ROMAN = REPLACE(...)` on two ADJACENT lines of the same node's blob.  Exact-segment match against the lines already held makes the note IDEMPOTENT; a genuinely distinct statement still appends.  Compares whole '\n'-delimited SEGMENTS, not strstr, so a statement that is a substring of another (`TEST(1,100)` inside a longer echo) is not swallowed. */
         size_t la = strlen(g_bb_src.src[i]);
         size_t lb = strlen(src);
         char * j = (char *) malloc(la + lb + 2);
