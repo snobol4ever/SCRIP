@@ -32,7 +32,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 13                        # lit_string
                         mov              rax, qword ptr [rip + .Lx12_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -53,12 +53,12 @@ n1_call_α:
 .Lbynamefnzd2:          .string          "define"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd2]                     # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 1                                         # nargs
+                        lea              rdi, [rip + .Lbynamefnzd2]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 1
                         call             rt_call_arr@PLT
                         add              rsp, 16
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx13_240
                         add              rsp, 16
                         add              rsp, 16
@@ -81,11 +81,11 @@ n2_call_α:
 .Lbynamefnzd3:          .string          "always_fail"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd3]                     # fn
-                        xor              esi, esi                                       # args
-                        mov              edx, 0                                         # nargs
+                        lea              rdi, [rip + .Lbynamefnzd3]
+                        xor              esi, esi
+                        mov              edx, 0
                         call             rt_call_arr@PLT
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx14_240
                         add              rsp, 16
                                                                                         jmp   n5_lit_string_α
@@ -102,7 +102,7 @@ n2_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 53                        # lit_string
                         mov              rax, qword ptr [rip + .Lx15_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -124,7 +124,7 @@ n4_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n5_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 28                        # lit_string
                         mov              rax, qword ptr [rip + .Lx17_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -150,7 +150,7 @@ n7_goto_β:
 # always_fail                                            :(freturn)
 #-----------------------------------------------------------------------------------------------------------------------
 n8_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx21_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx21_0]
                         call             rt_goto_transfer@PLT
                                                                                         jmp   .Lx21_1
 .Lx21_0:

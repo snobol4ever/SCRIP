@@ -38,7 +38,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 6                         # lit_string
                         mov              rax, qword ptr [rip + .Lx28_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -171,9 +171,9 @@ n3_match_head_β:
                         mov              r13, qword ptr [rsp + 96]
                         mov              r14, qword ptr [rsp + 104]
                         mov              r15, qword ptr [rsp + 112]
-                        mov              rdi, r13                                       # sig
-                        mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 120]                     # capgen
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
                         add              rsp, 304
                                                                                         jmp   n25_lit_string_α
@@ -247,9 +247,9 @@ n5_match_release_α:
                         mov              r13, qword ptr [rsp + 96]
                         mov              r14, qword ptr [rsp + 104]
                         mov              r15, qword ptr [rsp + 112]
-                        mov              rdi, r13                                       # sig
-                        mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 120]                     # capgen
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
                         add              rsp, 304
                                                                                         jmp   n6_var_α
@@ -269,7 +269,7 @@ n6_var_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 1                         # lit_string
                         mov              rax, qword ptr [rip + .Lx38_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -287,8 +287,8 @@ n8_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # var
                         mov              rsi, qword ptr [rsp + 40]                      # var
-                        mov              rdx, qword ptr [rsp + 16]                      # b
-                        mov              rcx, qword ptr [rsp + 24]                      # b
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             str_concat_d@PLT
                         mov              qword ptr [rsp + 0], rax                       # binop
                         mov              qword ptr [rsp + 8], rdx                       # binop
@@ -314,8 +314,8 @@ n10_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # binop
                         mov              rsi, qword ptr [rsp + 40]                      # binop
-                        mov              rdx, qword ptr [rsp + 16]                      # b
-                        mov              rcx, qword ptr [rsp + 24]                      # b
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             str_concat_d@PLT
                         mov              qword ptr [rsp + 0], rax                       # binop
                         mov              qword ptr [rsp + 8], rdx                       # binop
@@ -327,7 +327,7 @@ n10_binop_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n11_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 1                         # lit_string
                         mov              rax, qword ptr [rip + .Lx42_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -345,8 +345,8 @@ n12_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # binop
                         mov              rsi, qword ptr [rsp + 40]                      # binop
-                        mov              rdx, qword ptr [rsp + 16]                      # b
-                        mov              rcx, qword ptr [rsp + 24]                      # b
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             str_concat_d@PLT
                         mov              qword ptr [rsp + 0], rax                       # binop
                         mov              qword ptr [rsp + 8], rdx                       # binop
@@ -372,8 +372,8 @@ n14_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # binop
                         mov              rsi, qword ptr [rsp + 40]                      # binop
-                        mov              rdx, qword ptr [rsp + 16]                      # b
-                        mov              rcx, qword ptr [rsp + 24]                      # b
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             str_concat_d@PLT
                         mov              qword ptr [rsp + 0], rax                       # binop
                         mov              qword ptr [rsp + 8], rdx                       # binop
@@ -386,7 +386,7 @@ n14_binop_β:
 n15_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # binop
                         mov              rdx, qword ptr [rsp + 8]                       # binop
-                        mov              rdi, qword ptr [rip + .Lx46_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx46_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 144
                                                                                         jmp   main_γ
@@ -528,7 +528,7 @@ n24_match_assign_cond_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n25_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 4                         # lit_string
                         mov              rax, qword ptr [rip + .Lx62_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -544,7 +544,7 @@ n25_lit_string_β:
 n26_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]                       # lit_string
-                        mov              rdi, qword ptr [rip + .Lx63_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx63_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ

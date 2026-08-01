@@ -36,7 +36,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 7                         # lit_string
                         mov              rax, qword ptr [rip + .Lx34_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -57,12 +57,12 @@ n1_call_α:
 .Lbynamefnzd2:          .string          "define"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd2]                     # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 1                                         # nargs
+                        lea              rdi, [rip + .Lbynamefnzd2]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 1
                         call             rt_call_arr@PLT
                         add              rsp, 16
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx35_240
                         add              rsp, 16
                         add              rsp, 16
@@ -81,7 +81,7 @@ n1_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n2_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6                         # lit_integer
+                        mov              qword ptr [rsp + 0], 3                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n3_assign_α
@@ -105,11 +105,11 @@ n4_call_α:
 .Lbynamefnzd5:          .string          "ref_a"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd5]                     # fn
-                        xor              esi, esi                                       # args
-                        mov              edx, 0                                         # nargs
+                        lea              rdi, [rip + .Lbynamefnzd5]
+                        xor              esi, esi
+                        mov              edx, 0
                         call             rt_call_arr@PLT
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx38_240
                         add              rsp, 16
                                                                                         jmp   n9_lit_string_α
@@ -123,7 +123,7 @@ n4_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n5_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6                         # lit_integer
+                        mov              qword ptr [rsp + 0], 3                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx39_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n6_call_α
@@ -145,12 +145,12 @@ n6_call_α:
 .Lbynamefnzd7:          .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd7]                     # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 2                                         # nargs
+                        lea              rdi, [rip + .Lbynamefnzd7]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 2
                         call             rt_call_arr@PLT
                         add              rsp, 32
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx40_240
                         add              rsp, 16
                         add              rsp, 32
@@ -169,7 +169,7 @@ n6_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 39                        # lit_string
                         mov              rax, qword ptr [rip + .Lx41_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -191,7 +191,7 @@ n8_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 0                         # lit_string
                         mov              rax, qword ptr [rip + .Lx43_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -212,12 +212,12 @@ n10_call_α:
 .Lrkfnzd45:             .string          "SNO$WANTNM"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd45]                        # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 1                                         # nargs
+                        lea              rdi, [rip + .Lrkfnzd45]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 1
                         call             rt_call_arr@PLT
                         add              rsp, 16
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx44_240
                         add              rsp, 16
                         add              rsp, 16
@@ -237,11 +237,11 @@ n11_call_α:
 .Lbynamefnzd12:         .string          "ref_a"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd12]                    # fn
-                        xor              esi, esi                                       # args
-                        mov              edx, 0                                         # nargs
+                        lea              rdi, [rip + .Lbynamefnzd12]
+                        xor              esi, esi
+                        mov              edx, 0
                         call             rt_call_arr@PLT
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx46_240
                         add              rsp, 16
                         add              rsp, 32
@@ -257,7 +257,7 @@ n11_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6                         # lit_integer
+                        mov              qword ptr [rsp + 0], 3                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx47_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n13_assign_var_α
@@ -268,10 +268,10 @@ n13_assign_var_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # call
                         mov              rsi, qword ptr [rsp + 40]                      # call
-                        mov              rdx, qword ptr [rsp + 16]                      # val
-                        mov              rcx, qword ptr [rsp + 24]                      # val
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         call             rt_assign_var@PLT
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx48_240
                         add              rsp, 16
                         add              rsp, 64
@@ -294,7 +294,7 @@ n14_var_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n15_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6                         # lit_integer
+                        mov              qword ptr [rsp + 0], 3                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx50_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n16_call_α
@@ -316,12 +316,12 @@ n16_call_α:
 .Lbynamefnzd17:         .string          "differ"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd17]                    # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 2                                         # nargs
+                        lea              rdi, [rip + .Lbynamefnzd17]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 2
                         call             rt_call_arr@PLT
                         add              rsp, 32
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx51_240
                         add              rsp, 16
                         add              rsp, 32
@@ -340,7 +340,7 @@ n16_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n17_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 36                        # lit_string
                         mov              rax, qword ptr [rip + .Lx52_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -362,7 +362,7 @@ n18_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 28                        # lit_string
                         mov              rax, qword ptr [rip + .Lx54_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -384,7 +384,7 @@ n20_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n21_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 43                        # lit_string
                         mov              rax, qword ptr [rip + .Lx56_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -411,7 +411,7 @@ n23_goto_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n24_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 1                         # lit_string
                         mov              rax, qword ptr [rip + .Lx59_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -432,12 +432,12 @@ n25_call_α:
 .Lrkfnzd61:             .string          "SNO$NAME"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd61]                        # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 1                                         # nargs
+                        lea              rdi, [rip + .Lrkfnzd61]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 1
                         call             rt_call_arr@PLT
                         add              rsp, 16
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx60_240
                         add              rsp, 16
                         add              rsp, 16
@@ -459,7 +459,7 @@ n26_assign_α:
                                                                                         jmp   n27_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n27_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx64_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx64_0]
                         call             rt_goto_transfer@PLT
                                                                                         jmp   .Lx64_1
 .Lx64_0:
@@ -471,7 +471,7 @@ n27_goto_deferred_α:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n28_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx66_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx66_0]
                         call             rt_goto_transfer@PLT
                                                                                         jmp   .Lx66_1
 .Lx66_0:

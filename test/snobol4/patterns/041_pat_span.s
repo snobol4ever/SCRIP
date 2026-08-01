@@ -34,7 +34,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 8                         # lit_string
                         mov              rax, qword ptr [rip + .Lx13_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -60,6 +60,10 @@ n2_var_α:
                         mov              qword ptr [rsp + 8], 0                         # stmt_claim
                         mov              qword ptr [rsp + 16], 0                        # stmt_claim
                         mov              qword ptr [rsp + 24], 0                        # stmt_claim
+                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
+                        mov              qword ptr [rsp + 8], 0                         # stmt_claim
+                        mov              qword ptr [rsp + 16], 0                        # stmt_claim
+                        mov              qword ptr [rsp + 24], 0                        # stmt_claim
                         mov              qword ptr [rsp + 32], 0                        # stmt_claim
                         mov              qword ptr [rsp + 40], 0                        # stmt_claim
                         mov              qword ptr [rsp + 48], 0                        # stmt_claim
@@ -72,10 +76,6 @@ n2_var_α:
                         mov              qword ptr [rsp + 104], 0                       # stmt_claim
                         mov              qword ptr [rsp + 112], 0                       # stmt_claim
                         mov              qword ptr [rsp + 120], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 128], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 136], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 144], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 152], 0                       # stmt_claim
                         sub              rsp, 16
                         mov              rax, qword ptr [1879052288]                    # X
                         mov              rdx, qword ptr [1879052296]                    # X
@@ -139,9 +139,9 @@ n3_match_head_β:
                         mov              r13, qword ptr [rsp + 64]
                         mov              r14, qword ptr [rsp + 72]
                         mov              r15, qword ptr [rsp + 80]
-                        mov              rdi, r13                                       # sig
-                        mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 88]                      # capgen
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rsp + 88]
                         call             rt_match_ctx_restore@PLT
                         add              rsp, 160
                                                                                         jmp   n10_lit_string_α
@@ -279,9 +279,9 @@ n7_match_release_α:
                         mov              r13, qword ptr [rsp + 64]
                         mov              r14, qword ptr [rsp + 72]
                         mov              r15, qword ptr [rsp + 80]
-                        mov              rdi, r13                                       # sig
-                        mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 88]                      # capgen
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rsp + 88]
                         call             rt_match_ctx_restore@PLT
                         add              rsp, 160
                                                                                         jmp   n8_var_α
@@ -299,7 +299,7 @@ n8_var_α:
 n9_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # var
                         mov              rdx, qword ptr [rsp + 8]                       # var
-                        mov              rdi, qword ptr [rip + .Lx27_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx27_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ
@@ -312,7 +312,7 @@ n9_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 9                         # lit_string
                         mov              rax, qword ptr [rip + .Lx28_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -325,7 +325,7 @@ n10_lit_string_α:
 n11_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]                       # lit_string
-                        mov              rdi, qword ptr [rip + .Lx29_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx29_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ

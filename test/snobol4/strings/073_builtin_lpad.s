@@ -19,7 +19,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 2                         # lit_string
                         mov              rax, qword ptr [rip + .Lx4_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -31,7 +31,7 @@ n0_lit_string_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6                         # lit_integer
+                        mov              qword ptr [rsp + 0], 3                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx5_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n2_call_α
@@ -53,12 +53,12 @@ n2_call_α:
 .Lrkfnzd7:              .string          "LPAD"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd7]                         # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 2                                         # nargs
+                        lea              rdi, [rip + .Lrkfnzd7]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 2
                         call             rt_call_arr@PLT
                         add              rsp, 32
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx6_240
                         add              rsp, 16
                         add              rsp, 32
@@ -75,7 +75,7 @@ n2_call_β:
 n3_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call
                         mov              rdx, qword ptr [rsp + 8]                       # call
-                        mov              rdi, qword ptr [rip + .Lx8_0]                  # name
+                        mov              rdi, qword ptr [rip + .Lx8_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 48
                                                                                         jmp   main_γ

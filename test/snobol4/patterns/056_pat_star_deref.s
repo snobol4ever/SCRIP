@@ -36,7 +36,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 5                         # lit_string
                         mov              rax, qword ptr [rip + .Lx15_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -58,7 +58,7 @@ n1_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n2_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 15                        # lit_string
                         mov              rax, qword ptr [rip + .Lx17_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -86,6 +86,12 @@ n4_var_α:
                         mov              qword ptr [rsp + 24], 0                        # stmt_claim
                         mov              qword ptr [rsp + 32], 0                        # stmt_claim
                         mov              qword ptr [rsp + 40], 0                        # stmt_claim
+                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
+                        mov              qword ptr [rsp + 8], 0                         # stmt_claim
+                        mov              qword ptr [rsp + 16], 0                        # stmt_claim
+                        mov              qword ptr [rsp + 24], 0                        # stmt_claim
+                        mov              qword ptr [rsp + 32], 0                        # stmt_claim
+                        mov              qword ptr [rsp + 40], 0                        # stmt_claim
                         mov              qword ptr [rsp + 48], 0                        # stmt_claim
                         mov              qword ptr [rsp + 56], 0                        # stmt_claim
                         mov              qword ptr [rsp + 64], 0                        # stmt_claim
@@ -96,12 +102,6 @@ n4_var_α:
                         mov              qword ptr [rsp + 104], 0                       # stmt_claim
                         mov              qword ptr [rsp + 112], 0                       # stmt_claim
                         mov              qword ptr [rsp + 120], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 128], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 136], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 144], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 152], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 160], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 168], 0                       # stmt_claim
                         sub              rsp, 16
                         mov              rax, qword ptr [1879052304]                    # X
                         mov              rdx, qword ptr [1879052312]                    # X
@@ -165,33 +165,33 @@ n5_match_head_β:
                         mov              r13, qword ptr [rbp + 64]
                         mov              r14, qword ptr [rbp + 72]
                         mov              r15, qword ptr [rbp + 80]
-                        mov              rdi, r13                                       # sig
-                        mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rbp + 88]                      # capgen
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rbp + 88]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 8]
                         add              rsp, 176
                                                                                         jmp   n12_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_assign_save_α:
-                        lea              rdi, [rbp + 128]                               # slot
-                        mov              esi, r14d                                      # delta
+                        lea              rdi, [rbp + 128]
+                        mov              esi, r14d
                         call             rt_cap_push@PLT
                                                                                         jmp   n7_match_defer_α
 n6_match_assign_save_β:
-                        lea              rdi, [rbp + 128]                               # slot
+                        lea              rdi, [rbp + 128]
                         call             rt_cap_pop@PLT
                                                                                         jmp   n5_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n7_match_defer_α:
                         mov              rax, qword ptr [1879052288]                    # PAT
                         mov              rdx, qword ptr [1879052296]                    # PAT
-                        cmp              eax, 3
+                        cmp              eax, 8
                                                                                         jne   .Lx24_9
                         mov              rax, qword ptr [rdx + 0]
                         test             rax, rax
                                                                                         jne   .Lx24_10
-                        mov              rdi, rdx                                       # headv
+                        mov              rdi, rdx
                         call             dtp_fn_of@PLT
                                                                                         jmp   .Lx24_10
 .Lx24_9:
@@ -212,8 +212,8 @@ n7_match_defer_α:
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S0]                               # varname
-                        xor              esi, esi                                       # ival_flag
+                        lea              rdi, [rip + .S0]
+                        xor              esi, esi
                         call             rt_defer_open@PLT
 .Lx24_2:
                         test             rax, rax
@@ -224,14 +224,14 @@ n7_match_defer_α:
                                                                                         jmp   rax
 .Lx24_7:
                         call             rt_proc_call_epilogue_γ@PLT
-                        mov              rdi, rax                                       # fret
-                        mov              rsi, rdx                                       # fret
+                        mov              rdi, rax
+                        mov              rsi, rdx
                         call             rt_defer_step@PLT
                                                                                         jmp   .Lx24_2
 .Lx24_8:
                         call             rt_proc_call_epilogue_ω@PLT
-                        mov              rdi, rax                                       # fret
-                        mov              rsi, rdx                                       # fret
+                        mov              rdi, rax
+                        mov              rsi, rdx
                         call             rt_defer_step@PLT
                                                                                         jmp   .Lx24_2
 .Lx24_3:
@@ -239,7 +239,7 @@ n7_match_defer_α:
                         pop              r13
                         pop              r15
                         pop              r14
-                        mov              edi, r14d                                      # cur_delta
+                        mov              edi, r14d
                         call             rt_defer_close@PLT
                         test             eax, eax
                                                                                         js    n6_match_assign_save_β
@@ -255,7 +255,7 @@ n7_match_defer_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_assign_cond_α:
-                        lea              rdi, [rbp + 128]                               # slot
+                        lea              rdi, [rbp + 128]
                         call             rt_cap_top@PLT
                         lea              rcx, [rip + .S1]
                         mov              r10, qword ptr [1879048192]
@@ -328,9 +328,9 @@ n9_match_release_α:
                         mov              r13, qword ptr [rbp + 64]
                         mov              r14, qword ptr [rbp + 72]
                         mov              r15, qword ptr [rbp + 80]
-                        mov              rdi, r13                                       # sig
-                        mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rbp + 88]                      # capgen
+                        mov              rdi, r13
+                        mov              rsi, r15
+                        mov              rdx, qword ptr [rbp + 88]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 8]
                         add              rsp, 176
@@ -349,7 +349,7 @@ n10_var_α:
 n11_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # var
                         mov              rdx, qword ptr [rsp + 8]                       # var
-                        mov              rdi, qword ptr [rip + .Lx30_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx30_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ
@@ -362,7 +362,7 @@ n11_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              qword ptr [rsp + 0], 2                         # lit_string
                         mov              dword ptr [rsp + 4], 4                         # lit_string
                         mov              rax, qword ptr [rip + .Lx31_0]
                         mov              qword ptr [rsp + 8], rax                       # lit_string
@@ -375,7 +375,7 @@ n12_lit_string_α:
 n13_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]                       # lit_string
-                        mov              rdi, qword ptr [rip + .Lx32_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx32_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ
