@@ -1233,12 +1233,9 @@ int main(int argc, char **argv)
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
             /* R12-FREE-1 (Lon 2026-07-29): the r12 environment seed is DELETED -- the pend top is cell-resident at [RT_CAS_TOP]; nothing reads r12 (r12 vacated for ZC_STORAGE_FRAME_R12) */
+            /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
             emit_textf("  xor esi, esi\n");
-            emit_textf("  call main_\xce\xb1\n");
-            emit_textf("  xor eax, eax\n");
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) emit_textf("  add rsp, 24\n"); /* R12-ERAD */
-            else emit_textf("  add rsp, 65536\n  add rsp, 24\n"); /* ZS-1 */
-            emit_textf("  ret\n");
+            emit_textf("  jmp main_\xce\xb1\n");
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
@@ -1421,10 +1418,13 @@ int main(int argc, char **argv)
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
             /* R12-FREE-1 (Lon 2026-07-29): the r12 environment seed is DELETED -- the pend top is cell-resident at [RT_CAS_TOP]; nothing reads r12 (r12 vacated for ZC_STORAGE_FRAME_R12) */
+            /* ONE-SHOT BRIDGE (Lon s22p): main jmps into the graph; flat_γ / flat_ω are the two port
+             * landings defined AFTER the body by bb_glue_outer_gamma/omega (codegen_flat_chain_body).
+             * GAS resolves the forward refs.  NO call, NO ret, NO eax -- those belong to a C calling
+             * convention that no longer exists.  The graph's ports jump to the landings, which call
+             * rt_finalize and exit().  xor esi,esi = match start pos = 0. */
             emit_textf("  xor esi, esi\n");
-            emit_textf("  call flat_\xce\xb1\n");
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) emit_textf("  xor eax, eax\n  add rsp, 24\n  ret\n"); /* R12-ERAD */
-            else emit_textf("  xor eax, eax\n  add rsp, 65536\n  add rsp, 24\n  ret\n"); /* ZS-1 */
+            emit_textf("  jmp flat_\xce\xb1\n"); /* ONE-SHOT: jmp not call; no ret after the graph */
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */

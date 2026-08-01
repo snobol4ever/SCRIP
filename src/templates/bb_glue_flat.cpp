@@ -47,28 +47,35 @@ std::string bb_glue_flat_leave() {
  * entry depth on its own.  The moment the spine goes NON-POPPING (the ladder rung above this one), that ceases to be true and the WHACK belongs here: bb_glue_framed_leave() in front of the ret, which
  * discards the activation wholesale at whatever depth it actually reached.  That is the sanctioned law-4 RBP -- one frame pointer, at the one sync point, for the one job a depth-immune base is for. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* THE WHACK PREDICATE -- ONE AUTHORITY, and it is deliberately a named function returning a constant rather than an inlined `0`, so the non-popping rung has exactly ONE line to flip and `grep
- * bb_glue_outer_whack` finds every consumer.  TODAY IT IS FALSE, and the reason is measurable, not stylistic: the per-BB spine is still BALANCED (every box that carves at alpha releases at gamma/omega --
- * witness n1_assign's `add rsp, 16` against n0_lit_string's `sub rsp, 16`), so rsp at the outer gamma is already entry depth and a whack would be a second opinion about a number that is already right.
- * Under STMT_FRAME the chain-exit cuts (emit.cpp lbl_stc-gamma/omega) have ALSO already run bb_glue_framed_leave before the edge reaches here, so whacking again would pop a frame nobody pushed.
- * IT FLIPS TRUE TOGETHER WITH THE ALPHA SIDE, NEVER BEFORE IT -- a whack without a matching bb_glue_framed_enter at the outermost alpha loads the CRT caller's rbp into rsp, which is the named 058
- * disease (emit.cpp:2121 records the same trap for the first statement head).  The two edits are ONE operation, in the order enter-then-whack, exactly as CARVE-ERAD's step ordering demands. */
+/* THE WHACK PREDICATE -- ONE AUTHORITY.  TRUE NOW (s22p, one-shot bridge + non-popping flip atomic).
+ * The flip is safe because the outermost α NOW emits bb_glue_framed_enter() (emit.cpp codegen_flat_chain_body
+ * α preamble, same commit), pinning rbp to the stack base BEFORE the graph runs.  The whack (mov rsp,rbp;
+ * pop rbp) at γ/ω discards the activation WHOLESALE at whatever depth it actually reached -- no per-box pop
+ * accounting needed, no second opinion about depth.  This is the law-4 RBP: one frame pointer, at the one
+ * known sync point (graph completion / FENCE checkpoint), for the one job a depth-immune base is for.
+ * THE ORDER CONSTRAINT THAT MAKES THIS SAFE (measured, not assumed -- the 058 disease):
+ *   (1) framed_enter at outermost α  fires FIRST -- pushes rbp, seeds rbp=rsp
+ *   (2) graph body runs, rsp wanders freely (non-popping FORTH spine)
+ *   (3) framed_leave at γ/ω          fires LAST -- restores rsp=rbp, pops rbp
+ * Reversing (1)/(3) or omitting (1) while keeping (3) loads the CRT caller's rbp into rsp.
+ * emit.cpp:2121 records the same trap for the first statement head stub. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline bool bb_glue_outer_whack() { return false; }
+static inline bool bb_glue_outer_whack() { return true; }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_γ() {
+    /* ONE-SHOT BRIDGE gamma landing.  TEXT (mode-4): whack+add rsp,24+exit(0) -- no ret, no eax.
+     * BINARY (mode-3): whack+eax=1+ret back to C caller (no PLT available in JIT slab). */
     if (!PLATFORM_X86) return std::string();
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + x86("mov32", "eax", 1)
-         + x86("xor", "edx", "edx")
-         + x86("ret");
+         + IF(MEDIUM_TEXT,   x86("add", "rsp", 24) + x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
+         + IF(MEDIUM_BINARY, x86("mov32", "eax", 1) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
+    /* ONE-SHOT BRIDGE omega landing.  TEXT: exit(1).  BINARY: eax=99, ret. */
     if (!PLATFORM_X86) return std::string();
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + x86("mov32", "eax", 99)
-         + x86("xor", "edx", "edx")
-         + x86("ret");
+         + IF(MEDIUM_TEXT,   x86("add", "rsp", 24) + x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
+         + IF(MEDIUM_BINARY, x86("mov32", "eax", 99) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

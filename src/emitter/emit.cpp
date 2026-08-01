@@ -2108,6 +2108,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(&lbl_attempt);
     }
     emit_label_define_bb(&lbl_α_body);
+    { extern int g_flat_outer_nparams; if (g_flat_outer_nparams == 0 && !g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active) { g_emit.op_fc_bytes = 0; bb_emit_x86(bb_glue_framed_enter()); } }   /* ONE-SHOT BRIDGE α-side (Lon s22p, atomic with bb_glue_outer_whack=true): pin rbp=rsp for the outermost main graph ONLY -- the whack at γ/ω restores rsp to this base regardless of how deep the non-popping spine wandered.  Guard mirrors the STMT_FRAME outer-regime conjuncts: jmp-entry / pat-blob / gen / gen-proc keep their own protocols verbatim.  op_fc_bytes=0 because this is the BRACKET glue (K=0 pad, same as STMT_FRAME's head stub) not a value cell; the actual K for any per-BB cells comes from the node's own zw_node_k via op_fc_bytes at the drive choke, which runs later. */
     (void)scan_live;
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
