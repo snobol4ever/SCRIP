@@ -52,8 +52,8 @@ n2_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_integer
                         mov              rsi, qword ptr [rsp + 40]                      # lit_integer
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_integer
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx77_240
@@ -155,8 +155,8 @@ n9_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_integer
                         mov              rsi, qword ptr [rsp + 40]                      # lit_integer
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_integer
                         call             rt_sub@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx84_240
@@ -258,8 +258,8 @@ n16_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_integer
                         mov              rsi, qword ptr [rsp + 40]                      # lit_integer
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_integer
                         call             rt_mul@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx91_240
@@ -361,8 +361,8 @@ n23_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_integer
                         mov              rsi, qword ptr [rsp + 40]                      # lit_integer
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_integer
                         call             rt_div@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx98_240
@@ -464,8 +464,8 @@ n30_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_integer
                         mov              rsi, qword ptr [rsp + 40]                      # lit_integer
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_integer
                         call             rt_pow@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx105_240
@@ -570,8 +570,8 @@ n37_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_string
                         mov              rsi, qword ptr [rsp + 40]                      # lit_string
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_integer
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx112_240
@@ -676,8 +676,8 @@ n44_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_integer
                         mov              rsi, qword ptr [rsp + 40]                      # lit_integer
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_string
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_string
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx119_240
@@ -785,8 +785,8 @@ n51_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_string
                         mov              rsi, qword ptr [rsp + 40]                      # lit_string
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_string
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_string
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx126_240
@@ -891,8 +891,8 @@ n58_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_integer
                         mov              rsi, qword ptr [rsp + 40]                      # lit_integer
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdx, qword ptr [rsp + 16]                      # lit_string
+                        mov              rcx, qword ptr [rsp + 24]                      # lit_string
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx133_240
