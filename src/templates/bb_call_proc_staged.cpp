@@ -31,6 +31,7 @@ extern "C" DESCR_t g_call_args[];
 extern "C" int g_gc_pending;
 int  rt_proc_is_registered(const char *name);
 long rt_proc_call_open_slim(const char *name, int np, int nargs);
+int  rt_proc_nformals(const char *name);
 void rt_c2b_arm_trap(void);   /* CALL2BB 3b: loud abort for the slim runtime-decline landing on an fc-armed call -- the flat fallback does not exist as storage on an armed statement (correct-or-loud, FLATDISP-6 conservatism) */
 int  rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
@@ -117,7 +118,7 @@ extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsav
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
     if (x86_zc_frame() == ZC_FRAME_RSP && fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
         np = rt_proc_nparams(fname);
-        if (np >= 0 && np <= 60 && nargs <= np) {
+        if (np >= 0 && np <= 60 && nargs <= rt_proc_nformals(fname)) {   /* NPSPLIT (s22w): admission is against FORMALS (excess-arg calls fall to the classic arm, which clamps per the manual); the k<np save-set walk below stays FULL-set — np keeps the full-name meaning */
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;
             for (int k = 0; ok && k < np; k++) { const char *nm = rt_proc_pname(fname, k); int gk = nm ? gva_index_of(nm) : -1; if (gk < 0) ok = 0; else { gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; } }
             if (ok) { res_gk = gva_index_of(rn); if (res_gk < 0) ok = 0; else if (!sh) gk_out[nsave++] = res_gk; }

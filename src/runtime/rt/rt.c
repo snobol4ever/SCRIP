@@ -350,7 +350,7 @@ __attribute__((visibility("hidden"))) int rt_k_level = 1;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned;   /* rest_kind names WHAT differs about the variadic tail binding, never WHICH language asked: REST_LIST(0) = the DT_DATA list rt_make_list builds; REST_FLAT_AGG(1) = the SOH-joined flat aggregate (canonical from-slurpy-flat, List.rakumod:271) that .elems/subscripts/reductions already understand. NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate.  PS-1b (s151): zstatic = 1 iff this proc's blob graph was DEFER/VALUE-free with a known region (emit-side emit_graph_zstatic); default 0 = conservative, so an unregistered proc reads as chain-path safe. */
+    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;   /* NPSPLIT (s22w): FORMALS-ONLY bound (arg-bind / excess-clamp / dc+slim admissions); 0 = unsplit registrant, consumers fall back to nparams.  nparams KEEPS the full-name-set meaning (save/restore span, pname bound, pad loop) — SPITBOL Ch.8: ALL prototype names save+null-init, only formals bind, excess args evaluated then IGNORED.  APPENDED LAST: rtx_call.S bakes PROC_FN/PROC_NAME/PROC_ISGEN offsets (the _Static_asserts below), so this field may never move earlier. */   /* rest_kind names WHAT differs about the variadic tail binding, never WHICH language asked: REST_LIST(0) = the DT_DATA list rt_make_list builds; REST_FLAT_AGG(1) = the SOH-joined flat aggregate (canonical from-slurpy-flat, List.rakumod:271) that .elems/subscripts/reductions already understand. NCB-1d: 1 = the emitted body is a jmp-entry blob (armed by the driver proc loops, = !is_generator for table procs); 0 = call-regime body (generators, blocks/rules registered outside the loops).  The C transfer fns select the window by THIS recorded fact, never by re-deriving the emit-side predicate.  PS-1b (s151): zstatic = 1 iff this proc's blob graph was DEFER/VALUE-free with a known region (emit-side emit_graph_zstatic); default 0 = conservative, so an unregistered proc reads as chain-path safe. */
 } rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.S bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.S bakes PROC_NAME and PROC_ISGEN");
@@ -394,12 +394,12 @@ static void rt_gen_proc_grow(void) {
 void rt_proc_register(const char *name, const char **pnames, int nparams)
 {
     if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { if (pnames) g_rt_gen_procs[i].pnames = pnames; if (nparams) g_rt_gen_procs[i].nparams = nparams; g_rt_gen_procs[i].cells_done = 0; g_rt_gen_procs[i].redefined = 1; return; } }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { if (pnames) g_rt_gen_procs[i].pnames = pnames; if (nparams) g_rt_gen_procs[i].nparams = nparams; g_rt_gen_procs[i].cells_done = 0; g_rt_gen_procs[i].nformals = 0; g_rt_gen_procs[i].redefined = 1; return; } }
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_result_name(const char *name, const char *rname)
@@ -473,6 +473,19 @@ void rt_proc_set_nparams(const char *name, int nparams)
 {
     rt_proc_t *p = rt_proc_find(name);
     if (p) p->nparams = nparams;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_nformals(const char *name, int nformals)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    if (p) p->nformals = nformals;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_nformals(const char *name)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p) return -1;
+    return p->nformals > 0 ? p->nformals : p->nparams;   /* NPSPLIT (s22w): 0 = unsplit registrant -> the historical conflated bound */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_pname(const char *name, int k, const char *pname)
@@ -1076,6 +1089,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 {
     rt_proc_resolve_cells(p);
     int np = p->nparams;
+    { int nf = p->nformals > 0 ? p->nformals : np; if (nargs > nf) nargs = nf; }   /* NPSPLIT (s22w): excess actuals were already evaluated by the arg spine; binding stops at the formals per SPITBOL Ch.8 — the save_push below then null-inits every remaining name (locals included), which is the manual's locals discipline verbatim */
     const char **pn = p->pnames;
     const char *rname = p->result_name ? p->result_name : p->name;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
@@ -1151,7 +1165,7 @@ void rt_c2b_arm_trap(void) { fprintf(stderr, "FATAL: CALL2BB 3b — slim open de
 long rt_proc_call_open_slim(const char *name, int np, int nargs)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (!p || !p->fn || !p->dyn_scope || p->is_generator || p->is_variadic || p->redefined || g_call_fastpath_off || p->nparams != np || nargs > np) return 0;
+    if (!p || !p->fn || !p->dyn_scope || p->is_generator || p->is_variadic || p->redefined || g_call_fastpath_off || p->nparams != np || nargs > (p->nformals > 0 ? p->nformals : np)) return 0;   /* NPSPLIT (s22w): the nargs admission is against FORMALS; the np equality stays the emit/runtime full-set consistency check */
     rt_proc_resolve_cells(p);
     const char *rname = p->result_name ? p->result_name : p->name;
     int wn = rt_g_want_name; rt_g_want_name = 0;
@@ -1219,7 +1233,7 @@ int rt_pl_dc_ok(const char *name, int nargs)
     { int i = name ? rt_proc_hash_lookup(name) : -1;
       if (i < 0 || i >= RT_DC_FNS_MAX) return 0;
       { rt_proc_t *p = &g_rt_gen_procs[i];
-        return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && p->nparams == nargs && nargs >= 0 && nargs <= 4) ? 1 : 0; } }
+        return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && (p->nformals > 0 ? p->nformals : p->nparams) == nargs && nargs >= 0 && nargs <= 4) ? 1 : 0; } }
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long nargs, long idx)

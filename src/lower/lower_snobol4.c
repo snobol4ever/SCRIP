@@ -14,7 +14,7 @@ typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; } sprearg
 typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; } scx_t;
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
-typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; } sno_def_t;
+typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;   /* NPSPLIT (s22w): nformals = the (…) segment count alone; nnames stays the FULL save set (formals then locals, in prototype order — formals-first is load-bearing for arg index -> gk mapping in the slim install). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SNO_EXPR_MAX 4096
 static struct { const char * name; const tree_t * expr; int salt; } g_sno_exprs[SNO_EXPR_MAX];
@@ -747,6 +747,7 @@ static void sno_parse_define(const char * spec, const char * entry_opt, sno_def_
         if (*seg && d->nnames < SNO_DEF_NAMES_MAX) d->names[d->nnames++] = lp_strdup(seg);
         seg = cm ? cm + 1 : NULL;
     }
+    d->nformals = d->nnames;   /* NPSPLIT (s22w): the formals loop above just finished; everything the next loop appends is a local. */
     for (char * seg = cls + 1; seg && *seg; ) {
         char * cm = strchr(seg, ','); if (cm) *cm = 0;
         if (*seg && d->nnames < SNO_DEF_NAMES_MAX) d->names[d->nnames++] = lp_strdup(seg);
@@ -2343,6 +2344,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].proc = NULL;
         g_stage2.proc_table[fpi].entry_pc = -1;
         g_stage2.proc_table[fpi].nparams = defs[di].nnames;
+        g_stage2.proc_table[fpi].nformals = defs[di].nformals;   /* NPSPLIT (s22w): nparams stays the FULL name set (save/restore + pname + pad bounds, every existing consumer); this new scalar is the arg boundary alone. */
         for (int k = 0; k < defs[di].nnames && k < STAGE2_FRAME_SLOT_MAX; k++) g_stage2.proc_table[fpi].lower_sc.e[k].name = defs[di].names[k];
         g_stage2.proc_table[fpi].lower_sc.n = defs[di].nnames < STAGE2_FRAME_SLOT_MAX ? defs[di].nnames : STAGE2_FRAME_SLOT_MAX;
         g_stage2.proc_table[fpi].is_generator = 0;
