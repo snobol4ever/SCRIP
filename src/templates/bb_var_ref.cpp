@@ -19,7 +19,7 @@ std::string bb_var_ref() {
              + x86_alpha()
              + x86("mov", "rax", (long)0x100000009L)
              + (_.op_gva_k >= 0
-                 ? x86("mov", "rdx", (long)(RT_GVA_VA + _.op_gva_k * 16))
+                 ? x86("note", gva_name(_.op_gva_k)) + x86("mov", "rdx", (long)(RT_GVA_VA + _.op_gva_k * 16))
                  : x86("lea", "rdx", FRQ(_.op_sa)))
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")

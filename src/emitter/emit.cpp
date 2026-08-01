@@ -44,6 +44,7 @@ void emit_label_pool_reset(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * flat_label_kind(IR_e op) { const char * n = bb_op_name(op); static char b[48]; int j = 0; if (n && n[0] == 'I' && n[1] == 'R' && n[2] == '_') n += 3; if (!n) { snprintf(b, sizeof b, "op%d", (int)op); return b; } for (; n[j] && j < 47; j++) b[j] = (n[j] >= 'A' && n[j] <= 'Z') ? (char)(n[j] - 'A' + 'a') : n[j]; b[j] = 0; return b; }
+extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_alloc(const char *fmt, ...)
 {
