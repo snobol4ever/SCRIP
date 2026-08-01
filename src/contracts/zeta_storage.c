@@ -316,6 +316,8 @@ static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int
  * zls_build after steering layout alone.  Persisting it on the entry lets the EMITTER ask, so a box whose result no one reads can also skip WRITING it.  Conservative by construction: unknown node -> 1. */
 int zls_result_live(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; return e ? e->live : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zls_node_off(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; return e ? e->off : -0x40000000; }   /* UCLAIM (wholesale flip, Lon directive): the node's flat-plan base offset, the owner-table key for the ONE execution-order offset resolver in emit.cpp -- sentinel -0x40000000 = no plan entry, no claim, resolver never consults it. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_scope_new(int parent, int klass, const char * name) {
     if (zs_n >= ZLS_MAX_SCOPES) { fprintf(stderr, "zls: scope table overflow (%d)\n", ZLS_MAX_SCOPES); abort(); }
     zs[zs_n] = (zls_scope_t){ zs_n, parent, klass, name, -1, 0, 0x7fffffff, 0 };
