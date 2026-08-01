@@ -62,6 +62,34 @@ n1_assign_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
                         sub              rsp, 224
+                        mov              qword ptr [rsp + 0], 0
+                        mov              qword ptr [rsp + 8], 0
+                        mov              qword ptr [rsp + 16], 0
+                        mov              qword ptr [rsp + 24], 0
+                        mov              qword ptr [rsp + 32], 0
+                        mov              qword ptr [rsp + 40], 0
+                        mov              qword ptr [rsp + 48], 0
+                        mov              qword ptr [rsp + 56], 0
+                        mov              qword ptr [rsp + 64], 0
+                        mov              qword ptr [rsp + 72], 0
+                        mov              qword ptr [rsp + 80], 0
+                        mov              qword ptr [rsp + 88], 0
+                        mov              qword ptr [rsp + 96], 0
+                        mov              qword ptr [rsp + 104], 0
+                        mov              qword ptr [rsp + 112], 0
+                        mov              qword ptr [rsp + 120], 0
+                        mov              qword ptr [rsp + 128], 0
+                        mov              qword ptr [rsp + 136], 0
+                        mov              qword ptr [rsp + 144], 0
+                        mov              qword ptr [rsp + 152], 0
+                        mov              qword ptr [rsp + 160], 0
+                        mov              qword ptr [rsp + 168], 0
+                        mov              qword ptr [rsp + 176], 0
+                        mov              qword ptr [rsp + 184], 0
+                        mov              qword ptr [rsp + 192], 0
+                        mov              qword ptr [rsp + 200], 0
+                        mov              qword ptr [rsp + 208], 0
+                        mov              qword ptr [rsp + 216], 0
                         sub              rsp, 16
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
@@ -145,21 +173,21 @@ n4_match_assign_save_β:
                                                                                         jmp   n3_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_alternate_α:
-                        mov              dword ptr [rsp + 224], r14d
+                        mov              dword ptr [rsp + 176], r14d
                         lea              rax, [rip + .Lx23_21]
-                        mov              qword ptr [rsp + 240], rax
+                        mov              qword ptr [rsp + 192], rax
                                                                                         jmp   n11_match_lit_α
 .Lx23_21:
                         lea              rax, [rip + .Lx23_19]
-                        mov              qword ptr [rsp + 240], rax
+                        mov              qword ptr [rsp + 192], rax
                                                                                         jmp   n10_match_lit_α
 n5_match_alternate_s0:
                         lea              rax, [rip + .Lx23_40]
-                        mov              qword ptr [rsp + 232], rax
+                        mov              qword ptr [rsp + 184], rax
                                                                                         jmp   n5_match_alternate_as
 n5_match_alternate_s1:
                         lea              rax, [rip + .Lx23_41]
-                        mov              qword ptr [rsp + 232], rax
+                        mov              qword ptr [rsp + 184], rax
                                                                                         jmp   n5_match_alternate_as
 .Lx23_40:
                                                                                         jmp   n11_match_lit_β
@@ -168,11 +196,11 @@ n5_match_alternate_s1:
 n5_match_alternate_as:
                                                                                         jmp   n6_match_assign_cond_α
 n5_match_alternate_β:
-                        mov              rax, qword ptr [rsp + 232]
+                        mov              rax, qword ptr [rsp + 184]
                                                                                         jmp   rax
 n5_match_alternate_af:
-                        mov              r14d, dword ptr [rsp + 224]
-                        mov              rax, qword ptr [rsp + 240]
+                        mov              r14d, dword ptr [rsp + 176]
+                        mov              rax, qword ptr [rsp + 192]
                                                                                         jmp   rax
 .Lx23_19:
                                                                                         jmp   n4_match_assign_save_β
