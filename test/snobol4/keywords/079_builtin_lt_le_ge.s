@@ -19,25 +19,25 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 0], 6                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx24_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n1_lit_integer_α
 .Lx24_0:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 0], 6                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx25_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n2_coerce_numeric_α
 .Lx25_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n2_coerce_numeric_α:
                         sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 32]                      # lit_integer
                         cmp              eax, 7
                                                                                         je    .Lx27_1
                         cmp              eax, 6
@@ -46,22 +46,22 @@ n2_coerce_numeric_α:
                         cmp              eax, 6
                                                                                         jne   .Lx27_0
 .Lx27_1:
-                        mov              rax, qword ptr [rsp + 32]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              rax, qword ptr [rsp + 32]                      # lit_integer
+                        mov              qword ptr [rsp + 0], rax                       # coerce_numeric
+                        mov              rax, qword ptr [rsp + 40]                      # lit_integer
+                        mov              qword ptr [rsp + 8], rax                       # coerce_numeric
                                                                                         jmp   n3_coerce_numeric_α
 .Lx27_0:
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, 147
+                        lea              rdi, [rsp + 32]                                # lit_integer
+                        lea              rsi, [rsp + 16]                                # other
+                        lea              rdx, [rsp + 0]                                 # coerce_numeric
+                        mov              rcx, 147                                       # codes
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n3_coerce_numeric_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_coerce_numeric_α:
                         sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 32]                      # lit_integer
                         cmp              eax, 7
                                                                                         je    .Lx29_1
                         cmp              eax, 6
@@ -70,23 +70,23 @@ n3_coerce_numeric_α:
                         cmp              eax, 6
                                                                                         jne   .Lx29_0
 .Lx29_1:
-                        mov              rax, qword ptr [rsp + 32]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              rax, qword ptr [rsp + 32]                      # lit_integer
+                        mov              qword ptr [rsp + 0], rax                       # coerce_numeric
+                        mov              rax, qword ptr [rsp + 40]                      # lit_integer
+                        mov              qword ptr [rsp + 8], rax                       # coerce_numeric
                                                                                         jmp   n4_cmp_test_α
 .Lx29_0:
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 48]
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, 148
+                        lea              rdi, [rsp + 32]                                # lit_integer
+                        lea              rsi, [rsp + 48]                                # other
+                        lea              rdx, [rsp + 0]                                 # coerce_numeric
+                        mov              rcx, 148                                       # codes
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n4_cmp_test_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_cmp_test_α:
                         sub              rsp, 16
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
+                        lea              rdi, [rsp + 32]                                # coerce_numeric
+                        lea              rsi, [rsp + 16]                                # b
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         js    .Lx31_240
@@ -101,10 +101,10 @@ n4_cmp_test_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n5_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1
-                        mov              dword ptr [rsp + 4], 5
+                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              dword ptr [rsp + 4], 5                         # lit_string
                         mov              rax, qword ptr [rip + .Lx32_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_string
                                                                                         jmp   n6_assign_α
 .Lx32_0:
                         .quad            .Lx32_0_s
@@ -112,9 +112,9 @@ n5_lit_string_α:
                         .string          "3 < 5"
 #-----------------------------------------------------------------------------------------------------------------------
 n6_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx33_0]
+                        mov              rsi, qword ptr [rsp + 0]                       # lit_string
+                        mov              rdx, qword ptr [rsp + 8]                       # lit_string
+                        mov              rdi, qword ptr [rip + .Lx33_0]                 # name
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   n7_lit_integer_α
@@ -127,25 +127,25 @@ n6_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 0], 6                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx34_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n8_lit_integer_α
 .Lx34_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 0], 6                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx35_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n9_coerce_numeric_α
 .Lx35_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n9_coerce_numeric_α:
                         sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 32]                      # lit_integer
                         cmp              eax, 7
                                                                                         je    .Lx37_1
                         cmp              eax, 6
@@ -154,22 +154,22 @@ n9_coerce_numeric_α:
                         cmp              eax, 6
                                                                                         jne   .Lx37_0
 .Lx37_1:
-                        mov              rax, qword ptr [rsp + 32]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              rax, qword ptr [rsp + 32]                      # lit_integer
+                        mov              qword ptr [rsp + 0], rax                       # coerce_numeric
+                        mov              rax, qword ptr [rsp + 40]                      # lit_integer
+                        mov              qword ptr [rsp + 8], rax                       # coerce_numeric
                                                                                         jmp   n10_coerce_numeric_α
 .Lx37_0:
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, 118
+                        lea              rdi, [rsp + 32]                                # lit_integer
+                        lea              rsi, [rsp + 16]                                # other
+                        lea              rdx, [rsp + 0]                                 # coerce_numeric
+                        mov              rcx, 118                                       # codes
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n10_coerce_numeric_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_coerce_numeric_α:
                         sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 32]                      # lit_integer
                         cmp              eax, 7
                                                                                         je    .Lx39_1
                         cmp              eax, 6
@@ -178,23 +178,23 @@ n10_coerce_numeric_α:
                         cmp              eax, 6
                                                                                         jne   .Lx39_0
 .Lx39_1:
-                        mov              rax, qword ptr [rsp + 32]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              rax, qword ptr [rsp + 32]                      # lit_integer
+                        mov              qword ptr [rsp + 0], rax                       # coerce_numeric
+                        mov              rax, qword ptr [rsp + 40]                      # lit_integer
+                        mov              qword ptr [rsp + 8], rax                       # coerce_numeric
                                                                                         jmp   n11_cmp_test_α
 .Lx39_0:
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 48]
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, 119
+                        lea              rdi, [rsp + 32]                                # lit_integer
+                        lea              rsi, [rsp + 48]                                # other
+                        lea              rdx, [rsp + 0]                                 # coerce_numeric
+                        mov              rcx, 119                                       # codes
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n11_cmp_test_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_cmp_test_α:
                         sub              rsp, 16
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
+                        lea              rdi, [rsp + 32]                                # coerce_numeric
+                        lea              rsi, [rsp + 16]                                # b
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         jle   .Lx41_240
@@ -209,10 +209,10 @@ n11_cmp_test_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1
-                        mov              dword ptr [rsp + 4], 6
+                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              dword ptr [rsp + 4], 6                         # lit_string
                         mov              rax, qword ptr [rip + .Lx42_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_string
                                                                                         jmp   n13_assign_α
 .Lx42_0:
                         .quad            .Lx42_0_s
@@ -220,9 +220,9 @@ n12_lit_string_α:
                         .string          "5 <= 5"
 #-----------------------------------------------------------------------------------------------------------------------
 n13_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx43_0]
+                        mov              rsi, qword ptr [rsp + 0]                       # lit_string
+                        mov              rdx, qword ptr [rsp + 8]                       # lit_string
+                        mov              rdi, qword ptr [rip + .Lx43_0]                 # name
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   n14_lit_integer_α
@@ -235,25 +235,25 @@ n13_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n14_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 0], 6                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx44_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n15_lit_integer_α
 .Lx44_0:
                         .quad            7
 #-----------------------------------------------------------------------------------------------------------------------
 n15_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 0], 6                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx45_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n16_coerce_numeric_α
 .Lx45_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n16_coerce_numeric_α:
                         sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 32]                      # lit_integer
                         cmp              eax, 7
                                                                                         je    .Lx47_1
                         cmp              eax, 6
@@ -262,22 +262,22 @@ n16_coerce_numeric_α:
                         cmp              eax, 6
                                                                                         jne   .Lx47_0
 .Lx47_1:
-                        mov              rax, qword ptr [rsp + 32]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              rax, qword ptr [rsp + 32]                      # lit_integer
+                        mov              qword ptr [rsp + 0], rax                       # coerce_numeric
+                        mov              rax, qword ptr [rsp + 40]                      # lit_integer
+                        mov              qword ptr [rsp + 8], rax                       # coerce_numeric
                                                                                         jmp   n17_coerce_numeric_α
 .Lx47_0:
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, 109
+                        lea              rdi, [rsp + 32]                                # lit_integer
+                        lea              rsi, [rsp + 16]                                # other
+                        lea              rdx, [rsp + 0]                                 # coerce_numeric
+                        mov              rcx, 109                                       # codes
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n17_coerce_numeric_α
 #-----------------------------------------------------------------------------------------------------------------------
 n17_coerce_numeric_α:
                         sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]
+                        mov              eax, dword ptr [rsp + 32]                      # lit_integer
                         cmp              eax, 7
                                                                                         je    .Lx49_1
                         cmp              eax, 6
@@ -286,23 +286,23 @@ n17_coerce_numeric_α:
                         cmp              eax, 6
                                                                                         jne   .Lx49_0
 .Lx49_1:
-                        mov              rax, qword ptr [rsp + 32]
-                        mov              qword ptr [rsp + 0], rax
-                        mov              rax, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              rax, qword ptr [rsp + 32]                      # lit_integer
+                        mov              qword ptr [rsp + 0], rax                       # coerce_numeric
+                        mov              rax, qword ptr [rsp + 40]                      # lit_integer
+                        mov              qword ptr [rsp + 8], rax                       # coerce_numeric
                                                                                         jmp   n18_cmp_test_α
 .Lx49_0:
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 48]
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, 110
+                        lea              rdi, [rsp + 32]                                # lit_integer
+                        lea              rsi, [rsp + 48]                                # other
+                        lea              rdx, [rsp + 0]                                 # coerce_numeric
+                        mov              rcx, 110                                       # codes
                         call             rt_coerce_num2_d@PLT
                                                                                         jmp   n18_cmp_test_α
 #-----------------------------------------------------------------------------------------------------------------------
 n18_cmp_test_α:
                         sub              rsp, 16
-                        lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
+                        lea              rdi, [rsp + 32]                                # coerce_numeric
+                        lea              rsi, [rsp + 16]                                # b
                         call             rt_cmp_d@PLT
                         test             eax, eax
                                                                                         jns   .Lx51_240
@@ -317,10 +317,10 @@ n18_cmp_test_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1
-                        mov              dword ptr [rsp + 4], 6
+                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              dword ptr [rsp + 4], 6                         # lit_string
                         mov              rax, qword ptr [rip + .Lx52_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_string
                                                                                         jmp   n20_assign_α
 .Lx52_0:
                         .quad            .Lx52_0_s
@@ -328,9 +328,9 @@ n19_lit_string_α:
                         .string          "7 >= 5"
 #-----------------------------------------------------------------------------------------------------------------------
 n20_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx53_0]
+                        mov              rsi, qword ptr [rsp + 0]                       # lit_string
+                        mov              rdx, qword ptr [rsp + 8]                       # lit_string
+                        mov              rdi, qword ptr [rip + .Lx53_0]                 # name
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ
