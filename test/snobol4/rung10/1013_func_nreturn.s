@@ -91,8 +91,8 @@ n2_lit_integer_α:
 n3_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052304], rax
-                        mov              qword ptr [1879052312], rdx
+                        mov              qword ptr [1879052304], rax                    # a
+                        mov              qword ptr [1879052312], rdx                    # a
                         add              rsp, 16
                                                                                         jmp   n4_call_α
 #=======================================================================================================================
@@ -182,8 +182,8 @@ n7_lit_string_α:
 n8_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052320], rax
-                        mov              qword ptr [1879052328], rdx
+                        mov              qword ptr [1879052320], rax                    # output
+                        mov              qword ptr [1879052328], rdx                    # output
                         add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
@@ -286,8 +286,8 @@ n13_assign_var_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n14_var_α:
                         sub              rsp, 16
-                        mov              rax, qword ptr [1879052304]
-                        mov              rdx, qword ptr [1879052312]
+                        mov              rax, qword ptr [1879052304]                    # a
+                        mov              rdx, qword ptr [1879052312]                    # a
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n15_lit_integer_α
@@ -353,8 +353,8 @@ n17_lit_string_α:
 n18_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052320], rax
-                        mov              qword ptr [1879052328], rdx
+                        mov              qword ptr [1879052320], rax                    # output
+                        mov              qword ptr [1879052328], rdx                    # output
                         add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
@@ -375,8 +375,8 @@ n19_lit_string_α:
 n20_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052320], rax
-                        mov              qword ptr [1879052328], rdx
+                        mov              qword ptr [1879052320], rax                    # output
+                        mov              qword ptr [1879052328], rdx                    # output
                         add              rsp, 16
                                                                                         jmp   main_γ
 #=======================================================================================================================
@@ -397,8 +397,8 @@ n21_lit_string_α:
 n22_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052320], rax
-                        mov              qword ptr [1879052328], rdx
+                        mov              qword ptr [1879052320], rax                    # output
+                        mov              qword ptr [1879052328], rdx                    # output
                         add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
@@ -454,8 +454,8 @@ n25_call_β:
 n26_assign_α:
                         mov              rax, qword ptr [rsp + 0]
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [1879052288], rax
-                        mov              qword ptr [1879052296], rdx
+                        mov              qword ptr [1879052288], rax                    # ref_a
+                        mov              qword ptr [1879052296], rdx                    # ref_a
                                                                                         jmp   n27_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n27_goto_deferred_α:
