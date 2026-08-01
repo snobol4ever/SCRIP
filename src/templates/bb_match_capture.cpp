@@ -109,11 +109,8 @@ std::string bb_match_capture() {
            /* REG-6 (was REG-2): no mirror-out — r12 IS the live top, inherited callee-saved by any nested
             * match a *VAR body runs, so its head reads the true top directly. */
            + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-           + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("push", x86_zr()) + x86("sub",  "rsp", 8L))
-           + x86_lea_id("rcx", 2)
-           + x86_lea_id("rdx", 3)
-           + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("mov",  x86_zr(), "rsp"))
-           + x86_jmp_reg("rax")
+           + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("push", x86_zr()) + x86("sub",  "rsp", 8L) + x86("mov",  x86_zr(), "rsp"))
+           + bb_glue_pass_wires(2, 3)   /* GLUE-SYM (s22x): dormant legacy anchor hoisted above the glue (lea rcx/rdx touch neither rsp nor zr); byte-identical at the ZC_FRAME_RSP default */
            + x86("def",  L(2))
            + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("mov",  "rax", "rsp")
                + x86("mov",  "rax", RDQ("rax", 8))
