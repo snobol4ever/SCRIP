@@ -1850,6 +1850,8 @@ std::string bb_glue_flat_enter();
 std::string bb_glue_flat_leave();
 std::string bb_glue_framed_enter();
 std::string bb_glue_framed_leave();
+std::string bb_glue_outer_γ();
+std::string bb_glue_outer_ω();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_port_hook(int site, int port) {
     std::string s;

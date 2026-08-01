@@ -39,3 +39,36 @@ std::string bb_glue_flat_leave() {
     return IF(x86_zstorage() == ZC_STORAGE_CELL_STACK && _.op_fc_bytes > 0, x86("add", "rsp", _.op_fc_bytes));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* OUTER-EXIT-1 (Lon directive s22p: "the gamma/omega landings ... belong to the OUTERMOST BOX's own ports and to the dynamic glue, never to a graph-level epilogue").  These two are what the deleted
+ * xa_flat_epilogue was ACTUALLY for in the ordinary case, stripped of the five regimes that were only ever co-tenants in its if/else chain: the outermost box is CALLed by main (xa_file_header emits
+ * `call main_alpha`), so its two ports are RETURNS, and the whole protocol is the eax code the caller reads -- 1 = the chain succeeded, 99 = it failed.  edx is zeroed as the omega/value wire per the
+ * s22o wire contract (rcx = gamma-return, rdx = omega-return): a determinate outer chain carries no result out, so the wire ships NULL rather than whatever the last box left in the register.
+ * NO STACK MOTION HERE BY DESIGN.  There is no prologue any more, so the outermost box carved nothing at alpha and there is nothing to release at gamma/omega -- the balanced per-BB spine returns rsp to
+ * entry depth on its own.  The moment the spine goes NON-POPPING (the ladder rung above this one), that ceases to be true and the WHACK belongs here: bb_glue_framed_leave() in front of the ret, which
+ * discards the activation wholesale at whatever depth it actually reached.  That is the sanctioned law-4 RBP -- one frame pointer, at the one sync point, for the one job a depth-immune base is for. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* THE WHACK PREDICATE -- ONE AUTHORITY, and it is deliberately a named function returning a constant rather than an inlined `0`, so the non-popping rung has exactly ONE line to flip and `grep
+ * bb_glue_outer_whack` finds every consumer.  TODAY IT IS FALSE, and the reason is measurable, not stylistic: the per-BB spine is still BALANCED (every box that carves at alpha releases at gamma/omega --
+ * witness n1_assign's `add rsp, 16` against n0_lit_string's `sub rsp, 16`), so rsp at the outer gamma is already entry depth and a whack would be a second opinion about a number that is already right.
+ * Under STMT_FRAME the chain-exit cuts (emit.cpp lbl_stc-gamma/omega) have ALSO already run bb_glue_framed_leave before the edge reaches here, so whacking again would pop a frame nobody pushed.
+ * IT FLIPS TRUE TOGETHER WITH THE ALPHA SIDE, NEVER BEFORE IT -- a whack without a matching bb_glue_framed_enter at the outermost alpha loads the CRT caller's rbp into rsp, which is the named 058
+ * disease (emit.cpp:2121 records the same trap for the first statement head).  The two edits are ONE operation, in the order enter-then-whack, exactly as CARVE-ERAD's step ordering demands. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline bool bb_glue_outer_whack() { return false; }
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_outer_γ() {
+    if (!PLATFORM_X86) return std::string();
+    return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
+         + x86("mov32", "eax", 1)
+         + x86("xor", "edx", "edx")
+         + x86("ret");
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_outer_ω() {
+    if (!PLATFORM_X86) return std::string();
+    return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
+         + x86("mov32", "eax", 99)
+         + x86("xor", "edx", "edx")
+         + x86("ret");
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
