@@ -829,6 +829,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1147,6 +1148,10 @@ int main(int argc, char **argv)
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                     emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
                     emit_textf("  call rt_proc_set_nparams@PLT\n");
+                    { int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w): m4 startup mirrors the direct m3 registration — 0 for unsplit frontends, runtime falls back */
+                      emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                      emit_textf("  mov esi, %d\n", _nf);
+                      emit_textf("  call rt_proc_set_nformals@PLT\n"); }
                     { int _pi2 = proc_pidx_buf[i];
                       if (is_raku && _pi2 >= 0 && _pi2 < s2->proc_count) { ProcEntry *_pe = &s2->proc_table[_pi2];
                         if (!_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
@@ -1298,6 +1303,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1330,6 +1336,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
@@ -1362,6 +1369,9 @@ int main(int argc, char **argv)
                     emit_textf("  lea rsi, [rip + .Lpnames%d]\n", i);
                     emit_textf("  mov edx, %d\n", pe->nparams);
                     emit_textf("  call rt_proc_register@PLT\n");
+                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);   /* NPSPLIT (s22w) */
+                    emit_textf("  mov esi, %d\n", pe->nformals);
+                    emit_textf("  call rt_proc_set_nformals@PLT\n");
                     emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
                     emit_textf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(pe->name));
                     emit_textf("  call rt_proc_set_fn@PLT\n");
@@ -1493,6 +1503,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1610,6 +1621,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1627,6 +1639,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
