@@ -20,8 +20,8 @@ std::string bb_subscript() {
                  + x86("call",    "rt_subscript_var", (uint64_t)(uintptr_t)(void *)rt_subscript_var)
                  + x86("cmp",     "eax", (long)DT_FAIL)
                  + x86_omega("je")
-                 + x86("mov",     ZRES(0), "rax")
-                 + x86("mov",     ZRES(8), "rdx")
+                 + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+                 + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
                  + x86_gamma()
                  + x86_beta_trampoline();   /* ZD-2f: operand 0 is the base aggregate and operand 1 the index (the :1537 mapping vb->op_a_slot, vi->op_sa -- same register order as the legacy arm), both by VALUE at staged differences; result to the box's own cell.  The DT_FAIL omega is GENUINE and load-bearing, not defensive: an out-of-bounds subscript FAILS rather than erroring, and SPITBOL documents looping until an array reference fails as the idiomatic traversal (manual Ch.7, arrays) -- so this edge is a language contract and must never be optimized into an error path.  ⛔ ARMED ONLY FOR n_operands==2: the dispatch at emit.cpp:992 routes 2-operand IR_SUBSCRIPT here and everything else to bb_section, which has NO ZD arm. */
         return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0)

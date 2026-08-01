@@ -312,8 +312,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
         s += x86("cmp", "eax", (long)99);
         s += x86_omega("je");
-        s += x86("mov", ZRES(0), "rax");
-        s += x86("mov", ZRES(8), "rdx");
+        s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
+        s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
