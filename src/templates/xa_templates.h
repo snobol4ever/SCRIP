@@ -10,7 +10,6 @@ void xa_file_header           (void);
 void xa_file_footer           (void);
 void xa_bb_ptr_slot           (void);
 void xa_entry_dispatch        (void);
-void xa_flat_prologue         (void);
 void xa_flat_epilogue         (void);
 void xa_flat_data_section     (void);
 void xa_prologue              (void);
