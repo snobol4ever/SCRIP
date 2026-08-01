@@ -80,22 +80,25 @@ n3_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n4_var_α:
                         sub              rsp, 176
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 160], rax
-                        mov              qword ptr [rsp + 168], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n5_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_head_α:
+                        mov              rdi, qword ptr [rsp + 0]
+                        mov              rsi, qword ptr [rsp + 8]
+                        add              rsp, 16
+                        mov              qword ptr [rsp + 104], rbp
+                        mov              rbp, rsp
                         mov              qword ptr [rbp + 112], r13
                         mov              qword ptr [rbp + 120], r14
                         mov              qword ptr [rbp + 128], r15
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rbp + 136], rax
-                        mov              qword ptr [rbp + 104], rbp
-                        mov              rdi, qword ptr [rbp + 208]
-                        mov              rsi, qword ptr [rbp + 216]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx

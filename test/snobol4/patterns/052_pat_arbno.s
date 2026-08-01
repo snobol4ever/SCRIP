@@ -62,25 +62,29 @@ n1_assign_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
                         sub              rsp, 304
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 288], rax
-                        mov              qword ptr [rsp + 296], rdx
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n3_match_head_α
 n2_var_β:
+                        add              rsp, 16
                         add              rsp, 304
                                                                                         jmp   n16_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
+                        mov              rdi, qword ptr [rsp + 0]
+                        mov              rsi, qword ptr [rsp + 8]
+                        add              rsp, 16
+                        mov              qword ptr [rsp + 88], rbp
+                        mov              rbp, rsp
                         mov              qword ptr [rbp + 96], r13
                         mov              qword ptr [rbp + 104], r14
                         mov              qword ptr [rbp + 112], r15
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rbp + 120], rax
-                        mov              qword ptr [rbp + 88], rbp
-                        mov              rdi, qword ptr [rbp + 288]
-                        mov              rsi, qword ptr [rbp + 296]
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
