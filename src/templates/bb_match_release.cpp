@@ -75,7 +75,7 @@ static std::string release_pump() {
          + x86("mov", "rsi", "r15")
          + x86("mov", "rdx", stfh() ? HKQ(4) : FRQ(_.op_off + 72))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror */
-         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save */
+         + IF(_.op_dval == 0.0 && _.flat_deep_arrival && !_.op_stmt_pin, x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead -- see bb_match_head's twin gate for the measured reason. */
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
