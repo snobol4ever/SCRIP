@@ -24,8 +24,8 @@ std::string bb_assign_global() {
         return IF(g_gva_active && _.op_gva_k >= 0,
                   x86("comment", "IR_ASSIGN gva zd")
                 + x86_alpha()
-                + x86("mov", "rax", ZOPQ(0, 0))
-                + x86("mov", "rdx", ZOPQ(0, 8))
+                + x86("note", ZOPAN()) + x86("mov", "rax", ZOPQ(0, 0))
+                + x86("note", ZOPAN()) + x86("mov", "rdx", ZOPQ(0, 8))
                 + x86("note", gva_name(_.op_gva_k)) + x86("mov", ABSQ(RT_GVA_VA + _.op_gva_k * 16),     "rax")
                 + x86("note", gva_name(_.op_gva_k)) + x86("mov", ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8), "rdx")
                 + x86_gamma()
@@ -33,8 +33,8 @@ std::string bb_assign_global() {
              + IF(!(g_gva_active && _.op_gva_k >= 0),
                   x86("comment", "IR_ASSIGN global zd")
                 + x86_alpha()
-                + x86("mov", "rsi", ZOPQ(0, 0))
-                + x86("mov", "rdx", ZOPQ(0, 8))
+                + x86("note", ZOPAN()) + x86("mov", "rsi", ZOPQ(0, 0))
+                + x86("note", ZOPAN()) + x86("mov", "rdx", ZOPQ(0, 8))
                 + x86("mov", "rdi", ROQ(0))
                 + x86("call", "NV_SET_fn", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(const char *, DESCR_t))NV_SET_fn)
                 + x86_gamma()

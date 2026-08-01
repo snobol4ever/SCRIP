@@ -14,7 +14,7 @@ std::string bb_cmp_test() {
         if (_.op_zres)
             return x86("comment", "IR_CMP_TEST zd")
                  + x86_alpha()
-                 + x86("lea",  "rdi", ZOPQ(0, 0))
+                 + x86("note", ZOPAN()) + x86("lea",  "rdi", ZOPQ(0, 0))
                  + x86("lea",  "rsi", ZOPQ(1, 0))
                  + x86("call", "rt_cmp_d", (uint64_t)(uintptr_t)(void *)rt_cmp_d)
                  + x86("test", "eax", "eax")
