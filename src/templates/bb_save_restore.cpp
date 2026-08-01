@@ -92,8 +92,8 @@ std::string bb_save_restore() {
          + x86_alpha()
          + x86_zclaim(sb)
          + FOR(0, c2nsave, [&](int k) {
-               return x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
-                    + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+               return x86("note", gva_name(c2gk[k])) + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                    + x86("note", gva_name(c2gk[k])) + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
          + x86_scan_sync_out()
          + x86_ro_load_q("rdi", 0)
          + x86("mov32", "esi", (long)c2np)
@@ -107,9 +107,9 @@ std::string bb_save_restore() {
          + x86("def", L(1))
          + FOR(0, (int)c2nargs, [&](int i) { int slot = _.op_arg_slot[i];
                return x86("mov", "rax", FRQB(slot, (int)sb))
-                    + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)c2gk[i] * 16), "rax")
+                    + x86("note", gva_name(c2gk[i])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)c2gk[i] * 16), "rax")
                     + x86("mov", "rax", FRQB(slot + 8, (int)sb))
-                    + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)c2gk[i] * 16 + 8), "rax"); })
+                    + x86("note", gva_name(c2gk[i])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)c2gk[i] * 16 + 8), "rax"); })
          + x86("mov32", "eax", 1L)
          + x86("def", L(2))
          + x86_gamma()

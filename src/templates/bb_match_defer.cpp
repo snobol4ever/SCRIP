@@ -51,8 +51,8 @@ std::string bb_match_defer() {
              + x86("test", "rax", "rax")
              + x86("jne",  L(11)))
          + IF(g_gva_active && _.op_gva_k >= 0,
-               x86("mov",  "rax", ABSQ(RT_GVA_VA + _.op_gva_k * 16))
-             + x86("mov",  "rdx", ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
+               x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rax", ABSQ(RT_GVA_VA + _.op_gva_k * 16))
+             + x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rdx", ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
              + x86("cmp",  "eax", (long)DT_P)
              + x86("jne",  L(9))
              + x86("mov",  "rax", RDQ("rdx", 0))

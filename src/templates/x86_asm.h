@@ -941,6 +941,8 @@ inline const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }   
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }   /* REG-1: pinned-island absolute (SIB no-base, va < 0x7FFFFFFF, identical bytes both mediums) */
+extern "C" const char * gva_name(int k);
+extern "C" const char * bb_kind_name(int op);   /* OBJ-NOTE name sources: GVA slot k -> variable name (gva_collect.c registry); IR op -> the same lowercase kind spelling the n<uid>_<kind> labels use (emit.cpp flat_label_kind wrapper). */
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * LIDX(long k)  { static char b[8][24]; static int i; i = (i + 1) & 7; if (k) snprintf(b[i], 24, "[r13+rcx+%ld]", k); else snprintf(b[i], 24, "[r13+rcx]"); return b[i]; }
 inline long LITQ(long k) { uint64_t w; memcpy(&w, _.op_sval + k, 8); return (long) w; }
@@ -1279,12 +1281,15 @@ inline std::string x86_4col(const std::string & s) {
     if (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !PLATFORM_X86) return s;
     { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_ASM_COLUMNS"); on = (e && *e == '0') ? 0 : 1; } if (!on) return s; }
     std::string o; o.reserve(s.size() + s.size() / 2);
+    std::string note;
     size_t i = 0, n = s.size();
     while (i < n) {
         size_t e = s.find('\n', i); size_t len = (e == std::string::npos ? n : e) - i;
         const char * p = s.data() + i;
         size_t b = 0; while (b < len && (p[b] == ' ' || p[b] == '\t')) b++;
         const char * t = p + b; size_t tl = len - b;
+        if (tl >= 2 && t[0] == '#' && t[1] == '@') { note.assign(t + 2, tl - 2); i = (e == std::string::npos) ? n : e + 1; continue; }   /* OBJ-NOTE (Lon s23b): x86("note",name) rides in-band as a '#@name' line -- stateless across the unspecified-order '+' chains -- and folds onto the NEXT instruction line at the GOTO column below; markers unmatched at chunk end re-emit so the sink pass (which sees marker+instruction adjacent in one string) completes the fold. */
+        size_t ls = o.size(); int inst = 0, isj = 0;
         if (tl == 0) { }
         else if (t[0] == '#') { o.append(t, tl); }
         else {
@@ -1304,14 +1309,16 @@ inline std::string x86_4col(const std::string & s) {
                     if (w < ql) { size_t m2 = w; while (m2 < ql && q[m2] != ' ' && q[m2] != '\t') m2++; op += ' '; op.append(q + w, m2 - w); r2 = m2; }
                 }
                 while (r2 < ql && (q[r2] == ' ' || q[r2] == '\t')) r2++;
-                if (op[0] == 'j') { o.append((size_t)64, ' '); if (r2 >= ql) o.append(op); else { x86_4col_pad(o, op.data(), op.size(), 6); o.append(q + r2, ql - r2); } }
-                else if (r2 >= ql) o.append(op);
-                else { x86_4col_pad(o, op.data(), op.size(), 17); o.append(q + r2, ql - r2); }
+                if (op[0] == 'j') { o.append((size_t)64, ' '); if (r2 >= ql) o.append(op); else { x86_4col_pad(o, op.data(), op.size(), 6); o.append(q + r2, ql - r2); } inst = 1; isj = 1; }
+                else if (r2 >= ql) { o.append(op); inst = 1; }
+                else { x86_4col_pad(o, op.data(), op.size(), 17); o.append(q + r2, ql - r2); inst = 1; }
             }
         }
+        if (inst && !note.empty()) { if (!isj && o.find('#', ls) == std::string::npos) { int w = x86_disp_w(o.data() + ls, o.size() - ls); int pd = 88 - w; if (pd < 1) pd = 1; o.append((size_t)pd, ' '); o.append("# "); o.append(note); } note.clear(); }
         o.append(1, '\n');
         i = (e == std::string::npos) ? n : e + 1;
     }
+    if (!note.empty()) { o.append("#@"); o.append(note); o.append(1, '\n'); }
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1321,6 +1328,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
     if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
     if (!strcmp(mnem, "comment"))   return std::string();   /* SN4-ASM-CRIT (Lon s173): BB emissions are COMMENT-FREE — the IR kind now lives in the node label (n<uid>_<kind>_α); statement source echo rides "srccomment", separators ride "commentrule".  All 245 template x86("comment",...) calls become pure empty strings; call-site removal is a named hygiene follow-up. */
+    if (!strcmp(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");   /* OBJ-NOTE (Lon s23b): one-term object name for the NEXT instruction line, rendered '# name' in the GOTO column by x86_4col's fold; jump lines never take it (the GOTO column is theirs); BINARY = empty by construction. */
     if (!strcmp(mnem, "srccomment")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "commentrule")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("#") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
