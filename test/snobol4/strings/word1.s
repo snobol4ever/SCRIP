@@ -110,11 +110,17 @@ n3_match_lit_β:
                                                                                         jmp   n1_match_alternate_af
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_assign_save_α:
-                        sub              rsp, 16
-                        mov              dword ptr [rsp + 0], r14d
+                        sub              rsp, 32
+                        lea              rdi, [rbp + 80]
+                        mov              esi, r14d
+                        call             rt_cap_push@PLT
+                        add              rsp, 32
                                                                                         jmp   n5_match_arb_α
 n4_match_assign_save_β:
-                        add              rsp, 16
+                        sub              rsp, 32
+                        lea              rdi, [rbp + 80]
+                        call             rt_cap_pop@PLT
+                        add              rsp, 32
                                                                                         jmp   n7_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_arb_α:
@@ -134,11 +140,11 @@ n5_match_arb_β:
 .Lx19_0:
                         mov              r14d, dword ptr [rsp + 4]
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n7_match_lit_β
+                                                                                        jmp   n4_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 16]
+                        lea              rdi, [rbp + 80]
+                        call             rt_cap_top@PLT
                         lea              rcx, [rip + .S0]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx

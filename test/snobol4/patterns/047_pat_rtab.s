@@ -129,11 +129,15 @@ n3_match_head_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_assign_save_α:
                         sub              rsp, 32
-                        mov              dword ptr [rsp + 0], r14d
+                        lea              rdi, [rsp + 224]
+                        mov              esi, r14d
+                        call             rt_cap_push@PLT
                         add              rsp, 32
                                                                                         jmp   n5_lit_integer_α
 n4_match_assign_save_β:
                         sub              rsp, 32
+                        lea              rdi, [rsp + 224]
+                        call             rt_cap_pop@PLT
                         add              rsp, 32
                                                                                         jmp   n3_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------

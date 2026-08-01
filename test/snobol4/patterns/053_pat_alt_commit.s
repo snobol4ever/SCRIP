@@ -370,11 +370,15 @@ n18_match_head_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n19_match_assign_save_α:
                         sub              rsp, 32
-                        mov              dword ptr [rsp + 0], r14d
+                        lea              rdi, [rbp + 224]
+                        mov              esi, r14d
+                        call             rt_cap_push@PLT
                         add              rsp, 32
                                                                                         jmp   n20_match_patref_α
 n19_match_assign_save_β:
                         sub              rsp, 32
+                        lea              rdi, [rbp + 224]
+                        call             rt_cap_pop@PLT
                         add              rsp, 32
                                                                                         jmp   n18_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
