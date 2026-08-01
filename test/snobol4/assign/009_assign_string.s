@@ -32,10 +32,10 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # lit_string
-                        mov              dword ptr [rsp + 4], 5                         # lit_string
+                        mov              qword ptr [rsp + 0], 1                         # result
+                        mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx4_0]
-                        mov              qword ptr [rsp + 8], rax                       # lit_string
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_assign_α
 .Lx4_0:
                         .quad            .Lx4_0_s
@@ -44,9 +44,9 @@ n0_lit_string_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # lit_string
-                        mov              rdx, qword ptr [rsp + 8]                       # lit_string
+                        mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax                    # X
-                        mov              qword ptr [1879052296], rdx                    # X
+                        mov              qword ptr [1879052296], rdx
                         add              rsp, 16
                                                                                         jmp   n2_var_α
 #=======================================================================================================================
@@ -55,15 +55,15 @@ n1_assign_α:
 n2_var_α:
                         sub              rsp, 16
                         mov              rax, qword ptr [1879052288]                    # X
-                        mov              rdx, qword ptr [1879052296]                    # X
-                        mov              qword ptr [rsp + 0], rax                       # X
-                        mov              qword ptr [rsp + 8], rdx                       # X
+                        mov              rdx, qword ptr [1879052296]
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n3_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # var
-                        mov              rdx, qword ptr [rsp + 8]                       # var
-                        mov              rdi, qword ptr [rip + .Lx7_0]
+                        mov              rdx, qword ptr [rsp + 8]                       # val
+                        mov              rdi, qword ptr [rip + .Lx7_0]                  # name
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ
