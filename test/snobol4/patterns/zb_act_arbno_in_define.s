@@ -3,21 +3,6 @@
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_LBL__MATCHIT_α
 proc_LBL__MATCHIT_α:
-                        .global          proc_LBL__MATCHIT_α
-                        .global          proc_LBL__MATCHIT_β
-                        .global          proc_LBL__MATCHIT_γ
-                        .global          proc_LBL__MATCHIT_ω
-                        sub              rsp, 448
-                        mov              [rsp + 424], rcx
-                        mov              [rsp + 432], rdx
-                        mov              [rsp + 440], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 192], 0
-                        mov              qword ptr [rsp + 200], 0
-                        mov              qword ptr [rsp + 400], 0
-                        mov              qword ptr [rsp + 408], 0
 proc_LBL__MATCHIT_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_goto_α:
@@ -417,32 +402,9 @@ proc_LBL__MATCHIT_β:
                                                                                         jmp   proc_LBL__MATCHIT_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__MATCHIT_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 424]
-                        lea              rsp, [rbp + 448]
-                        mov              rbp, [rbp + 440]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_LBL__MATCHIT_ω:
-                        mov              rax, [rbp + 432]
-                        lea              rsp, [rbp + 448]
-                        mov              rbp, [rbp + 440]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_MATCHIT_α
 proc_MATCHIT_α:
-                        .global          proc_MATCHIT_α
-                        .global          proc_MATCHIT_β
-                        .global          proc_MATCHIT_γ
-                        .global          proc_MATCHIT_ω
-                        sub              rsp, 64
-                        mov              [rsp + 40], rcx
-                        mov              [rsp + 48], rdx
-                        mov              rdi, rsp
-                        mov              ecx, 32
-                        xor              eax, eax
-                        rep stosb
 proc_MATCHIT_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n44_save_restore_α:
@@ -472,16 +434,6 @@ proc_MATCHIT_β:
                                                                                         jmp   proc_MATCHIT_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 40]
-                        add              rsp, 64
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_MATCHIT_ω:
-                        mov              rax, [rsp + 48]
-                        add              rsp, 64
-                                                                                        jmp   rax
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
@@ -561,17 +513,6 @@ main:
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
-                        .global          main_α
-                        .global          main_β
-                        .global          main_γ
-                        .global          main_ω
-                        sub              rsp, 408
-                        mov              rdi, rsp
-                        mov              ecx, 408
-                        xor              eax, eax
-                        rep stosb
-                        mov              [rsp + 400], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #         DEFINE('MATCHIT(S)') :(MATCHIT_END)
@@ -1104,20 +1045,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              eax, 1
-                        xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 400]
-                        add              rsp, 408
-                        ret
-#-----------------------------------------------------------------------------------------------------------------------
-main_ω:
-                        mov              rsp, rbp
-                        mov              eax, 99
-                        xor              edx, edx
-                        mov              rbp, [rsp + 400]
-                        add              rsp, 408
-                        ret
                         .section         .rodata
 .S0:                    .string          "V"
                         .text

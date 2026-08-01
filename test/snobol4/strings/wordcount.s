@@ -3,21 +3,6 @@
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$0_α
 proc_PAT$0_α:
-                        .global          proc_PAT$0_α
-                        .global          proc_PAT$0_β
-                        .global          proc_PAT$0_γ
-                        .global          proc_PAT$0_ω
-                        sub              rsp, 160
-                        mov              [rsp + 136], rcx
-                        mov              [rsp + 144], rdx
-                        mov              [rsp + 152], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 96], 0
-                        mov              qword ptr [rsp + 104], 0
-                        mov              qword ptr [rsp + 112], 0
-                        mov              qword ptr [rsp + 120], 0
                         mov              qword ptr [rsp + 128], r8
                         mov              dword ptr [rsp + 120], r14d
 proc_PAT$0_attempt:
@@ -189,18 +174,6 @@ proc_PAT$0_β:
                                                                                         jmp   qword ptr [rbp + 96]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$0_res]
-                        push             rax
-                        mov              rax, [rbp + 136]
-                        mov              rbp, [rbp + 152]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$0_ω:
-                        mov              rax, [rbp + 144]
-                        lea              rsp, [rbp + 160]
-                        mov              rbp, [rbp + 152]
-                                                                                        jmp   rax
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
@@ -263,17 +236,6 @@ main:
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
-                        .global          main_α
-                        .global          main_β
-                        .global          main_γ
-                        .global          main_ω
-                        sub              rsp, 632
-                        mov              rdi, rsp
-                        mov              ecx, 632
-                        xor              eax, eax
-                        rep stosb
-                        mov              [rsp + 624], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #       &TRIM    =  1
@@ -905,20 +867,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              eax, 1
-                        xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 624]
-                        add              rsp, 632
-                        ret
-#-----------------------------------------------------------------------------------------------------------------------
-main_ω:
-                        mov              rsp, rbp
-                        mov              eax, 99
-                        xor              edx, edx
-                        mov              rbp, [rsp + 624]
-                        add              rsp, 632
-                        ret
                         .section         .rodata
 .S0:                    .string          "WPAT"
                         .text

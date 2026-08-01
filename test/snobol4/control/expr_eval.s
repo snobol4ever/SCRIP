@@ -3,19 +3,6 @@
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_LBL__Push_α
 proc_LBL__Push_α:
-                        .global          proc_LBL__Push_α
-                        .global          proc_LBL__Push_β
-                        .global          proc_LBL__Push_γ
-                        .global          proc_LBL__Push_ω
-                        sub              rsp, 2592
-                        mov              [rsp + 2568], rcx
-                        mov              [rsp + 2576], rdx
-                        mov              [rsp + 2584], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 2544], 0
-                        mov              qword ptr [rsp + 2552], 0
 proc_LBL__Push_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_goto_α:
@@ -329,34 +316,9 @@ proc_LBL__Push_β:
                                                                                         jmp   proc_LBL__Push_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Push_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2568]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_LBL__Push_ω:
-                        mov              rax, [rbp + 2576]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_LBL__Pop_α
 proc_LBL__Pop_α:
-                        .global          proc_LBL__Pop_α
-                        .global          proc_LBL__Pop_β
-                        .global          proc_LBL__Pop_γ
-                        .global          proc_LBL__Pop_ω
-                        sub              rsp, 2592
-                        mov              [rsp + 2568], rcx
-                        mov              [rsp + 2576], rdx
-                        mov              [rsp + 2584], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 2544], 0
-                        mov              qword ptr [rsp + 2552], 0
 proc_LBL__Pop_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n56_goto_α:
@@ -597,34 +559,9 @@ proc_LBL__Pop_β:
                                                                                         jmp   proc_LBL__Pop_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Pop_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2568]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_LBL__Pop_ω:
-                        mov              rax, [rbp + 2576]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_LBL__Unary_α
 proc_LBL__Unary_α:
-                        .global          proc_LBL__Unary_α
-                        .global          proc_LBL__Unary_β
-                        .global          proc_LBL__Unary_γ
-                        .global          proc_LBL__Unary_ω
-                        sub              rsp, 2592
-                        mov              [rsp + 2568], rcx
-                        mov              [rsp + 2576], rdx
-                        mov              [rsp + 2584], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 2544], 0
-                        mov              qword ptr [rsp + 2552], 0
 proc_LBL__Unary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n97_goto_α:
@@ -1046,34 +983,9 @@ proc_LBL__Unary_β:
                                                                                         jmp   proc_LBL__Unary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Unary_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2568]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_LBL__Unary_ω:
-                        mov              rax, [rbp + 2576]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_LBL__Binary_α
 proc_LBL__Binary_α:
-                        .global          proc_LBL__Binary_α
-                        .global          proc_LBL__Binary_β
-                        .global          proc_LBL__Binary_γ
-                        .global          proc_LBL__Binary_ω
-                        sub              rsp, 2592
-                        mov              [rsp + 2568], rcx
-                        mov              [rsp + 2576], rdx
-                        mov              [rsp + 2584], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 2544], 0
-                        mov              qword ptr [rsp + 2552], 0
 proc_LBL__Binary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n146_goto_α:
@@ -1629,32 +1541,9 @@ proc_LBL__Binary_β:
                                                                                         jmp   proc_LBL__Binary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Binary_γ:
-                        mov              rdi, [rbp]
-                        mov              rsi, [rbp + 8]
-                        mov              rax, [rbp + 2568]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_LBL__Binary_ω:
-                        mov              rax, [rbp + 2576]
-                        lea              rsp, [rbp + 2592]
-                        mov              rbp, [rbp + 2584]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Push_α
 proc_Push_α:
-                        .global          proc_Push_α
-                        .global          proc_Push_β
-                        .global          proc_Push_γ
-                        .global          proc_Push_ω
-                        sub              rsp, 64
-                        mov              [rsp + 40], rcx
-                        mov              [rsp + 48], rdx
-                        mov              rdi, rsp
-                        mov              ecx, 32
-                        xor              eax, eax
-                        rep stosb
 proc_Push_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n212_save_restore_α:
@@ -1684,30 +1573,9 @@ proc_Push_β:
                                                                                         jmp   proc_Push_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 40]
-                        add              rsp, 64
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_Push_ω:
-                        mov              rax, [rsp + 48]
-                        add              rsp, 64
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Pop_α
 proc_Pop_α:
-                        .global          proc_Pop_α
-                        .global          proc_Pop_β
-                        .global          proc_Pop_γ
-                        .global          proc_Pop_ω
-                        sub              rsp, 64
-                        mov              [rsp + 40], rcx
-                        mov              [rsp + 48], rdx
-                        mov              rdi, rsp
-                        mov              ecx, 32
-                        xor              eax, eax
-                        rep stosb
 proc_Pop_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n218_save_restore_α:
@@ -1737,30 +1605,9 @@ proc_Pop_β:
                                                                                         jmp   proc_Pop_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 40]
-                        add              rsp, 64
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_Pop_ω:
-                        mov              rax, [rsp + 48]
-                        add              rsp, 64
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Unary_α
 proc_Unary_α:
-                        .global          proc_Unary_α
-                        .global          proc_Unary_β
-                        .global          proc_Unary_γ
-                        .global          proc_Unary_ω
-                        sub              rsp, 64
-                        mov              [rsp + 40], rcx
-                        mov              [rsp + 48], rdx
-                        mov              rdi, rsp
-                        mov              ecx, 32
-                        xor              eax, eax
-                        rep stosb
 proc_Unary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n224_save_restore_α:
@@ -1790,30 +1637,9 @@ proc_Unary_β:
                                                                                         jmp   proc_Unary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 40]
-                        add              rsp, 64
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_Unary_ω:
-                        mov              rax, [rsp + 48]
-                        add              rsp, 64
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Binary_α
 proc_Binary_α:
-                        .global          proc_Binary_α
-                        .global          proc_Binary_β
-                        .global          proc_Binary_γ
-                        .global          proc_Binary_ω
-                        sub              rsp, 64
-                        mov              [rsp + 40], rcx
-                        mov              [rsp + 48], rdx
-                        mov              rdi, rsp
-                        mov              ecx, 32
-                        xor              eax, eax
-                        rep stosb
 proc_Binary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n230_save_restore_α:
@@ -1843,34 +1669,9 @@ proc_Binary_β:
                                                                                         jmp   proc_Binary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 40]
-                        add              rsp, 64
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_Binary_ω:
-                        mov              rax, [rsp + 48]
-                        add              rsp, 64
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$0_α
 proc_PAT$0_α:
-                        .global          proc_PAT$0_α
-                        .global          proc_PAT$0_β
-                        .global          proc_PAT$0_γ
-                        .global          proc_PAT$0_ω
-                        sub              rsp, 80
-                        mov              [rsp + 56], rcx
-                        mov              [rsp + 64], rdx
-                        mov              [rsp + 72], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 16], 0
-                        mov              qword ptr [rsp + 24], 0
-                        mov              qword ptr [rsp + 32], 0
-                        mov              qword ptr [rsp + 40], 0
                         mov              qword ptr [rsp + 48], r8
                         mov              dword ptr [rsp + 40], r14d
 proc_PAT$0_attempt:
@@ -1954,36 +1755,9 @@ proc_PAT$0_β:
                                                                                         jmp   qword ptr [rbp + 16]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$0_res]
-                        push             rax
-                        mov              rax, [rbp + 56]
-                        mov              rbp, [rbp + 72]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$0_ω:
-                        mov              rax, [rbp + 64]
-                        lea              rsp, [rbp + 80]
-                        mov              rbp, [rbp + 72]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$1_α
 proc_PAT$1_α:
-                        .global          proc_PAT$1_α
-                        .global          proc_PAT$1_β
-                        .global          proc_PAT$1_γ
-                        .global          proc_PAT$1_ω
-                        sub              rsp, 176
-                        mov              [rsp + 152], rcx
-                        mov              [rsp + 160], rdx
-                        mov              [rsp + 168], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 112], 0
-                        mov              qword ptr [rsp + 120], 0
-                        mov              qword ptr [rsp + 128], 0
-                        mov              qword ptr [rsp + 136], 0
                         mov              qword ptr [rsp + 144], r8
                         mov              dword ptr [rsp + 136], r14d
 proc_PAT$1_attempt:
@@ -2235,36 +2009,9 @@ proc_PAT$1_β:
                                                                                         jmp   qword ptr [rbp + 112]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$1_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$1_res]
-                        push             rax
-                        mov              rax, [rbp + 152]
-                        mov              rbp, [rbp + 168]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$1_ω:
-                        mov              rax, [rbp + 160]
-                        lea              rsp, [rbp + 176]
-                        mov              rbp, [rbp + 168]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$2_α
 proc_PAT$2_α:
-                        .global          proc_PAT$2_α
-                        .global          proc_PAT$2_β
-                        .global          proc_PAT$2_γ
-                        .global          proc_PAT$2_ω
-                        sub              rsp, 336
-                        mov              [rsp + 312], rcx
-                        mov              [rsp + 320], rdx
-                        mov              [rsp + 328], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 272], 0
-                        mov              qword ptr [rsp + 280], 0
-                        mov              qword ptr [rsp + 288], 0
-                        mov              qword ptr [rsp + 296], 0
                         mov              qword ptr [rsp + 304], r8
                         mov              dword ptr [rsp + 296], r14d
 proc_PAT$2_attempt:
@@ -2927,38 +2674,9 @@ proc_PAT$2_β:
                                                                                         jmp   qword ptr [rbp + 272]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$2_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$2_res]
-                        push             rax
-                        mov              rax, [rbp + 312]
-                        mov              rbp, [rbp + 328]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$2_ω:
-                        mov              rax, [rbp + 320]
-                        lea              rsp, [rbp + 336]
-                        mov              rbp, [rbp + 328]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$3_α
 proc_PAT$3_α:
-                        .global          proc_PAT$3_α
-                        .global          proc_PAT$3_β
-                        .global          proc_PAT$3_γ
-                        .global          proc_PAT$3_ω
-                        sub              rsp, 144
-                        mov              [rsp + 120], rcx
-                        mov              [rsp + 128], rdx
-                        mov              [rsp + 136], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 48], 0
-                        mov              qword ptr [rsp + 56], 0
-                        mov              qword ptr [rsp + 80], 0
-                        mov              qword ptr [rsp + 88], 0
-                        mov              qword ptr [rsp + 96], 0
-                        mov              qword ptr [rsp + 104], 0
                         mov              qword ptr [rsp + 112], r8
                         mov              dword ptr [rsp + 104], r14d
 proc_PAT$3_attempt:
@@ -2967,40 +2685,38 @@ proc_PAT$3_α_body:
                         mov              qword ptr [rbp + 80], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n287_match_assign_save_α:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 48]
-                        mov              esi, r14d
-                        call             rt_cap_push@PLT
-                        add              rsp, 32
+                        sub              rsp, 16
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n288_match_any_α
 n287_match_assign_save_β:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 48]
-                        call             rt_cap_pop@PLT
-                        add              rsp, 32
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$3_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n288_match_any_α:
                         mov              eax, r14d
                         cmp              eax, r15d
-                                                                                        jge   n287_match_assign_save_β
+                                                                                        jl    .Lx293_240
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$3_scanfail
+.Lx293_240:
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              esi, 43
                                                                                         je    .Lx293_0
                         cmp              esi, 45
                                                                                         je    .Lx293_0
-                                                                                        jmp   n287_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$3_scanfail
 .Lx293_0:
                         add              r14d, 1
                                                                                         jmp   n289_match_assign_cond_α
 n288_match_any_β:
                         sub              r14d, 1
-                                                                                        jmp   n287_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$3_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n289_match_assign_cond_α:
-                        lea              rdi, [rbp + 48]
-                        call             rt_cap_top@PLT
+                        mov              eax, dword ptr [rsp + 0]
                         lea              rcx, [rip + .S3]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
@@ -3050,38 +2766,9 @@ proc_PAT$3_β:
                                                                                         jmp   qword ptr [rbp + 80]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$3_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$3_res]
-                        push             rax
-                        mov              rax, [rbp + 120]
-                        mov              rbp, [rbp + 136]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$3_ω:
-                        mov              rax, [rbp + 128]
-                        lea              rsp, [rbp + 144]
-                        mov              rbp, [rbp + 136]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$4_α
 proc_PAT$4_α:
-                        .global          proc_PAT$4_α
-                        .global          proc_PAT$4_β
-                        .global          proc_PAT$4_γ
-                        .global          proc_PAT$4_ω
-                        sub              rsp, 144
-                        mov              [rsp + 120], rcx
-                        mov              [rsp + 128], rdx
-                        mov              [rsp + 136], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 48], 0
-                        mov              qword ptr [rsp + 56], 0
-                        mov              qword ptr [rsp + 80], 0
-                        mov              qword ptr [rsp + 88], 0
-                        mov              qword ptr [rsp + 96], 0
-                        mov              qword ptr [rsp + 104], 0
                         mov              qword ptr [rsp + 112], r8
                         mov              dword ptr [rsp + 104], r14d
 proc_PAT$4_attempt:
@@ -3090,40 +2777,38 @@ proc_PAT$4_α_body:
                         mov              qword ptr [rbp + 80], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n296_match_assign_save_α:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 48]
-                        mov              esi, r14d
-                        call             rt_cap_push@PLT
-                        add              rsp, 32
+                        sub              rsp, 16
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n297_match_any_α
 n296_match_assign_save_β:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 48]
-                        call             rt_cap_pop@PLT
-                        add              rsp, 32
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$4_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n297_match_any_α:
                         mov              eax, r14d
                         cmp              eax, r15d
-                                                                                        jge   n296_match_assign_save_β
+                                                                                        jl    .Lx302_240
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$4_scanfail
+.Lx302_240:
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              esi, 42
                                                                                         je    .Lx302_0
                         cmp              esi, 47
                                                                                         je    .Lx302_0
-                                                                                        jmp   n296_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$4_scanfail
 .Lx302_0:
                         add              r14d, 1
                                                                                         jmp   n298_match_assign_cond_α
 n297_match_any_β:
                         sub              r14d, 1
-                                                                                        jmp   n296_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$4_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n298_match_assign_cond_α:
-                        lea              rdi, [rbp + 48]
-                        call             rt_cap_top@PLT
+                        mov              eax, dword ptr [rsp + 0]
                         lea              rcx, [rip + .S3]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
@@ -3173,38 +2858,9 @@ proc_PAT$4_β:
                                                                                         jmp   qword ptr [rbp + 80]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$4_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$4_res]
-                        push             rax
-                        mov              rax, [rbp + 120]
-                        mov              rbp, [rbp + 136]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$4_ω:
-                        mov              rax, [rbp + 128]
-                        lea              rsp, [rbp + 144]
-                        mov              rbp, [rbp + 136]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$5_α
 proc_PAT$5_α:
-                        .global          proc_PAT$5_α
-                        .global          proc_PAT$5_β
-                        .global          proc_PAT$5_γ
-                        .global          proc_PAT$5_ω
-                        sub              rsp, 192
-                        mov              [rsp + 168], rcx
-                        mov              [rsp + 176], rdx
-                        mov              [rsp + 184], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 48], 0
-                        mov              qword ptr [rsp + 56], 0
-                        mov              qword ptr [rsp + 128], 0
-                        mov              qword ptr [rsp + 136], 0
-                        mov              qword ptr [rsp + 144], 0
-                        mov              qword ptr [rsp + 152], 0
                         mov              qword ptr [rsp + 160], r8
                         mov              dword ptr [rsp + 152], r14d
 proc_PAT$5_attempt:
@@ -3457,36 +3113,9 @@ proc_PAT$5_β:
                                                                                         jmp   qword ptr [rbp + 128]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$5_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$5_res]
-                        push             rax
-                        mov              rax, [rbp + 168]
-                        mov              rbp, [rbp + 184]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$5_ω:
-                        mov              rax, [rbp + 176]
-                        lea              rsp, [rbp + 192]
-                        mov              rbp, [rbp + 184]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$6_α
 proc_PAT$6_α:
-                        .global          proc_PAT$6_α
-                        .global          proc_PAT$6_β
-                        .global          proc_PAT$6_γ
-                        .global          proc_PAT$6_ω
-                        sub              rsp, 176
-                        mov              [rsp + 152], rcx
-                        mov              [rsp + 160], rdx
-                        mov              [rsp + 168], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 112], 0
-                        mov              qword ptr [rsp + 120], 0
-                        mov              qword ptr [rsp + 128], 0
-                        mov              qword ptr [rsp + 136], 0
                         mov              qword ptr [rsp + 144], r8
                         mov              dword ptr [rsp + 136], r14d
 proc_PAT$6_attempt:
@@ -3745,38 +3374,9 @@ proc_PAT$6_β:
                                                                                         jmp   qword ptr [rbp + 112]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$6_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$6_res]
-                        push             rax
-                        mov              rax, [rbp + 152]
-                        mov              rbp, [rbp + 168]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$6_ω:
-                        mov              rax, [rbp + 160]
-                        lea              rsp, [rbp + 176]
-                        mov              rbp, [rbp + 168]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$7_α
 proc_PAT$7_α:
-                        .global          proc_PAT$7_α
-                        .global          proc_PAT$7_β
-                        .global          proc_PAT$7_γ
-                        .global          proc_PAT$7_ω
-                        sub              rsp, 224
-                        mov              [rsp + 200], rcx
-                        mov              [rsp + 208], rdx
-                        mov              [rsp + 216], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 112], 0
-                        mov              qword ptr [rsp + 120], 0
-                        mov              qword ptr [rsp + 160], 0
-                        mov              qword ptr [rsp + 168], 0
-                        mov              qword ptr [rsp + 176], 0
-                        mov              qword ptr [rsp + 184], 0
                         mov              qword ptr [rsp + 192], r8
                         mov              dword ptr [rsp + 184], r14d
 proc_PAT$7_attempt:
@@ -4110,38 +3710,9 @@ proc_PAT$7_β:
                                                                                         jmp   qword ptr [rbp + 160]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$7_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$7_res]
-                        push             rax
-                        mov              rax, [rbp + 200]
-                        mov              rbp, [rbp + 216]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$7_ω:
-                        mov              rax, [rbp + 208]
-                        lea              rsp, [rbp + 224]
-                        mov              rbp, [rbp + 216]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$8_α
 proc_PAT$8_α:
-                        .global          proc_PAT$8_α
-                        .global          proc_PAT$8_β
-                        .global          proc_PAT$8_γ
-                        .global          proc_PAT$8_ω
-                        sub              rsp, 240
-                        mov              [rsp + 216], rcx
-                        mov              [rsp + 224], rdx
-                        mov              [rsp + 232], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 128], 0
-                        mov              qword ptr [rsp + 136], 0
-                        mov              qword ptr [rsp + 176], 0
-                        mov              qword ptr [rsp + 184], 0
-                        mov              qword ptr [rsp + 192], 0
-                        mov              qword ptr [rsp + 200], 0
                         mov              qword ptr [rsp + 208], r8
                         mov              dword ptr [rsp + 200], r14d
 proc_PAT$8_attempt:
@@ -4546,38 +4117,9 @@ proc_PAT$8_β:
                                                                                         jmp   qword ptr [rbp + 176]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$8_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$8_res]
-                        push             rax
-                        mov              rax, [rbp + 216]
-                        mov              rbp, [rbp + 232]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$8_ω:
-                        mov              rax, [rbp + 224]
-                        lea              rsp, [rbp + 240]
-                        mov              rbp, [rbp + 232]
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$9_α
 proc_PAT$9_α:
-                        .global          proc_PAT$9_α
-                        .global          proc_PAT$9_β
-                        .global          proc_PAT$9_γ
-                        .global          proc_PAT$9_ω
-                        sub              rsp, 240
-                        mov              [rsp + 216], rcx
-                        mov              [rsp + 224], rdx
-                        mov              [rsp + 232], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 128], 0
-                        mov              qword ptr [rsp + 136], 0
-                        mov              qword ptr [rsp + 176], 0
-                        mov              qword ptr [rsp + 184], 0
-                        mov              qword ptr [rsp + 192], 0
-                        mov              qword ptr [rsp + 200], 0
                         mov              qword ptr [rsp + 208], r8
                         mov              dword ptr [rsp + 200], r14d
 proc_PAT$9_attempt:
@@ -4982,18 +4524,6 @@ proc_PAT$9_β:
                                                                                         jmp   qword ptr [rbp + 176]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$9_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$9_res]
-                        push             rax
-                        mov              rax, [rbp + 216]
-                        mov              rbp, [rbp + 232]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$9_ω:
-                        mov              rax, [rbp + 224]
-                        lea              rsp, [rbp + 240]
-                        mov              rbp, [rbp + 232]
-                                                                                        jmp   rax
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
@@ -5416,17 +4946,6 @@ main:
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
-                        .global          main_α
-                        .global          main_β
-                        .global          main_γ
-                        .global          main_ω
-                        sub              rsp, 2552
-                        mov              rdi, rsp
-                        mov              ecx, 2552
-                        xor              eax, eax
-                        rep stosb
-                        mov              [rsp + 2544], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #          DEFINE('Push(x)')
@@ -7916,20 +7435,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              eax, 1
-                        xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 2544]
-                        add              rsp, 2552
-                        ret
-#-----------------------------------------------------------------------------------------------------------------------
-main_ω:
-                        mov              rsp, rbp
-                        mov              eax, 99
-                        xor              edx, edx
-                        mov              rbp, [rsp + 2544]
-                        add              rsp, 2552
-                        ret
                         .section         .rodata
 .S0:                    .string          "integer"
 .S1:                    .string          "epsilon"
