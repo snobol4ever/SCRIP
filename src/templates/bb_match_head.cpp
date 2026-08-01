@@ -49,7 +49,7 @@ std::string bb_match_head() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("add", "r10", (long)24) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER (Lon s8 directive: "instantiate a bottom marker at each start of a new pattern match"): the pend stack carries its OWN bracket -- a tag-0 sentinel entry (varname pointers are never 0) pushed at match start.  Replaces the flat +32 slot save: no frame-addressed read, no compile-time depth, config-blind.  RELEASE and the fail exit below scan down to this marker instead of reloading a slot -- the first of the two variable-depth reaches deleted on the road to pure FORTH cells. */
+         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER-CARRY (s22x): the sentinel's 16 unused bytes now carry the rsp mark (+8, == the α base the hfc claim's slot mark records) and the patstk snapshot (+16) -- the marker readers (tail RELEASE, the fail exit below) recover BOTH depth-free off the marker they already scan to, deleting the second variable-depth reach the original CAS-MARKER note promised.  rax/rcx dead here (Σ/Δ already captured into r13/r15); rsp == α base in the RSP+hfc arm (its claim fires below this push). */   /* CAS-MARKER (Lon s8 directive: "instantiate a bottom marker at each start of a new pattern match"): the pend stack carries its OWN bracket -- a tag-0 sentinel entry (varname pointers are never 0) pushed at match start.  Replaces the flat +32 slot save: no frame-addressed read, no compile-time depth, config-blind.  RELEASE and the fail exit below scan down to this marker instead of reloading a slot -- the first of the two variable-depth reaches deleted on the road to pure FORTH cells. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
                                                 + x86("mov", FRQ(_.op_off + 16), "rax")
@@ -72,21 +72,30 @@ std::string bb_match_head() {
          + x86("jne", L(1))
          + x86("jmp", L(0))
          + x86("def", L(1))
-         + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "qword ptr [rsp + 8]")
-                                                : x86("mov", "rax", FRQ(_.op_off + 8)))
-             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-             + x86("mov", RDQ("rcx", 0), "rax"))
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
-             ? x86("mov", "rsp", "qword ptr [rsp + 16]")
-             : x86_zc_frame() == ZC_FRAME_RSP
-             ? x86_zls2_release_to_call(_.op_off + 16)
-             : ( IF(hfc(), x86("mov", "rdi", FRQ(_.op_off + 8)))
-               + x86_align_enter()
-               + IF(!hfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
-               + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
-               + x86_zls2_release_to_call(_.op_off + 16)
-               + x86_align_leave()))
-         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER: fail-exit pops pend entries AND the marker by scanning to tag 0 -- depth-free, replaces the flat +32 reload */
+             ? x86("mov", "r10", ABSQ(RT_CAS_TOP))   /* CAS-MARKER-CARRY (s22x) fail exit: scan FIRST, then recover patstk (+16) and the rsp mark (+8) off the marker -- depth-free on EVERY arrival depth, where the old [rsp+8]/[rsp+16] reloads assumed the β-balanced α+claim depth and read leaf cells on any unbalanced path.  The pop (CAS_TOP := marker base) rides the same r10. */
+             + x86("def", L(2))
+             + x86("sub", "r10", (long)24)
+             + x86("mov", "rax", RDQ("r10", 0))
+             + x86("test", "rax", "rax")
+             + x86("jne", L(2))
+             + x86("mov", "rax", RDQ("r10", 16))
+             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
+             + x86("mov", RDQ("rcx", 0), "rax")
+             + x86("mov", "rsp", RDQ("r10", 8))
+             + x86("mov", ABSQ(RT_CAS_TOP), "r10")
+             : IF(x86_zc_frame() == ZC_FRAME_RSP, x86("mov", "rax", FRQ(_.op_off + 8))
+                 + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
+                 + x86("mov", RDQ("rcx", 0), "rax"))
+             + (x86_zc_frame() == ZC_FRAME_RSP
+                 ? x86_zls2_release_to_call(_.op_off + 16)
+                 : ( IF(hfc(), x86("mov", "rdi", FRQ(_.op_off + 8)))
+                   + x86_align_enter()
+                   + IF(!hfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
+                   + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
+                   + x86_zls2_release_to_call(_.op_off + 16)
+                   + x86_align_leave()))
+             + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_CAS_TOP), "r10"))   /* CAS-MARKER: fail-exit pops pend entries AND the marker by scanning to tag 0 -- depth-free, replaces the flat +32 reload */
          + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on the failure exit -- post-unwind rsp is back at α depth in every arm, so the slot spelling holds; under the regime the rbp slots are depth-free by construction */
          + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
          + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
