@@ -247,6 +247,10 @@ n12_match_head_α:
                         mov              r15, rdx
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], 0
+                        mov              qword ptr [r10 + 8], rsp
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              rax, qword ptr [rcx + 0]
+                        mov              qword ptr [r10 + 16], rax
                         add              r10, 24
                         mov              qword ptr [1879048192], r10
                         mov              rax, rsp
@@ -270,16 +274,16 @@ n12_match_head_β:
                                                                                         jne   .Lx84_1
                                                                                         jmp   .Lx84_0
 .Lx84_1:
-                        mov              rax, qword ptr [rsp + 8]
-                        lea              rcx, [rip + g_patstk_sp]
-                        mov              qword ptr [rcx + 0], rax
-                        mov              rsp, qword ptr [rsp + 16]
                         mov              r10, qword ptr [1879048192]
 .Lx84_2:
                         sub              r10, 24
                         mov              rax, qword ptr [r10 + 0]
                         test             rax, rax
                                                                                         jne   .Lx84_2
+                        mov              rax, qword ptr [r10 + 16]
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              qword ptr [rcx + 0], rax
+                        mov              rsp, qword ptr [r10 + 8]
                         mov              qword ptr [1879048192], r10
                         mov              r13, qword ptr [rbp + 224]
                         mov              r14, qword ptr [rbp + 232]
@@ -302,13 +306,19 @@ n13_match_sequence_af:
                                                                                         jmp   n12_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_release_α:
-                        mov              rax, qword ptr [rsp + 24]
+                        mov              r10, qword ptr [1879048192]
+.Lx88_9:
+                        sub              r10, 24
+                        mov              rax, qword ptr [r10 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx88_9
+                        mov              rax, qword ptr [r10 + 16]
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              eax, dword ptr [rsp + 16]
                         mov              dword ptr [rsp + 224], eax
                         mov              qword ptr [rsp + 248], r14
-                        mov              rsp, qword ptr [rsp + 32]
+                        mov              rsp, qword ptr [r10 + 8]
                         push             r14
                         push             r15
                         push             r13
@@ -448,6 +458,10 @@ n20_match_head_α:
                         mov              r15, rdx
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], 0
+                        mov              qword ptr [r10 + 8], rsp
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              rax, qword ptr [rcx + 0]
+                        mov              qword ptr [r10 + 16], rax
                         add              r10, 24
                         mov              qword ptr [1879048192], r10
                         mov              qword ptr [rbp + 464], rsp
@@ -698,6 +712,10 @@ n32_match_head_α:
                         mov              r15, rdx
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], 0
+                        mov              qword ptr [r10 + 8], rsp
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              rax, qword ptr [rcx + 0]
+                        mov              qword ptr [r10 + 16], rax
                         add              r10, 24
                         mov              qword ptr [1879048192], r10
                         mov              rax, rsp
@@ -721,16 +739,16 @@ n32_match_head_β:
                                                                                         jne   .Lx113_1
                                                                                         jmp   .Lx113_0
 .Lx113_1:
-                        mov              rax, qword ptr [rsp + 8]
-                        lea              rcx, [rip + g_patstk_sp]
-                        mov              qword ptr [rcx + 0], rax
-                        mov              rsp, qword ptr [rsp + 16]
                         mov              r10, qword ptr [1879048192]
 .Lx113_2:
                         sub              r10, 24
                         mov              rax, qword ptr [r10 + 0]
                         test             rax, rax
                                                                                         jne   .Lx113_2
+                        mov              rax, qword ptr [r10 + 16]
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              qword ptr [rcx + 0], rax
+                        mov              rsp, qword ptr [r10 + 8]
                         mov              qword ptr [1879048192], r10
                         mov              r13, qword ptr [rbp + 720]
                         mov              r14, qword ptr [rbp + 728]
@@ -753,13 +771,19 @@ n33_match_sequence_af:
                                                                                         jmp   n32_match_head_β
 #-----------------------------------------------------------------------------------------------------------------------
 n34_match_release_α:
-                        mov              rax, qword ptr [rsp + 8]
+                        mov              r10, qword ptr [1879048192]
+.Lx117_9:
+                        sub              r10, 24
+                        mov              rax, qword ptr [r10 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx117_9
+                        mov              rax, qword ptr [r10 + 16]
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              eax, dword ptr [rsp + 0]
                         mov              dword ptr [rsp + 704], eax
                         mov              qword ptr [rsp + 728], r14
-                        mov              rsp, qword ptr [rsp + 16]
+                        mov              rsp, qword ptr [r10 + 8]
                         push             r14
                         push             r15
                         push             r13
@@ -894,6 +918,10 @@ n40_match_head_α:
                         mov              r15, rdx
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], 0
+                        mov              qword ptr [r10 + 8], rsp
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              rax, qword ptr [rcx + 0]
+                        mov              qword ptr [r10 + 16], rax
                         add              r10, 24
                         mov              qword ptr [1879048192], r10
                         mov              rax, rsp
@@ -917,16 +945,16 @@ n40_match_head_β:
                                                                                         jne   .Lx125_1
                                                                                         jmp   .Lx125_0
 .Lx125_1:
-                        mov              rax, qword ptr [rsp + 8]
-                        lea              rcx, [rip + g_patstk_sp]
-                        mov              qword ptr [rcx + 0], rax
-                        mov              rsp, qword ptr [rsp + 16]
                         mov              r10, qword ptr [1879048192]
 .Lx125_2:
                         sub              r10, 24
                         mov              rax, qword ptr [r10 + 0]
                         test             rax, rax
                                                                                         jne   .Lx125_2
+                        mov              rax, qword ptr [r10 + 16]
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              qword ptr [rcx + 0], rax
+                        mov              rsp, qword ptr [r10 + 8]
                         mov              qword ptr [1879048192], r10
                         mov              r13, qword ptr [rbp + 912]
                         mov              r14, qword ptr [rbp + 920]
@@ -982,13 +1010,19 @@ n43_match_assign_cond_β:
                                                                                         jmp   n42_match_len_β
 #-----------------------------------------------------------------------------------------------------------------------
 n44_match_release_α:
-                        mov              rax, qword ptr [rsp + 24]
+                        mov              r10, qword ptr [1879048192]
+.Lx132_9:
+                        sub              r10, 24
+                        mov              rax, qword ptr [r10 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx132_9
+                        mov              rax, qword ptr [r10 + 16]
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              eax, dword ptr [rsp + 16]
                         mov              dword ptr [rsp + 912], eax
                         mov              qword ptr [rsp + 936], r14
-                        mov              rsp, qword ptr [rsp + 32]
+                        mov              rsp, qword ptr [r10 + 8]
                         push             r14
                         push             r15
                         push             r13
