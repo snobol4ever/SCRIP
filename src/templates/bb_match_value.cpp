@@ -33,9 +33,7 @@ std::string bb_match_value() {
          + x86("jz",   "L0")
          /* --- DT_P: run the compiled pattern fn (rcx=γ cont, rdx=ω cont, r8d=scan flag), exactly as DEFER --- */
          + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
-         + x86_lea_id("rcx", 4)
-         + x86_lea_id("rdx", 5)
-         + x86_jmp_reg("rax")
+         + bb_glue_pass_wires(4, 5)   /* GLUE-SYM (s22x): the ONE pass-through spelling -- same wire contract as DEFER, ledger amended: this site was the backlog's unlisted 6th member */
          + x86("def",  L(4))
          + IF(_.op_scan && _.op_scan_head_off >= 0,
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")

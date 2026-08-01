@@ -1,6 +1,7 @@
 #include <string>
 #include <stdint.h>
 #include "emit.h"
+#include "bb_templates.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
@@ -58,9 +59,7 @@ std::string bb_call_value() {
             + x86("call",  "rt_call_value_spine_prep", vprep_fp))
        + x86("test",  "rax", "rax")
        + x86("je",    L(7))
-       + x86_lea_id("rcx", 3)
-       + x86_lea_id("rdx", 4)
-       + x86_jmp_reg("rax")
+       + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x): the ONE pass-through spelling */
        + x86("def", L(3))
        + x86("mov",  FRQ(H + 8), "rsp")
        + x86("mov",  "rax", FRQ(H))

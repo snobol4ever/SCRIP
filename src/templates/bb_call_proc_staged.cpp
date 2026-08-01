@@ -239,9 +239,7 @@ static std::string bcps_det_arm() {
             ? x86("test", "rax", "rax")
             + x86("je", L(5))
             + x86("call", "rt_proc_open_fn", openfn_fp)
-            + x86_lea_id("rcx", 6)
-            + x86_lea_id("rdx", 7)
-            + x86_jmp_reg("rax")
+            + bb_glue_pass_wires(6, 7)   /* GLUE-SYM (s22x): the ONE pass-through spelling -- byte-identical to the hand-rolled trio it replaces */
             + x86("def", L(6))
             + x86("mov", "rdi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
             + x86("mov", "rsi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
@@ -279,9 +277,7 @@ static std::string bcps_det_arm() {
                        + (c2farm() ? x86_rsp_load64("rax", (int)scc_sb + 8) : x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
                        + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })   /* FLATDISP-LIVE-BUMP: the FRQ fallback now carries the scc_sb the fc_hit arm always had -- FR/FRQ are rsp-relative under the depth-static regime, so the non-window read was 32 short (083: arg staged at [rsp+128] pre-sub, read at [rsp+128] post-sub = zeroed frame -> s=0 -> 2*s=0).  CALL2BB 3b armed arm FIRST: the RESULT window (base=own quad) never covers the arg slot, so fc_hit correctly misses -- the arg CELL is position-known (TOS above the save block, [rsp + scc_sb], v1 nargs==1 by the bomb), read by position not window */
             + x86("call", "rt_proc_open_fn", openfn_fp)
-            + x86_lea_id("rcx", 6)
-            + x86_lea_id("rdx", 7)
-            + x86_jmp_reg("rax")
+            + bb_glue_pass_wires(6, 7)   /* GLUE-SYM (s22x) */
             + x86("def", L(6))
             + x86("mov", "rdi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
             + x86("mov", "rsi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
@@ -338,9 +334,7 @@ static std::string bcps_det_arm() {
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call).  Unexercised intersection (census
              * 0/308): soundness is by the exit-class argument above, non-regression by the gates. */
             ? (det_idx >= 0 && x86_zc_frame() == ZC_FRAME_RSP ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
-            + x86_lea_id("rcx", 3)
-            + x86_lea_id("rdx", 4)
-            + x86_jmp_reg("rax")
+            + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
             + x86("def", L(3))
             + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
             + x86("jmp", L(2))
@@ -360,10 +354,8 @@ static std::string bcps_det_arm() {
             ? x86("call", "rt_proc_open_fn", openfn_fp)
             + x86("push", "r12")
             + x86("sub", "rsp", 8L)
-            + x86_lea_id("rcx", 3)
-            + x86_lea_id("rdx", 4)
-            + x86("mov", "r12", "rsp")
-            + x86_jmp_reg("rax")
+            + x86("mov", "r12", "rsp")   /* GLUE-SYM (s22x): hoisted above the glue -- lea rcx/rdx touch neither rsp nor r12, so the anchor records the identical value; legacy non-RSP arm only */
+            + bb_glue_pass_wires(3, 4)
             + x86("def", L(3))
             + x86("mov", "rax", "rsp")
             + x86("mov", "rax", RDQ("rax", 8))
@@ -463,9 +455,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
-         + x86_lea_id("rcx", 3)
-         + x86_lea_id("rdx", 4)
-         + x86_jmp_reg("rax")
+         + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
          + x86("def", L(3))
          + x86("mov", FRQ(act + 8), "rsp")
          + x86("mov", "rax", FRQ(act))
