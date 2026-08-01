@@ -92,9 +92,9 @@ proc_add_α:
 proc_add_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_save_restore_α:
-                        mov              rdi, qword ptr [rsp + 40]
-                        mov              rsi, qword ptr [rsp + 48]
-                        lea              rdx, [rsp + 64]
+                        mov              rdi, rcx
+                        mov              rsi, rdx
+                        lea              rdx, [rsp + 0]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n14_goto_deferred_α
@@ -215,17 +215,18 @@ main_α_body:
 #         OUTPUT = add(3, 4)
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_integer_α:
-                        mov              qword ptr [rsp + 144], 6
+                        sub              rsp, 160
+                        mov              qword ptr [rsp + 128], 6
                         mov              rax, qword ptr [rip + .Lx34_0]
-                        mov              qword ptr [rsp + 152], rax
+                        mov              qword ptr [rsp + 136], rax
                                                                                         jmp   n20_lit_integer_α
 .Lx34_0:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
 n20_lit_integer_α:
-                        mov              qword ptr [rsp + 160], 6
+                        mov              qword ptr [rsp + 144], 6
                         mov              rax, qword ptr [rip + .Lx35_0]
-                        mov              qword ptr [rsp + 168], rax
+                        mov              qword ptr [rsp + 152], rax
                                                                                         jmp   n21_call_α
 .Lx35_0:
                         .quad            4
@@ -302,32 +303,32 @@ n21_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx37_20
-                        mov              rax, qword ptr [rsp + 144]
-                        mov              rdx, qword ptr [rsp + 152]
+                        mov              rax, qword ptr [rsp + 128]
+                        mov              rdx, qword ptr [rsp + 136]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx37_21
 .Lx37_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 144]
-                        mov              rdx, qword ptr [rsp + 152]
+                        mov              rsi, qword ptr [rsp + 128]
+                        mov              rdx, qword ptr [rsp + 136]
                         call             rt_arg_stage@PLT
 .Lx37_21:
                         lea              r11, [rip + g_gc_pending]
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx37_22
-                        mov              rax, qword ptr [rsp + 160]
-                        mov              rdx, qword ptr [rsp + 168]
+                        mov              rax, qword ptr [rsp + 144]
+                        mov              rdx, qword ptr [rsp + 152]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 16], rax
                         mov              qword ptr [r10 + 24], rdx
                                                                                         jmp   .Lx37_23
 .Lx37_22:
                         mov              edi, 1
-                        mov              rsi, qword ptr [rsp + 160]
-                        mov              rdx, qword ptr [rsp + 168]
+                        mov              rsi, qword ptr [rsp + 144]
+                        mov              rdx, qword ptr [rsp + 152]
                         call             rt_arg_stage@PLT
 .Lx37_23:
                         mov              rdi, qword ptr [rip + .Lx37_0]
@@ -348,10 +349,13 @@ n21_call_α:
 .Lx37_1:
                         call             rt_faildescr@PLT
 .Lx37_2:
-                        mov              qword ptr [rsp + 80], rax
-                        mov              qword ptr [rsp + 88], rdx
+                        mov              qword ptr [rsp + 64], rax
+                        mov              qword ptr [rsp + 72], rdx
                         cmp              eax, 99
-                                                                                        je    n23_lit_integer_α
+                                                                                        jne   .Lx37_240
+                        add              rsp, 160
+                                                                                        jmp   n23_lit_integer_α
+.Lx37_240:
                                                                                         jmp   n22_assign_α
 n21_call_β:
                                                                                         jmp   n23_lit_integer_α
@@ -361,10 +365,11 @@ n21_call_β:
                         .string          "add"
 #-----------------------------------------------------------------------------------------------------------------------
 n22_assign_α:
-                        mov              rsi, qword ptr [rsp + 80]
-                        mov              rdx, qword ptr [rsp + 88]
+                        mov              rsi, qword ptr [rsp + 64]
+                        mov              rdx, qword ptr [rsp + 72]
                         mov              rdi, qword ptr [rip + .Lx38_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 160
                                                                                         jmp   n23_lit_integer_α
 .Lx38_0:
                         .quad            .Lx38_0_s
@@ -374,17 +379,18 @@ n22_assign_α:
 #         OUTPUT = add(10, 32)
 #-----------------------------------------------------------------------------------------------------------------------
 n23_lit_integer_α:
-                        mov              qword ptr [rsp + 240], 6
+                        sub              rsp, 256
+                        mov              qword ptr [rsp + 224], 6
                         mov              rax, qword ptr [rip + .Lx39_0]
-                        mov              qword ptr [rsp + 248], rax
+                        mov              qword ptr [rsp + 232], rax
                                                                                         jmp   n24_lit_integer_α
 .Lx39_0:
                         .quad            10
 #-----------------------------------------------------------------------------------------------------------------------
 n24_lit_integer_α:
-                        mov              qword ptr [rsp + 256], 6
+                        mov              qword ptr [rsp + 240], 6
                         mov              rax, qword ptr [rip + .Lx40_0]
-                        mov              qword ptr [rsp + 264], rax
+                        mov              qword ptr [rsp + 248], rax
                                                                                         jmp   n25_call_α
 .Lx40_0:
                         .quad            32
@@ -461,32 +467,32 @@ n25_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx42_20
-                        mov              rax, qword ptr [rsp + 240]
-                        mov              rdx, qword ptr [rsp + 248]
+                        mov              rax, qword ptr [rsp + 224]
+                        mov              rdx, qword ptr [rsp + 232]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx42_21
 .Lx42_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 240]
-                        mov              rdx, qword ptr [rsp + 248]
+                        mov              rsi, qword ptr [rsp + 224]
+                        mov              rdx, qword ptr [rsp + 232]
                         call             rt_arg_stage@PLT
 .Lx42_21:
                         lea              r11, [rip + g_gc_pending]
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx42_22
-                        mov              rax, qword ptr [rsp + 256]
-                        mov              rdx, qword ptr [rsp + 264]
+                        mov              rax, qword ptr [rsp + 240]
+                        mov              rdx, qword ptr [rsp + 248]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 16], rax
                         mov              qword ptr [r10 + 24], rdx
                                                                                         jmp   .Lx42_23
 .Lx42_22:
                         mov              edi, 1
-                        mov              rsi, qword ptr [rsp + 256]
-                        mov              rdx, qword ptr [rsp + 264]
+                        mov              rsi, qword ptr [rsp + 240]
+                        mov              rdx, qword ptr [rsp + 248]
                         call             rt_arg_stage@PLT
 .Lx42_23:
                         mov              rdi, qword ptr [rip + .Lx42_0]
@@ -507,10 +513,13 @@ n25_call_α:
 .Lx42_1:
                         call             rt_faildescr@PLT
 .Lx42_2:
-                        mov              qword ptr [rsp + 176], rax
-                        mov              qword ptr [rsp + 184], rdx
+                        mov              qword ptr [rsp + 160], rax
+                        mov              qword ptr [rsp + 168], rdx
                         cmp              eax, 99
-                                                                                        je    main_γ
+                                                                                        jne   .Lx42_240
+                        add              rsp, 256
+                                                                                        jmp   main_γ
+.Lx42_240:
                                                                                         jmp   n26_assign_α
 n25_call_β:
                                                                                         jmp   main_γ
@@ -520,10 +529,11 @@ n25_call_β:
                         .string          "add"
 #-----------------------------------------------------------------------------------------------------------------------
 n26_assign_α:
-                        mov              rsi, qword ptr [rsp + 176]
-                        mov              rdx, qword ptr [rsp + 184]
+                        mov              rsi, qword ptr [rsp + 160]
+                        mov              rdx, qword ptr [rsp + 168]
                         mov              rdi, qword ptr [rip + .Lx43_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 256
                                                                                         jmp   main_γ
 .Lx43_0:
                         .quad            .Lx43_0_s

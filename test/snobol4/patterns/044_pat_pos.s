@@ -61,12 +61,14 @@ n1_assign_β:
 #         X POS(0) LEN(3) . V                                        :S(YES)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 224
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 208], rax
                         mov              qword ptr [rsp + 216], rdx
                                                                                         jmp   n3_match_head_α
 n2_var_β:
+                        add              rsp, 224
                                                                                         jmp   n13_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
@@ -124,6 +126,7 @@ n3_match_head_β:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 224
                                                                                         jmp   n13_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:
@@ -193,6 +196,7 @@ n5_match_release_α:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 224
                                                                                         jmp   n6_var_α
 #=======================================================================================================================
 # YES     OUTPUT = V

@@ -519,10 +519,11 @@ n40_assign_α:
 # NEXTW LINE     ?  WPAT =                           :F(NEXTL)
 #-----------------------------------------------------------------------------------------------------------------------
 n41_var_α:
+                        sub              rsp, 160
                         mov              rax, qword ptr [1879052336]
                         mov              rdx, qword ptr [1879052344]
-                        mov              qword ptr [rsp + 496], rax
-                        mov              qword ptr [rsp + 504], rdx
+                        mov              qword ptr [rsp + 144], rax
+                        mov              qword ptr [rsp + 152], rdx
                                                                                         jmp   n42_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n42_match_head_α:
@@ -580,6 +581,7 @@ n42_match_head_β:
                         mov              rdx, qword ptr [rbp + 440]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 408]
+                        add              rsp, 160
                                                                                         jmp   n39_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n43_match_patref_α:
@@ -725,10 +727,10 @@ n44_match_release_α:
                                                                                         jmp   n45_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n45_lit_string_α:
-                        mov              qword ptr [rsp + 464], 1
-                        mov              dword ptr [rsp + 468], 0
+                        mov              qword ptr [rsp + 112], 1
+                        mov              dword ptr [rsp + 116], 0
                         mov              rax, qword ptr [rip + .Lx89_0]
-                        mov              qword ptr [rsp + 472], rax
+                        mov              qword ptr [rsp + 120], rax
                                                                                         jmp   n46_match_replace_α
 .Lx89_0:
                         .quad            .Lx89_0_s
@@ -750,6 +752,7 @@ n46_match_replace_α:
                         .string          "LINE"
 .Lx91_1:
                         mov              rbp, qword ptr [rbp + 408]
+                        add              rsp, 160
                                                                                         jmp   n47_var_α
 #=======================================================================================================================
 #       N        =  N + 1                            :(NEXTW)

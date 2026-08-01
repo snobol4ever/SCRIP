@@ -63,12 +63,14 @@ n1_assign_β:
 #         X BREAK(' ') . FIRST LEN(1) REM . LAST                    :S(YES)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 256
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 240], rax
                         mov              qword ptr [rsp + 248], rdx
                                                                                         jmp   n3_match_head_α
 n2_var_β:
+                        add              rsp, 256
                                                                                         jmp   n19_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
@@ -126,6 +128,7 @@ n3_match_head_β:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 256
                                                                                         jmp   n19_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:
@@ -195,6 +198,7 @@ n5_match_release_α:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 256
                                                                                         jmp   n6_var_α
 #=======================================================================================================================
 # YES     OUTPUT = FIRST ' / ' LAST

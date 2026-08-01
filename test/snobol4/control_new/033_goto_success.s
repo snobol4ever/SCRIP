@@ -53,6 +53,7 @@ n1_assign_α:
 #         X 'hello'                                                   :S(FOUND)F(NOTFOUND)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 144
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 128], rax
@@ -114,6 +115,7 @@ n3_match_head_β:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 144
                                                                                         jmp   n8_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_lit_α:
@@ -192,6 +194,7 @@ n5_match_release_α:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 144
                                                                                         jmp   n6_lit_string_α
 #=======================================================================================================================
 # FOUND   OUTPUT = 'found'

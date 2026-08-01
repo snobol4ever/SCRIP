@@ -331,10 +331,11 @@ n28_assign_α:
 #       LINE     ?  PAT                              :(LOOP)
 #-----------------------------------------------------------------------------------------------------------------------
 n29_var_α:
+                        sub              rsp, 144
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 224], rax
-                        mov              qword ptr [rsp + 232], rdx
+                        mov              qword ptr [rsp + 128], rax
+                        mov              qword ptr [rsp + 136], rdx
                                                                                         jmp   n30_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_match_head_α:
@@ -392,6 +393,7 @@ n30_match_head_β:
                         mov              rdx, qword ptr [rbp + 184]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 152]
+                        add              rsp, 144
                                                                                         jmp   n27_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n31_match_patref_α:
@@ -534,6 +536,7 @@ n32_match_release_α:
                         mov              rdx, qword ptr [rbp + 184]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 152]
+                        add              rsp, 144
                                                                                         jmp   n27_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n33_goto_α:

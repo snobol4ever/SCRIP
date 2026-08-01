@@ -55,6 +55,7 @@ n1_assign_α:
 #         X NOTANY('aeiou') . V                                       :S(YES)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 192
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 176], rax
@@ -116,6 +117,7 @@ n3_match_head_β:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 192
                                                                                         jmp   n10_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_assign_save_α:
@@ -225,6 +227,7 @@ n7_match_release_α:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 192
                                                                                         jmp   n8_var_α
 #=======================================================================================================================
 # YES     OUTPUT = V
