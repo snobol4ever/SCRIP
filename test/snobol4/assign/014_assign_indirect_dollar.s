@@ -32,10 +32,10 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1
-                        mov              dword ptr [rsp + 4], 1
+                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              dword ptr [rsp + 4], 1                         # lit_string
                         mov              rax, qword ptr [rip + .Lx6_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_string
                                                                                         jmp   n1_call_α
 .Lx6_0:
                         .quad            .Lx6_0_s
@@ -53,9 +53,9 @@ n1_call_α:
 .Lrkfnzd8:              .string          "SNO$NAME"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd8]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 1
+                        lea              rdi, [rip + .Lrkfnzd8]                         # fn
+                        lea              rsi, [rsp + 0]                                 # args
+                        mov              edx, 1                                         # nargs
                         call             rt_call_arr@PLT
                         add              rsp, 16
                         cmp              eax, 99
@@ -64,8 +64,8 @@ n1_call_α:
                         add              rsp, 16
                                                                                         jmp   n4_var_α
 .Lx7_240:
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 0], rax                       # call
+                        mov              qword ptr [rsp + 8], rdx                       # call
                                                                                         jmp   n2_lit_string_α
 n1_call_β:
                         add              rsp, 16
@@ -74,10 +74,10 @@ n1_call_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n2_lit_string_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 1
-                        mov              dword ptr [rsp + 4], 5
+                        mov              qword ptr [rsp + 0], 1                         # lit_string
+                        mov              dword ptr [rsp + 4], 5                         # lit_string
                         mov              rax, qword ptr [rip + .Lx9_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_string
                                                                                         jmp   n3_assign_var_α
 .Lx9_0:
                         .quad            .Lx9_0_s
@@ -86,10 +86,10 @@ n2_lit_string_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_var_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 32]
-                        mov              rsi, qword ptr [rsp + 40]
-                        mov              rdx, qword ptr [rsp + 16]
-                        mov              rcx, qword ptr [rsp + 24]
+                        mov              rdi, qword ptr [rsp + 32]                      # call
+                        mov              rsi, qword ptr [rsp + 40]                      # call
+                        mov              rdx, qword ptr [rsp + 16]                      # val
+                        mov              rcx, qword ptr [rsp + 24]                      # val
                         call             rt_assign_var@PLT
                         cmp              eax, 99
                                                                                         jne   .Lx10_240
@@ -97,8 +97,8 @@ n3_assign_var_α:
                         add              rsp, 48
                                                                                         jmp   n4_var_α
 .Lx10_240:
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 0], rax                       # assign_var
+                        mov              qword ptr [rsp + 8], rdx                       # assign_var
                         add              rsp, 64
                                                                                         jmp   n4_var_α
 #=======================================================================================================================
@@ -108,14 +108,14 @@ n4_var_α:
                         sub              rsp, 16
                         mov              rax, qword ptr [1879052288]                    # X
                         mov              rdx, qword ptr [1879052296]                    # X
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 0], rax                       # X
+                        mov              qword ptr [rsp + 8], rdx                       # X
                                                                                         jmp   n5_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx12_0]
+                        mov              rsi, qword ptr [rsp + 0]                       # var
+                        mov              rdx, qword ptr [rsp + 8]                       # var
+                        mov              rdi, qword ptr [rip + .Lx12_0]                 # name
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ

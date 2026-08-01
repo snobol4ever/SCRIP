@@ -19,17 +19,17 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_real_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 7
+                        mov              qword ptr [rsp + 0], 7                         # lit_real
                         mov              rax, qword ptr [rip + .Lx2_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_real
                                                                                         jmp   n1_assign_α
 .Lx2_0:
                         .quad            4614253070214989087
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx3_0]
+                        mov              rsi, qword ptr [rsp + 0]                       # lit_real
+                        mov              rdx, qword ptr [rsp + 8]                       # lit_real
+                        mov              rdi, qword ptr [rip + .Lx3_0]                  # name
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ

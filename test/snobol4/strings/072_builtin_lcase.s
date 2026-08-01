@@ -19,10 +19,10 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_keyword_snobol4_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rip + .Lx2_0]
+                        mov              rdi, qword ptr [rip + .Lx2_0]                  # sval
                         call             rt_keyword_read_snobol4@PLT
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 0], rax                       # keyword_snobol4
+                        mov              qword ptr [rsp + 8], rdx                       # keyword_snobol4
                                                                                         jmp   n1_assign_α
 .Lx2_0:
                         .quad            .Lx2_0_s
@@ -30,9 +30,9 @@ n0_keyword_snobol4_α:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx3_0]
+                        mov              rsi, qword ptr [rsp + 0]                       # keyword_snobol4
+                        mov              rdx, qword ptr [rsp + 8]                       # keyword_snobol4
+                        mov              rdi, qword ptr [rip + .Lx3_0]                  # name
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ

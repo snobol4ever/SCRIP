@@ -19,26 +19,26 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_integer_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 6
+                        mov              qword ptr [rsp + 0], 6                         # lit_integer
                         mov              rax, qword ptr [rip + .Lx3_0]
-                        mov              qword ptr [rsp + 8], rax
+                        mov              qword ptr [rsp + 8], rax                       # lit_integer
                                                                                         jmp   n1_unop_α
 .Lx3_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n1_unop_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 16]
-                        mov              rsi, qword ptr [rsp + 24]
+                        mov              rdi, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rsi, qword ptr [rsp + 24]                      # lit_integer
                         call             rt_num_neg@PLT
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rdx
+                        mov              qword ptr [rsp + 0], rax                       # unop
+                        mov              qword ptr [rsp + 8], rdx                       # unop
                                                                                         jmp   n2_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_assign_α:
-                        mov              rsi, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx5_0]
+                        mov              rsi, qword ptr [rsp + 0]                       # unop
+                        mov              rdx, qword ptr [rsp + 8]                       # unop
+                        mov              rdi, qword ptr [rip + .Lx5_0]                  # name
                         call             NV_SET_fn@PLT
                         add              rsp, 32
                                                                                         jmp   main_γ
