@@ -3,27 +3,6 @@
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$0_α
 proc_PAT$0_α:
-                        .global          proc_PAT$0_α
-                        .global          proc_PAT$0_β
-                        .global          proc_PAT$0_γ
-                        .global          proc_PAT$0_ω
-                        sub              rsp, 320
-                        mov              [rsp + 296], rcx
-                        mov              [rsp + 304], rdx
-                        mov              [rsp + 312], rbp
-                        mov              rbp, rsp
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 96], 0
-                        mov              qword ptr [rsp + 104], 0
-                        mov              qword ptr [rsp + 160], 0
-                        mov              qword ptr [rsp + 168], 0
-                        mov              qword ptr [rsp + 240], 0
-                        mov              qword ptr [rsp + 248], 0
-                        mov              qword ptr [rsp + 256], 0
-                        mov              qword ptr [rsp + 264], 0
-                        mov              qword ptr [rsp + 272], 0
-                        mov              qword ptr [rsp + 280], 0
                         mov              qword ptr [rsp + 288], r8
                         mov              dword ptr [rsp + 280], r14d
 proc_PAT$0_attempt:
@@ -41,17 +20,11 @@ n0_match_sequence_af:
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n1_match_assign_save_α:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 240]
-                        mov              esi, r14d
-                        call             rt_cap_push@PLT
-                        add              rsp, 32
+                        sub              rsp, 16
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n2_match_rem_α
 n1_match_assign_save_β:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 240]
-                        call             rt_cap_pop@PLT
-                        add              rsp, 32
+                        add              rsp, 16
                                                                                         jmp   n5_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
 n2_match_rem_α:
@@ -62,11 +35,11 @@ n2_match_rem_α:
 n2_match_rem_β:
                         mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
-                                                                                        jmp   n1_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   n5_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_assign_cond_α:
-                        lea              rdi, [rbp + 240]
-                        call             rt_cap_top@PLT
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S0]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
@@ -134,17 +107,11 @@ n6_match_lit_β:
                                                                                         jmp   n9_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n7_match_assign_save_α:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 160]
-                        mov              esi, r14d
-                        call             rt_cap_push@PLT
-                        add              rsp, 32
+                        sub              rsp, 16
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n8_match_arb_α
 n7_match_assign_save_β:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 160]
-                        call             rt_cap_pop@PLT
-                        add              rsp, 32
+                        add              rsp, 16
                                                                                         jmp   n11_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_arb_α:
@@ -164,11 +131,11 @@ n8_match_arb_β:
 .Lx31_0:
                         mov              r14d, dword ptr [rsp + 4]
                         add              rsp, 16
-                                                                                        jmp   n7_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   n11_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:
-                        lea              rdi, [rbp + 160]
-                        call             rt_cap_top@PLT
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S1]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
@@ -218,33 +185,30 @@ n11_match_tab_β:
                                                                                         jmp   n14_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_assign_save_α:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 96]
-                        mov              esi, r14d
-                        call             rt_cap_push@PLT
-                        add              rsp, 32
+                        sub              rsp, 16
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n13_match_len_α
 n12_match_assign_save_β:
-                        sub              rsp, 32
-                        lea              rdi, [rbp + 96]
-                        call             rt_cap_pop@PLT
-                        add              rsp, 32
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n13_match_len_α:
                         mov              eax, r14d
                         add              eax, 4
                         cmp              eax, r15d
-                                                                                        jg    n12_match_assign_save_β
+                                                                                        jle   .Lx38_240
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$0_ω
+.Lx38_240:
                         add              r14d, 4
                                                                                         jmp   n14_match_assign_cond_α
 n13_match_len_β:
                         sub              r14d, 4
-                                                                                        jmp   n12_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_assign_cond_α:
-                        lea              rdi, [rbp + 96]
-                        call             rt_cap_top@PLT
+                        mov              eax, dword ptr [rsp + 0]
                         lea              rcx, [rip + .S2]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
@@ -312,18 +276,6 @@ proc_PAT$0_β:
                                                                                         jmp   qword ptr [rbp + 256]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_γ:
-                        push             rbp
-                        lea              rax, [rip + proc_PAT$0_res]
-                        push             rax
-                        mov              rax, [rbp + 296]
-                        mov              rbp, [rbp + 312]
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_PAT$0_ω:
-                        mov              rax, [rbp + 304]
-                        lea              rsp, [rbp + 320]
-                        mov              rbp, [rbp + 312]
-                                                                                        jmp   rax
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
@@ -382,17 +334,6 @@ main:
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
-                        .global          main_α
-                        .global          main_β
-                        .global          main_γ
-                        .global          main_ω
-                        sub              rsp, 392
-                        mov              rdi, rsp
-                        mov              ecx, 392
-                        xor              eax, eax
-                        rep stosb
-                        mov              [rsp + 384], rbp
-                        mov              rbp, rsp
 main_α_body:
 #=======================================================================================================================
 #       PAT      =  POS(0) LEN(4) . WHEN
@@ -797,20 +738,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              eax, 1
-                        xor              edx, edx
-                        mov              rsp, rbp
-                        mov              rbp, [rsp + 384]
-                        add              rsp, 392
-                        ret
-#-----------------------------------------------------------------------------------------------------------------------
-main_ω:
-                        mov              rsp, rbp
-                        mov              eax, 99
-                        xor              edx, edx
-                        mov              rbp, [rsp + 384]
-                        add              rsp, 392
-                        ret
                         .section         .rodata
 .S0:                    .string          "WHAT"
 .S1:                    .string          "WHO"

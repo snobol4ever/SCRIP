@@ -3,17 +3,6 @@
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_LBL__double_α
 proc_LBL__double_α:
-                        .global          proc_LBL__double_α
-                        .global          proc_LBL__double_β
-                        .global          proc_LBL__double_γ
-                        .global          proc_LBL__double_ω
-                        sub              rsp, 256
-                        mov              [rsp + 232], rcx
-                        mov              [rsp + 240], rdx
-                        mov              qword ptr [rsp], 0
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 208], 0
-                        mov              qword ptr [rsp + 216], 0
 proc_LBL__double_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_goto_α:
@@ -93,30 +82,9 @@ proc_LBL__double_β:
                                                                                         jmp   proc_LBL__double_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__double_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 232]
-                        add              rsp, 256
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_LBL__double_ω:
-                        mov              rax, [rsp + 240]
-                        add              rsp, 256
-                                                                                        jmp   rax
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_double_α
 proc_double_α:
-                        .global          proc_double_α
-                        .global          proc_double_β
-                        .global          proc_double_γ
-                        .global          proc_double_ω
-                        sub              rsp, 64
-                        mov              [rsp + 40], rcx
-                        mov              [rsp + 48], rdx
-                        mov              rdi, rsp
-                        mov              ecx, 32
-                        xor              eax, eax
-                        rep stosb
 proc_double_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n13_save_restore_α:
@@ -146,16 +114,6 @@ proc_double_β:
                                                                                         jmp   proc_double_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_double_γ:
-                        mov              rdi, [rsp]
-                        mov              rsi, [rsp + 8]
-                        mov              rax, [rsp + 40]
-                        add              rsp, 64
-                                                                                        jmp   rax
-#-----------------------------------------------------------------------------------------------------------------------
-proc_double_ω:
-                        mov              rax, [rsp + 48]
-                        add              rsp, 64
-                                                                                        jmp   rax
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
@@ -233,15 +191,6 @@ main:
                         ret
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
-                        .global          main_α
-                        .global          main_β
-                        .global          main_γ
-                        .global          main_ω
-                        sub              rsp, 216
-                        mov              rdi, rsp
-                        mov              ecx, 216
-                        xor              eax, eax
-                        rep stosb
 main_α_body:
 #=======================================================================================================================
 #         DEFINE('double(s)')                                         :(double_end)
@@ -546,14 +495,4 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              eax, 1
-                        xor              edx, edx
-                        add              rsp, 216
-                        ret
-#-----------------------------------------------------------------------------------------------------------------------
-main_ω:
-                        mov              eax, 99
-                        xor              edx, edx
-                        add              rsp, 216
-                        ret
                         .section         .note.GNU-stack,"",@progbits
