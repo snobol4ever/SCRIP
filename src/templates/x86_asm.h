@@ -315,17 +315,18 @@ inline int x86_fc_on()       { return x86_port_mode() == ZC_PORT_FORTH && _.op_f
 inline int x86_fc_miss(int bump) { static int n = 0; if (bump) n++; return n; }
 inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = x86_port_mode() == ZC_PORT_FORTH && w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0; int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-%s] granted box falls back to [rbp+%d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w, (long)_.op_own_ci); } return hit; }   /* ZB-VAL-8b GATE (s182, closes s181 HEADLINE 6): the fallback is SILENT BY CONSTRUCTION -- an undersized window does not crash and does not emit a WRONG address, it just leaves the box on rbp, so "I converted it" and "it converted" were indistinguishable in the build.  A GRANTED box (w>0, base>=0) whose offset misses its own window is exactly that event; count it always, narrate it under SCRIP_FC_AUDIT=1.  test_gate_fc_no_residual_rbp.sh asserts the count is ZERO across the corpus, which is what makes conversion progress falsifiable */
 inline std::string x86_fc_jcc_omega(const char * mnem);
-inline const char * x86_jcc_invert(const char * m) {
-    if (!strcmp(m, "je"))  return "jne";
-    if (!strcmp(m, "jne")) return "je";
-    if (!strcmp(m, "jl"))  return "jge";
-    if (!strcmp(m, "jge")) return "jl";
-    if (!strcmp(m, "jle")) return "jg";
-    if (!strcmp(m, "jg"))  return "jle";
-    if (!strcmp(m, "js"))  return "jns";
-    if (!strcmp(m, "jns")) return "js";
-    fprintf(stderr, "[x86] FATAL x86_jcc_invert: unknown condition '%s' (add the pair)\n", m); abort();
+inline const char * x86_jcc_canon(uint8_t op) {
+    switch (op) {
+        case 0x82: return "jb";  case 0x83: return "jae";
+        case 0x84: return "je";  case 0x85: return "jne";
+        case 0x86: return "jbe"; case 0x87: return "ja";
+        case 0x88: return "js";  case 0x89: return "jns";
+        case 0x8C: return "jl";  case 0x8D: return "jge";
+        case 0x8E: return "jle"; case 0x8F: return "jg";
+    }
+    fprintf(stderr, "[x86] FATAL x86_jcc_canon: unknown jcc opcode 0x%02X (x86_jcc_op grew an arm this switch does not spell)\n", (unsigned)op); abort();
 }
+inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8_t)(x86_jcc_op(m) ^ 1)); }   /* ICN-JCC (re-landed: s204's fix lived only in unpushed local commits; HEAD still carried the 4-pair table).  x86_jcc_op and x86_jcc_invert are ONE vocabulary spelled twice, and that is exactly how they drifted -- jcc_op encodes 12 conditions plus aliases, jcc_invert knew 4 pairs and ABORTED on the rest, which silently killed x86_fc_jcc_omega (the ZB-FC-0 conditional-omega pop synth) for every x86_omega("jz") speller: bb_binop_relop, bb_case_arm, bb_to, bb_match_arbno/defer/value -- i.e. Icon's whole relop + generator surface.  THE FIX IS NOT A BIGGER SECOND TABLE: in the x86 encoding the LOW BIT OF THE JCC OPCODE IS THE NEGATION BIT (0x84^1=0x85 je/jne, 0x8C^1=0x8D jl/jge, ...), so the inverse is DERIVED from the one authority and is total over jcc_op's vocabulary by construction.  A new condition added to jcc_op can never again leave invert behind; x86_jcc_canon's abort fires only if jcc_op grows an opcode this switch does not spell, which is a different and louder failure than a missing pair. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BB-OWNED-ζ STEP 1 (Lon pivot, this session).  x86_selfload_mode() mirrors x86_port_mode()'s env-override
  * pattern but reads ZC_SELFLOAD (the α/β self-load axis), not ZC_PORT.  SCRIP_ZETA_SELFLOAD env var overrides
