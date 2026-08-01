@@ -41,7 +41,7 @@ n0_var_α:
 n1_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # var
                         mov              rdx, qword ptr [rsp + 8]                       # var
-                        mov              rdi, qword ptr [rip + .Lx3_0]                  # name
+                        mov              rdi, qword ptr [rip + .Lx3_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 16
                                                                                         jmp   main_γ

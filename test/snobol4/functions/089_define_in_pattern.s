@@ -22,7 +22,7 @@ n1_var_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n2_keyword_snobol4_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rip + .Lx9_0]                  # sval
+                        mov              rdi, qword ptr [rip + .Lx9_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 0], rax                       # keyword_snobol4
                         mov              qword ptr [rsp + 8], rdx                       # keyword_snobol4
@@ -34,7 +34,7 @@ n2_keyword_snobol4_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n3_keyword_snobol4_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rip + .Lx10_0]                 # sval
+                        mov              rdi, qword ptr [rip + .Lx10_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 0], rax                       # keyword_snobol4
                         mov              qword ptr [rsp + 8], rdx                       # keyword_snobol4
@@ -63,12 +63,12 @@ n4_call_α:
 .Lrkfnzd12:             .string          "REPLACE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd12]                        # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 3                                         # nargs
+                        lea              rdi, [rip + .Lrkfnzd12]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 3
                         call             rt_call_arr@PLT
                         add              rsp, 48
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx11_240
                         add              rsp, 16
                                                                                         jmp   n6_save_restore_α
@@ -118,15 +118,15 @@ proc_upcase_α:
 proc_upcase_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n16_save_restore_α:
-                        mov              rdi, rcx                                       # gw
-                        mov              rsi, rdx                                       # ww
-                        lea              rdx, [rsp + 0]                                 # rsp
-                        mov              rcx, rbp                                       # rbp
+                        mov              rdi, rcx
+                        mov              rsi, rdx
+                        lea              rdx, [rsp + 0]
+                        mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n17_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n17_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx21_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx21_0]
                         call             rt_goto_transfer@PLT
                                                                                         jmp   .Lx21_1
 .Lx21_0:
@@ -248,6 +248,8 @@ n22_lit_string_α:
                         sub              rsp, 208
                         mov              qword ptr [rsp + 0], 0                         # stmt_claim
                         mov              qword ptr [rsp + 8], 0                         # stmt_claim
+                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
+                        mov              qword ptr [rsp + 8], 0                         # stmt_claim
                         mov              qword ptr [rsp + 16], 0                        # stmt_claim
                         mov              qword ptr [rsp + 24], 0                        # stmt_claim
                         mov              qword ptr [rsp + 32], 0                        # stmt_claim
@@ -270,9 +272,7 @@ n22_lit_string_α:
                         mov              qword ptr [rsp + 168], 0                       # stmt_claim
                         mov              qword ptr [rsp + 176], 0                       # stmt_claim
                         mov              qword ptr [rsp + 184], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 192], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 200], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 192], 1                       # lit_string
+                        mov              qword ptr [rsp + 192], 2                       # lit_string
                         mov              dword ptr [rsp + 196], 5                       # lit_string
                         mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rsp + 200], rax                     # lit_string
@@ -292,9 +292,9 @@ n23_call_α:
                         mov              qword ptr [rsp + 16], rax
                         mov              rax, qword ptr [1879052296]                    # upcase
                         mov              qword ptr [rsp + 24], rax
-                        mov              rdi, qword ptr [rip + .Lx38_0]                 # name
-                        mov              esi, 1                                         # np
-                        mov              edx, 1                                         # nargs
+                        mov              rdi, qword ptr [rip + .Lx38_0]
+                        mov              esi, 1
+                        mov              edx, 1
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx38_5
@@ -345,13 +345,13 @@ n23_call_α:
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx38_21
 .Lx38_20:
-                        mov              edi, 0                                         # idx
-                        mov              rsi, qword ptr [rsp + 192]                     # v
-                        mov              rdx, qword ptr [rsp + 200]                     # v
+                        mov              edi, 0
+                        mov              rsi, qword ptr [rsp + 192]
+                        mov              rdx, qword ptr [rsp + 200]
                         call             rt_arg_stage@PLT
 .Lx38_21:
-                        mov              rdi, qword ptr [rip + .Lx38_0]                 # name
-                        mov              esi, 1                                         # nargs
+                        mov              rdi, qword ptr [rip + .Lx38_0]
+                        mov              esi, 1
                         call             rt_proc_call_open@PLT
                         test             rax, rax
                                                                                         je    .Lx38_1
@@ -370,7 +370,7 @@ n23_call_α:
 .Lx38_2:
                         mov              qword ptr [rsp + 144], rax
                         mov              qword ptr [rsp + 152], rdx
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx38_240
                         add              rsp, 208
                                                                                         jmp   n25_lit_string_α
@@ -384,9 +384,9 @@ n23_call_β:
                         .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
 n24_assign_α:
-                        mov              rsi, qword ptr [rsp + 144]                     # val
-                        mov              rdx, qword ptr [rsp + 152]                     # val
-                        mov              rdi, qword ptr [rip + .Lx39_0]                 # name
+                        mov              rsi, qword ptr [rsp + 144]
+                        mov              rdx, qword ptr [rsp + 152]
+                        mov              rdi, qword ptr [rip + .Lx39_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 208
                                                                                         jmp   n25_lit_string_α
@@ -399,6 +399,8 @@ n24_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n25_lit_string_α:
                         sub              rsp, 272
+                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
+                        mov              qword ptr [rsp + 8], 0                         # stmt_claim
                         mov              qword ptr [rsp + 0], 0                         # stmt_claim
                         mov              qword ptr [rsp + 8], 0                         # stmt_claim
                         mov              qword ptr [rsp + 16], 0                        # stmt_claim
@@ -431,9 +433,7 @@ n25_lit_string_α:
                         mov              qword ptr [rsp + 232], 0                       # stmt_claim
                         mov              qword ptr [rsp + 240], 0                       # stmt_claim
                         mov              qword ptr [rsp + 248], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 256], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 264], 0                       # stmt_claim
-                        mov              qword ptr [rsp + 256], 1                       # lit_string
+                        mov              qword ptr [rsp + 256], 2                       # lit_string
                         mov              dword ptr [rsp + 260], 5                       # lit_string
                         mov              rax, qword ptr [rip + .Lx40_0]
                         mov              qword ptr [rsp + 264], rax                     # lit_string
@@ -453,9 +453,9 @@ n26_call_α:
                         mov              qword ptr [rsp + 16], rax
                         mov              rax, qword ptr [1879052296]                    # upcase
                         mov              qword ptr [rsp + 24], rax
-                        mov              rdi, qword ptr [rip + .Lx42_0]                 # name
-                        mov              esi, 1                                         # np
-                        mov              edx, 1                                         # nargs
+                        mov              rdi, qword ptr [rip + .Lx42_0]
+                        mov              esi, 1
+                        mov              edx, 1
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx42_5
@@ -506,13 +506,13 @@ n26_call_α:
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx42_21
 .Lx42_20:
-                        mov              edi, 0                                         # idx
-                        mov              rsi, qword ptr [rsp + 256]                     # v
-                        mov              rdx, qword ptr [rsp + 264]                     # v
+                        mov              edi, 0
+                        mov              rsi, qword ptr [rsp + 256]
+                        mov              rdx, qword ptr [rsp + 264]
                         call             rt_arg_stage@PLT
 .Lx42_21:
-                        mov              rdi, qword ptr [rip + .Lx42_0]                 # name
-                        mov              esi, 1                                         # nargs
+                        mov              rdi, qword ptr [rip + .Lx42_0]
+                        mov              esi, 1
                         call             rt_proc_call_open@PLT
                         test             rax, rax
                                                                                         je    .Lx42_1
@@ -531,7 +531,7 @@ n26_call_α:
 .Lx42_2:
                         mov              qword ptr [rsp + 208], rax
                         mov              qword ptr [rsp + 216], rdx
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx42_240
                         add              rsp, 272
                                                                                         jmp   main_γ
@@ -545,9 +545,9 @@ n26_call_β:
                         .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
 n27_assign_α:
-                        mov              rsi, qword ptr [rsp + 208]                     # val
-                        mov              rdx, qword ptr [rsp + 216]                     # val
-                        mov              rdi, qword ptr [rip + .Lx43_0]                 # name
+                        mov              rsi, qword ptr [rsp + 208]
+                        mov              rdx, qword ptr [rsp + 216]
+                        mov              rdi, qword ptr [rip + .Lx43_0]
                         call             NV_SET_fn@PLT
                         add              rsp, 272
                                                                                         jmp   main_γ
@@ -573,7 +573,7 @@ n29_var_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n30_keyword_snobol4_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rip + .Lx46_0]                 # sval
+                        mov              rdi, qword ptr [rip + .Lx46_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 0], rax                       # keyword_snobol4
                         mov              qword ptr [rsp + 8], rdx                       # keyword_snobol4
@@ -585,7 +585,7 @@ n30_keyword_snobol4_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n31_keyword_snobol4_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rip + .Lx47_0]                 # sval
+                        mov              rdi, qword ptr [rip + .Lx47_0]
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 0], rax                       # keyword_snobol4
                         mov              qword ptr [rsp + 8], rdx                       # keyword_snobol4
@@ -614,12 +614,12 @@ n32_call_α:
 .Lrkfnzd49:             .string          "REPLACE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd49]                        # fn
-                        lea              rsi, [rsp + 0]                                 # args
-                        mov              edx, 3                                         # nargs
+                        lea              rdi, [rip + .Lrkfnzd49]
+                        lea              rsi, [rsp + 0]
+                        mov              edx, 3
                         call             rt_call_arr@PLT
                         add              rsp, 48
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx48_240
                         add              rsp, 16
                                                                                         jmp   n34_save_restore_α
