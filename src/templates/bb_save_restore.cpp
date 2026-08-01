@@ -68,14 +68,7 @@ std::string bb_save_restore() {
     if (role == 1 || role == 2) {
         return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater: restore caller machine state, jmp gamma wire" : "IR_SAVE_RESTORE FRETURN floater: restore caller machine state, jmp omega wire")
              + x86_alpha()
-             + x86_align_enter()
-             + x86("call", "rt_flat_ret_snap", (uint64_t)(uintptr_t)(void *)rt_flat_ret_snap)
-             + x86_align_leave()
-             + x86("mov", "rcx", RDQ("rax", role == 1 ? 0 : 8))
-             + x86("mov", "rbp", RDQ("rax", 24))
-             + (x86_zc_frame() != ZC_FRAME_RSP ? x86("mov", "r12", RDQ("rax", 32)) : std::string())
-             + x86("mov", "rsp", RDQ("rax", 16))
-             + x86("jmp", "rcx");
+             + bb_glue_wire_exit(role == 1 ? 1 : 0);   /* WIRE-EXIT ONE AUTHORITY (s22v): the snap/restore/jmp-wire tail moved to bb_glue_flat.cpp's bb_glue_wire_exit so the floaters and the stub-blob shared γ/ω ports emit the identical sequence from one function; byte-identical to the inline body it replaces. */
     }
     /* role 0 — CALL2BB slice 2 (Lon s21x-c: "Have each BB allocate its RESULT value… its LOCAL STORAGE needs… by one instruction, decrement RSP"; "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs:
      * an IR_SAVE_RESTORE and an IR_CALL").  THE CALL-SITE SAVE/INSTALL BOX: this box's LOCALS are the save-set slots — carved by its OWN single `sub rsp` (never a whole-graph carve, never rbp-indexed),

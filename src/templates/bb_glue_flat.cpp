@@ -1,9 +1,11 @@
 #include <string>
+#include <cstdint>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 }
 #include "x86_asm.h"
+extern "C" void *rt_flat_ret_snap(void);
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GLUE-1 FLAT (Lon directive s21x-n: "Devise two glue codes, one flat jumps and the second the same plus setup of stack frame" + "You might have to put some IF logic in the templates for implementing
  * the FOUR ZETA modes, which is fine").  THE FLAT GLUE: a BB's own storage bracket with NO frame pointer -- the box enters, carves its cell with ONE instruction, and every port transition is a plain jmp.
@@ -88,5 +90,43 @@ std::string bb_glue_outer_ω() {
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(MEDIUM_TEXT,   x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
          + IF(MEDIUM_BINARY, x86("mov32", "eax", 99) + x86("ret"));
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* WIRE-EXIT GLUE (Lon directive s22v: "dynamic glue templates for one-shot and pass-through access to complete BB graphs which have one entry and one exit" + "WHACK-FREE at completion").  A DEFINE
+ * stub blob is wire-entered: rt_proc_call_open/_slim pushed a pcall record, passed the caller's γ/ω landings in rcx/rdx, and the blob's role-3 WIRE-ADOPT box (its first box) recorded them plus entry
+ * rsp / caller rbp into the record's wire quad.  The blob's OWN shared γ/ω ports therefore exit the same way the RETURN/FRETURN floaters do -- snap the open record, restore the caller's machine state
+ * from it (rsp from the RECORDED entry value: the known sync point is the adopt, no rbp assumption, no whack), and jmp home through the port's wire.  γ rides the gw wire (RETURN semantics: fname's
+ * cell holds whatever was assigned, null if nothing); ω rides the ww wire (FRETURN semantics: the caller's :F() sees the failure).  This retires the whack+exit@PLT landing on stub blobs, which (a)
+ * whacked an rbp NO authority had pinned for this class (the α pin guard excludes jmp-entry; the RBPPAIR falsification s22u proved suppressing the whack alone is NOT the cure) and (b) reported
+ * exit(0) -- a SILENT SUCCESS -- on the γ arm of a path that means the transfer machinery fell through.  Level-0 arrival dies loudly inside rt_flat_ret_snap (error 18, "return from level zero"),
+ * strictly better than the silent exit.  ONE AUTHORITY: bb_save_restore.cpp's role-1/2 floaters consume this same function for their tails, so the wire-exit sequence exists exactly once. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_wire_exit(int is_gamma) {
+    if (!PLATFORM_X86) return std::string();
+    return x86_align_enter()
+         + x86("call", "rt_flat_ret_snap", (uint64_t)(uintptr_t)(void *)rt_flat_ret_snap)
+         + x86_align_leave()
+         + x86("mov", "rcx", RDQ("rax", is_gamma ? 0 : 8))
+         + x86("mov", "rbp", RDQ("rax", 24))
+         + (x86_zc_frame() != ZC_FRAME_RSP ? x86("mov", "r12", RDQ("rax", 32)) : std::string())
+         + x86("mov", "rsp", RDQ("rax", 16))
+         + x86("jmp", "rcx");
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_wire_γ() { return bb_glue_wire_exit(1); }
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_wire_ω() { return bb_glue_wire_exit(0); }
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PASS-THROUGH GLUE (Lon s22v, the four-glue grid): the BARE WIRE CONTRACT — lea the caller's own γ/ω continuation labels into rcx/rdx and jmp the resolved target in rax.  This is the ONE dynamic
+ * linkage the whole system speaks (rt_chain_enter, rt_proc_call_open/_slim, and every emitted call/defer/capture site all spell exactly this); ONE-SHOT linkage = this contract PLUS a pcall record
+ * (open pushes, role-3 adopts, bb_glue_wire_exit/floaters come home through it); PASS-THROUGH = the bare contract, nothing to record, nothing to release — the target's exits ride the wires straight
+ * back into this box's own continuation labels.  BB_DEFER's blob entry is the canonical consumer (need TWO of the grid); the remaining hand-rolled trios (bb_call_proc_staged ×5, bb_call_value,
+ * bb_match_capture, bb_match_release, defer's second site) are the CONVERSION BACKLOG ledgered in GOAL-SNOBOL4-BB.md — convert on touch, byte-identical by construction. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_pass_wires(int gid, int wid) {
+    if (!PLATFORM_X86) return std::string();
+    return x86_lea_id("rcx", gid)
+         + x86_lea_id("rdx", wid)
+         + x86_jmp_reg("rax");
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
