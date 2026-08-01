@@ -29,7 +29,7 @@ extern "C" int g_zeta_mode;
 static std::string sink_deref(const char * reg, int lh, int ld, int ln2) {
     return x86_deflabel_id(lh)
          + x86("mov", "eax", (std::string("dword ptr [") + reg + " + 0]").c_str())
-         + x86("cmp", "eax", (long)9)  + x86_jcc_id("jne", ln2 + 1)
+         + x86("cmp", "eax", (long)DT_N)  + x86_jcc_id("jne", ln2 + 1)
          + x86("mov", "esi", (std::string("dword ptr [") + reg + " + 4]").c_str())
          + x86("mov", "rax", (std::string("[") + reg + " + 8]").c_str())
          + x86("test", "rax", "rax")   + x86_jcc_id("je", ld)
@@ -43,7 +43,7 @@ static std::string sink_deref(const char * reg, int lh, int ld, int ln2) {
          + x86("mov", reg, "rax")
          + x86_jmp_id(lh)
          + x86_deflabel_id(ln2 + 1)
-         + x86("cmp", "eax", (long)13) + x86_jcc_id("jne", ld)
+         + x86("cmp", "eax", (long)DT_PLVAR) + x86_jcc_id("jne", ld)
          + x86("mov", "rax", (std::string("[") + reg + " + 8]").c_str())
          + x86("test", "rax", "rax")   + x86_jcc_id("je", ld)
          + x86("cmp", "rax", reg)      + x86_jcc_id("je", ld)
@@ -53,9 +53,9 @@ static std::string sink_deref(const char * reg, int lh, int ld, int ln2) {
 }
 static std::string sink_unb(const char * reg, int lyes, int lno) {
     return x86("mov", "eax", (std::string("dword ptr [") + reg + " + 0]").c_str())
-         + x86("cmp", "eax", (long)0)  + x86_jcc_id("je", lyes)
-         + x86("cmp", "eax", (long)99) + x86_jcc_id("je", lyes)
-         + x86("cmp", "eax", (long)13) + x86_jcc_id("jne", lno)
+         + x86("cmp", "eax", (long)DT_SNUL)  + x86_jcc_id("je", lyes)
+         + x86("cmp", "eax", (long)DT_FAIL) + x86_jcc_id("je", lyes)
+         + x86("cmp", "eax", (long)DT_PLVAR) + x86_jcc_id("jne", lno)
          + x86("mov", "rax", (std::string("[") + reg + " + 8]").c_str())
          + x86("cmp", "rax", reg)      + x86_jcc_id("je", lyes)
          + x86_jmp_id(lno);
@@ -177,27 +177,27 @@ static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym)
     s += x86_deflabel_id(48);
     s += x86("mov", "ecx", "dword ptr [r8 + 0]");
     s += x86("mov", "edx", "dword ptr [r9 + 0]");
-    s += x86("cmp", "ecx", (long)14);
+    s += x86("cmp", "ecx", (long)DT_PLREF);
     s += x86_jcc_id("jne", 49);
-    s += x86("cmp", "edx", (long)14);
+    s += x86("cmp", "edx", (long)DT_PLREF);
     s += x86_jcc_id("je", 53);
     s += x86_jmp_id(52);
     s += x86_deflabel_id(49);
-    s += x86("cmp", "edx", (long)14);
+    s += x86("cmp", "edx", (long)DT_PLREF);
     s += x86_jcc_id("je", 52);
-    s += x86("cmp", "ecx", (long)7);
+    s += x86("cmp", "ecx", (long)DT_R);
     s += x86_jcc_id("je", 53);
-    s += x86("cmp", "edx", (long)7);
+    s += x86("cmp", "edx", (long)DT_R);
     s += x86_jcc_id("je", 53);
-    s += x86("cmp", "ecx", (long)6);
+    s += x86("cmp", "ecx", (long)DT_I);
     s += x86_jcc_id("jne", 50);
-    s += x86("cmp", "edx", (long)6);
+    s += x86("cmp", "edx", (long)DT_I);
     s += x86_jcc_id("jne", 50);
     s += x86("mov", "rax", "[r8 + 0]");
-    s += x86("cmp64", "rax", (long)6);
+    s += x86("cmp64", "rax", (long)DT_I);   /* PACKED tag+slen: (slen 0 << 32) | DT_I -- the s230 invisible-packed-literal class; the branch symbolized the 32-bit cmp two lines up and missed this one. */
     s += x86_jcc_id("jne", 53);
     s += x86("mov", "rax", "[r9 + 0]");
-    s += x86("cmp64", "rax", (long)6);
+    s += x86("cmp64", "rax", (long)DT_I);   /* PACKED tag+slen: (slen 0 << 32) | DT_I -- the s230 invisible-packed-literal class; the branch symbolized the 32-bit cmp two lines up and missed this one. */
     s += x86_jcc_id("jne", 53);
     s += x86("mov", "rax", "[r8 + 8]");
     s += x86("mov", "rsi", "[r9 + 8]");
@@ -218,7 +218,7 @@ static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym)
     s += x86("mov", "rdx", "[r8 + 8]");
     s += x86_jmp_id(54);
     s += x86_deflabel_id(52);
-    s += x86("mov32", "eax", (long)99);
+    s += x86("mov32", "eax", (long)DT_FAIL);
     s += x86("mov32", "edx", (long)0);
     s += x86_jmp_id(54);
     s += x86_deflabel_id(53);
@@ -242,7 +242,7 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += sink_unb("r8", 80, 74);
     s += x86_deflabel_id(74);
     s += x86("mov", "ecx", "dword ptr [r8 + 0]");
-    s += x86("cmp", "ecx", (long)14);
+    s += x86("cmp", "ecx", (long)DT_PLREF);
     s += x86_jcc_id("jne", 73);
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
     s += x86("mov", "eax", "dword ptr [r10 + 0]");
@@ -335,7 +335,7 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86("mov", "rax", "[r8 + 0]");
     s += x86_jmp_id(77);
     s += x86_deflabel_id(73);
-    s += x86("mov32", "eax", (long)99);
+    s += x86("mov32", "eax", (long)DT_FAIL);
     s += x86("mov32", "edx", (long)0);
     s += x86_jmp_id(77);
     s += x86_deflabel_id(72);
@@ -368,7 +368,7 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
     s += x86("mov", "eax", "dword ptr [r10 + 32]");
     s += x86("movsxd", "rdx", "eax");
-    s += x86("mov32", "eax", (long)6);
+    s += x86("mov32", "eax", (long)DT_I);
     s += x86_jmp_id(101);
     s += x86_deflabel_id(100);
     s += x86("lea", "rdi", FRQ(argbase));
@@ -396,37 +396,37 @@ static std::string sink_ix_g_str(int argbase, uint64_t ufp, const char * usym, i
     s += x86_deflabel_id(118);
     s += x86("mov", "eax", "dword ptr [r8 + 0]");
     if (kk == 3) {
-        s += x86("cmp", "eax", (long)14) + x86_jcc_id("jne", 119);
+        s += x86("cmp", "eax", (long)DT_PLREF) + x86_jcc_id("jne", 119);
         s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
         s += x86("mov", "edx", "dword ptr [r10 + 0]");
-        s += x86("cmp", "edx", (long)0)  + x86_jcc_id("je", 116);
+        s += x86("cmp", "edx", (long)DT_SNUL)  + x86_jcc_id("je", 116);
         s += x86("mov", "esi", "dword ptr [r8 + 4]");
         s += x86("cmp", "esi", "edx")    + x86_jcc_id("jne", 115);
         s += x86_jmp_id(114);
         s += x86_deflabel_id(119);
-        s += x86("cmp", "eax", (long)6)  + x86_jcc_id("jne", 120);
+        s += x86("cmp", "eax", (long)DT_I)  + x86_jcc_id("jne", 120);
         s += x86("mov", "esi", "dword ptr [r8 + 4]");
         s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
         s += x86_jmp_id(115);
         s += x86_deflabel_id(120);
-        s += x86("cmp", "eax", (long)1)  + x86_jcc_id("jne", 114);
+        s += x86("cmp", "eax", (long)DT_S)  + x86_jcc_id("jne", 114);
         s += x86("mov", "esi", "dword ptr [r8 + 4]");
         s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
         s += x86("mov", "rdx", "[r8 + 8]");
         s += x86("test", "rdx", "rdx")   + x86_jcc_id("je", 114);
         s += x86_jmp_id(115);
     } else if (kk == 2) {
-        s += x86("cmp", "eax", (long)14) + x86_jcc_id("je", 115);
-        s += x86("cmp", "eax", (long)6)  + x86_jcc_id("je", 114);
-        s += x86("cmp", "eax", (long)1)  + x86_jcc_id("jne", 114);
+        s += x86("cmp", "eax", (long)DT_PLREF) + x86_jcc_id("je", 115);
+        s += x86("cmp", "eax", (long)DT_I)  + x86_jcc_id("je", 114);
+        s += x86("cmp", "eax", (long)DT_S)  + x86_jcc_id("jne", 114);
         s += x86("mov", "esi", "dword ptr [r8 + 4]");
         s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
         s += x86("mov", "rdx", "[r8 + 8]");
         s += x86("test", "rdx", "rdx")   + x86_jcc_id("je", 114);
         s += x86_jmp_id(116);
     } else {
-        s += x86("cmp", "eax", (long)14) + x86_jcc_id("je", 115);
-        s += x86("cmp", "eax", (long)6)  + x86_jcc_id("jne", 114);
+        s += x86("cmp", "eax", (long)DT_PLREF) + x86_jcc_id("je", 115);
+        s += x86("cmp", "eax", (long)DT_I)  + x86_jcc_id("jne", 114);
         s += x86("mov", "esi", "dword ptr [r8 + 4]");
         s += x86("cmp", "esi", (long)0)  + x86_jcc_id("jne", 114);
         s += x86_movabs_r64("rdx", (uint64_t)kival);
@@ -435,11 +435,11 @@ static std::string sink_ix_g_str(int argbase, uint64_t ufp, const char * usym, i
         s += x86_jmp_id(114);
     }
     s += x86_deflabel_id(114);
-    s += x86("mov32", "eax", (long)6);
+    s += x86("mov32", "eax", (long)DT_I);
     s += x86("mov32", "edx", (long)1);
     s += x86_jmp_id(117);
     s += x86_deflabel_id(115);
-    s += x86("mov32", "eax", (long)99);
+    s += x86("mov32", "eax", (long)DT_FAIL);
     s += x86("mov32", "edx", (long)0);
     s += x86_jmp_id(117);
     s += x86_deflabel_id(116);
@@ -498,7 +498,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
-        s += x86("cmp", "eax", (long)99);
+        s += x86("cmp", "eax", (long)DT_FAIL);
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
@@ -584,7 +584,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
     }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
-    s += x86("cmp", "eax", (long)99);
+    s += x86("cmp", "eax", (long)DT_FAIL);
     s += x86_omega("je");
     s += x86_gamma();
     s += x86_beta();

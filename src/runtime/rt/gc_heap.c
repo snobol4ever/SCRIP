@@ -241,7 +241,7 @@ char *c_rt_str_alloc(long n)
      * n characters + NUL. Manual pin 3's "all words within a block must be properly filled in" is the POINTER-POSITION rule (per-type relocatable-word maps) — for char payloads it is discharged
      * by the s91/s92 class typing (scanner never pointer-reads DT_S/HB_WSC), so BP-6 zeroes only the final pad window (NUL slot covered — see rt_gcheap_carve). */
     long want = (n < 0 ? 0 : n) + 1;
-    _Static_assert(DT_S == 1, "value-world heap types carry DTYPE_t verbatim");
+    _Static_assert(DT_S < HB_ZCOL, "value-world heap types carry DTYPE_t verbatim: DT_S is the ONLY DTYPE_t ever passed as a block type (every other caller passes HB_*), so the invariant is that it can never be mistaken for one -- it is NOT that DT_S holds any particular value. This assert read DT_S == 1 until s230, which pinned an incidental number instead of the property its own message names, and therefore fired on the TAG-3 class-bit renumber while the property still held.");
     return (char *)rt_gcheap_alloc((uint16_t)DT_S, (uint64_t)want);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -960,10 +960,10 @@ RTX_FUNC(rt_dcap_step)
     mov     r8d, dword ptr [rip + g_dcf_top]             /* int => dword ptr; zero-extends into r8                   */
     test    r8d, r8d
     jle     .Lrtx_dcs_ret0                               /* ARM A: pump with nothing pushed -> 0, no pump call       */
-    cmp     edi, 99                                      /* edi aliases nm.v (s162 ABI probe). DT_FAIL == 99         */
+    cmp     edi, DT_FAIL                                 /* edi aliases nm.v (s162 ABI probe). SYMBOLIC since s229   */
     je      c_rt_dcap_step                               /* ARM B: cold, delegate                                    */
-    cmp     edi, 1                                       /* unsigned <=1 covers DT_SNUL(0) and DT_S(1)               */
-    jbe     c_rt_dcap_step                               /* ARM C: cold, delegate (also keeps NV_SET_fn untouched)   */
+    test    edi, DT_NOTSTR_MASK                          /* string family (DT_SNUL|DT_S) in ONE 32-bit mask test      */
+    jz      c_rt_dcap_step                               /* ARM C: cold, delegate (also keeps NV_SET_fn untouched)   */
 .Lrtx_dcs_mutate:                                        /* ---- NOTHING ABOVE THIS LABEL WRITES MEMORY ----          */
     dec     r8d                                          /* top-1; 32-bit op re-zeroes the upper half of r8          */
     lea     r8, [r8 + r8*4]                              /* r8 = 5*(top-1)                                           */

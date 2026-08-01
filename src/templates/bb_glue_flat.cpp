@@ -80,7 +80,7 @@ std::string bb_glue_outer_γ() {
     if (!PLATFORM_X86) return std::string();
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(MEDIUM_TEXT,   x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
-         + IF(MEDIUM_BINARY, x86("mov32", "eax", 1) + x86("ret"));
+         + IF(MEDIUM_BINARY, x86("mov32", "eax", (long)DT_S) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
@@ -89,7 +89,7 @@ std::string bb_glue_outer_ω() {
     if (!PLATFORM_X86) return std::string();
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(MEDIUM_TEXT,   x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
-         + IF(MEDIUM_BINARY, x86("mov32", "eax", 99) + x86("ret"));
+         + IF(MEDIUM_BINARY, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* WIRE-EXIT GLUE (Lon directive s22v: "dynamic glue templates for one-shot and pass-through access to complete BB graphs which have one entry and one exit" + "WHACK-FREE at completion").  A DEFINE
