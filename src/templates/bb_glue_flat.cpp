@@ -63,19 +63,29 @@ std::string bb_glue_flat_leave() {
 static inline bool bb_glue_outer_whack() { return true; }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_γ() {
-    /* ONE-SHOT BRIDGE gamma landing.  TEXT (mode-4): whack+add rsp,24+exit(0) -- no ret, no eax.
-     * BINARY (mode-3): whack+eax=1+ret back to C caller (no PLT available in JIT slab). */
+    /* ONE-SHOT BRIDGE gamma landing.  TEXT (mode-4): whack+exit(0) -- no ret, no eax.
+     * BINARY (mode-3): whack+eax=1+ret back to C caller (no PLT available in JIT slab).
+     * ⭐ EXIT-ALIGN (s22q): the `add rsp, 24` s22p put here is DELETED, and it was an ABI violation on EVERY
+     * mode-4 program, not a fragile constant that merely might drift.  It was restoring rsp to main's CRT
+     * entry value before `call exit@PLT` -- but exit() NEVER RETURNS, so restoration buys nothing, while
+     * entry parity is exactly the WRONG parity to call from: after framed_leave rsp is already ≡0 (mod 16),
+     * which is call-correct, and +24 moved it to ≡8.  MEASURED at rt_rspd_report (the .so destructor exit()
+     * runs): rsp%16 = 8 in BOTH a crashing program (W06_pos) and a passing one (002_output_integer_literal)
+     * -- i.e. every m4 program was misaligned and the survivors were LUCKY, which is why the fail set looked
+     * arbitrary.  The crash lands wherever glibc first touches an aligned SSE op on a spilled local (getenv
+     * via _dl_call_fini here), never in the graph, which is what made it look like a pattern defect. */
     if (!PLATFORM_X86) return std::string();
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(MEDIUM_TEXT,   x86("add", "rsp", 24) + x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
+         + IF(MEDIUM_TEXT,   x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
          + IF(MEDIUM_BINARY, x86("mov32", "eax", 1) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
-    /* ONE-SHOT BRIDGE omega landing.  TEXT: exit(1).  BINARY: eax=99, ret. */
+    /* ONE-SHOT BRIDGE omega landing.  TEXT: exit(1).  BINARY: eax=99, ret.  EXIT-ALIGN (s22q): see γ above --
+     * the `add rsp, 24` is deleted here for the same reason and by the same measurement. */
     if (!PLATFORM_X86) return std::string();
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(MEDIUM_TEXT,   x86("add", "rsp", 24) + x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
+         + IF(MEDIUM_TEXT,   x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
          + IF(MEDIUM_BINARY, x86("mov32", "eax", 99) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
