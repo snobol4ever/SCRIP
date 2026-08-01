@@ -143,6 +143,9 @@ proc_startup:
                         mov              esi, 0
                         call             rt_proc_set_nparams@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
+                        mov              esi, 0
+                        call             rt_proc_set_nformals@PLT
+                        lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 272
                         call             rt_proc_set_frame_bytes@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
@@ -172,6 +175,9 @@ proc_startup:
                         lea              rdi, [rip + .Lstartup_pname1]
                         mov              esi, 2
                         call             rt_proc_set_nparams@PLT
+                        lea              rdi, [rip + .Lstartup_pname1]
+                        mov              esi, 2
+                        call             rt_proc_set_nformals@PLT
                         lea              rdi, [rip + .Lstartup_pname1]
                         mov              esi, 16
                         call             rt_proc_set_frame_bytes@PLT
@@ -253,13 +259,13 @@ n21_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx37_5
-                        mov              rax, qword ptr [rsp + 192]
+                        mov              rax, qword ptr [rsp + 176]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 200]
+                        mov              rax, qword ptr [rsp + 184]
                         mov              qword ptr [1879052312], rax
-                        mov              rax, qword ptr [rsp + 208]
+                        mov              rax, qword ptr [rsp + 192]
                         mov              qword ptr [1879052320], rax
-                        mov              rax, qword ptr [rsp + 216]
+                        mov              rax, qword ptr [rsp + 200]
                         mov              qword ptr [1879052328], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx37_6]
@@ -417,13 +423,13 @@ n25_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx42_5
-                        mov              rax, qword ptr [rsp + 288]
+                        mov              rax, qword ptr [rsp + 272]
                         mov              qword ptr [1879052304], rax
-                        mov              rax, qword ptr [rsp + 296]
+                        mov              rax, qword ptr [rsp + 280]
                         mov              qword ptr [1879052312], rax
-                        mov              rax, qword ptr [rsp + 304]
+                        mov              rax, qword ptr [rsp + 288]
                         mov              qword ptr [1879052320], rax
-                        mov              rax, qword ptr [rsp + 312]
+                        mov              rax, qword ptr [rsp + 296]
                         mov              qword ptr [1879052328], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx42_6]
