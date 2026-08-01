@@ -61,12 +61,14 @@ n1_assign_β:
 #         X POS(0) ARBNO('a' | 'b') . V RPOS(0)                     :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 352
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 336], rax
                         mov              qword ptr [rsp + 344], rdx
                                                                                         jmp   n3_match_head_α
 n2_var_β:
+                        add              rsp, 352
                                                                                         jmp   n18_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
@@ -126,6 +128,7 @@ n3_match_head_β:
                         mov              rdx, qword ptr [rbp + 120]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 88]
+                        add              rsp, 352
                                                                                         jmp   n18_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:
@@ -196,6 +199,7 @@ n5_match_release_α:
                         mov              rdx, qword ptr [rbp + 120]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 88]
+                        add              rsp, 352
                                                                                         jmp   n6_var_α
 #=======================================================================================================================
 # YES     OUTPUT = V

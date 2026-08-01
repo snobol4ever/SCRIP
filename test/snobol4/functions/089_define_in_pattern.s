@@ -108,9 +108,9 @@ proc_upcase_α:
 proc_upcase_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n16_save_restore_α:
-                        mov              rdi, qword ptr [rsp + 40]
-                        mov              rsi, qword ptr [rsp + 48]
-                        lea              rdx, [rsp + 64]
+                        mov              rdi, rcx
+                        mov              rsi, rdx
+                        lea              rdx, [rsp + 0]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n17_goto_deferred_α
@@ -227,10 +227,11 @@ main_α_body:
 #         OUTPUT = upcase('hello')
 #-----------------------------------------------------------------------------------------------------------------------
 n22_lit_string_α:
-                        mov              qword ptr [rsp + 208], 1
-                        mov              dword ptr [rsp + 212], 5
+                        sub              rsp, 208
+                        mov              qword ptr [rsp + 192], 1
+                        mov              dword ptr [rsp + 196], 5
                         mov              rax, qword ptr [rip + .Lx36_0]
-                        mov              qword ptr [rsp + 216], rax
+                        mov              qword ptr [rsp + 200], rax
                                                                                         jmp   n23_call_α
 .Lx36_0:
                         .quad            .Lx36_0_s
@@ -293,16 +294,16 @@ n23_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx38_20
-                        mov              rax, qword ptr [rsp + 208]
-                        mov              rdx, qword ptr [rsp + 216]
+                        mov              rax, qword ptr [rsp + 192]
+                        mov              rdx, qword ptr [rsp + 200]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx38_21
 .Lx38_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 208]
-                        mov              rdx, qword ptr [rsp + 216]
+                        mov              rsi, qword ptr [rsp + 192]
+                        mov              rdx, qword ptr [rsp + 200]
                         call             rt_arg_stage@PLT
 .Lx38_21:
                         mov              rdi, qword ptr [rip + .Lx38_0]
@@ -323,10 +324,13 @@ n23_call_α:
 .Lx38_1:
                         call             rt_faildescr@PLT
 .Lx38_2:
-                        mov              qword ptr [rsp + 160], rax
-                        mov              qword ptr [rsp + 168], rdx
+                        mov              qword ptr [rsp + 144], rax
+                        mov              qword ptr [rsp + 152], rdx
                         cmp              eax, 99
-                                                                                        je    n25_lit_string_α
+                                                                                        jne   .Lx38_240
+                        add              rsp, 208
+                                                                                        jmp   n25_lit_string_α
+.Lx38_240:
                                                                                         jmp   n24_assign_α
 n23_call_β:
                                                                                         jmp   n25_lit_string_α
@@ -336,10 +340,11 @@ n23_call_β:
                         .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
 n24_assign_α:
-                        mov              rsi, qword ptr [rsp + 160]
-                        mov              rdx, qword ptr [rsp + 168]
+                        mov              rsi, qword ptr [rsp + 144]
+                        mov              rdx, qword ptr [rsp + 152]
                         mov              rdi, qword ptr [rip + .Lx39_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 208
                                                                                         jmp   n25_lit_string_α
 .Lx39_0:
                         .quad            .Lx39_0_s
@@ -349,10 +354,11 @@ n24_assign_α:
 #         OUTPUT = upcase('world')
 #-----------------------------------------------------------------------------------------------------------------------
 n25_lit_string_α:
-                        mov              qword ptr [rsp + 272], 1
-                        mov              dword ptr [rsp + 276], 5
+                        sub              rsp, 272
+                        mov              qword ptr [rsp + 256], 1
+                        mov              dword ptr [rsp + 260], 5
                         mov              rax, qword ptr [rip + .Lx40_0]
-                        mov              qword ptr [rsp + 280], rax
+                        mov              qword ptr [rsp + 264], rax
                                                                                         jmp   n26_call_α
 .Lx40_0:
                         .quad            .Lx40_0_s
@@ -415,16 +421,16 @@ n26_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx42_20
-                        mov              rax, qword ptr [rsp + 272]
-                        mov              rdx, qword ptr [rsp + 280]
+                        mov              rax, qword ptr [rsp + 256]
+                        mov              rdx, qword ptr [rsp + 264]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx42_21
 .Lx42_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 272]
-                        mov              rdx, qword ptr [rsp + 280]
+                        mov              rsi, qword ptr [rsp + 256]
+                        mov              rdx, qword ptr [rsp + 264]
                         call             rt_arg_stage@PLT
 .Lx42_21:
                         mov              rdi, qword ptr [rip + .Lx42_0]
@@ -445,10 +451,13 @@ n26_call_α:
 .Lx42_1:
                         call             rt_faildescr@PLT
 .Lx42_2:
-                        mov              qword ptr [rsp + 224], rax
-                        mov              qword ptr [rsp + 232], rdx
+                        mov              qword ptr [rsp + 208], rax
+                        mov              qword ptr [rsp + 216], rdx
                         cmp              eax, 99
-                                                                                        je    main_γ
+                                                                                        jne   .Lx42_240
+                        add              rsp, 272
+                                                                                        jmp   main_γ
+.Lx42_240:
                                                                                         jmp   n27_assign_α
 n26_call_β:
                                                                                         jmp   main_γ
@@ -458,10 +467,11 @@ n26_call_β:
                         .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
 n27_assign_α:
-                        mov              rsi, qword ptr [rsp + 224]
-                        mov              rdx, qword ptr [rsp + 232]
+                        mov              rsi, qword ptr [rsp + 208]
+                        mov              rdx, qword ptr [rsp + 216]
                         mov              rdi, qword ptr [rip + .Lx43_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 272
                                                                                         jmp   main_γ
 .Lx43_0:
                         .quad            .Lx43_0_s

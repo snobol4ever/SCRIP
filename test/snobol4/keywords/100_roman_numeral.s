@@ -1841,9 +1841,9 @@ proc_roman_α:
 proc_roman_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n359_save_restore_α:
-                        mov              rdi, qword ptr [rsp + 40]
-                        mov              rsi, qword ptr [rsp + 48]
-                        lea              rdx, [rsp + 64]
+                        mov              rdi, rcx
+                        mov              rsi, rdx
+                        lea              rdx, [rsp + 0]
                         mov              rcx, rbp
                         call             rt_flat_wire_adopt@PLT
                                                                                         jmp   n360_goto_deferred_α
@@ -1976,9 +1976,10 @@ main_α_body:
 #         OUTPUT = roman(1)
 #-----------------------------------------------------------------------------------------------------------------------
 n365_lit_integer_α:
-                        mov              qword ptr [rsp + 2752], 6
+                        sub              rsp, 2752
+                        mov              qword ptr [rsp + 2736], 6
                         mov              rax, qword ptr [rip + .Lx562_0]
-                        mov              qword ptr [rsp + 2760], rax
+                        mov              qword ptr [rsp + 2744], rax
                                                                                         jmp   n366_call_α
 .Lx562_0:
                         .quad            1
@@ -2087,16 +2088,16 @@ n366_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx564_20
-                        mov              rax, qword ptr [rsp + 2752]
-                        mov              rdx, qword ptr [rsp + 2760]
+                        mov              rax, qword ptr [rsp + 2736]
+                        mov              rdx, qword ptr [rsp + 2744]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx564_21
 .Lx564_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 2752]
-                        mov              rdx, qword ptr [rsp + 2760]
+                        mov              rsi, qword ptr [rsp + 2736]
+                        mov              rdx, qword ptr [rsp + 2744]
                         call             rt_arg_stage@PLT
 .Lx564_21:
                         mov              rdi, qword ptr [rip + .Lx564_0]
@@ -2117,10 +2118,13 @@ n366_call_α:
 .Lx564_1:
                         call             rt_faildescr@PLT
 .Lx564_2:
-                        mov              qword ptr [rsp + 2704], rax
-                        mov              qword ptr [rsp + 2712], rdx
+                        mov              qword ptr [rsp + 2688], rax
+                        mov              qword ptr [rsp + 2696], rdx
                         cmp              eax, 99
-                                                                                        je    n368_lit_integer_α
+                                                                                        jne   .Lx564_240
+                        add              rsp, 2752
+                                                                                        jmp   n368_lit_integer_α
+.Lx564_240:
                                                                                         jmp   n367_assign_α
 n366_call_β:
                                                                                         jmp   n368_lit_integer_α
@@ -2130,10 +2134,11 @@ n366_call_β:
                         .string          "roman"
 #-----------------------------------------------------------------------------------------------------------------------
 n367_assign_α:
-                        mov              rsi, qword ptr [rsp + 2704]
-                        mov              rdx, qword ptr [rsp + 2712]
+                        mov              rsi, qword ptr [rsp + 2688]
+                        mov              rdx, qword ptr [rsp + 2696]
                         mov              rdi, qword ptr [rip + .Lx565_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 2752
                                                                                         jmp   n368_lit_integer_α
 .Lx565_0:
                         .quad            .Lx565_0_s
@@ -2143,9 +2148,10 @@ n367_assign_α:
 #         OUTPUT = roman(4)
 #-----------------------------------------------------------------------------------------------------------------------
 n368_lit_integer_α:
-                        mov              qword ptr [rsp + 2816], 6
+                        sub              rsp, 2816
+                        mov              qword ptr [rsp + 2800], 6
                         mov              rax, qword ptr [rip + .Lx566_0]
-                        mov              qword ptr [rsp + 2824], rax
+                        mov              qword ptr [rsp + 2808], rax
                                                                                         jmp   n369_call_α
 .Lx566_0:
                         .quad            4
@@ -2254,16 +2260,16 @@ n369_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx568_20
-                        mov              rax, qword ptr [rsp + 2816]
-                        mov              rdx, qword ptr [rsp + 2824]
+                        mov              rax, qword ptr [rsp + 2800]
+                        mov              rdx, qword ptr [rsp + 2808]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx568_21
 .Lx568_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 2816]
-                        mov              rdx, qword ptr [rsp + 2824]
+                        mov              rsi, qword ptr [rsp + 2800]
+                        mov              rdx, qword ptr [rsp + 2808]
                         call             rt_arg_stage@PLT
 .Lx568_21:
                         mov              rdi, qword ptr [rip + .Lx568_0]
@@ -2284,10 +2290,13 @@ n369_call_α:
 .Lx568_1:
                         call             rt_faildescr@PLT
 .Lx568_2:
-                        mov              qword ptr [rsp + 2768], rax
-                        mov              qword ptr [rsp + 2776], rdx
+                        mov              qword ptr [rsp + 2752], rax
+                        mov              qword ptr [rsp + 2760], rdx
                         cmp              eax, 99
-                                                                                        je    n371_lit_integer_α
+                                                                                        jne   .Lx568_240
+                        add              rsp, 2816
+                                                                                        jmp   n371_lit_integer_α
+.Lx568_240:
                                                                                         jmp   n370_assign_α
 n369_call_β:
                                                                                         jmp   n371_lit_integer_α
@@ -2297,10 +2306,11 @@ n369_call_β:
                         .string          "roman"
 #-----------------------------------------------------------------------------------------------------------------------
 n370_assign_α:
-                        mov              rsi, qword ptr [rsp + 2768]
-                        mov              rdx, qword ptr [rsp + 2776]
+                        mov              rsi, qword ptr [rsp + 2752]
+                        mov              rdx, qword ptr [rsp + 2760]
                         mov              rdi, qword ptr [rip + .Lx569_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 2816
                                                                                         jmp   n371_lit_integer_α
 .Lx569_0:
                         .quad            .Lx569_0_s
@@ -2310,9 +2320,10 @@ n370_assign_α:
 #         OUTPUT = roman(9)
 #-----------------------------------------------------------------------------------------------------------------------
 n371_lit_integer_α:
-                        mov              qword ptr [rsp + 2880], 6
+                        sub              rsp, 2880
+                        mov              qword ptr [rsp + 2864], 6
                         mov              rax, qword ptr [rip + .Lx570_0]
-                        mov              qword ptr [rsp + 2888], rax
+                        mov              qword ptr [rsp + 2872], rax
                                                                                         jmp   n372_call_α
 .Lx570_0:
                         .quad            9
@@ -2421,16 +2432,16 @@ n372_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx572_20
-                        mov              rax, qword ptr [rsp + 2880]
-                        mov              rdx, qword ptr [rsp + 2888]
+                        mov              rax, qword ptr [rsp + 2864]
+                        mov              rdx, qword ptr [rsp + 2872]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx572_21
 .Lx572_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 2880]
-                        mov              rdx, qword ptr [rsp + 2888]
+                        mov              rsi, qword ptr [rsp + 2864]
+                        mov              rdx, qword ptr [rsp + 2872]
                         call             rt_arg_stage@PLT
 .Lx572_21:
                         mov              rdi, qword ptr [rip + .Lx572_0]
@@ -2451,10 +2462,13 @@ n372_call_α:
 .Lx572_1:
                         call             rt_faildescr@PLT
 .Lx572_2:
-                        mov              qword ptr [rsp + 2832], rax
-                        mov              qword ptr [rsp + 2840], rdx
+                        mov              qword ptr [rsp + 2816], rax
+                        mov              qword ptr [rsp + 2824], rdx
                         cmp              eax, 99
-                                                                                        je    n374_lit_integer_α
+                                                                                        jne   .Lx572_240
+                        add              rsp, 2880
+                                                                                        jmp   n374_lit_integer_α
+.Lx572_240:
                                                                                         jmp   n373_assign_α
 n372_call_β:
                                                                                         jmp   n374_lit_integer_α
@@ -2464,10 +2478,11 @@ n372_call_β:
                         .string          "roman"
 #-----------------------------------------------------------------------------------------------------------------------
 n373_assign_α:
-                        mov              rsi, qword ptr [rsp + 2832]
-                        mov              rdx, qword ptr [rsp + 2840]
+                        mov              rsi, qword ptr [rsp + 2816]
+                        mov              rdx, qword ptr [rsp + 2824]
                         mov              rdi, qword ptr [rip + .Lx573_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 2880
                                                                                         jmp   n374_lit_integer_α
 .Lx573_0:
                         .quad            .Lx573_0_s
@@ -2477,9 +2492,10 @@ n373_assign_α:
 #         OUTPUT = roman(42)
 #-----------------------------------------------------------------------------------------------------------------------
 n374_lit_integer_α:
-                        mov              qword ptr [rsp + 2944], 6
+                        sub              rsp, 2944
+                        mov              qword ptr [rsp + 2928], 6
                         mov              rax, qword ptr [rip + .Lx574_0]
-                        mov              qword ptr [rsp + 2952], rax
+                        mov              qword ptr [rsp + 2936], rax
                                                                                         jmp   n375_call_α
 .Lx574_0:
                         .quad            42
@@ -2588,16 +2604,16 @@ n375_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx576_20
-                        mov              rax, qword ptr [rsp + 2944]
-                        mov              rdx, qword ptr [rsp + 2952]
+                        mov              rax, qword ptr [rsp + 2928]
+                        mov              rdx, qword ptr [rsp + 2936]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx576_21
 .Lx576_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 2944]
-                        mov              rdx, qword ptr [rsp + 2952]
+                        mov              rsi, qword ptr [rsp + 2928]
+                        mov              rdx, qword ptr [rsp + 2936]
                         call             rt_arg_stage@PLT
 .Lx576_21:
                         mov              rdi, qword ptr [rip + .Lx576_0]
@@ -2618,10 +2634,13 @@ n375_call_α:
 .Lx576_1:
                         call             rt_faildescr@PLT
 .Lx576_2:
-                        mov              qword ptr [rsp + 2896], rax
-                        mov              qword ptr [rsp + 2904], rdx
+                        mov              qword ptr [rsp + 2880], rax
+                        mov              qword ptr [rsp + 2888], rdx
                         cmp              eax, 99
-                                                                                        je    n377_lit_integer_α
+                                                                                        jne   .Lx576_240
+                        add              rsp, 2944
+                                                                                        jmp   n377_lit_integer_α
+.Lx576_240:
                                                                                         jmp   n376_assign_α
 n375_call_β:
                                                                                         jmp   n377_lit_integer_α
@@ -2631,10 +2650,11 @@ n375_call_β:
                         .string          "roman"
 #-----------------------------------------------------------------------------------------------------------------------
 n376_assign_α:
-                        mov              rsi, qword ptr [rsp + 2896]
-                        mov              rdx, qword ptr [rsp + 2904]
+                        mov              rsi, qword ptr [rsp + 2880]
+                        mov              rdx, qword ptr [rsp + 2888]
                         mov              rdi, qword ptr [rip + .Lx577_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 2944
                                                                                         jmp   n377_lit_integer_α
 .Lx577_0:
                         .quad            .Lx577_0_s
@@ -2644,9 +2664,10 @@ n376_assign_α:
 #         OUTPUT = roman(1999)
 #-----------------------------------------------------------------------------------------------------------------------
 n377_lit_integer_α:
-                        mov              qword ptr [rsp + 3008], 6
+                        sub              rsp, 3008
+                        mov              qword ptr [rsp + 2992], 6
                         mov              rax, qword ptr [rip + .Lx578_0]
-                        mov              qword ptr [rsp + 3016], rax
+                        mov              qword ptr [rsp + 3000], rax
                                                                                         jmp   n378_call_α
 .Lx578_0:
                         .quad            1999
@@ -2755,16 +2776,16 @@ n378_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx580_20
-                        mov              rax, qword ptr [rsp + 3008]
-                        mov              rdx, qword ptr [rsp + 3016]
+                        mov              rax, qword ptr [rsp + 2992]
+                        mov              rdx, qword ptr [rsp + 3000]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx580_21
 .Lx580_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 3008]
-                        mov              rdx, qword ptr [rsp + 3016]
+                        mov              rsi, qword ptr [rsp + 2992]
+                        mov              rdx, qword ptr [rsp + 3000]
                         call             rt_arg_stage@PLT
 .Lx580_21:
                         mov              rdi, qword ptr [rip + .Lx580_0]
@@ -2785,10 +2806,13 @@ n378_call_α:
 .Lx580_1:
                         call             rt_faildescr@PLT
 .Lx580_2:
-                        mov              qword ptr [rsp + 2960], rax
-                        mov              qword ptr [rsp + 2968], rdx
+                        mov              qword ptr [rsp + 2944], rax
+                        mov              qword ptr [rsp + 2952], rdx
                         cmp              eax, 99
-                                                                                        je    n380_lit_integer_α
+                                                                                        jne   .Lx580_240
+                        add              rsp, 3008
+                                                                                        jmp   n380_lit_integer_α
+.Lx580_240:
                                                                                         jmp   n379_assign_α
 n378_call_β:
                                                                                         jmp   n380_lit_integer_α
@@ -2798,10 +2822,11 @@ n378_call_β:
                         .string          "roman"
 #-----------------------------------------------------------------------------------------------------------------------
 n379_assign_α:
-                        mov              rsi, qword ptr [rsp + 2960]
-                        mov              rdx, qword ptr [rsp + 2968]
+                        mov              rsi, qword ptr [rsp + 2944]
+                        mov              rdx, qword ptr [rsp + 2952]
                         mov              rdi, qword ptr [rip + .Lx581_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 3008
                                                                                         jmp   n380_lit_integer_α
 .Lx581_0:
                         .quad            .Lx581_0_s
@@ -2811,9 +2836,10 @@ n379_assign_α:
 #         OUTPUT = roman(2024)
 #-----------------------------------------------------------------------------------------------------------------------
 n380_lit_integer_α:
-                        mov              qword ptr [rsp + 3072], 6
+                        sub              rsp, 3072
+                        mov              qword ptr [rsp + 3056], 6
                         mov              rax, qword ptr [rip + .Lx582_0]
-                        mov              qword ptr [rsp + 3080], rax
+                        mov              qword ptr [rsp + 3064], rax
                                                                                         jmp   n381_call_α
 .Lx582_0:
                         .quad            2024
@@ -2922,16 +2948,16 @@ n381_call_α:
                         mov              eax, dword ptr [r11 + 0]
                         test             eax, eax
                                                                                         jne   .Lx584_20
-                        mov              rax, qword ptr [rsp + 3072]
-                        mov              rdx, qword ptr [rsp + 3080]
+                        mov              rax, qword ptr [rsp + 3056]
+                        mov              rdx, qword ptr [rsp + 3064]
                         lea              r10, [rip + g_call_args]
                         mov              qword ptr [r10 + 0], rax
                         mov              qword ptr [r10 + 8], rdx
                                                                                         jmp   .Lx584_21
 .Lx584_20:
                         mov              edi, 0
-                        mov              rsi, qword ptr [rsp + 3072]
-                        mov              rdx, qword ptr [rsp + 3080]
+                        mov              rsi, qword ptr [rsp + 3056]
+                        mov              rdx, qword ptr [rsp + 3064]
                         call             rt_arg_stage@PLT
 .Lx584_21:
                         mov              rdi, qword ptr [rip + .Lx584_0]
@@ -2952,10 +2978,13 @@ n381_call_α:
 .Lx584_1:
                         call             rt_faildescr@PLT
 .Lx584_2:
-                        mov              qword ptr [rsp + 3024], rax
-                        mov              qword ptr [rsp + 3032], rdx
+                        mov              qword ptr [rsp + 3008], rax
+                        mov              qword ptr [rsp + 3016], rdx
                         cmp              eax, 99
-                                                                                        je    main_γ
+                                                                                        jne   .Lx584_240
+                        add              rsp, 3072
+                                                                                        jmp   main_γ
+.Lx584_240:
                                                                                         jmp   n382_assign_α
 n381_call_β:
                                                                                         jmp   main_γ
@@ -2965,10 +2994,11 @@ n381_call_β:
                         .string          "roman"
 #-----------------------------------------------------------------------------------------------------------------------
 n382_assign_α:
-                        mov              rsi, qword ptr [rsp + 3024]
-                        mov              rdx, qword ptr [rsp + 3032]
+                        mov              rsi, qword ptr [rsp + 3008]
+                        mov              rdx, qword ptr [rsp + 3016]
                         mov              rdi, qword ptr [rip + .Lx585_0]
                         call             NV_SET_fn@PLT
+                        add              rsp, 3072
                                                                                         jmp   main_γ
 .Lx585_0:
                         .quad            .Lx585_0_s

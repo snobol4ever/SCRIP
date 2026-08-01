@@ -546,10 +546,11 @@ n55_assign_α:
 #       LINE     ?  PAT                              :F(LOOP)
 #-----------------------------------------------------------------------------------------------------------------------
 n56_var_α:
+                        sub              rsp, 144
                         mov              rax, qword ptr [1879052352]
                         mov              rdx, qword ptr [1879052360]
-                        mov              qword ptr [rsp + 224], rax
-                        mov              qword ptr [rsp + 232], rdx
+                        mov              qword ptr [rsp + 128], rax
+                        mov              qword ptr [rsp + 136], rdx
                                                                                         jmp   n57_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n57_match_head_α:
@@ -607,6 +608,7 @@ n57_match_head_β:
                         mov              rdx, qword ptr [rbp + 184]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 152]
+                        add              rsp, 144
                                                                                         jmp   n54_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n58_match_patref_α:
@@ -749,6 +751,7 @@ n59_match_release_α:
                         mov              rdx, qword ptr [rbp + 184]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 152]
+                        add              rsp, 144
                                                                                         jmp   n60_var_α
 #=======================================================================================================================
 #       OUTPUT   =  WHO " invented the " WHAT " in " WHEN  :(LOOP)

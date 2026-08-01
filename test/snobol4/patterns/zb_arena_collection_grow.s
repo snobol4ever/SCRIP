@@ -59,12 +59,14 @@ n1_assign_β:
 #         s POS(0) ARBNO(LEN(1) | LEN(1)) RPOS(0)    :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 304
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 288], rax
                         mov              qword ptr [rsp + 296], rdx
                                                                                         jmp   n3_match_head_α
 n2_var_β:
+                        add              rsp, 304
                                                                                         jmp   n16_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
@@ -124,6 +126,7 @@ n3_match_head_β:
                         mov              rdx, qword ptr [rbp + 120]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 88]
+                        add              rsp, 304
                                                                                         jmp   n16_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:
@@ -194,6 +197,7 @@ n5_match_release_α:
                         mov              rdx, qword ptr [rbp + 120]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 88]
+                        add              rsp, 304
                                                                                         jmp   n6_lit_string_α
 #=======================================================================================================================
 # YES     OUTPUT = 'grow ok'                          :(END)

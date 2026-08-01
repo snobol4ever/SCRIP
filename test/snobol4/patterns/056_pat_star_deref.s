@@ -79,10 +79,11 @@ n3_assign_α:
 #         X *PAT . V                                                  :S(YES)
 #-----------------------------------------------------------------------------------------------------------------------
 n4_var_α:
+                        sub              rsp, 176
                         mov              rax, qword ptr [1879052304]
                         mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 208], rax
-                        mov              qword ptr [rsp + 216], rdx
+                        mov              qword ptr [rsp + 160], rax
+                        mov              qword ptr [rsp + 168], rdx
                                                                                         jmp   n5_match_head_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_head_α:
@@ -140,6 +141,7 @@ n5_match_head_β:
                         mov              rdx, qword ptr [rbp + 136]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 104]
+                        add              rsp, 176
                                                                                         jmp   n12_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_assign_save_α:
@@ -302,6 +304,7 @@ n9_match_release_α:
                         mov              rdx, qword ptr [rbp + 136]
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 104]
+                        add              rsp, 176
                                                                                         jmp   n10_var_α
 #=======================================================================================================================
 # YES     OUTPUT = V

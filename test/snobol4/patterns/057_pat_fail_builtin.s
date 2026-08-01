@@ -59,12 +59,14 @@ n1_assign_β:
 #         X 'abc' FAIL                                                :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 160
                         mov              rax, qword ptr [1879052288]
                         mov              rdx, qword ptr [1879052296]
                         mov              qword ptr [rsp + 144], rax
                         mov              qword ptr [rsp + 152], rdx
                                                                                         jmp   n3_match_head_α
 n2_var_β:
+                        add              rsp, 160
                                                                                         jmp   n10_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_head_α:
@@ -122,6 +124,7 @@ n3_match_head_β:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 160
                                                                                         jmp   n10_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:
@@ -191,6 +194,7 @@ n5_match_release_α:
                         mov              rsi, r15
                         mov              rdx, qword ptr [rsp + 120]
                         call             rt_match_ctx_restore@PLT
+                        add              rsp, 160
                                                                                         jmp   n6_lit_string_α
 #=======================================================================================================================
 # YES     OUTPUT = 'should not reach'
