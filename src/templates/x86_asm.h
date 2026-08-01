@@ -1272,6 +1272,66 @@ inline std::string x86_jcc_pair(const char * mnem, int idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int x86_disp_w(const char * s, size_t n) { int w = 0; for (size_t i = 0; i < n; i++) if (((unsigned char)s[i] & 0xC0) != 0x80) w++; return w; }
 static inline void x86_4col_pad(std::string & o, const char * s, size_t n, int width) { o.append(s, n); int pad = width - x86_disp_w(s, n); if (pad < 1) pad = 1; o.append((size_t)pad, ' '); }
+#include "x86_arg_roles.h"
+/* ARG-NOTE (OBJ-NOTE ON-3, Lon s23d) — name the ROLE each argument register carries at a `call rt_*` site.  The 189 argument loads were the biggest opaque family left in the .s: `mov rdi, [rsp+96]` says   */
+/* WHERE the operand came from and nothing about WHAT it is.  ⭐ THE CHOKE POINT (the ON-3 lesson applied a second time): the role cannot be known when the mov is emitted — the callee is not named until the  */
+/* `call` several instructions later, and the templates' `+` chains evaluate in UNSPECIFIED ORDER, so no stateful lookahead is legal.  But bb_emit_x86 hands emit_text_n the WHOLE template body in one call,  */
+/* so by the time x86_4col runs over that chunk the arg loads and their `call` are both present — one BACKWARD walk names all of them, with ZERO edits to the 163 template files.  Walk stops at any label,    */
+/* jump, other call, or non-arg-load instruction, so a role is never attributed across a control-flow edge; a line already carrying a `#` keeps it, which makes this idempotent under the sink's second pass    */
+/* and lets the more specific hand-written notes (bb_match_head's housekeeping vocabulary) win.  TEXT-only: x86_4col returns early for BINARY, so mode-3 bytes are untouched BY CONSTRUCTION.                   */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int x86_argreg_slot(const char * s, size_t n) {
+    static const char * const r[6][4] = { { "rdi", "edi", "di", "dil" }, { "rsi", "esi", "si", "sil" }, { "rdx", "edx", "dx", "dl" }, { "rcx", "ecx", "cx", "cl" }, { "r8", "r8d", "r8w", "r8b" }, { "r9", "r9d", "r9w", "r9b" } };
+    for (int i = 0; i < 6; i++) for (int j = 0; j < 4; j++) { size_t l = strlen(r[i][j]); if (l == n && !strncmp(s, r[i][j], l)) return i; }
+    return -1;
+}
+static inline const x86_argrole_t * x86_argrole_find(const char * s, size_t n) {
+    for (size_t i = 0; i < sizeof(x86_argroles) / sizeof(x86_argroles[0]); i++) { const char * c = x86_argroles[i].callee; if (strlen(c) == n && !strncmp(s, c, n)) return &x86_argroles[i]; }
+    return 0;
+}
+static inline void x86_line_parts(const std::string & o, size_t ls, size_t le, size_t & ms, size_t & ml, size_t & os_, size_t & ol) {
+    size_t i = ls; ms = ml = os_ = ol = 0;
+    while (i < le && (o[i] == ' ' || o[i] == '\t')) i++;
+    if (i >= le) return;
+    size_t k = i; while (k < le && o[k] != ' ' && o[k] != '\t') k++;
+    if (k > i && o[k - 1] == ':') { while (k < le && (o[k] == ' ' || o[k] == '\t')) k++; i = k; while (k < le && o[k] != ' ' && o[k] != '\t') k++; if (i >= le) return; }
+    ms = i; ml = k - i;
+    while (k < le && (o[k] == ' ' || o[k] == '\t')) k++;
+    os_ = k; ol = (k < le) ? le - k : 0;
+}
+static inline void x86_argnote(std::string & o) {
+    if (o.find("call") == std::string::npos) return;
+    std::vector<size_t> beg, end; size_t i = 0, n = o.size();
+    while (i < n) { size_t e = o.find('\n', i); if (e == std::string::npos) e = n; beg.push_back(i); end.push_back(e); i = e + 1; }
+    std::vector<const char *> ann(beg.size(), (const char *)0);
+    for (size_t L = 0; L < beg.size(); L++) {
+        size_t ms, ml, os_, ol; x86_line_parts(o, beg[L], end[L], ms, ml, os_, ol);
+        if (ml != 4 || strncmp(o.data() + ms, "call", 4) || !ol) continue;
+        size_t ce = os_; while (ce < os_ + ol && o[ce] != '@' && o[ce] != ' ' && o[ce] != '\t' && o[ce] != ',' && o[ce] != '#') ce++;
+        const x86_argrole_t * rr = x86_argrole_find(o.data() + os_, ce - os_);
+        if (!rr) continue;
+        for (size_t B = L; B-- > 0; ) {
+            size_t bs, bl, bo, bol; x86_line_parts(o, beg[B], end[B], bs, bl, bo, bol);
+            if (!bl) break;
+            if (o[bs] == '#' || o[bs] == '.' || o[bs] == 'j') break;
+            if (bl == 4 && !strncmp(o.data() + bs, "call", 4)) break;
+            int isld = (bl == 3 && (!strncmp(o.data() + bs, "mov", 3) || !strncmp(o.data() + bs, "lea", 3) || !strncmp(o.data() + bs, "xor", 3))) || (bl == 6 && !strncmp(o.data() + bs, "movsxd", 6)) || (bl == 5 && !strncmp(o.data() + bs, "movzx", 5)) || (bl == 6 && !strncmp(o.data() + bs, "movabs", 6));
+            if (!isld || !bol) break;
+            size_t de = bo; while (de < bo + bol && o[de] != ',' && o[de] != ' ' && o[de] != '\t') de++;
+            int slot = x86_argreg_slot(o.data() + bo, de - bo);
+            if (slot < 0) break;
+            if (o.find('#', beg[B]) < end[B]) continue;
+            if (rr->role[slot] && rr->role[slot][0]) ann[B] = rr->role[slot];
+        }
+    }
+    std::string out; out.reserve(o.size() + o.size() / 8);
+    for (size_t L = 0; L < beg.size(); L++) {
+        out.append(o, beg[L], end[L] - beg[L]);
+        if (ann[L]) { int w = x86_disp_w(o.data() + beg[L], end[L] - beg[L]); int pd = 88 - w; if (pd < 1) pd = 1; out.append((size_t)pd, ' '); out.append("# "); out.append(ann[L]); }
+        if (end[L] < o.size()) out.append(1, '\n');
+    }
+    o.swap(out);
+}
 /* x86_4col (2026-07-26, Lon directive; corrected same day: BBs have ALWAYS been a FOUR-column format — LABEL / OPERATOR / OPERANDS / GOTO; the three-column notion was Stack Machine, long gone): render
  * every TEXT-medium assembly line in the four-column BB shape — label field 24, operator field 17, operands at col 41 width 47, GOTO column at col 88 (24+17+47, sized by the 2026-07-26 sweep of all 587
  * live .intel_syntax artifacts: widest non-jump operand = 47).  Every jump — mnemonic 'j*': jmp + the whole jcc family + jecxz/jrcxz, an exact class in x86 — renders in the GOTO column, mnemonic
@@ -1321,6 +1381,7 @@ inline std::string x86_4col(const std::string & s) {
         i = (e == std::string::npos) ? n : e + 1;
     }
     if (!note.empty()) { o.append("#@"); o.append(note); o.append(1, '\n'); }
+    x86_argnote(o);   /* ARG-NOTE (ON-3, s23d): the backward walk runs on the FORMATTED lines, so it sees the same GOTO column the note fold uses and cannot disturb it — an already-noted line keeps its term. */
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
