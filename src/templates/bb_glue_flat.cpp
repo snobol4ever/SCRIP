@@ -121,7 +121,7 @@ std::string bb_glue_wire_ω() { return bb_glue_wire_exit(0); }
  * linkage the whole system speaks (rt_chain_enter, rt_proc_call_open/_slim, and every emitted call/defer/capture site all spell exactly this); ONE-SHOT linkage = this contract PLUS a pcall record
  * (open pushes, role-3 adopts, bb_glue_wire_exit/floaters come home through it); PASS-THROUGH = the bare contract, nothing to record, nothing to release — the target's exits ride the wires straight
  * back into this box's own continuation labels.  BB_DEFER's blob entry is the canonical consumer (need TWO of the grid); the remaining hand-rolled trios (bb_call_proc_staged ×5, bb_call_value,
- * bb_match_capture, bb_match_release, defer's second site) are the CONVERSION BACKLOG ledgered in GOAL-SNOBOL4-BB.md — convert on touch, byte-identical by construction. */
+ * bb_match_capture, bb_match_end, defer's second site) are the CONVERSION BACKLOG ledgered in GOAL-SNOBOL4-BB.md — convert on touch, byte-identical by construction. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_pass_wires(int gid, int wid) {
     if (!PLATFORM_X86) return std::string();

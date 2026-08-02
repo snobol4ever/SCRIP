@@ -34,7 +34,7 @@
  *
  * g_cap_gen was `static` in the C and is UNREFERENCEABLE from a .S in that
  * form. It is now a non-static hidden global (un-static'd by PATCTX-2,
- * 2026-07-29: IR_MATCH_HEAD's alpha reads it via [rip+g_cap_gen] to save the
+ * 2026-07-29: IR_MATCH_BEGIN's alpha reads it via [rip+g_cap_gen] to save the
  * current match id before rt_match_enter issues a fresh one). g_cap_gen_next
  * is the monotonic well; it stays static in the C but is promoted to hidden
  * here to make the asm side readable. Do NOT read either through the GOT.
@@ -49,7 +49,7 @@ RTX_GATE_DEF(match)
  *
  * PATCTX-2 (2026-07-29): the two-variable discipline. g_cap_gen_next is the
  * monotonic well; g_cap_gen holds the CURRENT match's id and is readable by
- * IR_MATCH_HEAD's alpha (which saves it to the frame before rt_match_enter
+ * IR_MATCH_BEGIN's alpha (which saves it to the frame before rt_match_enter
  * issues a fresh stamp). Exits restore g_cap_gen to the saved id -- never the
  * counter itself -- so a restored-then-re-bumped counter cannot re-issue a
  * retired stamp and zombie success-exited frames.
@@ -346,7 +346,7 @@ RTX_ENDF(rt_defer_close)
  * reachable runtime.  Grade it on correctness and on kill-switch byte-identity, never on the clock.
  *
  * WHY IT IS THE RIGHT NEXT TARGET ANYWAY (ARCH section 7 step 0, all six checks, re-measured s217 not cited):
- *   0(a) live definition + TWO real template call sites (bb_match_head.cpp:89, bb_match_release.cpp:77)
+ *   0(a) live definition + TWO real template call sites (bb_match_begin.cpp:89, bb_match_end.cpp:77)
  *   0(b) name round-trips byte-identical -- plain ASCII, no Greek codepoints, no truncation
  *   0(c) run ON THE OBJECTS: Σ/Σlen are `B` in stmt_exec.o, g_cap_gen is `D` in pattern_match.o -- all three GLOBAL;
  *        and all three appear in the .so DYNAMIC TABLE with DEFAULT visibility (g_cap_gen_next, hidden, correctly
@@ -415,7 +415,7 @@ RTX_ENDF(rt_match_ctx_restore)
  *
  * g_patstk_sp IS EXPORTED AND MUST GO THROUGH THE GOT (ARCH §7 step 0(c), verified on
  * out/rt_pic/pattern_match.o -- capital `B`, and present in the .so dynamic table because
- * bb_match_head/bb_match_fence1/bb_match_release all read it from emitted code). A direct
+ * bb_match_begin/bb_match_fence1/bb_match_end all read it from emitted code). A direct
  * [rip+g_patstk_sp] here would bind a DIFFERENT variable via copy relocation when a -no-pie
  * executable owns the storage -- silent island divergence, no diagnostic at any stage (s214).
  * g_patstk_base stays `static` (lowercase `b` in the object) and is UNREFERENCEABLE from a .S;
@@ -603,14 +603,14 @@ RTX_ENDF(rt_match_enter)
  * warm window = ~1.5-2%, BELOW the +-3% null floor this container sustains. Same arithmetic that bounded RTX-7 at
  * 0.58% and slice 4 at <=0.5%. Graded on correctness and eradication per the RTX-7/s217 precedent. The gradeable
  * lever on this workload is COLLAPSING the four remaining 8M-per-match calls (rt_match_enter, NV_SET_fn,
- * rt_dcap_end_ok_open, this one) into one, which is slice 6's mechanism -- but that edits bb_match_release and
+ * rt_dcap_end_ok_open, this one) into one, which is slice 6's mechanism -- but that edits bb_match_end and
  * fires .s regen x3, so it is RTX-11 and NOT concurrency-safe. */
 /*=====================================================================================================================
  * SLICE 8 — rt_dcap_end_ok_open: THE DCAP CTX PUSH.  The push half of slice 7's pop.
  *
  * C OF RECORD: src/runtime/pattern_match.c:696, renamed c_rt_dcap_end_ok_open in this same commit.
  *
- * BOX CONTRACT (bb_match_release): rdi = MARK, rsi = TOP, rdx = SUBJECT base (r13, by value).  Returns long in rax:
+ * BOX CONTRACT (bb_match_end): rdi = MARK, rsi = TOP, rdx = SUBJECT base (r13, by value).  Returns long in rax:
  * nonzero = a *VAR transfer is pending and the box must drive rt_dcap_step; 0 = the flush completed.
  *
  * WHAT THE MANUAL REQUIRES OF THIS ENTRY, AND WHY THE PUMP STAYS IN C (SPITBOL manual Ch.6 p.62-63, read this rung):
@@ -665,7 +665,7 @@ RTX_ENDF(rt_match_enter)
  * pending: stored as NULVCL = {v=DT_SNUL(0), slen=0, s=""}. v+slen are one aligned qword of zero.  .s points at this
  * file's existing .Lrtx_dfx_nul empty byte, so the POINTER VALUE differs from the C literal's address while the
  * pointee is an identical empty C string.  Stated plainly rather than hidden: this field is DEFENSIVE INIT ONLY and
- * has no reachable consumer -- bb_match_release calls rt_dcap_step only when this function returns NONZERO, and the
+ * has no reachable consumer -- bb_match_end calls rt_dcap_step only when this function returns NONZERO, and the
  * sole nonzero path (the pump's *VAR arm) writes c->pending itself before returning.  The 316-program byte-identity
  * gate is what tests that reasoning.
  *

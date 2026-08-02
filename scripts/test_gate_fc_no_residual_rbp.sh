@@ -47,7 +47,7 @@
 # ---- RECLASSIFIED (this session): 13,006 WAS 99.1% CORRECT-BY-DESIGN BEHAVIOUR. TRUE RESIDUE = 108 ----
 # The counter fired on ANY granted box whose offset left its window, which conflates three events:
 #   OWN + full-cell  -> a box with an fc_geom cell addressing its OWN field outside it. THE DEFECT.
-#   OWN + window-only-> IR_MATCH_HEAD. op_fc_wbytes is DOCUMENTED as a partial window (cell-resident
+#   OWN + window-only-> IR_MATCH_BEGIN. op_fc_wbytes is DOCUMENTED as a partial window (cell-resident
 #                       cursor/zeta_mark/zls2_mark at +0/+8/+16; head.end/dcap_mark/incoming_rbp are
 #                       "FLAT on both paths -- post-unwind lifetime", read by RELEASE/REPLACE AFTER the
 #                       cell dies). Those accesses MUST land on rbp. Counting them made zero unreachable.
@@ -70,7 +70,7 @@
 # changes.  Corpus count is now 0 and FC_BASELINE is 0: a real zero-assert at last.
 # ---- WHAT ZERO DOES *NOT* MEAN ----
 # It means no GRANTED box addresses its OWN field outside its cell.  It does NOT mean the FORTH
-# conversion is complete: fc_geom still grants cells to an enumerated whitelist only, and IR_MATCH_HEAD
+# conversion is complete: fc_geom still grants cells to an enumerated whitelist only, and IR_MATCH_BEGIN
 # (570 local fields/160 programs), IR_CALL (405), SEQUENCE (66), DEFER (64), FENCE1 (32), ARBNO (30)
 # and VALUE (6) remain unconverted.  Coverage is tracked by fc_geom's list, never by this counter.
 # ==============================================================================================

@@ -17,7 +17,7 @@ extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 #include "x86_asm.h"
 #define rfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0)
 #define stfh() (_.flat_stmt_frame)
-static const char * HKQ(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rbp + %d]", -48 + 8 * k); return b[i]; }   /* SUBJ-ARM-2: the head's statement-bracket rbp housekeeping slots (bb_match_head.cpp twin, same k map: 0=deep-rbp 1=r13 2=r14 3=r15 4=capgen) -- RELEASE runs inside the SAME bracket, so [rbp-48+8k] is depth-free at the post-unwind read exactly as at the head's alpha write */
+static const char * HKQ(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rbp + %d]", -48 + 8 * k); return b[i]; }   /* SUBJ-ARM-2: the head's statement-bracket rbp housekeeping slots (bb_match_begin.cpp twin, same k map: 0=deep-rbp 1=r13 2=r14 3=r15 4=capgen) -- RELEASE runs inside the SAME bracket, so [rbp-48+8k] is depth-free at the post-unwind read exactly as at the head's alpha write */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string release_pump() {
     return std::string()
@@ -75,17 +75,17 @@ static std::string release_pump() {
          + x86("mov", "rsi", "r15")
          + x86("note", HKN(4)) + x86("mov", "rdx", stfh() ? HKQ(4) : FRQ(_.op_off + 72))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror */
-         + IF(_.op_dval == 0.0 && _.flat_deep_arrival && !_.op_stmt_pin, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead -- see bb_match_head's twin gate for the measured reason. */
+         + IF(_.op_dval == 0.0 && _.flat_deep_arrival && !_.op_stmt_pin, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead -- see bb_match_begin's twin gate for the measured reason. */
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_match_release() {
+std::string bb_match_end() {
     x86_begin();
     return !PLATFORM_X86 ? std::string()
          : _.op_off < 0
-         ? x86_alpha() + x86_bomb("IR_MATCH_RELEASE: head slot not resolved (operand[0] missing or unowned)")
+         ? x86_alpha() + x86_bomb("IR_MATCH_END: head slot not resolved (operand[0] missing or unowned)")
          : _.op_tail && rfc()
-         ? x86("comment", "IR_MATCH_RELEASE (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")
+         ? x86("comment", "IR_MATCH_END (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")
          + x86_alpha()
          + x86("mov", "r10", ABSQ(RT_CAS_TOP))
          + x86("def", L(8))
@@ -98,7 +98,7 @@ std::string bb_match_release() {
          + x86("mov", RDQ("rcx", 0), "rax")
          + x86("mov", "rsp", RDQ("r10", 8))
          + release_pump()
-         : x86("comment", "IR_MATCH_RELEASE")
+         : x86("comment", "IR_MATCH_END")
          + x86_alpha()
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (rfc() ? x86("mov", "r10", ABSQ(RT_CAS_TOP))   /* CAS-MARKER-CARRY (s22x): scan to the head's tag-0 sentinel; patstk rides +16, the rsp mark +8.  The old RSP(op_fc_disp) spellings assumed fc_disp counted every live cell between head and release -- it misses the ZW-1 alpha carves the non-popping γ spine leaves live (041: fc_disp=0 read the head cell 32 low, loading a half-written leaf cell into rsp).  r10 survives to the unwind below (the dval arm touches only rax/r14). */
                                                      + x86("def", L(9))
