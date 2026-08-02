@@ -19,7 +19,7 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_lit_real_α:
                         sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 7                         # result
+                        mov              qword ptr [rsp + 0], 5                         # result
                         mov              rax, qword ptr [rip + .Lx2_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_assign_α
