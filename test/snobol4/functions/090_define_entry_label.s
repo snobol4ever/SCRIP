@@ -210,31 +210,20 @@ main_α_body:
 #         OUTPUT = bumpit(41)
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_integer_α:
-                        sub              rsp, 128
-                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 16], 0
-                        mov              qword ptr [rsp + 24], 0
-                        mov              qword ptr [rsp + 32], 0
-                        mov              qword ptr [rsp + 40], 0
-                        mov              qword ptr [rsp + 48], 0
-                        mov              qword ptr [rsp + 56], 0
-                        mov              qword ptr [rsp + 64], 0
-                        mov              qword ptr [rsp + 72], 0
-                        mov              qword ptr [rsp + 80], 0
-                        mov              qword ptr [rsp + 88], 0
-                        mov              qword ptr [rsp + 96], 0
-                        mov              qword ptr [rsp + 104], 0
-                        mov              qword ptr [rsp + 112], 0
-                        mov              qword ptr [rsp + 120], 0
-                        mov              qword ptr [rsp + 112], 3                       # result
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 3                         # result
                         mov              rax, qword ptr [rip + .Lx29_0]
-                        mov              qword ptr [rsp + 120], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n20_call_α
 .Lx29_0:
                         .quad            41
 #-----------------------------------------------------------------------------------------------------------------------
 n20_call_α:
+                        sub              rsp, 16
+                        mov              edi, 0                                         # idx
+                        mov              rsi, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rdx, qword ptr [rsp + 24]                      # v
+                        call             rt_arg_stage@PLT
                         sub              rsp, 32
                         mov              rax, qword ptr [1879052304]                    # v
                         mov              qword ptr [rsp + 0], rax
@@ -250,9 +239,10 @@ n20_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx31_5
-                        mov              rax, qword ptr [rsp + 144]
+                        lea              r10, [rip + g_call_args]
+                        mov              rax, qword ptr [r10 + 0]
                         mov              qword ptr [1879052304], rax                    # v
-                        mov              rax, qword ptr [rsp + 152]
+                        mov              rax, qword ptr [r10 + 8]
                         mov              qword ptr [1879052312], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx31_6]
@@ -286,45 +276,13 @@ n20_call_α:
                                                                                         jmp   .Lx31_2
 .Lx31_5:
                         add              rsp, 32
-                        lea              r11, [rip + g_gc_pending]
-                        mov              eax, dword ptr [r11 + 0]
-                        test             eax, eax
-                                                                                        jne   .Lx31_20
-                        mov              rax, qword ptr [rsp + 112]
-                        mov              rdx, qword ptr [rsp + 120]
-                        lea              r10, [rip + g_call_args]
-                        mov              qword ptr [r10 + 0], rax
-                        mov              qword ptr [r10 + 8], rdx
-                                                                                        jmp   .Lx31_21
-.Lx31_20:
-                        mov              edi, 0                                         # idx
-                        mov              rsi, qword ptr [rsp + 112]                     # v
-                        mov              rdx, qword ptr [rsp + 120]                     # v
-                        call             rt_arg_stage@PLT
-.Lx31_21:
-                        mov              rdi, qword ptr [rip + .Lx31_0]                 # name
-                        mov              esi, 1                                         # nargs
-                        call             rt_proc_call_open@PLT
-                        test             rax, rax
-                                                                                        je    .Lx31_1
-                        call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx31_3]
-                        lea              rdx, [rip + .Lx31_4]
-                                                                                        jmp   rax
-.Lx31_3:
-                        call             rt_proc_call_epilogue_γ@PLT
-                                                                                        jmp   .Lx31_2
-.Lx31_4:
-                        call             rt_proc_call_epilogue_ω@PLT
-                                                                                        jmp   .Lx31_2
-.Lx31_1:
-                        call             rt_faildescr@PLT
 .Lx31_2:
-                        mov              qword ptr [rsp + 64], rax
-                        mov              qword ptr [rsp + 72], rdx
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104
                                                                                         jne   .Lx31_240
-                        add              rsp, 128
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   main_γ
 .Lx31_240:
                                                                                         jmp   n21_assign_α
@@ -336,11 +294,11 @@ n20_call_β:
                         .string          "bumpit"
 #-----------------------------------------------------------------------------------------------------------------------
 n21_assign_α:
-                        mov              rsi, qword ptr [rsp + 64]                      # val
-                        mov              rdx, qword ptr [rsp + 72]                      # val
+                        mov              rsi, qword ptr [rsp + 0]                       # call
+                        mov              rdx, qword ptr [rsp + 8]                       # val
                         mov              rdi, qword ptr [rip + .Lx32_0]                 # name
                         call             NV_SET_fn@PLT
-                        add              rsp, 128
+                        add              rsp, 32
                                                                                         jmp   main_γ
 .Lx32_0:
                         .quad            .Lx32_0_s

@@ -293,11 +293,7 @@ main_α_body:
 #         swap('hello', 'world')
 #-----------------------------------------------------------------------------------------------------------------------
 n35_lit_string_α:
-                        sub              rsp, 32
-                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 16], 0
-                        mov              qword ptr [rsp + 24], 0
+                        sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx53_0]
@@ -309,10 +305,11 @@ n35_lit_string_α:
                         .string          "hello"
 #-----------------------------------------------------------------------------------------------------------------------
 n36_lit_string_α:
-                        mov              qword ptr [rsp + 16], 2                        # result
-                        mov              dword ptr [rsp + 20], 5
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx54_0]
-                        mov              qword ptr [rsp + 24], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n37_call_α
 .Lx54_0:
                         .quad            .Lx54_0_s
@@ -320,6 +317,15 @@ n36_lit_string_α:
                         .string          "world"
 #-----------------------------------------------------------------------------------------------------------------------
 n37_call_α:
+                        sub              rsp, 16
+                        mov              edi, 0                                         # idx
+                        mov              rsi, qword ptr [rsp + 32]                      # lit_string
+                        mov              rdx, qword ptr [rsp + 40]                      # v
+                        call             rt_arg_stage@PLT
+                        mov              edi, 1                                         # idx
+                        mov              rsi, qword ptr [rsp + 16]                      # v
+                        mov              rdx, qword ptr [rsp + 24]                      # v
+                        call             rt_arg_stage@PLT
                         sub              rsp, 64
                         mov              rax, qword ptr [1879052304]                    # a
                         mov              qword ptr [rsp + 0], rax
@@ -343,13 +349,15 @@ n37_call_α:
                         call             rt_proc_call_open_slim@PLT
                         test             rax, rax
                                                                                         je    .Lx56_5
-                        mov              rax, qword ptr [rsp + 64]
+                        lea              r10, [rip + g_call_args]
+                        mov              rax, qword ptr [r10 + 0]
                         mov              qword ptr [1879052304], rax                    # a
-                        mov              rax, qword ptr [rsp + 72]
+                        mov              rax, qword ptr [r10 + 8]
                         mov              qword ptr [1879052312], rax
-                        mov              rax, qword ptr [rsp + 80]
+                        lea              r10, [rip + g_call_args]
+                        mov              rax, qword ptr [r10 + 16]
                         mov              qword ptr [1879052320], rax                    # b
-                        mov              rax, qword ptr [rsp + 88]
+                        mov              rax, qword ptr [r10 + 24]
                         mov              qword ptr [1879052328], rax
                         call             rt_proc_open_fn@PLT
                         lea              rcx, [rip + .Lx56_6]
@@ -399,64 +407,16 @@ n37_call_α:
                                                                                         jmp   .Lx56_2
 .Lx56_5:
                         add              rsp, 64
-                        lea              r11, [rip + g_gc_pending]
-                        mov              eax, dword ptr [r11 + 0]
-                        test             eax, eax
-                                                                                        jne   .Lx56_20
-                        mov              rax, qword ptr [rsp + 0]
-                        mov              rdx, qword ptr [rsp + 8]
-                        lea              r10, [rip + g_call_args]
-                        mov              qword ptr [r10 + 0], rax
-                        mov              qword ptr [r10 + 8], rdx
-                                                                                        jmp   .Lx56_21
-.Lx56_20:
-                        mov              edi, 0                                         # idx
-                        mov              rsi, qword ptr [rsp + 0]                       # v
-                        mov              rdx, qword ptr [rsp + 8]                       # v
-                        call             rt_arg_stage@PLT
-.Lx56_21:
-                        lea              r11, [rip + g_gc_pending]
-                        mov              eax, dword ptr [r11 + 0]
-                        test             eax, eax
-                                                                                        jne   .Lx56_22
-                        mov              rax, qword ptr [rsp + 16]
-                        mov              rdx, qword ptr [rsp + 24]
-                        lea              r10, [rip + g_call_args]
-                        mov              qword ptr [r10 + 16], rax
-                        mov              qword ptr [r10 + 24], rdx
-                                                                                        jmp   .Lx56_23
-.Lx56_22:
-                        mov              edi, 1                                         # idx
-                        mov              rsi, qword ptr [rsp + 16]                      # v
-                        mov              rdx, qword ptr [rsp + 24]                      # v
-                        call             rt_arg_stage@PLT
-.Lx56_23:
-                        mov              rdi, qword ptr [rip + .Lx56_0]                 # name
-                        mov              esi, 2                                         # nargs
-                        call             rt_proc_call_open@PLT
-                        test             rax, rax
-                                                                                        je    .Lx56_1
-                        call             rt_proc_open_fn@PLT
-                        lea              rcx, [rip + .Lx56_3]
-                        lea              rdx, [rip + .Lx56_4]
-                                                                                        jmp   rax
-.Lx56_3:
-                        call             rt_proc_call_epilogue_γ@PLT
-                                                                                        jmp   .Lx56_2
-.Lx56_4:
-                        call             rt_proc_call_epilogue_ω@PLT
-                                                                                        jmp   .Lx56_2
-.Lx56_1:
-                        call             rt_faildescr@PLT
 .Lx56_2:
-                        mov              qword ptr [rsp + 160], rax
-                        mov              qword ptr [rsp + 168], rdx
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104
                                                                                         jne   .Lx56_240
+                        add              rsp, 16
                         add              rsp, 32
                                                                                         jmp   main_γ
 .Lx56_240:
-                        add              rsp, 32
+                        add              rsp, 48
                                                                                         jmp   main_γ
 n37_call_β:
                                                                                         jmp   main_γ
