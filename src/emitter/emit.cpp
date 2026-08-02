@@ -1536,6 +1536,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_SUCCEED:
     case IR_CUT:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_STATEMENT:
+        g_emit.op_fc_bytes = 0;
+        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;   /* ⭐⭐ ZW-5 SLICE 2 (OMEGA O-1) — THE CASE SLICE 1 MISSED, FOUND BY RUNNING NOT READING.  Slice 1 reported "dispatch case live" and it IS live, but only in walk_bb_node_inner's switch (the m4 text walker); emit_drive is a SECOND dispatcher and a node it has no case for falls to drive_unowned, whose FATAL says "op=124 has no template in the universal driver" WHILE A CASE PLAINLY EXISTS -- the message's own footnote about the backtrace naming the real guard is what resolves the contradiction.  MEASURED: with SCRIP_ZW5=1 the very first minted box aborted the compile on probe1.sno before this case existed.  SHAPE: identical to IR_SUCCEED/IR_CUT above, which is exactly the trailer contract -- jmp gamma (the release rides that jmp's X86H hook), beta trampoline to omega.  ⛔ op_zgpop is DELIBERATELY NOT SET HERE: the staging choke (grep "ZD-1: cleared at the choke UNCONDITIONALLY") is the ONE authority and supplies it from the planner's zd_gp; the walk_bb_node_inner case's `op_zgpop = nd->ival` is a LATENT SECOND SPELLING (the s22k disease) that is inert only because lower never stamps ival -- it must be reconciled to the planner in the lighting commit, not carried forward. */
     case IR_SUSPEND: {
         IR_t * ev = bb_child0(nd); int sa = ev ? bb_slot_get(ev) : -1;
         if (sa < 0 && ev) sa = nd_slot(ev);
