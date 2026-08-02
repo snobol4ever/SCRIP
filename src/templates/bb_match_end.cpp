@@ -91,7 +91,7 @@ std::string bb_match_end() {
          + x86_xfer_enter()
          + x86_anchor_enter()
          + x86("note", "cas_base") + x86("mov",  "rdi", RDQ("rbp", -32))
-         + x86("note", "cas_top")  + x86("mov",  "rsi", ABSQ(RT_CAS_TOP))
+         + x86("note", "cas_top")  + x86("mov",  "rsi", "r12")   /* ZW-3: r12 is the live top -- all COND γ-pushes since BEGIN landed here; no cell read needed */
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          + x86("def",  L(1))
@@ -115,7 +115,7 @@ std::string bb_match_end() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("note", "cas_base") + x86("mov", "rax", RDQ("rbp", -32)) + x86("mov", ABSQ(RT_CAS_TOP), "rax")   /* pop the applied records wholesale: top←base; r12←base at ZW-3 */
+         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -32)) + x86("mov", ABSQ(RT_CAS_TOP), "r12")   /* ZW-3: r12←base discards applied records; write cell for any C code after the whack */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -8))
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -16))
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -24))

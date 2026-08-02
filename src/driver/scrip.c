@@ -1429,12 +1429,13 @@ int main(int argc, char **argv)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            /* R12-FREE-1 (Lon 2026-07-29): the r12 environment seed is DELETED -- the pend top is cell-resident at [RT_CAS_TOP]; nothing reads r12 (r12 vacated for ZC_STORAGE_FRAME_R12) */
+            /* ZW-3 R12-FREE-1 REVERSAL (s23l): re-add the r12 seed before flat graph entry. */
             /* ONE-SHOT BRIDGE (Lon s22p): main jmps into the graph; flat_γ / flat_ω are the two port
              * landings defined AFTER the body by bb_glue_outer_gamma/omega (codegen_flat_chain_body).
              * GAS resolves the forward refs.  NO call, NO ret, NO eax -- those belong to a C calling
              * convention that no longer exists.  The graph's ports jump to the landings, which call
              * rt_finalize and exit().  xor esi,esi = match start pos = 0. */
+            emit_textf("  mov r12, qword ptr [0x70000000]\n");
             emit_textf("  xor esi, esi\n");
             emit_textf("  jmp flat_\xce\xb1\n"); /* ONE-SHOT: jmp not call; no ret after the graph */
             g_gva_active = (n_gva > 0) ? 1 : 0;
