@@ -125,6 +125,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_var_ref.cpp \
     $(SRC)/templates/bb_goto.cpp \
     $(SRC)/templates/bb_bound.cpp \
+    $(SRC)/templates/bb_statement.cpp \
     $(SRC)/templates/bb_disjunction.cpp \
     $(SRC)/templates/bb_goto_dyn.cpp \
     $(SRC)/templates/bb_fail.cpp \
