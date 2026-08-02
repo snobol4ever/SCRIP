@@ -119,9 +119,7 @@ n2_match_begin_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rbp + 88]                      # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 40]                      # old_rbp
-                        add              rsp, 288
-                                                                                        jmp   n17_lit_string_α
+                                                                                        jmp   proc_LBL__MATCHIT_zw5s2_ω_d288
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_sequence_α:
                                                                                         jmp   n15_lit_integer_α
@@ -206,6 +204,9 @@ n5_statement_β:
                         mov              rbp, qword ptr [rbp + 56]
                         add              rsp, 288
                                                                                         jmp   n17_lit_string_α
+proc_LBL__MATCHIT_zw5s2_ω_d288:
+                        add              rsp, 288
+                                                                                        jmp   n17_lit_string_α
 #=======================================================================================================================
 # MI_YES  MATCHIT = V                                                 :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -232,6 +233,9 @@ n7_assign_β:
 n8_statement_α:
                                                                                         jmp   n20_save_restore_α
 n8_statement_β:
+                                                                                        jmp   n20_save_restore_α
+proc_LBL__MATCHIT_zw5s4_ω_d288:
+                        add              rsp, 288
                                                                                         jmp   n20_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_integer_α:
@@ -428,13 +432,15 @@ n18_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n19_statement_α
 n18_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   n20_save_restore_α
+                                                                                        jmp   proc_LBL__MATCHIT_zw5s3_ω_d16
 #-----------------------------------------------------------------------------------------------------------------------
 n19_statement_α:
                         add              rsp, 16
                                                                                         jmp   n20_save_restore_α
 n19_statement_β:
+                        add              rsp, 16
+                                                                                        jmp   n20_save_restore_α
+proc_LBL__MATCHIT_zw5s3_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n20_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -687,12 +693,11 @@ n62_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx94_240
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   main_zw5s6_ω_d16
 .Lx94_240:
                                                                                         jmp   n63_assign_α
 n62_call_β:
-                                                                                        jmp   main_γ
+                                                                                        jmp   main_zw5s6_ω_d16
 .Lx94_0:
                         .quad            .Lx94_0_s
 .Lx94_0_s:
@@ -705,8 +710,7 @@ n63_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n64_statement_α
 n63_assign_β:
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   main_zw5s6_ω_d32
 .Lx95_0:
                         .quad            .Lx95_0_s
 .Lx95_0_s:
@@ -717,6 +721,12 @@ n64_statement_α:
                                                                                         jmp   main_γ
 n64_statement_β:
                         add              rsp, 32
+                                                                                        jmp   main_γ
+main_zw5s6_ω_d32:
+                        add              rsp, 32
+                                                                                        jmp   main_γ
+main_zw5s6_ω_d16:
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n65_goto_α:
@@ -833,9 +843,7 @@ n67_match_begin_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rbp + 88]                      # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 40]                      # old_rbp
-                        add              rsp, 288
-                                                                                        jmp   n82_lit_string_α
+                                                                                        jmp   main_zw5s2_ω_d288
 #-----------------------------------------------------------------------------------------------------------------------
 n68_match_sequence_α:
                                                                                         jmp   n80_lit_integer_α
@@ -920,6 +928,12 @@ n70_statement_β:
                         mov              rbp, qword ptr [rbp + 56]
                         add              rsp, 288
                                                                                         jmp   n82_lit_string_α
+main_zw5s2_ω_d288:
+                        add              rsp, 288
+                                                                                        jmp   n82_lit_string_α
+main_zw5s2_ω_d32:
+                        add              rsp, 32
+                                                                                        jmp   n82_lit_string_α
 #=======================================================================================================================
 # MI_YES  MATCHIT = V                                                 :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -946,6 +960,9 @@ n72_assign_β:
 n73_statement_α:
                                                                                         jmp   n85_save_restore_α
 n73_statement_β:
+                                                                                        jmp   n85_save_restore_α
+main_zw5s4_ω_d288:
+                        add              rsp, 288
                                                                                         jmp   n85_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n74_lit_integer_α:
@@ -1142,13 +1159,15 @@ n83_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n84_statement_α
 n83_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   n85_save_restore_α
+                                                                                        jmp   main_zw5s3_ω_d16
 #-----------------------------------------------------------------------------------------------------------------------
 n84_statement_α:
                         add              rsp, 16
                                                                                         jmp   n85_save_restore_α
 n84_statement_β:
+                        add              rsp, 16
+                                                                                        jmp   n85_save_restore_α
+main_zw5s3_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n85_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
