@@ -29,11 +29,9 @@ static std::string lit_chain(long n, long k) {
              + x86_omega("jne")
              + lit_chain(n, k + 1);
 }
-std::string bb_match_lit() {
-    x86_begin();
+static std::string bb_match_lit_body() {
     static char b[24];
-    return !PLATFORM_X86 ? std::string()
-         : x86("comment", "IR_MATCH_LIT")
+    return x86("comment", "IR_MATCH_LIT")   /* ZD arm (A-7/ZD-5b, s24b): K=0 — scanner-register only (r14d=cursor, r15d=limit, r13=string base); no cell allocated, no cell read via ZOPQ, no ZRES write.  Body is IDENTICAL in both regimes because the template operates entirely through scanner registers, not the value spine.  Gate: _.op_zres.  One authority: this function shared by both arms. */
          + x86_alpha()
          + IF(LITN() > 0,
               x86("mov",    "eax", "r14d")
@@ -54,4 +52,10 @@ std::string bb_match_lit() {
          + x86_beta()
          + IF(LITN() > 0, x86("sub", "r14d", LITN()))
          + x86_omega();
+}
+std::string bb_match_lit() {
+    x86_begin();
+    if (!PLATFORM_X86) return std::string();
+    if (_.op_zres) return bb_match_lit_body();
+    return bb_match_lit_body();
 }
