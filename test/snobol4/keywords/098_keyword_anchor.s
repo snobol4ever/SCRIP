@@ -127,7 +127,15 @@ main_zw5s2_ω_d48:
 #         X 'hello'                                                   :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n7_var_α:
-                        sub              rsp, 144
+                        sub              rsp, 16
+                        mov              rax, qword ptr [1879052288]                    # X
+                        mov              rdx, qword ptr [1879052296]
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n8_match_begin_α
+#-----------------------------------------------------------------------------------------------------------------------
+n8_match_begin_α:
+                        sub              rsp, 128
                         mov              qword ptr [rsp + 0], 0                         # stmt_claim
                         mov              qword ptr [rsp + 8], 0
                         mov              qword ptr [rsp + 16], 0
@@ -144,19 +152,8 @@ n7_var_α:
                         mov              qword ptr [rsp + 104], 0
                         mov              qword ptr [rsp + 112], 0
                         mov              qword ptr [rsp + 120], 0
-                        mov              qword ptr [rsp + 128], 0
-                        mov              qword ptr [rsp + 136], 0
-                        sub              rsp, 16
-                        mov              rax, qword ptr [1879052288]                    # X
-                        mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 0], rax                       # result
-                        mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n8_match_begin_α
-#-----------------------------------------------------------------------------------------------------------------------
-n8_match_begin_α:
-                        mov              rdi, qword ptr [rsp + 0]
-                        mov              rsi, qword ptr [rsp + 8]
-                        add              rsp, 16
+                        mov              rdi, qword ptr [rsp + 128]                     # var
+                        mov              rsi, qword ptr [rsp + 136]
                         mov              qword ptr [rsp + 96], r13                      # outer_Σ
                         mov              qword ptr [rsp + 104], r14                     # outer_δ
                         mov              qword ptr [rsp + 112], r15                     # outer_Δ
@@ -213,8 +210,7 @@ n8_match_begin_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rsp + 120]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        add              rsp, 144
-                                                                                        jmp   n27_lit_string_α
+                                                                                        jmp   main_zw5s3_ω_d144
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_lit_α:
                         mov              eax, r14d
@@ -303,6 +299,12 @@ n10_match_end_α:
 n11_statement_α:
                         add              rsp, 144
                                                                                         jmp   n12_lit_string_α
+main_zw5s3_ω_d144:
+                        add              rsp, 144
+                                                                                        jmp   n27_lit_string_α
+main_zw5s3_ω_d16:
+                        add              rsp, 16
+                                                                                        jmp   n27_lit_string_α
 #=======================================================================================================================
 # YES     OUTPUT = 'anchored match ok'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -335,11 +337,22 @@ n14_statement_α:
 main_zw5s4_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n15_var_α
+main_zw5s4_ω_d144:
+                        add              rsp, 144
+                                                                                        jmp   n15_var_α
 #=======================================================================================================================
 #         X 'world'                                                   :S(YES2)F(NO2)
 #-----------------------------------------------------------------------------------------------------------------------
 n15_var_α:
-                        sub              rsp, 272
+                        sub              rsp, 16
+                        mov              rax, qword ptr [1879052288]                    # X
+                        mov              rdx, qword ptr [1879052296]
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n16_match_begin_α
+#-----------------------------------------------------------------------------------------------------------------------
+n16_match_begin_α:
+                        sub              rsp, 256
                         mov              qword ptr [rsp + 0], 0                         # stmt_claim
                         mov              qword ptr [rsp + 8], 0
                         mov              qword ptr [rsp + 16], 0
@@ -372,19 +385,8 @@ n15_var_α:
                         mov              qword ptr [rsp + 232], 0
                         mov              qword ptr [rsp + 240], 0
                         mov              qword ptr [rsp + 248], 0
-                        mov              qword ptr [rsp + 256], 0
-                        mov              qword ptr [rsp + 264], 0
-                        sub              rsp, 16
-                        mov              rax, qword ptr [1879052288]                    # X
-                        mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 0], rax                       # result
-                        mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n16_match_begin_α
-#-----------------------------------------------------------------------------------------------------------------------
-n16_match_begin_α:
-                        mov              rdi, qword ptr [rsp + 0]
-                        mov              rsi, qword ptr [rsp + 8]
-                        add              rsp, 16
+                        mov              rdi, qword ptr [rsp + 256]                     # var
+                        mov              rsi, qword ptr [rsp + 264]
                         mov              qword ptr [rsp + 224], r13                     # outer_Σ
                         mov              qword ptr [rsp + 232], r14                     # outer_δ
                         mov              qword ptr [rsp + 240], r15                     # outer_Δ
@@ -441,8 +443,7 @@ n16_match_begin_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rsp + 248]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        add              rsp, 272
-                                                                                        jmp   n24_lit_string_α
+                                                                                        jmp   main_zw5s5_ω_d272
 #-----------------------------------------------------------------------------------------------------------------------
 n17_match_lit_α:
                         mov              eax, r14d
@@ -531,6 +532,12 @@ n18_match_end_α:
 n19_statement_α:
                         add              rsp, 272
                                                                                         jmp   n20_lit_string_α
+main_zw5s5_ω_d272:
+                        add              rsp, 272
+                                                                                        jmp   n24_lit_string_α
+main_zw5s5_ω_d16:
+                        add              rsp, 16
+                                                                                        jmp   n24_lit_string_α
 #=======================================================================================================================
 # YES2    OUTPUT = 'should not reach'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -562,6 +569,9 @@ n22_statement_α:
                                                                                         jmp   n23_statement_α
 main_zw5s6_ω_d16:
                         add              rsp, 16
+                                                                                        jmp   n23_statement_α
+main_zw5s6_ω_d272:
+                        add              rsp, 272
                                                                                         jmp   n23_statement_α
 #=======================================================================================================================
 #         :(END)
