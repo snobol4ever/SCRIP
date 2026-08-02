@@ -1812,7 +1812,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     bb_label_registry_reset();
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
-        if (getenv("MONITOR_BIN")) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(anchor[i]).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
+        { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; int64_t _stno_val = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); IR_LIT(anchor[i]).ival = _stno_val; /* ZW-5 SLICE 3 (OMEGA O-2): stno also stamped into IR_STATEMENT->ival below, after stb is minted -- see the stb stamp site */ } if (getenv("MONITOR_BIN")) { /* MONITOR_BIN sets stno on anchor (already done above unconditionally) */ } }
         const char * lbl = sfind_str(st[i], ":lbl");
         if (lbl && lbl[0]) bb_label_registry_add(lp_strdup(lbl), anchor[i]);
     }
@@ -1851,7 +1851,14 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * fT = goF ? sno_goto_target(g, goF, exitnd) : exF ? sno_goto_computed_target(g, &cx, exF, exitnd) : goU ? sno_goto_target(g, goU, exitnd) : exU ? sno_goto_computed_target(g, &cx, exU, exitnd) : next;
         IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT, sT, fT) : (IR_t *) NULL;   /* ⭐⭐ ZW-5 SLICE 2 (OMEGA O-1): the statement bracket box is minted HERE because these two lines are the ONE derivation point every statement form threads its continuations through -- sT/fT are already resolved (goto field, computed goto, or fallthrough `next`), so one edit reaches every form without touching a single statement arm below.  THE BOX IS A TRAILER, NOT A BRACKET -- measured, not inferred: x86_asm.h:544 x86_alpha() DEFINES the alpha label while x86_asm.h:547 x86_gamma() IS A JMP, so the emitted body `def alpha / jmp gamma / def beta; jmp omega` has exactly ONE entry and control can never return into it; the box is entered once, at alpha, by the statement's SUCCESS wire and falls through to the jmp that carries op_zgpop via the ONE X86H_JMP gamma hook arm (s22k one-authority -- no second whack spelling is created here). */
         IR_t * sJ = lc_build(g, IR_GOTO, stb ? stb : sT, NULL);   /* success -> the box's alpha; the box's own gamma carries sT, so the statement's real continuation is unchanged and the ONLY delta is the release's HOME (WHACK CONTRACT clause 4: BB_END_STATEMENT is op_zgpop's home; the 5,923 fused pops are its absence). */
-        IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);   /* ⛔ FAIL EDGE DELIBERATELY UNCHANGED IN SLICE 2.  The rung's admission gate is "all fail edges arrive at depth 0", and a depth-0 arrival needs NO release -- so the box's omega is genuinely dead until slice 3's per-depth stub ladder lands WITH its planner (s22h atomicity).  Checked before assuming: the wire port selector in `.sz` carries alpha (0xce 0xb1) and beta (0xce 0xb2) and the sigma marker read at emit.cpp:2285 -- there is NO omega-ARRIVAL convention, so routing fail edges into the box is not a wiring detail that was skipped, it IS the slice-3 ladder. */
+        /* ZW-5 SLICE 3 (OMEGA O-2): fJ keeps routing to fT for UCLAIM (declined) runs -- the match machinery
+         * (cas_rsp_mark restore in match_begin beta) already handles rsp restoration for those runs.  For ZD-ADMITTED
+         * runs, the drive loop redirects each member's node_ω to the appropriate per-depth stub at emit time
+         * (codegen_flat_chain_body, right before emit_drive), so NO lower change is needed for admitted runs either.
+         * The stubs are emitted by the drive loop after the IR_STATEMENT template returns (s22h atomicity: same commit). */
+        IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);   /* O-2: unchanged from O-1 -- emit-time node_ω redirection handles admitted runs */
+        /* ZW-5 SLICE 3: stamp stno into IR_STATEMENT ival so bb_node_id gives a stable label base for stubs. */
+        if (stb) { const tree_t * _sa = sfind(s, ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
         if (is_def && is_def[i]) { lc_γ_to(anchor[i], sJ); continue; }
         if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;   /* PS-3 (s152): any goto part ends the unconditional corridor for SUBSEQUENT statements */
         const tree_t * subj = lc_stmt_subj(s);
