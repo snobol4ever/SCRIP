@@ -16,54 +16,50 @@ proc_PAT$0_α_body:
                         mov              qword ptr [rbp + 96], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n0_var_α:
-                        sub              rsp, 80
-                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 16], 0
-                        mov              qword ptr [rsp + 24], 0
-                        mov              qword ptr [rsp + 32], 0
-                        mov              qword ptr [rsp + 40], 0
-                        mov              qword ptr [rsp + 48], 0
-                        mov              qword ptr [rsp + 56], 0
-                        mov              qword ptr [rsp + 64], 0
-                        mov              qword ptr [rsp + 72], 0
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052384]                    # PAT$0$A1
                         mov              rdx, qword ptr [1879052392]
-                        mov              qword ptr [rbp + 80], rax                      # result
-                        mov              qword ptr [rbp + 88], rdx
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n1_coerce_string_α
 n0_var_β:
-                        add              rsp, 80
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n1_coerce_string_α:
-                        lea              rdi, [rbp + 80]                                # in
-                        lea              rsi, [rbp + 64]                                # out
+                        sub              rsp, 16
+                        lea              rdi, [rsp + 16]                                # var
+                        lea              rsi, [rsp + 0]                                 # result
                         mov              rdx, 12320956                                  # codes
                         call             rt_coerce_str_d@PLT
                                                                                         jmp   n2_var_α
 n1_coerce_string_β:
-                        add              rsp, 80
+                        add              rsp, 16
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
+                        sub              rsp, 16
                         mov              rax, qword ptr [1879052368]                    # PAT$0$A0
                         mov              rdx, qword ptr [1879052376]
-                        mov              qword ptr [rbp + 48], rax                      # result
-                        mov              qword ptr [rbp + 56], rdx
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n3_coerce_string_α
 n2_var_β:
-                        add              rsp, 80
+                        add              rsp, 16
+                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n3_coerce_string_α:
-                        lea              rdi, [rbp + 48]                                # in
-                        lea              rsi, [rbp + 32]                                # out
+                        sub              rsp, 16
+                        lea              rdi, [rsp + 16]                                # var
+                        lea              rsi, [rsp + 0]                                 # result
                         mov              rdx, 4522053                                   # codes
                         call             rt_coerce_str_d@PLT
                                                                                         jmp   n4_match_sequence_α
 n3_coerce_string_β:
-                        add              rsp, 80
+                        add              rsp, 16
+                        add              rsp, 48
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:

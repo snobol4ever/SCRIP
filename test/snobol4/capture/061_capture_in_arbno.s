@@ -89,6 +89,41 @@ n3_assign_β:
 #         :(LOOP)
 #-----------------------------------------------------------------------------------------------------------------------
 n4_var_α:
+                        sub              rsp, 16
+                        mov              rax, qword ptr [1879052288]                    # X
+                        mov              rdx, qword ptr [1879052296]
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n5_var_α
+n4_var_β:
+                        add              rsp, 16
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n5_var_α:
+                        sub              rsp, 16
+                        mov              rax, qword ptr [1879052304]                    # N
+                        mov              rdx, qword ptr [1879052312]
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n6_coerce_integer_α
+n5_var_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n6_coerce_integer_α:
+                        sub              rsp, 16
+                        lea              rdi, [rsp + 16]                                # var
+                        lea              rsi, [rsp + 0]                                 # result
+                        mov              rdx, 10682530                                  # codes
+                        call             rt_coerce_int_d@PLT
+                                                                                        jmp   n7_match_head_α
+n6_coerce_integer_β:
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   main_γ
+#-----------------------------------------------------------------------------------------------------------------------
+n7_match_head_α:
                         sub              rsp, 256
                         mov              qword ptr [rsp + 0], 0                         # stmt_claim
                         mov              qword ptr [rsp + 8], 0
@@ -122,44 +157,16 @@ n4_var_α:
                         mov              qword ptr [rsp + 232], 0
                         mov              qword ptr [rsp + 240], 0
                         mov              qword ptr [rsp + 248], 0
-                        mov              rax, qword ptr [1879052288]                    # X
-                        mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 240], rax                     # result
-                        mov              qword ptr [rsp + 248], rdx
-                                                                                        jmp   n5_var_α
-n4_var_β:
-                        add              rsp, 256
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n5_var_α:
-                        mov              rax, qword ptr [1879052304]                    # N
-                        mov              rdx, qword ptr [1879052312]
-                        mov              qword ptr [rsp + 224], rax                     # result
-                        mov              qword ptr [rsp + 232], rdx
-                                                                                        jmp   n6_coerce_integer_α
-n5_var_β:
-                        add              rsp, 256
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n6_coerce_integer_α:
-                        lea              rdi, [rsp + 224]                               # in
-                        lea              rsi, [rsp + 208]                               # out
-                        mov              rdx, 10682530                                  # codes
-                        call             rt_coerce_int_d@PLT
-                                                                                        jmp   n7_match_head_α
-n6_coerce_integer_β:
-                        add              rsp, 256
-                                                                                        jmp   main_γ
-#-----------------------------------------------------------------------------------------------------------------------
-n7_match_head_α:
+                        mov              rdi, qword ptr [rsp + 288]                     # var
+                        mov              rsi, qword ptr [rsp + 296]
+                        mov              qword ptr [rsp + 240], rdi
+                        mov              qword ptr [rsp + 248], rsi
                         mov              qword ptr [rsp + 112], r13                     # outer_Σ
                         mov              qword ptr [rsp + 120], r14                     # outer_δ
                         mov              qword ptr [rsp + 128], r15                     # outer_Δ
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rsp + 136], rax                     # cap_gen
-                        mov              rdi, qword ptr [rsp + 240]                     # lo
-                        mov              rsi, qword ptr [rsp + 248]                     # hi
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -210,7 +217,7 @@ n7_match_head_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rsp + 136]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        add              rsp, 256
+                        add              rsp, 304
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_sequence_α:
@@ -286,7 +293,7 @@ n9_match_release_α:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rsp + 136]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        add              rsp, 256
+                        add              rsp, 304
                                                                                         jmp   n10_var_α
 #=======================================================================================================================
 #         OUTPUT = V

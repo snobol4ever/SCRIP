@@ -59,7 +59,18 @@ n1_assign_β:
 #         s POS(0) ARBNO(LEN(1) | LEN(1)) RPOS(0)    :S(YES)F(NO)
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
-                        sub              rsp, 304
+                        sub              rsp, 16
+                        mov              rax, qword ptr [1879052288]                    # s
+                        mov              rdx, qword ptr [1879052296]
+                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n3_match_head_α
+n2_var_β:
+                        add              rsp, 16
+                                                                                        jmp   n16_lit_string_α
+#-----------------------------------------------------------------------------------------------------------------------
+n3_match_head_α:
+                        sub              rsp, 288
                         mov              qword ptr [rsp + 0], 0                         # stmt_claim
                         mov              qword ptr [rsp + 8], 0
                         mov              qword ptr [rsp + 16], 0
@@ -96,23 +107,8 @@ n2_var_α:
                         mov              qword ptr [rsp + 264], 0
                         mov              qword ptr [rsp + 272], 0
                         mov              qword ptr [rsp + 280], 0
-                        mov              qword ptr [rsp + 288], 0
-                        mov              qword ptr [rsp + 296], 0
-                        sub              rsp, 16
-                        mov              rax, qword ptr [1879052288]                    # s
-                        mov              rdx, qword ptr [1879052296]
-                        mov              qword ptr [rsp + 0], rax                       # result
-                        mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n3_match_head_α
-n2_var_β:
-                        add              rsp, 16
-                        add              rsp, 304
-                                                                                        jmp   n16_lit_string_α
-#-----------------------------------------------------------------------------------------------------------------------
-n3_match_head_α:
-                        mov              rdi, qword ptr [rsp + 0]
-                        mov              rsi, qword ptr [rsp + 8]
-                        add              rsp, 16
+                        mov              rdi, qword ptr [rsp + 288]                     # var
+                        mov              rsi, qword ptr [rsp + 296]
                         mov              qword ptr [rsp + 88], rbp                      # old_rbp
                         mov              rbp, rsp                                       # stmt_base
                         mov              qword ptr [rbp + 96], r13                      # outer_Σ
