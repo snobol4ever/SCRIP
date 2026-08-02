@@ -20,22 +20,22 @@ main_α_body:
 n0_lit_integer_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 3                         # result
-                        mov              rax, qword ptr [rip + .Lx4_0]
+                        mov              rax, qword ptr [rip + .Lx5_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_lit_string_α
-.Lx4_0:
+.Lx5_0:
                         .quad            42
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 6
-                        mov              rax, qword ptr [rip + .Lx5_0]
+                        mov              rax, qword ptr [rip + .Lx6_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n2_binop_α
-.Lx5_0:
-                        .quad            .Lx5_0_s
-.Lx5_0_s:
+.Lx6_0:
+                        .quad            .Lx6_0_s
+.Lx6_0_s:
                         .string          " items"
 #-----------------------------------------------------------------------------------------------------------------------
 n2_binop_α:
@@ -52,14 +52,17 @@ n2_binop_α:
 n3_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # binop
                         mov              rdx, qword ptr [rsp + 8]                       # val
-                        mov              rdi, qword ptr [rip + .Lx7_0]                  # name
+                        mov              rdi, qword ptr [rip + .Lx8_0]                  # name
                         call             NV_SET_fn@PLT
+                                                                                        jmp   n4_statement_α
+.Lx8_0:
+                        .quad            .Lx8_0_s
+.Lx8_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n4_statement_α:
                         add              rsp, 48
                                                                                         jmp   main_γ
-.Lx7_0:
-                        .quad            .Lx7_0_s
-.Lx7_0_s:
-                        .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

@@ -21,25 +21,33 @@ n0_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 3
-                        mov              rax, qword ptr [rip + .Lx2_0]
+                        mov              rax, qword ptr [rip + .Lx4_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_assign_α
-.Lx2_0:
-                        .quad            .Lx2_0_s
-.Lx2_0_s:
+.Lx4_0:
+                        .quad            .Lx4_0_s
+.Lx4_0_s:
                         .string          "one"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]                       # val
-                        mov              rdi, qword ptr [rip + .Lx3_0]                  # name
+                        mov              rdi, qword ptr [rip + .Lx5_0]                  # name
                         call             NV_SET_fn@PLT
-                        add              rsp, 16
-                                                                                        jmp   main_γ
-.Lx3_0:
-                        .quad            .Lx3_0_s
-.Lx3_0_s:
+                                                                                        jmp   n2_statement_α
+.Lx5_0:
+                        .quad            .Lx5_0_s
+.Lx5_0_s:
                         .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n2_statement_α:
+                        add              rsp, 16
+                                                                                        jmp   n3_statement_α
+#=======================================================================================================================
+#         :(END)
+#-----------------------------------------------------------------------------------------------------------------------
+n3_statement_α:
+                                                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

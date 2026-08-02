@@ -19,27 +19,30 @@ main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_keyword_snobol4_α:
                         sub              rsp, 16
-                        mov              rdi, qword ptr [rip + .Lx2_0]                  # sval
+                        mov              rdi, qword ptr [rip + .Lx3_0]                  # sval
                         call             rt_keyword_read_snobol4@PLT
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n1_assign_α
-.Lx2_0:
-                        .quad            .Lx2_0_s
-.Lx2_0_s:
+.Lx3_0:
+                        .quad            .Lx3_0_s
+.Lx3_0_s:
                         .string          "LCASE"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # keyword_snobol4
                         mov              rdx, qword ptr [rsp + 8]                       # val
-                        mov              rdi, qword ptr [rip + .Lx3_0]                  # name
+                        mov              rdi, qword ptr [rip + .Lx4_0]                  # name
                         call             NV_SET_fn@PLT
+                                                                                        jmp   n2_statement_α
+.Lx4_0:
+                        .quad            .Lx4_0_s
+.Lx4_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n2_statement_α:
                         add              rsp, 16
                                                                                         jmp   main_γ
-.Lx3_0:
-                        .quad            .Lx3_0_s
-.Lx3_0_s:
-                        .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

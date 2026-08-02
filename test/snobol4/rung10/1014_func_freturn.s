@@ -27,22 +27,25 @@ main_α_body:
                         push             rbp
                         mov              rbp, rsp
                         sub              rsp, 8
+#-----------------------------------------------------------------------------------------------------------------------
+n0_statement_α:
+                                                                                        jmp   n1_lit_string_α
 #=======================================================================================================================
 #         define('always_fail()')                        :(af_end)
 #-----------------------------------------------------------------------------------------------------------------------
-n0_lit_string_α:
+n1_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 13
-                        mov              rax, qword ptr [rip + .Lx12_0]
+                        mov              rax, qword ptr [rip + .Lx23_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n1_call_α
-.Lx12_0:
-                        .quad            .Lx12_0_s
-.Lx12_0_s:
+                                                                                        jmp   n2_call_α
+.Lx23_0:
+                        .quad            .Lx23_0_s
+.Lx23_0_s:
                         .string          "always_fail()"
 #-----------------------------------------------------------------------------------------------------------------------
-n1_call_α:
+n2_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
                         mov              r10, qword ptr [rsp + 32]
@@ -50,129 +53,151 @@ n1_call_α:
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lbynamefnzd2:          .string          "define"
+.Lbynamefnzd3:          .string          "define"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd2]                     # fn
+                        lea              rdi, [rip + .Lbynamefnzd3]                     # fn
                         lea              rsi, [rsp + 0]                                 # args
                         mov              edx, 1                                         # nargs
                         call             rt_call_arr@PLT
                         add              rsp, 16
                         cmp              eax, 104
-                                                                                        jne   .Lx13_240
+                                                                                        jne   .Lx24_240
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n2_call_α
-.Lx13_240:
+                                                                                        jmp   n4_statement_α
+.Lx24_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n3_statement_α
+n2_call_β:
+                        add              rsp, 16
+                                                                                        jmp   n4_statement_α
+#-----------------------------------------------------------------------------------------------------------------------
+n3_statement_α:
+                                                                                        jmp   n4_statement_α
+#-----------------------------------------------------------------------------------------------------------------------
+n4_statement_α:
                         add              rsp, 32
-                                                                                        jmp   n2_call_α
-n1_call_β:
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n2_call_α
+                                                                                        jmp   n5_call_α
 #=======================================================================================================================
 #         always_fail()                                  :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------
-n2_call_α:
+n5_call_α:
                         sub              rsp, 16
                         .section         .rodata
-.Lbynamefnzd3:          .string          "always_fail"
+.Lbynamefnzd6:          .string          "always_fail"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lbynamefnzd3]                     # fn
+                        lea              rdi, [rip + .Lbynamefnzd6]                     # fn
                         xor              esi, esi                                       # args
                         mov              edx, 0                                         # nargs
                         call             rt_call_arr@PLT
                         cmp              eax, 104
-                                                                                        jne   .Lx14_240
+                                                                                        jne   .Lx29_240
                         add              rsp, 16
-                                                                                        jmp   n5_lit_string_α
-.Lx14_240:
+                                                                                        jmp   n10_statement_α
+.Lx29_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
+                                                                                        jmp   n6_statement_α
+n5_call_β:
                         add              rsp, 16
-                                                                                        jmp   n3_lit_string_α
-n2_call_β:
+                                                                                        jmp   n10_statement_α
+#-----------------------------------------------------------------------------------------------------------------------
+n6_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n5_lit_string_α
+                                                                                        jmp   n7_lit_string_α
 #=======================================================================================================================
 #         output = 'FAIL 1014/001: freturn should cause statement failure' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_string_α:
+n7_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 53
-                        mov              rax, qword ptr [rip + .Lx15_0]
+                        mov              rax, qword ptr [rip + .Lx32_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n4_assign_α
-.Lx15_0:
-                        .quad            .Lx15_0_s
-.Lx15_0_s:
+                                                                                        jmp   n8_assign_α
+.Lx32_0:
+                        .quad            .Lx32_0_s
+.Lx32_0_s:
                         .string          "FAIL 1014/001: freturn should cause statement failure"
 #-----------------------------------------------------------------------------------------------------------------------
-n4_assign_α:
+n8_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax                    # output
                         mov              qword ptr [1879052296], rdx
-                        add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n9_statement_α
+#-----------------------------------------------------------------------------------------------------------------------
+n9_statement_α:
+                                                                                        jmp   n14_statement_α
+#-----------------------------------------------------------------------------------------------------------------------
+n10_statement_α:
+                                                                                        jmp   n11_lit_string_α
 #=======================================================================================================================
 #         output = 'PASS 1014_func_freturn (1/1)'
 #-----------------------------------------------------------------------------------------------------------------------
-n5_lit_string_α:
+n11_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 28
-                        mov              rax, qword ptr [rip + .Lx17_0]
+                        mov              rax, qword ptr [rip + .Lx38_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n6_assign_α
-.Lx17_0:
-                        .quad            .Lx17_0_s
-.Lx17_0_s:
+                                                                                        jmp   n12_assign_α
+.Lx38_0:
+                        .quad            .Lx38_0_s
+.Lx38_0_s:
                         .string          "PASS 1014_func_freturn (1/1)"
 #-----------------------------------------------------------------------------------------------------------------------
-n6_assign_α:
+n12_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [1879052288], rax                    # output
                         mov              qword ptr [1879052296], rdx
+                                                                                        jmp   n13_statement_α
+#-----------------------------------------------------------------------------------------------------------------------
+n13_statement_α:
+                        add              rsp, 16
+                                                                                        jmp   n14_statement_α
+#-----------------------------------------------------------------------------------------------------------------------
+n14_statement_α:
                         add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-n7_goto_α:
-                                                                                        jmp   n8_goto_deferred_α
-n7_goto_β:
+n15_goto_α:
+                                                                                        jmp   n16_statement_α
+n15_goto_β:
                                                                                         jmp   main_ω
 #=======================================================================================================================
 # always_fail                                            :(freturn)
 #-----------------------------------------------------------------------------------------------------------------------
-n8_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx21_0]                 # name
+n16_statement_α:
+                                                                                        jmp   n17_goto_deferred_α
+#-----------------------------------------------------------------------------------------------------------------------
+n17_goto_deferred_α:
+                        mov              rdi, qword ptr [rip + .Lx48_0]                 # name
                         call             rt_goto_transfer@PLT
-                                                                                        jmp   .Lx21_1
-.Lx21_0:
-                        .quad            .Lx21_0_s
-.Lx21_0_s:
+                                                                                        jmp   .Lx48_1
+.Lx48_0:
+                        .quad            .Lx48_0_s
+.Lx48_0_s:
                         .string          "freturn"
-.Lx21_1:
+.Lx48_1:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-n9_goto_α:
-                                                                                        jmp   n2_call_α
-n9_goto_β:
+n18_goto_α:
+                                                                                        jmp   n4_statement_α
+n18_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-n10_goto_α:
-                                                                                        jmp   n5_lit_string_α
-n10_goto_β:
+n19_goto_α:
+                                                                                        jmp   n10_statement_α
+n19_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-n11_goto_α:
-                                                                                        jmp   main_γ
-n11_goto_β:
+n20_goto_α:
+                                                                                        jmp   n14_statement_α
+n20_goto_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

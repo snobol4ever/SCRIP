@@ -21,21 +21,21 @@ n0_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 2
-                        mov              rax, qword ptr [rip + .Lx5_0]
+                        mov              rax, qword ptr [rip + .Lx6_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_lit_integer_α
-.Lx5_0:
-                        .quad            .Lx5_0_s
-.Lx5_0_s:
+.Lx6_0:
+                        .quad            .Lx6_0_s
+.Lx6_0_s:
                         .string          "hi"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_integer_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 3                         # result
-                        mov              rax, qword ptr [rip + .Lx6_0]
+                        mov              rax, qword ptr [rip + .Lx7_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n2_call_α
-.Lx6_0:
+.Lx7_0:
                         .quad            6
 #-----------------------------------------------------------------------------------------------------------------------
 n2_call_α:
@@ -50,20 +50,20 @@ n2_call_α:
                         mov              qword ptr [rsp + 16], r10
                         mov              qword ptr [rsp + 24], r11
                         .section         .rodata
-.Lrkfnzd8:              .string          "RPAD"
+.Lrkfnzd9:              .string          "RPAD"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd8]                         # fn
+                        lea              rdi, [rip + .Lrkfnzd9]                         # fn
                         lea              rsi, [rsp + 0]                                 # args
                         mov              edx, 2                                         # nargs
                         call             rt_call_arr@PLT
                         add              rsp, 32
                         cmp              eax, 104
-                                                                                        jne   .Lx7_240
+                                                                                        jne   .Lx8_240
                         add              rsp, 16
                         add              rsp, 32
                                                                                         jmp   main_γ
-.Lx7_240:
+.Lx8_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n3_call_α
@@ -80,20 +80,20 @@ n3_call_α:
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
                         .section         .rodata
-.Lrkfnzd10:             .string          "SIZE"
+.Lrkfnzd11:             .string          "SIZE"
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd10]                        # fn
+                        lea              rdi, [rip + .Lrkfnzd11]                        # fn
                         lea              rsi, [rsp + 0]                                 # args
                         mov              edx, 1                                         # nargs
                         call             rt_call_arr@PLT
                         add              rsp, 16
                         cmp              eax, 104
-                                                                                        jne   .Lx9_240
+                                                                                        jne   .Lx10_240
                         add              rsp, 16
                         add              rsp, 48
                                                                                         jmp   main_γ
-.Lx9_240:
+.Lx10_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n4_assign_α
@@ -105,14 +105,17 @@ n3_call_β:
 n4_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call
                         mov              rdx, qword ptr [rsp + 8]                       # val
-                        mov              rdi, qword ptr [rip + .Lx11_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx12_0]                 # name
                         call             NV_SET_fn@PLT
+                                                                                        jmp   n5_statement_α
+.Lx12_0:
+                        .quad            .Lx12_0_s
+.Lx12_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n5_statement_α:
                         add              rsp, 64
                                                                                         jmp   main_γ
-.Lx11_0:
-                        .quad            .Lx11_0_s
-.Lx11_0_s:
-                        .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω
