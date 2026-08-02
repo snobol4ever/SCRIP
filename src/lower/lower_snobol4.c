@@ -898,6 +898,21 @@ static void sno_seal_note(const char * nm, const tree_t * pat) { if (!nm || !pat
 static const tree_t * sno_seal_pat(const char * nm) { if (!g_sno_seal_enabled || !nm || g_sno_fz_unsafe || sno_fz_wrcount(nm) != 1) return NULL; for (int i = 0; i < g_sno_nseal; i++) if (!strcmp(g_sno_seal[i].name, nm)) return g_sno_seal[i].pat; return NULL; }
 static int sno_pat_right_sealed(const tree_t * t);
 static int sno_defer_sealed(const char * nm) { const tree_t * p = sno_seal_pat(nm); return p ? sno_pat_right_sealed(p) : 0; }   /* s137: defer target resolves (eligibly) to a right-sealed tree → IR_t.seal */
+static int sno_pat_dfree(const tree_t * t, int spine, int depth) {   /* ZD-5 STATIC-SHAPE (s23i): 1 iff no TT_DEFER is reachable, resolving SPINE-position VAR names through g_sno_seal (eligibility = sno_seal_pat's own gate: single write, fz-safe, main lowering).  spine=0 marks primitive-ARGUMENT subtrees, where a VAR is a value read (LEN(N)'s N), never a pattern name.  Depth cap breaks bare-name chase cycles (A=B;B=A) conservatively.  TT_FNC conservative 0: a build-time call can return a pattern carrying defers; widen only on census evidence.  Unlisted kinds conservative 0 for the same reason -- the classifier's job is a PROOF of non-re-entry, not a guess. */
+    if (!t) return 1;
+    if (depth > 48) return 0;
+    switch (t->t) {
+    case TT_DEFER: return 0;
+    case TT_QLIT: case TT_ILIT: case TT_FLIT: case TT_CSET: case TT_NUL: return 1;
+    case TT_REM: case TT_ARB: case TT_FAIL: case TT_SUCCEED: case TT_ABORT: case TT_BAL: return 1;
+    case TT_VAR: { const char * nm = t->v.sval; if (!spine) return 1; if (nm && (!strcmp(nm, "REM") || !strcmp(nm, "ARB") || !strcmp(nm, "FENCE"))) return 1; const tree_t * p = sno_seal_pat(nm); return p ? sno_pat_dfree(p, 1, depth + 1) : 0; }
+    case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: { for (int i = 0; i < t->n; i++) if (!sno_pat_dfree(t->c[i], 0, depth + 1)) return 0; return 1; }
+    case TT_SEQ: case TT_CAT: case TT_ALT: case TT_FENCE: case TT_ARBNO: { for (int i = 0; i < t->n; i++) if (!sno_pat_dfree(t->c[i], 1, depth + 1)) return 0; return 1; }
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: case TT_CAPT_CURSOR: return 0;   /* ⛔ BRACKETED s23i (core.3397, 127_pat_json_keyvalue): a capture INSIDE the referenced blob emits rt_cap_push with the raw cap-slot spelling `lea rdi,[rsp+176]` -- claim-relative, so ENTRY-REGIME-DEPENDENT: the blob is compiled once but an armed statement enters it at a shifted depth, the slot read lands on stale stack residue, and survival depends on absolute stack placement (the env-length flip; s23h flake-ledger disease, same wild-rt_cap_push class as that finding's item 4).  The sound blob spelling is a wire/anchor-carried claim base (the CARRIED-OPEN r9 park-address item), NOT rsp arithmetic -- until that design rung lands, a target bearing ANY capture declines.  127/152 were the deterministic witnesses; 125/146's greens were placement luck on the same defect. */
+    default: return 0;
+    }
+}
+static int sno_name_static(const char * nm) { const tree_t * p = sno_seal_pat(nm); return p ? sno_pat_dfree(p, 1, 0) : 0; }   /* the pat_static stamp: eligibly-resolved AND transitively defer-free */
 static void sno_fz_scan(const tree_t * t) {
     if (!t) return;
     if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) sno_fz_write(t->c[1]->v.sval);
@@ -1191,13 +1206,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
     case TT_DEFER: {
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
-        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval) ? 1 : (sno_seal_pat(in->v.sval) ? 2 : 0);   /* s142: 1 = full right-seal (s137 whack); 2 = WRITE-ONCE only (name eligibly resolves in g_sno_seal: single write, fz-safe) — enables the defer-site entry-cell, NOT the whack.  OP-SPLIT s21x-f: this is the `*X` arm, the only one the manual lets recurse (p.122) — IR_MATCH_DEFER is star-ONLY by construction now; the s199 dstar registration is deleted, the opcode IS the provenance. */ sno_ω_to(nd, fail); return nd; }
+        if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval) ? 1 : (sno_seal_pat(in->v.sval) ? 2 : 0);   /* s142: 1 = full right-seal (s137 whack); 2 = WRITE-ONCE only (name eligibly resolves in g_sno_seal: single write, fz-safe) — enables the defer-site entry-cell, NOT the whack.  OP-SPLIT s21x-f: this is the `*X` arm, the only one the manual lets recurse (p.122) — IR_MATCH_DEFER is star-ONLY by construction now; the s199 dstar registration is deleted, the opcode IS the provenance. */ nd->pat_static = sno_name_static(in->v.sval);   /* ZD-5 s23i: a `*X` whose X is transitively defer-free cannot recurse -- the star buys late binding only, and the statement quartet may arm around it (117's *cmd class) */ sno_ω_to(nd, fail); return nd; }
         { const char * bn = sno_expr_collect(in); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn);
           IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); sno_ω_to(nd, fail); return nd; }
     }
     case TT_VAR: {                                                 /* SN4-BAREKW: the REM/ARB/FENCE strcmp bandages that lived here are now in sno_pat_eff_kind() */
         const char * nm = t->v.sval;
-        { IR_t * nd = lc_build(g, IR_MATCH_PATREF, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class; OP-SPLIT s21x-f: the EAGER twin — a bare stored-pattern NAME, built eagerly, cannot self-reference (manual p.122), lowers to IR_MATCH_PATREF; every consumer treats the pair identically this slice */ sno_ω_to(nd, fail); return nd; }
+        { IR_t * nd = lc_build(g, IR_MATCH_PATREF, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class; OP-SPLIT s21x-f: the EAGER twin — a bare stored-pattern NAME, built eagerly, cannot self-reference (manual p.122), lowers to IR_MATCH_PATREF; every consumer treats the pair identically this slice */ nd->pat_static = sno_name_static(nm);   /* ZD-5 s23i: static-shape patref -- the named next rung's arming population */ sno_ω_to(nd, fail); return nd; }
     }
     case TT_REM: {
         IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL);
