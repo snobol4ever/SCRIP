@@ -2494,7 +2494,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.op_wpop = 0;
     if (scan_live) {   /* SPD-2 RETRY-INTERNAL blocks.  scanhit: publish the winning start for the statement-side head-slot write-back, fall to γ.  scanfail: flag off → γ.. no, → ω; else start+1, bound (r15d=Δ), &ANCHOR test — any exit → ω; otherwise write back start, r14d=start, rsp=rbp (post-carve frontier: every element grant sits below), jmp attempt. */
         int kt = g_emit.flat_frame_bytes;
-        extern uint64_t g_scan_hit_start; extern long g_anchor;
+        extern uint64_t g_scan_hit_start; extern long *rt_anchor_ptr(void);   /* ZW-4: g_anchor via accessor (binary arm); TEXT arm uses linker symbol directly */
         emit_label_define_bb(&lbl_scanhit);
         if (g_is_text) {
             char _sh[256];
@@ -2524,7 +2524,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             ef_b2(0xFF, 0xC0);
             ef_b3(0x44, 0x39, 0xF8);
             ef_b2(0x7F, 0x21);                                    /* jg -> block end: 10+4+2+6+3+3+5 = 33 */
-            ef_b2(0x48, 0xB9); bb_emit_u64((uint64_t)(uintptr_t)&g_anchor);
+            ef_b2(0x48, 0xB9); bb_emit_u64((uint64_t)(uintptr_t)rt_anchor_ptr());
             ef_b4(0x48, 0x83, 0x39, 0x00);
             ef_b2(0x75, 0x11);                                    /* jne -> block end: 6+3+3+5 = 17 */
             ef_b2(0x89, 0x85); bb_emit_u32((uint32_t)(kt - 40));

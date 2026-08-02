@@ -13,7 +13,8 @@ long g_error  = 0;
 long g_trace  = 0;
 long g_dump   = 0;
 long g_random = 0;
-long g_anchor = 0;
+long g_anchor = 0;   /* ZW-4: SNAPSHOT-AT-BEGIN semantics; target = keywords.c-private, blocked by SPD-2 TEXT arm in emit.cpp using it as a linker symbol; accessor below is the canonical external interface */
+long *rt_anchor_ptr(void) { return &g_anchor; }   /* ZW-4: sole canonical external accessor; bb_match_begin uses this; emit.cpp SPD-2 TEXT arm uses the linker symbol directly (blocker for full static demotion) */
 long g_trim   = 0;
 long g_maxlngth = 5000000;
 int  g_jcon   = 0;
@@ -141,7 +142,7 @@ DESCR_t kw_read(const char *kw) {
       if (!strcmp(kw,"dump"))   return INTVAL(g_dump);
       if (!strcmp(kw,"random")) return INTVAL(g_random);
     }
-    { extern long g_anchor, g_trim, g_maxlngth;
+    { extern long g_trim, g_maxlngth;   /* ZW-4: g_anchor is now static in this file, no extern needed */
       if (!strcmp(kw,"anchor"))   return INTVAL(g_anchor);
       if (!strcmp(kw,"trim"))     return INTVAL(g_trim);
       if (!strcmp(kw,"maxlngth")) return INTVAL(g_maxlngth);
