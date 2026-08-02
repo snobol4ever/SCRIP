@@ -47,7 +47,7 @@ std::string bb_match_begin() {
          + x86("note", HKN(1)) + x86("mov", RDQ("rbp", -8),  "r13")
          + x86("note", HKN(2)) + x86("mov", RDQ("rbp", -16), "r14")
          + x86("note", HKN(3)) + x86("mov", RDQ("rbp", -24), "r15")
-         + x86("note", "cas_base") + x86("mov", "rax", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("rbp", -32), "rax")
+         + x86("note", "cas_base") + x86("mov", "r12", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("rbp", -32), "r12")   /* ⭐ ZW-3: r12 loaded from the cell seed here (C-transit safe: rt_match_enter may call into C which is allowed to write the cell; loading AFTER the call keeps r12 coherent).  The frame slot [rbp-32] = cas_base for the pump and ω restore; r12 itself is the LIVE top for all COND captures between here and END. */
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_anchor, "g_anchor")
          + x86("note", "anchor_snapshot") + x86("mov", "rax", RDQ("rcx", 0)) + x86("mov", RDQ("rbp", -40), "rax")
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
@@ -60,7 +60,7 @@ std::string bb_match_begin() {
          + x86("note", "start_δ") + x86("mov", "r14d", RDD("rbp", -48))
          + x86_gamma()
          + x86_beta()
-         + x86("note", "cas_base") + x86("mov", "rax", RDQ("rbp", -32)) + x86("mov", ABSQ(RT_CAS_TOP), "rax")   /* retry hygiene: each attempt starts record-clean; the element-wise γ-push/β-pop law keeps this a no-op on the balanced cascade, and it heals any seal-adjacent leak before the next attempt */
+         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -32))   /* ZW-3 retry: r12←base discards any COND records from the failed attempt; the cell is NOT written here -- r12 is the register authority inside the match scope */
          + x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -48)) + x86("add", "eax", (long)1)
          + x86("cmp", "eax", "r15d")
          + x86("jg",  L(1))
@@ -69,7 +69,7 @@ std::string bb_match_begin() {
          + x86("note", "start_δ") + x86("mov", RDQ("rbp", -48), "rax")   /* the 32-bit add already zero-extended rax, so the qword store carries a clean cursor */
          + x86("jmp", L(0))
          + x86("def", L(1))
-         + x86("note", "cas_base") + x86("mov", "rax", RDQ("rbp", -32)) + x86("mov", ABSQ(RT_CAS_TOP), "rax")   /* ω bulk discard: r12←cas_base at ZW-3; the cell twin until then */
+         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -32)) + x86("mov", ABSQ(RT_CAS_TOP), "r12")   /* ZW-3 ω bulk discard: r12←base discards all COND records; write cell for C-transit after the whack */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -8))
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -16))
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -24))
