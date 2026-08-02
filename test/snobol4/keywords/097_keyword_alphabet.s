@@ -48,16 +48,14 @@ n1_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx13_240
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n4_keyword_snobol4_α
+                                                                                        jmp   main_zw5s1_ω_d16
 .Lx13_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n2_assign_α
 n1_call_β:
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n4_keyword_snobol4_α
+                                                                                        jmp   main_zw5s1_ω_d16
 #-----------------------------------------------------------------------------------------------------------------------
 n2_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call
@@ -72,6 +70,12 @@ n2_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n3_statement_α:
                         add              rsp, 32
+                                                                                        jmp   n4_keyword_snobol4_α
+main_zw5s1_ω_d32:
+                        add              rsp, 32
+                                                                                        jmp   n4_keyword_snobol4_α
+main_zw5s1_ω_d16:
+                        add              rsp, 16
                                                                                         jmp   n4_keyword_snobol4_α
 #=======================================================================================================================
 #         OUTPUT = SIZE(&UCASE)
@@ -107,16 +111,14 @@ n5_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx19_240
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n8_keyword_snobol4_α
+                                                                                        jmp   main_zw5s2_ω_d16
 .Lx19_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n6_assign_α
 n5_call_β:
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n8_keyword_snobol4_α
+                                                                                        jmp   main_zw5s2_ω_d16
 #-----------------------------------------------------------------------------------------------------------------------
 n6_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call
@@ -131,6 +133,12 @@ n6_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n7_statement_α:
                         add              rsp, 32
+                                                                                        jmp   n8_keyword_snobol4_α
+main_zw5s2_ω_d32:
+                        add              rsp, 32
+                                                                                        jmp   n8_keyword_snobol4_α
+main_zw5s2_ω_d16:
+                        add              rsp, 16
                                                                                         jmp   n8_keyword_snobol4_α
 #=======================================================================================================================
 #         OUTPUT = SIZE(&LCASE)
@@ -166,16 +174,14 @@ n9_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx25_240
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   main_zw5s3_ω_d16
 .Lx25_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n10_assign_α
 n9_call_β:
                         add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   main_zw5s3_ω_d16
 #-----------------------------------------------------------------------------------------------------------------------
 n10_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call
@@ -190,6 +196,12 @@ n10_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_α:
                         add              rsp, 32
+                                                                                        jmp   main_γ
+main_zw5s3_ω_d32:
+                        add              rsp, 32
+                                                                                        jmp   main_γ
+main_zw5s3_ω_d16:
+                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
