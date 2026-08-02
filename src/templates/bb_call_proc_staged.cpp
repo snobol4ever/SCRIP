@@ -177,6 +177,131 @@ extern "C" void bb_scc_handoff_reset(void) { g_c2h_n = 0; g_c2h_pend.live = 0; }
 static std::string bcps_det_arm() {
     x86_begin();
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
+    /* ZD-7c USER-PROC ARM (s23r): when the statement is ZD-armed (op_zres=1) each arg's DESCR lives at its own
+     * cell [rsp+op_zread[k]] and the result goes to this box's own cell [rsp+0..15].  Three arg-delivery shapes
+     * all use ZOPQ instead of FRQ; result writes use ZRES.  Sibling idiom: bb_deref.cpp:13-22.  The arm covers
+     * only the ZC_PORT_FORTH / ZC_FRAME_RSP path (the only live basis post ZC_FRAME_R12 deletion); a generator
+     * call never reaches here (is_gen pre-filters to bcps_spine_gen_arm before bcps_det_arm is called).
+     * KILLSWITCH SCRIP_ZD_PROC=0 prevents admission in zd_wl_kind -- this arm fires iff that gate is open. */
+    if (_.op_zres) {
+        int bidx_z = bcps_beta_pair_idx(); IR_graph_t ** argblks_z = (IR_graph_t **)(intptr_t)_.op_counter;
+        int is_dyn_z = _.op_sval && rt_proc_dyn_scope(_.op_sval);
+        long det_idx_z = (!is_dyn_z && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
+        int det_nA_z = (int)_.op_ival;
+        int det_fuse_z = (det_idx_z >= 0 && x86_zc_frame() == ZC_FRAME_RSP && det_nA_z >= 0 && det_nA_z <= 4);
+        int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[280]; dc_name_z[0] = 0;
+        if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
+            void **sl = rt_pl_dc_slot(det_idx_z); if (sl) { dc_z = 1; dc_slot_z = (uint64_t)(uintptr_t)sl;
+                { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char)*nm; if ((u>='A'&&u<='Z')||(u>='a'&&u<='z')||(u>='0'&&u<='9')||u=='_'||u=='$'||u=='.') mang[mi++]=(char)u; else mi+=snprintf(mang+mi,(size_t)(256-mi),"$%02X",u); } mang[mi]=0; snprintf(dc_name_z,sizeof dc_name_z,"proc_%s_dc\xce\xb1",mang); } } }
+        static const char *detN_argreg_z[4] = { "rsi", "rdx", "rcx", "r8" };
+        uint64_t detN_fp_z[5];
+        { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp_z[0] = (uint64_t)(uintptr_t)(void*)f0; }
+        { void *(*f1)(long, DESCR_t*) = rt_proc_call_open_det1; detN_fp_z[1] = (uint64_t)(uintptr_t)(void*)f1; }
+        { void *(*f2)(long, DESCR_t*, DESCR_t*) = rt_proc_call_open_det2; detN_fp_z[2] = (uint64_t)(uintptr_t)(void*)f2; }
+        { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp_z[3] = (uint64_t)(uintptr_t)(void*)f3; }
+        { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp_z[4] = (uint64_t)(uintptr_t)(void*)f4; }
+        static const char *detN_nm_z[5] = { "rt_proc_call_open_det0","rt_proc_call_open_det1","rt_proc_call_open_det2","rt_proc_call_open_det3","rt_proc_call_open_det4" };
+        uint64_t open_fp_z;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t openfn_fp_z; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t epig_fp_z;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t epiw_fp_z;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t fail_fp_z;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t det_fp_z; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[64];
+        scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
+        long scc_sb_z = 16L * (long)scc_nsave_z;
+        uint64_t trap_fp_z; { void (*fp)(void) = rt_c2b_arm_trap; trap_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        long scc_fp_oz; { long (*fp)(const char *, int, int) = rt_proc_call_open_slim; scc_fp_oz = (long)(uint64_t)(uintptr_t)(void*)fp; }
+        long scc_fp_gz; { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_slim_γ; scc_fp_gz = (long)(uint64_t)(uintptr_t)(void*)fp; }
+        long scc_fp_wz; { DESCR_t (*fp)(void) = rt_proc_call_epilogue_slim_ω; scc_fp_wz = (long)(uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t dc_slot_fp_z = dc_slot_z;
+        uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        return x86_alpha()
+             + x86_scan_sync_out()
+             + x86_anchor_enter()
+             + (scc_z
+                ? FOR(0, (int)_.op_ival, [&](int i) {
+                      return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
+                + x86("sub", "rsp", scc_sb_z)
+                + FOR(0, scc_nsave_z, [&](int k) {
+                      return x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                           + x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                + x86_ro_load_q("rdi", 0)
+                + x86("mov32", "esi", (long)scc_np_z)
+                + x86("mov32", "edx", (long)_.op_ival)
+                + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_oz)
+                + x86("test", "rax", "rax")
+                + x86("je", L(5))
+                + FOR(0, (int)_.op_ival, [&](int i) {
+                      return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+                           + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16) + "]").c_str())
+                           + x86("note", gva_name(scc_gk_z[i])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16), "rax")
+                           + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16 + 8) + "]").c_str())
+                           + x86("note", gva_name(scc_gk_z[i])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rax"); })
+                + x86("call", "rt_proc_open_fn", openfn_fp_z)
+                + bb_glue_pass_wires(6, 7)
+                + x86("def", L(6))
+                + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rdi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16))
+                + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rsi", ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16 + 8))
+                + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
+                      return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
+                           + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
+                + x86("add", "rsp", scc_sb_z)
+                + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_gz)
+                + x86("jmp", L(2))
+                + x86("def", L(7))
+                + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
+                      return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
+                           + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
+                + x86("add", "rsp", scc_sb_z)
+                + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_wz)
+                + x86("jmp", L(2))
+                + x86("def", L(5))
+                + x86("add", "rsp", scc_sb_z)
+                : std::string(""))
+             + (!scc_z && dc_z
+                ? FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
+                + x86_call_dc(dc_name_z, dc_slot_fp_z)
+                + x86("jmp", L(2))
+                : std::string(""))
+             + (!scc_z && !dc_z
+                ? ((det_fuse_z
+                    ? x86("mov32", "edi", det_idx_z)
+                    + FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
+                    + x86("call", detN_nm_z[det_nA_z], detN_fp_z[det_nA_z])
+                    : ((det_idx_z >= 0
+                        ? x86("mov32", "edi", (long)det_idx_z)
+                        + x86("mov32", "esi", (long)_.op_ival)
+                        + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp_z)
+                        : FOR(0, (int)_.op_ival, [&](int i) { uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; } return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
+                        + x86_ro_load_q("rdi", 0)
+                        + x86("mov32", "esi", (long)_.op_ival)
+                        + x86("call", "rt_proc_call_open", open_fp_z))))
+                   + x86("test", "rax", "rax")
+                   + x86("je", L(1))
+                   + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp_z))
+                   + bb_glue_pass_wires(3, 4)
+                   + x86("def", L(3))
+                   + x86("call", "rt_proc_call_epilogue_γ", epig_fp_z)
+                   + x86("jmp", L(2))
+                   + x86("def", L(4))
+                   + x86("call", "rt_proc_call_epilogue_ω", epiw_fp_z)
+                   + x86("jmp", L(2))
+                   + x86("def", L(1))
+                   + x86("call", "rt_faildescr", fail_fp_z))
+                : std::string(""))
+             + x86("def", L(2))
+             + x86_anchor_leave()
+             + x86_scan_sync_in_rr()
+             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+             + x86("cmp", "eax", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86_gamma()
+             + x86_beta()
+             + (bidx_z < 0 ? x86_omega() : x86_pair_jmp(bidx_z))
+             + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");   /* ZD-7c: result in rax:rdx from epilogue → own cell via ZRES; args read at ZOPQ(k,0/8); LEAs for fused-open/DC arms use lea reg, ZOPQ(k,0) (cell address, same x86_parse XK_RSP route as bb_cmp_test/bb_coerce_numeric). Generators excluded: is_gen pre-filters to bcps_spine_gen_arm before this fn; only det procs with a ZD arm land here. */
+    }
     int bidx = bcps_beta_pair_idx(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }
