@@ -1044,33 +1044,6 @@ static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
     return lin;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_leaf_walk(IR_graph_t * g, int k0, int k1, int pfx) {
-    /* ALT-LIFT leaf-displacement twin of fc_walk_range: registers every node's static rsp->flat distance.  A granted ALT: itself at pfx+16 (window refs bypass, uniformity only); each ARM restarts at
-     * pfx+16 (arms are alternatives on top of A's cell, not concatenation -- recursion handles nested granted ALTs); nodes AFTER the ALT see pfx+16+fpmax (every arm yields at the uniform padded depth,
-     * the pad stubs' whole purpose).  Returns the running pfx so callers could chain; ungranted ALTs never reach here (the grant walk declined the whole range first). */
-    extern void fc_leaf_register(const IR_t *, int); extern int fc_alt_fpmax(const IR_t *); extern int fc_alt_n(const IR_t *); extern int fc_alt_arm_range(const IR_t *, int, int *, int *);
-    for (int k = k0; k < k1; k++) {
-        IR_t * x = g->all[k];
-        if (!x || x->op == IR_GOTO) continue;
-        if ((x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM) && x->n_operands > 1 && k + 1 < k1 && g->all[k + 1] == x->operands[1]) {   /* FLATDISP-LEAF-ORDER: pair allocates [COND,SAVE,inner] but flows save->inner->cond; walk the pair range FIRST, register COND at the resulting pfx (= SAVE's 16 + inner's own-sum, the S10c suspended depth), then skip past -- the fc_alt_extent skip idiom.  No registered extent (ARBNO-deferred sno_cap_fc class, table overflow) keeps the old at-pfx registration verbatim (degrade never die). */
-            extern int fc_pair_extent(const IR_t *);
-            int _E = fc_pair_extent(x);
-            if (_E > k + 1 && _E <= k1) { pfx = fc_leaf_walk(g, k + 1, _E, pfx); fc_leaf_register(x, pfx); k = _E - 1; continue; }
-        }
-        if (x->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(x) >= 0) {
-            int _nA = fc_alt_n(x), _elast = k + 1;
-            fc_leaf_register(x, pfx);   /* ALT-FLAT s202: no cell, no window -- the box's own quad reads happen at its frontier; arms are flat (fc_arm_member) so they recurse at the SAME pfx and nodes AFTER the ALT advance by 0 */
-            for (int j = 0; j < _nA; j++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, j, &_b, &_e)) { fc_leaf_walk(g, _b, _e, pfx); if (_e > _elast) _elast = _e; } }
-            if (_elast > k + 1) k = _elast - 1;
-            continue;
-        }
-        long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }   /* ⛔ CARVE-ERAD FALSIFIED ARM -- DO NOT RETRY (measured, this session).  The obvious reading of step 1 is that this prefix is simply BLIND to the ZW-1 universal carve (true: the carve fires exactly where fc_geom DECLINES, so it contributes nothing here while being fully present on the machine's rsp).  Adding `else own = zw_carve_k(x)` compiles, is default-byte-neutral, and is a MEASURED NO-OP: zw_carve_k returns 0 for every node at this point because it reads the zls plan (zx_find), and THIS WALK RUNS BEFORE THAT PLAN EXISTS -- fc_leaf_walk is driven from line ~1771, zls_build arrives via ir_drive_slot_assign at line ~2411 of this same lowering pass.  The static authority cannot be taught about per-BB carves at any price: the size it would need to sum has not been decided yet.  CONSEQUENCE: step 1 must be an EMIT-TIME running sum (op_zdepth), never a lower-side prefix repair. */
-        fc_leaf_register(x, pfx + (int)own);
-        pfx += (int)own;
-    }
-    return pfx;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
     /* R12-EXIT-1 CARRY-THE-TAIL admission walk (fc_walk_range's shape, ARBNO-statement flavor): every node in the range must be a granted/zero-cell leaf, SEQUENCE, capture pair, wiring, or inline
      * literal.  L1 ALT-IN-BODY LIFT (the s69 named follow-on, landed): a GRANTED ALTERNATE is admissible -- its arms are linear by fc_alt_register's own admission, its footprint enters the element
@@ -1769,7 +1742,6 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
          * starts at 32 = HEAD's self-pushed cell; each pattern node's body depth = prefix-before + own granted cell.  Granted ALT arms restart at prefix+16 (alternatives, not concatenation); nodes
          * after a granted ALT see prefix+16+fpmax (the pad stubs' uniform yield depth).  Registered only under the statement grant: a declined statement has no static depth (that is WHY it declined)
          * and its emission stays on the flat path, honestly broken under RSP until its own lift. */
-        if (fc_lin) fc_leaf_walk(g, before_pat, g->n, 32);
     }
     /* OPERAND-EDGE HOIST (2026-07-10, SEMANTIC PIN 1 — manual p85-86: primitive args are captured at pattern
      * CONSTRUCTION, once per statement execution, BEFORE the scan begins; only *V defers).  Every runtime-arg

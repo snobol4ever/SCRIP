@@ -41,4 +41,3 @@ int fc_seq_active(const IR_t * nd);
 void fc_head_register(const IR_t * nd, int fp);
 int fc_head_fp(const IR_t * nd);
 void fc_tables_reset(void);
-int fc_leaf_highwater(void);

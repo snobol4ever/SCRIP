@@ -33,7 +33,6 @@ typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } z
 static zls_ageom_t  za[1024];             static int za_n = 0;
 static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
-void fc_leaf_register(const IR_t * nd, int d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_reset(void) { ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; za_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -336,7 +335,6 @@ int fc_alt_extent(const IR_t *, int *, int *);
 int fc_alt_n(const IR_t *);
 int fc_alt_arm_range(const IR_t *, int, int *, int *);
 int fc_geom(const IR_t *, long *);
-void fc_leaf_register(const IR_t *, int);
 int emit_patzeta_lookup(const char *, int *);
 static int fct_pricing = 0;   /* PS-3 s153: 1 ONLY inside the fct ARBNO finalize below -- the defer-as-leaf SUSP pricing must never leak into the other fct_fp_range consumer (zls_g_fp_total, which
                                * feeds emit_patzeta_register's own fp term: pricing there would make a registered fp depend on registration ORDER via the mid-computation lookups -- a silent
@@ -363,24 +361,6 @@ static int fct_fp_range(IR_graph_t * g, int k0, int k1) {
         if (fc_geom(x, &fck)) fp += (int)fck;
     }
     return fp;
-}
-static int fct_leaf_range(IR_graph_t * g, int k0, int k1, int pfx, int bias, const IR_t * skip) {
-    for (int j = k0; j < k1 && j < g->n; j++) {
-        IR_t * x = g->all[j];
-        if (!x || x->op == IR_GOTO || x == skip) continue;
-        if (x->op == IR_MATCH_ALTERNATE && fc_alt_fpmax(x) >= 0) {
-            int _nA = fc_alt_n(x), _elast = j + 1;
-            fc_leaf_register(x, pfx + bias);   /* ALT-FLAT s202: box executes at its own frontier -- no cell, no window */
-            for (int a = 0; a < _nA; a++) { int _b = 0, _e = 0; if (fc_alt_arm_range(x, a, &_b, &_e)) { fct_leaf_range(g, _b, _e, pfx, bias, skip); if (_e > _elast) _elast = _e; } }
-            if (_elast > j + 1) j = _elast - 1;
-            continue;
-        }
-        if ((x->op == IR_MATCH_DEFER || x->op == IR_MATCH_PATREF) && fct_pricing) { int s = fct_defer_susp(x); if (s > 0) pfx += s; continue; }   /* PS-3 s153: the defer registers NO fcl displacement (its retention is the CALLEE's carve, never addressed [rsp+const] from outside; β finds the γ-record at [rsp+0] by LIFO) but nodes after it sit SUSP deeper -- the prefix advances */
-        long own = 0; { long fck; if (fc_geom(x, &fck)) own = fck; }
-        fc_leaf_register(x, pfx + (int)own + bias);
-        pfx += (int)own;
-    }
-    return pfx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SLOT-ELIDE S0 CENSUS (Lon ruling s133: unused result quads are bug #1).  SCRIP_SLOT_CENSUS=1 prints, per graph, how many result quads exist vs how many are ever referenced as a VALUE operand —
@@ -639,9 +619,6 @@ void zls_fct_finalize(IR_graph_t * g, int late) {
         int fpb = fct_fp_range(g, b0, b1 + 1);
         int fpr = fct_fp_range(g, b1 + 1, r1);
         (void)k1;
-        fct_leaf_range(g, i0, ia, 32, 0, fct[c].arbno);
-        { int mb = (bmn == 0x7fffffff) ? 0 : bmn; fct_leaf_range(g, b0, b1 + 1, 0, -mb, fct[c].arbno); }
-        { int mr = (rmn == 0x7fffffff) ? 0 : rmn; fct_leaf_range(g, b1 + 1, r1, 0, fpb + span - mr, fct[c].arbno); }
         fct_pricing = 0;
         fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 16 * fct[c].nw + 15) & ~15; fct[c].fin = 1;
         for (int w = 0; w < fct[c].nw; w++) fc_cond_register(fct[c].wcd[w], fpb + span + rspan + 32 + 16 * w);   /* WRAP-CAPTURE: COND reads its element slot at the uniform yield depth (elem - fpb) */
@@ -903,20 +880,6 @@ int fc_head_fp(const IR_t * nd) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* fc_leaf_* -- R12-ERAD s65 (ZC_FRAME_RSP flat-displacement registrar).  Under rsp-as-frame the flat frame sits ABOVE the pushed FORTH cells, so every non-window FR/FRQ inside a granted match window
- * must add the box's static depth D = 32 (HEAD's self-cell) + prefix (granted cells suspended before this box on the LINEAR spine, S10c: every passed box is gamma-suspended) + own cell.  LOWER fills
- * this in the SAME fc_head walk that computes fp_stmt (allocation order = flow order for linear spines -- SEQ lowers elements left-to-right); the v1 fence declines ALTERNATE statements wholesale so
- * the prefix is exact by the same argument as fp.  Consumed by FR/FRQ via g_emit.op_flat_disp (dispatch-delivered, default 0); R12/RBP builds never read it.  Side table keyed by node ptr (fch style). */
-static struct { const IR_t * nd; int d; } * fcl = NULL;
-static int fcl_n = 0, fcl_cap = 0, fcl_hi = 0;
-static void fcl_stat_report(void) { fprintf(stderr, "[FCL] leaf-displacement registrations: high-water=%d (the pre-s190 fixed cap was 1024; anything above it was silently dropped)\n", fcl_hi); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_leaf_register(const IR_t * nd, int d) { if (!nd) return; { static int _st = 0; if (!_st) { _st = 1; if (getenv("SCRIP_FCL_STAT")) atexit(fcl_stat_report); } } if (fcl_n >= fcl_cap) { int nc = fcl_cap ? fcl_cap * 2 : 1024; void * p = realloc((void *)fcl, (size_t)nc * sizeof *fcl); if (!p) return; fcl = (struct { const IR_t * nd; int d; } *)p; fcl_cap = nc; } fcl[fcl_n].nd = nd; fcl[fcl_n].d = d; fcl_n++; if (fcl_n > fcl_hi) fcl_hi = fcl_n; }   /* R12-EXIT-1: negative d is legal (element-region rebase = prefix+own-window_min); the unregistered sentinel moved -1 -> INT_MIN (0x80000000) so -1 is an ordinary displacement.  FLATDISP-2a s190: was a fixed fcl[1024] that SILENTLY dropped every registration past 1024 (fc_tables_reset is wired only to the runtime EVAL/CODE recompiles, never to a normal compile, so the table accumulates across the whole program); a dropped node reads the INT_MIN sentinel, emit.cpp then LEAVES op_flat_disp at the previous node's value, and the box addresses a stale depth.  Growable now -- the cap cannot be reached, so widening the walk is safe.  fcl_hi is the high-water mark, reported by SCRIP_FCL_STAT=1. */
-int fc_leaf_disp(const IR_t * nd) {   /* Z4-6 DELIBERATELY UNGATED: registered values are computed AT LOWER TIME from (gated) fc_geom sums plus the HEAD-cell constant, so under a zero-cell port the table self-adjusts and delivers the compensation that matches what is actually pushed.  A query gate here was tried and FALSIFIED by bisect (fib SEGV, rsp odd): its -1 was consumed by emit.cpp op_flat_disp as a REGISTERED displacement of minus one -- the true unregistered sentinel is (int)0x80000000, and the extern declaration prose saying "-1 = unregistered" is stale relative to that consumer. */
-    for (int i = 0; i < fcl_n; i++) if (fcl[i].nd == nd) return fcl[i].d;
-    return (int)0x80000000;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->loff; }
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return 0; int end = e->off; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].off + zf[i].size > end) end = zf[i].off + zf[i].size; int b = end - e->off; return (b + 15) & ~15; }
@@ -1036,8 +999,7 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {   /* PS-3 s153: is n
  * +0xa5 wrote 0x148(%r12) while its own allocation was sub 0x1b0,%rsp).  A stale fcl hit is the same disease with a silent wrong-displacement payload.  Every runtime-compile entry resets the fc
  * tables before lowering: emission consults them only for the graph lowered SINCE the reset, and all pre-reset graphs are already emitted (mode-3 emits main wholesale before run).  The zls tables
  * share the pointer-keying and are NOT reset here (bb_compile_pat_tree's zls_reset is the existing precedent; the zls lifecycle question routes to GC-W-1's frame-map design). */
-void fc_tables_reset(void) { fcl_n = 0; fct_n = 0; }
-int fc_leaf_highwater(void) { return fcl_hi; }
+void fc_tables_reset(void) { fct_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* emit_patzeta_* -- PS-3 (s152, Lon directive: "implement ZETA size calculation for DT_P type DESCR_t").  The compile-time ζ size of an ACTIVATED DT_P is its blob's suspension footprint: entry carve
  * align16(32 + frame_bytes) PLUS the interior FORTH port cells suspended at γ (S10c law -- measured in t1.s: SPAN's 16 stays carved on the hit path) PLUS the 16B γ-frontier record {res-addr, saved
