@@ -197,7 +197,8 @@ typedef enum {
     IR_GCC,              /* char-class-match: match one char at [Σ+δ] against sealed cset (sval), advance δ by 1; γ on member, ω else */
     IR_GSUBRULE,         /* subrule call: recurse into named rule's box graph (sval=rule name) with Σ/δ/Δ ambient in R13/R14/R15 */
     IR_BOUND,            /* Op_Mark analogue (icon-master interp.r): α saves rsp into its ζ slot then jmp γ (bounded-expression entry); the paired IR_UNMARK restores it, discarding retained suspension cells the bound abandoned */
-    IR_UNMARK,           /* Op_Unmark analogue: α restores rsp from operand[0]'s (the paired IR_BOUND's) ζ slot then jmp γ — `rsp = efp-1` in interp.r Op_Unmark; the every-do bounded-exit cut that reclaims abandoned FC carves */
+    IR_UNMARK,
+    IR_STATEMENT,        /* s23k ZW-5 slice 0 (DORMANT — lower does not mint yet): the ENTIRE-statement bracket box. alpha = bare label s<stno>_alpha (zero ceremony); gamma = the one whack add rsp,K_total; omega = per-distinct-arrival-depth stub ladder. Design of record: GOAL-SNOBOL4-BB.md s23k addendum + FINDING-2026-08-02d. */           /* Op_Unmark analogue: α restores rsp from operand[0]'s (the paired IR_BOUND's) ζ slot then jmp γ — `rsp = efp-1` in interp.r Op_Unmark; the every-do bounded-exit cut that reclaims abandoned FC carves */
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
