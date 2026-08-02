@@ -68,7 +68,7 @@ n4_call_α:
                         mov              edx, 3                                         # nargs
                         call             rt_call_arr@PLT
                         add              rsp, 48
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx11_240
                         add              rsp, 16
                                                                                         jmp   n6_save_restore_α
@@ -272,7 +272,7 @@ n22_lit_string_α:
                         mov              qword ptr [rsp + 184], 0
                         mov              qword ptr [rsp + 192], 0
                         mov              qword ptr [rsp + 200], 0
-                        mov              qword ptr [rsp + 192], 1                       # result
+                        mov              qword ptr [rsp + 192], 2                       # result
                         mov              dword ptr [rsp + 196], 5
                         mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rsp + 200], rax
@@ -370,7 +370,7 @@ n23_call_α:
 .Lx38_2:
                         mov              qword ptr [rsp + 144], rax
                         mov              qword ptr [rsp + 152], rdx
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx38_240
                         add              rsp, 208
                                                                                         jmp   n25_lit_string_α
@@ -433,7 +433,7 @@ n25_lit_string_α:
                         mov              qword ptr [rsp + 248], 0
                         mov              qword ptr [rsp + 256], 0
                         mov              qword ptr [rsp + 264], 0
-                        mov              qword ptr [rsp + 256], 1                       # result
+                        mov              qword ptr [rsp + 256], 2                       # result
                         mov              dword ptr [rsp + 260], 5
                         mov              rax, qword ptr [rip + .Lx40_0]
                         mov              qword ptr [rsp + 264], rax
@@ -531,7 +531,7 @@ n26_call_α:
 .Lx42_2:
                         mov              qword ptr [rsp + 208], rax
                         mov              qword ptr [rsp + 216], rdx
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx42_240
                         add              rsp, 272
                                                                                         jmp   main_γ
@@ -619,7 +619,7 @@ n32_call_α:
                         mov              edx, 3                                         # nargs
                         call             rt_call_arr@PLT
                         add              rsp, 48
-                        cmp              eax, 99
+                        cmp              eax, 104
                                                                                         jne   .Lx48_240
                         add              rsp, 16
                                                                                         jmp   n34_save_restore_α
