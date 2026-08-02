@@ -1166,7 +1166,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     }
     case TT_FAIL:    { IR_t * j = lc_build(g, IR_GOTO, NULL, NULL); sno_ω_to(j, fail); lc_γ_to(j, fail); return j; }
     case TT_SUCCEED: { IR_t * j = lc_build(g, IR_GOTO, succ, NULL); return j; }
-    case TT_ABORT:   { IR_t * j = lc_build(g, IR_MATCH_ABORT, NULL, NULL); IR_t * k = cx->pat_seal ? cx->pat_seal : fail; sno_ω_to(j, k); lc_γ_to(j, k); return j; }   /* ABORT-NODE (s193): was a bare IR_GOTO — classifier-invisible, which pinned IR_MATCH_HEAD in the deep-arrival list (emit.cpp).  The box kills through ω (bb_match_abort = α-label + jmp ω + β trampoline→ω), so a β arrival — the matcher "seeing the ABORT pattern when it is backing up", manual Ch.9's stated reason FENCE(…|ABORT) exists — kills too, MORE faithful than the goto's no-β-surface.  γ wired to the same kill defensively (TT_FAIL precedent).  Kill target unchanged: pat_seal ?: fail, so the anchor-advance bypass (171) is preserved. */
+    case TT_ABORT:   { IR_t * j = lc_build(g, IR_MATCH_ABORT, NULL, NULL); IR_t * k = cx->pat_seal ? cx->pat_seal : fail; sno_ω_to(j, k); lc_γ_to(j, k); return j; }   /* ABORT-NODE (s193): was a bare IR_GOTO — classifier-invisible, which pinned IR_MATCH_BEGIN in the deep-arrival list (emit.cpp).  The box kills through ω (bb_match_abort = α-label + jmp ω + β trampoline→ω), so a β arrival — the matcher "seeing the ABORT pattern when it is backing up", manual Ch.9's stated reason FENCE(…|ABORT) exists — kills too, MORE faithful than the goto's no-β-surface.  γ wired to the same kill defensively (TT_FAIL precedent).  Kill target unchanged: pat_seal ?: fail, so the anchor-advance bypass (171) is preserved. */
     case TT_SPAN: {
         IR_t * nd = lc_build(g, IR_MATCH_SPAN, succ, NULL);
         sno_ω_to(nd, fail);
@@ -1617,7 +1617,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     cx->pat_fail = fJ; cx->pat_seal = fJ; cx->npre = 0;
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
-    IR_t * head = lc_build(g, IR_MATCH_HEAD, NULL, fJ);
+    IR_t * head = lc_build(g, IR_MATCH_BEGIN, NULL, fJ);
     /* SN4-REPL (doctrine stages 4/5): pattern-success → RELEASE (stashes end@head+24, flushes captures per
      * manual Ch.6 "before replacement") → replacement expression chain → SPLICE (rt_match_replace by name)
      * → sJ.  Slice 1: subject must be a plain variable lvalue — indirect/subscript splice targets pending. */
@@ -1639,7 +1639,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
      * no such fixed point of its own — it's whichever pattern element the match happens to end on — so this
      * node IS that fixed point, added for exactly this).  operand[0] = head, read at emit time via the same
      * operand[0]-owner convention IR_MATCH_ARBNO's non-owner phases already use to find role 0's slot. */
-    IR_t * release = lc_build(g, IR_MATCH_RELEASE, sJ, NULL);
+    IR_t * release = lc_build(g, IR_MATCH_END, sJ, NULL);
     if (has_repl) IR_LIT(release).dval = 1.0;
     ir_operand_push(release, head);
     int before_pat = g->n;

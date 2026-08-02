@@ -207,8 +207,8 @@ void rt_zls2_pop(long k)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* rt_zls2_mark/rt_zls2_release_to — the ZLS2 twins of rt_zls_mark/rt_zls_release_to above, same statement-
- * scope backstop role: IR_MATCH_HEAD marks the cursor once at match entry; the ONE exit the statement
- * actually takes (head's own ω-choke on failure, IR_MATCH_RELEASE's α on success) releases back to the mark.
+ * scope backstop role: IR_MATCH_BEGIN marks the cursor once at match entry; the ONE exit the statement
+ * actually takes (head's own ω-choke on failure, IR_MATCH_END's α on success) releases back to the mark.
  * This is what reclaims a v1 ARBNO activation whose match SUCCEEDED and therefore left via the pattern's
  * success join without ever reaching its own role-2 pop — the success-path leak, closed the same way the
  * prior session closed it for the up-growing arena.  Release-to is idempotent with role 2's own eager pop

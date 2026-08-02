@@ -37,7 +37,7 @@
 # visibility cost 173/316 mode-4 LINK failures while mode 3 stayed green — mode 3 bakes
 # the address in-process and is structurally incapable of seeing it.  Any rung that
 # touches templates or symbol visibility (RTX-11 collapses call sites in
-# bb_match_release; every static->hidden promotion a port needs) is precisely the class
+# bb_match_end; every static->hidden promotion a port needs) is precisely the class
 # whose signature failure an m3-only gate cannot detect.  ⇒ DEFAULT IS NOW `both`.
 # Pass `m3` explicitly to reproduce the s219-s221 historical numbers.
 #

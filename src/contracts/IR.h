@@ -148,14 +148,14 @@ typedef enum {
                              * per-occurrence name minting is the GLOBAL_MAX/zls flood blocking beauty self-host).
                              * Structural clone of IR_MATCH_DEFER at every plumbing site; only the value SOURCE
                              * differs (operand slot vs op_sval name), so it never owes a *X/DT_X call transfer. */
-    IR_MATCH_HEAD,
-    IR_MATCH_RELEASE,       /* BB-OWNED-ζ statement-scope pivot: α reads the saved rt_zls_mark() pointer from
-                             * its operand[0] (the statement's own IR_MATCH_HEAD node, via drive_value_slot,
+    IR_MATCH_BEGIN,
+    IR_MATCH_END,       /* BB-OWNED-ζ statement-scope pivot: α reads the saved rt_zls_mark() pointer from
+                             * its operand[0] (the statement's own IR_MATCH_BEGIN node, via drive_value_slot,
                              * same operand[0]-owner convention IR_MATCH_ARBNO phases 1/2/4/5 already use to
                              * read role 0's slot) and calls rt_zls_release_to, then falls through γ.  Spliced
                              * as the pattern's own new tail (sno_lower_match passes this node's α as `succ`
                              * to the outermost sno_pat_node call, with this node's own γ = the statement's
-                             * true sJ) so the success exit gets release_to the same way IR_MATCH_HEAD's ω
+                             * true sJ) so the success exit gets release_to the same way IR_MATCH_BEGIN's ω
                              * already gives the failure exit release_to for free -- HEAD owns fail (single
                              * fixed choke point, the scanner's own exhaustion); RELEASE owns success (which
                              * has no fixed choke point of its own, since it's whichever element the pattern

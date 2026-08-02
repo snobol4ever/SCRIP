@@ -653,7 +653,7 @@ void rt_dcap_lazy_init(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1c M3 (2026-07-11): the commit-time flush is BOX-DRIVEN.  rt_dcap_flush_from's 0..N computed-name
- * (*VAR) transfers move OUT of C into bb_match_release, which pumps: end_ok_open → [transfer → step]* → close.
+ * (*VAR) transfers move OUT of C into bb_match_end, which pumps: end_ok_open → [transfer → step]* → close.
  * Manual Ch.6: conditional assignments are performed ONLY when the whole match succeeds — hence the deferred
  * batch, hence 0..N calls in one commit.  The cursor rides a LIFO because the OLD loop was re-entrant through
  * its C locals (a *VAR proc body may run its own match, which commits its own pends); a static cursor would
@@ -694,7 +694,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Box contract (bb_match_release): rdi = MARK (head's saved rbp, FRQ(head+32)), rsi = TOP (live rbp), rdx =
+/* Box contract (bb_match_end): rdi = MARK (head's saved rbp, FRQ(head+32)), rsi = TOP (live rbp), rdx =
  * SUBJECT base (r13, by value).  The subject rides the ctx BY VALUE so a mid-pump *VAR transfer that runs a
  * nested match (clobbering Σ and r13 under xfer save) cannot skew the resolution of the REMAINING entries —
  * the old ring was immune by snapshotting base pointers at record time; the pointer-free entry moves that
@@ -725,7 +725,7 @@ long c_rt_dcap_step(DESCR_t nm)
 void c_rt_dcap_end_ok_close(void)
 {
     /* rbp-dcap: the ctx pops; the TRUNCATION is the box's own `mov rbp, mark` + mirror store after this
-     * returns (bb_match_release exit) — no C-side stack state remains to reset. */
+     * returns (bb_match_end exit) — no C-side stack state remains to reset. */
     if (g_dcf_top > 0) g_dcf_top--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -742,7 +742,7 @@ void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-s
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
-uint32_t g_cap_gen = 1;   /* ⛔ VISIBILITY IS LOAD-BEARING AND MUST STAY DEFAULT — DO NOT RE-ADD visibility("hidden") (2026-07-29): the α template reads this symbol BY NAME in the EMITTED program text, so in mode 4 the reference lives in a SEPARATE object linked against libscrip_rt.so and a hidden symbol is not in the dynamic table ⇒ 173/316 programs failed to LINK while mode 3 stayed green (mode 3 bakes the address in-process and cannot see the defect).  hidden is reachable from a .S INSIDE the .so and unreachable from emitted code OUTSIDE it — those are two different axes and ARCH §7 step 0(c) only documents the first.  PATCTX-2 (2026-07-29): un-static'd — IR_MATCH_HEAD's α reads it via [rip+g_cap_gen] (both media) into head.capgen_save (+72) BEFORE rt_match_enter issues a fresh id.  nest1 autopsy: with nesting live (PATCTX), the inner match's stamp invalidated the OUTER match's open brackets — pop no-op'd on stale gen, top returned 0, R captured [0,end).  The id is pattern context. */
+uint32_t g_cap_gen = 1;   /* ⛔ VISIBILITY IS LOAD-BEARING AND MUST STAY DEFAULT — DO NOT RE-ADD visibility("hidden") (2026-07-29): the α template reads this symbol BY NAME in the EMITTED program text, so in mode 4 the reference lives in a SEPARATE object linked against libscrip_rt.so and a hidden symbol is not in the dynamic table ⇒ 173/316 programs failed to LINK while mode 3 stayed green (mode 3 bakes the address in-process and cannot see the defect).  hidden is reachable from a .S INSIDE the .so and unreachable from emitted code OUTSIDE it — those are two different axes and ARCH §7 step 0(c) only documents the first.  PATCTX-2 (2026-07-29): un-static'd — IR_MATCH_BEGIN's α reads it via [rip+g_cap_gen] (both media) into head.capgen_save (+72) BEFORE rt_match_enter issues a fresh id.  nest1 autopsy: with nesting live (PATCTX), the inner match's stamp invalidated the OUTER match's open brackets — pop no-op'd on stale gen, top returned 0, R captured [0,end).  The id is pattern context. */
 __attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;   /* PATCTX-2: the monotonic WELL.  Exits restore g_cap_gen to the SAVED id (an old draw) — never the counter itself, because a restored-then-re-bumped counter would re-issue the inner match's retired stamp and zombie its success-exited frames.  Retired ids never re-issue (modulo the same 2^32 wrap exposure the old counter had), so the lazy-kill invariant — stale gen ⟹ dead frames — survives nesting. */
 _Static_assert(__builtin_offsetof(rt_cap_stk_t, buf) == 0, "rtx_match.S hardcodes rt_cap_stk_t.buf at +0; the struct drifted -- rt_cap_top would read the span array through the wrong member, which links fine and returns garbage capture cursors silently");
 _Static_assert(__builtin_offsetof(rt_cap_stk_t, gen) == 8, "rtx_match.S hardcodes rt_cap_stk_t.gen at +8; the struct drifted -- the generation compare would test the wrong word and stale frames would resurrect across statements");

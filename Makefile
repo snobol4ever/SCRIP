@@ -163,8 +163,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_bal.cpp \
     $(SRC)/templates/bb_match_fence1.cpp \
     $(SRC)/templates/bb_match_abort.cpp \
-    $(SRC)/templates/bb_match_head.cpp \
-    $(SRC)/templates/bb_match_release.cpp \
+    $(SRC)/templates/bb_match_begin.cpp \
+    $(SRC)/templates/bb_match_end.cpp \
     $(SRC)/templates/bb_match_replace.cpp \
     $(SRC)/templates/bb_match_capture.cpp \
     $(SRC)/templates/bb_match_alternate.cpp \
