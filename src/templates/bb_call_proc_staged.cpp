@@ -326,14 +326,12 @@ static std::string bcps_det_arm() {
          + IF(!dc, x86("test", "rax", "rax")
          + x86("je", L(1)))
          + (dc ? std::string("")
-            : (x86_zc_frame() == ZC_FRAME_RSP || x86_zc_frame() == ZC_FRAME_ISLE)
-            /* Z4-7 slice 2: ISLE rides the modern wire arm — the island callee prologue saves caller r12 in its low header, WIRE-ADOPT marshals it as the wire quad's 5th field, and the floaters restore
-             * it, so the legacy r12-anchor bracket arm below is unreachable under every live basis (RBP is #error-guarded) and awaits Z4-9's delete.
+            : (x86_zc_frame() == ZC_FRAME_RSP)
+            /* ZW-0 stage 2: ISLE conjunct deleted -- ZC_FRAME_RSP is the only live basis.
              * R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi.
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
-             * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call).  Unexercised intersection (census
-             * 0/308): soundness is by the exit-class argument above, non-regression by the gates. */
-            ? (det_idx >= 0 && x86_zc_frame() == ZC_FRAME_RSP ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
+             * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call). */
+            ? (det_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
             + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
             + x86("def", L(3))
             + x86("call", "rt_proc_call_epilogue_γ", epig_fp)

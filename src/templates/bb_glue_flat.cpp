@@ -108,7 +108,7 @@ std::string bb_glue_wire_exit(int is_gamma) {
          + x86_align_leave()
          + x86("mov", "rcx", RDQ("rax", is_gamma ? 0 : 8))
          + x86("mov", "rbp", RDQ("rax", 24))
-         + (x86_zc_frame() != ZC_FRAME_RSP ? x86("mov", "r12", RDQ("rax", 32)) : std::string())
+         /* ZW-0 stage 2: island r12 restore from wire snap deleted -- unreachable under ZC_FRAME_RSP default */
          + x86("mov", "rsp", RDQ("rax", 16))
          + x86("jmp", "rcx");
 }

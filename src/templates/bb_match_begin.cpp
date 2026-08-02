@@ -100,13 +100,7 @@ std::string bb_match_begin() {
          + x86("mov", "eax", RDD("rcx", 0))
          + x86("note", HKN(4)) + x86("mov", stfh() ? HKQ(4) : FRQ(_.op_off + 72), "rax")   /* PATCTX-2: the capture generation id is pattern context too -- read BEFORE rt_match_enter draws a fresh id from the well; both exits hand it back via rt_match_ctx_restore arg 3 */
          + IF(_.flat_deep_arrival && !rpin(), x86("note", HKN(0)) + x86("mov", stfh() ? HKQ(0) : FRQ(_.op_off + 40), "rbp"))   /* REPL-PIN: complementary to the widened pin on the SAME hpin() -- the old !(subjc&&hpin) guard let this raw flat save fire BESIDE the pin for the zres population, a stray write the pin's rsp-relative old_rbp slot made redundant; exclusive-by-predicate now, per the pin comment's own "exclusive by construction" law. */   /* BRACKET-GATE (s193): the +40 save exists to bracket the ARBNO zv() borrow (and any deep repoint); a depth-static graph has no repointer, so save AND both restores gate together on the same predicate the outer quartet reads — drift-proof by shared condition.  HEAD-PIN (s22z): under the pin the slot already holds the OLD rbp (written rsp-relatively before the pin above); this FRQ save would overwrite it with the NEW base and turn both exit restores into self-no-ops — the exact disease the pin cures — so the arms are exclusive by construction. */
-         + IF(x86_zc_frame() != ZC_FRAME_RSP, IF(hfc(), x86_zclaim(32))
-             + IF(hfc(), x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)rt_zls_mark)
-                       + x86("mov", FRQ(_.op_off + 8), "rax"))
-             + (hfc() ? x86("mov", "rax", "rsp")
-                      + x86("add", "rax", (long)32)
-                      + x86("mov", FRQ(_.op_off + 16), "rax")
-                      : x86_zls2_mark_save(_.op_off + 16)))
+         /* ZW-0 stage 2: island arm deleted -- unreachable under ZC_FRAME_RSP default */
          + IF(!_.op_zres && !subjc(), rpin()
                       ? x86("mov", "rdi", RDQ("rsp", hoff(_.op_sa)))
                       + x86("mov", "rsi", RDQ("rsp", hoff(_.op_sa + 8)))
