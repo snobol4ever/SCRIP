@@ -41,14 +41,17 @@ n0_var_α:
 n1_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # var
                         mov              rdx, qword ptr [rsp + 8]                       # val
-                        mov              rdi, qword ptr [rip + .Lx3_0]                  # name
+                        mov              rdi, qword ptr [rip + .Lx4_0]                  # name
                         call             NV_SET_fn@PLT
+                                                                                        jmp   n2_statement_α
+.Lx4_0:
+                        .quad            .Lx4_0_s
+.Lx4_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n2_statement_α:
                         add              rsp, 16
                                                                                         jmp   main_γ
-.Lx3_0:
-                        .quad            .Lx3_0_s
-.Lx3_0_s:
-                        .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω

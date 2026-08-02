@@ -20,10 +20,10 @@ main_α_body:
 n0_lit_integer_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 3                         # result
-                        mov              rax, qword ptr [rip + .Lx3_0]
+                        mov              rax, qword ptr [rip + .Lx4_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n1_unop_α
-.Lx3_0:
+.Lx4_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n1_unop_α:
@@ -38,14 +38,17 @@ n1_unop_α:
 n2_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # unop
                         mov              rdx, qword ptr [rsp + 8]                       # val
-                        mov              rdi, qword ptr [rip + .Lx5_0]                  # name
+                        mov              rdi, qword ptr [rip + .Lx6_0]                  # name
                         call             NV_SET_fn@PLT
+                                                                                        jmp   n3_statement_α
+.Lx6_0:
+                        .quad            .Lx6_0_s
+.Lx6_0_s:
+                        .string          "OUTPUT"
+#-----------------------------------------------------------------------------------------------------------------------
+n3_statement_α:
                         add              rsp, 32
                                                                                         jmp   main_γ
-.Lx5_0:
-                        .quad            .Lx5_0_s
-.Lx5_0_s:
-                        .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                                         jmp   main_ω
