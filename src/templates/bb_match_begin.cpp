@@ -48,7 +48,7 @@ std::string bb_match_begin() {
          + x86("note", HKN(2)) + x86("mov", RDQ("rbp", -16), "r14")
          + x86("note", HKN(3)) + x86("mov", RDQ("rbp", -24), "r15")
          + x86("note", "cas_base") + x86("mov", "r12", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("rbp", -32), "r12")   /* ⭐ ZW-3: r12 loaded from the cell seed here (C-transit safe: rt_match_enter may call into C which is allowed to write the cell; loading AFTER the call keeps r12 coherent).  The frame slot [rbp-32] = cas_base for the pump and ω restore; r12 itself is the LIVE top for all COND captures between here and END. */
-         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "g_anchor")
+         + x86("lea", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "rt_anchor_g")
          + x86("note", "anchor_snapshot") + x86("mov", "rax", RDQ("rcx", 0)) + x86("mov", RDQ("rbp", -40), "rax")
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
          + x86("note", HKN(4)) + x86("mov", "eax", RDD("rcx", 0)) + x86("mov", RDQ("rbp", -56), "rax")
@@ -126,7 +126,7 @@ std::string bb_match_begin() {
          + x86("note", "start_δ") + x86("mov", "eax", FR(_.op_off))
          + x86("cmp", "eax", "r15d")
          + x86("jg",  L(1))
-         + x86("mov", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "g_anchor")
+         + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "rt_anchor_g")
          + x86("mov", "rax", "[rcx]")
          + x86("cmp64", "rax", (long)0)
          + x86("jne", L(1))
