@@ -11,16 +11,17 @@ void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_
 std::string bb_match_replace() {
     x86_begin();
     return !PLATFORM_X86 ? std::string()
-         : (_.op_off < 0 || _.op_sa < 0 || _.op_sb < 0) ? x86_alpha() + x86_bomb("IR_MATCH_REPLACE: head/subject/repl slot unresolved")
+         : (_.op_off < 0 || _.op_sa < 0 || (_.op_sb < 0 && !_.op_zres)) ? x86_alpha() + x86_bomb("IR_MATCH_REPLACE: head/subject/repl slot unresolved")
          : x86("comment", "IR_MATCH_REPLACE")
          + x86_alpha()
          + x86_align_enter()
          + x86("mov",  "rdi", ROQ(0))
          + x86("mov",  "rsi", FRQ(_.op_sa))
-         + x86("mov",  "rdx", FRQ(_.op_sa + 8))
+         + x86("mov",  "rdx", FRQ(_.op_sa + 8))   /* ZD-5 HEAD-FOLD: armed and declined read the SAME op_sa subject slot -- the armed head mirrors the consumed subject DESCR there at fold time, restoring the OFF-world dataflow, so this arm is regime-blind again. */
          + x86("mov",  "ecx", FR(_.op_off))
          + x86("mov",  "r8",  FRQ(_.op_off + 24))
-         + x86("lea",  "r9",  FRQ(_.op_sb))
+         + IF(_.op_zres,  x86("note", ZOPN(1)) + x86("lea", "r9", ZOPQ(1, 0)))   /* ZD-5 MATCH-SPINE: the replacement travels BY ADDRESS -- r9 points at rv's own cell instead of the flat replp slot the armed producer no longer writes. */
+         + IF(!_.op_zres, x86("lea",  "r9",  FRQ(_.op_sb)))
          + x86("call", "rt_match_replace", (uint64_t)(uintptr_t)(void *)rt_match_replace)
          + x86_align_leave()
          + x86_jmp_id(1)
