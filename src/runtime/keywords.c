@@ -13,8 +13,9 @@ long g_error  = 0;
 long g_trace  = 0;
 long g_dump   = 0;
 long g_random = 0;
-long g_anchor = 0;   /* ZW-4: SNAPSHOT-AT-BEGIN semantics; target = keywords.c-private, blocked by SPD-2 TEXT arm in emit.cpp using it as a linker symbol; accessor below is the canonical external interface */
-long *rt_anchor_ptr(void) { return &g_anchor; }   /* ZW-4: sole canonical external accessor; bb_match_begin uses this; emit.cpp SPD-2 TEXT arm uses the linker symbol directly (blocker for full static demotion) */
+static long g_anchor = 0;   /* ZW-4 LANDED: keywords.c-private; SNAPSHOT-AT-BEGIN semantics of record land with ZW-1's anchor_snapshot frame cell (SPITBOL manual: &ANCHOR is obtained only at the start of the match) */
+extern long rt_anchor_g __attribute__((alias("g_anchor")));   /* ZW-4: the ONE exported name mode-4 TEXT references ([rip + rt_anchor_g]); the SPD-2 blob and bb_match_begin both spell it via the x86() sealed-lea form */
+long *rt_anchor_ptr(void) { return &g_anchor; }   /* ZW-4: sole canonical C accessor; BINARY arms embed its return as an absolute movabs */
 long g_trim   = 0;
 long g_maxlngth = 5000000;
 int  g_jcon   = 0;

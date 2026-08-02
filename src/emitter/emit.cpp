@@ -2494,44 +2494,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.op_wpop = 0;
     if (scan_live) {   /* SPD-2 RETRY-INTERNAL blocks.  scanhit: publish the winning start for the statement-side head-slot write-back, fall to γ.  scanfail: flag off → γ.. no, → ω; else start+1, bound (r15d=Δ), &ANCHOR test — any exit → ω; otherwise write back start, r14d=start, rsp=rbp (post-carve frontier: every element grant sits below), jmp attempt. */
         int kt = g_emit.flat_frame_bytes;
-        extern uint64_t g_scan_hit_start; extern long *rt_anchor_ptr(void);   /* ZW-4: g_anchor via accessor (binary arm); TEXT arm uses linker symbol directly */
+        extern uint64_t g_scan_hit_start; extern long *rt_anchor_ptr(void);   /* ZW-4: anchor cell via accessor in BOTH media (BINARY movabs of the address, TEXT GOT-indirect [rip+rt_anchor_g@GOTPCREL], the rtx_match.S ARCH 0(c) copy-reloc rule: the exe must reach the .so cell, never a copy) -- the per-medium retry-blob pair (the named forbidden shape) retired into x86() chains this rung */
         emit_label_define_bb(&lbl_scanhit);
-        if (g_is_text) {
-            char _sh[256];
-            snprintf(_sh, sizeof _sh, "cmp qword ptr [rbp + %d], 1\njne 7f\nmov ecx, dword ptr [rbp + %d]\nlea rdx, [rip + g_scan_hit_start]\nmov dword ptr [rdx], ecx\n7:\n", kt - 32, kt - 40);
-            emit_text_n(_sh, strlen(_sh));
-        } else {
-            ef_b3(0x48, 0x83, 0xBD); bb_emit_u32((uint32_t)(kt - 32)); ef_b1(0x01);
-            ef_b2(0x75, 0x12);
-            ef_b2(0x8B, 0x8D); bb_emit_u32((uint32_t)(kt - 40));
-            ef_b2(0x48, 0xBA); bb_emit_u64((uint64_t)(uintptr_t)&g_scan_hit_start);
-            ef_b2(0x89, 0x0A);
-        }
+        x86_begin();
+        bb_emit_x86(x86("cmp", RDQ("rbp#", kt - 32), (long)1) + x86("jne", L(0)) + x86("mov", "ecx", RDD("rbp#", kt - 40)) + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)&g_scan_hit_start, "g_scan_hit_start") + x86("mov", RDD("rdx", 0), "ecx") + x86("def", L(0)));
         emit_jmp_label(&lbl_γ, JMP_JMP);
         emit_label_define_bb(&lbl_scanfail);
-        if (g_is_text) {
-            char _sf[512];
-            snprintf(_sf, sizeof _sf,
-                "cmp qword ptr [rbp + %d], 1\njne 8f\nmov eax, dword ptr [rbp + %d]\ninc eax\ncmp eax, r15d\njg 8f\nlea rcx, [rip + g_anchor]\ncmp qword ptr [rcx], 0\njne 8f\nmov dword ptr [rbp + %d], eax\nmov r14d, eax\nmov rsp, rbp\n",
-                kt - 32, kt - 40, kt - 40);
-            emit_text_n(_sf, strlen(_sf));
-            emit_jmp_label(&lbl_attempt, JMP_JMP);
-            emit_text_n("8:\n", 3);
-        } else {
-            ef_b3(0x48, 0x83, 0xBD); bb_emit_u32((uint32_t)(kt - 32)); ef_b1(0x01);
-            ef_b2(0x75, 0x2E);                                    /* jne -> block end: 6+2+3+2+10+4+2+6+3+3+5 = 46 */
-            ef_b2(0x8B, 0x85); bb_emit_u32((uint32_t)(kt - 40));
-            ef_b2(0xFF, 0xC0);
-            ef_b3(0x44, 0x39, 0xF8);
-            ef_b2(0x7F, 0x21);                                    /* jg -> block end: 10+4+2+6+3+3+5 = 33 */
-            ef_b2(0x48, 0xB9); bb_emit_u64((uint64_t)(uintptr_t)rt_anchor_ptr());
-            ef_b4(0x48, 0x83, 0x39, 0x00);
-            ef_b2(0x75, 0x11);                                    /* jne -> block end: 6+3+3+5 = 17 */
-            ef_b2(0x89, 0x85); bb_emit_u32((uint32_t)(kt - 40));
-            ef_b3(0x41, 0x89, 0xC6);
-            ef_b3(0x48, 0x89, 0xEC);
-            emit_jmp_label(&lbl_attempt, JMP_JMP);
-        }
+        x86_begin();
+        bb_emit_x86(x86("cmp", RDQ("rbp#", kt - 32), (long)1) + x86("jne", L(0)) + x86("mov", "eax", RDD("rbp#", kt - 40)) + x86("inc", "eax") + x86("cmp", "eax", "r15d") + x86("jg", L(0))
+            + x86("lea", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "rt_anchor_g") + x86("cmp", RDQ("rcx", 0), (long)0) + x86("jne", L(0))
+            + x86("mov", RDD("rbp#", kt - 40), "eax") + x86("mov", "r14d", "eax") + x86("mov", "rsp", "rbp") + x86("jmp", "extlbl", (uint64_t)(uintptr_t)&lbl_attempt) + x86("def", L(0)));
         emit_jmp_label(&lbl_ω, JMP_JMP);
     }
     if (g_emit.flat_jmp_entry) {

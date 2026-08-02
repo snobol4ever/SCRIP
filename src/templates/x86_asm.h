@@ -246,6 +246,13 @@ inline std::string x86_load_ro(const char * dst, const char * label, uint64_t pt
     return std::string(" lea ") + dst + ", [rip + " + (label ? label : "??") + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_load_got(const char * dst, const char * label, uint64_t ptr) {
+    if (MEDIUM_BINARY) {
+        int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(ptr); return x86_Lrec(code);
+    }
+    return std::string(" mov ") + dst + ", qword ptr [rip + " + (label ? label : "??") + "@GOTPCREL]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_align_assert();
 inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
     if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code); }
@@ -979,6 +986,25 @@ inline std::string x86_reg_disp32_store64(const char * base, int disp, const cha
     return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_cmp_imm(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex;
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; x86_rd32_modrm(c, 7, b); c += u32le((uint32_t)disp); c += (char)(uint8_t)(int8_t)imm; }
+        else                           { c += (char)0x81; x86_rd32_modrm(c, 7, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
+        return x86_Lrec(c);
+    }
+    return std::string(" cmp qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_inc_r(const char * reg) {
+    int m = x86_rnum(reg); int w64 = !(reg && (reg[0] == 'e' || (reg[0] && reg[strlen(reg) - 1] == 'd')));
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = (uint8_t)((w64 ? 0x48 : 0x40) | (m >= 8 ? 0x01 : 0)); if (rex != 0x40) c += (char)rex; c += (char)0xFF; c += (char)(0xC0 | (m & 7)); return x86_Lrec(c);
+    }
+    return std::string(" inc ") + reg + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_abs_disp32_load64(const char * dst, long va) {
     int g = x86_rnum(dst);
     if (MEDIUM_BINARY) {
@@ -1180,7 +1206,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_R10MIR, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI, XK_RIPGOT };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -1216,6 +1242,8 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
     if (!strncmp(s, "dword ptr [rsp# + ", 18)) { o.kind = XK_RSP32; o.off = atoi(s + 18); return; }   /* Z4 s8 RAW-CELL MARKER: on an UNPINNED graph x86_fr32_prefix() is the plain "[rsp + " spelling, so the fr-prefix check below captures EVERY rsp operand -- raw FORTH-cell spellings included -- and the frame encoders then add op_flat_disp.  Per-box that displacement self-cancels (store and load at the same depth reach the same displaced slot), which is why the window boxes survive; a CROSS-DEPTH cell read (capture COND -> SAVE, ZB-FC-3c) double-counts the depth difference its raw offset already encodes and reads a neighboring flat slot -- the measured capture-start defect (d79a427a..cca948c5).  The '#' marker is an escape valve: producers that mean the RAW machine rsp spell [rsp# + N]; both encoders re-canonicalize, so emitted TEXT and BINARY stay standard (R10). */
     if (!strncmp(s, "qword ptr [rsp# + ", 18)) { o.kind = XK_RSP64; o.off = atoi(s + 18); return; }
+    if (!strncmp(s, "dword ptr [rbp# + ", 18)) { o.kind = XK_REGDISP32; o.base[0] = 'r'; o.base[1] = 'b'; o.base[2] = 'p'; o.base[3] = 0; o.off = atoi(s + 18); return; }   /* s23o RBP TWIN of the rsp# escape: on a PINNED graph the fr prefixes are the plain "[rbp + " spellings, so a RAW machine-rbp slot (the SPD-2 retry protocol's kt-32/kt-40) parses XK_FR* and routes the frame encoders -- and a mnemonic WITHOUT an FR arm (cmp) then silently emitted NOTHING, the ZB-FC-1 drop class, caught only by the .s region diff.  [rbp# + N] names the raw register; both encoders re-canonicalize to standard [rbp + N] in both media (R10). */
+    if (!strncmp(s, "qword ptr [rbp# + ", 18)) { o.kind = XK_REGDISP; o.base[0] = 'r'; o.base[1] = 'b'; o.base[2] = 'p'; o.base[3] = 0; o.off = atoi(s + 18); return; }
     if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32;  o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
     if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64;  o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
     if (!strncmp(s, "dword ptr [rsp + ", 17)) { o.kind = XK_RSP32; o.off = atoi(s + 17); return; }
@@ -1238,6 +1266,7 @@ inline void x86_parse(const xop & x, opnd & o) {
           size_t il = (size_t)((ns + nn - 1) - (pp + 1)); if (il > 7) il = 7; char ii[8]; memcpy(ii, pp + 1, il); ii[il] = 0;
           if (x86_is_reg(bb) && x86_is_reg(ii)) { memcpy(o.base, bb, bl + 1); memcpy(o.idx, ii, il + 1); o.kind = XK_MEMBI; return; } } } }
     if (!strcmp(s, "[rip + __]"))              { o.kind = XK_RIPSEAL; return; }
+    if (!strcmp(s, "[rip@got + __]"))          { o.kind = XK_RIPGOT; return; }
     if (!strncmp(s, "f64:", 4))                {
         o.kind = XK_IMM; o.imm = 0; o.txt = s; { unsigned long long bb = strtoull(s + 4, 0, 10); memcpy(&o.imm, &bb, sizeof(long) < 8 ? sizeof(long) : 8); } o.off = 1; return;
     }
@@ -1453,6 +1482,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "neg"))  return x86_neg(a.txt);
     if (!strcmp(mnem, "inc")) {
         if (a.kind == XK_FR64) return x86_frame_inc64(a.off);
+        if (a.kind == XK_REG) return x86_inc_r(a.txt);
         return std::string();
     }
     if (!strcmp(mnem, "movabs")) {
@@ -1485,6 +1515,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_REGDISP32)  return x86_reg_disp32_load32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_MEMIDX8)  return x86_load_indexed8(a.txt, b.base, b.idx);
         if (a.kind == XK_REG && b.kind == XK_MEMIND)   return x86_load_mem64(a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_RIPGOT)   return x86_load_got(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)  return x86_load_ro(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && b.kind == XK_REG)      return x86_mov(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM)      return x86_movimm(a.txt, b.imm);
@@ -1505,6 +1536,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "lea")) {
         if (a.kind == XK_REG && b.kind == XK_ILBL)                  return x86_lea_rip_id(a.txt, b.lbl);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
+        if (a.kind == XK_REG && b.kind == XK_RIPGOT)                return x86_load_got(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && (b.kind == XK_FR32 || b.kind == XK_FR64)) return x86_frame_lea(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_REGDISP)              return x86_reg_disp32_lea64(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_lea_subj_cursor(a.txt);
@@ -1552,6 +1584,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_cmp(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_cmp_imm(a.txt, b.imm);
         if (a.kind == XK_REG && b.kind == XK_ABS64) return x86_cmp_reg_abs64(a.txt, b.imm);
+        if (a.kind == XK_REGDISP && b.kind == XK_IMM) return x86_reg_disp32_cmp_imm(a.base, a.off, b.imm);
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32) {
+            fprintf(stderr, "FATAL x86(\"cmp\"): no dispatch arm for frame/cell operand kinds (%d, %d) — dest '%s', src '%s'.  A cmp that emits nothing leaves the following jcc testing STALE FLAGS — the ZB-FC-1 silent-drop class (measured s23o: SPD-2's guard cmps vanished when RDQ(\"rbp\",·) collided with the pinned fr64 prefix and parsed XK_FR64; only the .s region diff caught it, the probes stayed green on garbage flags).  Add the encoder + dispatch case here (R7).\n",
+                    a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+            abort();
+        }
         return std::string();
     }
     if (!strcmp(mnem, "cmp64"))  { if (b.kind == XK_IMM) return x86_cmp_imm64(a.txt, b.imm); return std::string(); }
