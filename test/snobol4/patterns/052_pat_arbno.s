@@ -173,7 +173,7 @@ n3_match_head_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rbp + 120]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 88]
+                        mov              rbp, qword ptr [rbp + 88]                      # old_rbp
                         add              rsp, 304
                                                                                         jmp   n16_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -250,7 +250,7 @@ n5_match_release_α:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rbp + 120]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 88]
+                        mov              rbp, qword ptr [rbp + 88]                      # old_rbp
                         add              rsp, 304
                                                                                         jmp   n6_var_α
 #=======================================================================================================================

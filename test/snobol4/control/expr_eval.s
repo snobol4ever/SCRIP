@@ -6397,7 +6397,7 @@ n430_match_head_α:
                         mov              qword ptr [r10 + 16], rax                      # cas_patstk
                         add              r10, 24
                         mov              qword ptr [1879048192], r10                    # cas_top
-                        mov              qword ptr [rbp + 2256], rsp
+                        mov              qword ptr [rbp + 2256], rsp                    # zls2_mark
                         lea              rcx, [rip + g_patstk_sp]
                         mov              rax, qword ptr [rcx + 0]
                         mov              qword ptr [rbp + 2248], rax                    # patstk_mark
@@ -6434,7 +6434,7 @@ n430_match_head_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rbp + 2312]                    # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 2184]
+                        mov              rbp, qword ptr [rbp + 2184]                    # old_rbp
                         add              rsp, 2400
                                                                                         jmp   n440_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -6506,7 +6506,7 @@ n432_match_release_α:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rbp + 2312]                    # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 2184]
+                        mov              rbp, qword ptr [rbp + 2184]                    # old_rbp
                         add              rsp, 2400
                                                                                         jmp   n433_call_α
 #=======================================================================================================================
