@@ -37,27 +37,17 @@ static std::string release_pump() {
          + x86("test", "rax", "rax")
          + x86("je",   L(2))
          + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("push", x86_zr())
-                                      + x86("sub",  "rsp", 8L)
-                                      + x86("mov",  x86_zr(), "rsp"))
+         /* ZW-0 stage 2: island push/restore arms deleted -- unreachable under ZC_FRAME_RSP default */
          + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x): dormant legacy anchor hoisted above the glue; byte-identical at the ZC_FRAME_RSP default */
          + x86("def",  L(3))
-         + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("mov",  "rax", "rsp")
-             + x86("mov",  "rax", RDQ("rax", 8))
-             + x86("mov",  "rdi", RDQ("rax", 0))
-             + x86("mov",  "rsi", RDQ("rax", 8))
-             + x86("mov",  "rsp", x86_zr())
-             + x86("add",  "rsp", 8L)
-             + x86("pop",  x86_zr()))
+         /* ZW-0 stage 2: island rsp/zr dance deleted */
          + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
          + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
          + x86("jmp",  L(1))
          + x86("def",  L(4))
-         + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("mov",  "rsp", x86_zr())
-             + x86("add",  "rsp", 8L)
-             + x86("pop",  x86_zr()))
+         /* ZW-0 stage 2: island rsp/zr dance deleted */
          + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
@@ -164,12 +154,9 @@ std::string bb_match_end() {
                 + (x86_zc_frame() == ZC_FRAME_RSP && rfc() ? x86("mov", RSP((int)(_.op_off + 24 + _.op_fc_disp + 32)), "r14")
                                                      : x86("mov", FRQ(_.op_off + 24), "r14"))
                 : std::string())
-         + IF(x86_zc_frame() != ZC_FRAME_RSP, IF(rfc(),  x86("mov",  "rdi", RSP((int)_.op_fc_disp + 8)))
-             + x86_align_enter()
-             + IF(!rfc(), x86("mov",  "rdi", FRQ(_.op_off + 8)))
-             + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to))
-         + (x86_zc_frame() == ZC_FRAME_RSP && rfc() ? x86("mov", "rsp", RDQ("r10", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
-            : rfc() ? x86_zls2_release_to_rspd((int)_.op_fc_disp + 16) : x86_zls2_release_to_call(_.op_off + 16))
+         /* ZW-0 stage 2: island rt_zls_release_to arm deleted -- unreachable under ZC_FRAME_RSP default */
+         + (rfc() ? x86("mov", "rsp", RDQ("r10", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
+            : x86_zls2_release_to_call(_.op_off + 16))
          + x86_align_leave()
          + release_pump();
 }

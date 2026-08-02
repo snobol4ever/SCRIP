@@ -119,25 +119,17 @@ std::string bb_match_capture() {
            /* REG-6 (was REG-2): no mirror-out — r12 IS the live top, inherited callee-saved by any nested
             * match a *VAR body runs, so its head reads the true top directly. */
            + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-           + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("push", x86_zr()) + x86("sub",  "rsp", 8L) + x86("mov",  x86_zr(), "rsp"))
+           /* ZW-0 stage 2: island push arm deleted -- unreachable under ZC_FRAME_RSP default */
            + bb_glue_pass_wires(2, 3)   /* GLUE-SYM (s22x): dormant legacy anchor hoisted above the glue (lea rcx/rdx touch neither rsp nor zr); byte-identical at the ZC_FRAME_RSP default */
            + x86("def",  L(2))
-           + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("mov",  "rax", "rsp")
-               + x86("mov",  "rax", RDQ("rax", 8))
-               + x86("mov",  "rdi", RDQ("rax", 0))
-               + x86("mov",  "rsi", RDQ("rax", 8))
-               + x86("mov",  "rsp", x86_zr())
-               + x86("add",  "rsp", 8L)
-               + x86("pop",  x86_zr()))
+           /* ZW-0 stage 2: island rsp/zr dance deleted */
            + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
            + x86("mov",  "rdi", "rax")
            + x86("mov",  "rsi", "rdx")
            + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
            + x86("jmp",  L(1))
            + x86("def",  L(3))
-           + IF(x86_zc_frame() != ZC_FRAME_RSP, x86("mov",  "rsp", x86_zr())
-               + x86("add",  "rsp", 8L)
-               + x86("pop",  x86_zr()))
+           /* ZW-0 stage 2: island rsp/zr dance deleted */
            + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
            + x86("mov",  "rdi", "rax")
            + x86("mov",  "rsi", "rdx")

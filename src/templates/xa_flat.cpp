@@ -187,7 +187,7 @@ static std::string xa_flat_dc_stub_str(void) {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
     int kt = g_emit.flat_frame_bytes;
-    int anchor = (x86_zc_frame() != ZC_FRAME_RSP) ? xaf_anchor_off() : -1;   /* ALIGN-INV-3c: DC stub mirrors the jmp-entry prologue -- under RSP the anchor store is dead there too */
+    int anchor = -1;   /* ZW-0 stage 2: island arm deleted; under ZC_FRAME_RSP anchor store is always absent (ALIGN-INV-3c) */
     int suffix = (g_emit.flat_seed_off >= 16) ? g_emit.flat_seed_off : 16;
     extern int g_flat_dc_np;
     int np = g_flat_dc_np;
