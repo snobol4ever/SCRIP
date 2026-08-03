@@ -1849,7 +1849,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const tree_t * exF = goF ? NULL : sgoto_expr(s, TT_GOTO_F);
         IR_t * sT = goS ? sno_goto_target(g, goS, exitnd) : exS ? sno_goto_computed_target(g, &cx, exS, exitnd) : goU ? sno_goto_target(g, goU, exitnd) : exU ? sno_goto_computed_target(g, &cx, exU, exitnd) : next;
         IR_t * fT = goF ? sno_goto_target(g, goF, exitnd) : exF ? sno_goto_computed_target(g, &cx, exF, exitnd) : goU ? sno_goto_target(g, goU, exitnd) : exU ? sno_goto_computed_target(g, &cx, exU, exitnd) : next;
-        IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT, sT, fT) : (IR_t *) NULL;
+        IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT_END, sT, fT) : (IR_t *) NULL;
         if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }   /* ZW-5 O-2: stb->ival = stno for per-depth stub label names */   /* ⭐⭐ ZW-5 SLICE 2 (OMEGA O-1): the statement bracket box is minted HERE because these two lines are the ONE derivation point every statement form threads its continuations through -- sT/fT are already resolved (goto field, computed goto, or fallthrough `next`), so one edit reaches every form without touching a single statement arm below.  THE BOX IS A TRAILER, NOT A BRACKET -- measured, not inferred: x86_asm.h:544 x86_alpha() DEFINES the alpha label while x86_asm.h:547 x86_gamma() IS A JMP, so the emitted body `def alpha / jmp gamma / def beta; jmp omega` has exactly ONE entry and control can never return into it; the box is entered once, at alpha, by the statement's SUCCESS wire and falls through to the jmp that carries op_zgpop via the ONE X86H_JMP gamma hook arm (s22k one-authority -- no second whack spelling is created here). */
         IR_t * sJ = lc_build(g, IR_GOTO, stb ? stb : sT, NULL);   /* success -> the box's alpha; the box's own gamma carries sT, so the statement's real continuation is unchanged and the ONLY delta is the release's HOME (WHACK CONTRACT clause 4: BB_END_STATEMENT is op_zgpop's home; the 5,923 fused pops are its absence). */
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);   /* ⛔ FAIL EDGE DELIBERATELY UNCHANGED IN SLICE 2.  The rung's admission gate is "all fail edges arrive at depth 0", and a depth-0 arrival needs NO release -- so the box's omega is genuinely dead until slice 3's per-depth stub ladder lands WITH its planner (s22h atomicity).  Checked before assuming: the wire port selector in `.sz` carries alpha (0xce 0xb1) and beta (0xce 0xb2) and the sigma marker read at emit.cpp:2285 -- there is NO omega-ARRIVAL convention, so routing fail edges into the box is not a wiring detail that was skipped, it IS the slice-3 ladder. */
@@ -2010,6 +2010,15 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         sno_fatal("assignment subject form not in the landed subset", NULL);
     }
+    if (zw5_on()) {
+        for (int i = 0; i < nst; i++) {
+            IR_t * fb = anchor[i] ? anchor[i]->γ.node : NULL;
+            if (!fb) continue;
+            IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, NULL);
+            { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
+            lc_γ_to(anchor[i], sbeg);
+        }
+    }   /* s26 BEGIN shim (Lon directive: IR_STATEMENT_BEGIN/END pair): interpose the statement HEAD bracket between each statement's anchor and its first box, AFTER every statement arm has wired -- the anchor is the ONE entry every path (fallthrough, static goto landing, rt_chain_enter via the s26 entry chase) passes through, so one post-loop pass brackets every statement form without touching a single arm, the exact shape of the g_sno_uses_stmtkw hook pass below.  stno stamped into ival same as the END trailer.  Same zw5_on() regime gate as the trailer: SCRIP_ZW5=0 reverts the whole pair. */
     if (g_sno_uses_stmtkw) {
         for (int i = 0; i < nst; i++) {
             if (is_def && is_def[i]) continue;
