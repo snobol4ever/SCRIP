@@ -2086,7 +2086,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
  * so the default build is byte-identical and this can ride any rung without gating it.  DECLINED nodes (zon=0) are SKIPPED, not assumed depth 0: their depth lives in the UCLAIM wholesale claim, which is
  * precisely the regime this census exists to help retire -- counting them as 0 would manufacture disagreements that are artifacts of the claim, not of the graph. */
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
-static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, const char *prefix) {
+static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, const char *prefix) {
     static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_ZD_DEPTH"); _on = (e && *e == '1') ? 1 : 0; }
     if (!_on || n <= 0) return;
     zdw_ent_t * w = (zdw_ent_t *)calloc((size_t)(2 * n + 1), sizeof(zdw_ent_t)); if (!w) return;
@@ -2094,13 +2094,18 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
     for (int i = 0; i < n; i++) { if (!zon[i]) continue; armed++;
         int K = zd_k(nodes[i]);
         for (int p = 0; p < 2; p++) { IR_t * t = zd_chase(p == 0 ? nodes[i]->γ.node : nodes[i]->ω.node); if (!t) continue;
-            int d = (p == 0) ? zout[i] : zout[i] - K; int ti = -1;
+            int d = (p == 0) ? (zout[i] - zgpop[i]) : (zout[i] - K - zwpop[i]); int ti = -1;
             for (int k = 0; k < n; k++) if (nodes[k] == t) { ti = k; break; }
             if (ti < 0 || !zon[ti]) continue; edges++;
             int f = -1; for (int k = 0; k < wn; k++) if (w[k].t == t) { f = k; break; }
             if (f < 0) { w[wn].t = t; w[wn].d0 = d; w[wn].nd = 1; w[wn].multi = 0; wn++; }
             else { w[f].nd++; if (d != w[f].d0 && !w[f].multi) { w[f].multi = 1; walls++; } } } }
-    for (int k = 0; k < wn; k++) if (w[k].multi) fprintf(stderr, "[ZD-DEPTH] WALL %s %s preds=%d first_depth=%d\n", prefix ? prefix : "?", bb_op_name(w[k].t->op) ? bb_op_name(w[k].t->op) : "<unnamed>", w[k].nd, w[k].d0);
+    for (int k = 0; k < wn; k++) { if (!w[k].multi) continue;
+        fprintf(stderr, "[ZD-DEPTH] WALL %s %s preds=%d first_depth=%d\n", prefix ? prefix : "?", bb_op_name(w[k].t->op) ? bb_op_name(w[k].t->op) : "<unnamed>", w[k].nd, w[k].d0);
+        for (int i = 0; i < n; i++) { if (!zon[i]) continue; int Kp = zd_k(nodes[i]);
+            for (int p = 0; p < 2; p++) { IR_t * t = zd_chase(p == 0 ? nodes[i]->γ.node : nodes[i]->ω.node); if (t != w[k].t) continue;
+                int d = (p == 0) ? (zout[i] - zgpop[i]) : (zout[i] - Kp - zwpop[i]);
+                fprintf(stderr, "[ZD-DEPTH]   pred %s %-24s depth=%d%s\n", p == 0 ? "\xce\xb3" : "\xcf\x89", bb_op_name(nodes[i]->op) ? bb_op_name(nodes[i]->op) : "<unnamed>", d, d == w[k].d0 ? "" : "   <-- DISAGREES"); } } }   /* ⭐ ATTRIBUTION (same session, before anyone acts on this census): naming the WALL without naming WHO disagrees is the [ZD-GAP] blindness verbatim -- that diag printed the per-node capability verdict and no run-level cause, which is exactly how the inherited A-1 rung came to name a jmp-entry gate s23a had already deleted, and the fix then was the [ZD-DYN] line naming the vetoing node.  A depth census that reports only "preds=5 first_depth=0" is one rung away from the same misattribution: the actionable fact is WHICH edge arrives wrong and through WHICH port, because that is the edge whose emission has to change.  Second pass, not extra storage -- the wall set is tiny (1410 of 12510 joins) so re-walking edges for wall targets only is free. */
     fprintf(stderr, "[ZD-DEPTH] %s n=%d armed=%d in_edges=%d joins=%d walls=%d\n", prefix ? prefix : "?", n, armed, edges, wn, walls);
     free(w);
 }
@@ -2244,7 +2249,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     zvo_reset();   /* UCLAIM owner table is per-chain, rebuilt by the plan below */
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;   /* [ALPHA] s32 STALE-FLAT-PAT FIX: emit_jmp_entry_for_patproc sets flat_pat=1 for PAT$ blobs; emit_jmp_entry_clear resets it, but only jmp-entry chains call clear before their emit_chain. A main chain that follows a PAT$ blob emission inherits flat_pat=1, making zd_plan's FENCE1 zdyn veto at emit.cpp:1975 believe it is inside a blob and fire unnecessarily -- declining match-construction statements containing FENCE1 that are provably outside any blob. Guard: jmp-entry chains legitimately have flat_pat=1 (set by their arm function before emit_chain) and must keep it. Non-jmp-entry chains have no mechanism to set flat_pat=1 before their own emit_chain, so any 1 they see is stale from a previous blob. MEASURED: 10 spurious FENCE1 vetoes eliminated; 105->99 declined runs; s32. */
     zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_uk, zd_ud, zd_uh, zd_zw, zd_zwr);   /* ZD-1: the ONE execution-order walk runs ONCE per chain, before any emission, over the same nodes[] the loop below lays down */
-    zd_depth_census(nodes, n, zd_on, zd_out, prefix);   /* ⭐ ZD-DEPTH (this session): READ-ONLY brick-wall census -- see the function's own header. Inert unless SCRIP_ZD_DEPTH=1; zero g_emit writes, zero emission. */
+    zd_depth_census(nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);   /* ⭐ ZD-DEPTH (this session): READ-ONLY brick-wall census -- see the function's own header. Inert unless SCRIP_ZD_DEPTH=1; zero g_emit writes, zero emission. */
     /* ZW-5 O-2: per-depth ω stub pool.  Pre-compute after zd_plan; emit stubs after each IR_STATEMENT's drive. */
     enum { ZW5_POOL = 128, ZW5_MAX_DEPTHS = 8 };
     bb_label_t zw5_pool[ZW5_POOL]; int zw5_base = 0;
