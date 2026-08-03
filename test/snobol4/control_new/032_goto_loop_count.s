@@ -82,9 +82,7 @@ n7_binop_α:
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx35_240
-                        add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n10_statement_begin_α
+                                                                                        jmp   n9_statement_end_α
 .Lx35_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
