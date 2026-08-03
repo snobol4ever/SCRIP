@@ -1238,7 +1238,8 @@ int main(int argc, char **argv)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            /* R12-FREE-1 (Lon 2026-07-29): the r12 environment seed is DELETED -- the pend top is cell-resident at [RT_CAS_TOP]; nothing reads r12 (r12 vacated for ZC_STORAGE_FRAME_R12) */
+            /* ZW-3 R12-FREE-1 REVERSAL (O-5, OMEGA s27 session): r12 is the LIVE CAS/dcap top register (s23l ruling); seed from [RT_CAS_TOP] before graph entry so every match-family op_zw arm can read/write r12 directly.  Mirror of the flat_α path already at line 1438.  Mode-3 path uses rt_outer_call (rt.c thunk) which already does push r12 / mov r12,[0x70000000] / call / pop r12. */
+            emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_CAS_TOP (rtx_init.c _Static_assert) */
             /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
             emit_textf("  xor esi, esi\n");
             emit_textf("  jmp main_\xce\xb1\n");
