@@ -142,8 +142,7 @@ n11_coerce_integer_α:
                                                                                         jmp   n12_match_begin_α
 n11_coerce_integer_β:
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n10_var_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_begin_α:
                         sub              rsp, 256
@@ -239,8 +238,8 @@ n12_match_begin_β:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rsp + 136]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        add              rsp, 304
-                                                                                        jmp   n32_statement_begin_α
+                        add              rsp, 256
+                                                                                        jmp   n11_coerce_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n13_match_sequence_α:
                                                                                         jmp   n31_match_pos_α
@@ -402,13 +401,15 @@ n23_binop_α:
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx72_240
-                                                                                        jmp   n25_statement_end_α
+                        add              rsp, 16
+                                                                                        jmp   n22_lit_integer_β
 .Lx72_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n24_assign_α
 n23_binop_β:
-                                                                                        jmp   n25_statement_end_α
+                        add              rsp, 16
+                                                                                        jmp   n22_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n24_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # binop
@@ -417,7 +418,7 @@ n24_assign_α:
                         mov              qword ptr [1879052312], rdx
                                                                                         jmp   n25_statement_end_α
 n24_assign_β:
-                                                                                        jmp   n25_statement_end_α
+                                                                                        jmp   n23_binop_β
 #-----------------------------------------------------------------------------------------------------------------------
 n25_statement_end_α:
                         add              rsp, 48

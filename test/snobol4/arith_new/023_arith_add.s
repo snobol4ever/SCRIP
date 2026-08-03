@@ -33,6 +33,10 @@ n2_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx9_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n3_binop_α
+n2_lit_integer_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx9_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
@@ -46,12 +50,14 @@ n3_binop_α:
                         cmp              eax, 104
                                                                                         jne   .Lx10_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n2_lit_integer_β
 .Lx10_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n4_assign_α
+n3_binop_β:
+                        add              rsp, 16
+                                                                                        jmp   n2_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n4_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # binop

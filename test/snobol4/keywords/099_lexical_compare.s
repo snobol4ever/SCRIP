@@ -37,6 +37,10 @@ n2_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx43_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n3_cmp_test_α
+n2_lit_string_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx43_0:
                         .quad            .Lx43_0_s
 .Lx43_0_s:
@@ -50,8 +54,7 @@ n3_cmp_test_α:
                         test             eax, eax
                                                                                         jg    .Lx45_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n2_lit_string_β
 .Lx45_240:
                                                                                         jmp   n4_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -115,6 +118,10 @@ n11_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx57_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n12_cmp_test_α
+n11_lit_string_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx57_0:
                         .quad            .Lx57_0_s
 .Lx57_0_s:
@@ -128,8 +135,7 @@ n12_cmp_test_α:
                         test             eax, eax
                                                                                         js    .Lx59_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n11_lit_string_β
 .Lx59_240:
                                                                                         jmp   n13_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -193,6 +199,10 @@ n20_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx71_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n21_cmp_test_α
+n20_lit_string_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx71_0:
                         .quad            .Lx71_0_s
 .Lx71_0_s:
@@ -206,8 +216,7 @@ n21_cmp_test_α:
                         test             eax, eax
                                                                                         je    .Lx73_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n20_lit_string_β
 .Lx73_240:
                                                                                         jmp   n22_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -271,6 +280,10 @@ n29_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx85_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n30_cmp_test_α
+n29_lit_string_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx85_0:
                         .quad            .Lx85_0_s
 .Lx85_0_s:
@@ -284,8 +297,7 @@ n30_cmp_test_α:
                         test             eax, eax
                                                                                         jne   .Lx87_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n29_lit_string_β
 .Lx87_240:
                                                                                         jmp   n31_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
