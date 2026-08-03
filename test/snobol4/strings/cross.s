@@ -1858,7 +1858,6 @@ n76_match_any_α:
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         mov              r8, qword ptr [rbp + 376]
-                        mov              r9d, dword ptr [rbp + 372]
                         mov              edx, 0
 .Lx197_5:
                         cmp              edx, r9d
