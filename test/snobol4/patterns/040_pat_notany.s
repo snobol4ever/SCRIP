@@ -135,7 +135,7 @@ n6_match_begin_β:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 224
+                        add              rsp, 160
                                                                                         jmp   n16_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_match_assign_save_α:
@@ -241,11 +241,11 @@ n10_match_end_α:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 176
+                        add              rsp, 160
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_end_α:
-                        add              rsp, 176
+                        add              rsp, 160
                                                                                         jmp   n12_statement_begin_α
 #=======================================================================================================================
 # YES     OUTPUT = V

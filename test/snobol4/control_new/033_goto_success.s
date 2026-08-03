@@ -131,7 +131,7 @@ n6_match_begin_β:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 208
+                        add              rsp, 144
                                                                                         jmp   n16_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_match_lit_α:
