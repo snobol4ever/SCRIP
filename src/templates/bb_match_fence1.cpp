@@ -42,7 +42,7 @@ static std::string fence_release(int off) {
 static int fence_whack_on() { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_FENCE_WHACK"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
 static std::string fence_whack_commit(int off) {
     if (x86_port_cstack() && fence_whack_on()) {
-        if (_.op_zw) return x86("mov", "rsp", RDQ("rbp", 0)) + x86("mov", FRQ(off), "rbp");   /* ⭐ O-7 ZW frame: old rbp (activation floor) is at [rbp+0] -- match_begin pushed it via `push rbp; mov rbp,rsp`; the FENCE1 bulk-whack must restore to that floor, not to rbp (the match frame base). FRQ(off) := rbp stays (the FENCE1 na_f abandon path restores to this depth-free marker). */
+        if (_.op_zw) return x86("mov", "rsp", "qword ptr [rbp# + -8]") + x86("mov", FRQ(off), "rbp");   /* ⭐ O-7 ZW frame / ZW-15: old rbp (activation floor) is at [rbp-8] -- ZW-15 `lea rbp,[rbp+8]` raised rbp to claim_base; old_rbp is at [rbp-8] = claim_base-8 = rsp_just_after_push_rbp.  FENCE1 bulk-whack restores rsp to that floor (claim_base-8) and FRQ(off) := rbp (depth-free claim_base marker, unchanged). rbp# escape: raw register reference, must parse XK_REGDISP not XK_FR64 (ZB-FC-1 class). */
         return x86("mov", "rsp", "rbp") + x86("mov", FRQ(off), "rbp");
     }
     return fence_release(off);
