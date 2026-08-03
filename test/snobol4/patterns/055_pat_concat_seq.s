@@ -315,8 +315,7 @@ n13_binop_α:
                                                                                         jmp   n14_var_α
 n13_binop_β:
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n12_lit_string_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_var_α:
                         sub              rsp, 16
@@ -327,8 +326,7 @@ n14_var_α:
                                                                                         jmp   n15_binop_α
 n14_var_β:
                         add              rsp, 16
-                        add              rsp, 48
-                                                                                        jmp   main_γ
+                                                                                        jmp   n13_binop_β
 #-----------------------------------------------------------------------------------------------------------------------
 n15_binop_α:
                         sub              rsp, 16
@@ -342,8 +340,7 @@ n15_binop_α:
                                                                                         jmp   n16_lit_string_α
 n15_binop_β:
                         add              rsp, 16
-                        add              rsp, 64
-                                                                                        jmp   main_γ
+                                                                                        jmp   n14_var_β
 #-----------------------------------------------------------------------------------------------------------------------
 n16_lit_string_α:
                         sub              rsp, 16
@@ -354,8 +351,7 @@ n16_lit_string_α:
                                                                                         jmp   n17_binop_α
 n16_lit_string_β:
                         add              rsp, 16
-                        add              rsp, 80
-                                                                                        jmp   main_γ
+                                                                                        jmp   n15_binop_β
 .Lx62_0:
                         .quad            .Lx62_0_s
 .Lx62_0_s:
@@ -373,8 +369,7 @@ n17_binop_α:
                                                                                         jmp   n18_var_α
 n17_binop_β:
                         add              rsp, 16
-                        add              rsp, 96
-                                                                                        jmp   main_γ
+                                                                                        jmp   n16_lit_string_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_var_α:
                         sub              rsp, 16
@@ -385,8 +380,7 @@ n18_var_α:
                                                                                         jmp   n19_binop_α
 n18_var_β:
                         add              rsp, 16
-                        add              rsp, 112
-                                                                                        jmp   main_γ
+                                                                                        jmp   n17_binop_β
 #-----------------------------------------------------------------------------------------------------------------------
 n19_binop_α:
                         sub              rsp, 16
@@ -400,8 +394,7 @@ n19_binop_α:
                                                                                         jmp   n20_assign_α
 n19_binop_β:
                         add              rsp, 16
-                        add              rsp, 128
-                                                                                        jmp   main_γ
+                                                                                        jmp   n18_var_β
 #-----------------------------------------------------------------------------------------------------------------------
 n20_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # binop
@@ -410,8 +403,7 @@ n20_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n21_statement_end_α
 n20_assign_β:
-                        add              rsp, 144
-                                                                                        jmp   main_γ
+                                                                                        jmp   n19_binop_β
 .Lx66_0:
                         .quad            .Lx66_0_s
 .Lx66_0_s:

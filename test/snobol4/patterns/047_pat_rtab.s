@@ -153,6 +153,10 @@ n8_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx37_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n9_match_rtab_α
+n8_lit_integer_β:
+                        add              rsp, 16
+                        add              rsp, 240
+                                                                                        jmp   n7_match_assign_save_α
 .Lx37_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------

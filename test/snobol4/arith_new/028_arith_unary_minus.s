@@ -35,6 +35,10 @@ n2_unop_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n3_assign_α
+n2_unop_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # unop

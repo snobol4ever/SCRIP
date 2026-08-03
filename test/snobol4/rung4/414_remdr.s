@@ -52,6 +52,10 @@ n4_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx44_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n5_call_α
+n4_lit_integer_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n13_statement_begin_α
 .Lx44_0:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
@@ -78,16 +82,14 @@ n5_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx45_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n13_statement_begin_α
+                                                                                        jmp   n4_lit_integer_β
 .Lx45_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n6_lit_integer_α
 n5_call_β:
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n13_statement_begin_α
+                                                                                        jmp   n4_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n6_lit_integer_α:
                         sub              rsp, 16
@@ -95,6 +97,9 @@ n6_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx46_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n7_call_α
+n6_lit_integer_β:
+                        add              rsp, 32
+                                                                                        jmp   n4_lit_integer_β
 .Lx46_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -121,16 +126,14 @@ n7_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx47_240
                         add              rsp, 16
-                        add              rsp, 64
-                                                                                        jmp   n13_statement_begin_α
+                                                                                        jmp   n6_lit_integer_β
 .Lx47_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n8_statement_end_α
 n7_call_β:
                         add              rsp, 16
-                        add              rsp, 64
-                                                                                        jmp   n13_statement_begin_α
+                                                                                        jmp   n6_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_statement_end_α:
                         add              rsp, 80
@@ -189,6 +192,10 @@ n17_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx63_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n18_call_α
+n17_lit_integer_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n26_statement_begin_α
 .Lx63_0:
                         .quad            10
 #-----------------------------------------------------------------------------------------------------------------------
@@ -215,16 +222,14 @@ n18_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx64_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n17_lit_integer_β
 .Lx64_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n19_lit_integer_α
 n18_call_β:
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n17_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_integer_α:
                         sub              rsp, 16
@@ -232,6 +237,9 @@ n19_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx65_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n20_call_α
+n19_lit_integer_β:
+                        add              rsp, 32
+                                                                                        jmp   n17_lit_integer_β
 .Lx65_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -258,16 +266,14 @@ n20_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx66_240
                         add              rsp, 16
-                        add              rsp, 64
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n19_lit_integer_β
 .Lx66_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n21_statement_end_α
 n20_call_β:
                         add              rsp, 16
-                        add              rsp, 64
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n19_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n21_statement_end_α:
                         add              rsp, 80

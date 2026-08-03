@@ -343,6 +343,10 @@ n63_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx100_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n64_call_α
+n63_lit_string_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx100_0:
                         .quad            .Lx100_0_s
 .Lx100_0_s:
@@ -445,12 +449,11 @@ n64_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx102_240
                         add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n63_lit_string_β
 .Lx102_240:
                                                                                         jmp   n65_statement_end_α
 n64_call_β:
-                                                                                        jmp   main_γ
+                                                                                        jmp   n63_lit_string_β
 .Lx102_0:
                         .quad            .Lx102_0_s
 .Lx102_0_s:

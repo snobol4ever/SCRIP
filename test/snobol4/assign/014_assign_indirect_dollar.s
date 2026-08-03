@@ -80,6 +80,10 @@ n3_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx15_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n4_assign_var_α
+n3_lit_string_β:
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   n6_statement_begin_α
 .Lx15_0:
                         .quad            .Lx15_0_s
 .Lx15_0_s:
@@ -94,7 +98,8 @@ n4_assign_var_α:
                         call             rt_assign_var@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx16_240
-                                                                                        jmp   n5_statement_end_α
+                        add              rsp, 16
+                                                                                        jmp   n3_lit_string_β
 .Lx16_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx

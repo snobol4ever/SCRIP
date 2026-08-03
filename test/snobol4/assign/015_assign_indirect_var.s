@@ -106,6 +106,10 @@ n7_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx25_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n8_assign_var_α
+n7_lit_string_β:
+                        add              rsp, 16
+                        add              rsp, 32
+                                                                                        jmp   n10_statement_begin_α
 .Lx25_0:
                         .quad            .Lx25_0_s
 .Lx25_0_s:
@@ -120,7 +124,8 @@ n8_assign_var_α:
                         call             rt_assign_var@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx26_240
-                                                                                        jmp   n9_statement_end_α
+                        add              rsp, 16
+                                                                                        jmp   n7_lit_string_β
 .Lx26_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx

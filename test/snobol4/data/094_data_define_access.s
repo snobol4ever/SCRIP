@@ -104,6 +104,10 @@ n6_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx31_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n7_unop_α
+n6_lit_integer_β:
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n11_statement_begin_α
 .Lx31_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
@@ -115,6 +119,9 @@ n7_unop_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n8_call_α
+n7_unop_β:
+                        add              rsp, 16
+                                                                                        jmp   n6_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_call_α:
                         sub              rsp, 16
@@ -138,13 +145,15 @@ n8_call_α:
                         add              rsp, 32
                         cmp              eax, 104
                                                                                         jne   .Lx33_240
-                                                                                        jmp   n10_statement_end_α
+                        add              rsp, 16
+                                                                                        jmp   n7_unop_β
 .Lx33_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n9_assign_α
 n8_call_β:
-                                                                                        jmp   n10_statement_end_α
+                        add              rsp, 16
+                                                                                        jmp   n7_unop_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # call
