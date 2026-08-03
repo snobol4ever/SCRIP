@@ -333,13 +333,11 @@ n32_call_α:
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104
                                                                                         jne   .Lx62_240
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n35_statement_begin_α
+                                                                                        jmp   n34_statement_end_α
 .Lx62_240:
                                                                                         jmp   n33_assign_α
 n32_call_β:
-                                                                                        jmp   n35_statement_begin_α
+                                                                                        jmp   n34_statement_end_α
 .Lx62_0:
                         .quad            .Lx62_0_s
 .Lx62_0_s:

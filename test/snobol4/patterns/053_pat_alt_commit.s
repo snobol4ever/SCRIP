@@ -242,17 +242,13 @@ n16_call_α:
                         add              rsp, 16
                         cmp              eax, 104
                                                                                         jne   .Lx46_240
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n19_statement_begin_α
+                                                                                        jmp   n18_statement_end_α
 .Lx46_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n17_assign_α
 n16_call_β:
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n19_statement_begin_α
+                                                                                        jmp   n18_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n17_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # call
