@@ -15,31 +15,34 @@ main_α_body:
 #=======================================================================================================================
 #         OUTPUT = 'a' 'b' 'c' 'd'
 #-----------------------------------------------------------------------------------------------------------------------
-n0_lit_string_α:
-                        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
-                        mov              dword ptr [rsp + 4], 1
-                        mov              rax, qword ptr [rip + .Lx9_0]
-                        mov              qword ptr [rsp + 8], rax
+n0_statement_begin_α:
                                                                                         jmp   n1_lit_string_α
-.Lx9_0:
-                        .quad            .Lx9_0_s
-.Lx9_0_s:
-                        .string          "a"
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 1
-                        mov              rax, qword ptr [rip + .Lx10_0]
+                        mov              rax, qword ptr [rip + .Lx12_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n2_binop_α
-.Lx10_0:
-                        .quad            .Lx10_0_s
-.Lx10_0_s:
+                                                                                        jmp   n2_lit_string_α
+.Lx12_0:
+                        .quad            .Lx12_0_s
+.Lx12_0_s:
+                        .string          "a"
+#-----------------------------------------------------------------------------------------------------------------------
+n2_lit_string_α:
+                        sub              rsp, 16
+                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              dword ptr [rsp + 4], 1
+                        mov              rax, qword ptr [rip + .Lx13_0]
+                        mov              qword ptr [rsp + 8], rax
+                                                                                        jmp   n3_binop_α
+.Lx13_0:
+                        .quad            .Lx13_0_s
+.Lx13_0_s:
                         .string          "b"
 #-----------------------------------------------------------------------------------------------------------------------
-n2_binop_α:
+n3_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # lit_string
                         mov              rsi, qword ptr [rsp + 40]                      # a
@@ -48,21 +51,21 @@ n2_binop_α:
                         call             str_concat_d@PLT
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n3_lit_string_α
+                                                                                        jmp   n4_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n3_lit_string_α:
+n4_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 1
-                        mov              rax, qword ptr [rip + .Lx12_0]
+                        mov              rax, qword ptr [rip + .Lx15_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n4_binop_α
-.Lx12_0:
-                        .quad            .Lx12_0_s
-.Lx12_0_s:
+                                                                                        jmp   n5_binop_α
+.Lx15_0:
+                        .quad            .Lx15_0_s
+.Lx15_0_s:
                         .string          "c"
 #-----------------------------------------------------------------------------------------------------------------------
-n4_binop_α:
+n5_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # binop
                         mov              rsi, qword ptr [rsp + 40]                      # a
@@ -71,21 +74,21 @@ n4_binop_α:
                         call             str_concat_d@PLT
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n5_lit_string_α
+                                                                                        jmp   n6_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
-n5_lit_string_α:
+n6_lit_string_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 1
-                        mov              rax, qword ptr [rip + .Lx14_0]
+                        mov              rax, qword ptr [rip + .Lx17_0]
                         mov              qword ptr [rsp + 8], rax
-                                                                                        jmp   n6_binop_α
-.Lx14_0:
-                        .quad            .Lx14_0_s
-.Lx14_0_s:
+                                                                                        jmp   n7_binop_α
+.Lx17_0:
+                        .quad            .Lx17_0_s
+.Lx17_0_s:
                         .string          "d"
 #-----------------------------------------------------------------------------------------------------------------------
-n6_binop_α:
+n7_binop_α:
                         sub              rsp, 16
                         mov              rdi, qword ptr [rsp + 32]                      # binop
                         mov              rsi, qword ptr [rsp + 40]                      # a
@@ -94,20 +97,20 @@ n6_binop_α:
                         call             str_concat_d@PLT
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n7_assign_α
+                                                                                        jmp   n8_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
-n7_assign_α:
+n8_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # binop
                         mov              rdx, qword ptr [rsp + 8]                       # val
-                        mov              rdi, qword ptr [rip + .Lx16_0]                 # name
+                        mov              rdi, qword ptr [rip + .Lx19_0]                 # name
                         call             NV_SET_fn@PLT
-                                                                                        jmp   n8_statement_α
-.Lx16_0:
-                        .quad            .Lx16_0_s
-.Lx16_0_s:
+                                                                                        jmp   n9_statement_end_α
+.Lx19_0:
+                        .quad            .Lx19_0_s
+.Lx19_0_s:
                         .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n8_statement_α:
+n9_statement_end_α:
                         add              rsp, 112
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
