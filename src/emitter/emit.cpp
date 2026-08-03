@@ -2072,6 +2072,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                       for (int k = 0; k < n; k++) if (nodes[k] == p && !mem[k]) { mem[k] = 1; wl[wn++] = k; break; } } } }
             for (int k = 0; k < n; k++) { if (!mem[k]) continue;
                 if (ir_norm_call_kind(nodes[k]->op) == IR_CALL || nodes[k]->op == IR_SAVE_RESTORE || nodes[k]->op == IR_GOTO_DEFERRED) continue;   /* protocol boxes: own frame dance, own slots -- never claimed */
+                { static int _usc2 = -1; if (_usc2 < 0) { const char *_e = getenv("SCRIP_ZD_SCOPE"); _usc2 = (_e && *_e == '0') ? 0 : 1; } if (_usc2 && claim[k] >= 0 && claim[k] != hi) continue; }   /* ⭐ U-SCOPE (s40 ALPHA): same cross-statement exclusion as the ARMED Kc span above; UCLAIM mem[] walk has the same operand-tree expansion disease. */
                 { int b = zls_node_off(nodes[k]); if (b <= -0x30000000) continue; int e = b + zls_node_bytes(nodes[k]); if (b < umin) umin = b; if (e > umax) umax = e; } }
             if (umax > umin) { long K = ((long)(umax - umin) + 15L) & ~15L;
                 int _r0 = (rl > 1 && nodes[run[0]]->op == IR_STATEMENT_BEGIN) ? 1 : 0; zuk[run[_r0]] = K; for (int k = 0; k < n; k++) if (mem[k]) { zud[k] = K; zuh[k] = hi; }
