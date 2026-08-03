@@ -1830,6 +1830,22 @@ static int flat_trivial_beta(const IR_t *nd) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐⭐ U-1b UNWIND PRED WHITELIST (Lon HQ directive 2026-08-03c, "get every BB to FREE on OMEGA"): the kinds whose β may be the LANDING of an unwind roll.  THE LAW IS ALREADY IN THE TEMPLATE LAYER and
+ * this predicate only names who may be jumped AT: 73 templates already close with x86_beta_trampoline() = `β: [hook: add rsp,K_own] jmp <resolved ω>`, and x86_asm.h's ONE ω arm
+ * (`site==X86H_JMP && port==X86P_OMEGA && !op_wsteal` -> bb_glue_flat_leave) already frees own K on EVERY box's ω.  So a box's β IS its ω-continuation exactly as clause 2 states, already emitted, and the
+ * ONLY reason the unwind could not use it was that flat_trivial_beta named four match kinds -- a whitelist minted for the ΣK POP FOLD, whose question ("may I INLINE this β away") is the mirror-image of
+ * this one ("may I ROLL INTO this β").  Reusing it made U-1a's fire set provably empty (FINDING-2026-08-03 §3): plain-edge armed value-spine members ∩ four match kinds = ∅.  MEASURED at HEAD on the uw3
+ * witness: n9_cmp_test's ω is `add rsp,16` (own K -- the law, already honored) THEN `add rsp,64` (the accumulated whack -- what clause 2 VOIDS) then a jmp straight to the :F target, skipping every
+ * predecessor's β.  The four fold kinds stay listed: a trivial-β kind is a legal roll target too (its β is the same trampoline), so this is a strict WIDENING and the fold's own population is unchanged. */
+static int flat_unwind_beta(const IR_t *nd) {
+    switch (nd->op) {
+    case IR_VAR: case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_BINOP: case IR_UNOP: case IR_ASSIGN: case IR_ASSIGN_VAR:
+    case IR_CMP_TEST: case IR_COERCE_NUMERIC: case IR_COERCE_STRING: case IR_COERCE_INTEGER: case IR_COERCE_REAL:
+    case IR_DEREF: case IR_SUBSCRIPT: case IR_FIELD_VAR: return 1;
+    default: return flat_trivial_beta(nd);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZD-1 -- THE ONE MAIN FUNCTION (Lon s21x-v: "ONE main function that does graph traversal and calculates the zeta offsets based on the ORDER the BB's executed" + "NO FUNCTION-level processing whatsoever,
  * ONLY statement level scoping").  nodes[] IS the execution order the emitter lays down, so the traversal is a single forward pass over it, segmented into STATEMENTS at bb_src_of heads; depth resets to
@@ -2249,7 +2265,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     zvo_reset();   /* UCLAIM owner table is per-chain, rebuilt by the plan below */
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;   /* [ALPHA] s32 STALE-FLAT-PAT FIX: emit_jmp_entry_for_patproc sets flat_pat=1 for PAT$ blobs; emit_jmp_entry_clear resets it, but only jmp-entry chains call clear before their emit_chain. A main chain that follows a PAT$ blob emission inherits flat_pat=1, making zd_plan's FENCE1 zdyn veto at emit.cpp:1975 believe it is inside a blob and fire unnecessarily -- declining match-construction statements containing FENCE1 that are provably outside any blob. Guard: jmp-entry chains legitimately have flat_pat=1 (set by their arm function before emit_chain) and must keep it. Non-jmp-entry chains have no mechanism to set flat_pat=1 before their own emit_chain, so any 1 they see is stale from a previous blob. MEASURED: 10 spurious FENCE1 vetoes eliminated; 105->99 declined runs; s32. */
     zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_uk, zd_ud, zd_uh, zd_zw, zd_zwr);   /* ZD-1: the ONE execution-order walk runs ONCE per chain, before any emission, over the same nodes[] the loop below lays down */
-    zd_depth_census(nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);   /* ⭐ ZD-DEPTH (this session): READ-ONLY brick-wall census -- see the function's own header. Inert unless SCRIP_ZD_DEPTH=1; zero g_emit writes, zero emission. */
+    zd_depth_census(nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);   /* ⭐ ZD-DEPTH (this session): READ-ONLY brick-wall census -- see the function's own header. Inert unless SCRIP_ZD_DEPTH=1; zero g_emit writes, zero emission. NOTE (U-1b finding): the census measures multi-depth JOINS within the armed set -- nodes whose inbound edges arrive at different accumulated depths.  U-1b's retarget removes the WHACK from non-join ω edges (those that escape the statement to :F targets outside nodes[]); those never appeared as joins and so the census reads 469 regardless of SCRIP_UNWIND.  The behavioral acceptance instrument for U-1b is BY SET both modes + uw3 rc=0 (not the census). */   /* ⭐ ZD-DEPTH (this session): READ-ONLY brick-wall census -- see the function's own header. Inert unless SCRIP_ZD_DEPTH=1; zero g_emit writes, zero emission. */
     /* ZW-5 O-2: per-depth ω stub pool.  Pre-compute after zd_plan; emit stubs after each IR_STATEMENT's drive. */
     enum { ZW5_POOL = 128, ZW5_MAX_DEPTHS = 8 };
     bb_label_t zw5_pool[ZW5_POOL]; int zw5_base = 0;
@@ -2342,6 +2358,25 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     unsigned char *bused = (unsigned char *)alloca(n > 0 ? n : 1);
     flat_beta_used_scan(nodes, n, bused);
+    /* ⭐⭐⭐ U-1b UNWIND β LIVENESS (Lon HQ directive 2026-08-03c) -- THE CIRCULAR PROPHECY THIS BREAKS: BP-9's dead-β elision (op_beta_dead, staged from bused[] below) removes a box's β trampoline when the
+     * WIRE SCAN proves no edge carries the β port tag at it.  That scan mirrors TODAY's consumers, and today nothing rolls into a value-spine β -- so every value-spine β is elided, which is precisely why
+     * U-1a's retarget had nowhere to land and measured empty.  Arming the roll without this pass would be WORSE THAN INERT: node_ω = betas[pred] patches a rel32 at a label that was never defined (TEXT =
+     * assembler error, BINARY = wild jump).  So the liveness must be computed BEFORE emission, from the graph alone.  DELIBERATELY CONSERVATIVE, and the asymmetry is the whole design: over-marking costs a
+     * 2-instruction dead trampoline (bytes only, gate-on only), under-marking is a wild jump -- so this evaluates only the conjuncts that are pure graph properties (armed · statement-terminal wp · widened
+     * kind · in-statement bracket · NODE-EXACT chased-ω agreement with a LATER member) and deliberately does NOT model the drive loop's runtime conjuncts (op_wpop / omega_is_beta / omega_is_phi / scan_live
+     * / flat_stmt_frame), each of which can only SUPPRESS a retarget.  The marked set is therefore a strict superset of the rolled-into set, which is the safe direction.  Gate-on only: SCRIP_UNWIND unset
+     * leaves bused[] byte-identical, so the whole rung stays behind the one killswitch. */
+    { static int _uwl = -1; if (_uwl < 0) { const char *_e = getenv("SCRIP_UNWIND"); _uwl = (_e && *_e == '1') ? 1 : 0; }
+      if (_uwl) for (int _i = 0; _i < n; _i++) {
+          int _hi = (zd_uh[_i] >= 0 && zd_uh[_i] < n) ? zd_uh[_i] : _i;
+          if (!zd_on[_i] || zd_wp[_i] <= 0 || zd_uk[_hi] != 0) continue;
+          if (nodes[_i]->op == IR_STATEMENT || nodes[_i]->op == IR_STATEMENT_BEGIN || nodes[_i]->op == IR_STATEMENT_END) continue;
+          { int _bg = 0; for (int _j = _i - 1; _j >= 0; _j--) { int _o = (int)nodes[_j]->op; if (_o == IR_STATEMENT_BEGIN) { _bg = 1; break; } if (_o == IR_STATEMENT_END || _o == IR_STATEMENT) break; } if (!_bg) continue; }
+          { IR_t *_ti = zd_chase(nodes[_i]->ω.node); if (!_ti) continue;
+            for (int _j = _i - 1; _j >= 0; _j--) {
+                int _o = (int)nodes[_j]->op; if (_o == IR_STATEMENT_BEGIN || _o == IR_STATEMENT_END || _o == IR_STATEMENT) break;
+                if (zd_on[_j] && zd_wp[_j] > 0 && flat_unwind_beta(nodes[_j]) && zd_chase(nodes[_j]->ω.node) == _ti) {
+                    if ((zd_wp[_i] + zd_k(nodes[_i])) - (zd_wp[_j] + zd_k(nodes[_j])) >= 0) bused[_j] = 1; break; } } } } }
     unsigned char *seqclean = (unsigned char *)alloca(n > 0 ? n : 1);
     /* SPD SEQ-STATIC prepass: a celled IR_MATCH_SEQUENCE converts to the zero-counter statically-wired arm iff (a) every element entry AND resume root is present in this chain (sigma_i -> alpha_{i+1} / phi_i -> beta_{i-1} all resolvable) and (b) every sigma/phi-marked edge into it originates FROM one of those roots (GOTO-chased marks from foreign protocol glue -- DEFER return, ARBNO seal -- must keep the counter dispatch: degrade never die).  FC-converted SEQs bypass this (eligibility already fences their source set). */
     static int _sqoff = -1; if (_sqoff < 0) { const char *_e = getenv("SCRIP_SEQSTATIC"); _sqoff = (_e && *_e == '0') ? 1 : 0; }   /* SPD SEQ-STATIC: DEFAULT ON since s110 -- the s109 "non-sigma/phi glue consumer" was the ZPOP-FOLD chase below (phi hop into a converted SEQ kept the raw af glue, jmp-omega under conversion; bracketed via SCRIP_ZPOP_FOLD_OFF=1 discrimination, fixed by mirroring the main loop's fc_seq_phi_tgt redirect at the fold's hop resolution).  SCRIP_SEQSTATIC=0 is the same-build A/B hatch (BP-5/BP-6 precedent). */
@@ -2573,9 +2608,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                 IR_t *_ti = zd_chase(nodes[i]->ω.node);   /* cross-chain :F targets (labeled statements) are the COMMON case -- the target need not be in nodes[]; NODE-EXACT equality with the pred's chased target is the coherence guard (one statement, one fail exit), and the scan/STF/fold/β/φ retarget regimes are each excluded by their own conjunct above */
                 if (_bg && _ti) for (int _j = i - 1; _j >= 0; _j--) {
                     int _o = (int)nodes[_j]->op; if (_o == IR_STATEMENT_BEGIN || _o == IR_STATEMENT_END || _o == IR_STATEMENT) break;
-                    if (zd_on[_j] && zd_wp[_j] > 0 && flat_trivial_beta(nodes[_j]) && zd_chase(nodes[_j]->ω.node) == _ti) {
+                    if (zd_on[_j] && zd_wp[_j] > 0 && flat_unwind_beta(nodes[_j]) && zd_chase(nodes[_j]->ω.node) == _ti) {
                         long _d = (zd_wp[i] + zd_k(nodes[i])) - (zd_wp[_j] + zd_k(nodes[_j]));
-                        if (_d >= 0) { node_ω = betas[_j]; _uw_stolen = 1; _uw_pop = _d; } break; } } } }
+                        if (_d >= 0) { node_ω = betas[_j]; _uw_stolen = 1; _uw_pop = _d; } break; } } } }   /* ⭐ U-1b (2026-08-03c): flat_trivial_beta -> flat_unwind_beta.  The pred-selection walk is UNCHANGED; only the whitelist widens, and the mirror pre-pass above (grep "U-1b UNWIND β LIVENESS") guarantees every _j this line can select still owns an emitted β.  The two sites read the SAME predicate and the SAME conjuncts on purpose -- two spellings of one selection is the s22k skew disease, and here it would be a wild jump rather than a wrong number. */
           int _endj_stolen = 0;   /* END-JMP STEAL (Lon HQ directive 2026-08-03, func_call &TRIM witness -- three symptoms, one defect): a statement-exit ω at FULL EXTENT jumps to the statement's own IR_STATEMENT_END -- the SOLE release authority (WHACK CONTRACT item 4) -- instead of carrying the fused own-K flat_leave + wpop pair to the next head; the β stub (DRIVE_PAIR_DEF_JMP β,ω) inherits the retarget for free, erasing the two contradictory dead-β conventions (n26 pair-with-adds vs n63 bare-leak) in the same stroke.  GUARDS: armed non-UCLAIM member with planner statement-terminal wp (the ZW-5-steal precedent quartet), no pending trampoline ΣK fold (op_wpop==0 pre-staging -- END frees to statement entry, a chased Σ on top would double-free), depth equality zd_k+wp == END's gpop (excludes the n54-class mid-extent :F edges by arithmetic), NODE-EXACT successor equality through the IR_GOTO chase (excludes full-extent :F(elsewhere) edges), and node_ω still the chased target's plain α label (scan/STF regimes keep their own routing).  Own-K suppression = op_wsteal consumed at the ONE X86H_JMP/OMEGA flat_leave arm; wpop suppression = staged zero, the ZW-5 spelling.  Killswitch SCRIP_ZD_ENDJMP=0 = byte-identical revert. */
           { static int _ej = -1; if (_ej < 0) { const char *_e = getenv("SCRIP_ZD_ENDJMP"); _ej = (_e && *_e == '0') ? 0 : 1; }
             int _h2 = (zd_uh[i] >= 0 && zd_uh[i] < n) ? zd_uh[i] : i;
