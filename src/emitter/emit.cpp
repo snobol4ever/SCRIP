@@ -2076,6 +2076,35 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     }
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐⭐ ZD-DEPTH BRICK-WALL CENSUS (this session, Lon directive 2026-08-03c: "continue this for every box and every construct until you hit a BRICK WALL and realize, oh I need a register RBP stable base
+ * pointer for what I'm doing").  THE CLAIM THIS MEASURES: the brick wall is not a CONSTRUCT, it is a GRAPH PROPERTY.  Sliding rsp offsets are well defined exactly when every box has ONE static entry
+ * depth; the wall is a JOIN whose predecessors arrive at DIFFERENT accumulated depths, because no [rsp+k] spelling can name the same cell down both edges.  The standing list of four RBP constructs
+ * (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4) should then be the OUTPUT of this test, not its input -- and if the measured set is wider, the list was never the rule, it was a sample of the rule.
+ * ARRIVAL-DEPTH MODEL, taken verbatim from the UNWIND four-clause law (HQ 2026-08-03b) so the census cannot drift from the emission it audits: a gamma edge SUSPENDS the box's own cell (clause 1, roll up
+ * forward) so it arrives at zout[i] = depth AFTER i; an omega edge FREES the box's own K first (clause 2, "box N's omega frees N's OWN K only") so it arrives at zout[i]-K.  Two edges into one target with
+ * unequal arrival depth = WALL.  READ-ONLY BY CONSTRUCTION: no g_emit write, no emission, no zd_* array mutation -- it consumes zd_plan's finished zon[]/zout[] and prints.  Inert unless SCRIP_ZD_DEPTH=1,
+ * so the default build is byte-identical and this can ride any rung without gating it.  DECLINED nodes (zon=0) are SKIPPED, not assumed depth 0: their depth lives in the UCLAIM wholesale claim, which is
+ * precisely the regime this census exists to help retire -- counting them as 0 would manufacture disagreements that are artifacts of the claim, not of the graph. */
+typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
+static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, const char *prefix) {
+    static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_ZD_DEPTH"); _on = (e && *e == '1') ? 1 : 0; }
+    if (!_on || n <= 0) return;
+    zdw_ent_t * w = (zdw_ent_t *)calloc((size_t)(2 * n + 1), sizeof(zdw_ent_t)); if (!w) return;
+    int wn = 0, armed = 0, edges = 0, walls = 0;
+    for (int i = 0; i < n; i++) { if (!zon[i]) continue; armed++;
+        int K = zd_k(nodes[i]);
+        for (int p = 0; p < 2; p++) { IR_t * t = zd_chase(p == 0 ? nodes[i]->γ.node : nodes[i]->ω.node); if (!t) continue;
+            int d = (p == 0) ? zout[i] : zout[i] - K; int ti = -1;
+            for (int k = 0; k < n; k++) if (nodes[k] == t) { ti = k; break; }
+            if (ti < 0 || !zon[ti]) continue; edges++;
+            int f = -1; for (int k = 0; k < wn; k++) if (w[k].t == t) { f = k; break; }
+            if (f < 0) { w[wn].t = t; w[wn].d0 = d; w[wn].nd = 1; w[wn].multi = 0; wn++; }
+            else { w[f].nd++; if (d != w[f].d0 && !w[f].multi) { w[f].multi = 1; walls++; } } } }
+    for (int k = 0; k < wn; k++) if (w[k].multi) fprintf(stderr, "[ZD-DEPTH] WALL %s %s preds=%d first_depth=%d\n", prefix ? prefix : "?", bb_op_name(w[k].t->op) ? bb_op_name(w[k].t->op) : "<unnamed>", w[k].nd, w[k].d0);
+    fprintf(stderr, "[ZD-DEPTH] %s n=%d armed=%d in_edges=%d joins=%d walls=%d\n", prefix ? prefix : "?", n, armed, edges, wn, walls);
+    free(w);
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
     for (int k = 0; k < n; k++) {
@@ -2215,6 +2244,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     zvo_reset();   /* UCLAIM owner table is per-chain, rebuilt by the plan below */
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;   /* [ALPHA] s32 STALE-FLAT-PAT FIX: emit_jmp_entry_for_patproc sets flat_pat=1 for PAT$ blobs; emit_jmp_entry_clear resets it, but only jmp-entry chains call clear before their emit_chain. A main chain that follows a PAT$ blob emission inherits flat_pat=1, making zd_plan's FENCE1 zdyn veto at emit.cpp:1975 believe it is inside a blob and fire unnecessarily -- declining match-construction statements containing FENCE1 that are provably outside any blob. Guard: jmp-entry chains legitimately have flat_pat=1 (set by their arm function before emit_chain) and must keep it. Non-jmp-entry chains have no mechanism to set flat_pat=1 before their own emit_chain, so any 1 they see is stale from a previous blob. MEASURED: 10 spurious FENCE1 vetoes eliminated; 105->99 declined runs; s32. */
     zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_uk, zd_ud, zd_uh, zd_zw, zd_zwr);   /* ZD-1: the ONE execution-order walk runs ONCE per chain, before any emission, over the same nodes[] the loop below lays down */
+    zd_depth_census(nodes, n, zd_on, zd_out, prefix);   /* ⭐ ZD-DEPTH (this session): READ-ONLY brick-wall census -- see the function's own header. Inert unless SCRIP_ZD_DEPTH=1; zero g_emit writes, zero emission. */
     /* ZW-5 O-2: per-depth ω stub pool.  Pre-compute after zd_plan; emit stubs after each IR_STATEMENT's drive. */
     enum { ZW5_POOL = 128, ZW5_MAX_DEPTHS = 8 };
     bb_label_t zw5_pool[ZW5_POOL]; int zw5_base = 0;
