@@ -59,8 +59,7 @@ n2_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n3_statement_end_α
 n2_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   n4_statement_begin_α
+                                                                                        jmp   n3_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_statement_end_α:
                         add              rsp, 16
@@ -95,8 +94,7 @@ n6_assign_α:
                         mov              qword ptr [1879052312], rdx
                                                                                         jmp   n7_statement_end_α
 n6_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   n8_statement_begin_α
+                                                                                        jmp   n7_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_statement_end_α:
                         add              rsp, 16
@@ -351,8 +349,7 @@ n18_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n19_statement_end_α
 n18_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   n20_statement_begin_α
+                                                                                        jmp   n19_statement_end_α
 .Lx65_0:
                         .quad            .Lx65_0_s
 .Lx65_0_s:
@@ -405,17 +402,13 @@ n23_binop_α:
                         call             rt_add@PLT
                         cmp              eax, 104
                                                                                         jne   .Lx72_240
-                        add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n25_statement_end_α
 .Lx72_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n24_assign_α
 n23_binop_β:
-                        add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n25_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n24_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # binop
@@ -424,8 +417,7 @@ n24_assign_α:
                         mov              qword ptr [1879052312], rdx
                                                                                         jmp   n25_statement_end_α
 n24_assign_β:
-                        add              rsp, 48
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n25_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n25_statement_end_α:
                         add              rsp, 48

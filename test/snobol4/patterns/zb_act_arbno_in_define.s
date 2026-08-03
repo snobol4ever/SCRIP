@@ -437,8 +437,7 @@ n20_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n21_statement_end_α
 n20_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   n22_save_restore_α
+                                                                                        jmp   n21_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n21_statement_end_α:
                         add              rsp, 16
@@ -1182,8 +1181,7 @@ n96_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n97_statement_end_α
 n96_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   n98_save_restore_α
+                                                                                        jmp   n97_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n97_statement_end_α:
                         add              rsp, 16

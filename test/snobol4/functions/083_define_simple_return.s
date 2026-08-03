@@ -295,13 +295,11 @@ n29_call_α:
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104
                                                                                         jne   .Lx58_240
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n31_statement_end_α
 .Lx58_240:
                                                                                         jmp   n30_assign_α
 n29_call_β:
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n31_statement_end_α
 .Lx58_0:
                         .quad            .Lx58_0_s
 .Lx58_0_s:
