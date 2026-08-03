@@ -54,15 +54,13 @@ n1_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n2_statement_α
 n1_assign_β:
-                                                                                        jmp   main_zw5s1_ω_d16
+                        add              rsp, 16
+                                                                                        jmp   n3_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_statement_α:
                         add              rsp, 16
                                                                                         jmp   n3_var_α
 n2_statement_β:
-                        add              rsp, 16
-                                                                                        jmp   n3_var_α
-main_zw5s1_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n3_var_α
 #=======================================================================================================================
@@ -335,7 +333,8 @@ n11_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n12_statement_α
 n11_assign_β:
-                                                                                        jmp   main_zw5s5_ω_d16
+                        add              rsp, 16
+                                                                                        jmp   main_γ
 .Lx39_0:
                         .quad            .Lx39_0_s
 .Lx39_0_s:
@@ -345,9 +344,6 @@ n12_statement_α:
                         add              rsp, 16
                                                                                         jmp   main_γ
 n12_statement_β:
-                        add              rsp, 16
-                                                                                        jmp   main_γ
-main_zw5s5_ω_d16:
                         add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
@@ -435,7 +431,8 @@ n17_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n18_statement_α
 n17_assign_β:
-                                                                                        jmp   main_zw5s3_ω_d16
+                        add              rsp, 16
+                                                                                        jmp   n19_statement_α
 .Lx49_0:
                         .quad            .Lx49_0_s
 .Lx49_0_s:
@@ -447,18 +444,12 @@ n18_statement_α:
 n18_statement_β:
                         add              rsp, 16
                                                                                         jmp   n19_statement_α
-main_zw5s3_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n19_statement_α
 #=======================================================================================================================
 #         :(END)
 #-----------------------------------------------------------------------------------------------------------------------
 n19_statement_α:
                                                                                         jmp   main_γ
 n19_statement_β:
-                                                                                        jmp   main_γ
-main_zw5s4_ω_d16:
-                        add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n20_goto_α:

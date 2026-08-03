@@ -74,24 +74,20 @@ n3_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx164_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s2_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n8_lit_integer_α
 .Lx164_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n4_statement_α
 n3_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s2_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n8_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_statement_α:
                         add              rsp, 48
                                                                                         jmp   n5_lit_string_α
-main_zw5s2_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n8_lit_integer_α
-main_zw5s2_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n8_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/001: lt(5,4) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -115,9 +111,6 @@ n6_assign_α:
                                                                                         jmp   n7_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_statement_α:
-                                                                                        jmp   n140_statement_α
-main_zw5s3_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e001    lt(4, 4)                   :f(e002)
@@ -163,24 +156,20 @@ n10_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx173_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s4_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n15_lit_integer_α
 .Lx173_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n11_statement_α
 n10_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s4_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n15_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_α:
                         add              rsp, 48
                                                                                         jmp   n12_lit_string_α
-main_zw5s4_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n15_lit_integer_α
-main_zw5s4_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n15_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/002: lt(4,4) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -205,12 +194,6 @@ n13_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n14_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s5_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s5_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e002    lt(4, 5)                   :s(e003)
@@ -256,28 +239,21 @@ n17_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx182_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s6_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n137_lit_string_α
 .Lx182_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n18_statement_α
 n17_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s6_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n137_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n18_statement_α:
                                                                                         jmp   n19_statement_α
-main_zw5s6_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n137_lit_string_α
-main_zw5s6_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n137_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n19_statement_α:
-                        add              rsp, 48
-                                                                                        jmp   n20_lit_integer_α
-main_zw5s8_ω_d48:
                         add              rsp, 48
                                                                                         jmp   n20_lit_integer_α
 #=======================================================================================================================
@@ -324,27 +300,20 @@ n22_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx189_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s9_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n27_lit_integer_α
 .Lx189_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n23_statement_α
 n22_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s9_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n27_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n23_statement_α:
                         add              rsp, 48
                                                                                         jmp   n24_lit_string_α
-main_zw5s9_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n27_lit_integer_α
-main_zw5s9_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n27_lit_integer_α
-main_zw5s9_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n27_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/004: le(5,2) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -369,12 +338,6 @@ n25_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n26_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s10_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s10_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e004    le(4, 4)                   :s(e005)
@@ -420,24 +383,20 @@ n29_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx198_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s11_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n134_lit_string_α
 .Lx198_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n30_statement_α
 n29_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s11_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n134_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_statement_α:
                         add              rsp, 48
                                                                                         jmp   n31_lit_integer_α
-main_zw5s11_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n134_lit_string_α
-main_zw5s11_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n134_lit_string_α
 #=======================================================================================================================
 # e005    le(4, 10)                  :s(e006)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -482,31 +441,21 @@ n33_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx203_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s13_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n131_lit_string_α
 .Lx203_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n34_statement_α
 n33_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s13_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n131_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n34_statement_α:
                                                                                         jmp   n35_statement_α
-main_zw5s13_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n131_lit_string_α
-main_zw5s13_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n131_lit_string_α
-main_zw5s13_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n131_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n35_statement_α:
-                        add              rsp, 48
-                                                                                        jmp   n36_lit_integer_α
-main_zw5s15_ω_d48:
                         add              rsp, 48
                                                                                         jmp   n36_lit_integer_α
 #=======================================================================================================================
@@ -553,27 +502,20 @@ n38_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx210_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s16_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n43_lit_integer_α
 .Lx210_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n39_statement_α
 n38_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s16_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n43_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n39_statement_α:
                         add              rsp, 48
                                                                                         jmp   n40_lit_string_α
-main_zw5s16_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n43_lit_integer_α
-main_zw5s16_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n43_lit_integer_α
-main_zw5s16_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n43_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/007: eq(4,5) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -598,12 +540,6 @@ n41_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n42_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s17_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s17_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e007    eq(5, 5)                   :s(e008)
@@ -649,28 +585,21 @@ n45_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx219_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s18_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n128_lit_string_α
 .Lx219_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n46_statement_α
 n45_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s18_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n128_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n46_statement_α:
                                                                                         jmp   n47_statement_α
-main_zw5s18_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n128_lit_string_α
-main_zw5s18_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n128_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n47_statement_α:
-                        add              rsp, 48
-                                                                                        jmp   n48_lit_integer_α
-main_zw5s20_ω_d48:
                         add              rsp, 48
                                                                                         jmp   n48_lit_integer_α
 #=======================================================================================================================
@@ -717,27 +646,20 @@ n50_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx226_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s21_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n55_lit_integer_α
 .Lx226_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n51_statement_α
 n50_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s21_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n55_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n51_statement_α:
                         add              rsp, 48
                                                                                         jmp   n52_lit_string_α
-main_zw5s21_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n55_lit_integer_α
-main_zw5s21_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n55_lit_integer_α
-main_zw5s21_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n55_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/009: ne(4,4) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -762,12 +684,6 @@ n53_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n54_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s22_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s22_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e009    ne(4, 6)                   :s(e010)
@@ -813,28 +729,21 @@ n57_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx235_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s23_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n125_lit_string_α
 .Lx235_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n58_statement_α
 n57_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s23_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n125_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n58_statement_α:
                                                                                         jmp   n59_statement_α
-main_zw5s23_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n125_lit_string_α
-main_zw5s23_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n125_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n59_statement_α:
-                        add              rsp, 48
-                                                                                        jmp   n60_lit_integer_α
-main_zw5s25_ω_d48:
                         add              rsp, 48
                                                                                         jmp   n60_lit_integer_α
 #=======================================================================================================================
@@ -881,27 +790,20 @@ n62_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx242_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s26_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n67_lit_integer_α
 .Lx242_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n63_statement_α
 n62_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s26_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n67_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n63_statement_α:
                         add              rsp, 48
                                                                                         jmp   n64_lit_string_α
-main_zw5s26_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n67_lit_integer_α
-main_zw5s26_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n67_lit_integer_α
-main_zw5s26_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n67_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/011: gt(4,6) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -926,12 +828,6 @@ n65_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n66_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s27_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s27_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e011    gt(4, 4)                   :f(e012)
@@ -977,24 +873,20 @@ n69_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx251_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s28_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n74_lit_integer_α
 .Lx251_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n70_statement_α
 n69_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s28_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n74_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n70_statement_α:
                         add              rsp, 48
                                                                                         jmp   n71_lit_string_α
-main_zw5s28_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n74_lit_integer_α
-main_zw5s28_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n74_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/012: gt(4,4) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1019,12 +911,6 @@ n72_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n73_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s29_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s29_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e012    gt(5, 2)                   :s(e013)
@@ -1070,28 +956,21 @@ n76_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx260_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s30_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n122_lit_string_α
 .Lx260_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n77_statement_α
 n76_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s30_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n122_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n77_statement_α:
                                                                                         jmp   n78_statement_α
-main_zw5s30_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n122_lit_string_α
-main_zw5s30_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n122_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n78_statement_α:
-                        add              rsp, 48
-                                                                                        jmp   n79_lit_integer_α
-main_zw5s32_ω_d48:
                         add              rsp, 48
                                                                                         jmp   n79_lit_integer_α
 #=======================================================================================================================
@@ -1138,27 +1017,20 @@ n81_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx267_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s33_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n86_lit_integer_α
 .Lx267_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n82_statement_α
 n81_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s33_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n86_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n82_statement_α:
                         add              rsp, 48
                                                                                         jmp   n83_lit_string_α
-main_zw5s33_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n86_lit_integer_α
-main_zw5s33_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n86_lit_integer_α
-main_zw5s33_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n86_lit_integer_α
 #=======================================================================================================================
 #         output = 'FAIL 912/014: ge(5,7) should fail'   :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1183,12 +1055,6 @@ n84_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n85_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s34_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s34_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
 # e014    ge(4, 4)                   :s(e015)
@@ -1234,24 +1100,20 @@ n88_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx276_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s35_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n119_lit_string_α
 .Lx276_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n89_statement_α
 n88_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s35_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n119_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n89_statement_α:
                         add              rsp, 48
                                                                                         jmp   n90_lit_integer_α
-main_zw5s35_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n119_lit_string_α
-main_zw5s35_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n119_lit_string_α
 #=======================================================================================================================
 # e015    ge(7, 5)                   :s(e016)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1296,31 +1158,21 @@ n92_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx281_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s37_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n116_lit_string_α
 .Lx281_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n93_statement_α
 n92_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s37_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n116_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n93_statement_α:
                                                                                         jmp   n94_statement_α
-main_zw5s37_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n116_lit_string_α
-main_zw5s37_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n116_lit_string_α
-main_zw5s37_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n116_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n94_statement_α:
-                        add              rsp, 48
-                                                                                        jmp   n95_lit_integer_α
-main_zw5s39_ω_d48:
                         add              rsp, 48
                                                                                         jmp   n95_lit_integer_α
 #=======================================================================================================================
@@ -1363,7 +1215,8 @@ n98_binop_α:
                         cmp              eax, 104
                                                                                         jne   .Lx289_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s40_ω_d48
+                        add              rsp, 48
+                                                                                        jmp   n104_statement_α
 .Lx289_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -1392,30 +1245,20 @@ n99_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx290_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s40_ω_d64
+                        add              rsp, 64
+                                                                                        jmp   n104_statement_α
 .Lx290_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n100_statement_α
 n99_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s40_ω_d64
+                        add              rsp, 64
+                                                                                        jmp   n104_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n100_statement_α:
                         add              rsp, 80
                                                                                         jmp   n101_lit_string_α
-main_zw5s40_ω_d64:
-                        add              rsp, 64
-                                                                                        jmp   n104_statement_α
-main_zw5s40_ω_d48:
-                        add              rsp, 48
-                                                                                        jmp   n104_statement_α
-main_zw5s40_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n104_statement_α
-main_zw5s40_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n104_statement_α
 #=======================================================================================================================
 #         output = 'FAIL 912/017: ne(4,5-1) should fail (both=4)' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1440,12 +1283,6 @@ n102_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n103_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s41_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s41_ω_d80:
-                        add              rsp, 80
                                                                                         jmp   n140_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n104_statement_α:
@@ -1497,24 +1334,20 @@ n107_call_α:
                         cmp              eax, 104
                                                                                         jne   .Lx301_240
                         add              rsp, 16
-                                                                                        jmp   main_zw5s43_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n112_statement_α
 .Lx301_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n108_statement_α
 n107_call_β:
                         add              rsp, 16
-                                                                                        jmp   main_zw5s43_ω_d32
+                        add              rsp, 32
+                                                                                        jmp   n112_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n108_statement_α:
                         add              rsp, 48
                                                                                         jmp   n109_lit_string_α
-main_zw5s43_ω_d32:
-                        add              rsp, 32
-                                                                                        jmp   n112_statement_α
-main_zw5s43_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n112_statement_α
 #=======================================================================================================================
 #         output = 'FAIL 912/018: ne(string,int) type mismatch' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1539,12 +1372,6 @@ n110_assign_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n111_statement_α:
                         add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s44_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s44_ω_d48:
-                        add              rsp, 48
                                                                                         jmp   n140_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n112_statement_α:
@@ -1574,9 +1401,6 @@ n114_assign_α:
 n115_statement_α:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
-main_zw5s46_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
 #=======================================================================================================================
 #         output = 'FAIL 912/016: ge(7,5) should succeed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1600,9 +1424,6 @@ n117_assign_α:
                                                                                         jmp   n118_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n118_statement_α:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s38_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
@@ -1630,9 +1451,6 @@ n120_assign_α:
 n121_statement_α:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
-main_zw5s36_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
 #=======================================================================================================================
 #         output = 'FAIL 912/013: gt(5,2) should succeed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1656,9 +1474,6 @@ n123_assign_α:
                                                                                         jmp   n124_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n124_statement_α:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s31_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
@@ -1686,9 +1501,6 @@ n126_assign_α:
 n127_statement_α:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
-main_zw5s24_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
 #=======================================================================================================================
 #         output = 'FAIL 912/008: eq(5,5) should succeed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1712,9 +1524,6 @@ n129_assign_α:
                                                                                         jmp   n130_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n130_statement_α:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s19_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
@@ -1742,9 +1551,6 @@ n132_assign_α:
 n133_statement_α:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
-main_zw5s14_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
 #=======================================================================================================================
 #         output = 'FAIL 912/005: le(4,4) should succeed' :(end)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1768,9 +1574,6 @@ n135_assign_α:
                                                                                         jmp   n136_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n136_statement_α:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
-main_zw5s12_ω_d16:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
 #=======================================================================================================================
@@ -1798,14 +1601,8 @@ n138_assign_α:
 n139_statement_α:
                         add              rsp, 16
                                                                                         jmp   n140_statement_α
-main_zw5s7_ω_d16:
-                        add              rsp, 16
-                                                                                        jmp   n140_statement_α
 #-----------------------------------------------------------------------------------------------------------------------
 n140_statement_α:
-                        add              rsp, 16
-                                                                                        jmp   main_γ
-main_zw5s47_ω_d16:
                         add              rsp, 16
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
