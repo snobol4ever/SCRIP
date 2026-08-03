@@ -35,6 +35,21 @@ std::string bb_match_break() {
     const void * ct = bk_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (bk_rangep()) bk_ranges();
     if (_.op_sa < 0 && ZC_LIT_GUTS != ZC_LIT_GUTS_UNROLL) strtab_label(bk_nlb, sizeof bk_nlb, _.op_sval ? _.op_sval : "");
+    if (_.op_zres && _.op_sa >= 0)
+        return x86("comment", "IR_MATCH_BREAK zd")
+             + x86_alpha()
+             + x86("mov",    "edi", "r14d")
+             + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
+             + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
+             + x86("call",   "rt_sg_scan_nonmember", (uint64_t)(uintptr_t)(void *)rt_sg_scan_nonmember)
+             + x86("cmp",    "eax", "r15d")
+             + x86_omega("jge")
+             + x86("mov",    FR(_.x86_scratch_off), "r14d")
+             + x86("mov",    "r14d", "eax")
+             + x86_gamma()
+             + x86_beta()
+             + x86("mov",    "r14d", FR(_.x86_scratch_off))
+             + x86_omega();
     return x86("comment", "IR_MATCH_BREAK")
          + x86_alpha()
          + IF(bk_gi(),

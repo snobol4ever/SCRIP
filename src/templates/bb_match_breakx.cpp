@@ -53,6 +53,31 @@ std::string bb_match_breakx() {
     if (!PLATFORM_X86) return std::string();
     static char c[24];
     const void * ct = bx_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
+    if (_.op_zres && _.op_sa >= 0)
+        return x86("comment", "IR_MATCH_BREAKX zd")
+             + x86_alpha()
+             + x86("mov",    FR(_.x86_scratch_off + 4), "r14d")
+             + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
+             + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
+             + x86("mov",    "edi", "r14d")
+             + x86("call",   "rt_sg_scan_member", (uint64_t)(uintptr_t)(void *)rt_sg_scan_member)
+             + x86("cmp",    "eax", "r15d")
+             + x86_omega("jge")
+             + x86("mov",    "r14d", "eax")
+             + x86_gamma()
+             + x86_beta()
+             + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
+             + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
+             + x86("mov",    "edi", "r14d")
+             + x86("add",    "edi", (long)1)
+             + x86("call",   "rt_sg_scan_member", (uint64_t)(uintptr_t)(void *)rt_sg_scan_member)
+             + x86("cmp",    "eax", "r15d")
+             + x86("jge",    L(4))
+             + x86("mov",    "r14d", "eax")
+             + x86_gamma()
+             + x86("def",    L(4))
+             + x86("mov",    "r14d", FR(_.x86_scratch_off + 4))
+             + x86_omega();
     return x86("comment", "IR_MATCH_BREAKX")
          + x86_alpha()
          + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE,
