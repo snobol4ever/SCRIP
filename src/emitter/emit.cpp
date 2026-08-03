@@ -2195,7 +2195,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     enum { ZW5_POOL = 128, ZW5_MAX_DEPTHS = 8 };
     bb_label_t zw5_pool[ZW5_POOL]; int zw5_base = 0;
     int zw5_stmt_idx[ZW5_POOL]; int zw5_stmt_depths[ZW5_POOL][ZW5_MAX_DEPTHS]; int zw5_stmt_cnt[ZW5_POOL]; int zw5_pool_stmts = 0;
-    static int _zw5_on = -1; if (_zw5_on < 0) { const char *_e = getenv("SCRIP_ZW5"); _zw5_on = (_e && *_e == '0') ? 0 : 1; }
+    static int _zw5_on = -1; if (_zw5_on < 0) { const char *_e = getenv("SCRIP_ZW5"); _zw5_on = (_e && *_e == '1') ? 1 : 0; }   /* DEFAULT OFF (Lon 2026-08-02, observer seat): per-depth ω stub ladder DEPRECATED -- 100 stubs/roman, and its wpop-steal wedged 067 post-output (rsp mispositioned into NV_SET, stdio wedge; SCRIP_ZW5=0 cures, ZD_MATCH exonerated). The ruled design is the STF rbp bracket (ZGPOP-STF law above: mov rsp,rbp = depth-independent cut, ONE release site per statement) extended to the armed-pattern population this ladder covered -- see FINDING-2026-08-02h. */
     if (_zw5_on) { for (int _i = 0; _i < n; _i++) { if (nodes[_i]->op != IR_STATEMENT || !zd_on[_i]) continue; int _stno = (int)IR_LIT(nodes[_i]).ival; int _depths[ZW5_MAX_DEPTHS]; int _ndepths = 0; for (int _j = _i - 1; _j >= 0; _j--) { if (zd_on[_j] && zd_wp[_j] > 0 && zd_uk[(_j < n ? zd_uh[_j] : _j) >= 0 ? zd_uh[_j] : _j] == 0) { int _w = zd_wp[_j]; int _dup = 0; for (int _d = 0; _d < _ndepths; _d++) if (_depths[_d] == _w) { _dup = 1; break; } if (!_dup && _ndepths < ZW5_MAX_DEPTHS) _depths[_ndepths++] = _w; } if (nodes[_j]->op == IR_STATEMENT) break; }
         if (_ndepths == 0 || zw5_base + _ndepths > ZW5_POOL) continue;
         int _slot = zw5_pool_stmts++; zw5_stmt_idx[_slot] = _i; zw5_stmt_cnt[_slot] = _ndepths;
