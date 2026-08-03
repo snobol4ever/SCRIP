@@ -25,7 +25,9 @@ std::string bb_match_value() {
     return x86("comment", "IR_MATCH_VALUE (operand[0] pattern value, no manufactured name)")
          + x86_alpha()
          /* acquire operand[0]'s pattern value by pointer; DT_P -> compiled pattern fn in rax, else NULL (scalar) */
-         + x86("lea",  "rdi", FR(_.op_a_slot))
+         /* ZD-5b (s27 cross-front OMEGA): under ZD, operand[0]'s DESCR lives at ZOPQ(0,8) (depth-diff staged by the driver loop); FR(op_a_slot) is the legacy flat-frame address, still used when !op_zres. */
+         + IF(_.op_zres,  x86("lea",  "rdi", ZOPQ(0, 0)))   /* qword ptr [rsp# + op_zread[0] + 0] = base of operand[0]'s 16B DESCR cell */
+         + IF(!_.op_zres, x86("lea",  "rdi", FR(_.op_a_slot)))
          + x86_align_enter()
          + x86("call", "rt_match_value_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(DESCR_t *))rt_match_value_get_pat_fn)
          + x86_align_leave()
