@@ -47,7 +47,7 @@ std::string bb_match_begin() {
          + x86("note", HKN(1)) + x86("mov", RDQ("rbp", -8),  "r13")
          + x86("note", HKN(2)) + x86("mov", RDQ("rbp", -16), "r14")
          + x86("note", HKN(3)) + x86("mov", RDQ("rbp", -24), "r15")
-         + x86("note", "cas_base") + x86("mov", "r12", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("rbp", -32), "r12")   /* ⭐ ZW-3: r12 loaded from the cell seed here (C-transit safe: rt_match_enter may call into C which is allowed to write the cell; loading AFTER the call keeps r12 coherent).  The frame slot [rbp-32] = cas_base for the pump and ω restore; r12 itself is the LIVE top for all COND captures between here and END. */
+         + x86("note", "cas_base") + x86("mov", RDQ("rbp", -32), "r12")   /* ⭐ ZW-3 O-5s2: r12 is the live CAS top from the graph-entry seed (O-5s1: main_α seeds r12=[RT_CAS_TOP] before jmp; rt_outer_call seeds it in m3).  r12 is SysV callee-saved so rt_match_enter preserves it -- no cell reload needed here.  Save r12 to [rbp-32] = cas_base for the pump and ω restore. */
          + x86("lea", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "rt_anchor_g")
          + x86("note", "anchor_snapshot") + x86("mov", "rax", RDQ("rcx", 0)) + x86("mov", RDQ("rbp", -40), "rax")
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
