@@ -523,7 +523,7 @@ RTX_FUNC(rt_match_enter)
     mov     dword ptr [rip + g_cap_gen_next], eax        /* hidden -> direct; DWORD, adjacency-safe            */
     mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
     mov     dword ptr [r10], eax                         /* exported -> GOT; DWORD, adjacency-safe             */
-    cmp     qword ptr [RTX_CAS_TOP_VA], 0                /* --- inlined rt_dcap_lazy_init test (pinned VA) --- */
+    test    r12, r12                                     /* ⭐ O-5 ZW-3 R12-DIRECT (s33 OMEGA): r12 IS [RTX_CAS_TOP_VA] -- the graph-entry seed (scrip.c wrapper / rt_outer_call thunk) loaded r12=[0x70000000] before entry, so r12==0 iff dcap is uninitialised and r12!=0 iff the island is live.  Eliminates one absolute-VA load per match enter. */
     je      .Lme_dcap_cold
 .Lme_dcap_done:
     mov     r10, qword ptr [rip + g_patstk_sp@GOTPCREL]  /* --- inlined rt_patstk_lazy_init test ---           */
