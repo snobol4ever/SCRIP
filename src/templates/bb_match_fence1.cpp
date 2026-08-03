@@ -41,7 +41,10 @@ static std::string fence_release(int off) {
  * floor, never below it into whacked-and-reused bytes.  cstack/FORTH ports only — the arena ports keep the s133 own-span release (their activation floor is not plumbed; correct, unoptimized). */
 static int fence_whack_on() { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_FENCE_WHACK"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
 static std::string fence_whack_commit(int off) {
-    if (x86_port_cstack() && fence_whack_on()) return x86("mov", "rsp", "rbp") + x86("mov", FRQ(off), "rbp");
+    if (x86_port_cstack() && fence_whack_on()) {
+        if (_.op_zw) return x86("mov", "rsp", RDQ("rbp", 0)) + x86("mov", FRQ(off), "rbp");   /* ⭐ O-7 ZW frame: old rbp (activation floor) is at [rbp+0] -- match_begin pushed it via `push rbp; mov rbp,rsp`; the FENCE1 bulk-whack must restore to that floor, not to rbp (the match frame base). FRQ(off) := rbp stays (the FENCE1 na_f abandon path restores to this depth-free marker). */
+        return x86("mov", "rsp", "rbp") + x86("mov", FRQ(off), "rbp");
+    }
     return fence_release(off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
