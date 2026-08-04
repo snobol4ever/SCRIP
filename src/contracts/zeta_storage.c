@@ -164,10 +164,8 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack ws u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
     case IR_MATCH_ALTERNATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B r14d; +4 4B dead — was alt_i, killed by ALT-FLAT s202 address dispatch)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (ALT-FLAT s202: each arm's sigma stub stores its own resume trampoline address via lea rip; beta is one indirect jmp — the alt_i cmp-chain is dead.  Retenants the old dcap-pad quad)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_CODE, 0, "alt.next-entry continuation (ALT-FLAT s202: alpha and each entry stub store the NEXT arm's entry-stub address; the fail-advance is delta-restore + one indirect jmp — the entry cmp-chain is dead)", nd); return 2;
-    case IR_MATCH_SEQUENCE:
-        return 0;   /* SEQ-ERAD SE-5: pure wiring relay — bb_match_sequence emits only trampolines (zero FR/FRQ access), no local state */
     case IR_SCAN_SEQUENCE:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "scanseq.entry δ save (+16 from box base, 4B r14d) + seq_i live-element index (+20, 4B; α=0, na_s ++, na_f --, β=N) — same wiring as IR_MATCH_SEQUENCE; the value DESCR is the box result slot at [base]", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "scanseq.entry δ save (+16 from box base, 4B r14d) + seq_i live-element index (+20, 4B; α=0, na_s ++, na_f --, β=N); the value DESCR is the box result slot at [base]", nd); return 1;
     case IR_SCAN_ALTERNATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scanalt.entry δ save (+16 from box base, 4B r14d) + dcap height (+20, 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scanalt.alt_i live-alternative index (+24, 4B; α=0, na_f ++; β dispatches) (+28 pad)", nd); return 2;
     case IR_SCAN:
@@ -298,7 +296,7 @@ static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BRE
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
-        if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_FENCE1 || c->op == IR_MOVE_LABEL) continue;   /* ARBNO deliberately NOT here: operands[2] geometry bracket is a REAL slot read (s133 crosscheck caught it — 075/164/167/W04 arbno family).  COND/IMM operands[0] excluded PER-INDEX below (s21x-p, the roman LEN ghost-cell finding): lower_snobol4.c ~1327/~1355 pushes "[0] inner entry" -- the backtrack-in WIRING edge -- and "[1] SAVE" -- the ZB-FC-3c cross-box slot read.  [0] is control, [1] is value; a blanket kind exclusion would kill the SAVE liveness the s4 audit protects, so the skip is (kind, j==0), not (kind). */
+        if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_FENCE1 || c->op == IR_MOVE_LABEL) continue;   /* ARBNO deliberately NOT here: operands[2] geometry bracket is a REAL slot read (s133 crosscheck caught it — 075/164/167/W04 arbno family).  COND/IMM operands[0] excluded PER-INDEX below (s21x-p, the roman LEN ghost-cell finding): lower_snobol4.c ~1327/~1355 pushes "[0] inner entry" -- the backtrack-in WIRING edge -- and "[1] SAVE" -- the ZB-FC-3c cross-box slot read.  [0] is control, [1] is value; a blanket kind exclusion would kill the SAVE liveness the s4 audit protects, so the skip is (kind, j==0), not (kind). */
         for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue; for (int i = 0; i < g->n; i++) if (g->all[i] == p) { live[i] = 1; break; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -377,7 +375,7 @@ static void zls_slot_census(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || zls_is_wiring(nd->op) || zls_result_off(nd) < 0) continue; G++;
         int ref = 0;
         for (int k = 0; k < g->n && !ref; k++) { IR_t * c = g->all[k]; if (!c || c == nd) continue;
-            if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_SEQUENCE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_REPALT || c->op == IR_MOVE_LABEL) continue;
+            if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_REPALT || c->op == IR_MOVE_LABEL) continue;
             for (int j = 0; j < c->n_operands; j++) if (c->operands[j] == nd) { ref = 1; break; } }
         if (ref) L++; }
     tg += G; tl += L; tn++;
@@ -611,9 +609,7 @@ void zls_fct_finalize(IR_graph_t * g, int late) {
           for (int j = i0; j < r1 && j < g->n && _dok; j++) { IR_t * x = g->all[j]; if (x && (x->op == IR_MATCH_DEFER || x->op == IR_MATCH_PATREF)) { _dfr = 1; if (fct_defer_susp(x) <= 0) _dok = 0; } }
           fct[c].dfr = _dfr;
           if (!_dok) { if (getenv("SCRIP_TAIL_DIAG")) fprintf(stderr, "[TAIL-DIAG] finalize decline: defer target unregistered/non-uniform\n");
-                       { extern void fc_seq_unregister(const IR_t *); extern int fc_seq_active(const IR_t *);
-                         for (int j = i0; j < r1 && j < g->n; j++) { IR_t * x = g->all[j]; if (x && x->op == IR_MATCH_SEQUENCE && fc_seq_active(x)) fc_seq_unregister(x); } }   /* only tail candidates ever register SEQs; any active one in this candidate's range is its own pat_entry */
-                       fct[c].head = 0; fct[c].arbno = 0; continue; } }
+                       fct[c].head = 0; fct[c].arbno = 0; continue; } }   /* SEQ-ERAD SE-5/SE-6: fc_seq_unregister loop deleted, no IR_MATCH_SEQUENCE nodes exist */
         /* L1 ALT-in-body lift: footprints + leaf displacements via the ALT-aware helpers (fct_fp_range/fct_leaf_range above) -- a granted ALT enters each range as 16+fpmax with its arm extent skipped,
          * its arm leaves registering per-arm at pfx+16 with the same region bias.  ALT-free ranges reduce to the exact prior linear walks (same fc_geom sums, same formulas: left = 32+prefix+own flat,
          * body = prefix+own-bmn, right = fpb+prefix+own+span-rmn). */
@@ -720,7 +716,6 @@ int fc_geom(const IR_t * nd, long * k) {
     if (nd->op == IR_MATCH_BREAKX) { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_BAL)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_REM)    { if (k) *k = 16; return 1; }
-    if (nd->op == IR_MATCH_SEQUENCE) { static int on = -1; if (on < 0) { const char * a = getenv("SCRIP_STMT_FRAME"); const char * z = getenv("SCRIP_SEQ_CELL"); on = (a && *a == '1' && (z && *z == '1')) ? 1 : 0; } { extern int fc_seq_active(const IR_t *); extern int fc_arbno_member(const IR_t *); if (on && !fc_seq_active(nd) && !fc_arbno_member(nd)) { if (k) *k = 16; return 1; } } }   /* SEQ-CELL (s21x-l, Lon "every BB allocates... no need to be shy"): SEQUENCE's whole RW state is TWO dwords at its OWN quad (bb_match_sequence.cpp: FR(op_off) element index + FR(op_off+4) continuation, 8 refs, ZERO cross-box spellings by template inspection) -- one 16B cell rebases all of them, the ω hook releases it, the statement bracket normalizes the γ-suspended case (S10c LIFO, the BREAKX precedent).  Regime-keyed (SCRIP_STMT_FRAME) so the default path is byte-identical BY CONSTRUCTION; SCRIP_SEQ_CELL=0 is the killswitch.  CHAIN-CONVERTED SEQs (fc_seq_active) are EXCLUDED: their static re-points assume flat element depths (the s153 finalize-decline class), and fc_seq_unregister timing vs this query is exactly the registration-order hazard zls_fc_cell documents -- the conjunct keeps lower-time and emit-time answers equal for the granted set (inactive at both or the grant never fires).  zls_fc_cell net-out DELIBERATELY SKIPPED this slice: SEQ's flat quad double-counts 16B under gate-on (waste, not wrongness); netting it needs the 1:1 locals-quad proof per the s191 law. */
     /* IR_MATCH_ALTERNATE: NO cell (ALT-FLAT s202).  The ALT's own state (delta + resume/next continuation ptrs) lives in its flat zls quads; arms are flat (fc_arm_member); the box moves rsp nowhere. */
     if (nd->op == IR_SCAN_TAB)     { if (k) *k = 16; return 1; }   /* ZB-ICN-FC-1 (Icon, first FORTH cell): tab's single saved-cursor scratch at op_off+16 (fscan.r: oldpos saved at alpha, restored at beta then fail); result DESCR stays flat at op_off+0, read cross-box */
     if (nd->op == IR_SCAN_MOVE)    { if (k) *k = 16; return 1; }   /* ZB-ICN-FC-2 (Icon): move is tab's twin — same saved-cursor scratch at op_off+16 (fscan.r move: oldpos saved at alpha, restored at beta then fail), identical layout/shape */
@@ -802,11 +797,7 @@ void fc_seq_unregister(const IR_t * nd) { for (int i = 0; i < fcs_n; i++) if (fc
 static const IR_t * fcab[512]; static int fcab_n = 0;
 void fc_arbno_member_register(const IR_t * nd) { if (nd && fcab_n < 512) fcab[fcab_n++] = nd; }   /* SEQ-CELL fence (s21x-l): registered at LOWER where sno_in_arbno is live (lower_snobol4.c ~1146) -- an ARBNO-body SEQ's 16B cell interleaves with iteration frames whose extent arithmetic never counted it (the 066/164/165 m4 falsification, same disease as the s202 defer-window depth class), so ARBNO-extent residents stay flat, degrade never die.  Same node-ptr keying/staleness envelope as fc_arm_member. */
 int fc_arbno_member(const IR_t * nd) { for (int i = 0; i < fcab_n; i++) if (fcab[i] == nd) return 1; return 0; }   /* PS-3 s153: the tail candidate's pat_entry SEQ converts at lower ASSUMING the tail lands; a finalize-decline (defer target unregistered/non-uniform) must revert it or the SEQ's static re-points assume element depths the chain arm never establishes.  Swap-remove; consulted (fc_seq_active) only at emit, after the layout pass where the decline runs. */
-int fc_seq_active(const IR_t * nd) {
-    if (!nd || nd->op != IR_MATCH_SEQUENCE || !fc_cells_on()) return 0;   /* Z4-6: one port opinion */
-    for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) return 1;
-    return 0;
-}
+int fc_seq_active(const IR_t * nd) { (void)nd; return 0; }   /* SEQ-ERAD SE-5/SE-6: IR_MATCH_SEQUENCE deleted; always inactive */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* fc_save_* / fc_cond_* -- RUNG ZB-FC-3c (ARCH-ZETA S13 Tier C, CAPTURES; landing plan of record
  * FINDING-2026-07-13-CLAUDE-SN4-ZB-FC-3C-COND-CROSS-BOX-READ.md, which superseded the s44 plan).  TWO

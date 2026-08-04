@@ -169,7 +169,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_replace.cpp \
     $(SRC)/templates/bb_match_capture.cpp \
     $(SRC)/templates/bb_match_alternate.cpp \
-    $(SRC)/templates/bb_match_sequence.cpp \
     $(SRC)/templates/bb_match_defer.cpp \
     $(SRC)/templates/bb_match_value.cpp \
     $(SRC)/templates/bb_to_by.cpp \

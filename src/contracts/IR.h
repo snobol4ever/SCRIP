@@ -100,8 +100,8 @@ typedef enum {
      * Re-added onto the post-GZ#5 spine. Amputated wholesale by 8de0fb46 (GZ#5 ENUM-AMPUTATION);
      * design recovered from parent 41b53078. Two families + one sealed-blob ref, mirroring SPITBOL:
      *   IR_MATCH_*   = MATCHERS: the inline needle. One node per pattern element, wired by γ (success)
-     *                  / ω (failure) ports; IR_MATCH_ALTERNATE builds the backtrack tree, IR_MATCH_SEQUENCE
-     *                  threads concatenation, IR_MATCH_ASSIGN_IMM/_COND do `$`/`.`. Used when a
+     *                  / ω (failure) ports; IR_MATCH_ALTERNATE builds the backtrack tree,
+     *                  IR_MATCH_ASSIGN_IMM/_COND do `$`/`.`. Used when a
      *                  pattern is matched directly (`SUBJECT PAT [= REPL]`) — lower_pat_node emits these.
      *   IR_PATTERN_* = STITCH boxes ONLY (D7 pivot d7ba0fd9 → RT build/stitch 52fce031): the per-element
      *                  builders were ABANDONED — FZ-3/FZ-4 constant folding freezes every invariant
@@ -131,7 +131,6 @@ typedef enum {
     IR_MATCH_BAL,
     IR_MATCH_FENCE1,
     IR_MATCH_ABORT,
-    IR_MATCH_SEQUENCE,
     IR_MATCH_ALTERNATE,
     IR_MATCH_ASSIGN_IMM,
     IR_MATCH_ASSIGN_COND,

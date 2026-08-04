@@ -30,36 +30,4 @@ static int pf_lit_internal(IR_t * el, IR_t * seq, IR_graph_t * g, const int * in
     return j >= 0 && in[j] == 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int pf_run(IR_graph_t * g) {
-    if (!g || g->n <= 0) return 0;
-    int * in = (int *)calloc((size_t)g->n, sizeof(int));
-    if (!in) return 0;
-    int total = 0;
-    for (int pass = 0; pass < 8; pass++) {
-        int changed = 0;
-        pf_count_in(g, in);
-        for (int i = 0; i < g->n; i++) {
-            IR_t * seq = g->all[i];
-            if (!seq || seq->op != IR_MATCH_SEQUENCE || !pf_seq_paired(seq)) continue;
-            if ((long)IR_LIT(seq).ival * 2 != (long)seq->n_operands) continue;
-            for (int k = 0; k + 2 < seq->n_operands; k += 2) {
-                IR_t * A = seq->operands[k], * B = seq->operands[k + 2];
-                if (A == B || !pf_lit_internal(A, seq, g, in) || !pf_lit_internal(B, seq, g, in)) continue;
-                const char * as = IR_LIT(A).sval ? IR_LIT(A).sval : "", * bs = IR_LIT(B).sval ? IR_LIT(B).sval : "";
-                size_t al = strlen(as), bl = strlen(bs);
-                char * jn = (char *)malloc(al + bl + 1);
-                if (!jn) continue;
-                memcpy(jn, as, al); memcpy(jn + al, bs, bl + 1);
-                IR_LIT(A).sval = jn;
-                for (int m = k + 2; m + 2 < seq->n_operands; m++) seq->operands[m] = seq->operands[m + 2];
-                seq->n_operands -= 2;
-                IR_LIT(seq).ival -= 1;
-                changed++; total++;
-                break;
-            }
-        }
-        if (!changed) break;
-    }
-    free(in);
-    return total;
-}
+int pf_run(IR_graph_t * g) { (void)g; return 0; }   /* SEQ-ERAD SE-5/SE-6: IR_MATCH_SEQUENCE deleted; literal-adjacency folding was its only customer */
