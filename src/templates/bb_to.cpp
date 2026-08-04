@@ -14,6 +14,28 @@ int64_t to_int(DESCR_t v);
 std::string bb_to() {
     x86_begin();
     if (PLATFORM_X86)
+        if (_.op_zres)
+            return x86("comment", "IR_TO zd")
+                 + x86_alpha()
+                 + x86("note",  ZOPN(0)) + x86("mov", "rdi", ZOPQ(0, 0))
+                 + x86("note",  ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
+                 + x86("call",  "to_int", (uint64_t)(uintptr_t)(void*)to_int)
+                 + x86("mov",   ZLOC(0),           "rax")
+                 + x86("note",  ZOPN(1)) + x86("mov", "rdi", ZOPQ(1, 0))
+                 + x86("note",  ZOPN(1)) + x86("mov", "rsi", ZOPQ(1, 8))
+                 + x86("call",  "to_int", (uint64_t)(uintptr_t)(void*)to_int)
+                 + x86("mov",   ZLOC(8),            "rax")
+                 + x86("def",   L(0))
+                 + x86("mov",   "rax",   ZLOC(0))
+                 + x86("mov",   "rcx",   ZLOC(8))
+                 + x86("cmp",   "rax",   "rcx")
+                 + x86_omega(  "jg")
+                 + x86("note",  ZRESN()) + x86("mov", ZRES(0),  (long)DT_I)
+                 + x86("note",  ZRESN()) + x86("mov", ZRES(8),  "rax")
+                 + x86_gamma()
+                 + x86_beta()
+                 + x86("inc",   ZLOC(0))
+                 + x86("jmp",   L(0));
         return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
                _.op_num_real ?
                x86("comment", "IR_TO")
