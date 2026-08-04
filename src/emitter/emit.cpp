@@ -2437,12 +2437,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         IR_t *t = side ? nodes[i]->ω.node : nodes[i]->γ.node;
         const char *z = side ? nodes[i]->ω.sz : nodes[i]->γ.sz;
         int mk = (z[0] == (char)0xcf && ((unsigned char)z[1] == 0x83 || (unsigned char)z[1] == 0x86));
-        { int _gg = 0; IR_t *_c = t; while (_c && _c->op == IR_GOTO && _gg++ < 128) { if (!mk) mk = (_c->γ.sz[0] == (char)0xcf && ((unsigned char)_c->γ.sz[1] == 0x83 || (unsigned char)_c->γ.sz[1] == 0x86)); t = _c->γ.node; _c = t; } }
+        int _mkown = mk, _hops = 0;
+        { int _gg = 0; IR_t *_c = t; while (_c && _c->op == IR_GOTO && _gg++ < 128) { if (!mk) mk = (_c->γ.sz[0] == (char)0xcf && ((unsigned char)_c->γ.sz[1] == 0x83 || (unsigned char)_c->γ.sz[1] == 0x86)); t = _c->γ.node; _c = t; _hops++; } }
         if (!mk || !t || t->op != IR_MATCH_SEQUENCE) continue;
         for (int k = 0; k < n; k++) if (nodes[k] == t && seqclean[k]) {
             int N = (int)(nodes[k]->n_operands / 2), root = 0;
             for (int j = 0; j < N; j++) if (nodes[k]->operands[2 * j] == nodes[i] || nodes[k]->operands[2 * j + 1] == nodes[i]) root = 1;
-            if (!root) { { static int _sqd = -1; if (_sqd < 0) { const char * _e5 = getenv("SCRIP_SEQDAG"); _sqd = (_e5 && *_e5 == '1') ? 1 : 0; } if (_sqd) fprintf(stderr, "SEQDIRTY path=FOREIGN k=%d N=%d origin=[%d]%s side=%s\n", k, N, i, bb_op_name(nodes[i]->op), side ? "omega" : "gamma"); } seqclean[k] = 0; }
+            if (!root) { { static int _sqd = -1; if (_sqd < 0) { const char * _e5 = getenv("SCRIP_SEQDAG"); _sqd = (_e5 && *_e5 == '1') ? 1 : 0; } if (_sqd) fprintf(stderr, "SEQDIRTY path=FOREIGN k=%d N=%d origin=[%d]%s side=%s mk_own=%d hops=%d\n", k, N, i, bb_op_name(nodes[i]->op), side ? "omega" : "gamma", _mkown, _hops); } seqclean[k] = 0; }
         }
     }
     { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; }
