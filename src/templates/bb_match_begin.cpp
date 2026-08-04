@@ -35,8 +35,8 @@ std::string bb_match_begin() {
          + x86_alpha()
          + x86("note", "mech2_boundary") + x86("push", "rbp")   /* push FIRST: rbp = old caller rbp will be popped at whack; rsp now = α_base - 8 */
          + x86("mov", "rbp", "rsp")   /* rbp = rsp = α_base - 8; [rbp + 8 + off] = [α_base + off] -- so FRQ via rbp needs +8 compensation */
-         + IF(_.op_zres, x86("note", ZOPN(0)) + x86("mov", "rdi", x86_zref((int)_.op_uclaim + _.op_zread[0] + 0, 1))
-                       + x86("note", ZOPN(0)) + x86("mov", "rsi", x86_zref((int)_.op_uclaim + _.op_zread[0] + 8, 1))
+         + IF(_.op_zres, x86("note", ZOPN(0)) + x86("mov", "rdi", RDQ("rbp", 8 + _.op_zread[0] + 0))
+                       + x86("note", ZOPN(0)) + x86("mov", "rsi", RDQ("rbp", 8 + _.op_zread[0] + 8))
                        + IF(_.op_sa >= 0 && !subjc(), x86("mov", RDQ("rbp", 8 + _.op_sa), "rdi")
                                         + x86("mov", RDQ("rbp", 8 + _.op_sa + 8), "rsi")))
          + IF(!_.op_zres && subjc(), x86("mov", "rdi", "qword ptr [rbp + 8]")
@@ -52,7 +52,8 @@ std::string bb_match_begin() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)   /* ⭐ MECH2: no flat_deep_arrival save needed -- push rbp already saved old rbp on stack; pop rbp at whack restores it */
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_CAS_TOP), "r10")
+         + IF(_.op_udout > 0, x86("note", "mech2_blob_carve") + x86("sub", "rsp", (long)_.op_udout))   /* ⭐ ZW-RB-1 Part 3: sub rsp,Kc blob claim BEFORE the CAS push and BEFORE the hfc FORTH claim. rsp = α_base - 8 - Kc. Blob interior nodes (cm[], op_zw2=1) address [rsp+off+8+Kc]=[α_base+off] -- the correct claim slot. One-shot per statement entry (fires before L(0) retry label), mirrors the UCLAIM head's own single sub rsp,K. Gated op_udout>0 so declined/zero-Kc heads are byte-identical. */
+         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* ⭐ MECH-2 ORDERING (W-1 §4): CAS push fires AFTER sub rsp,Kc; cas_rsp_mark = α_base-8-Kc (post-blob-carve floor). rt_dcap_end_ok_open scans [mark,top) and the mark IS the post-carve RSP -- captures pushed inside the pattern blob land above this floor, so the scan range covers them exactly. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
                                                 + x86("note", "rsp_mark") + x86("mov", RDQ("rbp", 8 + _.op_off + 16), "rax")
