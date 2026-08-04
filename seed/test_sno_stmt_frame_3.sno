@@ -1,7 +1,0 @@
-* test_sno_stmt_frame_3 (s21x-d) - FIRST COMPILER-EMITTED statement-frame regime witness
-* (seeds 1/2 are the HAND embodiments; this .s is honest scrip output, SCRIP_STMT_FRAME=1).
-* Oracle: 10
- X = 1 + 2
- Y = X * 4
- OUTPUT = Y - 2
-END

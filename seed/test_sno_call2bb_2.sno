@@ -1,7 +1,0 @@
-        DEFINE('FIB(N)')                :(FIB.END)
-FIB     FIB = LT(N,2) N                 :S(RETURN)
-        FIB = FIB(N - 1) + FIB(N - 2)   :(RETURN)
-FIB.END
-        OUTPUT = FIB(10)
-        OUTPUT = FIB(1)
-END
