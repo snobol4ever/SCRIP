@@ -35,6 +35,7 @@ std::string bb_match_begin() {
          + x86_alpha()
          + x86("note", "mech2_boundary") + x86("push", "rbp")   /* push: old_rbp at [α-8]; rsp=α-8 */
          + x86("mov", "rbp", "rsp")   /* rbp=α-8; header slots [rbp-8]..[rbp-64] safe below; subj still at [rbp+8]=[α],[rbp+16]=[α+8] */
+         + x86("note", "mech2_framebase") + x86("mov", "r12", "rbp")   /* ⭐ W-1b ARBNO-RBP FIX: save mech-2 frame base (=α-8) into r12 (free since R12-ERAD per ARCH-ICON).  ARBNO uses rbp as element-view register (zv()=rbp); after any ARBNO iteration, rbp ≠ α-8.  The fail-exit and whack both read the header via [rbp-N]; they restore rbp←r12 before the first header read so every [rbp-N] slot resolves correctly regardless of ARBNO clobber.  r12 is preserved by C calls (callee-saved ABI) so it survives rt_match_enter and any pattern-body C calls.  Gate: mech-2 arm only (op_zw2=1). */
          + IF(_.op_udout > 0, x86("note", "mech2_blob_carve") + x86("sub", "rsp", (long)_.op_udout))   /* ⭐ W-1: Kc_zwr=Kc_cells+72; sub rsp,Kc_zwr; rsp=α-8-Kc_zwr≡0(mod16) for C calls. Header [rbp-16]..[rbp-64] is in carved region. Blob FR: [rsp+8+off]=[α-Kc_zwr+off] also in carved region. Gate op_udout>0; zero-Kc heads byte-identical. */
          + IF(_.op_zres, x86("note", ZOPN(0)) + x86("mov", "rdi", RDQ("rsp", (long)_.op_udout + 8 + _.op_zread[0] + 0))   /* zres: [rsp+Kc_zwr+8+zread]=[α+zread]; bypass FRQ (HEAD zdepth=0) */
                        + x86("note", ZOPN(0)) + x86("mov", "rsi", RDQ("rsp", (long)_.op_udout + 8 + _.op_zread[0] + 8))
@@ -50,7 +51,7 @@ std::string bb_match_begin() {
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
          + x86("mov", "eax", RDD("rcx", 0))
          + x86("note", HKN(4)) + x86("mov", RDQ("rbp", -40), "rax")   /* [rbp-40]=cap_gen */
-         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS marker: after sub rsp; cas_rsp_mark=post-carve floor; captures above this mark */
+         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_CAS_TOP), "r10") + x86("note", "cas_sentinel") + x86("mov", RDQ("rbp", -72), "r10")   /* CAS marker: after sub rsp; cas_rsp_mark=post-carve floor; captures above this mark. [rbp-72]=post-push CAS_TOP (=sentinel_base+24): saved AFTER the push so restore on retry keeps sentinel tag=0 intact and new COND entries go above it, not over it. The scan in match_end finds sentinel by reading backward from new top to the tag=0 entry at sentinel_base. */
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)   /* C call: rsp≡0(mod16) ✓ */
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
@@ -74,6 +75,9 @@ std::string bb_match_begin() {
          + x86("mov", "rax", "[rcx]")
          + x86("cmp64", "rax", (long)0)
          + x86("jne", L(1))
+         + x86("note", "cas_sentinel") + x86("mov", "r10", RDQ("rbp", -72)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* Bug4 fix: discard stale COND entries from failed attempt; restore CAS_TOP to sentinel base (ZW-12 analogue: r12←[rbp-40];RT_CAS_TOP←r12) */
+         + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "patstk_mark") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rbp", -56)) + x86("mov", RDQ("rcx", 0), "rax")   /* Bug4 fix: restore g_patstk_sp to α snapshot; discards any captures pushed during failed attempt */
+               + x86("note", "rsp_mark") + x86("mov", "rsp", RDQ("rbp", -64)))   /* Bug4 fix: restore rsp to α floor; collapses any zls2/SAVE growth from failed attempt (safe: blob cells below floor, Forth spine above rbp-8 untouched) */
          + x86("jmp", L(0))
          + x86("def", L(1))
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
@@ -100,6 +104,7 @@ std::string bb_match_begin() {
                    + x86_align_enter() + x86("mov", "rsp", RDQ("rbp", -64)) + x86_align_leave()   /* zls2 restore */
                    + x86_align_leave()))
              + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_CAS_TOP), "r10"))
+         + x86("note", "mech2_framebase") + x86("mov", "rbp", "r12")   /* ⭐ W-1b ARBNO-RBP FIX: restore rbp←r12 (=α-8) before header reads; ARBNO may have set rbp to element-view making [rbp-N] reads return garbage without this restore */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* restore from fixed header */
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
@@ -107,8 +112,8 @@ std::string bb_match_begin() {
          + x86("mov", "rsi", "r15")
          + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* rbp=α-8; mov rsp,rbp → rsp=α-8; pop rbp → rsp=α */
-         + x86("pop", "rbp")
+         + x86("note", "mech2_whack") + x86("mov", "rsp", "r12")   /* ⭐ W-1b: use r12 (=α-8) directly; rbp already restored above but using r12 is explicit and survives any further clobber between ctx_restore and here */
+         + x86("pop", "rbp")   /* pops [α-8] = old_rbp; rsp → α */
          + x86_omega()
          : _.op_zw
          ? x86("comment", "IR_MATCH_BEGIN (ZW-12 canonical frame)")
