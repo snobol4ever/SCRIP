@@ -276,5 +276,48 @@ RTX_FUNC(str_concat_d)
     jmp     c_str_concat_d
 RTX_ENDF(str_concat_d)
 
+/*-----------------------------------------------------------------------------
+ * char *VARVAL_fn(DESCR_t v)          C of record: src/runtime/core/core.c:1837
+ *
+ *   Arg pair: edi = v.v (tag), rsi = value (.s when the tag is DT_S).
+ *   Result: char * in rax.
+ *
+ * THE C IS A FOURTEEN-ARM SWITCH AND EXACTLY ONE ARM ALLOCATES NOTHING:
+ *     case DT_S: return v.s ? v.s : rt_ws_strdup_c("");
+ * with a non-NULL .s, which returns the caller's own pointer unchanged. Every
+ * other arm mints a fresh string through rt_ws_strdup_c -- SNUL/P/E/C and the
+ * default return constants, I and R FORMAT (SPITBOL Ch.3 conversion rules: an
+ * integer loses leading zeros and keeps its sign, a real takes the standard
+ * representation with a mandatory decimal point), A and T snprintf a prototype,
+ * DATA reads the type name -- and DT_N and DT_K additionally RECURSE, through
+ * rt_deref and NV_GET_fn respectively. Allocation and recursion both stay in C:
+ * never replicate an allocation in asm (the rule rtx_match.S:471 already states).
+ *
+ * SO THE PORTED ARM IS A THREE-TEST STRAIGHT LINE WITH NO CALL AND NO ALLOCATION,
+ * WHICH IS THE ARCH 0(f-pre) SHAPE WHOSE FALSIFIABILITY IS KNOWABLE IN ADVANCE:
+ * entries are commits by construction, because the arm has no bail edge once its
+ * two guards pass.
+ *
+ * 0(f) MEASURED BEFORE A LINE OF THIS WAS WRITTEN, AND IT FALSIFIED THE READING
+ * THAT MOTIVATED THE RUNG. Reading the C suggested the surviving entries would be
+ * biased toward the ALLOCATING arms, because prior rungs (rtx_match.S:822,
+ * rtx_icnrel.S:92, rtx_icnagg.S:27) had already inlined this exact DT_S arm into
+ * their own hot paths and would therefore no longer reach it. An LD_PRELOAD tag
+ * census says otherwise: DT_S with a non-NULL .s is 100.00% of entries on
+ * string_manip (20,000,006), pattern_bt_deep and table_access -- and the count
+ * scales EXACTLY 2.00x with the loop bound (20,000,006 -> 10,000,006 at half).
+ * The delegating arms are real but cold on this corpus; do not let that read as
+ * permission to port them, and do not quote the census as coverage for them.
+ */
+RTX_FUNC(VARVAL_fn)
+    RTX_GATE(str, c_VARVAL_fn)
+    cmp     edi, DT_S
+    jne     c_VARVAL_fn                 /* every other tag allocates -> C      */
+    test    rsi, rsi
+    jz      c_VARVAL_fn                 /* DT_S with NULL .s strdups "" -> C   */
+    mov     rax, rsi                    /* return v.s unchanged, no allocation */
+    ret
+RTX_ENDF(VARVAL_fn)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
