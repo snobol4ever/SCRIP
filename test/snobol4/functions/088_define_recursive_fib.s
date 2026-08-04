@@ -405,14 +405,14 @@ proc_LBL__fib_β:
 proc_LBL__fib_γ:
                         mov              rsp, rbp
                         pop              rbp
-                        xor              edi, edi
-                        call             exit@PLT
+                        mov              eax, 2
+                        ret
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__fib_ω:
                         mov              rsp, rbp
                         pop              rbp
-                        mov              edi, 1
-                        call             exit@PLT
+                        mov              eax, 104
+                        ret
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_fib_α
 proc_fib_α:
