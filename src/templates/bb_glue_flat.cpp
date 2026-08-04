@@ -67,8 +67,14 @@ int g_glue_o_sup = 0;   /* GLUE-O (s26a): set at the framed-enter site (emit.cpp
 static inline bool bb_glue_outer_whack() { extern int g_glue_o_sup; if (g_glue_o_sup) return false; static int s = -1; if (s < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; } return s ? (g_glue_entered != 0) : true; }   /* ⭐⭐ GLUE-O (s26a): leading g_glue_o_sup arm -- when the enter was suppressed the whack must be too, or mov rsp,rbp loads the CRT caller's rbp into rsp.  Under SCRIP_GLUEO=0 g_glue_o_sup is always 0 and every byte below is reached as before. */   /* ⭐⭐⭐ GLUE-SYM (s206): THE WHACK MUST FOLLOW THE ENTER.  This returned true UNCONDITIONALLY while the enter at emit.cpp:2153 is guarded by (nparams==0 && !flat_jmp_entry && !flat_pat && !flat_gen && !g_gen_proc_active) -- so every pat/gen/jmp-entry/gen-proc graph emitted `mov rsp,rbp; pop rbp` against a base it never established, which is verbatim the failure this file's own header names four lines up ("omitting (1) while keeping (3) loads the CRT caller's rbp into rsp").  MEASURED on a 7-line repro (procedure g() with two suspends, every write(g())): proc_g carries push rbp=0 / mov rsp,rbp=2 / pop rbp=3 and SEGVs.  ⛔ THE OPPOSITE FIX WAS TRIED FIRST AND FALSIFIED: forcing the ENTER to fire for those classes (so it matched the unconditional whack) scored Icon 184/79/30 -> 181/82/30, THREE PROGRAMS WORSE -- the pinned classes decline the push deliberately, because a jmp-entry graph's base is established by its CALLER and a dc-prep graph's by rt_pl_dc_prep, so an extra push shifts rsp under offsets computed against the real base.  The enter is therefore RIGHT and the whack was the drifted spelling.  NOT A REGRESSION: CARVE-KILL (ef9a7d2c/1ba33ea6) deleted xa_flat_prologue, which used to seed rbp for exactly these classes, and the surviving whack inherited a `true` written when the prologue still covered them. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_γ() {
-    /* ONE-SHOT BRIDGE gamma landing.  TEXT (mode-4): whack+exit(0) -- no ret, no eax.
-     * BINARY (mode-3): whack+eax=1+ret back to C caller (no PLT available in JIT slab).
+    /* ONE-SHOT BRIDGE gamma landing.
+     * CLASS O (outermost main, !flat_jmp_entry): TEXT exit(0) -- process terminus; BINARY mov eax,DT_S + ret.
+     * CLASS C (chain-entered EVAL/CODE/LBL__ blob, flat_jmp_entry=1, floor=0, !flat_pat): TEXT and BINARY both
+     *   mov eax,DT_S + ret.  The whack (mov rsp,rbp; pop rbp) unwinds rsp to the -O0 eval_chain_run_capture
+     *   frame; ret returns there, bypassing rt_chain_enter's 5-save pushes (which become below-rsp garbage,
+     *   cleaned up when eval_chain_run_capture itself returns -- measured correct at s22v and in m3).
+     *   m4 TEXT must ret here too: exit@PLT in a chain-entered JIT blob terminates the process before
+     *   eval_chain_run_capture can read ZZEVALZZ, producing silent empty output (root cause s237/s238).
      * ⭐ EXIT-ALIGN (s22q): the `add rsp, 24` s22p put here is DELETED, and it was an ABI violation on EVERY
      * mode-4 program, not a fragile constant that merely might drift.  It was restoring rsp to main's CRT
      * entry value before `call exit@PLT` -- but exit() NEVER RETURNS, so restoration buys nothing, while
@@ -79,18 +85,23 @@ std::string bb_glue_outer_γ() {
      * arbitrary.  The crash lands wherever glibc first touches an aligned SSE op on a spilled local (getenv
      * via _dl_call_fini here), never in the graph, which is what made it look like a pattern defect. */
     if (!PLATFORM_X86) return std::string();
+    bool _chain = g_emit.flat_jmp_entry != 0;
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(MEDIUM_TEXT,   x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
-         + IF(MEDIUM_BINARY, x86("mov32", "eax", (long)DT_S) + x86("ret"));
+         + IF(MEDIUM_TEXT   && !_chain, x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
+         + IF(MEDIUM_TEXT   &&  _chain, x86("mov32", "eax", (long)DT_S) + x86("ret"))
+         + IF(MEDIUM_BINARY,            x86("mov32", "eax", (long)DT_S) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
-    /* ONE-SHOT BRIDGE omega landing.  TEXT: exit(1).  BINARY: eax=99, ret.  EXIT-ALIGN (s22q): see γ above --
-     * the `add rsp, 24` is deleted here for the same reason and by the same measurement. */
+    /* ONE-SHOT BRIDGE omega landing.  CLASS O TEXT: exit(1).  CLASS C TEXT + all BINARY: mov eax,DT_FAIL + ret.
+     * EXIT-ALIGN (s22q): see γ above -- the `add rsp, 24` is deleted here for the same reason and by the same
+     * measurement.  CLASS C chain ret: same argument as γ above (s237/s238 root cause). */
     if (!PLATFORM_X86) return std::string();
+    bool _chain = g_emit.flat_jmp_entry != 0;
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(MEDIUM_TEXT,   x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
-         + IF(MEDIUM_BINARY, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
+         + IF(MEDIUM_TEXT   && !_chain, x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
+         + IF(MEDIUM_TEXT   &&  _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"))
+         + IF(MEDIUM_BINARY,            x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* WIRE-EXIT GLUE (Lon directive s22v: "dynamic glue templates for one-shot and pass-through access to complete BB graphs which have one entry and one exit" + "WHACK-FREE at completion").  A DEFINE
