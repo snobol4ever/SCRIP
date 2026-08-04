@@ -2068,7 +2068,6 @@ proc_PAT$1_α_body:
                         mov              qword ptr [rbp + 112], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n317_match_sequence_α:
-                        mov              dword ptr [rbp + 16], r14d
                                                                                         jmp   n322_match_any_α
 n317_match_sequence_as:
                                                                                         jmp   proc_PAT$1_γ
@@ -2368,7 +2367,6 @@ n335_match_alternate_af:
                                                                                         jmp   proc_PAT$2_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n336_match_sequence_α:
-                        mov              dword ptr [rbp + 224], r14d
                                                                                         jmp   n338_match_patref_α
 n336_match_sequence_as:
                                                                                         jmp   n335_match_alternate_s1
@@ -2520,7 +2518,6 @@ n338_match_patref_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n339_match_sequence_α:
-                        mov              dword ptr [rbp + 48], r14d
                                                                                         jmp   n347_match_patref_α
 n339_match_sequence_as:
                                                                                         jmp   n335_match_alternate_s0
@@ -3539,7 +3536,6 @@ n406_match_alternate_af:
                                                                                         jmp   proc_PAT$6_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n407_match_sequence_α:
-                        mov              dword ptr [rbp + 64], r14d
                                                                                         jmp   n410_match_lit_α
 n407_match_sequence_as:
                                                                                         jmp   n406_match_alternate_s1
@@ -3884,7 +3880,6 @@ n425_match_defer_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n426_match_sequence_α:
-                        mov              dword ptr [rbp + 48], r14d
                                                                                         jmp   n430_match_patref_α
 n426_match_sequence_as:
                                                                                         jmp   n424_match_alternate_s0
@@ -4229,7 +4224,6 @@ n445_match_defer_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n446_match_sequence_α:
-                        mov              dword ptr [rbp + 48], r14d
                                                                                         jmp   n451_match_defer_α
 n446_match_sequence_as:
                                                                                         jmp   n444_match_alternate_s0
@@ -4645,7 +4639,6 @@ n467_match_defer_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n468_match_sequence_α:
-                        mov              dword ptr [rbp + 48], r14d
                                                                                         jmp   n473_match_defer_α
 n468_match_sequence_as:
                                                                                         jmp   n466_match_alternate_s0
@@ -6586,7 +6579,6 @@ n583_match_begin_β:
                                                                                         jmp   n596_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n584_match_sequence_α:
-                        mov              dword ptr [rbp + 2416], r14d
                                                                                         jmp   n594_lit_integer_α
 n584_match_sequence_as:
                                                                                         jmp   n585_match_end_α

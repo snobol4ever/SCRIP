@@ -22,9 +22,6 @@ n0_var_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n1_coerce_string_α
-n0_var_β:
-                        add              rsp, 16
-                                                                                        jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n1_coerce_string_α:
                         sub              rsp, 16
@@ -33,10 +30,6 @@ n1_coerce_string_α:
                         mov              rdx, 12320956                                  # codes
                         call             rt_coerce_str_d@PLT
                                                                                         jmp   n2_var_α
-n1_coerce_string_β:
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n2_var_α:
                         sub              rsp, 16
@@ -45,10 +38,6 @@ n2_var_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n3_coerce_string_α
-n2_var_β:
-                        add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n3_coerce_string_α:
                         sub              rsp, 16
@@ -57,10 +46,6 @@ n3_coerce_string_α:
                         mov              rdx, 4522053                                   # codes
                         call             rt_coerce_str_d@PLT
                                                                                         jmp   n4_match_sequence_α
-n3_coerce_string_β:
-                        add              rsp, 16
-                        add              rsp, 48
-                                                                                        jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_sequence_α:
                                                                                         jmp   n6_match_break_α
