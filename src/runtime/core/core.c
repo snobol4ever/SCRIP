@@ -1834,7 +1834,7 @@ void core_lib_init(void) {
     g_protected_pat_vars_armed = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *VARVAL_fn(DESCR_t v) {
+char *c_VARVAL_fn(DESCR_t v) {
     char buf[64];
     switch (v.v) {
         case DT_SNUL:    return rt_ws_strdup_c("");
