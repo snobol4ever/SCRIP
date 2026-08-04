@@ -112,6 +112,7 @@ int64_t rt_gvar_get_int(const char *name);
 DESCR_t rt_gvar_get_descr(const char *name);
 DESCR_t rt_proc_define(const char *spec);
 void rt_arg_stage(int idx, DESCR_t v);
+void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals);   /* ICN-PROC-FRAME (s211): copy g_call_args into lexical-proc frame param slots and zero locals; nargs from g_pcall top. */
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
 void rt_c2b_arm_trap(void);

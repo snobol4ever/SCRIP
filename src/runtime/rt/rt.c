@@ -1033,6 +1033,15 @@ extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
 extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 __attribute__((visibility("hidden"))) rt_pcall_t *g_pcall;
 __attribute__((visibility("hidden"))) int         g_pcall_top;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-PROC-FRAME (s211): install g_call_args into lexical-proc frame at ZLS vslot offsets. Param i lives at [rbp+(i+1)*16] (ZLS: slot 0 reserved for proc result, params at +16,+32,...). Locals at [rbp+(nparams+j+1)*16]. Both media call this C function. */
+    char *base = (char *)rbp_base;
+    int nargs = (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].nargs : 0;
+    int na = (nargs < nparams) ? nargs : nparams;
+    for (int i = 0; i < na; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
+    for (int i = na; i < nparams; i++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (i + 1) * 16) = _n; }
+    for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
+}
 __attribute__((visibility("hidden"))) int         g_pcall_cap;
 /* SN4-FLAT-PROC (s176) — the flat-return wires ride a PARALLEL array, index-locked to g_pcall, NOT new rt_pcall_t fields: rtx_call.S bakes sizeof(rt_pcall_t)==64 (stride shl 6) and its field offsets,
  * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's
