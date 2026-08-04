@@ -1207,7 +1207,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
-    IR_t * succ = PFAIL; IR_t * fail = PFAIL;
+    IR_t * succ = PSUCC; IR_t * fail = PFAIL;   /* ICN-PROC-EXIT (s208 clean-build): the last statement's γ must reach PSUCC (procedure succeeds), not PFAIL. Icon semantics: a procedure that falls off the end of its body succeeds with the value of the last expression (or null). PFAIL for succ was the SNOBOL4 "both start as the next statement" seed applied without adjustment -- wrong because Icon has no explicit next-statement threading; the emitted γ wires to the graph's own success exit, not a continuation. */
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
