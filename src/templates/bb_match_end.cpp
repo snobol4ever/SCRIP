@@ -75,12 +75,12 @@ std::string bb_match_end() {
          : _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_END: head slot not resolved (operand[0] missing or unowned)")
          : _.op_zw2
-         ? x86("comment", "IR_MATCH_END (MECHANISM-2: rbp-relative housekeeping restores; whack = mov rsp,rbp; pop rbp)")
+         ? x86("comment", "IR_MATCH_END (MECHANISM-2 W-1: fixed negative rbp offsets [rbp-16]..[rbp-64] match match_begin header; blob cells via FR; whack=mov rsp,rbp;pop rbp)")
          + x86_alpha()
-         + IF(_.op_dval != 0.0, x86("note", "end_δ") + x86("mov", RDQ("rbp", 8 + _.op_off + 40), "r14"))   /* ⭐ ZW-RB-1 Part 4: rbp-relative spare slot (was FRQ) -- depth-immune across blob carve */
+         + IF(_.op_dval != 0.0, x86("note", "end_δ") + x86("mov", RDQ("rbp", -8), "r14"))   /* ⭐ W-1: end_δ spare in pad slot [rbp-8] (safe; depth-immune) */
          + x86_xfer_enter()
          + x86_anchor_enter()
-         + x86("mov", "rsi", ABSQ(RT_CAS_TOP))   /* CAS scan: find tag-0 sentinel from the marker the head pushed */
+         + x86("mov", "rsi", ABSQ(RT_CAS_TOP))
          + x86("mov", "r10", "rsi")
          + x86("def", L(5))
          + x86("sub", "r10", (long)24)
@@ -109,26 +109,25 @@ std::string bb_match_end() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS: pop entries + sentinel wholesale */
-         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", 8 + _.op_off + 48))   /* ⭐ ZW-RB-1 Part 4: rbp-relative (was FRQ) -- [rbp+8+off+48]=[α_base+off+48]; depth-immune across blob carve and C calls in the pump loop above */
-         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", 8 + _.op_off + 56))
-         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", 8 + _.op_off + 64))
+         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")
+         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ⭐ W-1: restore from fixed header [rbp-16..rbp-40] matching match_begin saves */
+         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
+         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
          + x86("mov", "rdi", "r13") + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", 8 + _.op_off + 72))
+         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + IF(_.op_dval != 0.0, x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", 8 + _.op_off))
-                              + x86("note", "match_start") + x86("mov", RDD("rbp", 8 + _.op_off), "eax")
-                              + x86("note", "end_δ")   + x86("mov", "r11", RDQ("rbp", 8 + _.op_off + 40)))
+         + IF(_.op_dval != 0.0, x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -48))   /* start_δ at [rbp-48] */
+                              + x86("note", "end_δ")   + x86("mov", "r11", RDQ("rbp", -8)))   /* end_δ from pad slot */
          + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")
          + x86("pop", "rbp")
-         + IF(_.op_dval != 0.0, x86("note", "match_start") + x86("mov", RDD("rbp", 8 + _.op_off), "eax")
-                              + x86("note", "match_end")   + x86("mov", FRQ(_.op_off + 24), "r11"))   /* post-whack: rbp=old caller rbp, rsp=α_base; FRQ now addresses the caller's claim correctly for match_start/match_end result slots */
+         + IF(_.op_dval != 0.0, x86("note", "match_start") + x86("mov", RDD("rbp", 8 + _.op_off), "eax")   /* post-whack: rbp=old, rsp=α; FRQ addresses caller claim */
+                              + x86("note", "match_end")   + x86("mov", FRQ(_.op_off + 24), "r11"))
          + x86_gamma()
-         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", 8 + _.op_off + 48))   /* ω path: same rbp-relative restores -- depth-immune */
-         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", 8 + _.op_off + 56))
-         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", 8 + _.op_off + 64))
+         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ω path: same fixed offsets */
+         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
+         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
          + x86("mov", "rdi", "r13") + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", 8 + _.op_off + 72))
+         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
          + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")
          + x86("pop", "rbp")
