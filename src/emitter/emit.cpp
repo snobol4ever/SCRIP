@@ -458,7 +458,7 @@ void (*g_cap_fixup_cb)(void *cap_ptr, const char *child_α_label) = NULL;
 const char *child_cache_get_lbl(bb_box_fn fn);
 #define FLAT_BUF_MAX  (1024 * 1024)
 int g_flat_node_id   = 0;
-static int g_seq_static_cur = 0;
+
 int g_last_flat_frame_bytes = 0;
 int g_last_flat_zstatic = 0;   /* PS-1b (s151): 1 iff the just-emitted graph is DEFER/VALUE-free AND its zls region was known (not the 4096 fallback) -- the emit-side twin of bb_graph_zstatic, captured per-proc by the driver into proc_zstatic_buf and registered so SNO$MKPAT-minted DT_P carry a trustworthy zstatic; default 0 = conservative (chain path). */
 int g_last_flat_fp = 0;        /* PS-3 (s152): the just-emitted graph's total FORTH port-cell footprint (fct_fp_range over the whole graph, ALT = 16+fpmax per S10d) -- the interior-cell term of the DT_P suspension ζ size; fed with frame_bytes into emit_patzeta_register by the driver proc loops, both modes. */
@@ -983,7 +983,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ALTERNATE:      { bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT; ALT-FLAT s202 -- zero-cell box, address-dispatch template, no fc staging */
     case IR_MATCH_FENCE1:          { bb_emit_x86(bb_match_fence1()); } return 0;     /* SYNC-POINT ζ RELEASE sync point 2: NO fc_geom BY DESIGN — the watermark quad must stay [rbp+off] (depth-immune) because the σ glue reads it at the dynamic post-P depth */
     case IR_MATCH_ABORT:           { bb_emit_x86(bb_match_abort()); } return 0;      /* ABORT-NODE (s193): first live constructor is lower_snobol4.c TT_ABORT (was bare IR_GOTO); template pre-existed, flat_trivial_beta already anticipated the kind */
-    case IR_MATCH_SEQUENCE:       { g_emit.op_fc_seq = (x86_port_mode() == ZC_PORT_FORTH && fc_seq_active(nd)) ? 1 : 0; g_emit.op_seq_static = g_seq_static_cur; { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_match_sequence()); } return 0;   /* SN4-NARY-SEQ + ZB-FC-3b zero-LOCALS grant; SEQ-CELL (s21x-l): regime-keyed 16B own-cell grant, base = op_off (both FR refs are own-quad dwords), fc_geom's !fc_seq_active conjunct keeps chain-converted SEQs flat */
+    case IR_MATCH_SEQUENCE:       { g_emit.op_fc_seq = (x86_port_mode() == ZC_PORT_FORTH && fc_seq_active(nd)) ? 1 : 0; { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_match_sequence()); } return 0;   /* SN4-NARY-SEQ + ZB-FC-3b; SEQ-ERAD SE-4: counter arm deleted, op_seq_static removed */
     case IR_SCAN_SEQUENCE:        { bb_emit_x86(bb_scan_sequence()); } return 0;   /* Icon scan concat: bb_match_sequence wiring, value = slice into own slot */
     case IR_SCAN_ALTERNATE:       { bb_emit_x86(bb_scan_alternate()); } return 0;  /* Icon scan alternation: bb_match_alternate wiring, value = slice into own slot */
     case IR_TO_BY:                { bb_prepare(nd); bb_emit_x86(bb_to_by()); } return 0;
@@ -1186,7 +1186,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }   /* CV10: arm-value slots delivered to bb_scan_sequence (op_parts channel, IR_ALT precedent; 32-arm cap) */
     if (nd->op == IR_DISJUNCTION) { for (int j = 0; j < N && j < 32; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0; while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }   /* conjunction value = operands[0] (its own drive's alias source); chase STRUCTURALLY — bb_slot_register aliasing happens at the conj's OWN drive, later in chain order than this dj, so slot lookups here are pre-alias-stale (rung37 empty-value bug) */ int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs; } g_emit.op_parts_n = N; }   /* MOVE_LABEL-ERAD option B: per-arm RESULT slots (trailing operands) for the σ-glue's alt_i-dispatched copy into the disjunction's own value slot; -1 = valueless arm, glue copies nothing (value stays as α zeroed it) */
-    if (nd->op == IR_MATCH_SEQUENCE && x86_port_mode() != ZC_PORT_INSTRUMENTED && x86_port_mode() != ZC_PORT_ALLOC && (fc_seq_on(nd) || (seq_static_on(nd) && g_seq_static_cur))) { if (na_s[i]) bb_label_alias(na_s[i], bb_label_fold(node_γ)); if (na_f[i]) bb_label_alias(na_f[i], bb_label_fold(node_ω)); }   /* HEAT-1 H1b: FC/SEQ-STATIC arms emit as: jmp γ / af: jmp ω (bb_match_sequence.cpp) — pure trampolines; alias them so every later consumer jmp retargets to the final label (bb_label_fold at the jmp funnels, fixpoint chase, stubs still emitted for earlier consumers, SCRIP_SEQ_FOLD=0 kill-switch) */
+    if (nd->op == IR_MATCH_SEQUENCE && x86_port_mode() != ZC_PORT_INSTRUMENTED && x86_port_mode() != ZC_PORT_ALLOC) { if (na_s[i]) bb_label_alias(na_s[i], bb_label_fold(node_γ)); if (na_f[i]) bb_label_alias(na_f[i], bb_label_fold(node_ω)); }   /* HEAT-1 H1b: SEQ always emits pure trampolines aliased away (SEQ-ERAD SE-4: seqclean removed, static arm unconditional) */
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2413,41 +2413,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                 int _o = (int)nodes[_j]->op; if (_o == IR_STATEMENT_BEGIN || _o == IR_STATEMENT_END || _o == IR_STATEMENT) break;
                 if (zd_on[_j] && zd_wp[_j] > 0 && flat_unwind_beta(nodes[_j]) && zd_chase(nodes[_j]->ω.node) == _ti) {
                     if ((zd_wp[_i] + zd_k(nodes[_i])) - (zd_wp[_j] + zd_k(nodes[_j])) >= 0) bused[_j] = 1; break; } } } } }
-    unsigned char *seqclean = (unsigned char *)alloca(n > 0 ? n : 1);
-    /* SPD SEQ-STATIC prepass: a celled IR_MATCH_SEQUENCE converts to the zero-counter statically-wired arm iff (a) every element entry AND resume root is present in this chain (sigma_i -> alpha_{i+1} / phi_i -> beta_{i-1} all resolvable) and (b) every sigma/phi-marked edge into it originates FROM one of those roots (GOTO-chased marks from foreign protocol glue -- DEFER return, ARBNO seal -- must keep the counter dispatch: degrade never die).  FC-converted SEQs bypass this (eligibility already fences their source set). */
-    static int _sqoff = -1; if (_sqoff < 0) { const char *_e = getenv("SCRIP_SEQSTATIC"); _sqoff = (_e && *_e == '0') ? 1 : 0; }   /* SPD SEQ-STATIC: DEFAULT ON since s110 -- the s109 "non-sigma/phi glue consumer" was the ZPOP-FOLD chase below (phi hop into a converted SEQ kept the raw af glue, jmp-omega under conversion; bracketed via SCRIP_ZPOP_FOLD_OFF=1 discrimination, fixed by mirroring the main loop's fc_seq_phi_tgt redirect at the fold's hop resolution).  SCRIP_SEQSTATIC=0 is the same-build A/B hatch (BP-5/BP-6 precedent). */
-    for (int k = 0; k < n; k++) {
-        seqclean[k] = 0;
-        if (_sqoff || nodes[k]->op != IR_MATCH_SEQUENCE || nodes[k]->n_operands < 2) continue;
-        int N = (int)(nodes[k]->n_operands / 2), ok = 1;
-        int _bj = -1, _bfe = 0, _bfr = 0;
-        for (int j = 0; j < N && ok; j++) { int fe = 0, fr = 0; for (int p = 0; p < n; p++) { if (nodes[p] == nodes[k]->operands[2 * j]) fe = 1; if (nodes[p] == nodes[k]->operands[2 * j + 1]) fr = 1; } if (!fe || !fr) { ok = 0; _bj = j; _bfe = fe; _bfr = fr; } }
-        { static int _sqd = -1; if (_sqd < 0) { const char * _e4 = getenv("SCRIP_SEQDAG"); _sqd = (_e4 && *_e4 == '1') ? 1 : 0; } if (_sqd && !ok) fprintf(stderr, "SEQDIRTY path=CHAIN k=%d N=%d elem=%d entry_found=%d resume_found=%d\n", k, N, _bj, _bfe, _bfr); }
-        seqclean[k] = (unsigned char)ok;
-    }
-    { static int _sqmax = -2; if (_sqmax < -1) { const char *_e = getenv("SCRIP_SEQSTATIC_MAX"); _sqmax = _e ? atoi(_e) : -1; }
-      static int _sqcnt = 0;
-      if (_sqmax >= 0) for (int k = 0; k < n; k++) if (seqclean[k] && nodes[k]->op == IR_MATCH_SEQUENCE) { if (_sqcnt >= _sqmax) seqclean[k] = 0; else { static int _sd2 = -1; if (_sd2 < 0) { const char *_e2 = getenv("SCRIP_BLOB_MAP"); _sd2 = (_e2 && *_e2 == '1') ? 1 : 0; } if (_sd2) fprintf(stderr, "SEQCONV idx=%d k=%d N=%d\n", _sqcnt, k, (int)(nodes[k]->n_operands / 2)); _sqcnt++; } } }
-    { int *claim = (int *)alloca(sizeof(int) * (n > 0 ? n : 1));
-      /* SPD SEQ-STATIC DAG fence: SNOBOL4 patterns are VALUES -- a reused pattern variable lowers as a shared SUBTREE, so one physical root can be an element of TWO sequences.  Its single sigma/phi edge can be statically aimed at only ONE parent's neighbor; the counter glue was the DAG's runtime disambiguator.  Any root claimed by >= 2 sequences dirties ALL claimants (degrade never die). */
-      for (int p = 0; p < n; p++) claim[p] = -1;
-      for (int k = 0; k < n; k++) if (seqclean[k]) { int N = (int)(nodes[k]->n_operands / 2);
-        for (int j = 0; j < 2 * N; j++) for (int p = 0; p < n; p++) if (nodes[p] == nodes[k]->operands[j]) { if (claim[p] >= 0 && claim[p] != k) { { static int _sqd = -1; if (_sqd < 0) { const char * _e3 = getenv("SCRIP_SEQDAG"); _sqd = (_e3 && *_e3 == '1') ? 1 : 0; } if (_sqd) { int k2 = claim[p]; int nst = 0; for (int q = 0; q < nodes[k]->n_operands; q++) if (nodes[k]->operands[q] == nodes[k2]) nst = 1; for (int q = 0; q < nodes[k2]->n_operands; q++) if (nodes[k2]->operands[q] == nodes[k]) nst = 2; fprintf(stderr, "SEQDIRTY path=DAG shared=[%d]%s sval=%s pat_static=%d seal=%d SA=[%d]N%d SB=[%d]N%d slot=%d/%s nested=%d dist=%d\n", p, bb_op_name(nodes[p]->op), IR_LIT(nodes[p]).sval ? IR_LIT(nodes[p]).sval : "-", nodes[p]->pat_static, nodes[p]->seal, k, (int)(nodes[k]->n_operands / 2), k2, (int)(nodes[k2]->n_operands / 2), j, (j & 1) ? "resume" : "entry", nst, k > k2 ? k - k2 : k2 - k); } } seqclean[k] = 0; seqclean[claim[p]] = 0; } else claim[p] = k; break; } } }
-    for (int i = 0; i < n; i++) for (int side = 0; side < 2; side++) {
-        IR_t *t = side ? nodes[i]->ω.node : nodes[i]->γ.node;
-        const char *z = side ? nodes[i]->ω.sz : nodes[i]->γ.sz;
-        int mk = (z[0] == (char)0xcf && ((unsigned char)z[1] == 0x83 || (unsigned char)z[1] == 0x86));
-        int _mkown = mk, _hops = 0;
-        { int _gg = 0; IR_t *_c = t; while (_c && _c->op == IR_GOTO && _gg++ < 128) { if (!mk) mk = (_c->γ.sz[0] == (char)0xcf && ((unsigned char)_c->γ.sz[1] == 0x83 || (unsigned char)_c->γ.sz[1] == 0x86)); t = _c->γ.node; _c = t; _hops++; } }
-        if (!mk || !t || t->op != IR_MATCH_SEQUENCE) continue;
-        for (int k = 0; k < n; k++) if (nodes[k] == t && seqclean[k]) {
-            int N = (int)(nodes[k]->n_operands / 2), root = 0;
-            for (int j = 0; j < N; j++) if (nodes[k]->operands[2 * j] == nodes[i] || nodes[k]->operands[2 * j + 1] == nodes[i]) root = 1;
-            if (!root) { { static int _sqd = -1; if (_sqd < 0) { const char * _e5 = getenv("SCRIP_SEQDAG"); _sqd = (_e5 && *_e5 == '1') ? 1 : 0; } if (_sqd) fprintf(stderr, "SEQDIRTY path=FOREIGN k=%d N=%d origin=[%d]%s side=%s mk_own=%d hops=%d\n", k, N, i, bb_op_name(nodes[i]->op), side ? "omega" : "gamma", _mkown, _hops); } seqclean[k] = 0; }
-        }
-    }
-    { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; }
-      if (_sd) for (int k = 0; k < n; k++) if (nodes[k]->op == IR_MATCH_SEQUENCE) { fprintf(stderr, "SEQVERDICT chain=%d k=%d N=%d clean=%d fc=%d elems=", id, k, (int)(nodes[k]->n_operands / 2), (int)seqclean[k], fc_seq_on(nodes[k]) ? 1 : 0); for (int j = 0; j < nodes[k]->n_operands; j++) { int _f = -1; for (int p = 0; p < n; p++) if (nodes[p] == nodes[k]->operands[j]) { _f = p; break; } fprintf(stderr, "%d,", _f); } fprintf(stderr, "\n"); } }
+
     bb_label_t *resume_init_lbl = NULL;
     if (g_suspend_resume_slot >= 0 && g_gen_proc_active) {
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { resume_init_lbl = betas[_si]; break; }
@@ -2522,14 +2488,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                 for (int _j = 0; _j < _N; _j++) { IR_t *_e = nodes[k]->operands[2 * _j]; for (int _p = 0; _p < n; _p++) if (nodes[_p] == _e) { if (_p <= _src && _p > _best) { _best = _p; _arm = _j; } break; } }
                 node_γ = fc_sig[k][_arm];
             }
-            if (gamma_is_sig && (fc_seq_on(nodes[k]) || (seq_static_on(nodes[k]) && seqclean[k]))) { node_γ = fc_seq_sigma_tgt(nodes, n, k, i, lbls,  node_γ); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQRP sig chain=%d src=%d k=%d el=%d tgt=%s\n", id, i, k, fc_seq_elem_of(nodes, n, k, i), node_γ ? node_γ->name : "?"); } }   /* ZB-FC-3b: inside-success → NEXT element's α (static; rsp already correct) */
-            if (gamma_is_phi && (fc_seq_on(nodes[k]) || (seq_static_on(nodes[k]) && seqclean[k]))) { node_γ = fc_seq_phi_tgt  (nodes, n, k, i, betas, node_γ); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQRP gphi chain=%d src=%d k=%d el=%d tgt=%s\n", id, i, k, fc_seq_elem_of(nodes, n, k, i), node_γ ? node_γ->name : "?"); } }   /* ZB-FC-3b: a FAIL-goto's γ means fail → PREV element's β */
+            if (gamma_is_sig && (fc_seq_on(nodes[k]) || seq_static_on(nodes[k]))) { node_γ = fc_seq_sigma_tgt(nodes, n, k, i, lbls,  node_γ); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQRP sig chain=%d src=%d k=%d el=%d tgt=%s\n", id, i, k, fc_seq_elem_of(nodes, n, k, i), node_γ ? node_γ->name : "?"); } }   /* ZB-FC-3b: inside-success → NEXT element's α (static; rsp already correct) */
+            if (gamma_is_phi && (fc_seq_on(nodes[k]) || seq_static_on(nodes[k]))) { node_γ = fc_seq_phi_tgt  (nodes, n, k, i, betas, node_γ); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQRP gphi chain=%d src=%d k=%d el=%d tgt=%s\n", id, i, k, fc_seq_elem_of(nodes, n, k, i), node_γ ? node_γ->name : "?"); } }   /* ZB-FC-3b: a FAIL-goto's γ means fail → PREV element's β */
             break;
         }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; if (omega_is_phi && (fc_seq_on(nodes[k]) || (seq_static_on(nodes[k]) && seqclean[k]))) { node_ω = fc_seq_phi_tgt(nodes, n, k, i, betas, node_ω); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQRP ophi chain=%d src=%d k=%d el=%d tgt=%s\n", id, i, k, fc_seq_elem_of(nodes, n, k, i), node_ω ? node_ω->name : "?"); } } omega_resolved = 1; break; }   /* ZB-FC-3b: inside-fail → PREV element's β (static; subtree already popped) */
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; if (omega_is_phi && (fc_seq_on(nodes[k]) || seq_static_on(nodes[k]))) { node_ω = fc_seq_phi_tgt(nodes, n, k, i, betas, node_ω); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQRP ophi chain=%d src=%d k=%d el=%d tgt=%s\n", id, i, k, fc_seq_elem_of(nodes, n, k, i), node_ω ? node_ω->name : "?"); } } omega_resolved = 1; break; }   /* ZB-FC-3b: inside-fail → PREV element's β (static; subtree already popped) */
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         /* BB-OWNED-ζ STEP 1: true death iff this ω-edge falls all the way through to the chain's own outer
          * lbl_ω (never resolved inside the local chain) AND the unresolved target isn't a success-fallthrough
@@ -2583,7 +2549,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_SEQUENCE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) {
             { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
               long _p0 = _dd ? emit_text_count() : 0;
-              { g_seq_static_cur = (nodes[i]->op == IR_MATCH_SEQUENCE) ? (int)seqclean[i] : 0; flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω, &lbl_ω); g_seq_static_cur = 0; }   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout; SPD SEQ-STATIC verdict rides the file-static into the drive dispatch */
+              { flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω, &lbl_ω); }   /* SN4-NARY-SEQ rides the identical (entry,resume)×N + 2-glue pair layout; SEQ-ERAD SE-4: g_seq_static_cur/seqclean removed, static arm unconditional */
               if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d (match_alt path)\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
             continue;
         }
@@ -2617,7 +2583,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   { int _gg = 0; IR_t *_g = _o; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!_ib) _ib = (_g->γ.sz[0] == (char)0xce && (unsigned char)_g->γ.sz[1] == 0xb2); if (!_ip) _ip = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); _o = _g->γ.node; _g = _o; } }
                   bb_label_t *_next = NULL; int _k2 = -1;
                   for (int _k = 0; _k < n; _k++) if (nodes[_k] == _o) { _k2 = _k; break; }
-                  if (_k2 >= 0) { _next = (_ip && na_f[_k2]) ? na_f[_k2] : _ib ? betas[_k2] : lbls[_k2]; if (_ip && (fc_seq_on(nodes[_k2]) || (seq_static_on(nodes[_k2]) && seqclean[_k2]))) { bb_label_t *_b4 = _next; _next = fc_seq_phi_tgt(nodes, n, _k2, _fk, betas, _next); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQFOLD chain=%d fk=%d k2=%d el=%d raw=%s tgt=%s\n", id, _fk, _k2, fc_seq_elem_of(nodes, n, _k2, _fk), _b4 ? _b4->name : "?", _next ? _next->name : "?"); } } }   /* SPD SEQ-STATIC s110: the fold mirrors the main loop's rules -- a phi hop into a CONVERTED seq must take the same static re-point; the raw af glue is jmp-omega under conversion (the s109 treebank stmt-1 wire, bracketed via SCRIP_ZPOP_FOLD_OFF=1) */
+                  if (_k2 >= 0) { _next = (_ip && na_f[_k2]) ? na_f[_k2] : _ib ? betas[_k2] : lbls[_k2]; if (_ip && (fc_seq_on(nodes[_k2]) || seq_static_on(nodes[_k2]))) { bb_label_t *_b4 = _next; _next = fc_seq_phi_tgt(nodes, n, _k2, _fk, betas, _next); { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; } if (_sd) fprintf(stderr, "SEQFOLD chain=%d fk=%d k2=%d el=%d raw=%s tgt=%s\n", id, _fk, _k2, fc_seq_elem_of(nodes, n, _k2, _fk), _b4 ? _b4->name : "?", _next ? _next->name : "?"); } } }   /* SEQ-ERAD SE-4: seqclean removed; seq_static_on is unconditionally true for IR_MATCH_SEQUENCE */
                   else _next = (_o && _o->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
                   for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0 && nodes[_r]->operands[0] == _c) { _next = ra_t[_r]; break; }
                   node_ω = _next;

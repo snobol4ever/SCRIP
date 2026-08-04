@@ -6,57 +6,20 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string seq_dispatch_chain(long N, int base, int lo) {
-    return lo >= N
-             ? std::string()
-             : x86("cmp", "eax", (int)lo)
-             + x86("je", PAIR((int)(base + lo)))
-             + seq_dispatch_chain(N, base, lo + 1);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_sequence() {
-    /* SEQUENCE IS WIRING (proved 2026-08-04): its four ports are static edges assigned by LOWER.
-     * For the common case (seqclean=1, ~97% of corpus), H1b in emit.cpp aliases every consumer
-     * of the as/af stubs directly to the target, so the four trampolines below are dead on
-     * arrival.  The counter arm (seqclean=0) handles the DAG case: a reused pattern variable
-     * lowers as a shared subtree; the counter is the return-address disambiguator for that DAG.
-     * Measured: probes 150/150 clean, full corpus 1061/1087 clean, 26 need the counter. */
+    /* SEQUENCE IS WIRING (proved 2026-08-04, SE-4 2026-08-04): sigma/phi edges are statically wired
+     * by LOWER.  H1b in emit.cpp aliases all four trampolines directly to their targets, so this box
+     * emits zero net instructions.  Counter arm deleted (SEQ-ERAD SE-4): no DAG, no CHAIN, no FOREIGN
+     * customer exists in the full corpus; the prepass that computed seqclean was all dead weight. */
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (_.op_seq_static)
-        /* seqclean path: emit only the four port trampolines; H1b aliases them away entirely.
-         * No cell, no counter, no cursor save — LOWER wired the edges at build time. */
-        return x86("comment", "IR_MATCH_SEQ_NARY (SEQ-STATIC: pure wiring, four trampolines aliased by H1b)")
-             + x86_alpha()
-             + x86("jmp", PAIR(0))
-             + x86("def", PAIR((int)(2 * _.op_ival)))
-             + x86_gamma()
-             + x86_beta()
-             + x86("jmp", PAIR((int)(2 * _.op_ival - 1)))
-             + x86("def", PAIR((int)(2 * _.op_ival + 1)))
-             + x86_omega();
-    if (_.op_off < 0)
-        return x86_alpha() + x86_bomb("IR_MATCH_SEQUENCE: cursor slot not granted (zls)");
-    /* DAG counter arm: shared-subtree disambiguation.  A reused pattern variable can appear as
-     * an element of two sequences; its single sigma/phi edge can target only one neighbour.
-     * The counter is the runtime return address.  Survives until shared patterns become callables. */
-    return x86("comment", "IR_MATCH_SEQ_NARY (DAG counter: shared-subtree return-address)")
-             + x86_alpha()
-             + x86("mov", FR(_.op_off), "r14d")
-             + x86("mov", FR(_.op_off + 4), 0)
-             + x86("jmp", PAIR(0))
-             + x86("def", PAIR((int)(2 * _.op_ival)))
-             + x86("mov", "eax", FR(_.op_off + 4))
-             + x86("add", "eax", 1)
-             + x86("mov", FR(_.op_off + 4), "eax")
-             + seq_dispatch_chain(_.op_ival, 0, 1)
-             + x86_gamma()
-             + x86_beta()
-             + x86("mov", FR(_.op_off + 4), (int)_.op_ival)
-             + x86("def", PAIR((int)(2 * _.op_ival + 1)))
-             + x86("mov", "eax", FR(_.op_off + 4))
-             + x86("sub", "eax", 1)
-             + x86("mov", FR(_.op_off + 4), "eax")
-             + seq_dispatch_chain(_.op_ival, (int)_.op_ival, 0)
-             + x86_omega();
+    return x86("comment", "IR_MATCH_SEQ_NARY (pure wiring, four trampolines aliased by H1b)")
+         + x86_alpha()
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR((int)(2 * _.op_ival)))
+         + x86_gamma()
+         + x86_beta()
+         + x86("jmp", PAIR((int)(2 * _.op_ival - 1)))
+         + x86("def", PAIR((int)(2 * _.op_ival + 1)))
+         + x86_omega();
 }

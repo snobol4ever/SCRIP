@@ -1102,25 +1102,13 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail) {
-    /* SN4-NARY-SEQ (Lon directive 2026-07-12, this session; same glue mechanism as SN4-NARY-ALT and the
-     * same design rule — a construct earns a node iff it OWNS RUNTIME STATE): ONE IR_MATCH_SEQUENCE node S
-     * with 2N operands = (entry_i, resume_i) pairs.  Runtime "which element is the live choice point" state
-     * = seq_i in S's own ζ quad — in the flat-frame ZLS this index IS the array flavor of the two-flavor
-     * storage design (rsp/BB-owned flavor = a linked frame chain whose depth replaces the index; the head
-     * link and seq_i are the same datum in two representations — recorded, lands with ZB-ITER/ZB-OWN).
-     * S.α: save entry δ, seq_i=0, enter entry_0.  Success-glue (ns_s): seq_i++; == N → S.γ; else enter
-     * entry_{seq_i} — the forward edge rides the glue's dispatch, elements never thread γ directly.
-     * Fail-glue (ns_f): seq_i--; < 0 → S.ω (leftward exhaust); else dispatch to resume_{seq_i}'s β — the
-     * element's OWN remaining ways, so EVERY element transits its β on the retreat (Lon's s21 transit
-     * guarantee made structural: captures pop, generators resume, deterministic boxes undo-and-fail).
-     * S.β (right context failed): seq_i=N, fall into ns_f ⇒ resume the rightmost element.  INSIDE-EDGE
-     * TAGS identical to ALT: elements lowered with succ=S, fail=S; γ→S re-tagged "σ" (land ns_s), ω→S
-     * re-tagged "φ" (land ns_f), FAIL-goto's γ→S also "φ".  S is first-allocated: S.β IS the construct's
-     * resume surface (sno_resume_ω_to generic arm), S.ω IS the leftward exhaust — zero chase machinery. */
+    /* SEQ-ERAD SE-4 (2026-08-04): IR_MATCH_SEQUENCE is K=0 pure wiring — no slot, no counter, no
+     * runtime state.  S exists ONLY as a tagged-edge rendezvous for the emitter's σ/φ re-pointer
+     * (fc_seq_sigma_tgt / fc_seq_phi_tgt).  The counter arm is deleted; S emits four trampolines
+     * that H1b aliases away.  Result: S contributes zero stack, zero ZLS slots, zero instructions. */
     IR_graph_t * g = cx->g;
     IR_t * S = lc_build(g, IR_MATCH_SEQUENCE, succ, NULL);
     sno_ω_to(S, fail);
-    int fc_linear = 1;   /* ZB-FC-3b + ALT-LIFT: eligibility only -- SEQ needs NO footprint arithmetic (zeta_storage.c fc_seq_*); every element must merely respect the S10c port invariant, and a granted ALT is port-invariant with footprint 16+fpmax (pushes at alpha, pads at sigma, pops at omega) */
     for (int i = 0; i < ne; i++) {
         int before = g->n;
         IR_t * ei = sno_pat_node(cx, elems[i], S, S);
@@ -1131,12 +1119,9 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
             if (x->ω.node == S) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
             if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
-        if (!fc_walk_range(g, before, g->n, 1, NULL)) fc_linear = 0;
         ir_operand_push(S, ei);
         ir_operand_push(S, ri);
     }
-    if (fc_linear && sno_in_arbno == 0) { extern void fc_seq_register(const IR_t *); fc_seq_register(S); }
-    if (sno_in_arbno > 0 || sno_tree_has_varext(S, 0)) { extern void fc_arbno_member_register(const IR_t *); fc_arbno_member_register(S); }   /* SEQ-CELL fence (s21x-l): ARBNO-body SEQ declines the cell grant -- iteration-frame extents never counted it (066/164/165 witness) */
     IR_LIT(S).ival = (long)ne;
     return S;
 }
