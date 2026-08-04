@@ -5455,9 +5455,11 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_5209: ;
     if ((_bid == BID_write) || (_bid == BID_writes)) {
+        { extern int g_icon_write_reassignable; if (!g_icon_write_reassignable) { /* ICN-WRITE-FAST (s208 clean-build): Icon builtins are IR_CALL_BUILTIN_ICON at emit time; the NV dict never holds a DT_E self-sentinel for them (NV_GET_fn returns SNUL on a miss, not DT_E), so _is_self_default is structurally always false and the block below short-circuits to rt_call_value(SNUL)->FAIL with no output. g_icon_write_reassignable was already scanned to detect the one case (write := x) that legitimately needs the NV lookup; skip the guard entirely when it is clear. */ goto L_write_body_5209; } }
         { DESCR_t _wv = NV_GET_fn(fn);
           int _is_self_default = (_wv.v == DT_E && _wv.slen == 0xFFFFFFFEu && _wv.s && !strcmp(_wv.s, fn));
           if (!_is_self_default) { *out = rt_call_value(_wv, args, nargs); return 1; } }
+        L_write_body_5209: ;
         int nl = (fn[5] == '\0');
         int start = 0;
         FILE *dest = stdout;
