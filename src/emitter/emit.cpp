@@ -2420,7 +2420,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         seqclean[k] = 0;
         if (_sqoff || nodes[k]->op != IR_MATCH_SEQUENCE || nodes[k]->n_operands < 2) continue;
         int N = (int)(nodes[k]->n_operands / 2), ok = 1;
-        for (int j = 0; j < N && ok; j++) { int fe = 0, fr = 0; for (int p = 0; p < n; p++) { if (nodes[p] == nodes[k]->operands[2 * j]) fe = 1; if (nodes[p] == nodes[k]->operands[2 * j + 1]) fr = 1; } if (!fe || !fr) ok = 0; }
+        int _bj = -1, _bfe = 0, _bfr = 0;
+        for (int j = 0; j < N && ok; j++) { int fe = 0, fr = 0; for (int p = 0; p < n; p++) { if (nodes[p] == nodes[k]->operands[2 * j]) fe = 1; if (nodes[p] == nodes[k]->operands[2 * j + 1]) fr = 1; } if (!fe || !fr) { ok = 0; _bj = j; _bfe = fe; _bfr = fr; } }
+        { static int _sqd = -1; if (_sqd < 0) { const char * _e4 = getenv("SCRIP_SEQDAG"); _sqd = (_e4 && *_e4 == '1') ? 1 : 0; } if (_sqd && !ok) fprintf(stderr, "SEQDIRTY path=CHAIN k=%d N=%d elem=%d entry_found=%d resume_found=%d\n", k, N, _bj, _bfe, _bfr); }
         seqclean[k] = (unsigned char)ok;
     }
     { static int _sqmax = -2; if (_sqmax < -1) { const char *_e = getenv("SCRIP_SEQSTATIC_MAX"); _sqmax = _e ? atoi(_e) : -1; }
@@ -2430,7 +2432,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
       /* SPD SEQ-STATIC DAG fence: SNOBOL4 patterns are VALUES -- a reused pattern variable lowers as a shared SUBTREE, so one physical root can be an element of TWO sequences.  Its single sigma/phi edge can be statically aimed at only ONE parent's neighbor; the counter glue was the DAG's runtime disambiguator.  Any root claimed by >= 2 sequences dirties ALL claimants (degrade never die). */
       for (int p = 0; p < n; p++) claim[p] = -1;
       for (int k = 0; k < n; k++) if (seqclean[k]) { int N = (int)(nodes[k]->n_operands / 2);
-        for (int j = 0; j < 2 * N; j++) for (int p = 0; p < n; p++) if (nodes[p] == nodes[k]->operands[j]) { if (claim[p] >= 0 && claim[p] != k) { seqclean[k] = 0; seqclean[claim[p]] = 0; } else claim[p] = k; break; } } }
+        for (int j = 0; j < 2 * N; j++) for (int p = 0; p < n; p++) if (nodes[p] == nodes[k]->operands[j]) { if (claim[p] >= 0 && claim[p] != k) { { static int _sqd = -1; if (_sqd < 0) { const char * _e3 = getenv("SCRIP_SEQDAG"); _sqd = (_e3 && *_e3 == '1') ? 1 : 0; } if (_sqd) { int k2 = claim[p]; int nst = 0; for (int q = 0; q < nodes[k]->n_operands; q++) if (nodes[k]->operands[q] == nodes[k2]) nst = 1; for (int q = 0; q < nodes[k2]->n_operands; q++) if (nodes[k2]->operands[q] == nodes[k]) nst = 2; fprintf(stderr, "SEQDIRTY path=DAG shared=[%d]%s sval=%s pat_static=%d seal=%d SA=[%d]N%d SB=[%d]N%d slot=%d/%s nested=%d dist=%d\n", p, bb_op_name(nodes[p]->op), IR_LIT(nodes[p]).sval ? IR_LIT(nodes[p]).sval : "-", nodes[p]->pat_static, nodes[p]->seal, k, (int)(nodes[k]->n_operands / 2), k2, (int)(nodes[k2]->n_operands / 2), j, (j & 1) ? "resume" : "entry", nst, k > k2 ? k - k2 : k2 - k); } } seqclean[k] = 0; seqclean[claim[p]] = 0; } else claim[p] = k; break; } } }
     for (int i = 0; i < n; i++) for (int side = 0; side < 2; side++) {
         IR_t *t = side ? nodes[i]->ω.node : nodes[i]->γ.node;
         const char *z = side ? nodes[i]->ω.sz : nodes[i]->γ.sz;
@@ -2440,7 +2442,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int k = 0; k < n; k++) if (nodes[k] == t && seqclean[k]) {
             int N = (int)(nodes[k]->n_operands / 2), root = 0;
             for (int j = 0; j < N; j++) if (nodes[k]->operands[2 * j] == nodes[i] || nodes[k]->operands[2 * j + 1] == nodes[i]) root = 1;
-            if (!root) seqclean[k] = 0;
+            if (!root) { { static int _sqd = -1; if (_sqd < 0) { const char * _e5 = getenv("SCRIP_SEQDAG"); _sqd = (_e5 && *_e5 == '1') ? 1 : 0; } if (_sqd) fprintf(stderr, "SEQDIRTY path=FOREIGN k=%d N=%d origin=[%d]%s side=%s\n", k, N, i, bb_op_name(nodes[i]->op), side ? "omega" : "gamma"); } seqclean[k] = 0; }
         }
     }
     { static int _sd = -1; if (_sd < 0) { const char *_e = getenv("SCRIP_BLOB_MAP"); _sd = (_e && *_e == '1') ? 1 : 0; }
