@@ -31,43 +31,43 @@ std::string bb_match_begin() {
     return ((_.op_sa < 0 && !subjc() && !_.op_zres) || _.op_off < 0)
          ? x86_bomb("IR_MATCH_BEGIN: subject/start slot not promoted (emit_drive)")
          : _.op_zw2
-         ? x86("comment", "IR_MATCH_BEGIN (MECHANISM-2: push rbp first; rbp = α base; all FRQ uses [rbp+off]; whack = mov rsp,rbp; pop rbp)")
+         ? x86("comment", "IR_MATCH_BEGIN (MECHANISM-2 W-1: push rbp; mov rbp,rsp; sub rsp,Kc_zwr. Header at [rbp-16]..[rbp-64]; blob cells via FR [rsp+8+off]; Kc_zwr=Kc_cells+72, Kc_zwr≡8(mod16) → C calls 0-mod-16. whack=mov rsp,rbp;pop rbp)")
          + x86_alpha()
-         + x86("note", "mech2_boundary") + x86("push", "rbp")   /* push FIRST: rbp = old caller rbp will be popped at whack; rsp now = α_base - 8 */
-         + x86("mov", "rbp", "rsp")   /* rbp = rsp = α_base - 8; [rbp + 8 + off] = [α_base + off] -- so FRQ via rbp needs +8 compensation */
-         + IF(_.op_zres, x86("note", ZOPN(0)) + x86("mov", "rdi", RDQ("rbp", 8 + _.op_zread[0] + 0))
-                       + x86("note", ZOPN(0)) + x86("mov", "rsi", RDQ("rbp", 8 + _.op_zread[0] + 8))
-                       + IF(_.op_sa >= 0 && !subjc(), x86("mov", RDQ("rbp", 8 + _.op_sa), "rdi")
-                                        + x86("mov", RDQ("rbp", 8 + _.op_sa + 8), "rsi")))
-         + IF(!_.op_zres && subjc(), x86("mov", "rdi", "qword ptr [rbp + 8]")
-                     + x86("mov", "rsi", "qword ptr [rbp + 16]"))
-         + IF(!_.op_zres && !subjc(), x86("mov", "rdi", RDQ("rbp", 8 + _.op_sa))
-                     + x86("mov", "rsi", RDQ("rbp", 8 + _.op_sa + 8)))
-         + x86("note", HKN(1)) + x86("mov", RDQ("rbp", 8 + _.op_off + 48), "r13")   /* [rbp+8+off] = [α_base+off] = correct FRQ slot */
-         + x86("note", HKN(2)) + x86("mov", RDQ("rbp", 8 + _.op_off + 56), "r14")
-         + x86("note", HKN(3)) + x86("mov", RDQ("rbp", 8 + _.op_off + 64), "r15")
+         + x86("note", "mech2_boundary") + x86("push", "rbp")   /* push: old_rbp at [α-8]; rsp=α-8 */
+         + x86("mov", "rbp", "rsp")   /* rbp=α-8; header slots [rbp-8]..[rbp-64] safe below; subj still at [rbp+8]=[α],[rbp+16]=[α+8] */
+         + IF(_.op_udout > 0, x86("note", "mech2_blob_carve") + x86("sub", "rsp", (long)_.op_udout))   /* ⭐ W-1: Kc_zwr=Kc_cells+72; sub rsp,Kc_zwr; rsp=α-8-Kc_zwr≡0(mod16) for C calls. Header [rbp-16]..[rbp-64] is in carved region. Blob FR: [rsp+8+off]=[α-Kc_zwr+off] also in carved region. Gate op_udout>0; zero-Kc heads byte-identical. */
+         + IF(_.op_zres, x86("note", ZOPN(0)) + x86("mov", "rdi", RDQ("rsp", (long)_.op_udout + 8 + _.op_zread[0] + 0))   /* zres: [rsp+Kc_zwr+8+zread]=[α+zread]; bypass FRQ (HEAD zdepth=0) */
+                       + x86("note", ZOPN(0)) + x86("mov", "rsi", RDQ("rsp", (long)_.op_udout + 8 + _.op_zread[0] + 8))
+                       + IF(_.op_sa >= 0 && !subjc(), x86("mov", RDQ("rsp", 8 + _.op_sa), "rdi")   /* mirror into blob cell [rsp+8+sa] */
+                                        + x86("mov", RDQ("rsp", 8 + _.op_sa + 8), "rsi")))
+         + IF(!_.op_zres && subjc(), x86("mov", "rdi", "qword ptr [rbp + 8]")   /* subjc TOS: [rbp+8]=[α] = var ptr */
+                     + x86("mov", "rsi", "qword ptr [rbp + 16]"))              /* [rbp+16]=[α+8] = var len */
+         + IF(!_.op_zres && !subjc(), x86("mov", "rdi", RDQ("rsp", (long)_.op_udout + 8 + _.op_sa))   /* !subjc: [rsp+Kc_zwr+8+sa]=[α+sa]; bypass FRQ (HEAD zdepth=0) */
+                     + x86("mov", "rsi", RDQ("rsp", (long)_.op_udout + 8 + _.op_sa + 8)))
+         + x86("note", HKN(1)) + x86("mov", RDQ("rbp", -16), "r13")   /* ⭐ W-1 FIXED HEADER (negative rbp): [rbp-16]=[α-24]=outer_Σ — same address scheme as ZW-12, safe in carved region, matches match_end restores */
+         + x86("note", HKN(2)) + x86("mov", RDQ("rbp", -24), "r14")   /* [rbp-24]=outer_δ */
+         + x86("note", HKN(3)) + x86("mov", RDQ("rbp", -32), "r15")   /* [rbp-32]=outer_Δ */
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
          + x86("mov", "eax", RDD("rcx", 0))
-         + x86("note", HKN(4)) + x86("mov", RDQ("rbp", 8 + _.op_off + 72), "rax")
-         + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)   /* ⭐ MECH2: no flat_deep_arrival save needed -- push rbp already saved old rbp on stack; pop rbp at whack restores it */
+         + x86("note", HKN(4)) + x86("mov", RDQ("rbp", -40), "rax")   /* [rbp-40]=cap_gen */
+         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS marker: after sub rsp; cas_rsp_mark=post-carve floor; captures above this mark */
+         + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)   /* C call: rsp≡0(mod16) ✓ */
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + IF(_.op_udout > 0, x86("note", "mech2_blob_carve") + x86("sub", "rsp", (long)_.op_udout))   /* ⭐ ZW-RB-1 Part 3: sub rsp,Kc blob claim BEFORE the CAS push and BEFORE the hfc FORTH claim. rsp = α_base - 8 - Kc. Blob interior nodes (cm[], op_zw2=1) address [rsp+off+8+Kc]=[α_base+off] -- the correct claim slot. One-shot per statement entry (fires before L(0) retry label), mirrors the UCLAIM head's own single sub rsp,K. Gated op_udout>0 so declined/zero-Kc heads are byte-identical. */
-         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* ⭐ MECH-2 ORDERING (W-1 §4): CAS push fires AFTER sub rsp,Kc; cas_rsp_mark = α_base-8-Kc (post-blob-carve floor). rt_dcap_end_ok_open scans [mark,top) and the mark IS the post-carve RSP -- captures pushed inside the pattern blob land above this floor, so the scan range covers them exactly. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
-                                                + x86("note", "rsp_mark") + x86("mov", RDQ("rbp", 8 + _.op_off + 16), "rax")
-                                                : x86_zls2_mark_save(_.op_off + 16))
+                                                + x86("note", "rsp_mark") + x86("mov", RDQ("rbp", -64), "rax")   /* [rbp-64]=zls2_mark */
+                                                : x86("note", HKN(5)) + x86("mov", RDQ("rbp", -64), "rsp"))   /* zls2_mark: rsp directly, bypass FRQ */
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", "rax", RDQ("rcx", 0))
-             + x86("note", "patstk_mark") + x86("mov", RDQ("rbp", 8 + _.op_off + 8), "rax"))
-         + x86("note", "start_δ") + x86("mov", RDD("rbp", 8 + _.op_off), (long)0)   /* start_δ at [rbp+8+op_off] = [α_base+op_off] -- dword write */
+             + x86("note", "patstk_mark") + x86("mov", RDQ("rbp", -56), "rax"))   /* [rbp-56]=patstk_mark */
+         + x86("note", "start_δ") + x86("mov", RDD("rbp", -48), (long)0)   /* [rbp-48]=start_δ (dword) */
          + x86("def", L(0))
-         + x86("note", "start_δ") + x86("mov", "r14d", RDD("rbp", 8 + _.op_off))   /* retry: reload start_δ from rbp-relative slot */
+         + x86("note", "start_δ") + x86("mov", "r14d", RDD("rbp", -48))   /* retry: reload start_δ */
          + x86_gamma()
          + x86_beta()
-         + x86("note", "start_δ") + x86("add", RDD("rbp", 8 + _.op_off), (long)1)
-         + x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", 8 + _.op_off))
+         + x86("note", "start_δ") + x86("add", RDD("rbp", -48), (long)1)
+         + x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -48))
          + x86("cmp", "eax", "r15d")
          + x86("jg",  L(1))
          + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "rt_anchor_g")
@@ -88,26 +88,26 @@ std::string bb_match_begin() {
              + x86("mov", RDQ("rcx", 0), "rax")
              + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r10", 8))
              + x86("mov", ABSQ(RT_CAS_TOP), "r10")
-             : IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "patstk_mark") + x86("mov", "rax", RDQ("rbp", 8 + _.op_off + 8))
+             : IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "patstk_mark") + x86("mov", "rax", RDQ("rbp", -56))
                  + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
                  + x86("mov", RDQ("rcx", 0), "rax"))
              + (x86_zc_frame() == ZC_FRAME_RSP
-                 ? x86_zls2_release_to_call(_.op_off + 16)
-                 : ( IF(hfc(), x86("note", "patstk_mark") + x86("mov", "rdi", RDQ("rbp", 8 + _.op_off + 8)))
+                 ? (x86_align_leave() + x86("mov", "rsp", RDQ("rbp", -64)) + x86_align_enter())   /* zls2_release: [rbp-64]=mark */
+                 : ( IF(hfc(), x86("note", "patstk_mark") + x86("mov", "rdi", RDQ("rbp", -56)))
                    + x86_align_enter()
-                   + IF(!hfc(), x86("note", "patstk_mark") + x86("mov",  "rdi", RDQ("rbp", 8 + _.op_off + 8)))
+                   + IF(!hfc(), x86("note", "patstk_mark") + x86("mov",  "rdi", RDQ("rbp", -56)))
                    + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
-                   + x86_zls2_release_to_call(_.op_off + 16)
+                   + x86_align_enter() + x86("mov", "rsp", RDQ("rbp", -64)) + x86_align_leave()   /* zls2 restore */
                    + x86_align_leave()))
              + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_CAS_TOP), "r10"))
-         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", 8 + _.op_off + 48))
-         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", 8 + _.op_off + 56))
-         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", 8 + _.op_off + 64))
+         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* restore from fixed header */
+         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
+         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", 8 + _.op_off + 72))
+         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* rsp = rbp = α_base - 8; pop restores old rbp, rsp = α_base */
+         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* rbp=α-8; mov rsp,rbp → rsp=α-8; pop rbp → rsp=α */
          + x86("pop", "rbp")
          + x86_omega()
          : _.op_zw
