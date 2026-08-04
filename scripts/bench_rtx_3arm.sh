@@ -50,13 +50,14 @@
 #     State the expected band BEFORE running this.
 
 set -u
-FAM="CALL"; PRISTINE=""; RTX=""; ROUNDS=5
+FAM="CALL"; PRISTINE=""; RTX=""; ROUNDS=5; USE_MIN=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --fam)      FAM="$2"; shift 2 ;;
     --pristine) PRISTINE="$2"; shift 2 ;;
     --rtx)      RTX="$2"; shift 2 ;;
     -r)         ROUNDS="$2"; shift 2 ;;
+    --min)      USE_MIN=1; shift ;;
     *)          break ;;
   esac
 done
@@ -71,6 +72,10 @@ GATE="SCRIP_RTX_${FAM}"
 
 med() { echo "$1" | tr ' ' '\n' | grep -v '^$' | sort -n \
         | awk '{a[NR]=$1} END{ if(!NR){print "NA"; exit} print (NR%2)?a[(NR+1)/2]:(a[NR/2]+a[NR/2+1])/2 }'; }
+# min-of-N: the minimum is stable under hugepage bimodality (s224 diagnosis).
+# Use --min when the box shows clean fast/slow bimodal splits that defeat medians.
+minof() { echo "$1" | tr ' ' '\n' | grep -v '^$' | sort -n | awk 'NR==1{print; exit} END{if(!NR)print "NA"}'; }
+stat()  { if [ "$USE_MIN" = "1" ]; then minof "$1"; else med "$1"; fi; }
 ratio() { awk -v a="$1" -v b="$2" 'BEGIN{ if(b+0==0){print "NA"; exit} printf "%.3f", a/b }'; }
 
 # one sample: $1 = .so dir, $2 = gate value ("" = leave unset, pristine has no gate)
@@ -84,7 +89,8 @@ run1() {
   echo "$out" | awk '/^ms: /{print $2; found=1} END{if(!found) print ""}'
 }
 
-echo "=== RTX 3-ARM INTERLEAVED HARNESS — family $FAM — rounds=$ROUNDS (round 1 discarded) ==="
+STAT_MODE=$([ "$USE_MIN" = "1" ] && echo "MIN-OF-N" || echo "MEDIAN")
+echo "=== RTX 3-ARM INTERLEAVED HARNESS — family $FAM — rounds=$ROUNDS (round 1 discarded) — stat=$STAT_MODE ==="
 echo "    pristine=$PRISTINE"
 echo "    rtx     =$RTX"
 echo "    RT_OPT  =${RT_OPT:--O0 (Makefile default; label every number with this)}"
@@ -99,7 +105,7 @@ for prog in "$@"; do
     n=$(run1 "$RTX"      "1" "$prog")
     if [ "$r" -gt 1 ]; then P="$P $p"; F="$F $f"; N="$N $n"; fi
   done
-  mp=$(med "$P"); mf=$(med "$F"); mn=$(med "$N")
+  mp=$(stat "$P"); mf=$(stat "$F"); mn=$(stat "$N")
   if [ "$mp" = "NA" ] || [ "$mn" = "NA" ]; then
     echo "  $(basename "$prog"): NO 'ms:' WINDOW — program is not self-timed, or it crashed. NOT GRADED."
     rc=1; continue
@@ -118,12 +124,15 @@ for prog in "$@"; do
   worst=$(awk -v x="$sp" -v y="$sf" -v z="$sn" 'BEGIN{m=x; if(y>m)m=y; if(z>m)m=z; printf "%.3f", m}')
   unstable=$(awk -v w="$worst" -v g="$gap" 'BEGIN{ print (w > g) ? 1 : 0 }')
   echo "  $(basename "$prog")"
-  echo "      PRISTINE=${mp}ms   OFF=${mf}ms   ON=${mn}ms"
+  echo "      PRISTINE=${mp}ms   OFF=${mf}ms   ON=${mn}ms  [stat=$STAT_MODE]"
   echo "      arm spreads (max/min): PRISTINE=${sp}x OFF=${sf}x ON=${sn}x   |   ON-vs-PRISTINE gap=${gap}x"
-  if [ "$unstable" = "1" ]; then
+  if [ "$unstable" = "1" ] && [ "$USE_MIN" = "0" ]; then
     echo "      ⛔ UNGRADEABLE — worst intra-arm spread (${worst}x) EXCEEDS the inter-arm gap (${gap}x)."
     echo "         The ratio below is NOT a result. Re-run with more rounds, or fix the benchmark."
     rc=1
+  elif [ "$unstable" = "1" ] && [ "$USE_MIN" = "1" ]; then
+    echo "      ⚠ SPREAD NOTE (--min mode): intra-arm max/min spread (${worst}x) exceeds gap (${gap}x) —"
+    echo "        hugepage bimodality present; --min selects the fast-path floor. Treat result as a lower bound."
   fi
   echo "      ON/PRISTINE = $(ratio "$mp" "$mn")x   <-- THE REAL ANSWER"
   echo "      ON/OFF      = $(ratio "$mf" "$mn")x   (legacy two-arm number; the gap vs the line above IS the artifact)"
