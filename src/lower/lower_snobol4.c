@@ -1050,11 +1050,7 @@ static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
         }
         { long fck; if (fc_geom(x, &fck)) { if (fp) *fp += (int)fck; continue; } }
         switch (x->op) {
-        case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
-        case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
-        case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
-        case IR_GOTO: break;
-        case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL: if (!lit_ok) lin = 0; break;   /* R12-ERAD s65: constant primitive args allocate inline -- statement+SEQ whitelists only */
+        case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:   /* R12-ERAD s65: constant primitive args allocate inline -- statement+SEQ whitelists only */
         default: lin = 0;
         }
     }
@@ -1091,7 +1087,7 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
         }
         { long fck; if (fc_geom(x, &fck)) continue; }
         switch (x->op) {
-        case IR_MATCH_SEQUENCE: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+        case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
         case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
         case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
         case IR_GOTO: case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL: break;
@@ -1102,14 +1098,17 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail) {
-    /* SEQ-ERAD SE-4 (2026-08-04): IR_MATCH_SEQUENCE is K=0 pure wiring — no slot, no counter, no
-     * runtime state.  S exists ONLY as a tagged-edge rendezvous for the emitter's σ/φ re-pointer
-     * (fc_seq_sigma_tgt / fc_seq_phi_tgt).  The counter arm is deleted; S emits four trampolines
-     * that H1b aliases away.  Result: S contributes zero stack, zero ZLS slots, zero instructions. */
+    /* SEQ-ERAD SE-5/SE-6 (2026-08-04): IR_MATCH_SEQUENCE is fully deleted.  Elements wire DIRECTLY:
+     * σ (rightward success) -> next element's α; φ (leftward fail) -> previous element's β (β-tagged).
+     * We use a temporary IR_GOTO sentinel node S to collect σ/φ-tagged edges during lowering, then
+     * a GLOBAL fixup pass (over the entire graph by S-pointer identity) re-points every tagged edge
+     * at its real neighbour.  Global scan is required: nested sno_seq_nary / ARBNO body calls can
+     * allocate nodes beyond hi[i] that also carry σ/φ tags pointing at this S.  Returns ent[0]. */
     IR_graph_t * g = cx->g;
-    IR_t * S = lc_build(g, IR_MATCH_SEQUENCE, succ, NULL);
+    IR_t * S = lc_build(g, IR_GOTO, succ, NULL);   /* neutral sentinel; unique pointer per call */
     sno_ω_to(S, fail);
-    for (int i = 0; i < ne; i++) {
+    IR_t * ent[128]; IR_t * res[128]; int lo[128];
+    for (int i = 0; i < ne && ne < 128; i++) {
         int before = g->n;
         IR_t * ei = sno_pat_node(cx, elems[i], S, S);
         IR_t * ri = (before < g->n) ? g->all[before] : ei;
@@ -1119,11 +1118,33 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
             if (x->ω.node == S) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
             if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
-        ir_operand_push(S, ei);
-        ir_operand_push(S, ri);
+        ent[i] = ei; res[i] = ri; lo[i] = before;
     }
-    IR_LIT(S).ival = (long)ne;
-    return S;
+    /* GLOBAL fixup: scan ALL nodes by S-pointer identity to catch nested allocations */
+    for (int i = 0; i < ne && ne < 128; i++) {
+        IR_t * nxt = (i + 1 < ne) ? ent[i + 1] : succ;
+        IR_t * prv = (i > 0) ? res[i - 1] : fail;   /* always a β-target */
+        int lo_i = lo[i]; int hi_i = (i + 1 < ne) ? lo[i + 1] : g->n;
+        for (int k = 0; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x || x == S) continue;
+            /* σ/φ tags pointing at S from within this element's range (by allocation order) */
+            if (k < lo_i || k >= hi_i) continue;
+            if (x->ω.node == S && x->ω.sz[0] == (char)0xcf && (unsigned char)x->ω.sz[1] == 0x86) { x->ω.node = prv; memcpy(x->ω.sz, "β", 3); x->ω.sz[3] = 0; }
+            if (x->γ.node == S && x->γ.sz[0] == (char)0xcf && (unsigned char)x->γ.sz[1] == 0x86) { x->γ.node = prv; memcpy(x->γ.sz, "β", 3); x->γ.sz[3] = 0; }
+            if (x->γ.node == S && x->γ.sz[0] == (char)0xcf && (unsigned char)x->γ.sz[1] == 0x83) { x->γ.node = nxt; x->γ.sz[0] = 0; }
+        }
+    }
+    /* Second pass: catch any S-tagged edges from nested calls that landed OUTSIDE lo[i]..hi[i] */
+    for (int k = 0; k < g->n; k++) {
+        IR_t * x = g->all[k];
+        if (!x || x == S) continue;
+        if (x->ω.node == S && x->ω.sz[0] == (char)0xcf && (unsigned char)x->ω.sz[1] == 0x86) { x->ω.node = fail; memcpy(x->ω.sz, "β", 3); x->ω.sz[3] = 0; }
+        if (x->γ.node == S && x->γ.sz[0] == (char)0xcf && (unsigned char)x->γ.sz[1] == 0x86) { x->γ.node = fail; memcpy(x->γ.sz, "β", 3); x->γ.sz[3] = 0; }
+        if (x->γ.node == S && x->γ.sz[0] == (char)0xcf && (unsigned char)x->γ.sz[1] == 0x83) { x->γ.node = succ; x->γ.sz[0] = 0; }
+    }
+    S->γ.node = succ; S->γ.sz[0] = 0;
+    return (ne > 0 && ne < 128) ? ent[0] : succ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_capt_name(const tree_t * tgt) {
@@ -1732,7 +1753,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                             fc_tail_candidate(head, R, before_pat, i_arb, i_b0, i_b1, g->n);
                             { extern void fc_tail_wrap(const IR_t *, const IR_t *, const IR_t *);
                               for (int w = 0; w < n_wrap; w++) fc_tail_wrap(R, wsv[w], wcd[w]); }   /* WRAP-CAPTURE: finalize widens opsb by 16*nw and registers each COND's yield-depth read */
-                            if (pat_entry && pat_entry->op == IR_MATCH_SEQUENCE) { extern void fc_seq_register(const IR_t *); fc_seq_register(pat_entry); }
+
                             tail_ok = 1;
                         }
                     }
