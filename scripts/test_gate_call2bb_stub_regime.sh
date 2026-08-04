@@ -6,7 +6,7 @@
 # (armed body blob + honestly-declining recursive FIB).  Exits nonzero on any drift.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; OUT="$HERE/../out"
-S1="$HERE/../seed/test_sno_call2bb_1.sno"; S2="$HERE/../seed/test_sno_call2bb_2.sno"
+PROBE="${PROBE:-$HERE/../../corpus/probe/bb}"; S1="$PROBE/test_sno_call2bb_1.sno"; S2="$PROBE/test_sno_call2bb_2.sno"
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built"; exit 0; fi
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT; fail=0
 ck() { [ "$2" = "$3" ] && echo "PASS $1" || { echo "FAIL $1: got [$2] want [$3]"; fail=1; }; }
