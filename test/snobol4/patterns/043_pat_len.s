@@ -151,16 +151,12 @@ n8_match_len_α:
                         mov              eax, r14d
                         add              eax, 3
                         cmp              eax, r15d
-                                                                                        jle   .Lx36_240
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
-.Lx36_240:
+                                                                                        jg    n7_match_assign_save_β
                         add              r14d, 3
                                                                                         jmp   n9_match_assign_cond_α
 n8_match_len_β:
                         sub              r14d, 3
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
+                                                                                        jmp   n7_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]

@@ -150,24 +150,17 @@ n7_match_assign_save_β:
 n8_match_notany_α:
                         mov              eax, r14d
                         cmp              eax, r15d
-                                                                                        jl    .Lx36_239
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
-.Lx36_239:
+                                                                                        jge   n7_match_assign_save_β
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         lea              rdi, [rip + .C0]
                         cmp              byte ptr [rdi+rsi], 0
-                                                                                        je    .Lx36_240
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
-.Lx36_240:
+                                                                                        jne   n7_match_assign_save_β
                         add              r14d, 1
                                                                                         jmp   n9_match_assign_cond_α
 n8_match_notany_β:
                         sub              r14d, 1
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
+                                                                                        jmp   n7_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]
