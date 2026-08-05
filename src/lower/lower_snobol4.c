@@ -1050,7 +1050,11 @@ static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
         }
         { long fck; if (fc_geom(x, &fck)) { if (fp) *fp += (int)fck; continue; } }
         switch (x->op) {
-        case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:   /* R12-ERAD s65: constant primitive args allocate inline -- statement+SEQ whitelists only */
+        case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY:
+        case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ATP:
+        case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM:
+        case IR_GOTO: break;
+        case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL: if (!lit_ok) lin = 0; break;   /* R12-ERAD s65: constant primitive args allocate inline -- statement+SEQ whitelists only */
         default: lin = 0;
         }
     }
@@ -1136,6 +1140,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
         }
     }
     /* Second pass: catch any S-tagged edges from nested calls that landed OUTSIDE lo[i]..hi[i] */
+
     for (int k = 0; k < g->n; k++) {
         IR_t * x = g->all[k];
         if (!x || x == S) continue;
