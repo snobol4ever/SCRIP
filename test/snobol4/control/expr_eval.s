@@ -3015,20 +3015,25 @@ n364_match_assign_save_β:
 n365_match_any_α:
                         mov              eax, r14d
                         cmp              eax, r15d
-                                                                                        jge   n364_match_assign_save_β
+                                                                                        jl    .Lx370_240
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$3_scanfail
+.Lx370_240:
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              esi, 43
                                                                                         je    .Lx370_0
                         cmp              esi, 45
                                                                                         je    .Lx370_0
-                                                                                        jmp   n364_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$3_scanfail
 .Lx370_0:
                         add              r14d, 1
                                                                                         jmp   n366_match_assign_cond_α
 n365_match_any_β:
                         sub              r14d, 1
-                                                                                        jmp   n364_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$3_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n366_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]
@@ -3120,20 +3125,25 @@ n375_match_assign_save_β:
 n376_match_any_α:
                         mov              eax, r14d
                         cmp              eax, r15d
-                                                                                        jge   n375_match_assign_save_β
+                                                                                        jl    .Lx381_240
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$4_scanfail
+.Lx381_240:
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         cmp              esi, 42
                                                                                         je    .Lx381_0
                         cmp              esi, 47
                                                                                         je    .Lx381_0
-                                                                                        jmp   n375_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$4_scanfail
 .Lx381_0:
                         add              r14d, 1
                                                                                         jmp   n377_match_assign_cond_α
 n376_match_any_β:
                         sub              r14d, 1
-                                                                                        jmp   n375_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$4_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n377_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]

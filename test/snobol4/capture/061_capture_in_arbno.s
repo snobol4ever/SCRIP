@@ -223,16 +223,23 @@ n15_match_lit_α:
                         mov              eax, r14d
                         add              eax, 1
                         cmp              eax, r15d
-                                                                                        jg    n14_match_assign_save_β
+                                                                                        jle   .Lx59_239
+                        add              rsp, 16
+                                                                                        jmp   n12_match_begin_β
+.Lx59_239:
                         movsxd           rcx, r14d
                         movzx            eax, byte ptr [r13+rcx]
                         cmp              eax, 97
-                                                                                        jne   n14_match_assign_save_β
+                                                                                        je    .Lx59_240
+                        add              rsp, 16
+                                                                                        jmp   n12_match_begin_β
+.Lx59_240:
                         add              r14d, 1
                                                                                         jmp   n16_match_assign_cond_α
 n15_match_lit_β:
                         sub              r14d, 1
-                                                                                        jmp   n14_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   n12_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n16_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]

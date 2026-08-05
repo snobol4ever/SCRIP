@@ -104,17 +104,19 @@ n6_match_begin_α:
                         mov              qword ptr [r10 + 16], rax                      # cas_patstk
                         add              r10, 24
                         mov              qword ptr [1879048192], r10                    # cas_top
-                        mov              qword ptr [rsp + 64], rsp                      # zls2_mark
+                        mov              rax, rsp
+                        sub              rsp, 32
+                        mov              qword ptr [rsp + 16], rax                      # rsp_mark
                         lea              rcx, [rip + g_patstk_sp]
                         mov              rax, qword ptr [rcx + 0]
-                        mov              qword ptr [rsp + 56], rax                      # patstk_mark
-                        mov              dword ptr [rsp + 48], 0                        # start_δ
+                        mov              qword ptr [rsp + 8], rax                       # patstk_mark
+                        mov              dword ptr [rsp + 0], 0                         # start_δ
 .Lx30_0:
-                        mov              r14d, dword ptr [rsp + 48]
+                        mov              r14d, dword ptr [rsp + 0]
                                                                                         jmp   n7_match_lit_α
 n6_match_begin_β:
-                        add              dword ptr [rsp + 48], 1
-                        mov              eax, dword ptr [rsp + 48]
+                        add              dword ptr [rsp + 0], 1
+                        mov              eax, dword ptr [rsp + 0]
                         cmp              eax, r15d
                                                                                         jg    .Lx30_1
                         mov              rcx, qword ptr [rip + rt_anchor_g@GOTPCREL]
@@ -123,16 +125,16 @@ n6_match_begin_β:
                                                                                         jne   .Lx30_1
                                                                                         jmp   .Lx30_0
 .Lx30_1:
-                        mov              rax, qword ptr [rsp + 56]                      # patstk_mark
-                        lea              rcx, [rip + g_patstk_sp]
-                        mov              qword ptr [rcx + 0], rax
-                        mov              rsp, qword ptr [rsp + 64]
                         mov              r10, qword ptr [1879048192]
 .Lx30_2:
                         sub              r10, 24
                         mov              rax, qword ptr [r10 + 0]
                         test             rax, rax
                                                                                         jne   .Lx30_2
+                        mov              rax, qword ptr [r10 + 16]                      # cas_patstk
+                        lea              rcx, [rip + g_patstk_sp]
+                        mov              qword ptr [rcx + 0], rax
+                        mov              rsp, qword ptr [r10 + 8]                       # cas_rsp_mark
                         mov              qword ptr [1879048192], r10
                         mov              r13, qword ptr [rsp + 96]                      # outer_Σ
                         mov              r14, qword ptr [rsp + 104]                     # outer_δ
