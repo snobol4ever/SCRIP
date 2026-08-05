@@ -1115,7 +1115,18 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
     for (int i = 0; i < ne && ne < 128; i++) {
         int before = g->n;
         IR_t * ei = sno_pat_node(cx, elems[i], S, S);
-        IR_t * ri = (before < g->n) ? g->all[before] : ei;
+        /* SEQ-ERAD s9 ELEMENT-RESUME: g->all[before] is the first-allocated body node.  Under the deleted
+         * IR_MATCH_SEQUENCE the construct was minted first (lc_build before recursion), so first-allocated
+         * == the construct, and the construct's β was the resume surface a completing element popped into.
+         * SE-6 deleted the construct; first-allocated may now be a dead sentinel from a nested sno_seq_nary
+         * call (op==IR_GOTO, BOTH ports still on S at this point, zero operands -- that triple is unique to
+         * a nested sentinel; a real body GOTO always has exactly one port on S).  Skip it to reach the
+         * actual first result-bearing node of the element. */
+        int _rb = before;
+        while (_rb < g->n && g->all[_rb] && g->all[_rb]->op == IR_GOTO
+               && g->all[_rb]->γ.node == S && g->all[_rb]->ω.node == S
+               && g->all[_rb]->n_operands == 0) _rb++;
+        IR_t * ri = (_rb < g->n) ? g->all[_rb] : ei;
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];
             if (!x) continue;
@@ -1276,7 +1287,19 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_in_arbno--;
         cx->pat_seal = prev_seal;
         if (before >= g->n) sno_fatal("ARBNO body lowered to zero nodes (bare FENCE / null pattern body)", NULL);
-        IR_t * ri = (before < g->n) ? g->all[before] : ei;
+        /* SEQ-ERAD s9: g->all[before] is the first-allocated body node, which was the SEQ container
+         * under IR_MATCH_SEQUENCE.  SE-6 deleted the container; first-allocated is now a dead sno_seq_nary
+         * sentinel (IR_GOTO, γ→succ after fixup, n_operands==0) for multi-element bodies.  Skip it.
+         * The sentinel's γ points at succ (=R) after sno_seq_nary's final S->γ.node=succ assignment,
+         * distinguishing it from a genuine body GOTO whose γ would point at another body node.
+         * NOTE: measured (2026-08-05 s9) — this skip correctly changes operands[1] from the dead
+         * sentinel to the first real body node (same as green's resume convention), but does NOT cure
+         * the nested-ARBNO crash (H24/H25/X02/X06/X11 still SIGSEGV).  The crash is a separate defect. */
+        int _rb = before;
+        while (_rb < g->n && g->all[_rb] && g->all[_rb]->op == IR_GOTO
+               && g->all[_rb]->γ.node == R /* succ=R for the outer ARBNO body sentinel */
+               && g->all[_rb]->n_operands == 0) _rb++;
+        IR_t * ri = (_rb < g->n) ? g->all[_rb] : ei;
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];
             if (!x) continue;
