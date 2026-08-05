@@ -564,28 +564,6 @@ void zls_build(IR_graph_t * g) {
         if (i0 < 0 || i1 < 0) { fprintf(stderr, "zls: arbno2 geometry — body bracket operands not found in g->all\n"); abort(); }
         if (i0 > i1) { int t = i0; i0 = i1; i1 = t; }
         int mn = 0x7fffffff, mx = 0; int azq[8]; int anzq = 0;
-        /* SEQ-ERAD s9 GEOMETRY-BUFFER: under IR_MATCH_SEQUENCE the body scan started at the SEQ
-         * container (op=IR_MATCH_SEQUENCE, first-allocated), whose 16B zls slot anchored mn 16B
-         * below the first element's slots.  SE-6 deleted the container; sno_seq_nary now plants a
-         * sentinel IR_GOTO (n_operands==0, both ports σ/φ-repointed away) as first-allocated body
-         * node.  operands[1] points to it (the s9 sentinel-skip moves it to the first real element
-         * after repoint, but g->all[i0] IS the sentinel — its g->all index was chosen as i0 by the
-         * scan because operands[1] = g->all[_rb] where _rb > i0_sentinel).
-         * CORRECTION: i0 is now the index of the REAL first element (post sentinel-skip), NOT of the
-         * sentinel.  The sentinel was at g->all[i0-1] or earlier.  The 16B gap it provided is
-         * precisely the amount by which the inner ARBNO's rsp_mark lands at the wrong slot (measured
-         * 2026-08-05: [rbp+248] aliases claim_base+0 instead of claim_base+16 for X02).
-         * FIX: scan one position earlier (i0-1) to include the sentinel as a zero-field anchor, and
-         * if it is the SEQ sentinel (IR_GOTO, n_operands==0) force mn down by 16 to restore the
-         * buffer.  The sentinel itself has no zls_field so it cannot set mn via the scan — we apply
-         * the 16B correction explicitly.  Killswitch SCRIP_SEQ_BUF=0 disables the correction for
-         * diagnostic comparison. */
-        { static int _sb = -1; if (_sb < 0) { const char * _e = getenv("SCRIP_SEQ_BUF"); _sb = (_e && *_e == '0') ? 0 : 1; }
-          if (_sb && i0 > 0 && g->all[i0-1] && g->all[i0-1]->op == IR_GOTO && g->all[i0-1]->n_operands == 0) {
-              /* Check: first real body node is g->all[i0], the sentinel is g->all[i0-1].  After the
-               * main scan we apply: if mn was set by slots, mn -= 16 (restore the SEQ container gap).
-               * Deferred — applied AFTER the loop below. */
-          } }
         for (int j = i0; j <= i1; j++) {
             const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0;
             if (!e) continue;
@@ -594,9 +572,6 @@ void zls_build(IR_graph_t * g) {
             for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > mx) mx = zf[f].off + zf[f].size;
         }
         if (za_n >= (int)(sizeof za / sizeof *za)) { fprintf(stderr, "zls: arbno2 geometry table overflow (%d)\n", (int)(sizeof za / sizeof *za)); abort(); }
-        /* SEQ-ERAD s9 GEOMETRY-BUFFER (apply the deferred correction): */
-        { static int _sb = -1; if (_sb < 0) { const char * _e = getenv("SCRIP_SEQ_BUF"); _sb = (_e && *_e == '0') ? 0 : 1; }
-          if (_sb && mn != 0x7fffffff && i0 > 0 && g->all[i0-1] && g->all[i0-1]->op == IR_GOTO && g->all[i0-1]->n_operands == 0) mn -= 40; }
         if (mn == 0x7fffffff) za[za_n++] = (zls_ageom_t){ nd, 16, 0, {0}, 0 };
         else                  { zls_ageom_t a; a.nd = nd; a.min_off = mn; a.span = mx - mn; a.nzq = anzq > 8 ? 9 : anzq; for (int q = 0; q < (anzq > 8 ? 0 : anzq); q++) a.zq[q] = azq[q]; za[za_n++] = a; }
     }
