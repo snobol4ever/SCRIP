@@ -185,6 +185,7 @@ if [[ "$want_scr" = "1" ]]; then
     MONITOR_READY_PIPE="$TMP/scr.ready" \
     MONITOR_GO_PIPE="$TMP/scr.go" \
     MONITOR_NAMES_OUT="$TMP/scr.names" \
+    SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
     SNO_LIB="$INC" \
         timeout "$((TIMEOUT*2))" "$SCRIP" "$SCR_RUN_FLAG" "$SNO" \
         < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
