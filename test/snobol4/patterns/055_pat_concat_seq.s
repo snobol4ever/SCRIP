@@ -167,12 +167,16 @@ n8_match_len_α:
                         mov              eax, r14d
                         add              eax, 2
                         cmp              eax, r15d
-                                                                                        jg    n7_match_assign_save_β
+                                                                                        jle   .Lx50_240
+                        add              rsp, 16
+                                                                                        jmp   n6_match_begin_β
+.Lx50_240:
                         add              r14d, 2
                                                                                         jmp   n9_match_assign_cond_α
 n8_match_len_β:
                         sub              r14d, 2
-                                                                                        jmp   n7_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]
@@ -202,12 +206,16 @@ n11_match_len_α:
                         mov              eax, r14d
                         add              eax, 2
                         cmp              eax, r15d
-                                                                                        jg    n10_match_assign_save_β
+                                                                                        jle   .Lx55_240
+                        add              rsp, 16
+                                                                                        jmp   n9_match_assign_cond_β
+.Lx55_240:
                         add              r14d, 2
                                                                                         jmp   n12_match_assign_cond_α
 n11_match_len_β:
                         sub              r14d, 2
-                                                                                        jmp   n10_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   n9_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]
@@ -237,12 +245,16 @@ n14_match_len_α:
                         mov              eax, r14d
                         add              eax, 2
                         cmp              eax, r15d
-                                                                                        jg    n13_match_assign_save_β
+                                                                                        jle   .Lx60_240
+                        add              rsp, 16
+                                                                                        jmp   n12_match_assign_cond_β
+.Lx60_240:
                         add              r14d, 2
                                                                                         jmp   n15_match_assign_cond_α
 n14_match_len_β:
                         sub              r14d, 2
-                                                                                        jmp   n13_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   n12_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n15_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 0]

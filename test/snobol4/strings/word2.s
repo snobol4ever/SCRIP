@@ -65,29 +65,30 @@ n1_match_pos_β:
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n2_match_assign_save_α:
-                        lea              rdi, [rbp + 80]                                # slot
-                        mov              esi, r14d                                      # delta
-                        call             rt_cap_push@PLT
+                        sub              rsp, 16
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n3_match_len_α
 n2_match_assign_save_β:
-                        lea              rdi, [rbp + 80]                                # slot
-                        call             rt_cap_pop@PLT
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n3_match_len_α:
                         mov              eax, r14d
                         add              eax, 4
                         cmp              eax, r15d
-                                                                                        jg    n2_match_assign_save_β
+                                                                                        jle   .Lx20_240
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$0_scanfail
+.Lx20_240:
                         add              r14d, 4
                                                                                         jmp   n4_match_assign_cond_α
 n3_match_len_β:
                         sub              r14d, 4
-                                                                                        jmp   n2_match_assign_save_β
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_assign_cond_α:
-                        lea              rdi, [rbp + 80]                                # slot
-                        call             rt_cap_top@PLT
+                        mov              eax, dword ptr [rsp + 0]
                         lea              rcx, [rip + .S0]
                         mov              r10, qword ptr [1879048192]
                         mov              qword ptr [r10 + 0], rcx
