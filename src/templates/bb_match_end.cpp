@@ -57,7 +57,7 @@ static std::string release_pump() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("def", L(6)) + x86("sub", "r12", (long)24) + x86("mov", "rax", RDQ("r12", 0)) + x86("test", "rax", "rax") + x86("jne", L(6))   /* CAS-R12-UNIFY: success path re-scans ON r12 (callee-saved through the pump's C calls; nested matches inside pumped assignments push balanced markers, so r12 returns at top) -- the walk pops entries + marker wholesale, cell touches deleted */
+         + x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* ⭐ W-1c.3 NO-SCAN L(6): post-pump LIFO arithmetic -- pump has consumed every entry via rt_dcap_step; nested matches inside pumped assignments push balanced markers so r12 returns at top callee-saved; one sub lands on the marker, assignment IS the wholesale pop. L(5) above is the structural scan (range-locator before pump runs, count runtime-variable); it is the only real scan left in this template. */
          + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten. */
          + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
