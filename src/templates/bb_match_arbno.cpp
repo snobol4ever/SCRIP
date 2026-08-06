@@ -8,17 +8,17 @@ extern "C" {
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register — the s83-measured rbp borrow, statement-bracketed by the head's gated +40 save (bb_match_begin.cpp:24, flat_deep_arrival).  Decoupling the
- * view from the op_anchored delivery makes the REG-7 U4 zr-arm flip a NO-OP for this template: the chain dance never consults the window predicate.  ZR-RSPRBP-3: the ternary is DELETED — it was the same
- * three-basis residue ZR-RSPRBP-1 collapsed in x86_zr/x86_zr_num and MISSED here.  With ζ closed at {RSP,RBP} both arms yielded "rbp" identically (RSP arm literally; RBP arm via x86_zr()'s own else-arm),
- * so the choice had no second value left to name.  Proven inert the same way ZR-RSPRBP-1/2 were: 8/8 emitted .s byte-identical, 3 languages, pinned + unpinned, both ARBNO programs in the witness set. */
+/* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register — rbp borrowed from the MATCH_BEGIN frame base.  FRQ() reads in the chain arm are rbp-relative (depth-immune under the pinned MATCH_BEGIN frame),
+ * so the sigma/phi paths read element-frame slots correctly at ANY rsp depth.  W-1c.2: the view-restore guards (arbno_u2_frame) are made UNCONDITIONAL — nested body execution (inner ARBNO beta, DEFINE frames)
+ * clobbers rbp; re-deriving it via `lea rbp,[rsp+(24-op_sa)]` at PAIR(2) (rsp==element frontier on body success) and saving/restoring it at exhaust L(2) via a dedicated frame slot is always correct.  The slot+32
+ * grant in zeta_storage.c is now UNCONDITIONAL (matching: template always writes slot+32, grant always allocates it; SCRIP_U2 condition deleted).  arbno_u2_frame() deleted — its guards fire unconditionally. */
 static inline const char * zv() { return "rbp"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arbno_nofill(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_NOFILL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* ARBNO-NOFILL (s141): default ON; =0 restores the eager per-element window zero (kill-switch, SCRIP_PAT_NOFILL precedent) */
 static int arbno_poison(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZLS_POISON"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* verification lane twin of xa_flat's: fill the SKIPPED window 0xA5 at compile time so any read-before-write in the body subgraph surfaces loudly */
-static int arbno_u2_frame(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_U2"); v = (e && e[0] == '1') ? 1 : 0; } return v && x86_port_cstack(); }   /* ⭐ U-2 STRUCTURAL (s42+1): chain-β saves outer rbp into FRQ(op_off+32) before repointing rbp as element view; exhaust L(2) restores both rbp and rsp — mechanism-2 for unbounded ARBNO growth.  SCRIP_U2=1 to enable; x86_port_cstack() guard: FORTH/CSTACK ports only (the RSP-based element chain is the CSTACK-arm-only shape; heap/alloc arms are unaffected). */
+
 static std::string arbno_fill_cells(void) { std::string r; for (int i = 0; i < _.op_arbno_nzq; i++) { int w = _.op_arbno_zq[i] - _.op_sa + 24; r += x86("mov", RSP(w), "rax"); } return r; }   /* zero the cap BUF QUAD of each body SAVE cell at its window-relative offset — gen/sp self-heal via the generation stamp (pattern_match.c rt_cap_push) */
 static std::string arbno_fill_window(long op_sb) {
     return (!arbno_nofill() || _.op_arbno_nzq > 8)
@@ -285,7 +285,7 @@ std::string bb_match_arbno() {
              + x86("mov", FR(_.op_off + 4), "r14d")
              + x86("mov", FR(_.op_off + 8), 0L)
              + x86("mov", FRQ(_.op_off + 24), "rsp")
-             + IF(arbno_u2_frame(), x86("mov", FRQ(_.op_off + 32), "rbp"))   /* ⭐ U-2 STRUCTURAL: save outer rbp (the match_begin activation floor) into the new slot at op_off+32 before any beta clobbers it.  Restored at L(2) exhaust so callee-saved rbp discipline is maintained across unbounded ARBNO growth: each element body may freely repoint rbp (C calls, nested patterns) without losing the outer match context.  The zls grant was widened to 3 (48B) to accommodate this quad; FRQ(op_off+24) remains the saved-rsp slot (unchanged). */
+             + x86("mov", FRQ(_.op_off + 32), "rbp")   /* VIEW-SAVE α: save MATCH_BEGIN rbp before beta repoints it as element view. Restored unconditionally at exhaust L(2) to re-establish callee-saved ABI rbp. W-1c.2: unconditional (was IF(arbno_u2_frame())). */
              + x86("mov", FRQ(_.op_off + 16), 0L)
              + x86_gamma()
              + x86_beta()
@@ -301,7 +301,6 @@ std::string bb_match_arbno() {
              + x86("add", zv(), (long)(24 - _.op_sa))
              + x86("jmp", PAIR(0))
              + x86("def", PAIR(2))
-             + IF(arbno_u2_frame(), x86("lea", zv(), RDQ("rsp", 24 - _.op_sa)))   /* ⭐ U-2 STRUCTURAL σ-VIEW-RESTORE: body execution (the element body subgraph entered at PAIR(0)) may call DEFINE functions which use rbp as their own frame base, clobbering the element view register (zv()=rbp).  On return to PAIR(2) (body succeeded) rsp = element frontier exactly (the body's own ω exit restores rsp to this known depth), so `lea rbp,[rsp+(24-op_sa)]` deterministically re-derives the view: elem_view = elem_frontier + (24-op_sa), the same formula beta used.  No memory access; pure RSP arithmetic.  ONE AUTHORITY: the paired restore is at PAIR(3) below. */
              + x86("mov", "eax", FR(_.op_sa - 16))
              + x86("cmp", "r14d", "eax")
              + x86("je",  PAIR(1))
@@ -312,7 +311,6 @@ std::string bb_match_arbno() {
              + x86("mov", FR(_.op_off + 4), "r14d")
              + x86_gamma()
              + x86("def", PAIR(3))
-             + IF(arbno_u2_frame(), x86("lea", zv(), RDQ("rsp", 24 - _.op_sa)))   /* ⭐ U-2 STRUCTURAL φ-VIEW-RESTORE: same problem at PAIR(3) (body failed); same solution.  At φ arrival, rsp is at the element frontier (body's ω restored it), so the lea re-derives the view identically.  After this, all FR()/FRQ() reads in φ correctly address the element header.  TWO AUTHORITIES (σ + φ) are ONE RULE by the s22k law: if only one view-restore existed, a half-silent clobber on one path would be undetectable until the other path ran. */
              /* ZB-ITER-3 φ (amendment (c)+(d)): element reads FIRST (prev link, prev view — both via the live view), then ONE depth-immune lea abandons the element AND every blob cell below it —
               * rsp lands at elem+op_sb = the exact pre-push frontier, where the previous iteration's suspended body left its resume record, so the jmp PAIR(1) → defer-β `jmp [rsp+0]` composes with
               * NO resume slot.  The old `add rsp,op_sb` was frontier-correct only when φ arrived at rsp==elem; the lea off the view is correct at ANY arrival depth (the U2b self-referential spirit). */
@@ -330,7 +328,7 @@ std::string bb_match_arbno() {
              + x86("jmp", PAIR(1))
              + x86("def", L(2))
              + x86("mov", "r14d", FR(_.op_off))
-             + IF(arbno_u2_frame(), x86("mov", "rbp", FRQ(_.op_off + 32)))   /* ⭐ U-2 STRUCTURAL: restore outer rbp before the rsp restore so the match_begin activation floor is re-established; callee-saved ABI contract restored at every statement ω exit.  ONE AUTHORITY: this is the paired restore to the save at alpha. */
+             + x86("mov", "rbp", FRQ(_.op_off + 32))   /* VIEW-RESTORE exhaust: re-establish MATCH_BEGIN rbp before rsp restore; callee-saved ABI. W-1c.2: unconditional. */
              + x86("mov", "rsp", FRQ(_.op_off + 24))
              + x86_omega()
          : x86("comment", "IR_MATCH_ARBNO_NARY")
