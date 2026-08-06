@@ -1240,8 +1240,8 @@ int main(int argc, char **argv)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            /* ZW-3 R12-FREE-1 REVERSAL (O-5, OMEGA s27 session): r12 is the LIVE CAS/dcap top register (s23l ruling); seed from [RT_CAS_TOP] before graph entry so every match-family op_zw arm can read/write r12 directly.  Mirror of the flat_α path already at line 1438.  Mode-3 path uses rt_outer_call (rt.c thunk) which already does push r12 / mov r12,[0x70000000] / call / pop r12. */
-            emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_CAS_TOP (rtx_init.c _Static_assert) */
+            /* ZW-3 R12-FREE-1 REVERSAL (O-5, OMEGA s27 session): r12 is the LIVE CAS/dcap top register (s23l ruling); seed from [RT_DCAP_TOP] before graph entry so every match-family op_zw arm can read/write r12 directly.  Mirror of the flat_α path already at line 1438.  Mode-3 path uses rt_outer_call (rt.c thunk) which already does push r12 / mov r12,[0x70000000] / call / pop r12. */
+            emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_DCAP_TOP (rtx_init.c _Static_assert) */
             /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
             emit_textf("  xor esi, esi\n");
             emit_textf("  jmp main_\xce\xb1\n");
@@ -1582,7 +1582,7 @@ int main(int argc, char **argv)
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
             { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
-            { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): mode-3's OUTSIDE seeds the environment register — push r12 / mov r12,[RT_CAS_TOP] / call / pop r12 (rt.c thunk); twin of the mode-4 wrapper seed, and closes the old in-blob seed's caller-r12 ABI clobber */
+            { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): mode-3's OUTSIDE seeds the environment register — push r12 / mov r12,[RT_DCAP_TOP] / call / pop r12 (rt.c thunk); twin of the mode-4 wrapper seed, and closes the old in-blob seed's caller-r12 ABI clobber */
             goto run_done;
         }
         {

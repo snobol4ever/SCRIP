@@ -489,10 +489,10 @@ RTX_ENDF(rt_patstk_lazy_init)
  * likewise `int`, so its store is dword: an 8-byte store there clobbers the neighbour, links fine, passes short
  * tests -- the s217 store-width class, now gated by scripts/test_gate_rtx_store_width.sh.
  *
- * g_dcap_top is NOT a symbol: it is #define g_dcap_top (*(const char **)RT_CAS_TOP), a BUILD-CONSTANT pinned VA
+ * g_dcap_top is NOT a symbol: it is #define g_dcap_top (*(const char **)RT_DCAP_TOP), a BUILD-CONSTANT pinned VA
  * (pin_va.h, RT_PIN_BASE 0x70000000).  It is reached by absolute disp32 -- the same 48 8b 04 25 / 48 83 3c 25 form
  * ABSQ() bakes in the templates, no GOT and no RIP-relative -- and rtx_init.c carries a _Static_assert tying
- * RTX_CAS_TOP_VA below to RT_CAS_TOP, so moving the pin breaks the BUILD rather than the runtime.
+ * RTX_DCAP_TOP_VA below to RT_DCAP_TOP, so moving the pin breaks the BUILD rather than the runtime.
  *
  * PINS: touches rax rdx rdi rsi r8 r10 and a balanced rsp only.  rbx r13 r14 r15 rbp are untouched by construction,
  * and the cold edges deliberately DO NOT use RTX_CALL_ALIGN because that macro borrows rbp, which is a per-graph pin
@@ -502,7 +502,7 @@ RTX_ENDF(rt_patstk_lazy_init)
  * NO SPEED NUMBER IS CLAIMED IN THIS COMMENT.  The rung's grading is in the FINDING, min-of-N on pattern_bt, and
  * the s219 refusal precedent stands: if the measurement does not clear the null floor, it is reported as a null.
  *===================================================================================================================*/
-#define RTX_CAS_TOP_VA 0x70000000
+#define RTX_DCAP_TOP_VA 0x70000000
 RTX_FUNC(rt_match_enter)
     RTX_GATE(match, c_rt_match_enter)
     cmp     edi, DT_S                                    /* edi aliases the tag word; v == DT_S?              */
@@ -523,7 +523,7 @@ RTX_FUNC(rt_match_enter)
     mov     dword ptr [rip + g_cap_gen_next], eax        /* hidden -> direct; DWORD, adjacency-safe            */
     mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
     mov     dword ptr [r10], eax                         /* exported -> GOT; DWORD, adjacency-safe             */
-    test    r12, r12                                     /* ⭐ O-5 ZW-3 R12-DIRECT (s33 OMEGA): r12 IS [RTX_CAS_TOP_VA] -- the graph-entry seed (scrip.c wrapper / rt_outer_call thunk) loaded r12=[0x70000000] before entry, so r12==0 iff dcap is uninitialised and r12!=0 iff the island is live.  Eliminates one absolute-VA load per match enter. */
+    test    r12, r12                                     /* ⭐ O-5 ZW-3 R12-DIRECT (s33 OMEGA): r12 IS [RTX_DCAP_TOP_VA] -- the graph-entry seed (scrip.c wrapper / rt_outer_call thunk) loaded r12=[0x70000000] before entry, so r12==0 iff dcap is uninitialised and r12!=0 iff the island is live.  Eliminates one absolute-VA load per match enter. */
     je      .Lme_dcap_cold
 .Lme_dcap_done:
     mov     r10, qword ptr [rip + g_patstk_sp@GOTPCREL]  /* --- inlined rt_patstk_lazy_init test ---           */
