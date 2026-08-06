@@ -219,11 +219,7 @@ std::string bb_match_begin() {
          + x86("jmp", L(0))
          + x86("def", L(1))
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
-             ? x86("def", L(2))   /* CAS-R12-UNIFY fail exit: scan ON r12 itself -- r12 is the one authority so walking it down IS the pop; lands at the marker base, then recover patstk (+16) and the rsp mark (+8) off it, depth-free on EVERY arrival depth exactly as the s22x carry designed.  The r10 stage and both cell touches are deleted. */
-             + x86("sub", "r12", (long)24)
-             + x86("mov", "rax", RDQ("r12", 0))
-             + x86("test", "rax", "rax")
-             + x86("jne", L(2))
+             ? x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* ⭐ W-1c.3 NO-SCAN (Lon ruling): the walk is DELETED -- at the failure exit the un-match cascade has already popped every entry this match pushed (bb_match_capture's COND β does `sub r12,24` UNGUARDED, "sound by the LIFO cascade"), so r12 arrives at marker+24 BY INVARIANT and this single sub lands exactly on the marker.  The old loop stepped once and stopped on its first test in the common case -- pure ceremony -- and the payload reads below ([r12+16] patstk, [r12+8] rsp) are unchanged because they were always relative to the marker the walk was re-deriving.  Register arithmetic, so it is depth-free: the frame spelling is NOT valid here (rsp sits at the failure depth, not α depth) and any FRQ-slot route to the marker reads garbage -- MEASURED, this session: a head.dcap_mark carry crashed 40+ probes across ALT/SEQ/FENCE. */
              + x86("note", "cas_patstk") + x86("mov", "rax", RDQ("r12", 16))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", RDQ("rcx", 0), "rax")
@@ -239,7 +235,7 @@ std::string bb_match_begin() {
                    + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
                    + x86_zls2_release_to_call(_.op_off + 16)
                    + x86_align_leave()))
-             + x86("def", L(2)) + x86("sub", "r12", (long)24) + x86("mov", "rax", RDQ("r12", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)))   /* CAS-R12-UNIFY: fail-exit pops pend entries AND the marker by scanning r12 down to tag 0 -- the walk IS the pop, cell touches deleted */
+             + x86("note", "cas_mark") + x86("sub", "r12", (long)24))   /* ⭐ W-1c.3 NO-SCAN: same LIFO invariant on the non-hfc arm -- r12 arrives at marker+24 after the cascade, so one sub pops the marker and IS the wholesale release.  The walk is deleted; see the hfc arm's note. */
          + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on the failure exit -- post-unwind rsp is back at α depth in every arm, so the slot spelling holds; under the regime the rbp slots are depth-free by construction.  ⭐ OBJ-NOTE ON-3 (s23e): the RESTORE side now names the same five slots the α saves named, via the shared HKN(k) table -- s23c annotated the writes and left every read bare, so a .s reader saw '[rbp+96]' with no way to know it was the enclosing match's subject coming back. */
          + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
