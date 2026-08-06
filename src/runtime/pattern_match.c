@@ -642,7 +642,7 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;
 #include "pin_va.h"
-#define g_dcap_top (*(const char **)RT_CAS_TOP)
+#define g_dcap_top (*(const char **)RT_DCAP_TOP)
 void rt_dcap_lazy_init(void) {
     extern void *rt_slab_region(size_t);
     if (!g_dcap_top) {

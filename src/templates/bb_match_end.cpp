@@ -80,7 +80,7 @@ std::string bb_match_end() {
          + IF(_.op_dval != 0.0, x86("note", "end_δ") + x86("mov", RDQ("rbp", -8), "r14"))   /* ⭐ W-1: end_δ spare in pad slot [rbp-8] (safe; depth-immune) */
          + x86_xfer_enter()
          + x86_anchor_enter()
-         + x86("mov", "rsi", ABSQ(RT_CAS_TOP))
+         + x86("mov", "rsi", ABSQ(RT_DCAP_TOP))
          + x86("mov", "r10", "rsi")
          + x86("def", L(5))
          + x86("sub", "r10", (long)24)
@@ -109,7 +109,7 @@ std::string bb_match_end() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")
+         + x86("mov", "r10", ABSQ(RT_DCAP_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_DCAP_TOP), "r10")
          + x86("note", "mech2_framebase") + x86("mov", "rbp", "r12")   /* ⭐ W-1b ARBNO-RBP FIX: restore rbp←r12 (=α-8, saved by match_begin) before header reads; ARBNO may have set rbp to its element-view register making [rbp-N] reads return garbage */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ⭐ W-1: restore from fixed header [rbp-16..rbp-40] matching match_begin saves */
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
@@ -165,7 +165,7 @@ std::string bb_match_end() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -40)) + x86("mov", ABSQ(RT_CAS_TOP), "r12")   /* ZW-3 / ZW-15: r12←base discards applied records (was -32) */
+         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -40)) + x86("mov", ABSQ(RT_DCAP_TOP), "r12")   /* ZW-3 / ZW-15: r12←base discards applied records (was -32) */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ZW-15: was -8 */
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))   /* ZW-15: was -16 */
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))   /* ZW-15: was -24 */
@@ -181,7 +181,7 @@ std::string bb_match_end() {
                               + x86("note", "match_start") + x86("mov", FR(_.op_off), "eax")
                               + x86("note", "match_end")   + x86("mov", FRQ(_.op_off + 24), "r11"))
          + x86_gamma()
-         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -40)) + x86("mov", ABSQ(RT_CAS_TOP), "r12")   /* ZW-3 ω / ZW-15: r12←base bulk-discards (was -32) */
+         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -40)) + x86("mov", ABSQ(RT_DCAP_TOP), "r12")   /* ZW-3 ω / ZW-15: r12←base bulk-discards (was -32) */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ZW-15: was -8 */
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))   /* ZW-15: was -16 */
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))   /* ZW-15: was -24 */

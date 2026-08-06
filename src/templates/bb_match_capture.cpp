@@ -50,7 +50,7 @@ std::string bb_match_capture() {
            + x86_alpha()
            + x86("mov",  "eax", ZOPD(1, 0))
            + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
-           + x86("mov",  RDQ("r12", 0), "rcx")   /* CAS-R12-UNIFY (Lon mandate, this session): r12 IS the live pend top on every arm -- the op_zw fork collapsed; cell [RT_CAS_TOP] is boot-seed only (rt_outer_call thunk / m4 wrapper), rt_chain_enter inherits r12 callee-saved so EVAL/nested graphs read the true top. */
+           + x86("mov",  RDQ("r12", 0), "rcx")   /* CAS-R12-UNIFY (Lon mandate, this session): r12 IS the live pend top on every arm -- the op_zw fork collapsed; cell [RT_DCAP_TOP] is boot-seed only (rt_outer_call thunk / m4 wrapper), rt_chain_enter inherits r12 callee-saved so EVAL/nested graphs read the true top. */
            + x86("mov",  "esi", "eax")
            + x86("mov",  RDQ("r12", 8), "rsi")
            + x86("mov",  "edx", "r14d")
@@ -119,7 +119,7 @@ std::string bb_match_capture() {
           * because within-alternative failure cascades transit the boxes (balanced, the Python LIFO theorem)
           * and the alternative-SWITCH bypass is bulk-restored by bb_match_alternate's own mark (SZ-2c gap,
           * ported inline).  r12 is ALWAYS live (outer seed + callee-saved inheritance), so nested heads read
-          * the register directly.  R12-FREE-1 (Lon 2026-07-29, GOAL-ZETA-FOUR): the pend top is now CELL-RESIDENT at [RT_CAS_TOP] -- the same cell the C side already aliases as g_dcap_top (pattern_match.c:644) -- so C-side and emitted-side pushes share ONE authority and r12 is vacated for config 1 (FRAME_R12); r10 stages the entry stores (no C call intervenes), rax the beta pop.  Post-RTX the top returns to a register (r12) per the same directive.  The residual rt_cap_top call is the SAVE-stack array read — ZB-FC-3c's
+          * the register directly.  R12-FREE-1 (Lon 2026-07-29, GOAL-ZETA-FOUR): the pend top is now CELL-RESIDENT at [RT_DCAP_TOP] -- the same cell the C side already aliases as g_dcap_top (pattern_match.c:644) -- so C-side and emitted-side pushes share ONE authority and r12 is vacated for config 1 (FRAME_R12); r10 stages the entry stores (no C call intervenes), rax the beta pop.  Post-RTX the top returns to a register (r12) per the same directive.  The residual rt_cap_top call is the SAVE-stack array read — ZB-FC-3c's
           * named kill, NOT this rung's. */
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND (pend-park inline pend)")
            + x86_alpha()
