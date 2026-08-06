@@ -12,7 +12,7 @@ void   rt_zls_release_to(void *mark);
 extern "C" long *rt_anchor_ptr(void);   /* ZW-4: g_anchor demoted to static in keywords.c; this accessor returns its address for RIP-relative embed */
 }
 #include "x86_asm.h"
-extern "C" uint64_t g_patstk_sp;
+/* CAS-SENTINEL-CLEAN: g_patstk_sp extern removed — no pattern stack island */
 extern "C" uint32_t g_cap_gen;
 #define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)
 #define subjc() (_.op_subj_cell)
@@ -51,7 +51,7 @@ std::string bb_match_begin() {
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
          + x86("mov", "eax", RDD("rcx", 0))
          + x86("note", HKN(4)) + x86("mov", RDQ("rbp", -40), "rax")   /* [rbp-40]=cap_gen */
-         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r12", 16), "rax") + x86("note", "cas_top") + x86("add", "r12", (long)24) + x86("mov", ABSQ(RT_DCAP_TOP), "r12") + x86("note", "cas_sentinel") + x86("mov", RDQ("rbp", -72), "r12")   /* ⭐ MECH2-R12-FIX sentinel: CAS-R12-UNIFY direct-r12 form + [RT_DCAP_TOP] cell kept in sync (bb_match_end mech-2 arm reads the cell at line 83 for its backward scan). r12=live top; [rbp-72]=post-push r12; bb_match_capture inherits r12 correctly. */
+         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("mov", RDQ("r12", 16), (long)0) + x86("note", "cas_top") + x86("add", "r12", (long)24) + x86("mov", ABSQ(RT_DCAP_TOP), "r12") + x86("note", "cas_sentinel") + x86("mov", RDQ("rbp", -72), "r12")   /* CAS-SENTINEL-CLEAN: [+0]=tag0,[+8]=rsp_mark,[+16]=0(was patstk,dead pad); stride 24. */
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)   /* C call: rsp≡0(mod16) ✓ */
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
@@ -59,9 +59,7 @@ std::string bb_match_begin() {
                                                 + x86_zclaim(32)
                                                 + x86("note", "rsp_mark") + x86("mov", RDQ("rbp", -64), "rax")   /* [rbp-64]=zls2_mark */
                                                 : x86("note", HKN(5)) + x86("mov", RDQ("rbp", -64), "rsp"))   /* zls2_mark: rsp directly, bypass FRQ */
-             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-             + x86("mov", "rax", RDQ("rcx", 0))
-             + x86("note", "patstk_mark") + x86("mov", RDQ("rbp", -56), "rax"))   /* [rbp-56]=patstk_mark */
+             )   /* CAS-SENTINEL-CLEAN: patstk_mark save removed */
          + x86("note", "start_δ") + x86("mov", RDD("rbp", -48), (long)0)   /* [rbp-48]=start_δ (dword) */
          + x86("def", L(0))
          + x86("note", "start_δ") + x86("mov", "r14d", RDD("rbp", -48))   /* retry: reload start_δ */
@@ -76,8 +74,7 @@ std::string bb_match_begin() {
          + x86("cmp64", "rax", (long)0)
          + x86("jne", L(1))
          + x86("note", "cas_sentinel") + x86("mov", "r10", RDQ("rbp", -72)) + x86("mov", ABSQ(RT_DCAP_TOP), "r10")   /* Bug4 fix: discard stale COND entries from failed attempt; restore CAS_TOP to sentinel base (ZW-12 analogue: r12←[rbp-40];RT_DCAP_TOP←r12) */
-         + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "patstk_mark") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rbp", -56)) + x86("mov", RDQ("rcx", 0), "rax")   /* Bug4 fix: restore g_patstk_sp to α snapshot; discards any captures pushed during failed attempt */
-               + x86("note", "rsp_mark") + x86("mov", "rsp", RDQ("rbp", -64)))   /* Bug4 fix: restore rsp to α floor; collapses any zls2/SAVE growth from failed attempt (safe: blob cells below floor, Forth spine above rbp-8 untouched) */
+         + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "rsp_mark") + x86("mov", "rsp", RDQ("rbp", -64)))   /* CAS-SENTINEL-CLEAN: patstk restore removed; rsp restore kept */
          + x86("jmp", L(0))
          + x86("def", L(1))
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
@@ -87,21 +84,13 @@ std::string bb_match_begin() {
              + x86("mov", "rax", RDQ("r10", 0))
              + x86("test", "rax", "rax")
              + x86("jne", L(2))
-             + x86("note", "cas_patstk") + x86("mov", "rax", RDQ("r10", 16))
-             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-             + x86("mov", RDQ("rcx", 0), "rax")
-             + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r10", 8))
+             + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r10", 8))   /* CAS-SENTINEL-CLEAN: patstk restore from [r10+16] removed; rsp restore from [r10+8] kept */
              + x86("mov", ABSQ(RT_DCAP_TOP), "r10")
-             : IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "patstk_mark") + x86("mov", "rax", RDQ("rbp", -56))
-                 + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-                 + x86("mov", RDQ("rcx", 0), "rax"))
-             + (x86_zc_frame() == ZC_FRAME_RSP
+             : (x86_zc_frame() == ZC_FRAME_RSP
                  ? (x86_align_leave() + x86("mov", "rsp", RDQ("rbp", -64)) + x86_align_enter())   /* zls2_release: [rbp-64]=mark */
-                 : ( IF(hfc(), x86("note", "patstk_mark") + x86("mov", "rdi", RDQ("rbp", -56)))
-                   + x86_align_enter()
-                   + IF(!hfc(), x86("note", "patstk_mark") + x86("mov",  "rdi", RDQ("rbp", -56)))
+                 : ( x86_align_enter()
                    + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
-                   + x86_align_enter() + x86("mov", "rsp", RDQ("rbp", -64)) + x86_align_leave()   /* zls2 restore */
+                   + x86_align_enter() + x86("mov", "rsp", RDQ("rbp", -64)) + x86_align_leave()
                    + x86_align_leave()))
              + x86("mov", "r10", ABSQ(RT_DCAP_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_DCAP_TOP), "r10"))
          /* ⭐ MECH2-R12-FIX: rbp-restore DELETED.  In the mech-2 arm rbp is never clobbered (no dynamic-body ARBNO borrows it as element view), so `mov rbp,r12` was a self-assign no-op and also a CAS collision hazard.  Header reads [rbp-N] proceed directly. */
@@ -195,7 +184,7 @@ std::string bb_match_begin() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r12", 16), "rax") + x86("note", "cas_top") + x86("add", "r12", (long)24)   /* CAS-R12-UNIFY (Lon mandate, this session): sentinel written AT r12 directly -- the r10 stage and the cell store are deleted; [RT_DCAP_TOP] is boot-seed only. */   /* CAS-MARKER-CARRY (s22x): the sentinel's 16 unused bytes now carry the rsp mark (+8, == the α base the hfc claim's slot mark records) and the patstk snapshot (+16) -- the marker readers (tail RELEASE, the fail exit below) recover BOTH depth-free off the marker they already scan to, deleting the second variable-depth reach the original CAS-MARKER note promised.  rax/rcx dead here (Σ/Δ already captured into r13/r15); rsp == α base in the RSP+hfc arm (its claim fires below this push). */   /* CAS-MARKER (Lon s8 directive: "instantiate a bottom marker at each start of a new pattern match"): the pend stack carries its OWN bracket -- a tag-0 sentinel entry (varname pointers are never 0) pushed at match start.  Replaces the flat +32 slot save: no frame-addressed read, no compile-time depth, config-blind.  RELEASE and the fail exit below scan down to this marker instead of reloading a slot -- the first of the two variable-depth reaches deleted on the road to pure FORTH cells. */
+         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("mov", RDQ("r12", 16), (long)0) + x86("note", "cas_top") + x86("add", "r12", (long)24)   /* CAS-SENTINEL-CLEAN: [+0]=tag0,[+8]=rsp_mark,[+16]=0(was patstk,dead pad); CAS-MARKER (Lon s8): tag-0 sentinel at match start; RELEASE/fail scan to it depth-free. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
                                                 + x86("note", "rsp_mark") + x86("mov", FRQ(_.op_off + 16), "rax")
@@ -216,20 +205,13 @@ std::string bb_match_begin() {
          + x86("jmp", L(0))
          + x86("def", L(1))
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
-             ? x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* ⭐ W-1c.3 NO-SCAN (Lon ruling): the walk is DELETED -- at the failure exit the un-match cascade has already popped every entry this match pushed (bb_match_capture's COND β does `sub r12,24` UNGUARDED, "sound by the LIFO cascade"), so r12 arrives at marker+24 BY INVARIANT and this single sub lands exactly on the marker.  The old loop stepped once and stopped on its first test in the common case -- pure ceremony -- and the payload reads below ([r12+16] patstk, [r12+8] rsp) are unchanged because they were always relative to the marker the walk was re-deriving.  Register arithmetic, so it is depth-free: the frame spelling is NOT valid here (rsp sits at the failure depth, not α depth) and any FRQ-slot route to the marker reads garbage -- MEASURED, this session: a head.dcap_mark carry crashed 40+ probes across ALT/SEQ/FENCE. */
-             + x86("note", "cas_patstk") + x86("mov", "rax", RDQ("r12", 16))
-             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-             + x86("mov", RDQ("rcx", 0), "rax")
-             + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r12", 8))
-             : x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* ⭐ W-1c.3 Part B non-hfc: LIFO sub goes FIRST so [r12+16]/[r12+8] reads below are from the sentinel; patstk slot read at FRQ(op_off+8) DELETED. */
-             + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "cas_patstk") + x86("mov", "rax", RDQ("r12", 16))
-                 + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-                 + x86("mov", RDQ("rcx", 0), "rax"))
+             ? x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* W-1c.3 NO-SCAN: r12 arrives at marker+24 by LIFO invariant; single sub reaches sentinel */
+             + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r12", 8))   /* CAS-SENTINEL-CLEAN: patstk restore from [r12+16] removed; rsp restore from [r12+8] kept */
+             : x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* W-1c.3 Part B non-hfc: LIFO sub first */
              + (x86_zc_frame() == ZC_FRAME_RSP
                  ? x86_zls2_release_to_call(_.op_off + 16)
                  : ( x86_align_enter()
-                   + x86("note", "cas_patstk") + x86("mov", "rdi", RDQ("r12", 16))
-                   + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
+                   + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)   /* CAS-SENTINEL-CLEAN: patstk rdi load from [r12+16] removed */
                    + x86_zls2_release_to_call(_.op_off + 16)
                    + x86_align_leave())))
          + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on the failure exit -- post-unwind rsp is back at α depth in every arm, so the slot spelling holds; under the regime the rbp slots are depth-free by construction.  ⭐ OBJ-NOTE ON-3 (s23e): the RESTORE side now names the same five slots the α saves named, via the shared HKN(k) table -- s23c annotated the writes and left every read bare, so a .s reader saw '[rbp+96]' with no way to know it was the enclosing match's subject coming back. */

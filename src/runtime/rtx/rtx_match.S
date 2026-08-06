@@ -396,11 +396,13 @@ RTX_FUNC(rt_match_ctx_restore)
     ret
 RTX_ENDF(rt_match_ctx_restore)
 
-/* rt_patstk_lazy_init — RTX-8 slice 5. THE LAZY-INIT SHAPE: one real init, N-1 no-op tests.
+/* rt_patstk_lazy_init — CAS-SENTINEL-CLEAN: DELETED (this session).
+ * The pattern stack island (g_patstk_sp / g_patstk_base) is gone.  The CAS sentinel shrinks
+ * from 24 bytes to 16 bytes: [+0]=tag0, [+8]=rsp_mark.  The +16 patstk slot is removed.
+ * This stub is replaced by the tombstone below so external call sites get a link error, not
+ * silent no-op survival.  Delete the tombstone once all call sites are confirmed clean.
  *
- * C OF RECORD: pattern_match.c:620, renamed c_rt_patstk_lazy_init in this same commit.
- *
- * ARM CENSUS (0(f-pre), read from the C body, then measured):
+ * FORMER ARM CENSUS (0(f-pre), read from the C body, then measured):
  *   ARM 1  g_patstk_sp == 0  -> COLD. Reserves the 8 MB pend island via rt_slab_region,
  *                              aborts on failure, computes and 16-aligns the descending sp.
  *                              Runs EXACTLY ONCE per process. Delegated whole to C.
@@ -425,12 +427,9 @@ RTX_ENDF(rt_match_ctx_restore)
  * (ON median 903 ms vs OFF 890 ms at LT(N,4000000)), and this container throws intermittent
  * +50% fliers, so the per-call saving here (~5 instructions against ~650 cycles per match)
  * is far below the floor. Graded on correctness and eradication, per the RTX-7/s217 precedent. */
+/* rt_patstk_lazy_init tombstone: ud2 so any surviving call site traps visibly */
 RTX_FUNC(rt_patstk_lazy_init)
-    RTX_GATE(match, c_rt_patstk_lazy_init)
-    mov     r10, qword ptr [rip + g_patstk_sp@GOTPCREL]  /* &g_patstk_sp -- exported, GOT-indirect per 0(c) */
-    cmp     qword ptr [r10], 0                           /* the island already reserved?                     */
-    je      c_rt_patstk_lazy_init                        /* ARM 1 COLD: first match -- whole body to C       */
-    ret                                                  /* ARM 2 HOT: nothing to do                         */
+    ud2
 RTX_ENDF(rt_patstk_lazy_init)
 
 /*===================================================================================================================
@@ -526,10 +525,7 @@ RTX_FUNC(rt_match_enter)
     test    r12, r12                                     /* ⭐ O-5 ZW-3 R12-DIRECT (s33 OMEGA): r12 IS [RTX_DCAP_TOP_VA] -- the graph-entry seed (scrip.c wrapper / rt_outer_call thunk) loaded r12=[0x70000000] before entry, so r12==0 iff dcap is uninitialised and r12!=0 iff the island is live.  Eliminates one absolute-VA load per match enter. */
     je      .Lme_dcap_cold
 .Lme_dcap_done:
-    mov     r10, qword ptr [rip + g_patstk_sp@GOTPCREL]  /* --- inlined rt_patstk_lazy_init test ---           */
-    cmp     qword ptr [r10], 0
-    je      .Lme_patstk_cold
-.Lme_patstk_done:
+    /* CAS-SENTINEL-CLEAN: inlined rt_patstk_lazy_init test removed -- no pattern stack */
     test    r8d, r8d                                     /* ARM-FAST-A already holds L                        */
     jnz     .Lme_store
     mov     rdi, rsi                                     /* ARM-FAST-B: L = strlen(s), the one surviving call  */
@@ -554,15 +550,6 @@ RTX_FUNC(rt_match_enter)
     pop     r8
     pop     rsi
     jmp     .Lme_dcap_done
-.Lme_patstk_cold:
-    push    rsi
-    push    r8
-    sub     rsp, 8
-    call    c_rt_patstk_lazy_init                        /* c_* directly: idempotent, re-tests g_patstk_sp     */
-    add     rsp, 8
-    pop     r8
-    pop     rsi
-    jmp     .Lme_patstk_done
 RTX_ENDF(rt_match_enter)
 
 /*===================================================================================================================

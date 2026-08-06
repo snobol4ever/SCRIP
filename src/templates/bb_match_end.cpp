@@ -9,7 +9,7 @@ extern "C" void rt_zls_release_to(void *mark);
 extern "C" void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
 extern "C" long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
 extern "C" long rt_dcap_step(DESCR_t fret);
-extern "C" uint64_t g_patstk_sp;
+/* CAS-SENTINEL-CLEAN: g_patstk_sp extern removed */
 extern "C" void rt_dcap_end_ok_close(void);
 extern "C" void *rt_proc_open_fn(void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
@@ -201,10 +201,7 @@ std::string bb_match_end() {
          + x86("mov", "rax", RDQ("r10", 0))
          + x86("test", "rax", "rax")
          + x86("jne", L(8))
-         + x86("mov", "rax", RDQ("r10", 16))
-         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-         + x86("mov", RDQ("rcx", 0), "rax")
-         + x86("mov", "rsp", RDQ("r10", 8))
+         + x86("mov", "rsp", RDQ("r10", 8))   /* CAS-SENTINEL-CLEAN: patstk restore from [r10+16] removed; rsp restore from [r10+8] kept */
          + release_pump()
          : x86("comment", "IR_MATCH_END")
          + x86_alpha()
@@ -213,10 +210,7 @@ std::string bb_match_end() {
                                                + x86("sub", "r10", (long)24)
                                                + x86("mov", "rax", RDQ("r10", 0))
                                                + x86("test", "rax", "rax")
-                                               + x86("jne", L(9))
-                                               + x86("mov", "rax", RDQ("r10", 16))
-             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-             + x86("mov", RDQ("rcx", 0), "rax"))
+                                               + x86("jne", L(9)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r10+16] removed */
          + (_.op_dval != 0.0
                 ? IF(rfc(), x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp))
                           + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + 32)), "eax")

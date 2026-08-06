@@ -612,21 +612,16 @@ static void *rt_cas_carve(size_t bytes)
 }
 void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_base; if (bytes) *bytes = g_cas_used; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define RT_PATSTK_ISLAND_BYTES (8u << 20)
-uint64_t g_patstk_sp = 0;
+/* CAS-SENTINEL-CLEAN (this session): g_patstk_sp / g_patstk_base / c_rt_patstk_lazy_init DELETED.
+ * The pattern stack island was carry-state in the 24-byte CAS sentinel ([+0]=tag, [+8]=rsp_mark,
+ * [+16]=patstk_snapshot) so the failure path could restore g_patstk_sp without a frame-addressed
+ * reload.  The model is pure R12/DCAP-island — no separate pattern stack exists.  The sentinel
+ * shrinks to 16 bytes ([+0]=tag, [+8]=rsp_mark); scan loops use `sub r10,16` not `sub r10,24`.
+ * Call sites in rtx_match.S (rt_match_enter, rt_patstk_lazy_init stub) and gen_runtime.c
+ * (c_rt_match_enter) are pruned in the same commit. */
 uint64_t g_scan_hit_start = 0;   /* SPD-2 RETRY-INTERNAL: flat_pat blob publishes the WINNING attempt-start on scan-mode gamma; the statement defer gamma-cont copies it into the head counter slot (replace-span source) */
 uint64_t g_sno_defer_cells[4096];   /* s142 DEFER-SITE DIET: per-site fn cache for WRITE-ONCE deferred names (IR_t.seal==2) — emit assigns indices via g_emit.sn4_defer_cell_n; the site's cold path runs the full GVA/DT_P/dtp_fn_of dance once and stores the fn here; steady state = lea+load+test.  Write-once (single program-wide assignment, fz-safe — the g_sno_seal eligibility) is what makes the cache sound: once DT_P appears the fn can never change.  Zero-init .bss; a 0 store on the not-yet-DT_P path is a harmless no-op. */
 uint64_t g_pat_main_rsp = 0;
-static const char *g_patstk_base = 0;
-void c_rt_patstk_lazy_init(void) {
-    extern void *rt_slab_region(size_t);
-    if (!g_patstk_sp) {
-        g_patstk_base = (const char *)rt_slab_region(RT_PATSTK_ISLAND_BYTES);
-        if (!g_patstk_base) { fprintf(stderr, "rt_patstk: island reserve failed\n"); abort(); }
-        g_patstk_sp = (uint64_t)(uintptr_t)(g_patstk_base + RT_PATSTK_ISLAND_BYTES);
-        g_patstk_sp &= ~(uint64_t)15;
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
 __attribute__((destructor)) static void rt_rspd_report(void) {

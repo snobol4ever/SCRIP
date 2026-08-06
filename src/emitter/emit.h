@@ -475,6 +475,7 @@ typedef struct {
     int                          op_gva_k2;
     int                          op_proc_k;
     int32_t                      op_stno;
+    int                          op_mon_stmt_tap;
     int                          op_bounded;
     int                          op_relop_descr;
     int                          op_num_real;
