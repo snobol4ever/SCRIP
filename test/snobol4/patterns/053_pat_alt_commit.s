@@ -354,9 +354,6 @@ n25_match_begin_α:
                         mov              qword ptr [r12 + 16], rax                      # cas_patstk
                         add              r12, 24                                        # cas_top
                         mov              qword ptr [rbp + 128], rsp                     # zls2_mark
-                        lea              rcx, [rip + g_patstk_sp]
-                        mov              rax, qword ptr [rcx + 0]
-                        mov              qword ptr [rbp + 120], rax                     # patstk_mark
                         mov              dword ptr [rbp + 112], 0                       # start_δ
 .Lx61_0:
                         mov              r14d, dword ptr [rbp + 112]
@@ -372,11 +369,11 @@ n25_match_begin_β:
                                                                                         jne   .Lx61_1
                                                                                         jmp   .Lx61_0
 .Lx61_1:
-                        mov              rax, qword ptr [rbp + 120]                     # patstk_mark
+                        sub              r12, 24                                        # cas_mark
+                        mov              rax, qword ptr [r12 + 16]                      # cas_patstk
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rbp + 128]
-                        sub              r12, 24                                        # cas_mark
                         mov              r13, qword ptr [rbp + 160]                     # outer_Σ
                         mov              r14, qword ptr [rbp + 168]                     # outer_δ
                         mov              r15, qword ptr [rbp + 176]                     # outer_Δ
@@ -493,7 +490,13 @@ n28_match_assign_cond_β:
                                                                                         jmp   n27_match_patref_β
 #-----------------------------------------------------------------------------------------------------------------------
 n29_match_end_α:
-                        mov              rax, qword ptr [rbp + 120]
+                        mov              r10, r12
+.Lx68_9:
+                        sub              r10, 24
+                        mov              rax, qword ptr [r10 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx68_9
+                        mov              rax, qword ptr [r10 + 16]
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
                         mov              rsp, qword ptr [rbp + 128]
