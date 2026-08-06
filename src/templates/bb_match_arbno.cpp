@@ -276,8 +276,8 @@ std::string bb_match_arbno() {
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: COLLECTION geometry not staged (zls_arbno_geom)")
-         : (_.op_arbno_framed && _.op_arbno_body_k0 && arbno_lon())
-             ? bb_match_arbno_frameless()
+         : (_.op_arbno_body_k0 && arbno_lon())
+             ? bb_match_arbno_frameless()   /* ⭐ TOP-LEVEL-K0 CONVERGENCE (2026-08-06b): the framed requirement was scoping conservatism from the nested-SIGSEGV landing -- the arm is pure-rsp and its +16 success-out delta is billed by zd_k(ARBNO)=16 (THE ONE AUTHORITY), so the static-distance laws hold at depth 0 exactly as they hold nested.  Non-tail candidates only: op_tail wins above, keeping the carry-the-tail class on its proven arm. */
          : _.op_arbno_chain
              ? x86("comment", "IR_MATCH_ARBNO_NARY (ZB-FC-4 rsp linked-frame-chain)")
              + x86_alpha()
