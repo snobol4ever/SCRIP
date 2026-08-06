@@ -23,7 +23,7 @@ static std::string release_pump() {
     return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
-         + x86("mov",  "rsi", ABSQ(RT_CAS_TOP))   /* CAS-MARKER: top; mark is recovered by scanning down to HEAD's tag-0 marker -- the flat +32 slot and its zc_frame fork are deleted; one config-blind mechanism serves every basis */
+         + x86("mov",  "rsi", "r12")   /* CAS-R12-UNIFY: top IS r12 -- cell read deleted.  CAS-MARKER: mark is recovered by scanning down to HEAD's tag-0 marker (r10 walks a COPY; r12 must stay at top -- the pump consumes the entries above the marker); one config-blind mechanism serves every basis */
          + x86("mov",  "r10", "rsi")
          + x86("def",  L(5))
          + x86("sub",  "r10", (long)24)
@@ -57,7 +57,7 @@ static std::string release_pump() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER: success path re-scans (the pump's C calls clobber r10; nested matches inside pumped assignments push balanced markers, so top returns) and pops entries + marker wholesale */
+         + x86("def", L(6)) + x86("sub", "r12", (long)24) + x86("mov", "rax", RDQ("r12", 0)) + x86("test", "rax", "rax") + x86("jne", L(6))   /* CAS-R12-UNIFY: success path re-scans ON r12 (callee-saved through the pump's C calls; nested matches inside pumped assignments push balanced markers, so r12 returns at top) -- the walk pops entries + marker wholesale, cell touches deleted */
          + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten. */
          + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
@@ -195,7 +195,7 @@ std::string bb_match_end() {
          : _.op_tail && rfc()
          ? x86("comment", "IR_MATCH_END (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")
          + x86_alpha()
-         + x86("mov", "r10", ABSQ(RT_CAS_TOP))
+         + x86("mov", "r10", "r12")   /* CAS-R12-UNIFY: seed the recovery scan from r12 (the one authority); r10 walks a COPY -- marker NOT popped here, the pump's L(6) scan pops the lot */
          + x86("def", L(8))
          + x86("sub", "r10", (long)24)
          + x86("mov", "rax", RDQ("r10", 0))
@@ -208,7 +208,7 @@ std::string bb_match_end() {
          + release_pump()
          : x86("comment", "IR_MATCH_END")
          + x86_alpha()
-         + IF(x86_zc_frame() == ZC_FRAME_RSP, (rfc() ? x86("mov", "r10", ABSQ(RT_CAS_TOP))   /* CAS-MARKER-CARRY (s22x): scan to the head's tag-0 sentinel; patstk rides +16, the rsp mark +8.  The old RSP(op_fc_disp) spellings assumed fc_disp counted every live cell between head and release -- it misses the ZW-1 alpha carves the non-popping γ spine leaves live (041: fc_disp=0 read the head cell 32 low, loading a half-written leaf cell into rsp).  r10 survives to the unwind below (the dval arm touches only rax/r14). */
+         + IF(x86_zc_frame() == ZC_FRAME_RSP, (rfc() ? x86("mov", "r10", "r12")   /* CAS-R12-UNIFY: seed from r12, cell read deleted.  CAS-MARKER-CARRY (s22x): scan to the head's tag-0 sentinel; patstk rides +16, the rsp mark +8.  The old RSP(op_fc_disp) spellings assumed fc_disp counted every live cell between head and release -- it misses the ZW-1 alpha carves the non-popping γ spine leaves live (041: fc_disp=0 read the head cell 32 low, loading a half-written leaf cell into rsp).  r10 survives to the unwind below (the dval arm touches only rax/r14). */
                                                      + x86("def", L(9))
                                                      + x86("sub", "r10", (long)24)
                                                      + x86("mov", "rax", RDQ("r10", 0))

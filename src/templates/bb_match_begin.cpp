@@ -195,7 +195,7 @@ std::string bb_match_begin() {
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_CAS_TOP), "r10")   /* CAS-MARKER-CARRY (s22x): the sentinel's 16 unused bytes now carry the rsp mark (+8, == the α base the hfc claim's slot mark records) and the patstk snapshot (+16) -- the marker readers (tail RELEASE, the fail exit below) recover BOTH depth-free off the marker they already scan to, deleting the second variable-depth reach the original CAS-MARKER note promised.  rax/rcx dead here (Σ/Δ already captured into r13/r15); rsp == α base in the RSP+hfc arm (its claim fires below this push). */   /* CAS-MARKER (Lon s8 directive: "instantiate a bottom marker at each start of a new pattern match"): the pend stack carries its OWN bracket -- a tag-0 sentinel entry (varname pointers are never 0) pushed at match start.  Replaces the flat +32 slot save: no frame-addressed read, no compile-time depth, config-blind.  RELEASE and the fail exit below scan down to this marker instead of reloading a slot -- the first of the two variable-depth reaches deleted on the road to pure FORTH cells. */
+         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r12", 16), "rax") + x86("note", "cas_top") + x86("add", "r12", (long)24)   /* CAS-R12-UNIFY (Lon mandate, this session): sentinel written AT r12 directly -- the r10 stage and the cell store are deleted; [RT_CAS_TOP] is boot-seed only. */   /* CAS-MARKER-CARRY (s22x): the sentinel's 16 unused bytes now carry the rsp mark (+8, == the α base the hfc claim's slot mark records) and the patstk snapshot (+16) -- the marker readers (tail RELEASE, the fail exit below) recover BOTH depth-free off the marker they already scan to, deleting the second variable-depth reach the original CAS-MARKER note promised.  rax/rcx dead here (Σ/Δ already captured into r13/r15); rsp == α base in the RSP+hfc arm (its claim fires below this push). */   /* CAS-MARKER (Lon s8 directive: "instantiate a bottom marker at each start of a new pattern match"): the pend stack carries its OWN bracket -- a tag-0 sentinel entry (varname pointers are never 0) pushed at match start.  Replaces the flat +32 slot save: no frame-addressed read, no compile-time depth, config-blind.  RELEASE and the fail exit below scan down to this marker instead of reloading a slot -- the first of the two variable-depth reaches deleted on the road to pure FORTH cells. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
                                                 + x86("note", "rsp_mark") + x86("mov", FRQ(_.op_off + 16), "rax")
@@ -219,17 +219,15 @@ std::string bb_match_begin() {
          + x86("jmp", L(0))
          + x86("def", L(1))
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
-             ? x86("mov", "r10", ABSQ(RT_CAS_TOP))   /* CAS-MARKER-CARRY (s22x) fail exit: scan FIRST, then recover patstk (+16) and the rsp mark (+8) off the marker -- depth-free on EVERY arrival depth, where the old [rsp+8]/[rsp+16] reloads assumed the β-balanced α+claim depth and read leaf cells on any unbalanced path.  The pop (CAS_TOP := marker base) rides the same r10. */
-             + x86("def", L(2))
-             + x86("sub", "r10", (long)24)
-             + x86("mov", "rax", RDQ("r10", 0))
+             ? x86("def", L(2))   /* CAS-R12-UNIFY fail exit: scan ON r12 itself -- r12 is the one authority so walking it down IS the pop; lands at the marker base, then recover patstk (+16) and the rsp mark (+8) off it, depth-free on EVERY arrival depth exactly as the s22x carry designed.  The r10 stage and both cell touches are deleted. */
+             + x86("sub", "r12", (long)24)
+             + x86("mov", "rax", RDQ("r12", 0))
              + x86("test", "rax", "rax")
              + x86("jne", L(2))
-             + x86("note", "cas_patstk") + x86("mov", "rax", RDQ("r10", 16))
+             + x86("note", "cas_patstk") + x86("mov", "rax", RDQ("r12", 16))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", RDQ("rcx", 0), "rax")
-             + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r10", 8))
-             + x86("mov", ABSQ(RT_CAS_TOP), "r10")
+             + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r12", 8))
              : IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "patstk_mark") + x86("mov", "rax", FRQ(_.op_off + 8))
                  + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
                  + x86("mov", RDQ("rcx", 0), "rax"))
@@ -241,7 +239,7 @@ std::string bb_match_begin() {
                    + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
                    + x86_zls2_release_to_call(_.op_off + 16)
                    + x86_align_leave()))
-             + x86("mov", "r10", ABSQ(RT_CAS_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_CAS_TOP), "r10"))   /* CAS-MARKER: fail-exit pops pend entries AND the marker by scanning to tag 0 -- depth-free, replaces the flat +32 reload */
+             + x86("def", L(2)) + x86("sub", "r12", (long)24) + x86("mov", "rax", RDQ("r12", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)))   /* CAS-R12-UNIFY: fail-exit pops pend entries AND the marker by scanning r12 down to tag 0 -- the walk IS the pop, cell touches deleted */
          + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on the failure exit -- post-unwind rsp is back at α depth in every arm, so the slot spelling holds; under the regime the rbp slots are depth-free by construction.  ⭐ OBJ-NOTE ON-3 (s23e): the RESTORE side now names the same five slots the α saves named, via the shared HKN(k) table -- s23c annotated the writes and left every read bare, so a .s reader saw '[rbp+96]' with no way to know it was the enclosing match's subject coming back. */
          + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
