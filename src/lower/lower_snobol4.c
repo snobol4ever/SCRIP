@@ -113,7 +113,7 @@ static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
     return entry;
 }
 static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res);
-static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ);
+static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * op = lc_build(cx->g, IR_BINOP, γ, ω); IR_LIT(op).ival = code;
@@ -456,7 +456,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_SCAN: {
         if (t->n < 2) sno_fatal("TT_SCAN with missing subject or pattern", NULL);
-        IR_t * e = sno_lower_match(cx, t, NULL, 0, γ, ω);
+        IR_t * e = sno_lower_match(cx, t, NULL, 0, γ, ω, NULL);
         if (res) *res = NULL;
         return e;
     }
@@ -465,7 +465,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!L) sno_fatal("TT_ASSIGN with no lhs", NULL);
         if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
         if (L->t == TT_SCAN && L->n >= 2) {
-            IR_t * e = sno_lower_match(cx, L, R, 1, γ, ω);
+            IR_t * e = sno_lower_match(cx, L, R, 1, γ, ω, NULL);
             if (res) *res = NULL;
             return e;
         }
@@ -474,7 +474,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const tree_t * pat = (L->n == 2) ? L->c[1] : NULL;
             if (!pat) { tree_t * ps = ast_stmt_new(TT_SEQ); for (int k = 1; k < L->n; k++) ast_push(ps, (tree_t *) L->c[k]); pat = ps; }
             tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, (tree_t *) L->c[0]); ast_push(sc, (tree_t *) pat);
-            IR_t * e = sno_lower_match(cx, sc, R, 1, γ, ω);
+            IR_t * e = sno_lower_match(cx, sc, R, 1, γ, ω, NULL);
             if (res) *res = NULL;
             return e;
         }
@@ -1648,12 +1648,14 @@ static const char * sno_pat_collect(const tree_t * pat) {
     return g_sno_pats[g_sno_npat++].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ) {
+static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {
     IR_graph_t * g = cx->g;
     cx->pat_fail = fJ; cx->pat_seal = fJ; cx->npre = 0;
     const tree_t * svt = (subj->n > 0) ? subj->c[0] : NULL;
     const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
-    IR_t * head = lc_build(g, IR_MATCH_BEGIN, NULL, fJ);
+    IR_t * land = fJ;
+    if (out_land) { land = lc_build(g, IR_GOTO, fJ, NULL); *out_land = land; }   /* R1 STMT-BETA-LAND (06e design, landed this session): fB -- a DEDICATED exhaust-only GOTO carrying ONLY MATCH_BEGIN's ω (anchor exhausted = whole-statement failure).  Untagged it chains fB→fJ→fT, byte-equivalent to the direct wire (zd_chase and the drive chase both thread GOTOs transparently); the zw5 post-loop in sno_build_graph retags fB.γ to STATEMENT_BEGIN with the β port tag, making statement_begin_beta the named failure landing per the STATEMENT-PORT LAWS (Lon 2026-08-06).  fJ is UNTOUCHED: element failures (the scanner retry loop, SPITBOL manual Ch.18 step 6) and every other statement-failure producer keep their edges -- the 06e session measured that retagging the SHARED fJ re-tags every edge chasing through it (3 regressions, two statements fell out of the walk on 067). */
+    IR_t * head = lc_build(g, IR_MATCH_BEGIN, NULL, land);
     /* SN4-REPL (doctrine stages 4/5): pattern-success → RELEASE (stashes end@head+24, flushes captures per
      * manual Ch.6 "before replacement") → replacement expression chain → SPLICE (rt_match_replace by name)
      * → sJ.  Slice 1: subject must be a plain variable lvalue — indirect/subscript splice targets pending. */
@@ -1843,7 +1845,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
-    IR_t ** fail_tgt = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));   /* STMT-BETA (this session, Lon ruling 2026-08-06): parallel array saving each statement's fT so the post-loop STATEMENT_BEGIN wiring pass can set its omega port to fT, making the emitter wire statement_begin_beta -> fT as the named failure landing */
+    IR_t ** fail_tgt = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));   /* STMT-BETA (cc39c095, Lon ruling 2026-08-06): parallel array saving each statement's fT so the post-loop STATEMENT_BEGIN wiring pass can set its omega port to fT, making the emitter wire statement_begin_beta -> fT as the named failure landing */
+    IR_t ** match_land = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));   /* R1 STMT-BETA-LAND: per-statement fB (the dedicated MATCH_BEGIN-exhaust GOTO minted in sno_lower_match) -- the zw5 post-loop below retags each fB.γ to that statement's STATEMENT_BEGIN with the β port tag */
     bb_label_registry_reset();
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
@@ -1909,14 +1912,14 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     tree_t * dv = ast_stmt_new(TT_VAR); dv->v.sval = tmpn;
                     tree_t * dd = ast_stmt_new(TT_DEFER); ast_push(dd, dv);
                     tree_t * sc2 = ast_stmt_new(TT_SCAN); ast_push(sc2, (tree_t *) subj->c[0]); ast_push(sc2, dd);
-                    IR_t * e2 = sno_lower_match(&cx, sc2, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ);
+                    IR_t * e2 = sno_lower_match(&cx, sc2, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ, &match_land[i]);
                     lc_γ_to(asn, e2);
                     lc_γ_to(anchor[i], ec);
                     continue;
                 }
                 sno_fatal("pattern shape outside the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
             }
-            IR_t * e = sno_lower_match(&cx, subj, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ);
+            IR_t * e = sno_lower_match(&cx, subj, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ, &match_land[i]);
             lc_γ_to(anchor[i], e);
             continue;
         }
@@ -2053,6 +2056,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, fail_tgt[i]);   /* STMT-BETA (this session, Lon ruling 2026-08-06): omega = fT makes the emitter's DRIVE_PAIR wire statement_begin_beta -> fT; beta is the named failure landing for the statement scope (always-live per flat_beta_used_scan IR_STATEMENT_BEGIN addition in emit.cpp) */
             { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
             lc_γ_to(anchor[i], sbeg);
+            if (match_land[i]) lc_γ_tag_β(match_land[i]);   /* R1 STMT-BETA-LAND: tag-only -- fB.γ stays = fJ (chain to fT intact for used-scan and all downstream consumers); β tag makes the emitter's chase propagate oib=1 and route to betas[sbeg_k].  lc_γ_to_β would set fB.γ = sbeg, severing the fJ→fT chain and causing the emitter to miss every statement after the scan (the 175 root cause: node 10@ was the GOTO chain to n11@→n12@→n13@ which held the second STATEMENT_BEGIN; redirecting its γ dropped n12@/n13@ from used[]).  MATCH_BEGIN.ω → fB (β-tagged GOTO → fJ → fT) -- the emitter chases, sees the β tag, routes to sbeg.β, AND the used-scan follows γ to fJ and beyond, keeping the full graph reachable. */
         }
     }   /* s26 BEGIN shim (Lon directive: IR_STATEMENT_BEGIN/END pair): interpose the statement HEAD bracket between each statement's anchor and its first box, AFTER every statement arm has wired -- the anchor is the ONE entry every path (fallthrough, static goto landing, rt_chain_enter via the s26 entry chase) passes through, so one post-loop pass brackets every statement form without touching a single arm, the exact shape of the g_sno_uses_stmtkw hook pass below.  stno stamped into ival same as the END trailer.  Same zw5_on() regime gate as the trailer: SCRIP_ZW5=0 reverts the whole pair. */
     if (g_sno_uses_stmtkw) {
@@ -2075,6 +2079,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     }
     free(anchor);
     free(fail_tgt);
+    free(match_land);
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
