@@ -214,7 +214,7 @@ n7_match_assign_save_α:
                                                                                         jmp   n8_match_arb_α
 n7_match_assign_save_β:
                         add              rsp, 16
-                                                                                        jmp   n4_match_assign_cond_β
+                                                                                        jmp   n5_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_arb_α:
                         sub              rsp, 16
@@ -234,7 +234,7 @@ n8_match_arb_β:
                         mov              r14d, dword ptr [rsp + 4]
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n4_match_assign_cond_β
+                                                                                        jmp   n5_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 16]
@@ -335,7 +335,7 @@ n12_match_assign_save_α:
                                                                                         jmp   n13_match_rem_α
 n12_match_assign_save_β:
                         add              rsp, 16
-                                                                                        jmp   n9_match_assign_cond_β
+                                                                                        jmp   n10_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
 n13_match_rem_α:
                         sub              rsp, 16
@@ -346,7 +346,7 @@ n13_match_rem_β:
                         mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n9_match_assign_cond_β
+                                                                                        jmp   n10_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_assign_cond_α:
                         mov              eax, dword ptr [rsp + 16]
