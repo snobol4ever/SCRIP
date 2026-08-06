@@ -166,11 +166,7 @@ n6_match_begin_β:
                                                                                         jne   .Lx37_1
                                                                                         jmp   .Lx37_0
 .Lx37_1:
-.Lx37_2:
-                        sub              r12, 24
-                        mov              rax, qword ptr [r12 + 0]
-                        test             rax, rax
-                                                                                        jne   .Lx37_2
+                        sub              r12, 24                                        # cas_mark
                         mov              rax, qword ptr [r12 + 16]                      # cas_patstk
                         lea              rcx, [rip + g_patstk_sp]
                         mov              qword ptr [rcx + 0], rax
