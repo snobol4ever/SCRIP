@@ -427,6 +427,7 @@ int main(int argc, char **argv)
     int dump_transpile     = 0;
     int opt_bench          = 0;
     const char * target_name = NULL;
+    const char * output_path = NULL;   /* m4 -o flag (this session): output file for --compile; NULL = stdout */
     int argi = 1;
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
         if      (strcmp(argv[argi], "--run")           == 0) { mode_run       = 1; argi++; }
@@ -444,8 +445,9 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;
     }
-    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdim", argv[argi][1])) {
+    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimo", argv[argi][1])) {
         char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
+        if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }   /* m4 -o <file> (this session): redirect --compile asm output to file; both -o FILE and -oFILE accepted; string arg, not a memory size */
         if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -%c needs a value\n", sw); return 2; } rest = argv[++argi]; }
         v = parse_mem_arg(rest); if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
         if (sw == 's') { if (apply_stack_limit(v) != 0) { fprintf(stderr, "scrip: -s%ld: could not raise stack limit\n", v); return 2; } }
@@ -849,7 +851,7 @@ int main(int argc, char **argv)
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            g_medium = BB_MEDIUM_TEXT; emit_set_sink(stdout);
+            g_medium = BB_MEDIUM_TEXT; { FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out); }   /* m4 -o flag (this session): route --compile output to file when -o is given; fallback = stdout (unchanged) */
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             g_frame_active = 1;
@@ -1284,7 +1286,7 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid;
             g_flat_node_id = 0;
             g_m4_dense_nid = 1;
-            g_medium = BB_MEDIUM_TEXT; emit_set_sink(stdout);
+            g_medium = BB_MEDIUM_TEXT; { FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out); }   /* m4 -o flag: same -o routing for the second compile path (proc-function arm) */
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             rt_proc_reset();
