@@ -130,8 +130,7 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     extern void rt_dcap_lazy_init(void);
     rt_cap_match_begin();
     rt_dcap_lazy_init();
-    extern void rt_patstk_lazy_init(void); rt_patstk_lazy_init(); /* rbp-dcap: reserves the pend island on first match; the head box α then loads its
-                          * cursor from g_dcap_top and saves its own MARK — the depth-mark array is gone. */
+    /* CAS-SENTINEL-CLEAN: rt_patstk_lazy_init call removed — no pattern stack island exists */
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
