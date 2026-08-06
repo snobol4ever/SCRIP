@@ -75,7 +75,7 @@ n4_statement_begin_β:
                                                                                         jmp   n21_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_var_α:
-                        sub              rsp, 288
+                        sub              rsp, 304
                         mov              qword ptr [rsp + 0], 0                         # stmt_claim
                         mov              qword ptr [rsp + 8], 0
                         mov              qword ptr [rsp + 16], 0
@@ -112,6 +112,8 @@ n5_var_α:
                         mov              qword ptr [rsp + 264], 0
                         mov              qword ptr [rsp + 272], 0
                         mov              qword ptr [rsp + 280], 0
+                        mov              qword ptr [rsp + 288], 0
+                        mov              qword ptr [rsp + 296], 0
                         sub              rsp, 16
                         mov              rax, qword ptr [1879052288]                    # s
                         mov              rdx, qword ptr [1879052296]
@@ -120,7 +122,7 @@ n5_var_α:
                                                                                         jmp   n6_match_begin_α
 n5_var_β:
                         add              rsp, 16
-                        add              rsp, 288
+                        add              rsp, 304
                                                                                         jmp   n21_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_begin_α:
@@ -181,7 +183,7 @@ n6_match_begin_β:
                         mov              rdx, qword ptr [rbp + 120]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 88]                      # old_rbp
-                        add              rsp, 288
+                        add              rsp, 304
                                                                                         jmp   n21_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_integer_α:
@@ -203,7 +205,7 @@ n8_match_pos_β:
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_arbno_α:
-                        sub              rsp, 560
+                        sub              rsp, 592
                         mov              eax, 0
                         mov              qword ptr [rsp + 0], rax
                         mov              qword ptr [rsp + 8], rax
@@ -271,19 +273,23 @@ n9_match_arbno_α:
                         mov              qword ptr [rsp + 504], rax
                         mov              qword ptr [rsp + 512], rax
                         mov              qword ptr [rsp + 520], rax
-                        mov              dword ptr [rsp + 528], r14d
-                        mov              dword ptr [rsp + 532], r14d
-                        mov              dword ptr [rsp + 536], 1
-                        mov              rax, qword ptr [rsp + 568]
+                        mov              qword ptr [rsp + 528], rax
+                        mov              qword ptr [rsp + 536], rax
                         mov              qword ptr [rsp + 544], rax
-                        mov              rax, qword ptr [rsp + 576]
                         mov              qword ptr [rsp + 552], rax
+                        mov              dword ptr [rsp + 560], r14d
+                        mov              dword ptr [rsp + 564], r14d
+                        mov              dword ptr [rsp + 568], 1
+                        mov              rax, qword ptr [rsp + 600]
+                        mov              qword ptr [rsp + 576], rax
+                        mov              rax, qword ptr [rsp + 608]
+                        mov              qword ptr [rsp + 584], rax
                                                                                         jmp   n10_lit_integer_α
 n9_match_arbno_β:
-                        mov              r14d, dword ptr [rsp + 532]
-                        mov              rax, qword ptr [rsp + 544]
-                        mov              rcx, qword ptr [rsp + 552]
-                        sub              rsp, 560
+                        mov              r14d, dword ptr [rsp + 564]
+                        mov              rax, qword ptr [rsp + 576]
+                        mov              rcx, qword ptr [rsp + 584]
+                        sub              rsp, 592
                         mov              edx, 0
                         mov              qword ptr [rsp + 0], rdx
                         mov              qword ptr [rsp + 8], rdx
@@ -351,33 +357,37 @@ n9_match_arbno_β:
                         mov              qword ptr [rsp + 504], rdx
                         mov              qword ptr [rsp + 512], rdx
                         mov              qword ptr [rsp + 520], rdx
-                        mov              dword ptr [rsp + 528], r14d
-                        mov              dword ptr [rsp + 532], r14d
-                        mov              dword ptr [rsp + 536], 0
-                        mov              qword ptr [rsp + 544], rax
-                        mov              qword ptr [rsp + 552], rcx
+                        mov              qword ptr [rsp + 528], rdx
+                        mov              qword ptr [rsp + 536], rdx
+                        mov              qword ptr [rsp + 544], rdx
+                        mov              qword ptr [rsp + 552], rdx
+                        mov              dword ptr [rsp + 560], r14d
+                        mov              dword ptr [rsp + 564], r14d
+                        mov              dword ptr [rsp + 568], 0
+                        mov              qword ptr [rsp + 576], rax
+                        mov              qword ptr [rsp + 584], rcx
                                                                                         jmp   n18_match_alternate_α
 n9_match_arbno_as:
-                        mov              eax, dword ptr [rsp + 528]
+                        mov              eax, dword ptr [rsp + 560]
                         cmp              r14d, eax
                                                                                         je    n18_match_alternate_β
-                        mov              dword ptr [rsp + 532], r14d
+                        mov              dword ptr [rsp + 564], r14d
                                                                                         jmp   n10_lit_integer_α
 n9_match_arbno_af:
-                        mov              eax, dword ptr [rsp + 536]
+                        mov              eax, dword ptr [rsp + 568]
                         test             eax, eax
                                                                                         jnz   .Lx41_2
-                        add              rsp, 560
+                        add              rsp, 592
                                                                                         jmp   n18_match_alternate_β
 .Lx41_2:
-                        mov              r14d, dword ptr [rsp + 528]
-                        add              rsp, 560
+                        mov              r14d, dword ptr [rsp + 560]
+                        add              rsp, 592
                                                                                         jmp   n8_match_pos_β
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_integer_α:
-                        mov              qword ptr [rsp + 256], 3                       # result
+                        mov              qword ptr [rsp + 272], 3                       # result
                         mov              rax, qword ptr [rip + .Lx42_0]
-                        mov              qword ptr [rsp + 264], rax
+                        mov              qword ptr [rsp + 280], rax
                                                                                         jmp   n11_match_rpos_α
 n10_lit_integer_β:
                                                                                         jmp   n9_match_arbno_β
@@ -460,10 +470,10 @@ n12_match_end_α:
                                                                                         jmp   n13_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_statement_end_α:
-                        add              rsp, 288
+                        add              rsp, 304
                                                                                         jmp   n14_statement_begin_α
 n13_statement_end_β:
-                        add              rsp, 288
+                        add              rsp, 304
                                                                                         jmp   n21_statement_begin_α
 #=======================================================================================================================
 # YES     OUTPUT = 'grow ok'                          :(END)
@@ -510,21 +520,21 @@ n17_statement_end_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n18_match_alternate_α:
-                        mov              dword ptr [rbp + 208], r14d
+                        mov              dword ptr [rbp + 224], r14d
                         lea              rax, [rip + .Lx55_21]
-                        mov              qword ptr [rbp + 224], rax
+                        mov              qword ptr [rbp + 240], rax
                                                                                         jmp   n20_match_len_α
 .Lx55_21:
                         lea              rax, [rip + .Lx55_19]
-                        mov              qword ptr [rbp + 224], rax
+                        mov              qword ptr [rbp + 240], rax
                                                                                         jmp   n19_match_len_α
 n18_match_alternate_s0:
                         lea              rax, [rip + .Lx55_40]
-                        mov              qword ptr [rbp + 216], rax
+                        mov              qword ptr [rbp + 232], rax
                                                                                         jmp   n18_match_alternate_as
 n18_match_alternate_s1:
                         lea              rax, [rip + .Lx55_41]
-                        mov              qword ptr [rbp + 216], rax
+                        mov              qword ptr [rbp + 232], rax
                                                                                         jmp   n18_match_alternate_as
 .Lx55_40:
                                                                                         jmp   n20_match_len_β
@@ -533,11 +543,11 @@ n18_match_alternate_s1:
 n18_match_alternate_as:
                                                                                         jmp   n9_match_arbno_as
 n18_match_alternate_β:
-                        mov              rax, qword ptr [rbp + 216]
+                        mov              rax, qword ptr [rbp + 232]
                                                                                         jmp   rax
 n18_match_alternate_af:
-                        mov              r14d, dword ptr [rbp + 208]
-                        mov              rax, qword ptr [rbp + 224]
+                        mov              r14d, dword ptr [rbp + 224]
+                        mov              rax, qword ptr [rbp + 240]
                                                                                         jmp   rax
 .Lx55_19:
                                                                                         jmp   n9_match_arbno_af
