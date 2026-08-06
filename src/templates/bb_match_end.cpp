@@ -110,7 +110,7 @@ std::string bb_match_end() {
          + x86_anchor_leave()
          + x86_xfer_leave()
          + x86("mov", "r10", ABSQ(RT_DCAP_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_DCAP_TOP), "r10")
-         + x86("note", "mech2_framebase") + x86("mov", "rbp", "r12")   /* ⭐ W-1b ARBNO-RBP FIX: restore rbp←r12 (=α-8, saved by match_begin) before header reads; ARBNO may have set rbp to its element-view register making [rbp-N] reads return garbage */
+         /* ⭐ MECH2-R12-FIX: rbp-restore DELETED.  rbp is the pinned mech-2 frame base (set by match_begin's push+mov, never borrowed by ARBNO element view in this arm).  Header reads [rbp-N] proceed directly without a reload. */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ⭐ W-1: restore from fixed header [rbp-16..rbp-40] matching match_begin saves */
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
@@ -119,19 +119,19 @@ std::string bb_match_end() {
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
          + IF(_.op_dval != 0.0, x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -48))   /* start_δ at [rbp-48] */
                               + x86("note", "end_δ")   + x86("mov", "r11", RDQ("rbp", -8)))   /* end_δ from pad slot */
-         + x86("note", "mech2_whack") + x86("mov", "rsp", "r12")   /* ⭐ W-1b: use r12 (=α-8) for whack; rbp already restored but r12 is explicit */
+         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* ⭐ MECH2-R12-FIX: was `mov rsp,r12`; rbp==α−8 is the pinned frame base; pop rbp restores old_rbp and rsp→α */
          + x86("pop", "rbp")
          + IF(_.op_dval != 0.0, x86("note", "match_start") + x86("mov", RDD("rbp", 8 + _.op_off), "eax")   /* post-whack: rbp=old, rsp=α; FRQ addresses caller claim */
                               + x86("note", "match_end")   + x86("mov", FRQ(_.op_off + 24), "r11"))
          + x86_gamma()
-         + x86("note", "mech2_framebase") + x86("mov", "rbp", "r12")   /* ⭐ W-1b ARBNO-RBP FIX: restore rbp←r12 before omega header reads */
+         /* ⭐ MECH2-R12-FIX: rbp-restore DELETED on ω path. Same law: rbp pinned by match_begin, never clobbered. */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ω path: same fixed offsets */
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
          + x86("mov", "rdi", "r13") + x86("mov", "rsi", "r15")
          + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + x86("note", "mech2_whack") + x86("mov", "rsp", "r12")   /* ⭐ W-1b: use r12 for whack */
+         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* ⭐ MECH2-R12-FIX: was `mov rsp,r12`; rbp==α−8 pinned frame base; pop rbp restores and rsp→α */
          + x86("pop", "rbp")
          + x86_omega()
          : _.op_zw
