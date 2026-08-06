@@ -17,6 +17,7 @@ extern int g_postfix_resume;
 void lc_γ_to(IR_t *nd, IR_t *t);
 void lc_ω_to(IR_t *nd, IR_t *t);
 void lc_γ_to_β(IR_t *nd, IR_t *t);
+void lc_γ_tag_β(IR_t *nd);
 void lc_ω_to_β(IR_t *nd, IR_t *t);
 void lc_γ_to_α(IR_t *nd, IR_t *t);
 void lc_ω_to_α(IR_t *nd, IR_t *t);

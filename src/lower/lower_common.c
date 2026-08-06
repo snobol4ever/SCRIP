@@ -178,6 +178,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
 void lc_γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
 void lc_ω_to(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "α", 3); nd->ω.sz[3] = 0; } }
 void lc_γ_to_β(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "β", 3); nd->γ.sz[3] = 0; } }
+void lc_γ_tag_β(IR_t * nd) { if (nd) { memcpy(nd->γ.sz, "β", 3); nd->γ.sz[3] = 0; } }   /* R1 STMT-BETA-LAND: tag-only helper -- sets the β port tag WITHOUT changing γ.node.  Used for fB: γ.node stays = fJ (preserving the full GOTO chain to fT for the emitter's used-scan and all other consumers), but the β tag propagates through the chain so the emitter routes to betas[sbeg_k] when it chases past fB.  lc_γ_to_β would sever the chain (both effects in one call). */
 void lc_ω_to_β(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "β", 3); nd->ω.sz[3] = 0; } }
 void lc_γ_to_α(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α!", 4); } }
 void lc_ω_to_α(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "α!", 4); } }
