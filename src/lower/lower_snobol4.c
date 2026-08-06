@@ -1843,6 +1843,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
+    IR_t ** fail_tgt = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));   /* STMT-BETA (this session, Lon ruling 2026-08-06): parallel array saving each statement's fT so the post-loop STATEMENT_BEGIN wiring pass can set its omega port to fT, making the emitter wire statement_begin_beta -> fT as the named failure landing */
     bb_label_registry_reset();
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
@@ -1886,6 +1887,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT_END, sT, fT) : (IR_t *) NULL;
         if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }   /* ZW-5 O-2: stb->ival = stno for per-depth stub label names */   /* ⭐⭐ ZW-5 SLICE 2 (OMEGA O-1): the statement bracket box is minted HERE because these two lines are the ONE derivation point every statement form threads its continuations through -- sT/fT are already resolved (goto field, computed goto, or fallthrough `next`), so one edit reaches every form without touching a single statement arm below.  THE BOX IS A TRAILER, NOT A BRACKET -- measured, not inferred: x86_asm.h:544 x86_alpha() DEFINES the alpha label while x86_asm.h:547 x86_gamma() IS A JMP, so the emitted body `def alpha / jmp gamma / def beta; jmp omega` has exactly ONE entry and control can never return into it; the box is entered once, at alpha, by the statement's SUCCESS wire and falls through to the jmp that carries op_zgpop via the ONE X86H_JMP gamma hook arm (s22k one-authority -- no second whack spelling is created here). */
         IR_t * sJ = lc_build(g, IR_GOTO, stb ? stb : sT, NULL);   /* success -> the box's alpha; the box's own gamma carries sT, so the statement's real continuation is unchanged and the ONLY delta is the release's HOME (WHACK CONTRACT clause 4: BB_END_STATEMENT is op_zgpop's home; the 5,923 fused pops are its absence). */
+        fail_tgt[i] = fT;   /* STMT-BETA (this session): save fT at its ONE derivation point for the post-loop STATEMENT_BEGIN omega wiring */
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);   /* ⛔ FAIL EDGE DELIBERATELY UNCHANGED IN SLICE 2.  The rung's admission gate is "all fail edges arrive at depth 0", and a depth-0 arrival needs NO release -- so the box's omega is genuinely dead until slice 3's per-depth stub ladder lands WITH its planner (s22h atomicity).  Checked before assuming: the wire port selector in `.sz` carries alpha (0xce 0xb1) and beta (0xce 0xb2) and the sigma marker read at emit.cpp:2285 -- there is NO omega-ARRIVAL convention, so routing fail edges into the box is not a wiring detail that was skipped, it IS the slice-3 ladder. */
         if (is_def && is_def[i]) { lc_γ_to(anchor[i], sJ); continue; }
         if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;   /* PS-3 (s152): any goto part ends the unconditional corridor for SUBSEQUENT statements */
@@ -2048,7 +2050,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         for (int i = 0; i < nst; i++) {
             IR_t * fb = anchor[i] ? anchor[i]->γ.node : NULL;
             if (!fb) continue;
-            IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, NULL);
+            IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, fail_tgt[i]);   /* STMT-BETA (this session, Lon ruling 2026-08-06): omega = fT makes the emitter's DRIVE_PAIR wire statement_begin_beta -> fT; beta is the named failure landing for the statement scope (always-live per flat_beta_used_scan IR_STATEMENT_BEGIN addition in emit.cpp) */
             { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
             lc_γ_to(anchor[i], sbeg);
         }
@@ -2072,6 +2074,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (t) bb_src_note(t, ssrc);
     }
     free(anchor);
+    free(fail_tgt);
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

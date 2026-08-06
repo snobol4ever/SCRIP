@@ -2150,7 +2150,8 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int k = 0; k < n; k++) {
         int op = (int)nodes[k]->op;
         used[k] = (ir_is_generator_kind(nodes[k]->op) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT
-                   || op == IR_LIMIT || op == IR_GOTO || (g_emit_cfg && nodes[k] == g_emit_cfg->body_root)) ? 1 : 0;
+                   || op == IR_LIMIT || op == IR_GOTO || op == IR_STATEMENT_BEGIN
+                   || (g_emit_cfg && nodes[k] == g_emit_cfg->body_root)) ? 1 : 0;   /* STMT-BETA (this session, Lon ruling 2026-08-06): IR_STATEMENT_BEGIN beta is always-live -- it is the named failure landing for the statement scope, the STATEMENT-FAILURE LAW first-class label.  Without this, bused[i]==0 elides the label via op_beta_dead=1 and no statement_begin_β ever appears in emitted .s.  Routing: beta is currently a trampoline (beta: jmp omega = next_stmt_alpha) which is the correct failure semantics -- match_begin exhaust and element omega edges arrive here and fall through to the F-goto.  Future lower rung will route these edges directly to beta rather than bypassing it. */
     }
     for (int j = 0; j < n; j++) {
         int op = (int)nodes[j]->op;
