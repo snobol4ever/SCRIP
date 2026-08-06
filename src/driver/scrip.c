@@ -851,7 +851,7 @@ int main(int argc, char **argv)
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            g_medium = BB_MEDIUM_TEXT; { FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out); }   /* m4 -o flag (this session): route --compile output to file when -o is given; fallback = stdout (unchanged) */
+            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);   /* m4 -o (06g fix): _out at path scope so the emit_chain body writers below take it too -- the 06f form captured only the emit_textf sink, the body spilled to stdout (measured: 27-line file, 343-line spill) */
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             g_frame_active = 1;
@@ -886,7 +886,7 @@ int main(int argc, char **argv)
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }   /* PL-DC s108: arm the direct-call stub for this graph iff the SAME table predicate the site arm reads passes (pat blobs excluded structurally); s112: RECORD the structural exclusion so the startup bake mirrors it — the bake predicate must equal the arming predicate or it references stubs that were never emitted (treebank m4 link regression) */
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl) emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stdout, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }   /* SN4-FLAT-PROC (s176): bb_proc_entry, NOT ->entry -- a shared-graph proc (LBL__/DEFINE entry) must bind its α at proc_entry_node; binding at main's entry made the stub's transfer re-run the whole program inside the call (the m4 recursion SEGV) */
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl) emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }   /* SN4-FLAT-PROC (s176): bb_proc_entry, NOT ->entry -- a shared-graph proc (LBL__/DEFINE entry) must bind its α at proc_entry_node; binding at main's entry made the stub's transfer re-run the whole program inside the call (the m4 recursion SEGV) */
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = g_last_flat_frame_bytes; }
@@ -1249,7 +1249,7 @@ int main(int argc, char **argv)
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
-                emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, stdout, "main") ? 0 : 1;
+                emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             }
             g_gva_active = 0;
@@ -1286,7 +1286,7 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid;
             g_flat_node_id = 0;
             g_m4_dense_nid = 1;
-            g_medium = BB_MEDIUM_TEXT; { FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out); }   /* m4 -o flag: same -o routing for the second compile path (proc-function arm) */
+            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);   /* m4 -o (06g fix): path-scope _out, twin of the first path */
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             rt_proc_reset();
@@ -1347,7 +1347,7 @@ int main(int argc, char **argv)
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; if (_pg && _pg->entry && _pg->entry->op == IR_SAVE_RESTORE && IR_LIT(_pg->entry).ival == 3) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }   /* SN4-FLAT-PROC (s176): DEFINE stubs carve a fresh MAIN-layout frame -- floor their region at main's (see emit_jmp_entry_arm_region); cleared by emit_jmp_entry_clear */
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl) emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, stdout, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl) emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, _out, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
@@ -1444,7 +1444,7 @@ int main(int argc, char **argv)
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
-            emit_sep_rule_c('-'); int rc = emit_chain(sbbg->entry, stdout, "flat") ? 0 : 1;
+            emit_sep_rule_c('-'); int rc = emit_chain(sbbg->entry, _out, "flat") ? 0 : 1;
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_gva_active = 0;
             g_proc_direct_active = 0;
