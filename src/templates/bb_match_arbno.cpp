@@ -40,6 +40,43 @@ static std::string tail_cap_zero8(int base, int n, const char * zr64) { std::str
 static std::string tail_cap_copy(int dst, int src, int n) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", "rax", trq(src + 16 * j)) + x86("mov", trq(dst + 16 * j), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arbno_lon(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_FRAMELESS"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* ⭐ ARBNO-LON killswitch (default ON): =0 reverts the nested-K0 class to the legacy chain arm byte-identically */
+static inline int kkN(void) { return _.op_arbno_body_kk; }   /* staged body-span ΣK, THE ONE K AUTHORITY zd_k summed by the emit.cpp ARB-LON-K16 prelude -- the one-level-in static offset of the previous cell at the σ junction.  Killswitches SCRIP_ARBNO_K16 / SCRIP_ARBNO_FRAMELESS are read in that prelude ONLY (single routing authority); =0 stages kk=0 and every byte reverts to the legacy routes. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_match_arbno_frameless_k() {
+    /* ⭐ ARB-LON-K16 (widens ARBNO-LON past body-K0 per the LIVE CURSOR rung): the ONE 16B cell {DELTA0 dword at +0, yield dword at +4} is RE-HOMED to the frontier at each σ commit instead of updated in
+     * place, so with a SEQUENCE-ONLY STATIC-K body (SAVE cells etc.; kk = ΣK over the span, staged from zd_k) every read site is a compile-time offset: σ reads the PREVIOUS cell at [rsp+kk] -- exactly one
+     * level in, the op_zread depth-difference shape -- copies DELTA0 forward into a fresh cell at [rsp+0..15], and yields; exhaust arrives (per the unwind law, every attempt carve already freed by the
+     * body's own βs) with the CURRENT cell at [rsp+0]; retract discards the current copy (add rsp,16) landing rsp exactly on the last committed instance's body frontier, which is the state PAIR(1)'s body
+     * resume β expects -- when that instance fully retreats its member βs free own K and rsp arrives at the PREVIOUS cell: the invariant self-maintains with zero counters, links, views, or chains.  δ==Δ0
+     * at [rsp+0] iff nothing remains committed (σ guarantees every committed instance advanced; the cascade restores δ instance-by-instance), so the Δ-assert at ω holds by construction, as in the K0 arm.
+     * Committed growth (kk+16 per instance) is NON-POPPING by THE MODEL -- released only by the bracket whacks (MATCH_END absolute restore / FENCE commit / STATEMENT_END), never by ARBNO. */
+    return x86("comment", "IR_MATCH_ARBNO_FRAMELESS_K (ARB-LON-K16: re-homed cell, one-level static offsets)")
+         + x86_alpha()
+         + x86("sub", "rsp", 16L)
+         + x86("mov", RDD("rsp", 0), "r14d")
+         + x86("mov", RDD("rsp", 4), "r14d")
+         + x86_gamma()
+         + x86_beta()
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR(2))
+         + x86("mov", "eax", RDD("rsp", kkN() + 4))
+         + x86("cmp", "r14d", "eax")
+         + x86("je",  PAIR(1))
+         + x86("mov", "eax", RDD("rsp", kkN()))
+         + x86("sub", "rsp", 16L)
+         + x86("mov", RDD("rsp", 0), "eax")
+         + x86("mov", RDD("rsp", 4), "r14d")
+         + x86_gamma()
+         + x86("def", PAIR(3))
+         + x86("mov", "eax", RDD("rsp", 0))
+         + x86("cmp", "r14d", "eax")
+         + x86("jne", L(3))
+         + x86("add", "rsp", 16L)
+         + x86_omega()
+         + x86("def", L(3))
+         + x86("add", "rsp", 16L)
+         + x86("jmp", PAIR(1));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frameless() {
     /* ⭐ ARBNO-LON (Lon rulings 2026-08-06: "ARBNO needs NOT its own RBP frame ... We never need to know the stack depth for ARBNO; just let it grow ... freed on either a FINAL MATCH_END or DURING the
@@ -233,6 +270,8 @@ std::string bb_match_arbno() {
              + x86("mov", "r14d", FR(_.op_off))
              + x86("mov", "rsp", FRQ(_.op_off + 24))
              + x86_omega()
+         : _.op_arbno_body_kk > 0
+             ? bb_match_arbno_frameless_k()   /* ⭐ ARB-LON-K16: routing decided ONCE in emit.cpp's prelude (env killswitches read there only); this arm reads nothing but the staged kk, so it precedes the slot/geometry bombs which its class never stages */
          : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
