@@ -450,11 +450,7 @@ n12_match_end_α:
                         pop              r13
                         pop              r15
                         pop              r14
-.Lx45_6:
-                        sub              r12, 24
-                        mov              rax, qword ptr [r12 + 0]
-                        test             rax, rax
-                                                                                        jne   .Lx45_6
+                        sub              r12, 24                                        # cas_mark
                         mov              r13, qword ptr [rbp + 96]                      # outer_Σ
                         mov              r14, qword ptr [rbp + 104]                     # outer_δ
                         mov              r15, qword ptr [rbp + 112]                     # outer_Δ
