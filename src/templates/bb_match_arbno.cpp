@@ -39,6 +39,39 @@ static std::string tail_zero(int lo, int hi, const char * zr64) { std::string r;
 static std::string tail_cap_zero8(int base, int n, const char * zr64) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", trq(base + 16 * j + 8), zr64); return r; }
 static std::string tail_cap_copy(int dst, int src, int n) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", "rax", trq(src + 16 * j)) + x86("mov", trq(dst + 16 * j), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int arbno_lon(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_FRAMELESS"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* ⭐ ARBNO-LON killswitch (default ON): =0 reverts the nested-K0 class to the legacy chain arm byte-identically */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_match_arbno_frameless() {
+    /* ⭐ ARBNO-LON (Lon rulings 2026-08-06: "ARBNO needs NOT its own RBP frame ... We never need to know the stack depth for ARBNO; just let it grow ... freed on either a FINAL MATCH_END or DURING the
+     * match on a FENCED construct ... no chain is needed.  When will that chain be traversed?  Never.  ARBNO will have ONE BB local, the DELTA subject cursor").  The whole construct: ONE 16B alpha-carved
+     * rsp cell {DELTA0 dword at +0, yield-cursor dword at +4} and TWO compares.  No counter, no element links, no saved-rsp mark, no view register, no U2 quad -- the counter machinery is what MEASURABLY
+     * aliased and killed the 5 nested probes (X02 gdb 2026-08-06), and under exact unwind it was bookkeeping someone else's allocator (RULING 2).  Instance k's sigma entry IS the (k-1)th yield -- one
+     * rolling datum, the shipping suite-validated semantics -- so beta (extend) stores nothing: the baseline is already in the cell.  Exhaust needs no depth test: sigma guarantees every committed
+     * instance advanced delta, the un-match cascade restores delta instance-by-instance on retract, so delta==DELTA0 iff nothing remains -- and delta arrives at omega already == DELTA0, the Delta-assert
+     * by construction.  Gated to the nested-K0 class (op_arbno_framed && op_arbno_body_k0): the frontier never moves inside the activation, so the cell is [rsp+0]/[rsp+4] from EVERY site.  Growth
+     * release is the bracket constructs' job (MATCH_END whack / FENCE commit / STATEMENT_END), per the frame census {STATEMENT, FUNCTION, MATCH_BEGIN, FENCE1} -- ARBNO dropped out. */
+    return x86("comment", "IR_MATCH_ARBNO_FRAMELESS (ARBNO-LON: one cell, two compares, no chain)")
+         + x86_alpha()
+         + x86("sub", "rsp", 16L)
+         + x86("mov", RDD("rsp", 0), "r14d")
+         + x86("mov", RDD("rsp", 4), "r14d")
+         + x86_gamma()
+         + x86_beta()
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR(2))
+         + x86("mov", "eax", RDD("rsp", 4))
+         + x86("cmp", "r14d", "eax")
+         + x86("je",  PAIR(1))
+         + x86("mov", RDD("rsp", 4), "r14d")
+         + x86_gamma()
+         + x86("def", PAIR(3))
+         + x86("mov", "eax", RDD("rsp", 0))
+         + x86("cmp", "r14d", "eax")
+         + x86("jne", PAIR(1))
+         + x86("add", "rsp", 16L)
+         + x86_omega();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_tail() {
     /* R12-EXIT-1 CARRY-THE-TAIL (Lon s68 static-size proof; design of record at zeta_storage.c fc_tail_*).  Element = [0,span) body window + [span,span+rspan) right-spine window + 16B header
      * {entry-cursor@+0, yield-cursor@+4, elem0-flag@+8} + 16B bracket copy {patstk mark@+16, rsp mark@+24} + one 16B WRAP-CAPTURE slot per ARBNO(body).V pair at [HDRB+32+16j] (delta at slot+0, alpha
@@ -204,6 +237,8 @@ std::string bb_match_arbno() {
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: COLLECTION geometry not staged (zls_arbno_geom)")
+         : (_.op_arbno_framed && _.op_arbno_body_k0 && arbno_lon())
+             ? bb_match_arbno_frameless()
          : _.op_arbno_chain
              ? x86("comment", "IR_MATCH_ARBNO_NARY (ZB-FC-4 rsp linked-frame-chain)")
              + x86_alpha()
