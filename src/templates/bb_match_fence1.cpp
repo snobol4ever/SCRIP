@@ -43,7 +43,7 @@ static int fence_whack_on() { static int v = -1; if (v < 0) { const char *e = ge
 static int fence_u2_frame(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_U2_FENCE"); v = (e && e[0] == '0') ? 0 : 1; } return v && x86_port_cstack(); }   /* ⭐ U-2 STRUCTURAL (s42+1): FENCE1 gets an OWN independent RBP frame (push rbp; mov rbp,rsp at alpha; mov rsp,rbp; pop rbp before commit whack) so P's body executes with its own activation floor.  fence_whack_commit's `mov rsp,rbp` then whacks to FENCE1's floor, and pop rbp restores the pre-FENCE1 outer activation.  Independent of MATCH_BEGIN's frame per HQ ruling O-PB-4.  SCRIP_U2_FENCE=0 to disable (default ON); decoupled from arbno_u2_frame (SCRIP_U2) which stays OFF-default pending W-1c.2; x86_port_cstack() guard: FORTH/CSTACK only. */
 static std::string fence_whack_commit(int off) {
     if (x86_port_cstack() && fence_whack_on()) {
-        if (_.op_zw) return x86("mov", "rsp", "qword ptr [rbp# + -8]") + x86("mov", FRQ(off), "rbp");   /* ⭐ O-7 ZW frame / ZW-15: old rbp (activation floor) is at [rbp-8] -- ZW-15 `lea rbp,[rbp+8]` raised rbp to claim_base; old_rbp is at [rbp-8] = claim_base-8 = rsp_just_after_push_rbp.  FENCE1 bulk-whack restores rsp to that floor (claim_base-8) and FRQ(off) := rbp (depth-free claim_base marker, unchanged). rbp# escape: raw register reference, must parse XK_REGDISP not XK_FR64 (ZB-FC-1 class). */
+        if (_.op_zw) return x86("lea", "rsp", "qword ptr [rbp# + -8]") + x86("mov", FRQ(off), "rbp");   /* ⭐ ZWS-FENCE-FIX: under ZWS canonical frame rbp=claim_base (ZW-15 lea rbp,[rbp+8]); old_rbp was pushed at [rbp-8]=claim_base-8.  LEA rsp,[rbp-8] sets rsp=address of old_rbp slot so the caller's pop rbp restores it; MOV would load old_rbp's VALUE into rsp (wrong address).  Mirrors match_begin.cpp:155 `lea rsp,[rbp#+-8]` exactly.  rbp# escape: raw register reference, must parse XK_REGDISP not XK_FR64 (ZB-FC-1 class). */
         return x86("mov", "rsp", "rbp") + x86("mov", FRQ(off), "rbp");
     }
     return fence_release(off);
@@ -57,7 +57,7 @@ std::string bb_match_fence1() {
                            * anchor idiom) stays node-free in the lowerer: zero left context, nothing to whack. */
         return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — whack the activation's dynamic zeta to the rbp floor — then gamma; beta abandons to omega)")
              + x86_alpha()
-             + IF(x86_port_cstack() && fence_whack_on(), x86("mov", "rsp", "rbp"))
+             + IF(x86_port_cstack() && fence_whack_on(), _.op_zw ? x86("lea", "rsp", "qword ptr [rbp# + -8]") : x86("mov", "rsp", "rbp"))   /* ⭐ ZWS-FENCE0-FIX: under ZWS canonical frame (op_zw=1), rbp=claim_base; lea rsp,[rbp-8] sets rsp=old_rbp slot address so caller's pop rbp restores outer frame.  Under non-ZW (op_zw=0) rbp IS the activation floor: original path unchanged. */
              + x86_gamma()
              + x86_beta()
              + x86_omega();
