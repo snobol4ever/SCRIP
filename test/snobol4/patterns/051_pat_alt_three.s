@@ -33,7 +33,7 @@ main_α_body:
 n0_statement_begin_α:
                                                                                         jmp   n1_lit_string_α
 n0_statement_begin_β:
-                                                                                        jmp   main_ω
+                                                                                        jmp   n4_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
                         sub              rsp, 16
@@ -71,7 +71,7 @@ n3_statement_end_β:
 n4_statement_begin_α:
                                                                                         jmp   n5_var_α
 n4_statement_begin_β:
-                                                                                        jmp   main_ω
+                                                                                        jmp   n19_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_var_α:
                         sub              rsp, 224
@@ -325,7 +325,7 @@ n11_statement_end_β:
 n12_statement_begin_α:
                                                                                         jmp   n13_var_α
 n12_statement_begin_β:
-                                                                                        jmp   main_ω
+                                                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:
                         sub              rsp, 16
@@ -424,7 +424,7 @@ n18_match_lit_β:
 n19_statement_begin_α:
                                                                                         jmp   n20_lit_string_α
 n19_statement_begin_β:
-                                                                                        jmp   main_ω
+                                                                                        jmp   n23_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n20_lit_string_α:
                         sub              rsp, 16
@@ -466,7 +466,7 @@ n22_statement_end_β:
 n23_statement_begin_α:
                                                                                         jmp   n24_statement_end_α
 n23_statement_begin_β:
-                                                                                        jmp   main_ω
+                                                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n24_statement_end_α:
                                                                                         jmp   main_γ
