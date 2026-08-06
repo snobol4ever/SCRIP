@@ -35,7 +35,7 @@ std::string bb_match_begin() {
          + x86_alpha()
          + x86("note", "mech2_boundary") + x86("push", "rbp")   /* push: old_rbp at [α-8]; rsp=α-8 */
          + x86("mov", "rbp", "rsp")   /* rbp=α-8; header slots [rbp-16]..[rbp-72] safe below; subj at [rbp+8]=[α],[rbp+16]=[α+8] */
-         + x86("note", "mech2_framebase") + x86("mov", "r12", "rsp")   /* ⭐ W-1b ARBNO-RBP FIX: save α-8 into r12 (= rsp after push, before sub). R12 is free (R12-ERAD/ARCH-ICON), callee-saved by C ABI. Used for whack (mov rsp,r12; pop rbp) and rbp-restore at fail-exit/match-end after ARBNO clobbers rbp. Also serves as mech2_framebase in bb_match_end. */
+         /* ⭐ MECH2-R12-FIX (CAS-R12-UNIFY consequence): r12 save DELETED.  After `push rbp; mov rbp,rsp` above, rbp==α−8 and IS the frame base.  The mech-2 arm has no nested dynamic-body ARBNO (those are chain-class, never blob-clause), so rbp is never borrowed as element view and stays pinned for the entire match.  All downstream mech2_framebase/whack sites read rbp directly; r12 is free for the CAS top. */
          + IF(_.op_udout > 0, x86("note", "mech2_blob_carve") + x86("sub", "rsp", (long)_.op_udout))   /* ⭐ W-1: Kc_zwr=Kc_cells+72; sub rsp,Kc_zwr; rsp=α-8-Kc_zwr≡0(mod16) for C calls. Header [rbp-16]..[rbp-64] is in carved region. Blob FR: [rsp+8+off]=[α-Kc_zwr+off] also in carved region. Gate op_udout>0; zero-Kc heads byte-identical. */
          + IF(_.op_zres, x86("note", ZOPN(0)) + x86("mov", "rdi", RDQ("rsp", (long)_.op_udout + 8 + _.op_zread[0] + 0))   /* zres: [rsp+Kc_zwr+8+zread]=[α+zread]; bypass FRQ (HEAD zdepth=0) */
                        + x86("note", ZOPN(0)) + x86("mov", "rsi", RDQ("rsp", (long)_.op_udout + 8 + _.op_zread[0] + 8))
@@ -51,7 +51,7 @@ std::string bb_match_begin() {
          + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
          + x86("mov", "eax", RDD("rcx", 0))
          + x86("note", HKN(4)) + x86("mov", RDQ("rbp", -40), "rax")   /* [rbp-40]=cap_gen */
-         + x86("note", "cas_top") + x86("mov", "r10", ABSQ(RT_DCAP_TOP)) + x86("mov", RDQ("r10", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r10", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r10", 16), "rax") + x86("add", "r10", (long)24) + x86("note", "cas_top") + x86("mov", ABSQ(RT_DCAP_TOP), "r10") + x86("note", "cas_sentinel") + x86("mov", RDQ("rbp", -72), "r10")   /* CAS marker: after sub rsp; cas_rsp_mark=post-carve floor; captures above this mark. [rbp-72]=post-push CAS_TOP (=sentinel_base+24): saved AFTER the push so restore on retry keeps sentinel tag=0 intact and new COND entries go above it, not over it. The scan in match_end finds sentinel by reading backward from new top to the tag=0 entry at sentinel_base. */
+         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp") + x86("mov", "rax", RDQ("rcx", 0)) + x86("note", "cas_patstk") + x86("mov", RDQ("r12", 16), "rax") + x86("note", "cas_top") + x86("add", "r12", (long)24) + x86("mov", ABSQ(RT_DCAP_TOP), "r12") + x86("note", "cas_sentinel") + x86("mov", RDQ("rbp", -72), "r12")   /* ⭐ MECH2-R12-FIX sentinel: CAS-R12-UNIFY direct-r12 form + [RT_DCAP_TOP] cell kept in sync (bb_match_end mech-2 arm reads the cell at line 83 for its backward scan). r12=live top; [rbp-72]=post-push r12; bb_match_capture inherits r12 correctly. */
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)   /* C call: rsp≡0(mod16) ✓ */
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
@@ -104,7 +104,7 @@ std::string bb_match_begin() {
                    + x86_align_enter() + x86("mov", "rsp", RDQ("rbp", -64)) + x86_align_leave()   /* zls2 restore */
                    + x86_align_leave()))
              + x86("mov", "r10", ABSQ(RT_DCAP_TOP)) + x86("def", L(2)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(2)) + x86("mov", ABSQ(RT_DCAP_TOP), "r10"))
-         + x86("note", "mech2_framebase") + x86("mov", "rbp", "r12")   /* ⭐ W-1b ARBNO-RBP FIX: restore rbp←r12 (=α-8) before header reads; ARBNO may have set rbp to element-view making [rbp-N] reads return garbage without this restore */
+         /* ⭐ MECH2-R12-FIX: rbp-restore DELETED.  In the mech-2 arm rbp is never clobbered (no dynamic-body ARBNO borrows it as element view), so `mov rbp,r12` was a self-assign no-op and also a CAS collision hazard.  Header reads [rbp-N] proceed directly. */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* restore from fixed header */
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
          + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
@@ -112,7 +112,7 @@ std::string bb_match_begin() {
          + x86("mov", "rsi", "r15")
          + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + x86("note", "mech2_whack") + x86("mov", "rsp", "r12")   /* ⭐ W-1b: use r12 (=α-8) directly; rbp already restored above but using r12 is explicit and survives any further clobber between ctx_restore and here */
+         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* ⭐ MECH2-R12-FIX: was `mov rsp,r12`; rbp==α−8 is the frame base (pinned, never clobbered in mech-2 arm); pop rbp below restores old_rbp and rsp→α */
          + x86("pop", "rbp")   /* pops [α-8] = old_rbp; rsp → α */
          + x86_omega()
          : _.op_zw
