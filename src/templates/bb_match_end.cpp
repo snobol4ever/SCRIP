@@ -208,14 +208,13 @@ std::string bb_match_end() {
          + release_pump()
          : x86("comment", "IR_MATCH_END")
          + x86_alpha()
-         + IF(x86_zc_frame() == ZC_FRAME_RSP, (rfc() ? x86("mov", "r10", "r12")   /* CAS-R12-UNIFY: seed from r12, cell read deleted.  CAS-MARKER-CARRY (s22x): scan to the head's tag-0 sentinel; patstk rides +16, the rsp mark +8.  The old RSP(op_fc_disp) spellings assumed fc_disp counted every live cell between head and release -- it misses the ZW-1 alpha carves the non-popping γ spine leaves live (041: fc_disp=0 read the head cell 32 low, loading a half-written leaf cell into rsp).  r10 survives to the unwind below (the dval arm touches only rax/r14). */
-                                                     + x86("def", L(9))
-                                                     + x86("sub", "r10", (long)24)
-                                                     + x86("mov", "rax", RDQ("r10", 0))
-                                                     + x86("test", "rax", "rax")
-                                                     + x86("jne", L(9))
-                                                     + x86("mov", "rax", RDQ("r10", 16))
-                                               : x86("mov", "rax", FRQ(_.op_off + 8)))
+         + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("mov", "r10", "r12")   /* ⭐ W-1c.3 Part B: rfc/non-rfc fork DELETED -- both arms now scan via r10 (L(9)); the non-rfc slot read at FRQ(op_off+8) is removed (slot no longer written at alpha since the patstk slot-save was deleted from bb_match_begin).  r10 survives to the unwind below: rfc reads [r10+8] for rsp; non-rfc uses x86_zls2_release_to_call(op_off+16). */
+                                               + x86("def", L(9))
+                                               + x86("sub", "r10", (long)24)
+                                               + x86("mov", "rax", RDQ("r10", 0))
+                                               + x86("test", "rax", "rax")
+                                               + x86("jne", L(9))
+                                               + x86("mov", "rax", RDQ("r10", 16))
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", RDQ("rcx", 0), "rax"))
          + (_.op_dval != 0.0

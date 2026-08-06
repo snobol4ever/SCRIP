@@ -199,10 +199,7 @@ std::string bb_match_begin() {
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
                                                 + x86("note", "rsp_mark") + x86("mov", FRQ(_.op_off + 16), "rax")
-                                                : x86_zls2_mark_save(_.op_off + 16))
-             + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
-             + x86("mov", "rax", RDQ("rcx", 0))
-             + x86("note", "patstk_mark") + x86("mov", FRQ(_.op_off + 8), "rax"))
+                                                : x86_zls2_mark_save(_.op_off + 16)))   /* ⭐ W-1c.3 Part B: patstk slot-save DELETED -- sentinel [r12+16] now serves both hfc and non-hfc arms (LIFO invariant: sub r12,24 on the non-hfc arm moved to the top of that branch); slot op_off+8 reverts to head.zeta_mark per zeta_storage.c. rsp-mark slot (op_off+16) kept for non-hfc zls2_release_to_call. */
          + x86("note", "start_δ") + x86("mov", FR(_.op_off), (long)0)   /* ⭐ OBJ-NOTE ON-3 (s23e): this dword IS the unanchored-match retry cursor -- the position the NEXT attempt starts from, not the live δ.  SPITBOL manual pp.66-68 is the contract being embodied: an unanchored match that fails does not give up, it re-attempts one character further right ("waiting for the cursor to come to them"), which is why the loop below bumps this slot, compares it against Δ (r15d, subject length) to know when the subject is exhausted, and consults &ANCHOR -- a nonzero &ANCHOR forbids the retry entirely, so the pattern must match at position 0.  Named start_δ rather than a bare "counter" because it is a CURSOR VALUE in δ's units and lands in r14d itself; outer_δ (HKN(2)) is the different thing one slot family over -- the ENCLOSING match's cursor, saved to be given back. */
          + x86("def", L(0))
          + x86("note", "start_δ") + x86("mov", "r14d", FR(_.op_off))
@@ -224,18 +221,17 @@ std::string bb_match_begin() {
              + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
              + x86("mov", RDQ("rcx", 0), "rax")
              + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r12", 8))
-             : IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "patstk_mark") + x86("mov", "rax", FRQ(_.op_off + 8))
+             : x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* ⭐ W-1c.3 Part B non-hfc: LIFO sub goes FIRST so [r12+16]/[r12+8] reads below are from the sentinel; patstk slot read at FRQ(op_off+8) DELETED. */
+             + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "cas_patstk") + x86("mov", "rax", RDQ("r12", 16))
                  + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_patstk_sp, "g_patstk_sp")
                  + x86("mov", RDQ("rcx", 0), "rax"))
              + (x86_zc_frame() == ZC_FRAME_RSP
                  ? x86_zls2_release_to_call(_.op_off + 16)
-                 : ( IF(hfc(), x86("note", "patstk_mark") + x86("mov", "rdi", FRQ(_.op_off + 8)))
-                   + x86_align_enter()
-                   + IF(!hfc(), x86("note", "patstk_mark") + x86("mov",  "rdi", FRQ(_.op_off + 8)))
+                 : ( x86_align_enter()
+                   + x86("note", "cas_patstk") + x86("mov", "rdi", RDQ("r12", 16))
                    + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)rt_zls_release_to)
                    + x86_zls2_release_to_call(_.op_off + 16)
-                   + x86_align_leave()))
-             + x86("note", "cas_mark") + x86("sub", "r12", (long)24))   /* ⭐ W-1c.3 NO-SCAN: same LIFO invariant on the non-hfc arm -- r12 arrives at marker+24 after the cascade, so one sub pops the marker and IS the wholesale release.  The walk is deleted; see the hfc arm's note. */
+                   + x86_align_leave())))
          + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on the failure exit -- post-unwind rsp is back at α depth in every arm, so the slot spelling holds; under the regime the rbp slots are depth-free by construction.  ⭐ OBJ-NOTE ON-3 (s23e): the RESTORE side now names the same five slots the α saves named, via the shared HKN(k) table -- s23c annotated the writes and left every read bare, so a .s reader saw '[rbp+96]' with no way to know it was the enclosing match's subject coming back. */
          + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
