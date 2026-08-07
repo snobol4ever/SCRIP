@@ -209,6 +209,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_OP_COUNT || r->op == IR_LIT_REAL) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
+    if (r->op == IR_BINOP_RELOP_VAL) return 1;   /* RK-ZC-6: bool_compare_store uses BINOP_RELOP_VAL as assign RHS; template bb_binop_relop_val() already handles it; gate was blocking with SMX. */
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL
                                || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT))
         return 1;
