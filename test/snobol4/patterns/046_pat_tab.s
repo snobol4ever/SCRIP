@@ -151,6 +151,10 @@ n7_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx36_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n8_match_tab_α
+n7_lit_integer_β:
+                        add              rsp, 16
+                        add              rsp, 240
+                                                                                        jmp   n6_match_begin_β
 .Lx36_0:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
@@ -161,11 +165,13 @@ n8_match_tab_α:
                         cmp              r14d, eax
                                                                                         jle   .Lx37_239
                         add              rsp, 16
+                        add              rsp, 256
                                                                                         jmp   n6_match_begin_β
 .Lx37_239:
                         cmp              r15d, eax
                                                                                         jge   .Lx37_240
                         add              rsp, 16
+                        add              rsp, 256
                                                                                         jmp   n6_match_begin_β
 .Lx37_240:
                         mov              r14d, eax
@@ -173,6 +179,7 @@ n8_match_tab_α:
 n8_match_tab_β:
                         mov              r14d, dword ptr [rsp + 112]
                         add              rsp, 16
+                        add              rsp, 256
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_save_α:
@@ -181,6 +188,7 @@ n9_match_assign_save_α:
                                                                                         jmp   n10_match_len_α
 n9_match_assign_save_β:
                         add              rsp, 16
+                        add              rsp, 272
                                                                                         jmp   n8_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_len_α:
@@ -270,7 +278,6 @@ n12_match_end_α:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 176
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n13_statement_end_α:
