@@ -27,7 +27,7 @@ std::string bb_match_value() {
          /* acquire operand[0]'s pattern value by pointer; DT_P -> compiled pattern fn in rax, else NULL (scalar) */
          /* ZD-5b (s27 cross-front OMEGA): under ZD, operand[0]'s DESCR lives at ZOPQ(0,8) (depth-diff staged by the driver loop); FR(op_a_slot) is the legacy flat-frame address, still used when !op_zres. */
          + IF(_.op_zres,  x86("lea",  "rdi", ZOPQ(0, 0)))   /* qword ptr [rsp# + op_zread[0] + 0] = base of operand[0]'s 16B DESCR cell */
-         + IF(!_.op_zres, x86("lea",  "rdi", FR(_.op_a_slot)))
+         + IF(!_.op_zres, x86("lea",  "rdi", x86_zref(x86_frame_off_rsp(_.op_a_slot), 1)))   /* PB-2 (2026-08-07c): RSP-arm resolution — x86_frame_off_rsp resolves via zvo (the owner table) to the machine-rsp-relative offset, then spells [rsp#+N].  Plain FR() on a PINNED graph (deep_arrival=1 because of IR_MATCH_VALUE) takes the rbp arm → [rbp+128] which is 32B wrong; x86_frame_off_rsp forces the rsp/zvo arm → zvo_resolve(128)=96 → [rsp+96] = the actual slot the VAR producer wrote.  The 32B gap = MATCH_BEGIN's 32B ZLS region that the UCLAIM folds into the wholesale sub rsp but zvo resolves correctly through the owner table. */
          + x86_align_enter()
          + x86("call", "rt_match_value_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(DESCR_t *))rt_match_value_get_pat_fn)
          + x86_align_leave()
@@ -46,7 +46,8 @@ std::string bb_match_value() {
          + x86_omega()
          /* --- scalar: literal match at the cursor; value is concrete so no owed-call loop --- */
          + x86("def",  "L0")
-         + x86("lea",  "rdi", FR(_.op_a_slot))
+         + IF(_.op_zres,  x86("lea",  "rdi", ZOPQ(0, 0)))
+         + IF(!_.op_zres, x86("lea",  "rdi", x86_zref(x86_frame_off_rsp(_.op_a_slot), 1)))   /* PB-2: same rsp-arm resolution as the acquisition lea (this site was FR-unconditional — also lacked a zres arm) */
          + x86_align_enter()
          + x86("call", "rt_match_value_open", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t *))rt_match_value_open)
          + x86_align_leave()

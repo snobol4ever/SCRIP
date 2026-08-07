@@ -869,6 +869,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_a_sval = op_a ? IR_LIT(op_a).sval : (const char *)0;
     g_emit.op_a_node_kind = op_a ? (int)ir_norm_call_kind(op_a->op) : -1;
     g_emit.op_a_slot = (op_a != (IR_t *)0) ? bb_slot_get(op_a) : -1;
+    if (nd->op == IR_MATCH_VALUE && op_a) { int _z = nd_slot(op_a); if (_z >= 0) g_emit.op_a_slot = _z; }   /* PB-2 (2026-08-07c): TWO SLOT AUTHORITIES measured (pb_dbg4) — bb_slot_get(VAR)=128 while the VAR's own ZRES store landed at raw zls 96 (nd_slot); the consumer must read the PRODUCER's authority.  MATCH_VALUE only; every other op_a consumer keeps bb_slot_get. */
     if (g_emit.op_a_slot < 0 && op_a) { int _z = nd_slot(op_a); if (_z >= 0) g_emit.op_a_slot = _z; }
     g_emit.op_a_counter = 0;
     g_emit.op_a_ival_sg = op_a ? IR_LIT(op_a).ival : 0;
