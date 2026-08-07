@@ -16,11 +16,11 @@ std::string bb_assign_local() {
                  + x86("mov", FRQ(_.op_sb + 8), "rdx")
                  + x86_gamma()
                  + x86_beta_trampoline();
-        return IF(!(_.op_sb >= 0 && _.op_off >= 0 && (_.op_a_slot >= 0 || _.op_a_node_kind == (int)IR_OP_COUNT || _.op_a_node_kind < 0)),
+        return IF(!(_.op_sb != -1 && _.op_off >= 0 && (_.op_a_slot >= 0 || _.op_a_node_kind == (int)IR_OP_COUNT || _.op_a_node_kind < 0)),   /* ICN-FR-3: op_sb != -1 allows negative rbp-relative frame-local offsets; -1 is the absent sentinel */
                              x86_alpha()
                            + x86_bomb("bb_assign_local: needs descr flat-chain + rhs slot + varslot + own slot")
                            + x86_beta_trampoline())
-                           + IF(_.op_sb >= 0 && _.op_off >= 0 && (_.op_a_node_kind == (int)IR_OP_COUNT || _.op_a_node_kind < 0),
+                           + IF(_.op_sb != -1 && _.op_off >= 0 && (_.op_a_node_kind == (int)IR_OP_COUNT || _.op_a_node_kind < 0),   /* ICN-FR-3: op_sb != -1 */
                              x86_alpha()
                            + x86("comment", "IR_ASSIGN local=NUL")
                            + x86("mov", FRQ(_.op_sb), "0")
@@ -29,7 +29,7 @@ std::string bb_assign_local() {
                                              + x86("mov", FRQ(_.op_off + 8), "0"))
                            + x86_gamma()
                            + x86_beta_trampoline())
-                           + IF(_.op_sb >= 0 && _.op_off >= 0 && _.op_a_slot >= 0 && _.op_a_node_kind != (int)IR_OP_COUNT && _.op_a_node_kind >= 0,
+                           + IF(_.op_sb != -1 && _.op_off >= 0 && _.op_a_slot >= 0 && _.op_a_node_kind != (int)IR_OP_COUNT && _.op_a_node_kind >= 0,   /* ICN-FR-3: op_sb != -1 */
                              x86_alpha()
                            + x86("comment", "IR_ASSIGN local")
                            + x86("mov", "rax", FRQ(_.op_a_slot))

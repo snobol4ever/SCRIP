@@ -18,7 +18,7 @@ std::string bb_var() {
                  + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
                  + x86_gamma()
                  + x86_beta_trampoline();
-        return _.op_off >= 0 && _.op_sa >= 0 ?
+        return _.op_off >= 0 && _.op_sa != -1 ?   /* ICN-FR-3: op_sa may be negative for rbp-relative frame locals; -1 is the absent sentinel */
                x86("comment", "IR_VAR")
              + x86_alpha()
              + x86("mov",     "rax", FRQ(_.op_sa))
