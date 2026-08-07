@@ -624,8 +624,10 @@ uint64_t g_sno_defer_cells[4096];   /* s142 DEFER-SITE DIET: per-site fn cache f
 uint64_t g_pat_main_rsp = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
+static int g_rspd_active = 0;   /* M4-DESTR-FIX: cached at startup — destructor must not call getenv() at exit time (libc may have cleaned up); constructor caches the flag instead */
+__attribute__((constructor)) static void rt_rspd_init(void) { g_rspd_active = (getenv("SCRIP_RSPDIFF") != NULL); }
 __attribute__((destructor)) static void rt_rspd_report(void) {
-    if (!getenv("SCRIP_RSPDIFF")) return;
+    if (!g_rspd_active) return;
     fprintf(stderr, "RSPDIFF raw: save=%#lx g4=%#lx g5=%#lx s2=%#lx g6=%#lx beta=%#lx\n", (unsigned long)g_rspd_save, (unsigned long)g_rspd_g4, (unsigned long)g_rspd_g5, (unsigned long)g_rspd_s2, (unsigned long)g_rspd_g6, (unsigned long)g_rspd_beta);
     if (g_rspd_save && g_rspd_g4)  fprintf(stderr, "RSPDIFF gamma-retained (save-g4)   = %ld\n", (long)(g_rspd_save - g_rspd_g4));
     if (g_rspd_save && g_rspd_g5)  fprintf(stderr, "RSPDIFF omega-restored (save-g5)   = %ld\n", (long)(g_rspd_save - g_rspd_g5));
