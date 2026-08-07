@@ -1261,7 +1261,14 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         static int _pb = -1; if (_pb < 0) { const char *_e = getenv("SCRIP_PAT_BUILD"); _pb = (_e && *_e == '0') ? 0 : 1; }
         if (!_pb) { const char * nm = t->v.sval;
         { IR_t * nd = lc_build(g, IR_MATCH_PATREF, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class; OP-SPLIT s21x-f: the EAGER twin — a bare stored-pattern NAME, built eagerly, cannot self-reference (manual p.122), lowers to IR_MATCH_PATREF; every consumer treats the pair identically this slice */ nd->pat_static = sno_name_static(nm);   /* ZD-5 s23i: static-shape patref -- the named next rung's arming population */ sno_ω_to(nd, fail); return nd; } }
-        IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL); sno_ω_to(mv, fail);
+        /* PB-1s SNAPSHOT: MATCH_VALUE reads the plain-ref variable ONCE at its own α (first match entry)
+         * and stores the result into its own ZLS slot.  Subsequent retries (β) re-read the SLOT, not NV —
+         * giving BUILD-time snapshot semantics.  The variable name is stored in mv->sval so the template
+         * can issue the NV read; the IR_VAR producer node carries operand[0] for slot aliasing only.
+         * (Pre-chain hoist was tried and reverted: hoisting the IR_VAR BEFORE MATCH_BEGIN moved it across
+         * the ZLS boundary from claim-relative to header-relative addressing, shifting MATCH_BEGIN's outer-
+         * context save offsets and breaking the subject-DESCR read for every stored-pattern match.) */
+        IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL); IR_LIT(mv).sval = (char *) t->v.sval; sno_ω_to(mv, fail);
         IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, mv, fail, &vr);
         if (vr) ir_operand_push(mv, vr);
         return ec;
