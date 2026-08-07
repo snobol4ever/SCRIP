@@ -567,7 +567,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         int vi = 1 - cui;
         s += marshal_call_arg((subs && subs[vi]) ? subs[vi]->entry : ir_call_arg(pBB, vi), (subs && subs[vi]) ? subs[vi] : NULL, argbase, _.node, vi);
     } else {
-        for (int i = 0; i < nargs; i++)
+        for (int i = nargs - 1; i >= 0; i--)   /* PAS-ZF-6 alias fix: marshal highest arg first — argbase = resoff+16 overlaps the ZLS source region; forward copy clobbers source[i+1] before it is consumed; reverse order is safe because ZLS assigns offsets in chain order (op_arg_slot[i] < op_arg_slot[i+1]) so each reverse write lands above the remaining unread sources */
             s += marshal_call_arg((subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i), (subs && subs[i]) ? subs[i] : NULL, argbase + i * 16, _.node, i);
     }
     if (dfp && cui >= 0) {
