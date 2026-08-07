@@ -230,6 +230,7 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
     PP *pp=(PP*)param;
     STMT_t *s=stmt_new();
     s->lineno = lbl.lineno ? lbl.lineno : snobol4_get_stmt_lineno();
+    { extern int snobol4_get_nofail_mode(void); s->nofail = snobol4_get_nofail_mode(); }
     s->stno = ++pp->prog->nstmts;
     if(lbl.sval){s->label=strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);}
     s->subject=subj; s->pattern=pat;
