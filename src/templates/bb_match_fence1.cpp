@@ -52,9 +52,8 @@ std::string bb_match_fence1() {
     if (_.op_ival == 0)   /* FENCE0 sync box (s137): the bare-variable FENCE lowered as an INTERIOR spine element — operand-free, no watermark (its α IS the commit: match null, whack, γ); β ≡ abandon
                            * (post-commit backup is the attempt-abort, routed by the lowerer's ω edge exactly as the s133 erasure routed it — the box adds only the whack).  First-position FENCE0 (the
                            * anchor idiom) stays node-free in the lowerer: zero left context, nothing to whack. */
-        return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — whack the activation's dynamic zeta to the rbp floor — then gamma; beta abandons to omega)")
+        return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — match null — then gamma; beta abandons to omega; NO RSP whack — WHACK CONTRACT clause 5: statement ζ release is STATEMENT_END's authority; the op_zw arm that lived here double-released the UCLAIM statement claim below the rbp floor — ZWS-FENCE0-UCLAIM fix, MECH s6)")
              + x86_alpha()
-             + IF(x86_port_cstack() && fence_whack_on() && _.op_zw, x86("lea", "rsp", "qword ptr [rbp# + -8]"))   /* ⭐ ZWS-FENCE0-FIX: under ZWS canonical frame (op_zw=1), rbp=claim_base; lea rsp,[rbp-8] sets rsp=old_rbp slot address so caller's pop rbp restores outer frame. */   /* ⭐ FENCE-WHACK-UCLAIM (this rung): the non-zw `mov rsp,rbp` arm is RETIRED — same double-release disease as fence_whack_commit's (see there): the whack to the graph floor freed the UCLAIM statement claim early, and the seal-route staged `add rsp,K` then freed it again (G23 hang witness, cured by SCRIP_FENCE_WHACK=0).  The ival=0 box reverts to the s133 pure sync shape under non-zw: α commits (match null), γ; β abandons to ω.  Retention until the statement bracket dies is the accepted cost; release authority stays with the statement per WHACK CONTRACT clause 5. */
              + x86_gamma()
              + x86_beta()
              + x86_omega();
