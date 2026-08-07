@@ -1860,6 +1860,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
             static int g_snapctr = 0; char nb[32]; snprintf(nb, sizeof nb, "PATV$%d", g_snapctr++);
             char * gname = lp_strdup(nb); sno_reg_var(gname);
             IR_LIT(cx->pre[pi].prim).sval = gname;   /* wire DEFER to the hidden global */
+            cx->pre[pi].prim->pat_static = 1;   /* PB-1s STATIC STAMP (W-2a, FINDING-2026-08-07e): PATV$ hidden globals are write-once-frozen by construction (one ASSIGN in the pre-chain, runs once at statement entry, chain frozen before MATCH_BEGIN); the zdyn veto at emit.cpp:2014 reads pat_static=0 and falsely classifies them as dynamic, declining the quartet.  sno_name_static() cannot reach PATV$ names (they are not in the AST seal table); the PATV$ prefix IS the proof -- stamp directly.  Killswitch: SCRIP_ZD_DYNARM=0 still forces st=0 and overrides. */
             sno_fz_mark_defer(g, cx->pre[pi].prim, gname);   /* DEFER FZ registration so zeta_storage sees it */
             IR_t * asnV = lc_build(g, IR_ASSIGN, after, fJ); IR_LIT(asnV).sval = gname;
             IR_t * av = NULL;
