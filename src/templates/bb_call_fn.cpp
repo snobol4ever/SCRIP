@@ -498,11 +498,12 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
+        { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }   /* ZK-3 EVERY-BODY PRE-ZERO (s213-cont): zero both releases BEFORE the DT_FAIL omega("je") so BOTH exits (fail-path and success-path) land at TO.beta with all cells live. GATED op_sb (=icn_cells_graph+IR_SUCCEED+beta-omega): SN4/Prolog leave op_sb=0, releases unaffected. ONE-AUTHORITY: both zeroes belong to THIS pre-zero; the restore below is the paired twin. */
         s += x86("cmp", "eax", (long)DT_FAIL);
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
-        if (_.op_sb) { int _wpop_save = _.op_wpop; _.op_wpop = 0; s += x86_omega(); _.op_wpop = _wpop_save; return s; }   /* ZK-3 EVERY-BODY (op_sb=1): every-body topology: irgen.icn routes both body.success and body.failure to TO.beta (the generator resume). Every discards the body result. Both success and failure jump to omega (=TO.beta, staged by the drive loop). op_wpop is zeroed before x86_omega() to suppress the mid-loop cell release (TO counter and limit cells are still live; the statement-terminal release at TO.omega is the sole release authority). op_wpop restored after for non-op_sb paths. BOTH-MEDIUM. ONE LINE per s22k law. */   /* ZK-3 EVERY-BODY (op_sb=1): in ir_a_Every the body CALL's success result is discarded; both gamma-success and omega-fail route back to the generator's beta (the loop-back arc). x86_gamma() would fire add rsp,op_zgpop and exit the graph -- wrong. beta_trampoline is the correct both-exits target. The write() DESCR result already sits in ZRES(0/8) but is unused by the every machinery; writing it is harmless. BOTH-MEDIUM: x86_beta_trampoline() uses x86() internally. ONE LINE per s22k law. */
+        if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }   /* ZK-3 EVERY-BODY SUCCESS PATH (s213-cont): success exit also bare-jmps to omega (=TO.beta). Both releases were zeroed above; restore for non-op_sb callers. BOTH-MEDIUM. ONE LINE per s22k law. Root cause: zd_plan stages gpop=K_total=64 at CALL's node (oin=0, omega exits run); without zeroing, x86_omega("je") emitted add rsp,64 before jmp TO.beta, corrupting the live TO counter + two LIT cells (depth=0 at back-edge vs expected 32, ZD-DEPTH WALL measured). */
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
