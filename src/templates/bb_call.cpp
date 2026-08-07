@@ -326,7 +326,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
-    for (int i = 0; i < (int)narg; i++)
+    for (int i = (int)narg - 1; i >= 0; i--)   /* PAS-ZF-6b alias fix (mirrors bb_call_fn.cpp:570): marshal highest arg first — argbase = resoff+16 overlaps the ZLS source region; forward copy clobbers source[i+1] before it is consumed; reverse order is safe because ZLS assigns offsets in chain order (op_arg_slot[i] < op_arg_slot[i+1]) so each reverse write lands above the remaining unread sources */
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     /* ICN-SCAN-CALL-SYNC (?-less callee): a by-name scan builtin reads/writes the scan_pos/scan_subj globals, so
      * publish the register-world cursor (r14 -> scan_pos) before the call even when this box is in_scan=0. Without it,
@@ -390,7 +390,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL_GEN ") + fn + "(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]");
-    for (int i = 0; i < (int)narg; i++)
+    for (int i = (int)narg - 1; i >= 0; i--)   /* PAS-ZF-6b alias fix: same reverse-order discipline as bb_call_byname_str above and bb_call_fn.cpp:570 */
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     s += x86("mov", FRQ(genoff), (long)0);
     /* ICN-SCAN-CALL-SYNC (?-less callee, generator variant): publish the register-world cursor (r14 -> scan_pos)

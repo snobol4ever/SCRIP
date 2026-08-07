@@ -13,7 +13,8 @@ for pas in "$CORPUS"/*.pas; do
         echo -e "$name\tNOREF\t" >> "$RESULTS"
         NOREF=$((NOREF+1)); continue
     fi
-    out=$(timeout 8s "$SCRIP" --run "$pas" < /dev/null 2>/dev/null)
+    inp="$CORPUS/$name.in"; [ -f "$inp" ] || inp=/dev/null
+    out=$(timeout 8s "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
     rc=$?
     exp=$(cat "$ref")
     if [ $rc -eq 124 ]; then

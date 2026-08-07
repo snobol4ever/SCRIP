@@ -30,7 +30,8 @@ for pas in "$CORPUS"/*.pas; do
         echo -e "$name\tLINK_FAIL\t" >> "$RESULTS"
         FAIL=$((FAIL+1)); continue
     fi
-    out=$(timeout 8s "$exe" < /dev/null 2>/dev/null)
+    inp="$CORPUS/$name.in"; [ -f "$inp" ] || inp=/dev/null
+    out=$(timeout 8s "$exe" < "$inp" 2>/dev/null)
     rc=$?
     exp=$(cat "$ref")
     if [ $rc -eq 124 ]; then
