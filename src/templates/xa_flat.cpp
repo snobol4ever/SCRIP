@@ -198,7 +198,7 @@ static std::string xa_flat_dc_stub_str(void) {
     uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
     static const char *argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    if (g_emit.zframe_graph) {   /* ICN-FR-2 ZFRAME DC STUB: stage args into g_call_args via rt_arg_stage, then jmp proc_f_α (not body) so the ζ-frame prologue runs.
+    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) {   /* ICN-FR-2 ZFRAME DC STUB / ZK-4 SLICE 2 CELLS-ARM CLASS ZF: stage args into g_call_args via rt_arg_stage, then jmp proc_f_α (not body) so the prologue runs.  ZK-4 SLICE 2 ROOT CAUSE: the old non-zframe DC stub (sub rsp,kt+16) allocated only flat_frame_bytes+16 bytes, but the CLASS ZF epilogue (xa_flat_wire_hdr_base) uses flat_frame_bytes+(np+nl)*16 as kt_adjusted.  For f1 (np=1,nl=1) kt_adjusted=224 but DC stub sub'd 208+16=224 but with rbp pinned at DC-stub's rsp the epilogue lea rsp,[rbp+224] lands ABOVE the DC stub frame top, 32 bytes off — SEGV on exit after correct output.  The arg-staging path (rt_arg_stage→g_call_args, jmp lbl_α so flat_lcl_proc prologue runs sub rsp,frame_total+installs) is identical to the zframe path: rt_lcl_proc_args_install reads g_call_args[], so staging there feeds it correctly.  CLASS ZF predicate here mirrors xa_flat_class_zf() ONE AUTHORITY.
      * The site `call`s here with arg CELL POINTERS in rsi/rdx/rcx/r8. This arm stages each into g_call_args[i] then sets wire shims and jumps proc_f_α.
      * proc_f_α: sub rsp,kt; wire-header [kt-24]=rcx [kt-16]=rdx [kt-8]=caller_rbp; pin rbp=rsp; rt_icn_zframe_args_install(rbp,np,nl) reads g_call_args[0..np-1].
      * γ exit: lea rsp,[rbp+kt] (= pushed-r11 rsp level); restore caller rbp; jmp shim_γ via [rbp+kt-24].
@@ -397,10 +397,12 @@ static int xa_flat_class_zf(void) {
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
+    int cells = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY: cells-arm CLASS ZF needs add rsp,16 after lea rsp,[rbp+kt] to consume the dc stub's 16B residue (pop r11 + N push r11 + push arg + add rsp,16 = net -16 before jmp proc_f_α; see ZK-4-SLICE2-ROOT-CAUSE). ZFRAME arm is depth-immune via pinned rbp and must NOT get the +16. */
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi (frame0 for rt_proc_call_epilogue_γ on non-dc path); unwind; restore caller rbp; jmp γ wire")
          + x86("mov", "rdi", "rax")   /* frame0.v — rt_proc_epilogue_body reads frame0 for lex procs; dc-stub shim ignores rdi */
          + x86("mov", "rsi", "rdx")   /* frame0.i */
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+         + (cells ? x86("add", "rsp", 16L) : std::string())   /* ZK-4 SLICE 2: consume dc stub 16B residue so caller's landing sees rsp = pre-call rsp (not pre-call - 16). */
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 24) + "]")
          + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
          + x86("jmp", "rcx");
@@ -410,8 +412,10 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
+    int cells = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY twin: ω exit has the same dc stub residue. */
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp; jmp")
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+         + (cells ? x86("add", "rsp", 16L) : std::string())   /* ZK-4 SLICE 2: consume dc stub 16B residue. */
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 16) + "]")
          + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
          + x86("jmp", "rcx");

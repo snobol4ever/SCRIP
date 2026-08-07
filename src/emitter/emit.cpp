@@ -2384,7 +2384,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     { g_emit.flat_all_zd = 0; if (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && x86_zc_frame() == ZC_FRAME_RSP && n > 0) { int _azd = 1; for (int _i = 0; _i < n; _i++) if (!zd_on[_i]) { _azd = 0; break; } g_emit.flat_all_zd = _azd; } { static int _lpd = -1; if (_lpd < 0) { const char * _e = getenv("SCRIP_LP_DIAG"); _lpd = (_e && *_e == '1') ? 1 : 0; } if (_lpd) { int _arm = 0; for (int _i = 0; _i < n; _i++) if (zd_on[_i]) _arm++; fprintf(stderr, "[LP] prefix=%s n=%d armed=%d all_zd=%d region=%d jmp=%d pat=%d gen=%d\n", prefix, n, _arm, g_emit.flat_all_zd, (g_emit_cfg ? g_emit_cfg->jcon_value_region : -1), g_emit.flat_jmp_entry, g_emit.flat_pat, g_emit.flat_gen); } } }   /* LP-2 LAYOUT PASS (s22d NEXT(1)): the verdict is now the ZD PLAN ITSELF, not a kind approximation.  The RPO walk + zd_plan moved ABOVE the prologue (both are PURE -- verified: zero emissions, zero g_emit writes in either), so `flat_all_zd` reads the REAL per-node arm results zd_on[] that the drive loop will use.  ONE AUTHORITY: the predicate and the emission now cannot disagree, because they are the same array.  LP-1 asked "do these kinds LOOK armable?" and could answer yes where zd_plan then declined a statement for a STRUCTURAL reason (cross-statement operand, staging failure) -- leaving legacy FR/FRQ readers live against a carve LP-1 had already zeroed.  This asks "did every node ACTUALLY arm?", so flat_all_zd=1 now means the carve is zero BY CONSTRUCTION.  zd_plan self-declines jmp-entry/non-FORTH (leaving zon all-zero, hence all_zd=0); the flat_pat/flat_gen/RSP guards are kept explicit so the flag means what it says at its source.  Widens automatically as kinds arm -- when IR_CALL lands (ZD-7) call-bearing graphs become carve-free with no edit here, which is the DL-ONESHOT rbp-free classifier seed/test_sno_dl_2_norbp.s asks for. */
     { extern void emit_fb_divergence_check(void); emit_fb_divergence_check(); }   /* ZETA-FB-1 (s160): the LAST point at which every input to BOTH frame-base predicates is final for this graph and the prologue has not yet run — x86_fb_pinned()=emit_jmp_pin_rbp() picks the base every DATA ref NAMES, emit_rec_pin() picks the base the RECORD protocol names, and the prologue dispatched on the next line is what ESTABLISHES one.  A disagreement here is the s158 land mine latent: store and load naming different registers.  Reports under SCRIP_FB_DIVERGE=1, costs one compare otherwise. */
     if (text_externalise && g_is_text) emit_label_define_bb(&lbl_α);
-    else if (g_emit.zframe_graph) emit_label_define_bb(&lbl_α);   /* ICN-FR-2: zframe dc stub uses &lbl_α as its backward jump target (proc_f_α not body); define it in binary mode too so bb_label_defined(&lbl_α) is true when the X-record patches. Harmless for non-dc zframe graphs (no X-record references lbl_α). */
+    else if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) emit_label_define_bb(&lbl_α);   /* ICN-FR-2: zframe dc stub uses &lbl_α as its backward jump target (proc_f_α not body); define it in binary mode too so bb_label_defined(&lbl_α) is true when the X-record patches. Harmless for non-dc zframe graphs (no X-record references lbl_α).  ZK-4 SLICE 2: cells-arm CLASS ZF (icn_cells_graph && flat_lcl_proc) extended: DC stub now jumps to lbl_α so the flat_lcl_proc prologue runs; binary-mode define required for the same reason. Predicate mirrors xa_flat_class_zf() ONE AUTHORITY. */
     /* CARVE-KILL (Lon directive, s22n): XA_FLAT_PROLOGUE dispatch DELETED with its function. No graph emits a prologue. */
     if (g_is_text) g_emit_pos += 7;
     bb_label_t lbl_attempt, lbl_scanhit, lbl_scanfail;
@@ -2428,10 +2428,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
         int frame_total = kt2 + (np + nl) * 16;
         extern void rt_lcl_proc_args_install(void *, int, int);
+        extern void rt_icn_zframe_args_install(void *, int, int);   /* ZK-4 SLICE 2: cells-arm DC path uses this; reads g_call_args[] directly, no g_pcall dependency */
+        int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY: cells-arm flat_lcl_proc procs entered via DC stub have g_pcall_top=0 (no pcall record pushed), so rt_lcl_proc_args_install reads nargs=0 and installs nothing; rt_icn_zframe_args_install reads g_call_args[] which rt_arg_stage populated. Predicate mirrors xa_flat_class_zf() + the DC stub condition. SNOBOL4/Prolog/Raku: icn_cells_graph=0, byte-identical. */
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
             _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\nmov qword ptr [rsp + %d], rbp\nmov rbp, rsp\n", frame_total, frame_total - 24, frame_total - 16, frame_total - 8);
-            _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rbp\nmov esi, %d\nmov edx, %d\ncall rt_lcl_proc_args_install@PLT\n", np, nl);
+            _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rbp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
             emit_text_n(_lp, strlen(_lp));
         } else {
             if (frame_total <= 127) { ef_b3(0x48, 0x83, 0xEC); ef_b1((uint8_t)frame_total); } else { ef_b3(0x48, 0x81, 0xEC); bb_emit_u32((uint32_t)frame_total); }
@@ -2442,7 +2444,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             ef_b3(0x48, 0x89, 0xEF);   /* mov rdi,rbp */
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);   /* mov esi,np (imm32) */
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);   /* mov edx,nl (imm32) */
-            { uint64_t _fn = (uint64_t)(uintptr_t)(void *)rt_lcl_proc_args_install; ef_b2(0x48, 0xB8); bb_emit_u64(_fn); ef_b2(0xFF, 0xD0); }   /* movabs rax,fn; call rax */
+            { uint64_t _fn = (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install); ef_b2(0x48, 0xB8); bb_emit_u64(_fn); ef_b2(0xFF, 0xD0); }   /* movabs rax,fn; call rax */
         }
     }
     emit_label_define_bb(&lbl_α_body);
@@ -2827,7 +2829,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (!g_emit.flat_jmp_entry || !g_emit.flat_lex || g_emit.flat_gen || g_emit.flat_pat) { fprintf(stderr, "FATAL PL-DC: driver-armed graph is not det-lexical jmp-entry (jmp=%d lex=%d gen=%d pat=%d)\n", g_emit.flat_jmp_entry, g_emit.flat_lex, g_emit.flat_gen, g_emit.flat_pat); abort(); }
           bb_label_t lbl_dc; emit_label_initf(&lbl_dc, "%s_dcα", prefix);
           emit_sep_rule('-'); emit_label_define_bb(&lbl_dc);
-          g_emit.flat_dc_body_p = g_emit.zframe_graph ? &lbl_α : &lbl_α_body;   /* ICN-FR-2: zframe dc stub jumps to proc_f_α (not body) so the ζ-frame prologue runs; non-zframe keeps the existing body jump */
+          g_emit.flat_dc_body_p = (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) ? &lbl_α : &lbl_α_body;   /* ICN-FR-2: zframe dc stub jumps to proc_f_α (not body) so the ζ-frame prologue runs; non-zframe keeps the existing body jump.  ZK-4 SLICE 2: cells-arm CLASS ZF (icn_cells_graph && flat_lcl_proc) extended to also jump to lbl_α — flat_lcl_proc prologue allocates frame_total=flat_frame_bytes+(np+nl)*16 which must match xa_flat_wire_hdr_base()'s kt_adjusted used by the CLASS ZF epilogue.  Predicate mirrors xa_flat_class_zf() ONE AUTHORITY. */
           { extern void xa_flat_dc_stub(void); xa_flat_dc_stub(); }
           g_emit.flat_dc_body_p = (bb_label_t *)0;
           if (!g_is_text) g_last_dc_off = (long)lbl_dc.offset;
