@@ -1,0 +1,29 @@
+#!/bin/bash
+# test_gate_pas_frame_pairing.sh — PAS-ZF-10 structural prison
+# For every emitted proc_* region, assert push_rbp==pop_rbp and mov_rbp_rsp==mov_rsp_rbp
+SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"
+CORPUS="${CORPUS:-/home/claude/corpus/programs/pascal}"
+FAIL=0; PASS=0
+WITNESSES="${WITNESSES:-emptyproc p2 nestvar varparam}"
+for name in $WITNESSES; do
+    pas="$CORPUS/$name.pas"
+    [ -f "$pas" ] || { echo "SKIP $name (not found)"; continue; }
+    asm=$(timeout 8s "$SCRIP" --compile "$pas" < /dev/null 2>/dev/null) || { echo "FAIL $name (compile error)"; FAIL=$((FAIL+1)); continue; }
+    # Split by proc_* region and count push/pop/mov rbp pairs
+    ok=1
+    while IFS= read -r region; do
+        rname=$(echo "$region" | grep -o 'proc_[a-zA-Z0-9_]*' | head -1)
+        [ -z "$rname" ] && continue
+        push_rbp=$(echo "$region" | grep -c 'push.*rbp' || true)
+        pop_rbp=$(echo "$region"  | grep -c 'pop.*rbp'  || true)
+        mov_br=$(echo "$region"   | grep -c 'mov.*rbp,rsp' || true)
+        mov_rb=$(echo "$region"   | grep -c 'mov.*rsp,rbp' || true)
+        if [ "$push_rbp" -ne "$pop_rbp" ] || [ "$mov_br" -ne "$mov_rb" ]; then
+            echo "UNPAIRED $name/$rname: push_rbp=$push_rbp pop_rbp=$pop_rbp mov_rbp_rsp=$mov_br mov_rsp_rbp=$mov_rb"
+            ok=0; FAIL=$((FAIL+1))
+        fi
+    done < <(echo "$asm" | awk '/proc_[a-zA-Z0-9_]+:/{r=$0;next} r{r=r"\n"$0} /^[a-zA-Z_][a-zA-Z0-9_]*:/{if(r)print r; r=""}')
+    [ $ok -eq 1 ] && { echo "PAIRED $name"; PASS=$((PASS+1)); }
+done
+echo "frame-pairing: PASS=$PASS FAIL=$FAIL"
+[ $FAIL -eq 0 ]
