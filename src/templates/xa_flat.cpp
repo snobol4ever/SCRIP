@@ -236,3 +236,61 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86_jmpfn("rt_pl_dc_leave_ω", lvw_fp);
 }
 extern "C" void xa_flat_dc_stub(void) { bb_emit_x86(xa_flat_dc_stub_str()); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ICN-FR-2: ζ-FRAME PROLOGUE — re-expressed from anchor xa_flat.cpp:164–170 using x86() calls, BOTH MEDIUM.
+ * R5 parameterless: reads g_emit (flat_frame_bytes, lbl_α_body name for comment) and emit_jmp_pin_rbp() — no locals leak into the arm's concat.
+ * R10: byte-identity with the anchor BINARY is NOT required; the encoder picks imm8/disp8 short forms where they fit — behavioral gates only.
+ * LAYOUT CONTRACT: kt is sized by the existing layout pass (flat_frame_bytes includes the wire header floor of 48).  The pin is gate-driven by
+ * emit_jmp_pin_rbp(), which now includes g_emit.zframe_graph, so the save+seed pair fires unconditionally for every ζ-frame graph — every such
+ * graph is either deep-arriving (jmp-wire procs) or suspending (gen), both of which require the pinned rbp for the REG-7 U5 resume/exit record.
+ * Wire header layout per THE ANCHOR (re-stated for FR-2's reader, never re-derived): [rsp+kt-24]=rcx (outside-γ wire), [rsp+kt-16]=rdx (outside-ω
+ * wire), [rsp+kt-8]=rbp (caller rbp saved for REG-7 U2 restore on exit), then rbp seeded to this activation's flat base (mov rbp,rsp).
+ * Callers: emit.cpp alpha dispatch, gated on g_emit.zframe_graph after all other jmp-entry arms. */
+extern "C" void rt_lcl_proc_args_install(void *, int, int);   /* ICN-FR-2(f): used in xa_flat_zframe_prologue_str for param/local install */
+static std::string xa_flat_zframe_prologue_str(void) {
+    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
+    int kt = g_emit.flat_frame_bytes;
+    if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
+    int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
+    int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
+    std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller_rbp + pin rbp=rsp")
+         + x86("sub", "rsp", (long)kt)
+         + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
+         + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
+         + (emit_jmp_pin_rbp() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
+                                + x86("mov", "rbp", "rsp")
+                               : std::string());
+    if (np > 0 || nl > 0) {   /* ICN-FR-2(f) DEFERRED: param/local install slot-layout mismatch — ζ-frame ZLS slots are [rbp+off] (positive, jcon_value_region layout) but rt_lcl_proc_args_install writes [rbp-off] (flat_lcl_proc negative convention).  Left as no-op for FR-2; FR-3 will route through rt_frame_bind_args or a ζ-frame-aware installer that writes to ZLS slots by name.  Params silently absent for now; f0 (no params) is green; f1/fib deferred. */
+        (void)0;
+    }
+    return s;
+}
+/* ICN-FR-2: ζ-FRAME EPILOGUE γ (success / suspend port).
+ * Re-expressed from anchor epilogue (git 1ba33ea6~1 xa_flat.cpp:172-174 TEXT / :185-199 BINARY) for ζ-frame graphs.
+ * γ UNWINDS ABSOLUTELY: lea rsp,[rbp+kt] rejoins pre-entry rsp from ANY arrival depth.
+ * Then loads the γ wire from [rbp+kt-24], restores caller rbp from [rbp+kt-8], and jmps the wire.
+ * This is the FR-3 exit protocol expressed in FR-2 so simple procs (f0/f1/fib) exit correctly.
+ * Depth-immune because it reads through the PINNED rbp (depth-independent by construction). */
+static std::string xa_flat_zframe_epilogue_γ_str(void) {
+    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
+    int kt = g_emit.flat_frame_bytes;
+    return x86("comment", "ICN-FR-2 zframe epilogue-γ: unwind to flat base; load γ wire; restore caller rbp; jmp")
+         + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+         + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 24) + "]")
+         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
+         + x86("jmp", "rcx");
+}
+/* ICN-FR-2: ζ-FRAME EPILOGUE ω (failure port).
+ * Same absolute-unwind shape as γ but reads the ω wire from [rbp+kt-16]. */
+static std::string xa_flat_zframe_epilogue_ω_str(void) {
+    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
+    int kt = g_emit.flat_frame_bytes;
+    return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp; jmp")
+         + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+         + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 16) + "]")
+         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
+         + x86("jmp", "rcx");
+}
+extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
+extern "C" void xa_flat_zframe_epilogue_γ(void) { bb_emit_x86(xa_flat_zframe_epilogue_γ_str()); }
+extern "C" void xa_flat_zframe_epilogue_ω(void) { bb_emit_x86(xa_flat_zframe_epilogue_ω_str()); }

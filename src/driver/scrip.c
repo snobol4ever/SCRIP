@@ -40,6 +40,28 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 extern DESCR_t pat_at_cursor(const char *varname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void stmt_init(void) {}
+/* ICN-FR-2: ζ-frame exit-wire thunks for the m3 main graph.  The ζ-frame epilogue does `jmp rcx` (γ) / `jmp rdx` (ω);
+ * the main graph needs these to point at exit(0)/exit(1) respectively.  rt_outer_call does NOT preserve rcx/rdx across
+ * its asm wrapper, so the driver uses a raw asm block to set them directly before calling the graph function. */
+static void icn_zf_exit_γ(void) { exit(0); }
+static void icn_zf_exit_ω(void) { exit(1); }
+/* Jump to fn with rcx=wire_γ rdx=wire_ω rdi=mf rsi=0 r12=RT_DCAP_TOP.
+ * ICN-FR-2: jmp not call — ζ-frame kt is sized for jmp entry (no return-address push on the stack);
+ * using call would shift rsp by 8 and corrupt [rsp+kt-24/-16/-8] wire reads.  The main graph exits
+ * via icn_zf_exit_γ/ω→exit() and never returns here, so the missing ret is correct. */
+static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
+    __asm__ volatile(
+        "push %%r12\n\t"
+        "sub $8, %%rsp\n\t"
+        "mov $0x70000000, %%r12\n\t"
+        "mov (%%r12), %%r12\n\t"        /* r12 = *RT_DCAP_TOP */
+        "xor %%esi, %%esi\n\t"         /* rsi = 0 */
+        "jmp *%%rax\n\t"               /* ICN-FR-2: jmp (not call) — ζ-frame kt sized for jmp entry; exits via wire→exit() */
+        :
+        : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω)
+        : "memory", "rsi", "r8", "r9", "r10", "r11"
+    );
+}
 extern DESCR_t      eval_expr(const char *src);
 extern int exec_stmt(const char *subj_name,
                           DESCR_t    *subj_var,
@@ -1244,6 +1266,13 @@ int main(int argc, char **argv)
             emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_DCAP_TOP (rtx_init.c _Static_assert) */
             /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
             emit_textf("  xor esi, esi\n");
+            if (bbg->zframe_graph) {   /* ICN-FR-2: ζ-frame main needs γ/ω wires in rcx/rdx on entry — the prologue saves them at [rsp+kt-24/-16] for the epilogue's direct read.  Emit two tiny exit-wire thunks (γ=exit(0), ω=exit(1)) and load their RIP-relative addresses before the jmp.  The thunks sit between main: and main_α — unreachable by fall-through (the jmp skips them), reachable only via the wire-return jmp rcx/rdx from main_γ/ω. */
+                emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
+                emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
+                emit_textf("  jmp main_\xce\xb1\n");
+                emit_textf(".Lmain_zf_γ:\n  xor edi, edi\n  call exit@PLT\n");
+                emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
+            } else
             emit_textf("  jmp main_\xce\xb1\n");
             int rc;
             {
@@ -1582,6 +1611,9 @@ int main(int argc, char **argv)
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
             { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
+            if (bbg->zframe_graph) {   /* ICN-FR-2: ζ-frame main — supply γ/ω exit wires in rcx/rdx before entering the graph */
+                icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, (void *)icn_zf_exit_ω);
+            } else
             { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): mode-3's OUTSIDE seeds the environment register — push r12 / mov r12,[RT_DCAP_TOP] / call / pop r12 (rt.c thunk); twin of the mode-4 wrapper seed, and closes the old in-blob seed's caller-r12 ABI clobber */
             goto run_done;
         }
