@@ -135,12 +135,12 @@ static std::string sink_carve48_take(void) {
 static std::string sink_kid(const char * creg, int koff, int lunb, int lbnd, int ljoin) {
     std::string s = sink_unb(creg, lunb, lbnd);
     s += x86_deflabel_id(lunb);
-    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str(), (long)13);
+    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str(), (long)DT_PLVAR);
     s += x86("lea", "rax", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str());
     s += x86("mov", (std::string("[rdx + ") + std::to_string(koff + 8) + "]").c_str(), "rax");
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
     s += sink_tp_nc(creg);
-    s += x86("mov", (std::string("[") + creg + " + 0]").c_str(), (long)13);
+    s += x86("mov", (std::string("[") + creg + " + 0]").c_str(), (long)DT_PLVAR);
     s += x86("lea", "rax", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str());
     s += x86("mov", (std::string("[") + creg + " + 8]").c_str(), "rax");
     s += x86_jmp_id(ljoin);
@@ -331,7 +331,7 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += sink_kid("rcx", 16, 92, 93, 94);
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
     s += sink_tp_nc("r8");
-    s += x86("mov", "dword ptr [r8 + 0]", (long)14);
+    s += x86("mov", "dword ptr [r8 + 0]", (long)DT_PLREF);
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
     s += x86("mov", "eax", "dword ptr [r10 + 0]");
     s += x86("mov", "dword ptr [r8 + 4]", "eax");
