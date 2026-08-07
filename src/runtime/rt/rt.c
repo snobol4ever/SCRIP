@@ -1568,6 +1568,33 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
     rt_frame_bind_args((char *)fb, c->p, c->nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-FR-4 RETRY CONTINUATION STACK — the WAM B register for the ζ-frame regime.  THE DEFECT: MOVE_LABEL/DISJUNCTION rendezvous via [rbp+op_off+16]; the ζ epilogue restores rbp to the caller before
+ * backtrack reads it — measured as rip=0 on bt_minimal.pl (the slot also aliases param-0).  CANONICAL SHAPE read this session from gprolog (ALTB on the B stack, EnginePl/wam_inst.h:92-107, CHOICE_STATIC_SIZE
+ * 8, entirely separate from the E environment stack) and SWI-Prolog (struct choice { Choice parent; LocalFrame frame; union { Code pc; } value; }, pl-incl.h:1825-1838 — frame is a reference, never storage).
+ * In both engines, choice-point lifetime is INDEPENDENT of activation-frame lifetime.  LIFO is sound: backtracking is stack-disciplined by the language definition; cut discards a contiguous top segment.
+ * Killswitch: the emitter arms are gated on zframe_graph, so unflagged graphs never call these. */
+__attribute__((visibility("default"))) void **g_pl_retry;
+__attribute__((visibility("default"))) int    g_pl_retry_top;
+__attribute__((visibility("default"))) int    g_pl_retry_cap;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_retry_push(void *addr)
+{
+    if (g_pl_retry_top >= g_pl_retry_cap) {
+        int nc = g_pl_retry_cap ? g_pl_retry_cap * 2 : 1024;
+        void **np = (void **)rt_ws_realloc(g_pl_retry, (size_t)nc * sizeof(void *));
+        if (!np) return;
+        g_pl_retry = np; g_pl_retry_cap = nc;
+    }
+    g_pl_retry[g_pl_retry_top++] = addr;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PEEK-AND-POP: the retry address is consumed by the jump.  Returns 0 on empty — an exhausted choice point IS failure. */
+void *rt_pl_retry_pop(void)
+{
+    if (g_pl_retry_top <= 0) return (void *)0;
+    return g_pl_retry[--g_pl_retry_top];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* FRAME-PREP LEAF — the site has just made fbytes of frame available at fb (an rsp bump, once the call site is
  * emitted; an alloca while it is still C).  Fill it per the open protocol, record it, and hand back the entry
  * to transfer to.  Returning fn is what lets the site do a single medium-symmetric `call rax` — no proc-symbol
