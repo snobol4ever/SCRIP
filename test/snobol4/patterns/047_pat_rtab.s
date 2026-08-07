@@ -149,7 +149,6 @@ n7_match_assign_save_α:
                                                                                         jmp   n8_lit_integer_α
 n7_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 224
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_integer_α:
@@ -158,10 +157,6 @@ n8_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx37_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n9_match_rtab_α
-n8_lit_integer_β:
-                        add              rsp, 16
-                        add              rsp, 240
-                                                                                        jmp   n7_match_assign_save_α
 .Lx37_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
@@ -174,7 +169,6 @@ n9_match_rtab_α:
                         cmp              r14d, ecx
                                                                                         jle   .Lx38_240
                         add              rsp, 16
-                        add              rsp, 256
                                                                                         jmp   n7_match_assign_save_β
 .Lx38_240:
                         mov              r14d, ecx
@@ -182,7 +176,6 @@ n9_match_rtab_α:
 n9_match_rtab_β:
                         mov              r14d, dword ptr [rsp + 128]
                         add              rsp, 16
-                        add              rsp, 256
                                                                                         jmp   n7_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_assign_cond_α:

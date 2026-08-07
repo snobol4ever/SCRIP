@@ -413,7 +413,6 @@ n28_match_assign_save_α:
                                                                                         jmp   n29_match_defer_α
 n28_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 240
                                                                                         jmp   n27_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n29_match_defer_α:
