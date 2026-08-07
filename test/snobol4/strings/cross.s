@@ -1355,6 +1355,7 @@ n69_match_assign_save_α:
                                                                                         jmp   n70_match_len_α
 n69_match_assign_save_β:
                         add              rsp, 16
+                        add              rsp, 928
                                                                                         jmp   n68_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n70_match_len_α:
