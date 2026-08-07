@@ -282,9 +282,9 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         g->n_vslots = 0;
         int np = g->nparams;
         int nl = g->nlocals;
-        for (int i = 0; i < np; i++) if (g->pnames && g->pnames[i]) drv_vslot_push(g, g->pnames[i], (i + 1) * 16);
-        for (int j = 0; j < nl; j++) if (g->lnames && g->lnames[j]) drv_vslot_push(g, g->lnames[j], (np + j + 1) * 16);
-        /* ICN-FR-3 implicit-local scan: Icon treats any undeclared variable in a procedure body as an implicit local.  SCRIP's lowerer only populates lnames/nlocals for explicitly declared `local` names.  Variables used in `initial` bodies or elsewhere without a `local` declaration are implicit locals — they need a frame slot to be read and written correctly.  Scan all IR_VAR and IR_ASSIGN nodes for names that are (a) not global (is_global), (b) not already vslotted (ir_varslot_of < 0).  Grant each a new frame slot at [rbp-(np+nl+k+1)*16] in discovery order, where k counts newly added slots.  drv_vslot_push's no-dup guard makes re-encountering the same name a no-op.  SN4/Prolog/Raku/Pascal watermark: zframe_graph=0 for all non-Icon graphs; this scan is structurally invisible.  ONE AUTHORITY per TE-4 law. */
+        for (int i = 0; i < np; i++) if (g->pnames && g->pnames[i]) drv_vslot_push(g, g->pnames[i], (i + 1) * 16);   /* PL-FR-2: POSITIVE offsets — frame is [rbp+0..kt-1], params at [rbp+(i+1)*16]. rt_icn_zframe_args_install and rt_jmp_frame_lexprep2 both write positive offsets. ZLS starts at 16+np*16 so no overlap with named params. */
+        for (int j = 0; j < nl; j++) if (g->lnames && g->lnames[j]) drv_vslot_push(g, g->lnames[j], (np + j + 1) * 16);   /* PL-FR-2: positive, following params */
+        /* ICN-FR-3 implicit-local scan: Icon treats any undeclared variable in a procedure body as an implicit local.  SCRIP's lowerer only populates lnames/nlocals for explicitly declared `local` names.  Variables used in `initial` bodies or elsewhere without a `local` declaration are implicit locals — they need a frame slot to be read and written correctly.  ⛔ IR_VAR_REF is excluded: Prolog anonymous vars (G0/G1 etc, from _) appear only as IR_VAR_REF; they get cells from the PLJ heap via rt_jmp_frame_lexprep2/rt_frame_bind_args or fresh PLJ allocation, NOT from frame vslots.  SN4/Prolog/Raku/Pascal watermark: zframe_graph=0 for all non-Icon graphs; this scan is structurally invisible for them.  ONE AUTHORITY per TE-4 law. */
         { extern int is_global(const char *); int k = 0;
           for (int qi = 0; qi < g->n; qi++) { IR_t *qn = g->all[qi]; if (!qn) continue;
               if (qn->op != IR_VAR && qn->op != IR_ASSIGN) continue;
@@ -292,7 +292,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
               if (is_global(vn)) continue;
               if (ir_varslot_of(g, vn) != -1) continue;
               int before = g->n_vslots;
-              drv_vslot_push(g, vn, (np + nl + k + 1) * 16);   /* POSITIVE: rt_icn_zframe_args_install uses [rbp+(i+1)*16]; FRQ(off) with pinned rbp = [rbp+off]; positive offsets address INTO the data region below the wire header */
+              drv_vslot_push(g, vn, (np + nl + k + 1) * 16);   /* PL-FR-2: positive offsets; ZLS base = 16+np*16 so implicit locals at (np+nl+k+1)*16 may overlap for k=0,np=0 — but for Icon this is gated by zframe_graph, and Icon procs have nparams>0 or use explicit locals, so the base accounts for them. */
               if (g->n_vslots > before) k++;
           }
         }

@@ -1043,10 +1043,8 @@ void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals) {   /* I
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-FR-2 / RK-ZC-4: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY (no pcall-nargs lookup) so both the jmp-entry C path (open_detN sets g_call_args then jmps proc_f_α) and the dc-stub path (call site leas args into registers, dc stub calls this after push-r11/jmp proc_f_α without opening a pcall record) bind params correctly.  Slot layout: param i at [rbp+(i+1)*16], locals at [rbp+(nparams+j+1)*16].  RK-ZC-4: when the top pcall record carries a variadic proc (is_variadic), route through rt_frame_bind_args (which knows rest_kind) so *@r / **@r / *%h collect correctly; the scalar loop is for non-variadic only — Icon procs are never variadic, so this branch is Raku-only by construction without any language guard. */
+void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-FR-2 / PL-FR-2: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY.  Slot layout: param i at [rbp+(i+1)*16] (positive, inside the frame [rbp+0..kt-1]); ZLS result slots start at 16+nparams*16 and above, so named params never collide.  Matches ir_drive_slot_assign vslot grants in scrip_ir.c. */
     char *base = (char *)rbp_base;
-    if (g_pcall_top > 0) { rt_proc_t *_p = g_pcall[g_pcall_top - 1].p; int _na = g_pcall[g_pcall_top - 1].nargs;
-        if (_p && _p->is_variadic) { rt_frame_bind_args(base, _p, _na); for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; } return; } }
     for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
@@ -1560,6 +1558,7 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
     { static int zp = -1; if (zp < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); zp = e ? (atoi(e) != 0) : 0; } if (zp && suffix_off > 16) memset((char *)fb + 16, 0xA5, (size_t)(suffix_off - 16)); }
     ((DESCR_t *)fb)[0] = NULVCL;
     { DESCR_t *zf = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) zf[zi] = NULVCL; }
+    /* PL-FR-2: rt_frame_bind_args writes at [fb+(i+1)*16] (positive, inside frame). Named Prolog params live at positive offsets; anonymous vars (G0/G1) get cells via PLJ heap. */
     rt_frame_bind_args((char *)fb, c->p, c->nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
