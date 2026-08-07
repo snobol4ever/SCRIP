@@ -152,12 +152,14 @@ static std::string sink_kid(const char * creg, int koff, int lunb, int lbnd, int
     s += x86_deflabel_id(ljoin);
     return s;
 }
-static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym) {
+static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1) {
+    /* PL-ZK-2c: zd_rsp >= 0 = ZD arm; -1 = legacy FRQ(argbase). */
+    auto ZDFRQ = [&](int n) -> const char * { return zd_rsp >= 0 ? x86_zref(zd_rsp+n, 1) : FRQ(argbase+n); };
     std::string s = x86("comment", "PL-SINK-1 inline $unify fast path: deref/bind/trail/int-eq emitted; rt_pl_dop_unify stays the slow-path oracle (bit-identical fallback, unmodified args)");
-    s += x86("lea", "rdi", FRQ(argbase));
-    s += x86("lea", "r8",  FRQ(argbase));
+    s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("rdi", "rsp", zd_rsp) : x86("lea", "rdi", FRQ(argbase)));
+    s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("r8",  "rsp", zd_rsp) : x86("lea", "r8",  FRQ(argbase)));
     s += sink_deref("r8", 40, 41, 55);
-    s += x86("lea", "r9",  FRQ(argbase + 16));
+    s += x86("lea", "r9",  ZDFRQ(16));
     s += sink_deref("r9", 42, 43, 57);
     s += x86("cmp", "r8", "r9");
     s += x86_jcc_id("je", 51);
@@ -234,10 +236,12 @@ static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym)
  * dot_sl (intern(".")<<16|2) is RUNTIME-assigned and UN-BAKEABLE (contract §3): RIPSEAL-load the exported g_plw_dot_sl cell (the leaf fills it on first slow hit); ==0 -> SLOW so a not-yet-interned run defers to
  * the leaf (which interns + answers) rather than mis-failing a real cons.  Layout (DESCR 16B q0@0/slen@4/p@8, trail base@0/cap@24[bytes]/top@32[count], 24B entries) reuses SINK-1's _Static_asserts beside
  * plw_bind.  Internal label ids 60..77 (SINK-1 owns 40..58; marshal owns idx*2 <= 5). */
-static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * usym) {
+static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1) {
+    /* PL-ZK-2c: zd_rsp >= 0 = ZD arm; -1 = legacy FRQ(argbase). */
+    auto ZDFRQ = [&](int n) -> const char * { return zd_rsp >= 0 ? x86_zref(zd_rsp+n, 1) : FRQ(argbase+n); };
     std::string s = x86("comment", "PL-SINK-2 inline $unify_lst READ-mode fast path: bound './2 subject + both-unbound-distinct H,T -> double bind; rt_pl_dop_unify_lst is the slow-path oracle (unmodified args)");
-    s += x86("lea", "rdi", FRQ(argbase));
-    s += x86("lea", "r8",  FRQ(argbase));
+    s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("rdi", "rsp", zd_rsp) : x86("lea", "rdi", FRQ(argbase)));
+    s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("r8",  "rsp", zd_rsp) : x86("lea", "r8",  FRQ(argbase)));
     s += sink_deref("r8", 60, 61, 62);
     s += sink_unb("r8", 80, 74);
     s += x86_deflabel_id(74);
@@ -251,9 +255,9 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86("mov", "edx", "dword ptr [r8 + 4]");
     s += x86("cmp", "eax", "edx");
     s += x86_jcc_id("jne", 73);
-    s += x86("lea", "r9",  FRQ(argbase + 16));
+    s += x86("lea", "r9",  ZDFRQ(16));
     s += sink_deref("r9", 64, 65, 66);
-    s += x86("lea", "rcx", FRQ(argbase + 32));
+    s += x86("lea", "rcx", ZDFRQ(32));
     s += sink_deref("rcx", 68, 69, 70);
     s += x86("cmp", "r9", "rcx");
     s += x86_jcc_id("je", 72);
@@ -319,10 +323,10 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86("cmp", "rsi", "rax");
     s += x86_jcc_id("ja", 72);
     s += sink_carve48_take();
-    s += x86("lea", "r9", FRQ(argbase + 16));
+    s += x86("lea", "r9", ZDFRQ(16));
     s += sink_deref("r9", 81, 82, 83);
     s += sink_kid("r9", 0, 85, 86, 87);
-    s += x86("lea", "rcx", FRQ(argbase + 32));
+    s += x86("lea", "rcx", ZDFRQ(32));
     s += sink_deref("rcx", 88, 89, 90);
     s += sink_kid("rcx", 16, 92, 93, 94);
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
@@ -355,7 +359,8 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
  * built in the rax:rdx return pair the call convention already uses: rax = q0 = {v=DT_I(6), slen=0}, rdx = the payload.  `top` is a 32-bit signed int widened by the C's (long long) cast, so the widening is
  * movsxd (via eax) and NOT a bare 32-bit mov — provably identical here since top is a count that only ever rises from 0 or resets to an earlier mark, but written exactly rather than resting on that proof.
  * Internal label ids 100..101 (SINK-1 owns 40..58, SINK-2 60..77, SINK-3 80..99; marshal owns idx*2, unused at nargs==0). */
-static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * usym) {
+static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1) {
+    /* PL-ZK-2b: zd_rsp >= 0 = ZD arm (args at [rsp+zd_rsp]); -1 = legacy FRQ(argbase). Slow-path rdi: ZD uses lea rdi,[rsp+zd_rsp]; legacy uses lea rdi,FRQ(argbase). */
     std::string s = x86("comment", "PL-SINK-8 inline $trail_mark fast path: guards prove the zh/cw mark push is a no-op, then mark = g_pl_trail.top; rt_pl_dop_trail_mark is the slow-path oracle (unmodified args)");
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_cellws_on, "g_plw_cellws_on");
     s += x86("mov", "eax", "dword ptr [r10 + 0]");
@@ -371,7 +376,7 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
     s += x86("mov32", "eax", (long)DT_I);
     s += x86_jmp_id(101);
     s += x86_deflabel_id(100);
-    s += x86("lea", "rdi", FRQ(argbase));
+    if (zd_rsp >= 0) s += x86_reg_disp32_lea64("rdi", "rsp", zd_rsp); else s += x86("lea", "rdi", FRQ(argbase));
     s += x86("mov32", "esi", (long)0);
     s += x86("call", usym, ufp);
     s += x86_deflabel_id(101);
@@ -387,10 +392,12 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
  * not-yet-interned run defers rather than mis-failing); kk==2 inlines the hot PLREF->FAIL / DT_I->OK tag arms and defers ONLY the atom-vs-atom strcmp; kk==1 compares against the emit-time imm; kk==4
  * (functor) takes NO sink here — it needs a per-site intern cache (contract §3) and is the follow-on rung.  NO NEW GLOBALS: the no_new_global floor does not move.  Internal label ids 110..120 (SINK-1
  * 40..58, SINK-2 60..77, SINK-3 80..99, SINK-8 100..101).  Kill switches: SCRIP_NO_SINK (family) + SCRIP_NO_SINK4 (this rung, per the s146 isolation amendment — the family switch CANNOT measure a rung). */
-static std::string sink_ix_g_str(int argbase, uint64_t ufp, const char * usym, int kk, long long kival) {
+static std::string sink_ix_g_str(int argbase, uint64_t ufp, const char * usym, int kk, long long kival, int zd_rsp = -1) {
+    /* PL-ZK-2c: zd_rsp >= 0 = ZD arm; -1 = legacy FRQ(argbase). */
+    auto ZDFRQ = [&](int n) -> const char * { return zd_rsp >= 0 ? x86_zref(zd_rsp+n, 1) : FRQ(argbase+n); };
     std::string s = x86("comment", "PL-SINK-4 inline $ix_g specialized guard (kk emit-time constant); rt_pl_dop_ix_g stays the slow-path oracle (unmodified args)");
-    s += x86("lea", "rdi", FRQ(argbase));
-    s += x86("lea", "r8",  FRQ(argbase));
+    s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("rdi", "rsp", zd_rsp) : x86("lea", "rdi", FRQ(argbase)));
+    s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("r8",  "rsp", zd_rsp) : x86("lea", "r8",  FRQ(argbase)));
     s += sink_deref("r8", 110, 111, 112);
     s += sink_unb("r8", 114, 118);
     s += x86_deflabel_id(118);
@@ -476,13 +483,29 @@ std::string bb_call_fn_str(IR_t * pBB) {
             }
         }
         /* ZD-PL-A (s163): THE ZD ARM IS A STORAGE FLAVOR, NOT A DISPATCH ROUTE.  Until this rung the ZD arm above early-returned to a hard-wired rt_call_arr by-name call, so an ARMED call could never reach the dop/sink dispatch at the legacy arm below (measured s163 by line: ZD arm returns 498, dop_direct_fp first consulted 507, the four PL-SINK arms 553-559).  That conflation is FREE in SNOBOL4 -- rt_call_arr IS its dispatch -- and expensive in Prolog, whose entire data plane rides dop: emitted nrev.s counts 65 call rt_pl_dop_* against 2 rt_call_arr, so admitting IR_CALL_BUILTIN_PROLOG into zd_wl_kind while this arm chose its own route would have discarded PL-SINK-1/2/4/8 + PL-REGAIN-5 and stayed GREEN on every correctness gate (rt_call_arr is correct, only slow) -- a silently-green perf regression, the worst class.  The gate consulted here is the SAME dop_direct_fp the legacy arm consults, so the dispatch DECISION is spelled once; only the STORAGE differs (args from this box's own rsp scratch built out of the ZOPQ predecessor cells rather than FRQ(argbase), result to ZRES rather than FRQ(resoff)).  Same law as ONE MEDIUM, INVISIBLE, applied to storage instead of medium.  INERT FOR SNOBOL4 BY CONSTRUCTION: dop_direct_fp's table is 100% Prolog $-builtins, so a SNOBOL4 callee never matches, zdfp stays 0, and the rt_call_arr block below is reached verbatim -- which is the positive control this rung is verified against (SNOBOL4 .s byte-identical).  nargs==0 is EXCLUDED deliberately: the only 0-arity dop is $trail_mark, and with no sub rsp there is no scratch array to point rdi at, so it keeps the by-name path until its own rung ($mkc is ar=-1/narg>=1 and is covered).  The INLINE sinks (sink_unify2_str et al) still live only on the legacy arm because they address operands through FRQ; lifting them needs the addressing parameterized, which is ZD-PL-A slice 2, not this slice. */
+        /* PL-ZK-2b: $trail_mark (nargs=0) interception BEFORE dop_direct_fp (which excludes nargs==0). The fast-path sink does not use args at all; slow path uses rdi=&args[0] which is [rsp+0] in ZD. SCRIP_NO_SINK and SCRIP_NO_SINK8 honor as in the legacy arm. */
+        bool zd_sank = false;
+        if (nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
+            const char * tm_sym = 0; void * tm_fp = dop_direct_fp(fn, 0, &tm_sym);
+            if (tm_fp) { s += sink_trail_mark_str(0, (uint64_t)(uintptr_t)tm_fp, tm_sym, 0); zd_sank = true; }
+        }
         const char * zdsym = 0; void * zdfp = (nargs > 0) ? dop_direct_fp(fn, (int64_t)nargs, &zdsym) : (void *)0;
-        if (zdfp) {
+        /* PL-ZK-2c: sink dispatch under ZD — args at [rsp+0..], so zd_rsp=0. Mirrors the legacy arm's sink order. SCRIP_NO_SINK / SCRIP_NO_SINK4 honored. */
+        if (zdfp && nargs == 2 && !strcmp(fn, "$unify") && !getenv("SCRIP_NO_SINK")) {
+            s += sink_unify2_str(0, (uint64_t)(uintptr_t)zdfp, zdsym, 0);
+        } else if (zdfp && nargs == 3 && !strcmp(fn, "$unify_lst") && !getenv("SCRIP_NO_SINK")) {
+            s += sink_unify_lst_str(0, (uint64_t)(uintptr_t)zdfp, zdsym, 0);
+        } else if (zdfp && nargs == 3 && !strcmp(fn, "$ix_g") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK4")) {
+            int z_ix_kk = 0; long long z_ix_kival = 0;
+            if (_.node && _.node->n_operands >= 2) { IR_t * a1 = _.node->n_operands > 1 ? _.node->operands[1] : NULL; IR_t * a2 = _.node->n_operands > 2 ? _.node->operands[2] : NULL; if (a1 && a1->op == IR_LIT_INTEGER) { int kk = (int)(IR_LIT(a1).ival & 0xFF); if (kk == 3) z_ix_kk = 3; else if (kk == 2) z_ix_kk = 2; else if (kk == 1 && a2 && a2->op == IR_LIT_INTEGER) { z_ix_kk = 1; z_ix_kival = IR_LIT(a2).ival; } } }
+            if (z_ix_kk > 0) { s += sink_ix_g_str(0, (uint64_t)(uintptr_t)zdfp, zdsym, z_ix_kk, z_ix_kival, 0); }
+            else { s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf under ZD: ") + zdsym + " (no by-name dispatch)").c_str()); s += x86_reg_disp32_lea64("rdi", "rsp", 0); s += x86("mov32", "esi", (long)nargs); s += x86("call", zdsym, (uint64_t)(uintptr_t)zdfp); }
+        } else if (zdfp) {
             s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf under ZD: ") + zdsym + " (no by-name dispatch)").c_str());
             s += x86_reg_disp32_lea64("rdi", "rsp", 0);
             s += x86("mov32", "esi", (long)nargs);
             s += x86("call", zdsym, (uint64_t)(uintptr_t)zdfp);
-        } else {
+        } else if (!zd_sank) {
         {
             std::string fl = std::string(".Lrkfnzd") + std::to_string(g_flat_node_id++);
             s += x86("directive", ".section .rodata");
