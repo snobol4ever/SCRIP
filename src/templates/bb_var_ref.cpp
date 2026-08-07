@@ -17,7 +17,7 @@ std::string bb_var_ref() {
                  + "' has no addressable cell (NV-fallback global?) — needs a GVA/frame cell").c_str()))
              : x86("comment", "IR_VAR_REF")
              + x86_alpha()
-             + x86("mov", "rax", (long)0x100000009L)
+             + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))   /* PL-FR-2 TAG-FIX: DT_N was renumbered 9→0x28 (40) in TAG-3 commit 03cecd87; emit {v=DT_N, slen=1} so plw_entry's `v==DT_N && slen==1` guard dereferences the frame-cell pointer correctly. Was (long)0x100000009L = v=9 slen=1 = OLD DT_N. New: (long)DT_N | (1L<<32) = v=DT_N slen=1, correct for any future DT_N value. */
              + (_.op_gva_k >= 0
                  ? x86("note", gva_name(_.op_gva_k)) + x86("mov", "rdx", (long)(RT_GVA_VA + _.op_gva_k * 16))
                  : x86("lea", "rdx", FRQ(_.op_sa)))

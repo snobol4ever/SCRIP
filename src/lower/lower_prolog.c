@@ -1382,5 +1382,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     lower_pl_register_all_preds();
     lower_pl_register_dyn_only_preds();
     pl_det_classify_all();
+    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PL_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* PL-FR-2 killswitch: default ON; SCRIP_PL_ZFRAME=0 leaves zframe_graph=0 → pre-FR-2 HEAD path byte-exactly (zframe_graph calloc-zeroed by IR_alloc, no write needed for the off path) */
+      if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
     return &g_stage2;
 }
