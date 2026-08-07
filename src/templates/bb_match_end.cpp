@@ -80,7 +80,7 @@ std::string bb_match_end() {
          + IF(_.op_dval != 0.0, x86("note", "end_δ") + x86("mov", RDQ("rbp", -8), "r14"))   /* ⭐ W-1: end_δ spare in pad slot [rbp-8] (safe; depth-immune) */
          + x86_xfer_enter()
          + x86_anchor_enter()
-         + x86("mov", "rsi", ABSQ(RT_DCAP_TOP))
+         + x86("mov", "rsi", "r12")   /* M-1 FIX (CAS-R12-UNIFY): r12 IS the live CAS top (COND γ-pushes advance r12 but never update [RT_DCAP_TOP]; cell holds MATCH_BEGIN's value = one-above-sentinel; reading cell gave empty range, dropping all blob-interior captures silently) */
          + x86("mov", "r10", "rsi")
          + x86("def", L(5))
          + x86("sub", "r10", (long)24)
