@@ -60,13 +60,14 @@ n2_match_begin_α:
                         mov              rdi, qword ptr [rsp + 0]
                         mov              rsi, qword ptr [rsp + 8]
                         add              rsp, 16
-                        mov              qword ptr [rbp + 80], r13                      # outer_Σ
-                        mov              qword ptr [rbp + 88], r14                      # outer_δ
-                        mov              qword ptr [rbp + 96], r15                      # outer_Δ
+                        mov              qword ptr [rsp + 56], rbp                      # old_rbp
+                        mov              rbp, rsp                                       # stmt_base
+                        mov              qword ptr [rbp + 64], r13                      # outer_Σ
+                        mov              qword ptr [rbp + 72], r14                      # outer_δ
+                        mov              qword ptr [rbp + 80], r15                      # outer_Δ
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
-                        mov              qword ptr [rbp + 104], rax                     # cap_gen
-                        mov              qword ptr [rbp + 72], rbp                      # old_rbp
+                        mov              qword ptr [rbp + 88], rax                      # cap_gen
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -95,14 +96,14 @@ n2_match_begin_β:
 n2_match_begin_af:
                         sub              r12, 24                                        # cas_mark
                         mov              rsp, qword ptr [r12 + 8]                       # cas_rsp_mark
-                        mov              r13, qword ptr [rbp + 80]                      # outer_Σ
-                        mov              r14, qword ptr [rbp + 88]                      # outer_δ
-                        mov              r15, qword ptr [rbp + 96]                      # outer_Δ
+                        mov              r13, qword ptr [rbp + 64]                      # outer_Σ
+                        mov              r14, qword ptr [rbp + 72]                      # outer_δ
+                        mov              r15, qword ptr [rbp + 80]                      # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rbp + 104]                     # cap_gen
+                        mov              rdx, qword ptr [rbp + 88]                      # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 72]                      # old_rbp
+                        mov              rbp, qword ptr [rbp + 40]                      # old_rbp
                         add              rsp, 288
                                                                                         jmp   n17_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -303,17 +304,17 @@ n10_match_end_α:
                         pop              r15
                         pop              r14
                         sub              r12, 24                                        # cas_mark
-                        mov              r13, qword ptr [rbp + 80]                      # outer_Σ
-                        mov              r14, qword ptr [rbp + 88]                      # outer_δ
-                        mov              r15, qword ptr [rbp + 96]                      # outer_Δ
+                        mov              r13, qword ptr [rbp + 64]                      # outer_Σ
+                        mov              r14, qword ptr [rbp + 72]                      # outer_δ
+                        mov              r15, qword ptr [rbp + 80]                      # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rbp + 104]                     # cap_gen
+                        mov              rdx, qword ptr [rbp + 88]                      # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 72]                      # old_rbp
                                                                                         jmp   n11_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_end_α:
+                        mov              rbp, qword ptr [rbp + 56]                      # old_rbp
                         add              rsp, 288
                                                                                         jmp   n12_statement_begin_α
 #=======================================================================================================================
