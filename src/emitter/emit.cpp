@@ -662,7 +662,7 @@ static int nd_slot(const IR_t *nd) { return nd ? zls_off(nd) : -1; }
 int emit_binop_opnd_slot(IR_t *o) {
     if (!o) return -1;
     extern int is_global(const char *);
-    if (o->op == IR_VAR && IR_LIT(o).sval && IR_LIT(o).sval[0] != '&' && (!is_global(IR_LIT(o).sval) || graph_has_local(g_emit_cfg, IR_LIT(o).sval))) { int voff = bb_varslot_peek(IR_LIT(o).sval); if (voff >= 0) return voff; }
+    if (o->op == IR_VAR && IR_LIT(o).sval && IR_LIT(o).sval[0] != '&' && (!is_global(IR_LIT(o).sval) || graph_has_local(g_emit_cfg, IR_LIT(o).sval))) { int voff = bb_varslot_peek(IR_LIT(o).sval); if (voff != -1) return voff; }   /* ICN-FR-3: != -1 is the correct sentinel check; zframe locals carry NEGATIVE rbp-relative offsets ([rbp-(i+1)*16]) which are valid and must be returned directly; -1 means absent.  The prior >= 0 check wrongly fell through to bb_slot_get/nd_slot for zframe locals, returning the ZLS result-cell slot (a different offset) instead of the frame-local address — producing a wrong op_sa in bb_binop_arith for binops involving local variables in zframe graphs. */
     int s = bb_slot_get(o); if (s >= 0) return s;
     return nd_slot(o);
 }
@@ -1237,7 +1237,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         const char *vn = IR_LIT(nd).sval;
         if (vn && vn[0] == '&') { g_emit.op_sval = vn; g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); }
         else if (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
-        else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = (voff >= 0) ? drive_value_slot(nd) : -1; }   /* ICN-PROC-FRAME (s211): voff may be negative for rbp-relative lexical locals; -1 is the unresolved sentinel.  op_off is the result cell (always needed when voff resolved). */
+        else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = (voff != -1) ? drive_value_slot(nd) : -1; }   /* ICN-FR-3: != -1 is the correct sentinel check for absent varslot; vslots for zframe locals are POSITIVE rbp-relative offsets ([rbp+(i+1)*16]) matching rt_icn_zframe_args_install layout, so >= 0 would have worked too — but != -1 is the explicit contract and guards against any future regime that might use negative offsets legitimately.  The prior (voff >= 0) guard was wrong because it mapped -1 (absent) to the same path as a valid zero offset, which would cause drive_value_slot to be called for unresolved vars.  MORE IMPORTANTLY: the ICN-FR-3 WIP commit set vslot offsets NEGATIVE (-(i+1)*16) — that was the sign error; vslots are now corrected to POSITIVE matching the runtime installer.  op_off is the ZLS result-cell for inter-node value passing; distinct from op_sa (the variable storage address). */
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
