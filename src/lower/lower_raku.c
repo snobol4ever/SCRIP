@@ -794,6 +794,45 @@ static int rk_gram_seq_leaves(const char * body, rk_gleaf_t * out, int maxlv) {
     return nlv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RK-GRAM-3d: split body at the first top-level '|' (not inside quotes or angle-brackets).
+ * Returns 1 and writes the two halves into lbuf/rbuf on success; 0 if no bare '|' found. */
+static int rk_gram_split_alt(const char * body, char * lbuf, int lsz, char * rbuf, int rsz) {
+    if (!body || !lbuf || !rbuf) return 0;
+    int n = (int) strlen(body); int depth = 0;
+    for (int i = 0; i < n; i++) {
+        char c = body[i];
+        if (c == '"' || c == '\'') { char q = c; i++; while (i < n && body[i] != q) i++; continue; }
+        if (c == '<') { depth++; continue; }
+        if (c == '>') { if (depth > 0) depth--; continue; }
+        if (c == '|' && depth == 0) {
+            int ll = i; while (ll > 0 && (body[ll-1]==' '||body[ll-1]=='\t')) ll--;
+            if (ll <= 0 || ll >= lsz) return 0;
+            memcpy(lbuf, body, (size_t)ll); lbuf[ll] = '\0';
+            int rs = i + 1; while (rs < n && (body[rs]==' '||body[rs]=='\t')) rs++;
+            int rl = n - rs; if (rl <= 0 || rl >= rsz) return 0;
+            memcpy(rbuf, body + rs, (size_t)rl); rbuf[rl] = '\0';
+            return 1;
+        }
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Build a leaf chain (tail-first) for a sequence of rk_gleaf_t entries.
+ * Every leaf: γ=next-leaf (or NULL for the last leaf = success exit), ω=fail_tgt.
+ * If beta_tag=1 (arm-1), ω edges are tagged β so the drive resolves them to IR_GALT.β
+ * (delta-restore + jmp arm-2).  If a mid-sequence leaf fails, δ is restored to the value
+ * saved at IR_GALT.α, which is the correct full-arm restart. */
+static IR_t * rk_gram_build_leaf_chain(IR_graph_t * gg, rk_gleaf_t * lv, int nlv, IR_t * fail_tgt, int beta_tag) {
+    IR_t * next = NULL; /* γ of the most-recently-built leaf (= successor in forward order) */
+    for (int e = nlv - 1; e >= 0; e--) {
+        IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL);
+        IR_LIT(nd).sval = lp_strdup(lv[e].s);
+        if (beta_tag) lc_ω_to_β(nd, fail_tgt); else lc_ω_to(nd, fail_tgt);
+        next = nd;
+    }
+    return next; /* head of the chain (first leaf in forward order) */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_lower_grammar_boxes(const tree_t * prog) {
     extern int g_opt_dump_bb; static int nat = -1; if (nat < 0) { const char *e = getenv("RK_GRAM_NATIVE"); nat = (e && e[0] == '0') ? 0 : 1; }
     if (!g_opt_dump_bb && !nat) return;
@@ -810,17 +849,40 @@ static void rk_lower_grammar_boxes(const tree_t * prog) {
             const char * rname = (rd->n > 0 && rd->c[0] && rd->c[0]->v.sval) ? rd->c[0]->v.sval : NULL;
             const char * body  = (rd->n > 1 && rd->c[1] && rd->c[1]->v.sval) ? rd->c[1]->v.sval : NULL;
             if (!rname || !body) continue;
-            rk_gleaf_t lv[64]; int nlv = rk_gram_seq_leaves(body, lv, 64);
-            if (nlv <= 0) continue;
             char pn[320]; snprintf(pn, sizeof pn, "gram__%s__%s", gname, rname);
             IR_graph_t * gg = IR_alloc(64);
-            IR_t * next = NULL;
-            for (int e = nlv - 1; e >= 0; e--) {
-                IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL);
-                IR_LIT(nd).sval = lp_strdup(lv[e].s);
-                next = nd;
+            IR_t * entry = NULL;
+            /* RK-GRAM-3d: detect two-arm alternation (body contains bare '|') */
+            char lbody[512]; char rbody[512];
+            if (rk_gram_split_alt(body, lbody, sizeof lbody, rbody, sizeof rbody)) {
+                rk_gleaf_t lv1[32]; int nlv1 = rk_gram_seq_leaves(lbody, lv1, 32);
+                rk_gleaf_t lv2[32]; int nlv2 = rk_gram_seq_leaves(rbody, lv2, 32);
+                if (nlv1 <= 0 || nlv2 <= 0) continue; /* arm not recognizable — fall back */
+                /* IR_GALT: gamma=NULL (proc_γ), omega=NULL (proc_ω).
+                 * operands[0]=arm-2 root (RPO pushes first → emitted second = after arm-1).
+                 * operands[1]=arm-1 root (RPO pushes second → pops first → emitted first = after IR_GALT).
+                 * Template uses lbl_t0=arm-1 α (explicit jmp) and lbl_t1=arm-2 α (β jmp). */
+                IR_t * galt = lc_build(gg, IR_GALT, NULL /*γ=proc_γ via DRIVE_FILL*/, NULL /*ω=proc_ω*/);
+                /* arm-2: all leaves ω=NULL (proc_ω); no beta tag */
+                IR_t * arm2_root = rk_gram_build_leaf_chain(gg, lv2, nlv2, NULL, 0);
+                ir_operand_push(galt, arm2_root); /* operands[0]=arm-2 root → lbl_t1 */
+                /* arm-1: all leaves ω tagged β→galt (triggers galt.β = delta-restore + jmp arm-2) */
+                IR_t * arm1_root = rk_gram_build_leaf_chain(gg, lv1, nlv1, galt, 1 /*beta_tag*/);
+                ir_operand_push(galt, arm1_root); /* operands[1]=arm-1 root → lbl_t0 */
+                entry = galt;
+            } else {
+                /* No alternation: pure sequence (existing behavior) */
+                rk_gleaf_t lv[64]; int nlv = rk_gram_seq_leaves(body, lv, 64);
+                if (nlv <= 0) continue;
+                IR_t * next = NULL;
+                for (int e = nlv - 1; e >= 0; e--) {
+                    IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL);
+                    IR_LIT(nd).sval = lp_strdup(lv[e].s);
+                    next = nd;
+                }
+                entry = next;
             }
-            gg->entry = next;
+            gg->entry = entry;
             int gidx = bb_program_add(&g_stage2.bbp, gg);
             int pidx = stage2_proc_grow(&g_stage2);
             g_stage2.proc_table[pidx].name = lp_strdup(pn); g_stage2.proc_table[pidx].proc = (tree_t *) rd;

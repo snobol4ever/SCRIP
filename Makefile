@@ -218,6 +218,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_scan_alternate.cpp \
     $(SRC)/templates/bb_rk_glit.cpp \
     $(SRC)/templates/bb_rk_gcc.cpp \
+    $(SRC)/templates/bb_rk_galt.cpp \
     $(SRC)/runtime/rt_gram_trampoline.S \
     $(SRC)/runtime/rt/rt_sg_scan.S \
     $(SRC)/runtime/rt/rt_asm_helpers.S \
