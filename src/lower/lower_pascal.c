@@ -812,5 +812,9 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
             }
         }
     }
+    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PAS_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* PAS-ZF-2 killswitch: default ON; SCRIP_PAS_ZFRAME=0 reproduces pre-rung HEAD byte-exactly (zframe_graph calloc-zeroed by IR_alloc, no write needed for the off path) */
+      if (_zf) { /* stamp all bbp graphs EXCEPT main: main uses C-ABI entry (not the proc-table dispatcher), so the zframe prologue's rcx/rdx wire-saves would capture garbage C args and jmp rcx would crash */
+          int _mx = -1; for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) if (g_stage2.proc_table[_pi].name && strcmp(g_stage2.proc_table[_pi].name, "main") == 0) { _mx = g_stage2.proc_table[_pi].bb_idx; break; }
+          for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && _gi != _mx) g_stage2.bbp.table[_gi]->zframe_graph = 1; } }
     return &g_stage2;
 }
