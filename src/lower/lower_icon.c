@@ -1222,7 +1222,9 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
         }
         succ = entry; fail = entry;
     }
-    g->entry = succ; return g;
+    g->entry = succ;
+    { static int _ic = -1; if (_ic < 0) { const char * e = getenv("SCRIP_ICN_CELLS"); _ic = (e && *e == '1') ? 1 : 0; } if (_ic) g->icn_cells_graph = 1; }   /* ZK-0 (s212): opt-IN stamp per R-ZK-A. SCRIP_ICN_CELLS=1 routes this graph to the per-BB RSP FORTH cells arm. Unset = today's ZD path byte-identical. Every other lowerer produces icn_cells_graph=0 by calloc; this is the ONE setter (no second spelling). */
+    return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_procs_vec(const tree_t * t, lc_vec * out) {
@@ -1294,7 +1296,9 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     }
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
     if (pd && pd->n > 2 && pd->c[2]) return lower_proc_body(&cx, pd->c[2]);
-    IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s; return g;
+    IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
+    { static int _ic2 = -1; if (_ic2 < 0) { const char * e = getenv("SCRIP_ICN_CELLS"); _ic2 = (e && *e == '1') ? 1 : 0; } if (_ic2) g->icn_cells_graph = 1; }   /* ZK-0 stub-graph arm, same law as lower_proc_body. */
+    return g;
 }
 #include "bb_program.h"
 #include "emit.h"
