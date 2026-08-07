@@ -207,24 +207,54 @@ static std::string xa_flat_dc_stub_str(void) {
      * CLEANEST: skip epilogue entirely; the site's dc arm does `jmp L(2)` after `call dc_stub` — at L(2) rax:rdx holds the result (from the callee's γ exit). So the shim just restores rsp and returns via r11 with rax:rdx intact. */
         static const char *dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t stg_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stg_fp = (uint64_t)(uintptr_t)(void *)fp; }
-        std::string zs = x86("comment", "ICN-FR-2 zframe dc stub: stage args, jmp proc_f_α with wire shims")
+        /* ICN-FR-3 BUG-FIX (dc-stub caller-save): rt_arg_stage is void(int,DESCR_t) but the SysV calling convention
+         * lets it clobber rax/rcx/rdx/rsi/rdi/r8/r9/r10/r11 — every one of the four dc-arg registers.  The old loop
+         * read dcarg4[i] directly into r10 each iteration, but after iteration 0 the call had already clobbered rdx,
+         * so iteration 1's "mov r10, rdx" loaded a garbage value and SEGVd.  Fix: push all np cell ptrs onto the stack
+         * before the loop (after pop/push of r11 so retaddr is already saved); reload via [rsp+i*8] in each iteration.
+         * After the loop, clean the pushes with "add rsp, push_bytes" restoring retaddr to [rsp+0] before the jmp.
+         * Alignment: at dc stub entry rsp≡8 (call pushed retaddr); pop r11 → ≡0; push r11 → ≡8; then np cell-ptr
+         * pushes.  Before each "call rt_arg_stage" rsp must ≡0 mod 16.  After push r11 + np pushes, rsp≡8+8*np.
+         * rsp≡0 iff np is odd.  For even np, insert a dummy push at start and a corresponding add rsp,8 at end.
+         * ICN-FR-3 ALIGNMENT FIX: the old single push r11 left rsp≡8 at proc_f_α entry, which propagated as a
+         * systematic 8-byte parity error through every C call inside the proc (str_concat_d → gc_heap_init →
+         * dl_iterate_phdr's movaps [rbp-0x60] → SIGSEGV).  Fix: push r11 TWICE so rsp≡0 at jmp proc_f_α.
+         * Epilogue lea rsp,[rbp+kt] lands at the push-2 slot; shim_γ/ω pop TWICE to skip the push-2 word
+         * and retrieve the original retaddr from push-1.  Stack layout from bottom (after add rsp, push_bytes):
+         *   [rsp+0]  = retaddr  (push-2: alignment slot, popped-and-discarded by shim)
+         *   [rsp+8]  = retaddr  (push-1: original retaddr, jumped to by shim)
+         * Alignment recalculation: after 2 r11 pushes rsp≡0; np cell-ptr pushes follow.  Before rt_arg_stage
+         * calls, rsp must ≡0.  rsp≡0 + np pushes: odd np → rsp≡8 → BAD → need pad; even np → rsp≡0 → OK.
+         * So need_align_pad condition FLIPS relative to the old single-push baseline. */
+        bool need_align_pad = (np > 0) && (np % 2 == 1);   /* odd np needs pad (rsp≡0 baseline after 2 r11 pushes) */
+        std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
             + x86("pop", "r11")
-            + x86("push", "r11");   /* retaddr on stack; rsp≡8 (entry was ≡8 after call pushed retaddr, pop made ≡0, push restores ≡8 — rsp for jmp proc_f_α which sub rsp,kt with kt≡0 mod 16 preserves alignment) */
-        for (int i = 0; i < np; i++) {   /* for each arg: save cell pointer into r10, then load DESCR fields via [r10+0]/[r10+8] */
-            zs += x86("mov", "r10", dcarg4[i])                    /* r10 = cell pointer */
+            + x86("push", "r11")    /* push-1: retaddr; rsp≡8 */
+            + x86("push", "r11");   /* push-2: alignment slot → rsp≡0 at proc_f_α entry (all C calls inside proc are correctly aligned) */
+        if (need_align_pad) zs += x86("push", "r11");   /* alignment pad: odd np → rsp≡8 after cell-ptr pushes → need one more to reach ≡0 before calls */
+        /* push all arg cell ptrs in reverse order so pop (implicit via indexed load) is i=0..np-1 */
+        for (int i = np - 1; i >= 0; i--) zs += x86("push", dcarg4[i]);
+        /* rsp≡0 now; cell ptr[0] at [rsp+0], cell ptr[1] at [rsp+8], ...; above them: pad? push-2 push-1 (retaddrx2) */
+        int push_bytes = np * 8 + (need_align_pad ? 8 : 0);   /* cell-ptr pushes + pad to clean after loop; the 2 r11 pushes stay until epilogue */
+        for (int i = 0; i < np; i++) {   /* for each arg: load cell ptr from stack (caller-save-safe), read DESCR, call */
+            zs += x86("mov", "r10", "[rsp + " + std::to_string(i * 8) + "]")   /* cell ptr[i] — r10+0/r10+8 not clobbered by call */
                 + x86("mov32", "edi", (long)i)
                 + x86("mov", "rsi", "[r10 + 0]")                  /* DESCR.v — use [r10+0] not [r10] to avoid XK_R10MIR parse */
                 + x86("mov", "rdx", "[r10 + 8]")                  /* DESCR.i */
                 + x86("call", "rt_arg_stage", stg_fp);
         }
+        /* clean cell-ptr pushes + pad; after this: [rsp+0]=retaddr(push-2 alignment slot) [rsp+8]=retaddr(push-1 real) */
+        if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
         zs += x86_lea_id("rcx", 2)   /* γ shim */
             + x86_lea_id("rdx", 3)   /* ω shim */
-            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")   /* jmp proc_f_α (not body); flat_dc_body_p=&lbl_α for zframe; text uses flat_lbl_α */
-            + x86_deflabel_id(2)   /* shim_γ: rsp=[retaddr], rax:rdx=result — no pcall to pop, just return to caller */
-            + x86("pop", "r11")
-            + x86("jmp", "r11")   /* tail-return to call site's L(2) join; rax:rdx already hold the result from γ epilogue */
-            + x86_deflabel_id(3)   /* shim_ω: rsp=[retaddr] — return FAILDESCR (DT_FAIL=104) */
-            + x86("pop", "r11")
+            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")   /* jmp proc_f_α with rsp≡0; shim_γ/ω pop twice: skip push-2 slot, get real retaddr from push-1 */
+            + x86_deflabel_id(2)   /* shim_γ: epilogue left rsp at push-2 slot; double-pop to get real retaddr */
+            + x86("pop", "r11")    /* pop push-2 alignment slot (retaddr copy, discarded) */
+            + x86("pop", "r11")    /* pop push-1 real retaddr */
+            + x86("jmp", "r11")    /* tail-return to call site's L(2) join; rax:rdx hold result from γ epilogue */
+            + x86_deflabel_id(3)   /* shim_ω: same double-pop protocol */
+            + x86("pop", "r11")    /* pop push-2 alignment slot */
+            + x86("pop", "r11")    /* pop push-1 real retaddr */
             + x86("mov32", "eax", 104L)   /* DT_FAIL — matches what the site checks: cmp eax, DT_FAIL; je proc_ω */
             + x86("xor", "edx", "edx")
             + x86("jmp", "r11");
