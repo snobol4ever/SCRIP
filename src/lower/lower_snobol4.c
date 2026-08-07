@@ -1029,7 +1029,7 @@ static void sno_cap_defer_reset(void) { scd_n = 0; }
 static void sno_cap_fc(IR_graph_t * g, IR_t * nd, IR_t * save, int before_i) {
     int fp_inner = 0; int walk_ok = fc_walk_range(g, before_i, g->n, 0, &fp_inner);
     if (!walk_ok) return;                                          /* inner not fc-linear: flat rt_cap path verbatim, both paths */
-    if (sno_in_arbno == 0) { extern void fc_save_register(const IR_t *); extern void fc_cond_register(const IR_t *, int); fc_save_register(save); fc_cond_register(nd, fp_inner); return; }
+    if (sno_in_arbno == 0) { extern void fc_save_register(const IR_t *); extern void fc_cond_register_with_save(const IR_t *, const IR_t *, int); fc_save_register(save); fc_cond_register_with_save(nd, save, fp_inner); return; }
     if (scd_n >= 64) return;                                       /* silent defer-table overflow: capture stays ungranted, statement declines at the cap scan */
     scd[scd_n].nd = nd; scd[scd_n].save = save; scd[scd_n].nd_idx = before_i - 2; scd[scd_n].save_idx = before_i - 1; scd[scd_n].i_end = g->n; scd[scd_n].fp_inner = fp_inner; scd_n++;
 }
