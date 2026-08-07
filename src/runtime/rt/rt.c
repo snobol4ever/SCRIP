@@ -1043,8 +1043,10 @@ void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals) {   /* I
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-FR-2: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY (no pcall-nargs lookup) so both the jmp-entry C path (open_detN sets g_call_args then jmps proc_f_α) and the dc-stub path (call site leas args into registers, dc stub calls this after push-r11/jmp proc_f_α without opening a pcall record) bind params correctly.  Slot layout: param i at [rbp+(i+1)*16], locals at [rbp+(nparams+j+1)*16] — identical to rt_lcl_proc_args_install but without the nargs clamp from pcall. */
+void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-FR-2 / RK-ZC-4: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY (no pcall-nargs lookup) so both the jmp-entry C path (open_detN sets g_call_args then jmps proc_f_α) and the dc-stub path (call site leas args into registers, dc stub calls this after push-r11/jmp proc_f_α without opening a pcall record) bind params correctly.  Slot layout: param i at [rbp+(i+1)*16], locals at [rbp+(nparams+j+1)*16].  RK-ZC-4: when the top pcall record carries a variadic proc (is_variadic), route through rt_frame_bind_args (which knows rest_kind) so *@r / **@r / *%h collect correctly; the scalar loop is for non-variadic only — Icon procs are never variadic, so this branch is Raku-only by construction without any language guard. */
     char *base = (char *)rbp_base;
+    if (g_pcall_top > 0) { rt_proc_t *_p = g_pcall[g_pcall_top - 1].p; int _na = g_pcall[g_pcall_top - 1].nargs;
+        if (_p && _p->is_variadic) { rt_frame_bind_args(base, _p, _na); for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; } return; } }
     for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
