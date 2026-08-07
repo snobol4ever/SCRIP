@@ -302,6 +302,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
+        /* RK-ZC-5: centry is the loop-back landing (LOOP.γ/ω → centry on every iteration).
+         * Without a bb_src_of annotation here, the entire chain is ONE UCLAIM run rooted at
+         * the chain entry (n0).  The UCLAIM sub rsp,K fires once at n0; the back-edge re-enters
+         * at centry mid-run, skipping n0, so the matching add rsp,K from the condition's omega
+         * exit fires against a claim that was never made on that iteration — RSP drifts K bytes
+         * above the zframe base.  Annotating centry makes it a statement head: the UCLAIM
+         * planner starts a new run there, emitting sub rsp,K at centry's alpha on every entry
+         * (first entry and every loop-back).  Killswitch: SCRIP_RK_ZFRAME=0 skips zframe_graph,
+         * so this annotation is inert (bb_src_of is only read by the UCLAIM planner, which only
+         * fires under ZC_PORT_FORTH with zframe_graph nodes admitted). */
+        bb_src_note(centry, "rk_while_cond");
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
     case TT_CLOOP: {
@@ -312,6 +323,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = lower_rblock(cx, t->c[3], incr_entry, ω);
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[1], bentry, γ);
+        /* RK-ZC-5: same UCLAIM back-edge law as TT_WHILE.  centry is the condition re-entry on
+         * every loop-back (LOOP.γ/ω → centry); incr_entry is the loop_next target (the increment
+         * block re-entered by `next`).  Both need statement-head annotations so the UCLAIM
+         * planner segments them as run roots with their own sub/add rsp,K brackets. */
+        bb_src_note(centry, "rk_cloop_cond");
+        if (incr_entry && incr_entry != LOOP) bb_src_note(incr_entry, "rk_cloop_incr");
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         IR_t * ientry = lower_rblock(cx, t->c[0], LOOP, ω);
         *res = LOOP; return ientry; }
@@ -322,6 +339,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], γ, bentry);
+        /* RK-ZC-5: same law as TT_WHILE. */
+        bb_src_note(centry, "rk_until_cond");
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
     case TT_REPEAT: if (t->v.ival != 0 && t->n > 1) {
@@ -331,6 +350,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         cx->loop_exit = γ; cx->loop_next = centry;
         IR_t * bentry = lower_rblock(cx, t->c[0], centry, ω);
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
+        /* RK-ZC-5: BACK.γ/ω → bentry (body re-entry on continue); centry is the loop_next
+         * target.  Both are back-edge landing sites that need their own UCLAIM claim heads. */
+        bb_src_note(bentry, "rk_repeat_body");
+        bb_src_note(centry, "rk_repeat_cond");
         γ_to(BACK, bentry); ω_to(BACK, bentry);
         *res = BACK; return bentry; }
     else {
@@ -339,6 +362,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         cx->loop_exit = ω; cx->loop_next = LOOP;
         IR_t * bentry = (t->n > 0) ? lower_rblock(cx, t->c[0], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
+        /* RK-ZC-5: bare `loop {}` — LOOP.γ/ω → bentry is the back-edge. */
+        if (bentry && bentry != LOOP) bb_src_note(bentry, "rk_loop_body");
         γ_to(LOOP, bentry); ω_to(LOOP, bentry);
         *res = LOOP; return bentry; }
     case TT_LOOP_BREAK: case TT_LOOP_NEXT: {
