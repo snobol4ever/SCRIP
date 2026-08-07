@@ -1279,7 +1279,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             if (vr) ir_operand_push(mv, vr);
             return ec;
         }
-        IR_t * mv = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mv, fail);
+        IR_t * mv = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mv, fail); mv->in_arbno = (sno_in_arbno > 0) ? 1 : 0;   /* PB-1s: tag ARBNO-body DEFERs so the template suppresses the L(4) β record push (ARBNO owns rsp; the push shifts the rsp ARBNO.α stores, corrupting ARBNO.φ's rsp restore) */
         if (cx->npre >= 0 && cx->npre < 64) { cx->pre[cx->npre].arg = t; cx->pre[cx->npre].prim = mv; cx->pre[cx->npre].str = 0; cx->pre[cx->npre].codes = 0; cx->pre[cx->npre].snapg = t->v.sval; cx->npre++; }
         return mv;
     }

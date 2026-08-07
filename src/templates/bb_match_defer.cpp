@@ -88,6 +88,11 @@ std::string bb_match_defer() {
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
              + x86("mov",  "rax", "[rcx]")
              + x86("mov",  FR(_.op_scan_head_off), "eax"))
+         + IF(!_.op_defer_in_arbno,
+               x86("comment", "fast-path β record: downstream fail retires via L(5) (DEFER ω=MATCH_BEGIN.β); MATCH_BEGIN.af cleans via zls2_mark restore. Suppressed inside ARBNO bodies (op_defer_in_arbno=1): ARBNO owns rsp arithmetic; its φ restores rsp before calling DEFER.β, making a pre-pushed record unreachable and corrupting ARBNO.φ's rsp restore arithmetic.")
+             + x86_lea_id("rax", 5)
+             + x86_sub("rsp", 8)
+             + x86("push", "rax"))
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
