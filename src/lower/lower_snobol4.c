@@ -1253,32 +1253,16 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
           IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); sno_ω_to(nd, fail); return nd; }
     }
     case TT_VAR: {                                                 /* SN4-BAREKW: the REM/ARB/FENCE strcmp bandages that lived here are now in sno_pat_eff_kind() */
-        /* PB-1 (Lon 5-stage ruling 2026-08-07): plain ref in pattern position is VARIANT -- evaluated ONCE
-         * at stage-2 (pattern build, before MATCH_BEGIN); IR_MATCH_VALUE consumes the spine cell at match
-         * time.  IR_MATCH_PATREF DELETED (fetched by-name per anchor retry = invalid; neither variant nor
-         * invariant).  *X (TT_DEFER above) stays IR_MATCH_DEFER: manual p.122 sole recursion form.
-         * Killswitch SCRIP_PAT_BUILD=0 restores old PATREF mint byte-identical. */
-        static int _pb = -1; if (_pb < 0) { const char *_e = getenv("SCRIP_PAT_BUILD"); _pb = (_e && *_e == '0') ? 0 : 1; }
-        if (!_pb) { const char * nm = t->v.sval;
-        { IR_t * nd = lc_build(g, IR_MATCH_PATREF, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class; OP-SPLIT s21x-f: the EAGER twin — a bare stored-pattern NAME, built eagerly, cannot self-reference (manual p.122), lowers to IR_MATCH_PATREF; every consumer treats the pair identically this slice */ nd->pat_static = sno_name_static(nm);   /* ZD-5 s23i: static-shape patref -- the named next rung's arming population */ sno_ω_to(nd, fail); return nd; } }
-        /* PB-1s SNAPSHOT (Lon 5-stage completion 2026-08-07/08): the plain ref's VALUE is fetched at STAGE 2 (pattern build, once per statement execution / once per MKPAT, left-to-right) into a HIDDEN
-         * GLOBAL; the in-chain IR_VAR then reads that global at scan time, so anchor retries and mid-match $-assignments (manual pp.87-88: 'A' $ X X uses the BUILD snapshot for the second X) see the
-         * frozen stage-2 value.  The global hop is what keeps the ZLS layout untouched -- the reverted pre-chain-slot hoist moved the VAR's 16B cell across the MATCH_BEGIN header boundary and shifted
-         * the outer-context save offsets; a by-name NV read crosses no slot region.  The entry rides cx->pre[] (the OPERAND-EDGE HOIST list, which already owns the once-per-statement-before-the-scan
-         * splice point and the identical-traversal index pairing the MKPAT/patproc drains rely on); the drains repoint prim->sval at the hidden name.  Overflow past 64 leaves sval on the live name =
-         * HEAD's scan-time read, degrade never die.  Killswitch SCRIP_PB_SNAP=0 restores HEAD byte-identical. */
-        /* PB-1s SNAPSHOT: use IR_MATCH_DEFER on a hidden PATV$k global that is frozen by a stage-2 VAR→ASSIGN pre-chain.
-         * IR_MATCH_VALUE+IR_VAR was tried and rejected: VALUE reads a ZLS frame slot (via nd_slot/op_a_slot); a global-reading
-         * IR_VAR has no ZLS slot (zls_off returns -1), so op_a_slot=-1 and the template read undefined memory.
-         * IR_MATCH_DEFER already owns the NV-table acquisition path (GVA / rt_defer_get_pat_fn) and is correct for
-         * by-name global lookups at match time — which is exactly what reading a pre-frozen PATV$ global is. */
-        static int _ps = -1; if (_ps < 0) { const char *_e = getenv("SCRIP_PB_SNAP"); _ps = (_e && *_e == '0') ? 0 : 1; }
-        if (!_ps) {   /* killswitch: fall through to the live-name VAR→MATCH_VALUE path (HEAD behaviour) */
-            IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL); IR_LIT(mv).sval = (char *) t->v.sval; sno_ω_to(mv, fail);
-            IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, mv, fail, &vr);
-            if (vr) ir_operand_push(mv, vr);
-            return ec;
-        }
+        /* PB-5 (Lon 5-stage ruling 2026-08-07, deletion 2026-08-07): plain ref in pattern position is
+         * VARIANT — evaluated ONCE at stage-2 (pattern build) via pre-chain PATV$ snapshot; IR_MATCH_DEFER
+         * on the frozen global reads it at match time.  IR_MATCH_PATREF DELETED (PB-5): by-name per-anchor fetch
+         * was neither variant (snapshot) nor invariant (compile-time); invalid under Lon's 5-stage model.
+         * *X (TT_DEFER above) stays IR_MATCH_DEFER: sole recursion form (manual p.122).
+         * PB-1s SNAPSHOT (Lon 5-stage ruling 2026-08-07): plain ref in pattern position emits IR_MATCH_DEFER on a hidden
+         * PATV$k global frozen by a stage-2 VAR→ASSIGN pre-chain in cx->pre[].  Anchor retries and mid-match $-assignments
+         * see the frozen stage-2 value (manual pp.87-88: 'A' $ X X uses the BUILD snapshot for the second X).
+         * IR_MATCH_DEFER owns the NV acquisition path (GVA / rt_defer_get_pat_fn) and is correct for by-name global reads.
+         * SCRIP_PB_SNAP killswitch deleted (PB-5): the live-name VAR→MATCH_VALUE fallback is the PATREF-era incorrect path. */
         IR_t * mv = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mv, fail);
         if (cx->npre >= 0 && cx->npre < 64) { cx->pre[cx->npre].arg = t; cx->pre[cx->npre].prim = mv; cx->pre[cx->npre].str = 0; cx->pre[cx->npre].codes = 0; cx->pre[cx->npre].snapg = t->v.sval; cx->npre++; }
         return mv;
