@@ -77,6 +77,7 @@ std::string bb_match_begin() {
          + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("note", "rsp_mark") + x86("mov", "rsp", RDQ("rbp", -64)))   /* CAS-SENTINEL-CLEAN: patstk restore removed; rsp restore kept */
          + x86("jmp", L(0))
          + x86("def", L(1))
+         + IF(g_emit.xa_bb_emit_pair_n >= 4 && g_emit.xa_bb_emit_pair_define[3] != NULL, x86("def", PAIR(3)))   /* SEAL-UNWIND (this rung): the pat_seal landing -- fence/ABORT kills enter HERE, the anchor-exhaust unwind (CAS sentinel pop, rsp restore, PATCTX rt_match_ctx_restore, claim release, then omega = statement-fail with NO anchor advance).  Closes the zeta_storage KNOWN BYPASS: seal kills used to jmp the raw fail statement, skipping this entire unwind (MEASURED: t1m bare-FENCE-failing = SEGV-at-exit; t1x2 two such statements = silent zero-output; fence_probe T6 = cross-statement contamination SEGV).  Guard: only defs when the drive staged pair[3] (statement-graph BEGINs); blob-path BEGINs stage nothing and emit nothing here. */
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
              ? x86("mov", "r10", ABSQ(RT_DCAP_TOP))
              + x86("def", L(2))
@@ -144,6 +145,7 @@ std::string bb_match_begin() {
          + x86("note", "start_δ") + x86("mov", RDQ("rbp", -56), "rax")   /* the 32-bit add already zero-extended rax, so the qword store carries a clean cursor */
          + x86("jmp", L(0))
          + x86("def", L(1))
+         + IF(g_emit.xa_bb_emit_pair_n >= 4 && g_emit.xa_bb_emit_pair_define[3] != NULL, x86("def", PAIR(3)))   /* SEAL-UNWIND (this rung): the pat_seal landing -- fence/ABORT kills enter HERE, the anchor-exhaust unwind (CAS sentinel pop, rsp restore, PATCTX rt_match_ctx_restore, claim release, then omega = statement-fail with NO anchor advance).  Closes the zeta_storage KNOWN BYPASS: seal kills used to jmp the raw fail statement, skipping this entire unwind (MEASURED: t1m bare-FENCE-failing = SEGV-at-exit; t1x2 two such statements = silent zero-output; fence_probe T6 = cross-statement contamination SEGV).  Guard: only defs when the drive staged pair[3] (statement-graph BEGINs); blob-path BEGINs stage nothing and emit nothing here. */
          + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -40)) + x86("mov", ABSQ(RT_DCAP_TOP), "r12")   /* ZW-3 ω bulk discard (ZW-15: was -32) */
          + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))
          + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
@@ -204,6 +206,7 @@ std::string bb_match_begin() {
          + x86("jne", L(1))
          + x86("jmp", L(0))
          + x86("def", L(1))
+         + IF(g_emit.xa_bb_emit_pair_n >= 4 && g_emit.xa_bb_emit_pair_define[3] != NULL, x86("def", PAIR(3)))   /* SEAL-UNWIND (this rung): the pat_seal landing -- fence/ABORT kills enter HERE, the anchor-exhaust unwind (CAS sentinel pop, rsp restore, PATCTX rt_match_ctx_restore, claim release, then omega = statement-fail with NO anchor advance).  Closes the zeta_storage KNOWN BYPASS: seal kills used to jmp the raw fail statement, skipping this entire unwind (MEASURED: t1m bare-FENCE-failing = SEGV-at-exit; t1x2 two such statements = silent zero-output; fence_probe T6 = cross-statement contamination SEGV).  Guard: only defs when the drive staged pair[3] (statement-graph BEGINs); blob-path BEGINs stage nothing and emit nothing here. */
          + (hfc() && x86_zc_frame() == ZC_FRAME_RSP
              ? x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* W-1c.3 NO-SCAN: r12 arrives at marker+24 by LIFO invariant; single sub reaches sentinel */
              + x86("note", "cas_rsp_mark") + x86("mov", "rsp", RDQ("r12", 8))   /* CAS-SENTINEL-CLEAN: patstk restore from [r12+16] removed; rsp restore from [r12+8] kept */
