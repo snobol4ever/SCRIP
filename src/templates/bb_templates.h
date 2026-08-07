@@ -143,6 +143,7 @@ std::string bb_scan_any();
 std::string bb_scan_match();
 std::string bb_rk_glit();
 std::string bb_rk_gcc();
+std::string bb_rk_galt();
 std::string bb_scan_many();
 std::string bb_scan_tab();
 std::string bb_scan_move();
