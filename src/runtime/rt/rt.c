@@ -1042,6 +1042,12 @@ void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals) {   /* I
     for (int i = na; i < nparams; i++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (i + 1) * 16) = _n; }
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-FR-2: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY (no pcall-nargs lookup) so both the jmp-entry C path (open_detN sets g_call_args then jmps proc_f_α) and the dc-stub path (call site leas args into registers, dc stub calls this after push-r11/jmp proc_f_α without opening a pcall record) bind params correctly.  Slot layout: param i at [rbp+(i+1)*16], locals at [rbp+(nparams+j+1)*16] — identical to rt_lcl_proc_args_install but without the nargs clamp from pcall. */
+    char *base = (char *)rbp_base;
+    for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
+    for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
+}
 __attribute__((visibility("hidden"))) int         g_pcall_cap;
 /* SN4-FLAT-PROC (s176) — the flat-return wires ride a PARALLEL array, index-locked to g_pcall, NOT new rt_pcall_t fields: rtx_call.S bakes sizeof(rt_pcall_t)==64 (stride shl 6) and its field offsets,
  * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's

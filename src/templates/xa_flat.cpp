@@ -184,6 +184,8 @@ extern "C" void xa_flat_data_section(void) { auto s = xa_flat_data_section_str()
 extern "C" void rt_pl_dc_prep(void *, long, long, long, long, long);
 extern "C" DESCR_t rt_pl_dc_leave_γ(DESCR_t, long, void *);
 extern "C" DESCR_t rt_pl_dc_leave_ω(long, void *);
+extern "C" void rt_arg_stage(int idx, DESCR_t v);            /* ICN-FR-2 zframe dc stub: stage one arg into g_call_args[idx] */
+extern "C" void rt_icn_zframe_args_install(void *, int, int); /* ICN-FR-2 zframe prologue: install g_call_args[0..np-1] into frame slots, no pcall lookup */
 static std::string xa_flat_dc_stub_str(void) {
     if (!PLATFORM_X86) return std::string();
     x86_begin();
@@ -196,6 +198,38 @@ static std::string xa_flat_dc_stub_str(void) {
     uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
     static const char *argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+    if (g_emit.zframe_graph) {   /* ICN-FR-2 ZFRAME DC STUB: stage args into g_call_args via rt_arg_stage, then jmp proc_f_α (not body) so the ζ-frame prologue runs.
+     * The site `call`s here with arg CELL POINTERS in rsi/rdx/rcx/r8. This arm stages each into g_call_args[i] then sets wire shims and jumps proc_f_α.
+     * proc_f_α: sub rsp,kt; wire-header [kt-24]=rcx [kt-16]=rdx [kt-8]=caller_rbp; pin rbp=rsp; rt_icn_zframe_args_install(rbp,np,nl) reads g_call_args[0..np-1].
+     * γ exit: lea rsp,[rbp+kt] (= pushed-r11 rsp level); restore caller rbp; jmp shim_γ via [rbp+kt-24].
+     * shim_γ: pop r11; push r11 (SysV alignment ≡0); mov rdi,rax; mov rsi,rdx; jmp rt_proc_call_epilogue_γ.
+     * No pcall record: dc path skips open_detN; rt_proc_call_epilogue_γ reads g_pcall[--g_pcall_top] — BUT g_pcall_top=0 → it returns FAILDESCR. WORKAROUND: use the plain leave-ω path (push r11 + jmp r11) after marshaling result — since no pcall the result is already in rax:rdx and the site's join just reads rax.
+     * CLEANEST: skip epilogue entirely; the site's dc arm does `jmp L(2)` after `call dc_stub` — at L(2) rax:rdx holds the result (from the callee's γ exit). So the shim just restores rsp and returns via r11 with rax:rdx intact. */
+        static const char *dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
+        uint64_t stg_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stg_fp = (uint64_t)(uintptr_t)(void *)fp; }
+        std::string zs = x86("comment", "ICN-FR-2 zframe dc stub: stage args, jmp proc_f_α with wire shims")
+            + x86("pop", "r11")
+            + x86("push", "r11");   /* retaddr on stack; rsp≡8 (entry was ≡8 after call pushed retaddr, pop made ≡0, push restores ≡8 — rsp for jmp proc_f_α which sub rsp,kt with kt≡0 mod 16 preserves alignment) */
+        for (int i = 0; i < np; i++) {   /* for each arg: save cell pointer into r10, then load DESCR fields via [r10+0]/[r10+8] */
+            zs += x86("mov", "r10", dcarg4[i])                    /* r10 = cell pointer */
+                + x86("mov32", "edi", (long)i)
+                + x86("mov", "rsi", "[r10 + 0]")                  /* DESCR.v — use [r10+0] not [r10] to avoid XK_R10MIR parse */
+                + x86("mov", "rdx", "[r10 + 8]")                  /* DESCR.i */
+                + x86("call", "rt_arg_stage", stg_fp);
+        }
+        zs += x86_lea_id("rcx", 2)   /* γ shim */
+            + x86_lea_id("rdx", 3)   /* ω shim */
+            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")   /* jmp proc_f_α (not body); flat_dc_body_p=&lbl_α for zframe; text uses flat_lbl_α */
+            + x86_deflabel_id(2)   /* shim_γ: rsp=[retaddr], rax:rdx=result — no pcall to pop, just return to caller */
+            + x86("pop", "r11")
+            + x86("jmp", "r11")   /* tail-return to call site's L(2) join; rax:rdx already hold the result from γ epilogue */
+            + x86_deflabel_id(3)   /* shim_ω: rsp=[retaddr] — return FAILDESCR (DT_FAIL=104) */
+            + x86("pop", "r11")
+            + x86("mov32", "eax", 104L)   /* DT_FAIL — matches what the site checks: cmp eax, DT_FAIL; je proc_ω */
+            + x86("xor", "edx", "edx")
+            + x86("jmp", "r11");
+        return zs;
+    }
     return x86("comment", "PL-DC direct-call entry: retaddr -> kt-32 pad, wires -> local ret-shims, one prep crossing, shared body")
          + x86("pop", "r11")
          + x86("sub", "rsp", (long)(kt + 16))
@@ -246,7 +280,9 @@ extern "C" void xa_flat_dc_stub(void) { bb_emit_x86(xa_flat_dc_stub_str()); }
  * Wire header layout per THE ANCHOR (re-stated for FR-2's reader, never re-derived): [rsp+kt-24]=rcx (outside-γ wire), [rsp+kt-16]=rdx (outside-ω
  * wire), [rsp+kt-8]=rbp (caller rbp saved for REG-7 U2 restore on exit), then rbp seeded to this activation's flat base (mov rbp,rsp).
  * Callers: emit.cpp alpha dispatch, gated on g_emit.zframe_graph after all other jmp-entry arms. */
-extern "C" void rt_lcl_proc_args_install(void *, int, int);   /* ICN-FR-2(f): used in xa_flat_zframe_prologue_str for param/local install */
+extern "C" void rt_lcl_proc_args_install(void *, int, int);   /* ICN-PROC-FRAME (s211): used by flat_lcl_proc arm in emit.cpp */
+extern "C" void rt_icn_zframe_args_install(void *, int, int);   /* ICN-FR-2: zframe variant — reads g_call_args directly, no pcall lookup; correct for both dc-stub and jmp-entry C paths */
+extern "C" void rt_arg_stage(int idx, DESCR_t v);   /* ICN-FR-2: stage one arg into g_call_args[idx]; used by zframe dc stub */
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
@@ -260,8 +296,12 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + (emit_jmp_pin_rbp() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
                                 + x86("mov", "rbp", "rsp")
                                : std::string());
-    if (np > 0 || nl > 0) {   /* ICN-FR-2(f) DEFERRED: param/local install slot-layout mismatch — ζ-frame ZLS slots are [rbp+off] (positive, jcon_value_region layout) but rt_lcl_proc_args_install writes [rbp-off] (flat_lcl_proc negative convention).  Left as no-op for FR-2; FR-3 will route through rt_frame_bind_args or a ζ-frame-aware installer that writes to ZLS slots by name.  Params silently absent for now; f0 (no params) is green; f1/fib deferred. */
-        (void)0;
+    if (np > 0 || nl > 0) {   /* ICN-FR-2(f) RESOLVED: rt_icn_zframe_args_install reads g_call_args[0..np-1] directly (no pcall-nargs clamp) — correct for BOTH the dc-stub path (args staged into g_call_args by rt_arg_stage calls in the stub) and the jmp-entry C path (open_detN copies args into g_call_args then jmps proc_f_α). */
+        uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
+        s += x86("mov", "rdi", "rbp")
+           + x86("mov32", "esi", (long)np)
+           + x86("mov32", "edx", (long)nl)
+           + x86("call", "rt_icn_zframe_args_install", _args_fp);
     }
     return s;
 }
@@ -274,7 +314,9 @@ static std::string xa_flat_zframe_prologue_str(void) {
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
-    return x86("comment", "ICN-FR-2 zframe epilogue-γ: unwind to flat base; load γ wire; restore caller rbp; jmp")
+    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi (frame0 for rt_proc_call_epilogue_γ on non-dc path); unwind; restore caller rbp; jmp γ wire")
+         + x86("mov", "rdi", "rax")   /* frame0.v — rt_proc_epilogue_body reads frame0 for lex procs; dc-stub shim ignores rdi */
+         + x86("mov", "rsi", "rdx")   /* frame0.i */
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 24) + "]")
          + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
