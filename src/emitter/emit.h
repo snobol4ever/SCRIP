@@ -462,7 +462,6 @@ typedef struct {
     int                          op_scan;          /* SPD-2 RETRY-INTERNAL: this IR_MATCH_DEFER/PATREF is the statement's sole frozen-pattern root (head-γ successor, ω back to head-β) -- its fast-arm transfer sets r8=1 so the flat_pat blob runs the positional retry internally */
     int                          op_seal;          /* s137 OVER-SEAL: this IR_MATCH_DEFER/PATREF's target is a statically right-sealed stored pattern (IR_t.seal) -- α saves an rsp watermark in the defer.pad quad (op_off), the γ/ω glues bulk-restore it (whacking the callee subtree at the fence-demarked sync point), β is an unconditional exhaust */
     int                          op_scan_head_off; /* SPD-2: the statement head's position-counter frame slot (FR), for the γ-side winning-start write-back (bb_match_replace reads it as the match start) */
-    int                          op_defer_in_arbno; /* PB-1s: 1 iff this IR_MATCH_DEFER was lowered inside an ARBNO body (IR_t.in_arbno); suppresses the L(4) fast-path β record push since ARBNO owns rsp arithmetic and ARBNO.φ restores rsp before calling DEFER.β */
 
     int                          op_arbno_chain;   /* ZB-FC-4 (Lon s50 S14): 1 = this IR_MATCH_ARBNO uses the s32 LINKED FRAME CHAIN on rsp (per-iteration nodes pushed by beta, chained by prev-link, unwound at omega via the saved pre-alpha rsp) instead of the rt_zcol_push heap COLLECTION; set under ZC_PORT_FORTH only, so default is byte-identical */
     int                          x86_fc_synth;
