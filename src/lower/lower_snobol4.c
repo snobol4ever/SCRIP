@@ -1101,7 +1101,7 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail) {
+static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail, IR_t ** out_rtail) {   /* ⭐ FENCE-PASS-THROUGH: out_rtail (nullable) receives res[ne-1], the LAST element's resume carrier — the run's EXTERNAL right-side resume surface.  Under the deleted IR_MATCH_SEQUENCE the construct's own β dispatched this internally; SEQ-ERAD removed the construct and no plain caller needed the surface until the fence pass-through seam (a righter construct's exhaust must resume the run's rightmost generator, not element 0). */
     /* SEQ-ERAD SE-5/SE-6 (2026-08-04): IR_MATCH_SEQUENCE is fully deleted.  Elements wire DIRECTLY:
      * σ (rightward success) -> next element's α; φ (leftward fail) -> previous element's β (β-tagged).
      * We use a temporary IR_GOTO sentinel node S to collect σ/φ-tagged edges during lowering, then
@@ -1160,6 +1160,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
         if (x->γ.node == S && x->γ.sz[0] == (char)0xcf && (unsigned char)x->γ.sz[1] == 0x83) { x->γ.node = succ; x->γ.sz[0] = 0; }
     }
     S->γ.node = succ; S->γ.sz[0] = 0;
+    if (out_rtail) *out_rtail = (ne > 0 && ne < 128) ? res[ne - 1] : NULL;   /* FENCE-PASS-THROUGH: the run's external right-side resume surface */
     return (ne > 0 && ne < 128) ? ent[0] : succ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1224,10 +1225,27 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return nd;
     }
     case TT_FENCE:
-        /* WHOLE-PATTERN fence (not a spine element — TT_SEQ's splitter owns those): FENCE1 lowers P transparently — nothing exists to its right to seal against, and the match-bracket RELEASE is the
-         * sync point that fires the instant P commits, so no IR_MATCH_FENCE1 box is needed; FENCE0 alone matches null = succ.  (Reachability from a TT_ALT arm is a recorded question for the goal file:
-         * an arm-nested FENCE1 arrives here transparent, i.e. unsealed — crosscheck-clean at the s131 watermark.) */
-        return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
+        /* WHOLE-PATTERN / NESTED fence (not a spine element — TT_SEQ's splitter owns those).  ⭐ FENCE-NONSPINE (this rung): the old transparent lowering ("no IR_MATCH_FENCE1 box is needed") was FALSIFIED
+         * by the oracle — the s131 "recorded question" answered.  A FENCE1 reached here (under `$`/`.`, as an ALT arm, as a whole pattern) still owes the interior cut: on ANY backup into it, alternatives
+         * within P are invisible (manual p.222).  MEASURED: the manual's own example P = FENCE(BREAK(',') | REM) $ STR *DIFFER(STR) on subject ',' — SPITBOL FAILS (REM never retried on backup), the
+         * transparent lowering MATCHED (T6 witness).  Build the same F box as the splitter: P lowered succ=F fail=F (interior fully live forward), inside-edge σ/φ retag, F.γ=succ, F.ω=fail (β-aware:
+         * pass-through — the enclosing context's own seam/alternation machinery resumes leftward exactly as for any failing element).  FENCE0 alone (n==0) still matches null = succ. */
+        if (t->n > 0 && t->c[0] && !sno_in_arbno && !g_sno_in_patproc) {   /* ⭐ FENCE-NONSPINE: gate on !sno_in_arbno AND !g_sno_in_patproc — PAT$ blob geometry predates cells-above-claim; a FENCE1 inside a blob must use the transparent path (old behavior).  Inside ARBNO bodies same Tier-D premise applies. */
+            IR_t * F = lc_build(g, IR_MATCH_FENCE1, succ, NULL);
+            sno_ω_to(F, fail);
+            IR_LIT(F).ival = 1;
+            int before_p = g->n;
+            IR_t * pe = sno_pat_node(cx, t->c[0], F, F);
+            IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
+            for (int q = before_p; q < g->n; q++) { IR_t * x = g->all[q];
+                if (!x) continue;
+                if (x->ω.node == F) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+                if (x->γ.node == F) { if (x->op == IR_GOTO && x->ω.node == F) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; } }
+            ir_operand_push(F, pe);
+            ir_operand_push(F, p_tail);
+            return F;
+        }
+        return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;   /* inside ARBNO body or FENCE0: transparent lowering */
     case TT_DEFER: {
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
         if (in && in->t == TT_VAR && in->v.sval) { IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval) ? 1 : (sno_seal_pat(in->v.sval) ? 2 : 0);   /* s142: 1 = full right-seal (s137 whack); 2 = WRITE-ONCE only (name eligibly resolves in g_sno_seal: single write, fz-safe) — enables the defer-site entry-cell, NOT the whack.  OP-SPLIT s21x-f: this is the `*X` arm, the only one the manual lets recurse (p.122) — IR_MATCH_DEFER is star-ONLY by construction now; the s199 dstar registration is deleted, the opcode IS the provenance. */ nd->pat_static = sno_name_static(in->v.sval);   /* ZD-5 s23i: a `*X` whose X is transitively defer-free cannot recurse -- the star buys late binding only, and the statement quartet may arm around it (117's *cmd class) */ sno_ω_to(nd, fail); return nd; }
@@ -1423,16 +1441,35 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * right_sealed non-repoint is preserved verbatim at the fence seams, which stay edge-threaded. */
         const tree_t * elems[128]; int ne = 0;
         sno_seq_flatten_pat(t, elems, &ne);
-        int first_fence = ne;
+        int first_fence = ne; int first_f0 = ne;
         for (int i = 0; i < ne; i++) if (sno_is_fence(elems[i])) { first_fence = i; break; }
+        for (int i = 0; i < ne; i++) if (sno_is_fence0(elems[i])) { first_f0 = i; break; }   /* ⭐ FENCE-PASS-THROUGH (this rung): the pat_seal abort cut belongs to FENCE0 ALONE (manual p.203: backup through &FENCE aborts the attempt).  FENCE1 (manual p.222, verbatim): "Pattern backup will always pass through FENCE().  Note that backup through FENCE() does not cause the match to abort" — so runs right of a FENCE1 exhaust into the F box (pass-through), never to pat_seal, and the leftward seam chain carries on.  first_f0 replaces first_fence in BOTH fail-target formulas below; first_fence keeps only the splitter early-out.  ORACLE WITNESSES: H01 (=S vs =F at HEAD, parked in XFAIL.run) and the T4/T5 probes ('AA'|'A' FENCE('') 'AB' on AAB · 'XA'|'X' FENCE('A') 'Y' on XAY): SPITBOL matches both, HEAD failed both. */
         if (first_fence == ne)
-            return ne == 1 ? sno_pat_node(cx, elems[0], succ, fail) : sno_seq_nary(cx, elems, ne, succ, fail);
+            return ne == 1 ? sno_pat_node(cx, elems[0], succ, fail) : sno_seq_nary(cx, elems, ne, succ, fail, NULL);
         IR_t * cur_succ = succ; IR_t * right_tail = NULL; int right_tail_idx = -1; int right_sealed = 0;
         for (int i = ne - 1; i >= 0; ) {
-            if (sno_is_fence(elems[i])) {                                           /* FENCE0 or FENCE1: each seals everything to its right; the element to its left cannot resume into it */
-                right_sealed = 1;
+            if (sno_is_fence(elems[i])) {                                           /* FENCE0 seals everything to its right (abort-on-backup); FENCE1 does NOT — it is a normal seam element whose box β IS the pass-through (⭐ FENCE-PASS-THROUGH, this rung; the old umbrella "each seals its right" applied FENCE0's abort to FENCE1 and was falsified by the oracle: H01/T4/T5) */
                 const tree_t * inner = sno_is_fence1(elems[i]) ? elems[i]->c[0] : NULL;   /* inner != NULL ⇔ FENCE1; FENCE0 stays node-free (pure rewiring — its box body would be α→γ, β→ω) */
-                if (inner) {                                                        /* FENCE1 = FENCE(P): lower P with the pre-seal fail so P retries normally on forward-fail; the seal blocks re-entry after success */
+                if (!inner || sno_in_arbno) right_sealed = 1;                      /* ⭐ FENCE-PASS-THROUGH: FENCE0 always seals; FENCE1 seals inside an ARBNO body (sno_in_arbno>0): the pass-through seam repoint rests on a static-depth rsp premise that ARBNO violates (rsp moves per iteration, Tier D).  Outside ARBNO bodies FENCE1 participates in the standard leftward seam chain. */
+                if (inner && sno_in_arbno) {                                        /* FENCE1 inside ARBNO body: ival=2 = watermark+P but NO U-2 rbp frame (ARBNO owns rbp; nested push/pop corrupts its frame) */
+                    IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;
+                    int f_idx = g->n;
+                    IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
+                    sno_ω_to(F, fail_p);
+                    IR_LIT(F).ival = 2;   /* ⭐ ival=2: FENCE1-in-ARBNO — suppresses fence_u2_frame() in template */
+                    int before_p = g->n;
+                    IR_t * pe = sno_pat_node(cx, inner, F, F);
+                    IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
+                    for (int q = before_p; q < g->n; q++) { IR_t * x = g->all[q];
+                        if (!x) continue;
+                        if (x->ω.node == F) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+                        if (x->γ.node == F) { if (x->op == IR_GOTO && x->ω.node == F) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; } }
+                    ir_operand_push(F, pe);
+                    ir_operand_push(F, p_tail);
+                    /* NO sno_resume_ω_to: right_sealed=1 prevents the seam repoint (Tier-D premise) */
+                    cur_succ = F; right_tail = F; right_tail_idx = f_idx;
+                }
+                else if (inner && !sno_in_arbno) {                                  /* FENCE1 = FENCE(P) outside an ARBNO body: lower P with the pre-seal fail so P retries normally on forward-fail; the seal blocks re-entry after success */
                     /* SYNC-POINT ζ RELEASE (Lon ruling s132, sync point 2 — FENCE(P) success exit).  The old wiring was PURE EDGE
                      * REWIRING: P succeeded straight into cur_succ and every ζ cell P's boxes retained (uniform-β) sat on the stack
                      * until the match bracket died, even though the seal makes them unreachable the instant P commits (its
@@ -1445,7 +1482,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                      * leftward exhaust lands na_f (same restore — the identity by LIFO — then F.ω = the old fail_p).  Resume-from-
                      * the-right stays STRUCTURALLY absent (right_sealed skips the repoint below, exactly as before); F.β falls into
                      * na_f as the ARBNO-seal "resume ≡ abandon" precedent demands should any future wiring reach it. */
-                    IR_t * fail_p = (i > first_fence) ? cx->pat_seal : fail;
+                    IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;           /* ⭐ FENCE-PASS-THROUGH: F.ω routes past FENCE0s only — pat_seal iff a FENCE0 lies to F's left; otherwise the spine fail (HEAD).  The generic seam below then repoints this ω at the left run's tail-β (generator resume) exactly as for any element, restoring the manual's "elements LEFT of the fence stay live". */
                     int f_idx = g->n;
                     IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
                     sno_ω_to(F, fail_p);
@@ -1459,7 +1496,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                         if (x->γ.node == F) { if (x->op == IR_GOTO && x->ω.node == F) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; } }
                     ir_operand_push(F, pe);
                     ir_operand_push(F, p_tail);
-                    cur_succ = F; right_tail = F; right_tail_idx = f_idx;
+                    if (right_tail && !right_sealed) sno_resume_ω_to(g, right_tail_idx, right_tail, F);   /* ⭐ FENCE-PASS-THROUGH: the right run's leftward exhaust lands F's β; only reached when !sno_in_arbno (the arbno gate above ensured right_sealed=1 inside bodies). */
+                    cur_succ = F; right_tail = F; right_tail_idx = f_idx; right_sealed = 0;   /* F is now an ordinary left-neighbor; next (left) run repoints F.ω at its tail-β */
                 }
                 else if (i > 0) {                                                   /* s137 OVER-SEAL (Lon ruling): an INTERIOR FENCE0 gets the operand-free sync box (ival=0) — its α IS the forward
                                                                                      * commit (match null), and the box body is now non-empty: whack the activation's dynamic ζ to the rbp floor
@@ -1467,7 +1505,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                                                                                      * (backup ≡ attempt abort), right_sealed already set above so the left run gets no resume repoint and the box
                                                                                      * gets no inbound β.  FIRST-POSITION FENCE0 (i==0, the anchor idiom) keeps the node-free erasure: zero left
                                                                                      * context in this spine, nothing to whack, the s133 reasoning stands there. */
-                    IR_t * fail_p = (i > first_fence) ? cx->pat_seal : fail;
+                    IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;   /* FENCE-PASS-THROUGH: FENCE0-relative */
                     int f_idx = g->n;
                     IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
                     sno_ω_to(F, fail_p);
@@ -1479,10 +1517,11 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             }
             int j = i; while (j > 0 && !sno_is_fence(elems[j - 1])) j--;             /* the maximal fence-free run [j..i]; a run never spans a fence so one fail target serves it */
             int rn = i - j + 1;
-            IR_t * fail_r = (j > first_fence) ? cx->pat_seal : fail;                 /* right of the fence: cut to the SEAL target (== statement-fail at top level, == F/exhaust inside an ARBNO body), never HEAD */
+            IR_t * fail_r = (j > first_f0) ? cx->pat_seal : fail;                 /* right of the FENCE0: cut to the SEAL target (== statement-fail at top level, == F/exhaust inside an ARBNO body), never HEAD.  ⭐ FENCE-PASS-THROUGH: FENCE0-relative (first_f0) — a run whose nearest left fence is a FENCE1 keeps the plain fail and its tail is seam-repointed at that F box (pass-through), per the manual p.222. */
             int before_r = g->n;
-            IR_t * re = (rn == 1) ? sno_pat_node(cx, elems[j], cur_succ, fail_r) : sno_seq_nary(cx, elems + j, rn, cur_succ, fail_r);
-            IR_t * r_tail = (before_r < g->n) ? g->all[before_r] : re;
+            IR_t * n_rt = NULL; IR_t * re = (rn == 1) ? sno_pat_node(cx, elems[j], cur_succ, fail_r) : sno_seq_nary(cx, elems + j, rn, cur_succ, fail_r, &n_rt);
+            int _rb2 = before_r; while (_rb2 < g->n && g->all[_rb2] && g->all[_rb2]->op == IR_GOTO && g->all[_rb2]->n_operands == 0) _rb2++;   /* ⭐ FENCE-PASS-THROUGH: a multi-element run lowers via sno_seq_nary whose FIRST-ALLOCATED node is its sentinel GOTO (SEQ-ERAD SE-6's own warning, applied here) — the seam repoint must land the first REAL resume-bearing node, not the relay.  Pre-rung this r_tail was never consumed across a fence (right_sealed skipped every such seam), so the sentinel landing was latent; the F.ω left-resume is its first consumer (MEASURED: H01 exited silently with zero output when F.ω β-landed the sentinel). */
+            IR_t * r_tail = n_rt ? n_rt : ((_rb2 < g->n) ? g->all[_rb2] : re);   /* ⭐ FENCE-PASS-THROUGH: a multi-element run's right-side resume surface is its LAST element's resume carrier (n_rt from sno_seq_nary), so a righter fence's ω resumes the rightmost generator; single-element runs keep the sentinel-skipped first-real node. */
             if (right_tail && !right_sealed && before_r < g->n) sno_resume_ω_to(g, right_tail_idx, right_tail, r_tail);
             cur_succ = re; right_tail = r_tail; right_tail_idx = before_r; right_sealed = 0;
             i = j - 1;
@@ -1656,6 +1695,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     IR_t * land = fJ;
     if (out_land) { land = lc_build(g, IR_GOTO, fJ, NULL); *out_land = land; }   /* R1 STMT-BETA-LAND (06e design, landed this session): fB -- a DEDICATED exhaust-only GOTO carrying ONLY MATCH_BEGIN's ω (anchor exhausted = whole-statement failure).  Untagged it chains fB→fJ→fT, byte-equivalent to the direct wire (zd_chase and the drive chase both thread GOTOs transparently); the zw5 post-loop in sno_build_graph retags fB.γ to STATEMENT_BEGIN with the β port tag, making statement_begin_beta the named failure landing per the STATEMENT-PORT LAWS (Lon 2026-08-06).  fJ is UNTOUCHED: element failures (the scanner retry loop, SPITBOL manual Ch.18 step 6) and every other statement-failure producer keep their edges -- the 06e session measured that retagging the SHARED fJ re-tags every edge chasing through it (3 regressions, two statements fell out of the walk on 067). */
     IR_t * head = lc_build(g, IR_MATCH_BEGIN, NULL, land);
+    { IR_t * sealJ = lc_build(g, IR_GOTO, head, NULL); memcpy(sealJ->γ.sz, "φ", 3); sealJ->γ.sz[3] = 0; cx->pat_seal = sealJ; }   /* ⭐ SEAL-UNWIND (this rung): pat_seal re-routed THROUGH the head.  sealJ is a φ-tagged GOTO into IR_MATCH_BEGIN — the emitter's φ-chase resolves it to BEGIN's na_f = the L(1) anchor-exhaust unwind (CAS pop, rsp restore, PATCTX restore, claim release) whose ω tail is the statement-fail, anchor NOT advanced — exactly the abort semantics with the bookkeeping the raw-fJ route skipped (the zeta_storage head.sigma_save KNOWN BYPASS, now closed).  fJ itself is untouched: it stays BEGIN's own ω/land path, so no ω→na_f→ω cycle exists.  cx->pat_fail stays fJ.  EVAL/CODE and pattern-blob graphs keep their own tno/no seal targets (their unwind is the blob ω-glue).  WITNESSES: t1m (SEGV→0), t1x2 (silent→f1/f2), fence_probe T6 contamination. */
     /* SN4-REPL (doctrine stages 4/5): pattern-success → RELEASE (stashes end@head+24, flushes captures per
      * manual Ch.6 "before replacement") → replacement expression chain → SPLICE (rt_match_replace by name)
      * → sJ.  Slice 1: subject must be a plain variable lvalue — indirect/subscript splice targets pending. */
