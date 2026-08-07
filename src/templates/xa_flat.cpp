@@ -373,9 +373,30 @@ static std::string xa_flat_zframe_prologue_str(void) {
  * Then loads the γ wire from [rbp+kt-24], restores caller rbp from [rbp+kt-8], and jmps the wire.
  * This is the FR-3 exit protocol expressed in FR-2 so simple procs (f0/f1/fib) exit correctly.
  * Depth-immune because it reads through the PINNED rbp (depth-independent by construction). */
-static std::string xa_flat_zframe_epilogue_γ_str(void) {
-    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
+/* ⭐ ONE AUTHORITY for the CLASS-ZF wire-header base (s215, ZK-4 SLICE 1 — the s22k law: this constant is spelled HERE and nowhere else).
+ * The header triple always sits at [base-24]=γ [base-16]=ω [base-8]=caller-rbp, but WHICH base depends on which prologue carved the frame:
+ *   ZFRAME regime (xa_flat_zframe_prologue): carves exactly flat_frame_bytes, param slots INSIDE it  → base = flat_frame_bytes.
+ *   CELLS regime  (the flat_lcl_proc prologue, emit.cpp ICN-PROC-FRAME): carves flat_frame_bytes + (np+nl)*16, param/local slots ADDED ON → base = that total.
+ * Reading the wrong base under-reads by (np+nl)*16 (16 bytes on f1: header at 136 read as 120) and jmps a garbage wire.
+ * MUST STAY IN LOCKSTEP with emit.cpp's `frame_total` in the flat_lcl_proc prologue arm — same expression, two consumers. */
+static int xa_flat_wire_hdr_base(void) {
     int kt = g_emit.flat_frame_bytes;
+    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
+    return kt;
+}
+/* CLASS-ZF admission predicate — ONE AUTHORITY (s215).  ZFRAME graphs by their own flag; CELLS-arm lexical procs because the flat_lcl_proc
+ * prologue writes the IDENTICAL header triple (verified f1: sub rsp,160 / [rsp+136]=rcx / [rsp+144]=rdx / [rsp+152]=rbp / mov rbp,rsp).
+ * WHY the cells arm needs this: CLASS P (_wire_stub → bb_glue_wire_γ/ω → rt_flat_ret_snap → g_pcall_wires[]) requires a pcall record, but the
+ * cells-arm call site enters via the DC stub (rt_pl_dc_prep) which pushes NONE — g_pcall_top==0 → core error 18 "Return from level zero" on
+ * every proc call.  The header read is self-contained and needs no runtime record, which is exactly why ICN-FR-3 chose it for ZFRAME. */
+static int xa_flat_class_zf(void) {
+    if (g_emit.zframe_graph) return 1;
+    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) return 1;
+    return 0;
+}
+static std::string xa_flat_zframe_epilogue_γ_str(void) {
+    if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
+    int kt = xa_flat_wire_hdr_base();
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi (frame0 for rt_proc_call_epilogue_γ on non-dc path); unwind; restore caller rbp; jmp γ wire")
          + x86("mov", "rdi", "rax")   /* frame0.v — rt_proc_epilogue_body reads frame0 for lex procs; dc-stub shim ignores rdi */
          + x86("mov", "rsi", "rdx")   /* frame0.i */
@@ -387,8 +408,8 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 /* ICN-FR-2: ζ-FRAME EPILOGUE ω (failure port).
  * Same absolute-unwind shape as γ but reads the ω wire from [rbp+kt-16]. */
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
-    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
-    int kt = g_emit.flat_frame_bytes;
+    if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
+    int kt = xa_flat_wire_hdr_base();
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp; jmp")
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 16) + "]")
