@@ -113,6 +113,7 @@ DESCR_t rt_gvar_get_descr(const char *name);
 DESCR_t rt_proc_define(const char *spec);
 void rt_arg_stage(int idx, DESCR_t v);
 void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals);   /* ICN-PROC-FRAME (s211): copy g_call_args into lexical-proc frame param slots and zero locals; nargs from g_pcall top. */
+void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals);   /* ICN-FR-2: ζ-frame variant — reads g_call_args[0..nparams-1] directly (no pcall-nargs clamp); correct for both dc-stub path (no pcall record) and jmp-entry C path. */
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
 void rt_c2b_arm_trap(void);
