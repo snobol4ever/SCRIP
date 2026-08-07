@@ -2333,6 +2333,32 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             fprintf(stderr, "[ZK-CENSUS-BLOCKER]   %-30s count=%d\n", _nm ? _nm : "<unknown>", _blocker_cnt[_b]);
         }
     } }   /* ZK-0 census END: pure accumulate+print, zero side effects. */
+    { /* PL-ZK-0 (s3): per-graph Prolog cell census. READ-ONLY: zero g_emit writes, zero emission. Inert unless SCRIP_ZD_CENSUS=1. Same structure as the Icon census above; gated on pl_cells_graph so Icon/SN4 output is not polluted. FALSIFIABILITY: (1) a known-armed run moves armed UP; (2) a known-declined graph names the first blocker. Both injections required before rung declared complete. */
+    static int _plzk0_on = -1;
+    if (_plzk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); _plzk0_on = (_e && *_e == '1') ? 1 : 0; }
+    if (_plzk0_on && g_emit_cfg && g_emit_cfg->pl_cells_graph) {
+        long _k_total = 0; int _armed = 0; int _declined_nodes = 0;
+        int _blocker_op[512]; int _blocker_cnt[512]; int _n_blockers = 0;
+        for (int _i = 0; _i < n; _i++) {
+            if (zd_on[_i]) { _k_total += zd_k(nodes[_i]); _armed++; }
+        }
+        for (int _i = 0; _i < n; _i++) {
+            if (zd_on[_i]) continue;
+            if (!zd_wl_kind(nodes[_i])) {
+                int _op = (int)nodes[_i]->op; int _found = 0;
+                for (int _b = 0; _b < _n_blockers; _b++) if (_blocker_op[_b] == _op) { _blocker_cnt[_b]++; _found = 1; break; }
+                if (!_found && _n_blockers < 512) { _blocker_op[_n_blockers] = _op; _blocker_cnt[_n_blockers++] = 1; }
+                _declined_nodes++;
+            }
+        }
+        int _bss_bytes = g_emit_cfg->jcon_value_region;
+        fprintf(stderr, "[PL-ZK-CENSUS] graph=%s pl_cells=1 n=%d armed=%d K_total=%ld declined_nodes=%d bss_arena=%d\n",
+                prefix ? prefix : "?", n, _armed, _k_total, _declined_nodes, _bss_bytes);
+        for (int _b = 0; _b < _n_blockers && _b < 8; _b++) {
+            const char * _nm = bb_op_name((IR_e)_blocker_op[_b]);
+            fprintf(stderr, "[PL-ZK-CENSUS-BLOCKER]   %-30s count=%d\n", _nm ? _nm : "<unknown>", _blocker_cnt[_b]);
+        }
+    } }   /* PL-ZK-0 census END */
     /* ZW-5 O-2: per-depth ω stub pool.  Pre-compute after zd_plan; emit stubs after each IR_STATEMENT's drive. */
     enum { ZW5_POOL = 128, ZW5_MAX_DEPTHS = 8 };
     bb_label_t zw5_pool[ZW5_POOL]; int zw5_base = 0;
