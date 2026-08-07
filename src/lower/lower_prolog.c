@@ -854,6 +854,8 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
     g->body_root = dj;
     g->nslots = arity + (maxlocal + 1) + nc + 8;
     g->resume_slot = 0;
+    /* PL-FR-2 BODY-VAR LNAMES: register G0..G{maxlocal} as locals so ir_drive_slot_assign grants them frame vslots.  Each Gk = body variable (TT_VAR slot k); pnames cover A0..A{arity-1}; lnames cover G0..G{maxlocal}.  ir_drive_slot_assign (zframe arm) assigns local j at [rbp+(nparams+j+1)*16] — shared by ALL uses of Gk.  Frame slot is init'd to NULVCL by rep-stosb zero-fill (NULVCL = {DT_SNUL=0} = unbound per plw_unbound_tag).  Result: every IR_VAR_REF/IR_VAR for Gk gets op_sa = (arity+k+1)*16 (positive rbp-relative) via bb_varslot_peek → the named arm fires → correct identity across all uses of the same body var.  rt_pl_fresh_var_ref in bb_var_ref is now only reached for G-named vars that somehow have no lnames entry (e.g. a var that appears ONLY as IR_VAR_REF with no pnames/lnames coverage — should not happen with this fix) or for pathological edge cases; the common path is this frame-slot grant.  ONE AUTHORITY: only this site populates lnames for pred-graphs; ir_drive_slot_assign is the only grant site (TE-4 law).  SNOBOL4/Icon watermark: only runs for Prolog pred-graphs; other lowerers unaffected. */
+    if (maxlocal >= 0) { g->nlocals = maxlocal + 1; g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *)); for (int k = 0; k <= maxlocal; k++) g->lnames[k] = pl_var_name(k); }
     free(centry); free(uw);
     return bb_program_add(&g_stage2.bbp, g);
 }

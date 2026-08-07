@@ -156,6 +156,7 @@ static DESCR_t *plw_det_cell(DESCR_t *tmp) {
     return c;
 }
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
+DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }   /* PL-FR-2: Prolog anonymous var (G0/G1 etc from _) has no frame vslot (op_sa==-1); bb_var_ref emits a call here to produce a fresh unbound PLVAR on the PLJ heap.  Pattern matches plc_iso_fresh: alloc 16-byte self-referential cell, return {DT_PLVAR,0,cell} — a reference descriptor that plw_cell_deref follows correctly.  ONE AUTHORITY: only bb_var_ref calls this; no emitter allocates heap cells.  SNOBOL4/Icon watermark: zframe_graph=0 for those lowerers; anonymous-var arm unreachable for them. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int m; unsigned bm; } plw_zhpair_t;
 static plw_zhpair_t *g_plw_zhp = 0; static int g_plw_zhp_n = 0, g_plw_zhp_cap = 0;
