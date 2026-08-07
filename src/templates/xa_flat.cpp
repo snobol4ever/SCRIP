@@ -326,12 +326,44 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + (emit_jmp_pin_rbp() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
                                 + x86("mov", "rbp", "rsp")
                                : std::string());
-    if (np > 0 || nl > 0) {   /* ICN-FR-2(f) RESOLVED: rt_icn_zframe_args_install reads g_call_args[0..np-1] directly (no pcall-nargs clamp) — correct for BOTH the dc-stub path (args staged into g_call_args by rt_arg_stage calls in the stub) and the jmp-entry C path (open_detN copies args into g_call_args then jmps proc_f_α). */
-        uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        s += x86("mov", "rdi", "rbp")
-           + x86("mov32", "esi", (long)np)
-           + x86("mov32", "edx", (long)nl)
-           + x86("call", "rt_icn_zframe_args_install", _args_fp);
+    if (g_emit.flat_lex) {   /* PL-FR-2 LEX SEED ARM: lexical graphs (Prolog + det-lex Icon procs) carry a pcall record with a lex seed; call rt_jmp_frame_lexprep2(fb=rbp, suffix_off, region_bytes=kt-32) which runs: pcall registration (c->fb=fb) + slot0 NULVCL + suffix NULVCL splat + rt_frame_bind_args (g_call_args→frame slots, NULVCL pad).  Behavioral discriminator: flat_lex==1 iff the activation is lexical-scope and non-LBL__ — exactly the graphs whose open_detN/open_genN pushed a pcall record that lexprep2 can read.  seed_off=0 case falls back to full fill. */
+        extern int g_flat_dc_np;   /* PL-DC: >=0 when dc-stub is active; dc-stub stages args via rt_arg_stage into g_call_args but does NOT push a pcall record (it jumps directly to proc_f_α). For the dc path use rt_icn_zframe_args_install which reads g_call_args directly; for the normal open_det path use rt_jmp_frame_lexprep2 which reads the pcall record. Both are called with the same g_call_args content. NULVCL seeding: dc path uses the rep-stosb FRAME_RSP arm below for the whole frame before jumping here — Prolog dc procs must zero first; normal open_det path: rt_jmp_frame_lexprep2 seeds slot0 + suffix. */
+        if (g_flat_dc_np >= 0) {   /* DC-STUB PATH: no pcall record; zero frame first (named vars start as NULVCL = unbound), then rt_icn_zframe_args_install reads g_call_args[0..np-1] directly */
+            if (kt > 48) {   /* zero the data region [rbp+0..rbp+kt-32) before installing args */
+                int data_bytes = kt - 32;
+                s += x86("lea", "rdi", "[rbp + 0]")
+                   + x86("xor", "eax", "eax")
+                   + x86("mov32", "ecx", (long)data_bytes)
+                   + x86("rep_stosb");
+            }
+            uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
+            s += x86("mov", "rdi", "rbp")
+               + x86("mov32", "esi", (long)np)
+               + x86("mov32", "edx", (long)nl)
+               + x86("call", "rt_icn_zframe_args_install", _args_fp);
+        } else {   /* NORMAL JMP-ENTRY PATH: pcall record was pushed by rt_proc_call_open_det; rt_jmp_frame_lexprep2 reads it */
+            uint64_t _lex_fp; { void (*_f)(void *, long, long) = rt_jmp_frame_lexprep2; _lex_fp = (uint64_t)(uintptr_t)(void *)_f; }   /* rt_jmp_frame_lexprep2 declared extern "C" at file scope (line 11) */
+            int seed_off = g_emit.flat_seed_off ? g_emit.flat_seed_off : 16;
+            s += x86("mov", "rdi", "rbp")
+               + x86("mov32", "esi", (long)seed_off)
+               + x86("mov32", "edx", (long)(kt - 32))
+               + x86("call", "rt_jmp_frame_lexprep2", _lex_fp);
+        }
+    } else {   /* PL-FR-2 FRAME_RSP ARM: non-lex graphs (Prolog main / outer graphs) have no pcall record; zero-fill the data region with rep stosb so named variables (G0, G1...) start as NULVCL (= DT_SNUL = unbound). Mirrors anchor FRAME_RSP arm (rep stosb + 65544 floor). Harmless for Icon (Icon never stamps non-lex zframe graphs except via dc-stub which has its own path in the stub code above). */
+        if (kt > 48) {   /* data region = [rbp+0..rbp+kt-32); floor at 48 has 16B data region which is just slot0 — skip rep stosb for the minimum frame */
+            int data_bytes = kt - 32;   /* bytes below the 32B wire-header+pad: γ(8B)+ω(8B)+caller_rbp(8B)+8B_align = 32B; data occupies [rbp+0..rbp+kt-32) */
+            s += x86("lea", "rdi", "[rbp + 0]")   /* destination = frame base */
+               + x86("xor", "eax", "eax")          /* value = 0 (NULVCL = DT_SNUL = 0) */
+               + x86("mov32", "ecx", (long)data_bytes)
+               + x86("rep_stosb");   /* rep stosb: byte-zero [rdi..rdi+rcx) */
+        }
+        if (np > 0 || nl > 0) {   /* ICN-FR-2(f) RESOLVED: rt_icn_zframe_args_install reads g_call_args[0..np-1] directly (no pcall-nargs clamp) — correct for BOTH the dc-stub path (args staged into g_call_args by rt_arg_stage calls in the stub) and the jmp-entry C path (open_detN copies args into g_call_args then jmps proc_f_α). */
+            uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
+            s += x86("mov", "rdi", "rbp")
+               + x86("mov32", "esi", (long)np)
+               + x86("mov32", "edx", (long)nl)
+               + x86("call", "rt_icn_zframe_args_install", _args_fp);
+        }
     }
     return s;
 }
