@@ -213,11 +213,21 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * asP = build(cx, IR_ASSIGN, einit, ω); IR_LIT(asP).sval = t->c[0]->v.sval;
             IR_t * r3 = NULL; IR_t * elast = lower_rcall(cx, rhs, "arr_last", 1, asP, ω, &r3); if (r3) ir_operand_push(asP, r3); *res = asA; return elast; }
         if (rhs && rk_is_relop(rhs->t)) {
-            IR_t * at = build(cx, IR_ASSIGN, γ, ω); IR_LIT(at).sval = t->c[0]->v.sval;
-            IR_t * af = build(cx, IR_ASSIGN, γ, ω); IR_LIT(af).sval = t->c[0]->v.sval;
-            IR_t * n1 = build(cx, IR_LIT_INTEGER, at, ω); IR_LIT(n1).ival = 1; ir_operand_push(at, n1);
-            IR_t * n0 = build(cx, IR_LIT_INTEGER, af, ω); IR_LIT(n0).ival = 0; ir_operand_push(af, n0);
-            IR_t * e = lower_cond(cx, rhs, n1, n0); *res = at; return e; }
+            /* RK-ZC-6: use IR_BINOP_RELOP_VAL (materialises DT_I/1 or DT_I/0 unconditionally, no
+             * ω fan-out from the comparison itself) so there is ONE assign node downstream.  The old
+             * two-ASSIGN diamond (at/af each wired to γ, lower_cond wiring n1/n0 as γ/ω of the
+             * BINOP_TEST) misrouted under zframe_graph=1: the UCLAIM planner allocated a single sub-
+             * RSP frame for the whole run, and the BINOP_TEST ω resolved to the statement-level ω
+             * rather than the in-run false-lit node, jumping into the NEXT statement's true-path
+             * evaluation after popping the entire 832B frame (measured: 6-comparison smoke printed
+             * garbage for every false result after the first true result in the sequence). */
+            IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
+            IR_t * op = build(cx, IR_BINOP_RELOP_VAL, nd, ω); IR_LIT(op).ival = lc_binop_code(rhs->t);
+            IR_t * lr = NULL, * rr = NULL;
+            IR_t * ea = lower_rv(cx, rhs->c[0], NULL, ω, &lr);
+            IR_t * eb = lower_rv(cx, rhs->c[1], op, ω, &rr);
+            γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
+            ir_operand_push(nd, op); *res = nd; return ea; }
         IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
         IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); if (rr) ir_operand_push(nd, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
