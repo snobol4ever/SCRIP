@@ -10,6 +10,8 @@ static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_cells_stamp(IR_graph_t * g) { static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_PL_CELLS"); _on = (e && *e == '1') ? 1 : 0; } if (_on && g) g->pl_cells_graph = 1; }   /* PL-ZK-0: opt-IN stamp per R-PL-ZK-A. SCRIP_PL_CELLS=1 routes this graph to the per-BB RSP FORTH cells arm. Unset = current ZD path byte-identical. THIS IS THE ONE SETTER — no second spelling anywhere. Called at every IR_alloc site in lower_prolog.c (5 sites). Mutual exclusion with zframe_graph is structural: lower_icon.c owns zframe_graph; lower_prolog.c never touches it. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_var_name(int slot) {
     static char * cache[1024]; static char buf[24];
     if (slot >= 0 && slot < 1024) { if (!cache[slot]) { snprintf(buf, sizeof buf, "G%d", slot); cache[slot] = strdup(buf); } return cache[slot]; }
@@ -764,6 +766,7 @@ static void pl_bounded_dump(const IR_graph_t * g) {
 IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     IR_graph_t * g = IR_alloc(256);
+    pl_cells_stamp(g);   /* PL-ZK-0 site 1/5 */
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
@@ -808,6 +811,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
     else return -1;
     if (arity < 0) arity = 0;
     IR_graph_t * g = IR_alloc(1024);
+    pl_cells_stamp(g);   /* PL-ZK-0 site 2/5 */
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
@@ -875,6 +879,7 @@ static int lower_pl_choice_graph(const tree_t *choice) {
     if (!any) return -1;
     IR_graph_t *g = IR_alloc(8);
     if (!g) return -1;
+    pl_cells_stamp(g);   /* PL-ZK-0 site 3/5 */
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t *nd = IR_node_alloc(g, IR_OP_COUNT);
@@ -946,6 +951,7 @@ static void pl_dyn_mark_prepass(void) {
 static int lower_pl_dyniter_graph(const char *name, int arity) {
     IR_graph_t *g = IR_alloc(64);
     if (!g) return -1;
+    pl_cells_stamp(g);   /* PL-ZK-0 site 4/5 */
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
@@ -970,6 +976,7 @@ static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm
     { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (resolve_bb_lookup(key, nparams)) return; }
     IR_graph_t * g = IR_alloc(64);
     if (!g) return;
+    pl_cells_stamp(g);   /* PL-ZK-0 site 5/5 */
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = nparams;
     g->pnames = (const char **) calloc((size_t) nparams, sizeof(const char *)); for (int i = 0; i < nparams; i++) g->pnames[i] = pl_param_name(i);
