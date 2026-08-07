@@ -950,5 +950,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         }
     }
     rk_reclassify_calls();
+    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_RK_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* RK-ZC-2 (mirrors ICN-FR-2 lower_icon.c:1422): carry Raku graphs onto the ζ-cells-on-stack regime; killswitch SCRIP_RK_ZFRAME=0 restores the pre-rung path byte-exactly */
+      if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
     return &g_stage2;
 }
