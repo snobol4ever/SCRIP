@@ -82,4 +82,16 @@ RTX_FUNC(rt_gen_spine_pass_ω)
     ret
 RTX_ENDF(rt_gen_spine_pass_ω)
 
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_gen_get_fb(void) -- ICN-FR-4 ZFRAME GENERATOR RESUME: returns generator_rbp from pcall[top-1].fb,
+ * set by rt_jmp_frame_lexprep2 at the generator's α prologue.  The β arm does:
+ *   call rt_gen_spine_resume_enter   ; k_level++
+ *   call rt_gen_get_fb               ; rax = generator_rbp
+ *   jmp  [rax + cont_off]            ; jump to stored β continuation in generator frame
+ * No asm shortcut: reading g_pcall (a C struct pointer) requires the C body. Always delegate. */
+RTX_FUNC(rt_gen_get_fb)
+    RTX_GATE(icngen, c_rt_gen_get_fb)   /* RTX disabled: jmp C twin */
+    jmp c_rt_gen_get_fb                 /* RTX enabled: also use C twin (no asm shortcut) */
+RTX_ENDF(rt_gen_get_fb)
+
 .section .note.GNU-stack,"",@progbits

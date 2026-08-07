@@ -319,11 +319,12 @@ static std::string xa_flat_zframe_prologue_str(void) {
     if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
     int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
     int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
-    std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller_rbp + pin rbp=rsp")
+    std::string s = x86("comment", "ICN-FR-2/FR-4 zframe prologue: sub rsp,kt + wire header [kt-32]=caller_rbp [kt-24]=γ [kt-16]=ω [kt-8]=pad + pin rbp=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + (emit_jmp_pin_rbp() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
+         + (emit_jmp_pin_rbp() ? /* ICN-FR-4: old_rbp stored at [rsp+kt-32] = INSIDE the frame (not [rsp+kt-8] = [entry_rsp-8] which is within reach of C calls in the caller after yield, clobbering old_rbp → SEGV on β-resume). [rsp+kt-8] becomes an alignment pad. */
+                                  x86("mov", "[rsp + " + std::to_string(kt - 32) + "]", "rbp")
                                 + x86("mov", "rbp", "rsp")
                                : std::string());
     if (g_emit.flat_lex) {   /* PL-FR-2 LEX SEED ARM: lexical graphs (Prolog + det-lex Icon procs) carry a pcall record with a lex seed; call rt_jmp_frame_lexprep2(fb=rbp, suffix_off, region_bytes=kt-32) which runs: pcall registration (c->fb=fb) + slot0 NULVCL + suffix NULVCL splat + rt_frame_bind_args (g_call_args→frame slots, NULVCL pad).  Behavioral discriminator: flat_lex==1 iff the activation is lexical-scope and non-LBL__ — exactly the graphs whose open_detN/open_genN pushed a pcall record that lexprep2 can read.  seed_off=0 case falls back to full fill. */
@@ -376,12 +377,13 @@ static std::string xa_flat_zframe_prologue_str(void) {
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
-    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi (frame0 for rt_proc_call_epilogue_γ on non-dc path); unwind; restore caller rbp; jmp γ wire")
-         + x86("mov", "rdi", "rax")   /* frame0.v — rt_proc_epilogue_body reads frame0 for lex procs; dc-stub shim ignores rdi */
-         + x86("mov", "rsi", "rdx")   /* frame0.i */
+    return x86("comment", "ICN-FR-2/FR-4 zframe epilogue-γ: load frame0 into rdi:rsi; pass generator_rbp in rax to L(3); unwind; restore caller rbp from [rbp+kt-32]; jmp γ wire")
+         + x86("mov", "rdi", "[rbp + 0]")   /* ICN-FR-4: frame0.v = FRQ(0) */
+         + x86("mov", "rsi", "[rbp + 8]")   /* ICN-FR-4: frame0.i = FRQ(8) */
+         + x86("mov", "rax", "rbp")         /* ICN-FR-4: pass generator_rbp to L(3) in rax */
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 24) + "]")
-         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
+         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 32) + "]")   /* ICN-FR-4: old_rbp now at kt-32 (inside frame, not [entry_rsp-8]) */
          + x86("jmp", "rcx");
 }
 /* ICN-FR-2: ζ-FRAME EPILOGUE ω (failure port).
@@ -389,10 +391,10 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
-    return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp; jmp")
+    return x86("comment", "ICN-FR-2/FR-4 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp from [rbp+kt-32]; jmp")
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 16) + "]")
-         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
+         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 32) + "]")   /* ICN-FR-4: old_rbp at kt-32, not kt-8 */
          + x86("jmp", "rcx");
 }
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
