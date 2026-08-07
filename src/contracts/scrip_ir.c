@@ -282,8 +282,8 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         g->n_vslots = 0;
         int np = g->nparams;
         int nl = g->nlocals;
-        for (int i = 0; i < np; i++) if (g->pnames && g->pnames[i]) drv_vslot_push(g, g->pnames[i], -(i + 1) * 16);
-        for (int j = 0; j < nl; j++) if (g->lnames && g->lnames[j]) drv_vslot_push(g, g->lnames[j], -(np + j + 1) * 16);
+        for (int i = 0; i < np; i++) if (g->pnames && g->pnames[i]) drv_vslot_push(g, g->pnames[i], (i + 1) * 16);
+        for (int j = 0; j < nl; j++) if (g->lnames && g->lnames[j]) drv_vslot_push(g, g->lnames[j], (np + j + 1) * 16);
         /* ICN-FR-3 implicit-local scan: Icon treats any undeclared variable in a procedure body as an implicit local.  SCRIP's lowerer only populates lnames/nlocals for explicitly declared `local` names.  Variables used in `initial` bodies or elsewhere without a `local` declaration are implicit locals — they need a frame slot to be read and written correctly.  Scan all IR_VAR and IR_ASSIGN nodes for names that are (a) not global (is_global), (b) not already vslotted (ir_varslot_of < 0).  Grant each a new frame slot at [rbp-(np+nl+k+1)*16] in discovery order, where k counts newly added slots.  drv_vslot_push's no-dup guard makes re-encountering the same name a no-op.  SN4/Prolog/Raku/Pascal watermark: zframe_graph=0 for all non-Icon graphs; this scan is structurally invisible.  ONE AUTHORITY per TE-4 law. */
         { extern int is_global(const char *); int k = 0;
           for (int qi = 0; qi < g->n; qi++) { IR_t *qn = g->all[qi]; if (!qn) continue;
@@ -292,7 +292,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
               if (is_global(vn)) continue;
               if (ir_varslot_of(g, vn) != -1) continue;
               int before = g->n_vslots;
-              drv_vslot_push(g, vn, -(np + nl + k + 1) * 16);
+              drv_vslot_push(g, vn, (np + nl + k + 1) * 16);   /* POSITIVE: rt_icn_zframe_args_install uses [rbp+(i+1)*16]; FRQ(off) with pinned rbp = [rbp+off]; positive offsets address INTO the data region below the wire header */
               if (g->n_vslots > before) k++;
           }
         }
