@@ -34,7 +34,9 @@ std::string bb_to() {
                  + x86("note",  ZRESN()) + x86("mov", ZRES(8),  "rax")
                  + x86_gamma()
                  + x86_beta()
-                 + x86("inc",   ZLOC(0))
+                 + x86("mov",   "rax",   ZLOC(0))
+                 + x86("inc",   "rax")
+                 + x86("mov",   ZLOC(0), "rax")
                  + x86("jmp",   L(0));
         return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
                _.op_num_real ?
