@@ -228,7 +228,6 @@ n8_match_end_α:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 192
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_string_α:

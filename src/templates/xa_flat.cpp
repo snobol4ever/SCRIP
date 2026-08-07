@@ -198,7 +198,7 @@ static std::string xa_flat_dc_stub_str(void) {
     uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
     static const char *argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    if (g_emit.zframe_graph) {   /* ICN-FR-2 ZFRAME DC STUB: stage args into g_call_args via rt_arg_stage, then jmp proc_f_α (not body) so the ζ-frame prologue runs.
+    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) {   /* ICN-FR-2 ZFRAME DC STUB / ZK-4 SLICE 2 CELLS-ARM CLASS ZF: stage args into g_call_args via rt_arg_stage, then jmp proc_f_α (not body) so the prologue runs.  ZK-4 SLICE 2 ROOT CAUSE: the old non-zframe DC stub (sub rsp,kt+16) allocated only flat_frame_bytes+16 bytes, but the CLASS ZF epilogue (xa_flat_wire_hdr_base) uses flat_frame_bytes+(np+nl)*16 as kt_adjusted.  For f1 (np=1,nl=1) kt_adjusted=224 but DC stub sub'd 208+16=224 but with rbp pinned at DC-stub's rsp the epilogue lea rsp,[rbp+224] lands ABOVE the DC stub frame top, 32 bytes off — SEGV on exit after correct output.  The arg-staging path (rt_arg_stage→g_call_args, jmp lbl_α so flat_lcl_proc prologue runs sub rsp,frame_total+installs) is identical to the zframe path: rt_lcl_proc_args_install reads g_call_args[], so staging there feeds it correctly.  CLASS ZF predicate here mirrors xa_flat_class_zf() ONE AUTHORITY.
      * The site `call`s here with arg CELL POINTERS in rsi/rdx/rcx/r8. This arm stages each into g_call_args[i] then sets wire shims and jumps proc_f_α.
      * proc_f_α: sub rsp,kt; wire-header [kt-24]=rcx [kt-16]=rdx [kt-8]=caller_rbp; pin rbp=rsp; rt_icn_zframe_args_install(rbp,np,nl) reads g_call_args[0..np-1].
      * γ exit: lea rsp,[rbp+kt] (= pushed-r11 rsp level); restore caller rbp; jmp shim_γ via [rbp+kt-24].
@@ -319,12 +319,11 @@ static std::string xa_flat_zframe_prologue_str(void) {
     if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
     int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
     int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
-    std::string s = x86("comment", "ICN-FR-2/FR-4 zframe prologue: sub rsp,kt + wire header [kt-32]=caller_rbp [kt-24]=γ [kt-16]=ω [kt-8]=pad + pin rbp=rsp")
+    std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller_rbp + pin rbp=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + (emit_jmp_pin_rbp() ? /* ICN-FR-4: old_rbp stored at [rsp+kt-32] = INSIDE the frame (not [rsp+kt-8] = [entry_rsp-8] which is within reach of C calls in the caller after yield, clobbering old_rbp → SEGV on β-resume). [rsp+kt-8] becomes an alignment pad. */
-                                  x86("mov", "[rsp + " + std::to_string(kt - 32) + "]", "rbp")
+         + (emit_jmp_pin_rbp() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
                                 + x86("mov", "rbp", "rsp")
                                : std::string());
     if (g_emit.flat_lex) {   /* PL-FR-2 LEX SEED ARM: lexical graphs (Prolog + det-lex Icon procs) carry a pcall record with a lex seed; call rt_jmp_frame_lexprep2(fb=rbp, suffix_off, region_bytes=kt-32) which runs: pcall registration (c->fb=fb) + slot0 NULVCL + suffix NULVCL splat + rt_frame_bind_args (g_call_args→frame slots, NULVCL pad).  Behavioral discriminator: flat_lex==1 iff the activation is lexical-scope and non-LBL__ — exactly the graphs whose open_detN/open_genN pushed a pcall record that lexprep2 can read.  seed_off=0 case falls back to full fill. */
@@ -374,27 +373,51 @@ static std::string xa_flat_zframe_prologue_str(void) {
  * Then loads the γ wire from [rbp+kt-24], restores caller rbp from [rbp+kt-8], and jmps the wire.
  * This is the FR-3 exit protocol expressed in FR-2 so simple procs (f0/f1/fib) exit correctly.
  * Depth-immune because it reads through the PINNED rbp (depth-independent by construction). */
-static std::string xa_flat_zframe_epilogue_γ_str(void) {
-    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
+/* ⭐ ONE AUTHORITY for the CLASS-ZF wire-header base (s215, ZK-4 SLICE 1 — the s22k law: this constant is spelled HERE and nowhere else).
+ * The header triple always sits at [base-24]=γ [base-16]=ω [base-8]=caller-rbp, but WHICH base depends on which prologue carved the frame:
+ *   ZFRAME regime (xa_flat_zframe_prologue): carves exactly flat_frame_bytes, param slots INSIDE it  → base = flat_frame_bytes.
+ *   CELLS regime  (the flat_lcl_proc prologue, emit.cpp ICN-PROC-FRAME): carves flat_frame_bytes + (np+nl)*16, param/local slots ADDED ON → base = that total.
+ * Reading the wrong base under-reads by (np+nl)*16 (16 bytes on f1: header at 136 read as 120) and jmps a garbage wire.
+ * MUST STAY IN LOCKSTEP with emit.cpp's `frame_total` in the flat_lcl_proc prologue arm — same expression, two consumers. */
+static int xa_flat_wire_hdr_base(void) {
     int kt = g_emit.flat_frame_bytes;
-    return x86("comment", "ICN-FR-2/FR-4 zframe epilogue-γ: load frame0 into rdi:rsi; pass generator_rbp in rax to L(3); unwind; restore caller rbp from [rbp+kt-32]; jmp γ wire")
-         + x86("mov", "rdi", "[rbp + 0]")   /* ICN-FR-4: frame0.v = FRQ(0) */
-         + x86("mov", "rsi", "[rbp + 8]")   /* ICN-FR-4: frame0.i = FRQ(8) */
-         + x86("mov", "rax", "rbp")         /* ICN-FR-4: pass generator_rbp to L(3) in rax */
+    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
+    return kt;
+}
+/* CLASS-ZF admission predicate — ONE AUTHORITY (s215).  ZFRAME graphs by their own flag; CELLS-arm lexical procs because the flat_lcl_proc
+ * prologue writes the IDENTICAL header triple (verified f1: sub rsp,160 / [rsp+136]=rcx / [rsp+144]=rdx / [rsp+152]=rbp / mov rbp,rsp).
+ * WHY the cells arm needs this: CLASS P (_wire_stub → bb_glue_wire_γ/ω → rt_flat_ret_snap → g_pcall_wires[]) requires a pcall record, but the
+ * cells-arm call site enters via the DC stub (rt_pl_dc_prep) which pushes NONE — g_pcall_top==0 → core error 18 "Return from level zero" on
+ * every proc call.  The header read is self-contained and needs no runtime record, which is exactly why ICN-FR-3 chose it for ZFRAME. */
+static int xa_flat_class_zf(void) {
+    if (g_emit.zframe_graph) return 1;
+    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) return 1;
+    return 0;
+}
+static std::string xa_flat_zframe_epilogue_γ_str(void) {
+    if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
+    int kt = xa_flat_wire_hdr_base();
+    int cells = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY: cells-arm CLASS ZF needs add rsp,16 after lea rsp,[rbp+kt] to consume the dc stub's 16B residue (pop r11 + N push r11 + push arg + add rsp,16 = net -16 before jmp proc_f_α; see ZK-4-SLICE2-ROOT-CAUSE). ZFRAME arm is depth-immune via pinned rbp and must NOT get the +16. */
+    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi (frame0 for rt_proc_call_epilogue_γ on non-dc path); unwind; restore caller rbp; jmp γ wire")
+         + x86("mov", "rdi", "rax")   /* frame0.v — rt_proc_epilogue_body reads frame0 for lex procs; dc-stub shim ignores rdi */
+         + x86("mov", "rsi", "rdx")   /* frame0.i */
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+         + (cells ? x86("add", "rsp", 16L) : std::string())   /* ZK-4 SLICE 2: consume dc stub 16B residue so caller's landing sees rsp = pre-call rsp (not pre-call - 16). */
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 24) + "]")
-         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 32) + "]")   /* ICN-FR-4: old_rbp now at kt-32 (inside frame, not [entry_rsp-8]) */
+         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
          + x86("jmp", "rcx");
 }
 /* ICN-FR-2: ζ-FRAME EPILOGUE ω (failure port).
  * Same absolute-unwind shape as γ but reads the ω wire from [rbp+kt-16]. */
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
-    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
-    int kt = g_emit.flat_frame_bytes;
-    return x86("comment", "ICN-FR-2/FR-4 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp from [rbp+kt-32]; jmp")
+    if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
+    int kt = xa_flat_wire_hdr_base();
+    int cells = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY twin: ω exit has the same dc stub residue. */
+    return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp; jmp")
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+         + (cells ? x86("add", "rsp", 16L) : std::string())   /* ZK-4 SLICE 2: consume dc stub 16B residue. */
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 16) + "]")
-         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 32) + "]")   /* ICN-FR-4: old_rbp at kt-32, not kt-8 */
+         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
          + x86("jmp", "rcx");
 }
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
