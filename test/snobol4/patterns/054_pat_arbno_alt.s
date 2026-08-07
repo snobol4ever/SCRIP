@@ -169,6 +169,7 @@ n6_match_begin_β:
                                                                                         jne   .Lx41_1
                                                                                         jmp   .Lx41_0
 .Lx41_1:
+n6_match_begin_af:
                         sub              r12, 24                                        # cas_mark
                         mov              rsp, qword ptr [r12 + 8]                       # cas_rsp_mark
                         mov              r13, qword ptr [rbp + 96]                      # outer_Σ
