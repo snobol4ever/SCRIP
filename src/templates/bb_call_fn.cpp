@@ -135,12 +135,12 @@ static std::string sink_carve48_take(void) {
 static std::string sink_kid(const char * creg, int koff, int lunb, int lbnd, int ljoin) {
     std::string s = sink_unb(creg, lunb, lbnd);
     s += x86_deflabel_id(lunb);
-    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str(), (long)13);
+    s += x86("mov", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str(), (long)DT_PLVAR);
     s += x86("lea", "rax", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str());
     s += x86("mov", (std::string("[rdx + ") + std::to_string(koff + 8) + "]").c_str(), "rax");
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
     s += sink_tp_nc(creg);
-    s += x86("mov", (std::string("[") + creg + " + 0]").c_str(), (long)13);
+    s += x86("mov", (std::string("[") + creg + " + 0]").c_str(), (long)DT_PLVAR);
     s += x86("lea", "rax", (std::string("[rdx + ") + std::to_string(koff) + "]").c_str());
     s += x86("mov", (std::string("[") + creg + " + 8]").c_str(), "rax");
     s += x86_jmp_id(ljoin);
@@ -331,7 +331,7 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += sink_kid("rcx", 16, 92, 93, 94);
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
     s += sink_tp_nc("r8");
-    s += x86("mov", "dword ptr [r8 + 0]", (long)14);
+    s += x86("mov", "dword ptr [r8 + 0]", (long)DT_PLREF);
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
     s += x86("mov", "eax", "dword ptr [r10 + 0]");
     s += x86("mov", "dword ptr [r8 + 4]", "eax");
@@ -567,7 +567,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         int vi = 1 - cui;
         s += marshal_call_arg((subs && subs[vi]) ? subs[vi]->entry : ir_call_arg(pBB, vi), (subs && subs[vi]) ? subs[vi] : NULL, argbase, _.node, vi);
     } else {
-        for (int i = 0; i < nargs; i++)
+        for (int i = nargs - 1; i >= 0; i--)   /* PAS-ZF-6 alias fix: marshal highest arg first — argbase = resoff+16 overlaps the ZLS source region; forward copy clobbers source[i+1] before it is consumed; reverse order is safe because ZLS assigns offsets in chain order (op_arg_slot[i] < op_arg_slot[i+1]) so each reverse write lands above the remaining unread sources */
             s += marshal_call_arg((subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i), (subs && subs[i]) ? subs[i] : NULL, argbase + i * 16, _.node, i);
     }
     if (dfp && cui >= 0) {

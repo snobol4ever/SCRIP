@@ -1420,7 +1420,7 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
     }
     lower_icon_resolve_call_kinds();
     { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_ICN_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* ICN-FR-2 killswitch: default ON; SCRIP_ICN_ZFRAME=0 leaves zframe_graph=0 → pre-FR-2 HEAD path byte-exactly (zframe_graph calloc-zeroed by IR_alloc, no write needed for the off path) */
-      if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
+      if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && !g_stage2.bbp.table[_gi]->icn_cells_graph) g_stage2.bbp.table[_gi]->zframe_graph = 1; }   /* R-ZK-A ENFORCEMENT (m3 CELLS=1 SEGV, s214): cells-arm graphs must NOT receive zframe_graph=1 — the driver's ICN-FR-2 branch (scrip.c:1614 zframe_graph check) routes zframe=1 graphs through icn_zf_main_call which passes rcx/rdx wire pointers the cells arm never reads (no [rbp+kt-24/-16] header), causing immediate SEGV.  R-ZK-A ruling: one graph is NEVER in both arms; icn_cells_graph=1 suppresses zframe stamping here.  SCRIP_ICN_CELLS=0 → icn_cells_graph=0 for all graphs → stamp is unconditional → byte-identical to pre-fix HEAD.  ADDITIVE: no ZFRAME graph changed; the conjunct is invisible when CELLS is off. */
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

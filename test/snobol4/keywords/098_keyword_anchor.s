@@ -282,7 +282,6 @@ n13_match_end_α:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 144
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n14_statement_end_α:
@@ -497,7 +496,6 @@ n23_match_end_α:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 272
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n24_statement_end_α:

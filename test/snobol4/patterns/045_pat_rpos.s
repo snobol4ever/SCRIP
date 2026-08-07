@@ -170,6 +170,7 @@ n9_match_assign_save_α:
                                                                                         jmp   n10_match_len_α
 n9_match_assign_save_β:
                         add              rsp, 16
+                        add              rsp, 256
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_len_α:
@@ -259,7 +260,6 @@ n12_match_end_α:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 176
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n13_statement_end_α:

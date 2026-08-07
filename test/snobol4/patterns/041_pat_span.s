@@ -149,6 +149,7 @@ n7_match_assign_save_α:
                                                                                         jmp   n8_match_span_α
 n7_match_assign_save_β:
                         add              rsp, 16
+                        add              rsp, 224
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_span_α:
@@ -185,7 +186,7 @@ n8_match_span_α:
                         cmp              ecx, r14d
                                                                                         jg    .Lx37_240
                         add              rsp, 16
-                        add              rsp, 16
+                        add              rsp, 256
                                                                                         jmp   n6_match_begin_β
 .Lx37_240:
                         mov              dword ptr [rsp + 116], r14d
@@ -194,7 +195,7 @@ n8_match_span_α:
 n8_match_span_β:
                         mov              r14d, dword ptr [rsp + 116]
                         add              rsp, 16
-                        add              rsp, 16
+                        add              rsp, 256
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:
@@ -269,7 +270,6 @@ n10_match_end_α:
                         call             rt_match_ctx_restore@PLT
                         lea              rsp, [rbp + -8]                                # whack
                         pop              rbp
-                        add              rsp, 160
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_end_α:
