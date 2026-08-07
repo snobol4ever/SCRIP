@@ -1297,10 +1297,16 @@ const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt
  * result through to rax:rdx, ω synthesizes FAILDESCR) which take the counter back down.  Nested resumed generators compose: each hop is ±1 around its own resume span.  Strict leaves in the s22 sense —
  * no frame, no transfer, one counter and a marshal. */
 DESCR_t c_rt_gen_spine_pass_γ(DESCR_t v) { rt_k_level--; return v; }
+/* ICN-FR-4 NOTE: the resumed-delivery DESCR_t correctness is now ensured by xa_flat_zframe_epilogue_γ
+ * loading rdi:rsi from [rbp+0]:[rbp+8] (= FRQ(0/8) = bb_suspend's stored yield value) rather than from
+ * rax:rdx (where rax = last FRQ(op_sa+8) load = i-field only).  This pass_γ function is a strict
+ * pass-through in BOTH C and RTX forms — the fix lives in the epilogue that feeds rdi:rsi. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_gen_spine_pass_ω(void) { rt_k_level--; return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_gen_spine_resume_enter(void) { rt_k_level++; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *c_rt_gen_get_fb(void) { return (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].fb : (void *)0; }   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
 {

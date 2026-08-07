@@ -24,6 +24,8 @@ DESCR_t rt_proc_resume_frame_h(void **hslot);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
+void   *rt_gen_get_fb(void);   /* ICN-FR-4: returns generator frame base (pcall.fb) for zframe β-resume dispatch */
+int     zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee resume-slot lookup by name (zeta_storage.c; scans zg[] once per call-site; result baked as immediate) */
 int  rt_proc_is_generator(const char *name);
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
@@ -546,6 +548,20 @@ static std::string bcps_spine_gen_arm() {
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t getfb_fp; { void *(*fp)(void) = rt_gen_get_fb; getfb_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    /* ICN-FR-4 ZFRAME GENERATOR RESUME — emit-time callee resume-slot lookup.
+     * Under the zframe model (g_emit.zframe_graph=1), the generator's γ epilogue absolutely unwinds the
+     * deep stack (lea rsp,[rbp+kt]).  The non-zframe resume record ({res-landing, callee_rbp} at the FORTH
+     * frontier) is not retained.  Instead we jump to the generator's stored β continuation via:
+     *   call rt_gen_get_fb       → rax = generator_rbp (stored in pcall.fb by rt_jmp_frame_lexprep2)
+     *   jmp  [rax + zf_cont_off] → reaches n1_suspend_β / n3_suspend_β / ... (the next body segment)
+     * zf_cont_off = zls_g_resume_by_name(callee) is the byte offset in the generator's frame where bb_suspend
+     * stores the next continuation address via `lea rax,[rip+n_suspend_β]; mov [rbp+cont_off], rax`.
+     * zls_g_resume_by_name is emit-time-only (scans zg[] by name) and bakes the offset as an immediate.
+     * zframe_graph=0 for all SN4/Prolog/Raku/Pascal graphs by law R-ICN-D — non-zframe generators keep the
+     * original push/jmp[rsp] protocol unchanged (byte-identical). */
+    int  zf_cont_off = (g_emit.zframe_graph && _.op_sval) ? ([]() { extern int zls_g_resume_by_name(const char *); return zls_g_resume_by_name(_.op_sval); })() : -1;
+    bool zf_resume   = g_emit.zframe_graph && (zf_cont_off >= 0);
     /* PL-GENIDX-1 (2026-07-25) — EMIT-TIME-RESOLVED CALLEE FOR THE *GENERATOR* SITE.  PL-REGAIN-1 slice A (s100) gave the DET arm an index-based open (no FNV hash, no strcmp, and the fused leaf returns
      * the fn pointer so the separate rt_proc_open_fn crossing dies).  THE GENERATOR ARM NEVER GOT IT — and every nondet Prolog predicate (`app/3`, `nrev/2`, every multi-clause pred) is dispatched HERE,
      * so the whole Prolog hot corpus was re-hashing its callee's NAME STRING on every one of ~10M calls.  Measured: 6/6 nrev call sites emitted the name path, 0 the index path; rt_proc_fnv +
@@ -568,6 +584,11 @@ static std::string bcps_spine_gen_arm() {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return stage_arg_inline(i, slot, stage_fp);
     })
+         /* ICN-FR-4: zframe path needs NO stack guard before open. old_rbp is now stored at [rbp+kt-32]
+          * (inside the generator's allocated frame, not at [entry_rsp-8] where C callers push return addresses).
+          * Header relocation in xa_flat_zframe_prologue/epilogue is the structural fix. No padding needed here.
+          * Non-zframe: push rax (L(7) landing word) provides the FORTH resume record at [rsp]; unchanged. */
+         + (zf_resume ? std::string("") : x86_lea_id("rax", 7) + x86("push", "rax"))
          + (gi_idx >= 0
             ? x86("mov32", "edi", (long)gi_idx)
             + x86("mov32", "esi", (long)_.op_ival)
@@ -580,7 +601,14 @@ static std::string bcps_spine_gen_arm() {
          + (gi_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
          + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
          + x86("def", L(3))
-         + x86("mov", FRQ(act + 8), "rsp")
+         /* ICN-FR-4 zframe: rax = generator_rbp (set by xa_flat_zframe_epilogue_γ: mov rax,rbp before rbp restore).
+          * Save to FRQ(act+8) WITHOUT a call — any call at rsp=generator_entry_rsp would push the return address
+          * to [generator_entry_rsp-8] = generator's old_rbp header slot, permanently corrupting it.
+          * Non-zframe: rax is the epilogue's return value (unrelated); save rsp for FORTH [rsp] resume record. */
+         + (zf_resume
+            ? x86("mov", FRQ(act + 8), "rax")   /* save generator_rbp (from epilogue) in caller's frame */
+            : x86("mov", FRQ(act + 8), "rsp")   /* non-zframe: save rsp with landing word at [rsp] */
+              + x86("add", "rsp", 8L))           /* pop landing word after save (non-zframe) */
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
@@ -613,8 +641,30 @@ static std::string bcps_spine_gen_arm() {
          + x86_beta()
          + x86_scan_sync_out()
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
-         + x86("mov", "rsp", FRQ(act + 8))
-         + x86_jmp_mem("rsp", 0)
+         /* ICN-FR-4 β RESUME — TWO PATHS:
+          * ZFRAME (zf_resume=true): FRQ(act+8) = generator_rbp (saved at L(3) from epilogue's rax).
+          *   Load it WITHOUT touching the stack at generator_entry_rsp (which would clobber [entry_rsp-8] =
+          *   generator's saved old_rbp header slot). mov rbp,rax + mov rsp,rax re-establish the generator's
+          *   frame; jmp [rax+zf_cont_off] enters the stored β continuation. The xa_flat_zframe_epilogue_γ
+          *   restores caller_rbp from [generator_rbp+kt-8] and fires L(3) again on the next yield. k_level
+          *   was bumped by resume_enter above (while rsp was still in the caller's zone — safe).
+          * NON-ZFRAME: mov rsp,FRQ(act+8) restores frontier where [rsp]=landing word; jmp[rsp]→L(7). */
+         + (zf_resume
+            ? x86("mov", "rax", FRQ(act + 8))   /* generator_rbp: call-free, avoids header-clobber */
+            + x86("mov", "rbp", "rax")           /* pin generator frame base */
+            + x86("mov", "rsp", "rax")           /* set FORTH base to generator_rbp */
+            + x86_jmp_mem("rax", zf_cont_off)    /* jmp to stored β continuation */
+            : x86("mov", "rsp", FRQ(act + 8))
+            + x86_jmp_mem("rsp", 0)
+            + x86("def", L(7))
+            + x86("add", "rsp", 8L)
+            + x86_anchor_leave()
+            + x86_scan_sync_in_rr()
+            + x86("mov", FRQ(off), "rax")
+            + x86("mov", FRQ(off + 8), "rdx")
+            + x86("cmp", "eax", (long)DT_FAIL)
+            + x86_omega("je")
+            + x86_gamma())
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

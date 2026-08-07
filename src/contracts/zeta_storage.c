@@ -898,6 +898,20 @@ int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_resume(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->resume_off : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ICN-FR-4 ZFRAME GENERATOR RESUME — emit-time lookup for the callee's resume-slot byte offset by PROC NAME.
+ * bb_call_proc_staged knows the callee name (_.op_sval) but not the callee's IR_graph_t (cross-graph).
+ * This avoids adding a resume_slot field to rt_proc_t (which has a baked sizeof==128 static-assert) or to
+ * rt_pcall_t (sizeof==64, shl-6 stride baked in rtx_call.S).  zls_graph_t.name is the canonical proc name set
+ * at zls_g_register_scope; the scan is done ONCE at emit time, result baked as an immediate in the template.
+ * Returns -1 when name is NULL, not found, or the graph has no resume slot (non-generator). */
+int zls_g_resume_by_name(const char *name) {
+    if (!name) return -1;
+    for (int i = 0; i < zg_n; i++)
+        if (zg[i].name && strcmp(zg[i].name, name) == 0)
+            return zg[i].resume_off;
+    return -1;
+}
 int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->locals_off : -1; }
 int zls_g_zeta_mark(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->zeta_mark_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

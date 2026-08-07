@@ -22,6 +22,7 @@ int          zls_scope_of(const IR_t * nd);
 int          zls_g_nslots(const IR_graph_t * g);
 int          zls_g_region(const IR_graph_t * g);
 int          zls_g_resume(const IR_graph_t * g);
+int          zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee-resume-slot lookup by proc name; avoids rt_proc_t/rt_pcall_t struct growth */
 int          zls_g_zeta_mark(const IR_graph_t * g);
 int          zls_g_locals(const IR_graph_t * g);
 int          zls_node_bytes(const IR_t * nd);
