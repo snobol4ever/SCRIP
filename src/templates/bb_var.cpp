@@ -8,7 +8,16 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var() {
     x86_begin();
-    if (PLATFORM_X86)
+    if (PLATFORM_X86) {
+        if (_.op_zres)   /* ZK-2 (s212): cells-arm -- local lives at frame slot; read it and write to ZRES(0/8) (this box's own RSP cell). Both media: x86() encoders handle both. ONE AUTHORITY: op_zres gate (same pattern as bb_lit_scalar / bb_var_global). SNOBOL4 watermark: SN4 has no lexical locals so graph_has_local=0 and this arm is invisible by construction. */
+            return x86("comment", "IR_VAR local -> ZRES (ZK-2 cells arm)")
+                 + x86_alpha()
+                 + x86("mov",  "rax", FRQ(_.op_sa))
+                 + x86("mov",  "rdx", FRQ(_.op_sa + 8))
+                 + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+                 + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+                 + x86_gamma()
+                 + x86_beta_trampoline();
         return _.op_off >= 0 && _.op_sa >= 0 ?
                x86("comment", "IR_VAR")
              + x86_alpha()
@@ -19,5 +28,6 @@ std::string bb_var() {
              + x86_gamma()
              + x86_beta_trampoline() :
                x86_bomb("bb_var: unhandled arm (no flat-chain mode or missing slot)");
+    }
     return std::string();
 }

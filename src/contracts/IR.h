@@ -254,6 +254,7 @@ struct IR_graph_t {
     int            ring_head;
     int            ring_depth;
     int            zframe_graph; /* ICN-FR-2: whole-graph ζ frame on rsp — ONE activation frame per graph, wire header above, rbp pinned; set ONLY by lower_icon.c on every graph it produces; never set by any other lowerer (SN4/Prolog/Raku/Pascal invariance guaranteed by construction).  Named for WHAT it decides (\"this graph uses the ζ-frame storage regime\"), never for a language.  Emitter routes on this flag: prologue sub rsp,kt + wire header + pin; epilogue wire-header read + jmp; γ-retain for suspending graphs.  Killswitch SCRIP_ICN_ZFRAME=0 reproduces pre-FR-2 HEAD byte-exactly. */
+    int            icn_cells_graph; /* ZK-0 (s212): 1 = Icon graph admitted to the per-BB ζ-cells-on-RSP-FORTH-spine arm (GOAL-ICN-ZETA-CELLS). Named for WHAT it decides (per-activation RSP cell regime), never a language. Set by lower_icon.c when SCRIP_ICN_CELLS=1; zero in every other lowerer — SN4/Prolog/Pascal byte-identical by construction. Emitter reads it additively at the ZD staging choke. Default 0 = today's path (unset = ZFRAME arm or current ZD regime). APPENDED AT STRUCT END per s141 ABI law. */
 };
 IR_graph_t * IR_alloc(int max_nodes);
 int ir_varslot_of(const IR_graph_t * g, const char * name);
