@@ -2998,11 +2998,11 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gva_collect_graph(IR_graph_t *g) { if (!g) return; for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; if ((nd->op == IR_VAR || nd->op == IR_ASSIGN || nd->op == IR_VAR_REF) && IR_LIT(nd).sval) (void)gva_collect_var(IR_LIT(nd).sval); } }
+void gva_collect_graph(IR_graph_t *g) { if (!g) return; for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue; if ((nd->op == IR_VAR || nd->op == IR_ASSIGN || nd->op == IR_VAR_REF) && IR_LIT(nd).sval) { const char *_gn = IR_LIT(nd).sval; if (!strncmp(_gn, "PATV$", 5)) continue;   /* PB-1s: stage-2 snapshot globals are NV-only — GVA would split the write (ASSIGN→GVA) from the read (DEFER fallback→NV), causing the DEFER to see the uninitialised NV slot */ (void)gva_collect_var(_gn); } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
     extern const char *global_names[]; extern int global_count;
-    for (int i = 0; i < global_count; i++) if (global_names[i]) (void)gva_collect_var(global_names[i]);
+    for (int i = 0; i < global_count; i++) if (global_names[i] && strncmp(global_names[i], "PATV$", 5) != 0) (void)gva_collect_var(global_names[i]);   /* PB-1s: PATV$ snapshot globals excluded (NV-only, same reason as gva_collect_graph exclusion) */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_CATCH_MAX 64

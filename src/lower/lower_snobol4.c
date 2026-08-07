@@ -10,7 +10,7 @@
 int rt_zeta_port_mode(void);
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
-typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; } sprearg_t;
+typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; } sprearg_t;   /* PB-1s: snapg != NULL marks a plain-ref SNAPSHOT entry (VALUE-LEAF class) -- prim is the in-chain IR_VAR whose sval the drain repoints at the hidden stage-2 global; arg is the source TT_VAR tree; str/codes unused */
 typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; } scx_t;
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
@@ -1008,7 +1008,7 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
     if (cx->npre >= 64) sno_fatal("too many runtime pattern-primitive arguments in one statement (operand-edge pre-chain limit 64)", NULL);
     cx->pre[cx->npre].arg = arg; cx->pre[cx->npre].prim = prim;
     cx->pre[cx->npre].str = (t->t == TT_ANY || t->t == TT_NOTANY || t->t == TT_SPAN || t->t == TT_BREAK || t->t == TT_BREAKX);
-    cx->pre[cx->npre].codes = sno_prearg_codes(t->t); cx->npre++;
+    cx->pre[cx->npre].codes = sno_prearg_codes(t->t); cx->pre[cx->npre].snapg = NULL; cx->npre++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail);
@@ -1261,17 +1261,27 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         static int _pb = -1; if (_pb < 0) { const char *_e = getenv("SCRIP_PAT_BUILD"); _pb = (_e && *_e == '0') ? 0 : 1; }
         if (!_pb) { const char * nm = t->v.sval;
         { IR_t * nd = lc_build(g, IR_MATCH_PATREF, succ, NULL); IR_LIT(nd).sval = (char *) nm; sno_fz_mark_defer(g, nd, nm); nd->seal = sno_defer_sealed(nm) ? 1 : (sno_seal_pat(nm) ? 2 : 0);   /* s142 write-once class; OP-SPLIT s21x-f: the EAGER twin — a bare stored-pattern NAME, built eagerly, cannot self-reference (manual p.122), lowers to IR_MATCH_PATREF; every consumer treats the pair identically this slice */ nd->pat_static = sno_name_static(nm);   /* ZD-5 s23i: static-shape patref -- the named next rung's arming population */ sno_ω_to(nd, fail); return nd; } }
-        /* PB-1s SNAPSHOT: MATCH_VALUE reads the plain-ref variable ONCE at its own α (first match entry)
-         * and stores the result into its own ZLS slot.  Subsequent retries (β) re-read the SLOT, not NV —
-         * giving BUILD-time snapshot semantics.  The variable name is stored in mv->sval so the template
-         * can issue the NV read; the IR_VAR producer node carries operand[0] for slot aliasing only.
-         * (Pre-chain hoist was tried and reverted: hoisting the IR_VAR BEFORE MATCH_BEGIN moved it across
-         * the ZLS boundary from claim-relative to header-relative addressing, shifting MATCH_BEGIN's outer-
-         * context save offsets and breaking the subject-DESCR read for every stored-pattern match.) */
-        IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL); IR_LIT(mv).sval = (char *) t->v.sval; sno_ω_to(mv, fail);
-        IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, mv, fail, &vr);
-        if (vr) ir_operand_push(mv, vr);
-        return ec;
+        /* PB-1s SNAPSHOT (Lon 5-stage completion 2026-08-07/08): the plain ref's VALUE is fetched at STAGE 2 (pattern build, once per statement execution / once per MKPAT, left-to-right) into a HIDDEN
+         * GLOBAL; the in-chain IR_VAR then reads that global at scan time, so anchor retries and mid-match $-assignments (manual pp.87-88: 'A' $ X X uses the BUILD snapshot for the second X) see the
+         * frozen stage-2 value.  The global hop is what keeps the ZLS layout untouched -- the reverted pre-chain-slot hoist moved the VAR's 16B cell across the MATCH_BEGIN header boundary and shifted
+         * the outer-context save offsets; a by-name NV read crosses no slot region.  The entry rides cx->pre[] (the OPERAND-EDGE HOIST list, which already owns the once-per-statement-before-the-scan
+         * splice point and the identical-traversal index pairing the MKPAT/patproc drains rely on); the drains repoint prim->sval at the hidden name.  Overflow past 64 leaves sval on the live name =
+         * HEAD's scan-time read, degrade never die.  Killswitch SCRIP_PB_SNAP=0 restores HEAD byte-identical. */
+        /* PB-1s SNAPSHOT: use IR_MATCH_DEFER on a hidden PATV$k global that is frozen by a stage-2 VAR→ASSIGN pre-chain.
+         * IR_MATCH_VALUE+IR_VAR was tried and rejected: VALUE reads a ZLS frame slot (via nd_slot/op_a_slot); a global-reading
+         * IR_VAR has no ZLS slot (zls_off returns -1), so op_a_slot=-1 and the template read undefined memory.
+         * IR_MATCH_DEFER already owns the NV-table acquisition path (GVA / rt_defer_get_pat_fn) and is correct for
+         * by-name global lookups at match time — which is exactly what reading a pre-frozen PATV$ global is. */
+        static int _ps = -1; if (_ps < 0) { const char *_e = getenv("SCRIP_PB_SNAP"); _ps = (_e && *_e == '0') ? 0 : 1; }
+        if (!_ps) {   /* killswitch: fall through to the live-name VAR→MATCH_VALUE path (HEAD behaviour) */
+            IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL); IR_LIT(mv).sval = (char *) t->v.sval; sno_ω_to(mv, fail);
+            IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, mv, fail, &vr);
+            if (vr) ir_operand_push(mv, vr);
+            return ec;
+        }
+        IR_t * mv = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mv, fail);
+        if (cx->npre >= 0 && cx->npre < 64) { cx->pre[cx->npre].arg = t; cx->pre[cx->npre].prim = mv; cx->pre[cx->npre].str = 0; cx->pre[cx->npre].codes = 0; cx->pre[cx->npre].snapg = t->v.sval; cx->npre++; }
+        return mv;
     }
     case TT_REM: {
         IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL);
@@ -1862,6 +1872,18 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
      * per element α — so LEN(1) $ V BREAK(V) sees the PRE-statement V (oracle probe p5). */
     IR_t * after = head;
     for (int pi = 0; pi < cx->npre; pi++) {
+        if (cx->pre[pi].snapg) {   /* PB-1s: stage-2 snapshot -- VAR(live name) -> ASSIGN(hidden global) in the pre-chain; the IR_MATCH_DEFER (prim) fetches the frozen global at scan time by name */
+            static int g_snapctr = 0; char nb[32]; snprintf(nb, sizeof nb, "PATV$%d", g_snapctr++);
+            char * gname = lp_strdup(nb); sno_reg_var(gname);
+            IR_LIT(cx->pre[pi].prim).sval = gname;   /* wire DEFER to the hidden global */
+            sno_fz_mark_defer(g, cx->pre[pi].prim, gname);   /* DEFER FZ registration so zeta_storage sees it */
+            IR_t * asnV = lc_build(g, IR_ASSIGN, after, fJ); IR_LIT(asnV).sval = gname;
+            IR_t * av = NULL;
+            IR_t * ae = sx_lower(cx, cx->pre[pi].arg, asnV, fJ, &av);
+            ir_operand_push(asnV, av);
+            after = ae;
+            continue;
+        }
         IR_t * co = lc_build(g, cx->pre[pi].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, after, fJ);
         IR_LIT(co).ival = cx->pre[pi].codes;
         IR_t * av = NULL;
@@ -2012,7 +2034,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 tx.pat_fail = tno; tx.pat_seal = tno;
                 sno_pat_node(&tx, repl, tok, tno);
                 for (int api = 0; api < tx.npre; api++) {
-                    char abuf[48]; snprintf(abuf, sizeof abuf, "%s$A%d", bn, api);
+                    char abuf[48]; snprintf(abuf, sizeof abuf, tx.pre[api].snapg ? "%s$V%d" : "%s$A%d", bn, api);   /* PB-1s: $V<i> = plain-ref VALUE-LEAF snapshot (stage-2 fetch at THIS assignment); $A<i> = runtime-arg primitive (PAT-ARG-BIND, unchanged); same api index both walks by the identical-traversal invariant */
                     IR_t * asnA = lc_build(g, IR_ASSIGN, pae, fJ); IR_LIT(asnA).sval = lp_strdup(abuf);
                     IR_t * av = NULL;
                     IR_t * ae = sx_lower(&cx, tx.pre[api].arg, asnA, fJ, &av);
@@ -2211,7 +2233,7 @@ void sno_expr_thunks_build(int x0) {
     g_sno_in_patproc = 1;
     for (int xi = x0; xi < g_sno_nexpr; xi++) {
         IR_graph_t * gx = IR_alloc(256);
-        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = g_sno_exprs[xi].name; ex.pat_fail = NULL; ex.pat_seal = NULL;
+        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = g_sno_exprs[xi].name; ex.pat_fail = NULL; ex.pat_seal = NULL; ex.npre = 0;   /* PB-1s hygiene: npre was uninitialized in this context -- any sno_pat_node reached under an expr thunk read garbage */
         IR_t * ok = lc_build(gx, IR_SUCCEED, NULL, NULL);
         IR_t * no = lc_build(gx, IR_FAIL, NULL, NULL);
         IR_t * sJ = lc_build(gx, IR_GOTO, ok, NULL);
@@ -2252,6 +2274,7 @@ void sno_pat_thunks_build(int p0) {
             extern tree_t *ast_stmt_new(tree_e kind);
             IR_t * paft = pe;
             for (int api = 0; api < px.npre; api++) {
+                if (px.pre[api].snapg) { char vbuf[48]; snprintf(vbuf, sizeof vbuf, "%s$V%d", g_sno_pats[pi2].name, api); char * vg = lp_strdup(vbuf); sno_reg_var(vg); IR_LIT(px.pre[api].prim).sval = vg; sno_fz_mark_defer(gp, px.pre[api].prim, vg); continue; }   /* PB-1s: DEFER reads the $V<i> global (frozen at MKPAT = stage-2); no COERCE, no operand edge */
                 IR_t * co = lc_build(gp, px.pre[api].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, paft, no);
                 IR_LIT(co).ival = px.pre[api].codes;
                 char abuf[48]; snprintf(abuf, sizeof abuf, "%s$A%d", g_sno_pats[pi2].name, api);
