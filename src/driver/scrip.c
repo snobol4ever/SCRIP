@@ -1266,7 +1266,7 @@ int main(int argc, char **argv)
             emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_DCAP_TOP (rtx_init.c _Static_assert) */
             /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
             emit_textf("  xor esi, esi\n");
-            if (bbg->zframe_graph) {   /* ICN-FR-2: ζ-frame main needs γ/ω wires in rcx/rdx on entry — the prologue saves them at [rsp+kt-24/-16] for the epilogue's direct read.  Emit two tiny exit-wire thunks (γ=exit(0), ω=exit(1)) and load their RIP-relative addresses before the jmp.  The thunks sit between main: and main_α — unreachable by fall-through (the jmp skips them), reachable only via the wire-return jmp rcx/rdx from main_γ/ω. */
+            if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main needs γ/ω wires in rcx/rdx on entry — the prologue saves them at [rsp+kt-24/-16] for the epilogue's direct read.  Emit two tiny exit-wire thunks (γ=exit(0), ω=exit(1)) and load their RIP-relative addresses before the jmp.  The thunks sit between main: and main_α — unreachable by fall-through (the jmp skips them), reachable only via the wire-return jmp rcx/rdx from main_γ/ω.  R-ZK-A DEFENCE: icn_cells_graph exclusion prevents double-dispatch when both CELLS and ZFRAME are armed (defence-in-depth; lower_icon.c's stamp loop is the primary enforcement site). */
                 emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");
@@ -1611,7 +1611,7 @@ int main(int argc, char **argv)
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
             { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
-            if (bbg->zframe_graph) {   /* ICN-FR-2: ζ-frame main — supply γ/ω exit wires in rcx/rdx before entering the graph */
+            if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main — supply γ/ω exit wires in rcx/rdx before entering the graph.  R-ZK-A DEFENCE: cells-arm graphs (icn_cells_graph=1) use rt_outer_call — they establish their own rbp pin via GLUE-O enter and restore via `mov rsp,rbp; pop rbp`; passing rcx/rdx wires they never read would corrupt the FORTH spine depth at entry. */
                 icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, (void *)icn_zf_exit_ω);
             } else
             { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): mode-3's OUTSIDE seeds the environment register — push r12 / mov r12,[RT_DCAP_TOP] / call / pop r12 (rt.c thunk); twin of the mode-4 wrapper seed, and closes the old in-blob seed's caller-r12 ABI clobber */
