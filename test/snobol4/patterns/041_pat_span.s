@@ -149,7 +149,6 @@ n7_match_assign_save_α:
                                                                                         jmp   n8_match_span_α
 n7_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 224
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_span_α:
@@ -186,7 +185,7 @@ n8_match_span_α:
                         cmp              ecx, r14d
                                                                                         jg    .Lx37_240
                         add              rsp, 16
-                        add              rsp, 256
+                        add              rsp, 16
                                                                                         jmp   n6_match_begin_β
 .Lx37_240:
                         mov              dword ptr [rsp + 116], r14d
@@ -195,7 +194,7 @@ n8_match_span_α:
 n8_match_span_β:
                         mov              r14d, dword ptr [rsp + 116]
                         add              rsp, 16
-                        add              rsp, 256
+                        add              rsp, 16
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:

@@ -223,7 +223,6 @@ n14_match_assign_save_α:
                                                                                         jmp   n15_match_lit_α
 n14_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 352
                                                                                         jmp   n12_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n15_match_lit_α:
