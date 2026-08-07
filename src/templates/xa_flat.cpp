@@ -397,12 +397,10 @@ static int xa_flat_class_zf(void) {
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
-    int cells = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY: cells-arm CLASS ZF needs add rsp,16 after lea rsp,[rbp+kt] to consume the dc stub's 16B residue (pop r11 + N push r11 + push arg + add rsp,16 = net -16 before jmp proc_f_α; see ZK-4-SLICE2-ROOT-CAUSE). ZFRAME arm is depth-immune via pinned rbp and must NOT get the +16. */
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi (frame0 for rt_proc_call_epilogue_γ on non-dc path); unwind; restore caller rbp; jmp γ wire")
          + x86("mov", "rdi", "rax")   /* frame0.v — rt_proc_epilogue_body reads frame0 for lex procs; dc-stub shim ignores rdi */
          + x86("mov", "rsi", "rdx")   /* frame0.i */
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
-         + (cells ? x86("add", "rsp", 16L) : std::string())   /* ZK-4 SLICE 2: consume dc stub 16B residue so caller's landing sees rsp = pre-call rsp (not pre-call - 16). */
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 24) + "]")
          + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
          + x86("jmp", "rcx");
@@ -412,10 +410,8 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
-    int cells = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY twin: ω exit has the same dc stub residue. */
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp; jmp")
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
-         + (cells ? x86("add", "rsp", 16L) : std::string())   /* ZK-4 SLICE 2: consume dc stub 16B residue. */
          + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 16) + "]")
          + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
          + x86("jmp", "rcx");
