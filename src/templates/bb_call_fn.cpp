@@ -502,6 +502,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
+        if (_.op_sb) { int _wpop_save = _.op_wpop; _.op_wpop = 0; s += x86_omega(); _.op_wpop = _wpop_save; return s; }   /* ZK-3 EVERY-BODY (op_sb=1): every-body topology: irgen.icn routes both body.success and body.failure to TO.beta (the generator resume). Every discards the body result. Both success and failure jump to omega (=TO.beta, staged by the drive loop). op_wpop is zeroed before x86_omega() to suppress the mid-loop cell release (TO counter and limit cells are still live; the statement-terminal release at TO.omega is the sole release authority). op_wpop restored after for non-op_sb paths. BOTH-MEDIUM. ONE LINE per s22k law. */   /* ZK-3 EVERY-BODY (op_sb=1): in ir_a_Every the body CALL's success result is discarded; both gamma-success and omega-fail route back to the generator's beta (the loop-back arc). x86_gamma() would fire add rsp,op_zgpop and exit the graph -- wrong. beta_trampoline is the correct both-exits target. The write() DESCR result already sits in ZRES(0/8) but is unused by the every machinery; writing it is harmless. BOTH-MEDIUM: x86_beta_trampoline() uses x86() internally. ONE LINE per s22k law. */
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
