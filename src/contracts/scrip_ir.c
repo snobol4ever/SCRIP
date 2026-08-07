@@ -277,6 +277,26 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     g->zeta_mark_slot = zls_g_zeta_mark(g);
     g->jcon_value_region = zls_g_region(g);
     g->nvalue_slots = zls_g_nslots(g);
+    if (g->zframe_graph) {
+        /* ICN-FR-3: for zframe graphs, the vslot table must carry FLAT-FRAME offsets for params/locals, not FORTH-spine offsets.  The ZLS vslot push loop above may have already pushed a same-name slot at a FORTH-spine offset (the ZLS result-cell offset for the IR_ASSIGN or IR_VAR node that holds the variable name).  That FORTH offset is wrong for zframe: params/locals live at [rbp-(i+1)*16] etc, not at a ZLS result-cell address.  Fix: clear the ZLS-pushed vslots for this graph, then repopulate with flat-frame offsets.  ZLS result slots (nvalue_slots, jcon_value_region, resume_slot) are INDEPENDENT of the vslot table and are unaffected.  SN4/Prolog/Raku/Pascal watermark: zframe_graph=0 by construction for all non-Icon graphs (IR_alloc calloc-zeroed); this arm is structurally invisible.  ONE AUTHORITY: only this site grants zframe param/local varslots; the emitter never allocates (RULES.md TE-4 law).  Offset layout matches rt_icn_zframe_args_install: param i at [rbp-(i+1)*16], local j at [rbp-(np+j+1)*16]. */
+        g->n_vslots = 0;
+        int np = g->nparams;
+        int nl = g->nlocals;
+        for (int i = 0; i < np; i++) if (g->pnames && g->pnames[i]) drv_vslot_push(g, g->pnames[i], -(i + 1) * 16);
+        for (int j = 0; j < nl; j++) if (g->lnames && g->lnames[j]) drv_vslot_push(g, g->lnames[j], -(np + j + 1) * 16);
+        /* ICN-FR-3 implicit-local scan: Icon treats any undeclared variable in a procedure body as an implicit local.  SCRIP's lowerer only populates lnames/nlocals for explicitly declared `local` names.  Variables used in `initial` bodies or elsewhere without a `local` declaration are implicit locals — they need a frame slot to be read and written correctly.  Scan all IR_VAR and IR_ASSIGN nodes for names that are (a) not global (is_global), (b) not already vslotted (ir_varslot_of < 0).  Grant each a new frame slot at [rbp-(np+nl+k+1)*16] in discovery order, where k counts newly added slots.  drv_vslot_push's no-dup guard makes re-encountering the same name a no-op.  SN4/Prolog/Raku/Pascal watermark: zframe_graph=0 for all non-Icon graphs; this scan is structurally invisible.  ONE AUTHORITY per TE-4 law. */
+        { extern int is_global(const char *); int k = 0;
+          for (int qi = 0; qi < g->n; qi++) { IR_t *qn = g->all[qi]; if (!qn) continue;
+              if (qn->op != IR_VAR && qn->op != IR_ASSIGN) continue;
+              const char *vn = IR_LIT(qn).sval; if (!vn || vn[0] == '&') continue;
+              if (is_global(vn)) continue;
+              if (ir_varslot_of(g, vn) != -1) continue;
+              int before = g->n_vslots;
+              drv_vslot_push(g, vn, -(np + nl + k + 1) * 16);
+              if (g->n_vslots > before) k++;
+          }
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const int * g_seq_of_node = (const int *)0;

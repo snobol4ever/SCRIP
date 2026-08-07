@@ -1287,7 +1287,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
             g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
         }
         { int voff = bb_varslot_peek(vn);
-          if (voff < 0) { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort(); }
+          if (voff == -1) { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort(); }   /* ICN-FR-3: -1 is the ir_varslot_of absent sentinel; NEGATIVE offsets other than -1 are valid rbp-relative frame-local addresses ([rbp-(i+1)*16] for zframe graphs) and must NOT abort.  The prior `voff < 0` check was written when all varslots were non-negative ZLS offsets; zframe locals use negative offsets by design (matching rt_icn_zframe_args_install layout). */
           g_emit.op_sb = voff; }
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1484,9 +1484,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         const char * vn = lv ? IR_LIT(lv).sval : NULL;
         if (!vn || nd->n_operands < 1 || !nd->operands[0]) { drive_unowned(nd); break; }
         { int voff = bb_varslot_peek(vn);
-          if (voff < 0) {
-              fprintf(stderr, "[TE-4] IR_REV_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort();
-          }
+          if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort(); }   /* ICN-FR-3: -1 absent sentinel; negative offsets other than -1 are valid rbp-relative frame-local addresses */
           g_emit.op_sb = voff; }
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
@@ -1498,8 +1496,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (!ln || !rn) { drive_unowned(nd); break; }
         g_emit.op_sval = ln; g_emit.op_name2 = rn;
         g_emit.op_sb = -1; g_emit.op_sa = -1;
-        if (ln[0] != '&') { int voff = bb_varslot_peek(ln); if (voff < 0) { fprintf(stderr, "[TE-4] IR_REV_SWAP lhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", ln); abort(); } g_emit.op_sb = voff; }
-        if (rn[0] != '&') { int voff = bb_varslot_peek(rn); if (voff < 0) { fprintf(stderr, "[TE-4] IR_REV_SWAP rhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", rn); abort(); } g_emit.op_sa = voff; }
+        if (ln[0] != '&') { int voff = bb_varslot_peek(ln); if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_SWAP lhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", ln); abort(); } g_emit.op_sb = voff; }   /* ICN-FR-3: == -1 absent sentinel */
+        if (rn[0] != '&') { int voff = bb_varslot_peek(rn); if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_SWAP rhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", rn); abort(); } g_emit.op_sa = voff; }   /* ICN-FR-3: == -1 absent sentinel */
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1905,7 +1903,14 @@ static int zd_patref_k16(void) { static int v = -1; if (v < 0) { const char * e 
 static int zd_wl_kind(IR_t * nd) {
     int op = (int)nd->op;
     extern int is_global(const char *);
-    if (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) return 0;   /* ICN-FR-2: zframe graphs pre-allocate flat_frame_bytes on entry (sub rsp,kt; mov rbp,rsp); ZD spine-relative reads (ZOPQ = [rsp+op_zread[k]]) compute depth offsets WITHOUT accounting for this pre-allocation.  Result: n1's ZOPQ(0,0) reads from the FORTH spine cell [rbp-16] while n0 wrote to the ZLS frame slot [rbp+80] — 96 bytes apart.  Excluding zframe forces all nodes to the non-ZD (FRQ = [rbp+N]) path, which reads the frame slots correctly at any spine depth.  R-ICN-D: g_emit.zframe_graph=0 for all non-Icon graphs (SN4/Prolog/Raku/Pascal) so this return is never taken for them.  ZK-3 ADDITIVE: icn_cells_graph is the CELLS track (R-ZK-A routing law: mutually exclusive with zframe_graph at lower_icon.c — one graph is never in both arms); the cells arm uses FORTH-spine ZOPQ addressing which is correct regardless of the frame pre-allocation.  The conjunct lets the cells arm reach the per-kind whitelist below even when the graph's zframe_graph bit is 0 (cells arm sets icn_cells_graph, not zframe_graph).  SNOBOL4/Prolog/Raku/Pascal watermark: those lowerers never set icn_cells_graph, so the conjunct is never true for them. */
+    if (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) {
+        /* ICN-FR-2: zframe graphs pre-allocate flat_frame_bytes on entry (sub rsp,kt; mov rbp,rsp); ZD spine-relative reads (ZOPQ = [rsp+op_zread[k]]) compute depth offsets WITHOUT accounting for this pre-allocation.  Result: n1's ZOPQ(0,0) reads from the FORTH spine cell [rbp-16] while n0 wrote to the ZLS frame slot [rbp+80] — 96 bytes apart.  Excluding zframe forces all nodes to the non-ZD (FRQ = [rbp+N]) path, which reads the frame slots correctly at any spine depth.  R-ICN-D: g_emit.zframe_graph=0 for all non-Icon graphs (SN4/Prolog/Raku/Pascal) so this return is never taken for them.  ZK-3 ADDITIVE: icn_cells_graph is the CELLS track (R-ZK-A routing law: mutually exclusive with zframe_graph at lower_icon.c — one graph is never in both arms); the cells arm uses FORTH-spine ZOPQ addressing which is correct regardless of the frame pre-allocation.  The conjunct lets the cells arm reach the per-kind whitelist below even when the graph's zframe_graph bit is 0 (cells arm sets icn_cells_graph, not zframe_graph).  SNOBOL4/Prolog/Raku/Pascal watermark: those lowerers never set icn_cells_graph, so the conjunct is never true for them. */
+        /* ICN-FR-3: IR_VAR and IR_ASSIGN that name frame-locals are EXEMPT from the blanket ZOPQ exclusion.  Those templates use FRQ(varslot) = [rbp+N] exclusively — they never touch the FORTH RSP spine (no ZOPQ reads, no op_zread staging) — so the depth-offset confound that motivated the early-exit does not apply.  zframe_graph guarantees the prologue has pinned rbp = activation base, so FRQ is depth-immune by construction (emit_jmp_pin_rbp() is true for every zframe graph; x86_fb_pinned() follows).  The conjunct graph_has_local gates only LEXICAL locals (params + declared locals); globals and &-keywords are never admitted here (they are handled by the IR_VAR/IR_ASSIGN per-kind check below, which routes them to bb_var_global/bb_assign_global via the is_global branch and is also reached via this exemption).  SNOBOL4/Prolog/Raku/Pascal watermark: those lowerers never set zframe_graph, so this path is structurally invisible to them.  ONE AUTHORITY: only this site exempts zframe locals; the per-kind check at the bottom still performs the precise vn/graph_has_local/x86_fb_pinned predicate that decides the final return value for these kinds. */
+        int op = (int)nd->op;
+        if (op == IR_VAR || op == IR_ASSIGN) { extern int is_global(const char *); const char *vn = IR_LIT(nd).sval; if (vn && graph_has_local(g_emit_cfg, vn)) goto zframe_local_admitted; }
+        return 0;
+    }
+    zframe_local_admitted:;
     if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET) return 1;
     if (op == IR_UNOP) { int v = (int)IR_LIT(nd).ival; return (v == TT_MNS || v == TT_PLS || v == TT_SIZE || v == TT_CSET_COMPL) ? 1 : 0; }
     if (op == IR_BINOP) { long long o = (long long)IR_LIT(nd).ival; return (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL || o == BINOP_DIV || o == BINOP_MOD || o == BINOP_POW || o == BINOP_CUNION || o == BINOP_CDIFF || o == BINOP_CINTER || o == BINOP_CONCAT) ? 1 : 0; }   /* ZD-2a: BINOP_CONCAT ADMITTED -- bb_binop_concat_slot grew its ZD arm this rung, and binop_cat maps BINOP_CONCAT to BINOP_CAT_CONCAT which dispatches to that ONE template unconditionally (emit.cpp 654/917), so the 017 falsification below cannot recur for this op; RELOP/XREP stay out until 2b/2c give them arms.  ORIGINAL NOTE, still binding for the remaining categories: EXPLICIT arith/cset ops only -- exactly the set bb_binop_arith's ZD arm serves.  IR_BINOP also carries CONCAT/XREP/RELOP categories that dispatch to templates WITHOUT a ZD arm (emit.cpp binop_cat switch); arming those staged op_zres for a template that ignores it, so the legacy body read flat slots the producers never wrote -- the 017_concat_two_strings signature of the first wide run. */

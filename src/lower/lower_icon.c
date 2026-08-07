@@ -1295,7 +1295,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
         }
     }
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
-    if (pd && pd->n > 2 && pd->c[2]) return lower_proc_body(&cx, pd->c[2]);
+    if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; } return g; }   /* ICN-FR-3: stamp nparams/pnames/nlocals/lnames on the graph so graph_has_local is correct for zframe graphs; WITHOUT this, graph_has_local returns 0 for every local, IR_VAR takes the global arm (op_sa=-1), and local reads address wrong memory (the static/initial null-read bug). Parallel to stage-2 lines 1396/1410/1418 which set these for the precompiled path; this covers the jmp-entry lower_proc_body path. lnv holds [params(0..np-1), locals(np..nln-1)] in that order per the fill loops above. */
     IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
     { static int _ic2 = -1; if (_ic2 < 0) { const char * e = getenv("SCRIP_ICN_CELLS"); _ic2 = (e && *e == '1') ? 1 : 0; } if (_ic2) g->icn_cells_graph = 1; }   /* ZK-0 stub-graph arm, same law as lower_proc_body. */
     return g;
