@@ -1783,3 +1783,10 @@ void rt_gc_root_args(void)
     extern void rt_gc_visit_descr(DESCR_t *d);
     for (int i = 0; i < CALL_ARGS_MAX; i++) rt_gc_visit_descr(&g_call_args[i]);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_nofail_abort(void)
+{
+    extern void core_runtime_error(int code, const char *msg);
+    core_runtime_error(35, "unexpected failure in -nofail mode");
+    exit(1);   /* belt-and-braces: core_runtime_error is fatal for code 35, but rt_call_arr's setjmp may intercept the longjmp; direct exit ensures termination */
+}

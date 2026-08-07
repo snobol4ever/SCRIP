@@ -4658,6 +4658,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     rt_gc_point_arr(args, nargs, (const char **)0);
     if (!fn) return out;
+    if (!strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }   /* -NOFAIL: statement failure without a goto fires error 35 (manual ch.14 p.173) */
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
     if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
         extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);

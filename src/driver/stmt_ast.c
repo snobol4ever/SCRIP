@@ -101,6 +101,7 @@ tree_t *stmt_to_ast(const STMT_t *s)
     sa_add(node, make_goto_node(TT_GOTO_S, s->goto_s, s->goto_s_expr));
     sa_add(node, make_goto_node(TT_GOTO_F, s->goto_f, s->goto_f_expr));
     sa_add(node, make_goto_node(TT_GOTO_U, s->goto_u, s->goto_u_expr));
+    if (s->nofail) sa_add(node, attr_int(":nofail", 1));
     return node;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

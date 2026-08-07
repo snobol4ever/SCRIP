@@ -17,7 +17,7 @@ struct STMT_t {
     tree_t  *replacement;
     char    *goto_s, *goto_f, *goto_u;
     tree_t  *goto_s_expr, *goto_f_expr, *goto_u_expr;
-    int      lineno, stno, is_end, has_eq;
+    int      lineno, stno, is_end, has_eq, nofail;
     STMT_t  *next;
 };
 typedef struct ExportEntry {

@@ -22,6 +22,8 @@ void sno_error_quiet_end(void) { sno_err_quiet = 0; }
 const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
 static int   g_stmt_lineno = 1;
+static int   g_nofail_mode = 0;
+int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
 static char  strbuf[65536];
 static int   strpos;
 static int   gt_depth;
@@ -107,6 +109,10 @@ G       ({WS}|{CONT})*
         }
     }
 }
+ /*--------------------------------------------------------------------------------------------------------------------*/
+<INITIAL>"-"[Nn][Oo][Ff][Aa][Ii][Ll][^\n]*\n    { lineno++; g_nofail_mode = 1; }
+ /*--------------------------------------------------------------------------------------------------------------------*/
+<INITIAL>"-"[Ff][Aa][Ii][Ll][^\n]*\n    { lineno++; g_nofail_mode = 0; }
  /*--------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[^\n]*\n    {
     lineno++;
