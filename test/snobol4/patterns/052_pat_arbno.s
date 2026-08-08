@@ -197,9 +197,9 @@ n10_match_arbno_α:
                         mov              dword ptr [rsp + 304], r14d
                         mov              dword ptr [rsp + 308], r14d
                         mov              dword ptr [rsp + 312], 1
-                        mov              rax, qword ptr [rsp + 376]
+                        mov              rax, qword ptr [rsp + 392]
                         mov              qword ptr [rsp + 320], rax
-                        mov              rax, qword ptr [rsp + 384]
+                        mov              rax, qword ptr [rsp + 400]
                         mov              qword ptr [rsp + 328], rax
                         mov              rax, qword ptr [rsp + 352]
                         mov              qword ptr [rsp + 336], rax
