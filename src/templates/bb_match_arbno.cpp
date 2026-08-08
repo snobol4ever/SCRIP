@@ -163,14 +163,15 @@ static std::string bb_match_arbno_tail() {
          + tail_cap_copy(HDRB + 32, (int)_.op_sb + HDRA + 32, NCAP)
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
-         /* M-2 BUG-5: PAIR(2) fires after MATCH_END's CAS restore (rsp = original_rsp), so trd(HDRA+N) reads
-          * [rsp+HDRA+N] which is ABOVE the element (element is at [rsp - depth_to_elem]).  The correct base is
-          * rbp (hfc pin = original_rsp - 80), but RBP_HDR = -(FPL + KA - HDRA) needs validation for all classes.
-          * NEXT SESSION: use RBPRAWD(RBP_HDR + 0/4) once the formula is confirmed correct for all N/X/G/H. */
-         + x86("mov", "eax", trd(HDRA + 0))
+         /* M-2 BUG-5 FIX: PAIR(2) fires after MATCH_END's CAS restore (rsp = original_rsp).
+          * trd(HDRA+N) would read [rsp+HDRA+N] = ABOVE the element frame → crash.
+          * rbp = hfc pin = original_rsp-80, stable across MATCH_END's whack.
+          * RBP_HDR = -(FPL+KA-HDRA): negative offset from rbp to element header top.
+          * Verified N01: FPL=16 KA=48 HDRA=16 → RBP_HDR=-48; [rbp-48]=element α-start. */
+         + x86("mov", "eax", RBPRAWD(RBP_HDR + 0))
          + x86("cmp", "r14d", "eax")
          + x86("je",  SEAL ? L(3) : PAIR(1))
-         + x86("mov", trd(HDRA + 4), "r14d")
+         + x86("mov", RBPRAWD(RBP_HDR + 4), "r14d")
          + x86_gamma()
          + IF(SEAL, x86("def", L(3)) + IF(FPB > 0, x86("add", "rsp", (long)FPB)))
          + x86("def", PAIR(3))
