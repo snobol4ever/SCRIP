@@ -22,28 +22,65 @@ raku() {
     N=$((N+1))
     local a3 a4 r3 r4
     local e3 e4 s4 bin4
+    local rc3=0 rc4=0
     e3=$(mktemp /tmp/rk_XXXXXX.e3); e4=$(mktemp /tmp/rk_XXXXXX.e4)
-    a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null)
+    a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null); rc3=$?
     a4=""
     s4=$(mktemp /tmp/rk_XXXXXX.s); bin4=$(mktemp /tmp/rk_XXXXXX.bin); rm -f "$bin4"
     if timeout 8 "$SCRIP" --compile --target=x86 "$tmp" >"$s4" 2>"$e4" </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
-            a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null)
+            a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null); rc4=$?
         fi
     fi
     # [SMX] on stderr => the native mode DELIBERATELY DECLINES this rung (its bb_*.cpp template is not built
     # yet) => counted DECLINED, NOT FAIL. The done bar (interp now deleted): m3 AND m4 each PASS-or-DECLINED —
     # never a silent FAIL / abort / miscompile.
+    # rc != 0 AND NOT smx => crash or bad exit => FAIL even if stdout matched (RK-ZC-7: harness sees rc).
     local smx3=0 smx4=0
     grep -qE '\[SMX\]' "$e3" && smx3=1
     grep -qE '\[SMX\]' "$e4" && smx4=1
     rm -f "$tmp" "$s4" "$bin4" "$e3" "$e4"
-    if   [ "$a3" = "$expected" ]; then r3="m3 PASS"; P3=$((P3+1));
-    elif [ "$smx3" -eq 1 ];      then r3="m3 EXCS"; X3=$((X3+1));
-    else                              r3="m3 FAIL"; F3=$((F3+1)); fi
-    if   [ "$a4" = "$expected" ]; then r4="m4 PASS"; P4=$((P4+1));
-    elif [ "$smx4" -eq 1 ];      then r4="m4 EXCS"; X4=$((X4+1));
-    else                              r4="m4 FAIL"; F4=$((F4+1)); fi
+    if   [ "$smx3" -eq 1 ];                                           then r3="m3 EXCS"; X3=$((X3+1));
+    elif [ "$a3" = "$expected" ] && [ "$rc3" -eq 0 ];                 then r3="m3 PASS"; P3=$((P3+1));
+    else                                                                    r3="m3 FAIL"; F3=$((F3+1)); fi
+    if   [ "$smx4" -eq 1 ];                                           then r4="m4 EXCS"; X4=$((X4+1));
+    elif [ "$a4" = "$expected" ] && [ "$rc4" -eq 0 ];                 then r4="m4 PASS"; P4=$((P4+1));
+    else                                                                    r4="m4 FAIL"; F4=$((F4+1)); fi
+    printf "  [%s] [%s] %s\n" "$r3" "$r4" "$label"
+}
+# raku_dies — like raku() but expects a non-zero exit code (die/type-error/access-violation).
+# stdout must match expected AND rc must be nonzero; rc=0 or stdout mismatch = FAIL.
+raku_dies() {
+    local label="$1" expected="$2"
+    local tmp; tmp=$(mktemp /tmp/rk_XXXXXX.raku)
+    cat > "$tmp"
+    N=$((N+1))
+    local a3 a4 r3 r4
+    local e3 e4 s4 bin4
+    local rc3=0 rc4=0
+    e3=$(mktemp /tmp/rk_XXXXXX.e3); e4=$(mktemp /tmp/rk_XXXXXX.e4)
+    a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null); rc3=$?
+    a4=""
+    local crc4=0
+    s4=$(mktemp /tmp/rk_XXXXXX.s); bin4=$(mktemp /tmp/rk_XXXXXX.bin); rm -f "$bin4"
+    timeout 8 "$SCRIP" --compile --target=x86 "$tmp" >"$s4" 2>"$e4" </dev/null; crc4=$?
+    if [ "$crc4" -eq 0 ] && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
+        if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
+            a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null); rc4=$?
+        fi
+    elif [ "$crc4" -ne 0 ]; then
+        rc4="$crc4"
+    fi
+    local smx3=0 smx4=0
+    grep -qE '\[SMX\]' "$e3" && smx3=1
+    grep -qE '\[SMX\]' "$e4" && smx4=1
+    rm -f "$tmp" "$s4" "$bin4" "$e3" "$e4"
+    if   [ "$smx3" -eq 1 ];                                           then r3="m3 EXCS"; X3=$((X3+1));
+    elif [ "$a3" = "$expected" ] && [ "$rc3" -ne 0 ];                 then r3="m3 PASS"; P3=$((P3+1));
+    else                                                                    r3="m3 FAIL"; F3=$((F3+1)); fi
+    if   [ "$smx4" -eq 1 ];                                           then r4="m4 EXCS"; X4=$((X4+1));
+    elif [ "$a4" = "$expected" ] && [ "$rc4" -ne 0 ];                 then r4="m4 PASS"; P4=$((P4+1));
+    else                                                                    r4="m4 FAIL"; F4=$((F4+1)); fi
     printf "  [%s] [%s] %s\n" "$r3" "$r4" "$label"
 }
 
@@ -721,7 +758,7 @@ class P { has $.x is rw; }
 sub main() { my $p = P.new(x => 1); $p.x = 5; say($p.x); }
 EOF
 
-raku "field_write_ro_dies" "" << 'EOF'
+raku_dies "field_write_ro_dies" "" << 'EOF'
 class Q { has $.x; }
 sub main() { my $q = Q.new(x => 1); $q.x = 5; say("unreached"); }
 EOF
@@ -742,7 +779,7 @@ EOF
 #     attribute finds no method and DIES ("not accessible"); internal `$!x` (direct attribute) ALWAYS works;
 #     a public `$.` sibling stays externally accessible. Privacy follows the MRO (inherited private stays
 #     private; inherited public stays public). ---
-raku "priv_attr_external_dies" "" << 'EOF'
+raku_dies "priv_attr_external_dies" "" << 'EOF'
 class Secret { has $!code; method reveal() { return $!code; } }
 sub main() { my $s = Secret.new(code => 42); say($s.code()); }
 EOF
@@ -752,7 +789,7 @@ class Secret { has $!code; method reveal() { return $!code; } }
 sub main() { my $s = Secret.new(code => 42); say($s.reveal()); }
 EOF
 
-raku "priv_attr_inherited_dies" "" << 'EOF'
+raku_dies "priv_attr_inherited_dies" "" << 'EOF'
 class Base { has $!secret; method peek() { return $!secret; } }
 class Derived is Base { }
 sub main() { my $d = Derived.new(secret => 5); say($d.secret()); }
@@ -776,7 +813,7 @@ EOF
 
 # --- RK-OO-A2 privacy, no-paren accessor form: in Raku `$obj.attr` and `$obj.attr()` are BOTH accessor
 #     method calls (no syntactic distinction), so a private attribute DIES on the no-paren form too. ---
-raku "priv_attr_external_noparen_dies" "" << 'EOF'
+raku_dies "priv_attr_external_noparen_dies" "" << 'EOF'
 class Secret { has $!code; method reveal() { return $!code; } }
 sub main() { my $s = Secret.new(code => 42); say($s.code); }
 EOF
@@ -789,12 +826,12 @@ EOF
 
 # --- RK-OO-A3 privacy (the previously-deferred `@!`/`%!` enforcement): private aggregate attributes get no
 #     public accessor either; external access DIES, while the public `@.`/`%.` accessor still resolves. ---
-raku "priv_array_attr_external_dies" "" << 'EOF'
+raku_dies "priv_array_attr_external_dies" "" << 'EOF'
 class Stack { has @!items; method size() { return 1; } }
 sub main() { my $s = Stack.new(); say($s.items); }
 EOF
 
-raku "priv_hash_attr_external_dies" "" << 'EOF'
+raku_dies "priv_hash_attr_external_dies" "" << 'EOF'
 class Cfg { has %!opts; method ok() { return 1; } }
 sub main() { my $c = Cfg.new(); say($c.opts); }
 EOF
@@ -958,7 +995,7 @@ EOF
 #     in m4 — and also in-process at m4 COMPILE since lowering runs class_compose_role, so the .s is refused).
 #     A class that defines its own same-named method RESOLVES the conflict (class wins). Distinct method
 #     names across roles compose without conflict. Conflict case asserts empty stdout (die on stderr). ---
-raku "role_conflict_unresolved" "" << 'EOF'
+raku_dies "role_conflict_unresolved" "" << 'EOF'
 role A { method m() { return "a"; } }
 role B { method m() { return "b"; } }
 class C does A does B { }
@@ -983,7 +1020,7 @@ EOF
 #     error. `{...}` lexes to a YADA token -> a TT_YADA-bodied TT_SUB_DECL, which the lowerer recognizes as a
 #     stub (and does NOT register/compile as a real proc). The requirement is checked in the composition pass
 #     from the AST; unsatisfied -> rt_script_die_surface (compile-time death, empty stdout both modes). ---
-raku "required_unimplemented" "" << 'EOF'
+raku_dies "required_unimplemented" "" << 'EOF'
 role R { method needed() {...} }
 class C does R { }
 sub main() { my $c = C.new(); say("made"); }
@@ -1094,18 +1131,18 @@ EOF
 # --- RK-OO-B2 op-800 ABSENT case: a missing required attr now SURFACES natively (die-route) — sets the
 #     Rakudo X::Attribute::Required message, flushes stdout, exits 1. stdout is therefore EMPTY (the post-
 #     construction say() never runs). Both modes. Resolves the death-surfacing deferred at 386ffeb. ---
-raku "attr_required_absent" "" << 'EOF'
+raku_dies "attr_required_absent" "" << 'EOF'
 class Point { has $.x is required; has $.y; }
 sub main() { my $p = Point.new(y => 9); say("unreached"); }
 EOF
-raku "attr_required_absent_inherited" "" << 'EOF'
+raku_dies "attr_required_absent_inherited" "" << 'EOF'
 class Base { has $.id is required; }
 class Sub is Base { method who() { return $!id; } }
 sub main() { my $s = Sub.new(); say($s.who()); }
 EOF
 # --- native die route: an uncaught die surfaces to stderr + exit 1; statements after it do NOT run, so only
 #     the pre-die output reaches stdout (the death is on stderr, not asserted here). Both modes. ---
-raku "die_uncaught_halts" "before" << 'EOF'
+raku_dies "die_uncaught_halts" "before" << 'EOF'
 sub main() { say("before"); die("boom"); say("after"); }
 EOF
 
@@ -1411,15 +1448,15 @@ raku "param_colon_d_passes" "hi Tom" << 'EOF'
 sub greet(Str:D $name) { say("hi " ~ $name); }
 sub main() { greet("Tom"); }
 EOF
-raku "param_colon_d_dies" "hi Tom" << 'EOF'
+raku_dies "param_colon_d_dies" "hi Tom" << 'EOF'
 sub greet(Str:D $name) { say("hi " ~ $name); }
 sub main() { greet("Tom"); my $u; greet($u); say("after"); }
 EOF
-raku "param_colon_u_dies" "ok" << 'EOF'
+raku_dies "param_colon_u_dies" "ok" << 'EOF'
 sub want(Str:U $x) { say("ok"); }
 sub main() { my $u; want($u); want("v"); say("after"); }
 EOF
-raku "param_type_mismatch_dies" "int 5" << 'EOF'
+raku_dies "param_type_mismatch_dies" "int 5" << 'EOF'
 sub takes(Int:D $n) { say("int " ~ $n); }
 sub main() { takes(5); takes("x"); say("after"); }
 EOF
@@ -1434,7 +1471,7 @@ raku "param_plain_int_passes" "42" << 'EOF'
 sub f(Int $x) { say($x); }
 sub main() { f(42); }
 EOF
-raku "param_plain_int_dies" "7" << 'EOF'
+raku_dies "param_plain_int_dies" "7" << 'EOF'
 sub f(Int $x) { say($x); }
 sub main() { f(7); f("x"); say("after"); }
 EOF
@@ -1635,7 +1672,7 @@ sub main() {
     say('after');
 }
 EOF
-raku "try_die_in_handler_uncaught_halts" "pre" << 'EOF'
+raku_dies "try_die_in_handler_uncaught_halts" "pre" << 'EOF'
 sub main() {
     say('pre');
     try { die('a'); } CATCH { die('fatal-in-handler'); }
@@ -3617,7 +3654,7 @@ say $h*2 == 7 ?? 7 !! 0;
 say $h*2;
 EOF
 
-raku "div_by_zero_dies" "before" << 'EOF'
+raku_dies "div_by_zero_dies" "before" << 'EOF'
 say "before";
 say 1/0;
 say "after";
