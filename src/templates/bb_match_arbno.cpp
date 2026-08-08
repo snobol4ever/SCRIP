@@ -186,6 +186,7 @@ static std::string bb_match_arbno_tail() {
          + x86("def", L(2))
          + x86("mov", "r14d", trd(HDRB + 0))
          + x86("add", "rsp", (long)_.op_sb)
+         + IF(_.flat_deep_arrival, x86("note", "old_rbp") + x86("mov", "rbp", trq(FPL + 72)))   /* M-2 BUG-6 FIX: BRACKET-GATE rbp restore moved here from release_pump (bb_match_end.cpp !op_tail gate). At L(2) omega rsp=cas_rsp_mark-32-FPL; old_rbp was saved by MATCH_BEGIN at [cas_rsp_mark+40]=[rsp+FPL+72]. Gated flat_deep_arrival matching bb_match_begin's save gate. */
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
