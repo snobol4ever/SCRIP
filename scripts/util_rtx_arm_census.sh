@@ -30,15 +30,31 @@
 # hand-maintained — a checked-in list is the doc-rot class this ladder has paid
 # for six times (ARCH §7 step 0, the phantom family).
 #
-# Usage: bash scripts/util_rtx_arm_census.sh <prog.sno> [< input]
+# Usage: bash scripts/util_rtx_arm_census.sh <prog.sno> [m3|m4|both] [< input]
 #        SCRIP_RTX_<FAM> env vars pass through, so ON/OFF arms are comparable.
+#        MODE defaults to m3 (--run) to preserve existing behaviour.
+#        m4 compiles prog.sno via scrip --compile, links against libscrip_rt.so,
+#        then runs the resulting binary under LD_PRELOAD — same interposer, same
+#        symbol set, different runner.  The m4 arm catches the exported/hidden
+#        data-symbol class that m3 is structurally blind to (ARCH §7 step 0(c)).
+#        Added s_this (2026-08-08) — gap called out in GOAL-SNOBOL4-RTX.md ladder.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SO="$ROOT/out/libscrip_rt.so"
-PROG="${1:?usage: util_rtx_arm_census.sh <prog.sno>}"
+RT_DIR="$ROOT/out"
+PROG="${1:?usage: util_rtx_arm_census.sh <prog.sno> [m3|m4|both]}"
+MODE="${2:-m3}"
+case "$MODE" in m3|m4|both) ;; *) echo "FATAL: MODE must be m3|m4|both (got '$MODE')"; exit 1; esac
 [ -f "$SO" ] || { echo "FATAL: $SO missing — run make libscrip_rt first"; exit 1; }
 [ -x "$ROOT/scrip" ] || { echo "FATAL: $ROOT/scrip missing"; exit 1; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+compile_m4() {
+  local sno="$1" out="$2" tmp; tmp="$(mktemp -d)"
+  "$ROOT/scrip" --compile "$sno" > "$tmp/p.s" 2>/dev/null < /dev/null || { rm -rf "$tmp"; return 1; }
+  ( cd "$ROOT" && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null ) || { rm -rf "$tmp"; return 1; }
+  gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+  rm -rf "$tmp"
+}
 # Derive the symbol set from the tree, then keep only what the .so really exports.
 nm -D --defined-only "$SO" | awk '$2=="T"{print $3}' | sort -u > "$TMP/dyn.txt"
 grep -rhoP 'RTX_FUNC\(\s*\K[A-Za-z0-9_]+' "$ROOT"/src/runtime/rtx/*.S | sort -u > "$TMP/asm.txt"
@@ -88,20 +104,45 @@ done < "$TMP/asm.txt"
   echo '  fclose(f); }'
 } > "$TMP/ac.c"
 gcc -O0 -shared -fPIC -o "$TMP/ac.so" "$TMP/ac.c" -ldl || { echo "FATAL: interposer build failed"; exit 1; }
-ARMCENSUS_OUT="$TMP/out.txt" LD_LIBRARY_PATH="$ROOT/out" LD_PRELOAD="$TMP/ac.so" "$ROOT/scrip" --run "$PROG" > "$TMP/prog.out" 2>"$TMP/prog.err"
-RC=$?
-[ -s "$TMP/out.txt" ] || { echo "NO DATA — the run counted nothing (rc=$RC).  Check that the program runs at all."; exit 1; }
-echo "=== RTX ARM CENSUS — $PROG (rc=$RC) ==="
-printf "%-34s %10s %10s %10s  %s\n" SYMBOL ENTRIES BAILED_C COMMITS VERDICT
-while read -r s; do
-  case "$s" in c_*) continue ;; esac
-  e=$(awk -v k="$s" '$1==k{print $2}' "$TMP/out.txt"); e=${e:-0}
-  b=$(awk -v k="c_$s" '$1==k{print $2}' "$TMP/out.txt"); b=${b:-0}
-  [ "$e" = 0 ] && continue
-  c=$((e - b))
-  if [ "$c" -le 0 ]; then v="VACUOUS HERE — asm never commits"
-  elif [ "$b" -gt "$c" ]; then v="MOSTLY BAILS — cold arm dominates"
-  else v="asm handles $c"; fi
-  printf "%-34s %10s %10s %10s  %s\n" "$s" "$e" "$b" "$c" "$v"
-done < "$TMP/syms.txt"
-echo "(symbols with zero entries are omitted: this workload cannot grade them at all)"
+print_table() {
+  local outfile="$1" rc="$2" label="$3"
+  echo "=== RTX ARM CENSUS — $PROG [$label] (rc=$rc) ==="
+  printf "%-34s %10s %10s %10s  %s\n" SYMBOL ENTRIES BAILED_C COMMITS VERDICT
+  while read -r s; do
+    case "$s" in c_*) continue ;; esac
+    e=$(awk -v k="$s" '$1==k{print $2}' "$outfile"); e=${e:-0}
+    b=$(awk -v k="c_$s" '$1==k{print $2}' "$outfile"); b=${b:-0}
+    [ "$e" = 0 ] && continue
+    c=$((e - b))
+    if [ "$c" -le 0 ]; then v="VACUOUS HERE — asm never commits"
+    elif [ "$b" -gt "$c" ]; then v="MOSTLY BAILS — cold arm dominates"
+    else v="asm handles $c"; fi
+    printf "%-34s %10s %10s %10s  %s\n" "$s" "$e" "$b" "$c" "$v"
+  done < "$TMP/syms.txt"
+  echo "(symbols with zero entries are omitted: this workload cannot grade them at all)"
+}
+if [ "$MODE" = m3 ] || [ "$MODE" = both ]; then
+  ARMCENSUS_OUT="$TMP/out3.txt" LD_LIBRARY_PATH="$ROOT/out" LD_PRELOAD="$TMP/ac.so" \
+    "$ROOT/scrip" --run "$PROG" > "$TMP/prog3.out" 2>"$TMP/prog3.err"
+  RC3=$?
+  if [ -s "$TMP/out3.txt" ]; then
+    print_table "$TMP/out3.txt" "$RC3" "m3 --run"
+  else
+    echo "NO DATA [m3 --run] (rc=$RC3) — the program produced no census output.  Check that it runs at all."
+  fi
+fi
+if [ "$MODE" = m4 ] || [ "$MODE" = both ]; then
+  BIN="$TMP/prog.bin"
+  if compile_m4 "$PROG" "$BIN"; then
+    ARMCENSUS_OUT="$TMP/out4.txt" LD_LIBRARY_PATH="$ROOT/out" LD_PRELOAD="$TMP/ac.so" \
+      "$BIN" > "$TMP/prog4.out" 2>"$TMP/prog4.err"
+    RC4=$?
+    if [ -s "$TMP/out4.txt" ]; then
+      print_table "$TMP/out4.txt" "$RC4" "m4 --compile"
+    else
+      echo "NO DATA [m4 --compile] (rc=$RC4) — compiled binary produced no census output."
+    fi
+  else
+    echo "SKIP [m4 --compile] — $PROG did not compile/link."
+  fi
+fi
