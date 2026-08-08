@@ -599,6 +599,7 @@ DESCR_t eval_ast_pat(tree_t *e) {
 #define RT_CAS_CAPX_MAX     (1 << 16)
 #define RT_CAS_DFX_MAX      (1 << 14)
 #define RT_CAS_DCF_MAX      (1 << 14)
+#define RT_CAS_SPK_MAX      256
 static char  *g_cas_base = 0;
 static size_t g_cas_used = 0;
 static void *rt_cas_carve(size_t bytes)
@@ -914,15 +915,22 @@ static rt_dfx_t *rt_dfx_push(void) {
  * collision). It is NOT touched by the slice-2 asm: measured 0(d) on json.sno + twitter.json is star=0 of
  * 402,121 opens, so the star path this latch serves carries ZERO traffic on the graded workload and cannot be
  * graded by it. The fix is therefore a SEPARATE correctness deliverable with its own canary (140/141), not a
- * clause of a speed rung -- keeping them apart is what stops a correctness fix borrowing a speed number. */
-__attribute__((visibility("hidden"))) struct { const char *nm; DESCR_t val; int valid; } g_star_peek;
+ * clause of a speed rung -- keeping them apart is what stops a correctness fix borrowing a speed number.
+ * DEFER-LATCH FIX (this session): replaced the one-entry g_star_peek with a per-site FIFO stack g_spk[].
+ * Root cause: pattern concatenation `outer('c1') outer('c2')` calls rt_defer_get_pat_fn twice at build time,
+ * pushing c1 then c2; the single latch kept only the last (c2), so c1's defer_open fell through to
+ * rt_proc_call_open("inner(c1)",0) -- a proc name that does not exist -- and segfaulted.  The FIFO pop (oldest
+ * matching name first) restores left-to-right ordering: build pushes c1→c2, match traverses c1 then c2. */
+typedef struct { const char *nm; DESCR_t val; } rt_spk_t;
+static rt_spk_t *g_spk;
+static int g_spk_n, g_spk_cap;
 long c_rt_defer_open(const char *varname, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
     if (varname && !strcmp(varname, "FAIL")) { s->failed = 1; return 0; }
     if (varname && varname[0] == '*') {
-        if (g_star_peek.valid && g_star_peek.nm && !strcmp(g_star_peek.nm, varname)) { g_star_peek.valid = 0; DESCR_t r = g_star_peek.val; if (IS_FAIL_fn(r)) { s->failed = 1; return 0; } if (r.v == DT_X && !s->dtx_used) { s->dtx_used = 1; long fb2 = rt_proc_call_open(r.s ? r.s : "", 0); if (!fb2) s->failed = 1; return fb2; } s->val = r; return 0; }
+        for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; return 0; } if (r.v == DT_X && !s->dtx_used) { s->dtx_used = 1; long fb2 = rt_proc_call_open(r.s ? r.s : "", 0); if (!fb2) s->failed = 1; return fb2; } s->val = r; return 0; } }
         long fb = rt_proc_call_open(varname + 1, 0); if (!fb) s->failed = 1; return fb;
     }
     DESCR_t val = NV_GET_fn(varname ? varname : "");
@@ -993,8 +1001,10 @@ void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
     if (varname && varname[0] == '*') {
         extern DESCR_t rt_call_proc_descr(const char *, int);
         DESCR_t r = rt_call_proc_descr(varname + 1, 0);
-        if (r.v == DT_P && r.p) { g_star_peek.valid = 0; extern void *dtp_fn_of(void *); return dtp_fn_of(r.p); }
-        g_star_peek.nm = varname; g_star_peek.val = r; g_star_peek.valid = 1;
+        if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); return dtp_fn_of(r.p); }
+        if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; }
+        if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d) — raise RT_CAS_SPK_MAX\n", g_spk_cap); abort(); }
+        g_spk[g_spk_n].nm = varname; g_spk[g_spk_n].val = r; g_spk_n++;
         return NULL;
     }
     DESCR_t val = NV_GET_fn(varname ? varname : "");
