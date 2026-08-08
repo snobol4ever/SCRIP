@@ -65,7 +65,7 @@ static std::string release_pump() {
          + x86("mov", "rsi", "r15")
          + x86("note", HKN(4)) + x86("mov", "rdx", stfh() ? HKQ(4) : FRQ(_.op_off + 72))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror */
-         + IF(_.op_dval == 0.0 && _.flat_deep_arrival && !_.op_stmt_pin, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead -- see bb_match_begin's twin gate for the measured reason. */
+         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead -- see bb_match_begin's twin gate for the measured reason. */
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -74,124 +74,6 @@ std::string bb_match_end() {
     return !PLATFORM_X86 ? std::string()
          : _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_END: head slot not resolved (operand[0] missing or unowned)")
-         : _.op_zw2
-         ? x86("comment", "IR_MATCH_END (MECHANISM-2 W-1: fixed negative rbp offsets [rbp-16]..[rbp-64] match match_begin header; blob cells via FR; whack=mov rsp,rbp;pop rbp)")
-         + x86_alpha()
-         + IF(_.op_dval != 0.0, x86("note", "end_δ") + x86("mov", RDQ("rbp", -8), "r14"))   /* ⭐ W-1: end_δ spare in pad slot [rbp-8] (safe; depth-immune) */
-         + x86_xfer_enter()
-         + x86_anchor_enter()
-         + x86("mov", "rsi", "r12")   /* M-1 FIX (CAS-R12-UNIFY): r12 IS the live CAS top (COND γ-pushes advance r12 but never update [RT_DCAP_TOP]; cell holds MATCH_BEGIN's value = one-above-sentinel; reading cell gave empty range, dropping all blob-interior captures silently) */
-         + x86("mov", "r10", "rsi")
-         + x86("def", L(5))
-         + x86("sub", "r10", (long)24)
-         + x86("mov", "rax", RDQ("r10", 0))
-         + x86("test", "rax", "rax")
-         + x86("jne", L(5))
-         + x86("lea", "rdi", RDQ("r10", 24))
-         + x86("mov", "rdx", "r13")
-         + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
-         + x86("def", L(1))
-         + x86("test", "rax", "rax")
-         + x86("je",  L(2))
-         + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         + bb_glue_pass_wires(3, 4)
-         + x86("def", L(3))
-         + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
-         + x86("mov", "rdi", "rax") + x86("mov", "rsi", "rdx")
-         + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
-         + x86("jmp", L(1))
-         + x86("def", L(4))
-         + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
-         + x86("mov", "rdi", "rax") + x86("mov", "rsi", "rdx")
-         + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
-         + x86("jmp", L(1))
-         + x86("def", L(2))
-         + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
-         + x86_anchor_leave()
-         + x86_xfer_leave()
-         + x86("mov", "r10", ABSQ(RT_DCAP_TOP)) + x86("def", L(6)) + x86("sub", "r10", (long)24) + x86("mov", "rax", RDQ("r10", 0)) + x86("test", "rax", "rax") + x86("jne", L(6)) + x86("mov", ABSQ(RT_DCAP_TOP), "r10")
-         /* ⭐ MECH2-R12-FIX: rbp-restore DELETED.  rbp is the pinned mech-2 frame base (set by match_begin's push+mov, never borrowed by ARBNO element view in this arm).  Header reads [rbp-N] proceed directly without a reload. */
-         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ⭐ W-1: restore from fixed header [rbp-16..rbp-40] matching match_begin saves */
-         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
-         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
-         + x86("mov", "rdi", "r13") + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + IF(_.op_dval != 0.0, x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -48))   /* start_δ at [rbp-48] */
-                              + x86("note", "end_δ")   + x86("mov", "r11", RDQ("rbp", -8)))   /* end_δ from pad slot */
-         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* ⭐ MECH2-R12-FIX: was `mov rsp,r12`; rbp==α−8 is the pinned frame base; pop rbp restores old_rbp and rsp→α */
-         + x86("pop", "rbp")
-         + IF(_.op_dval != 0.0, x86("note", "match_start") + x86("mov", RDD("rbp", 8 + _.op_off), "eax")   /* post-whack: rbp=old, rsp=α; FRQ addresses caller claim */
-                              + x86("note", "match_end")   + x86("mov", FRQ(_.op_off + 24), "r11"))
-         + x86_gamma()
-         /* ⭐ MECH2-R12-FIX: rbp-restore DELETED on ω path. Same law: rbp pinned by match_begin, never clobbered. */
-         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ω path: same fixed offsets */
-         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
-         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
-         + x86("mov", "rdi", "r13") + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -40))
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + x86("note", "mech2_whack") + x86("mov", "rsp", "rbp")   /* ⭐ MECH2-R12-FIX: was `mov rsp,r12`; rbp==α−8 pinned frame base; pop rbp restores and rsp→α */
-         + x86("pop", "rbp")
-         + x86_omega()
-         : _.op_zw
-         ? x86("comment", "IR_MATCH_END (ZW-15: γ = apply-walk [rbp-40]→top then THE WHACK.  ZW-15: rbp=claim_base (lea rbp,[rbp+8] in begin); old_rbp at [rbp-8]; cells [rbp-16]..[rbp-64]; cas_base at [rbp-40]; whack=lea rsp,[rbp-8];pop rbp restores rsp=claim_base,rbp=old_rbp.  Blob FRQ reads [rbp+blob_off]=[claim_base+blob_off] correct for any nblob_real -- blob-clause veto retired.)")
-         + x86_alpha()
-         + IF(_.op_dval != 0.0, x86("note", "end_δ") + x86("mov", RDQ("rbp", -48), "r14"))   /* ZW-15: was -40; end_δ parks in dead frame slot before C calls clobber r14 */
-         + x86_xfer_enter()
-         + x86_anchor_enter()
-         + x86("note", "cas_base") + x86("mov",  "rdi", RDQ("rbp", -40))   /* ZW-15: was -32 */
-         + x86("note", "cas_top")  + x86("mov",  "rsi", "r12")   /* ZW-3: r12 is the live top -- all COND γ-pushes since BEGIN landed here; no cell read needed */
-         + x86("mov",  "rdx", "r13")
-         + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
-         + x86("def",  L(1))
-         + x86("test", "rax", "rax")
-         + x86("je",   L(2))
-         + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         + bb_glue_pass_wires(3, 4)
-         + x86("def",  L(3))
-         + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
-         + x86("mov",  "rdi", "rax")
-         + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
-         + x86("jmp",  L(1))
-         + x86("def",  L(4))
-         + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
-         + x86("mov",  "rdi", "rax")
-         + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
-         + x86("jmp",  L(1))
-         + x86("def",  L(2))
-         + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
-         + x86_anchor_leave()
-         + x86_xfer_leave()
-         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -40)) + x86("mov", ABSQ(RT_DCAP_TOP), "r12")   /* ZW-3 / ZW-15: r12←base discards applied records (was -32) */
-         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ZW-15: was -8 */
-         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))   /* ZW-15: was -16 */
-         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))   /* ZW-15: was -24 */
-         + x86("mov", "rdi", "r13")
-         + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -64))   /* ZW-15: was -56 */
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + IF(_.op_dval != 0.0, x86("note", "start_δ") + x86("mov", "r10", RDQ("rbp", -56))   /* ZW-15: was -48 */
-                              + x86("note", "end_δ")   + x86("mov", "r11", RDQ("rbp", -48)))   /* ZW-15: was -40 */
-         + x86("note", "whack") + x86("lea", "rsp", "qword ptr [rbp# + -8]")   /* ZW-15: old_rbp at [rbp-8]; lea rsp,[rbp-8] → rsp=claim_base-8; pop rbp → restores old_rbp, rsp=claim_base */
-         + x86("pop", "rbp")
-         + IF(_.op_dval != 0.0, x86("mov", "eax", "r10d")
-                              + x86("note", "match_start") + x86("mov", FR(_.op_off), "eax")
-                              + x86("note", "match_end")   + x86("mov", FRQ(_.op_off + 24), "r11"))
-         + x86_gamma()
-         + x86("note", "cas_base") + x86("mov", "r12", RDQ("rbp", -40)) + x86("mov", ABSQ(RT_DCAP_TOP), "r12")   /* ZW-3 ω / ZW-15: r12←base bulk-discards (was -32) */
-         + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))   /* ZW-15: was -8 */
-         + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))   /* ZW-15: was -16 */
-         + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))   /* ZW-15: was -24 */
-         + x86("mov", "rdi", "r13")
-         + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", RDQ("rbp", -64))   /* ZW-15: was -56 */
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + x86("note", "whack") + x86("lea", "rsp", "qword ptr [rbp# + -8]")   /* ZW-15: same as γ whack */
-         + x86("pop", "rbp")
-         + x86_omega()
          : _.op_tail && rfc()
          ? x86("comment", "IR_MATCH_END (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")
          + x86_alpha()
