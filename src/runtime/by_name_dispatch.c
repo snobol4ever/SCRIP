@@ -1460,12 +1460,13 @@ static int dop_trail_unwind(DESCR_t *args, int nargs, DESCR_t *out) { (void)narg
 typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *g_plw_unwind_floor = 0;
+int   g_plw_floor_bypass = 0;   /* W1-BUG2-FIX (PL-ZFRAME-RESTORE s10): 1 = Prolog zframe JIT execution window; dop_call/dop_call_nothrow skip their floor-set so plc_dead_cstack's !g_plw_unwind_floor guard fires. Set/cleared by scrip.c around rt_outer_call for zframe Prolog graphs only. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
-    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    { extern int g_plw_floor_bypass; if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0); }   /* W1-BUG2-FIX twin (PL-ZFRAME-RESTORE s10): same bypass-flag guard as dop_call_nothrow — see its comment */
     if (g_core_errjmp_n >= 64) { rt_gc_point_arr(args, nargs, (const char **)0); body(args, nargs, &out); g_plw_unwind_floor = fl; return out; }
     int my = g_core_errjmp_n;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
@@ -1483,10 +1484,10 @@ static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
  * and the GC safepoint, drops only the jmp machinery.  is/cmp/arith/write and every other dop stay on dop_call — plc_iso_evaluable throws are real there.  If an impossible throw ever did escape a
  * nothrow body, the next outer dop_call/rt_call_arr catcher restores its own saved floor, so the floor chain self-heals — no dangling-frame window is added. */
 static DESCR_t dop_call_nothrow(dop_body_fn body, DESCR_t *args, int nargs) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0); extern int g_plw_floor_bypass;
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
-    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0);   /* W1-BUG2-FIX (PL-ZFRAME-RESTORE s10): skip the floor update when g_plw_floor_bypass is set (Prolog zframe JIT window). Bypass flag avoids the NULL-sentinel ambiguity (g_plw_unwind_floor starts NULL at process start, so NULL cannot distinguish "never set" from "intentionally bypassed"). Preserving NULL through the call chain allows plc_dead_cstack's top-of-function !g_plw_unwind_floor guard to short-circuit before fopen/fgets/sscanf. The s102 discipline is preserved for all non-bypass callers. SN4/Icon byte-identity: bypass is only set for Prolog zframe graphs in scrip.c. */
     rt_gc_point_arr(args, nargs, (const char **)0);
     body(args, nargs, &out);
     g_plw_unwind_floor = fl;
