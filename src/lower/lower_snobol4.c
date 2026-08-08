@@ -1348,8 +1348,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("LEN requires a count argument", NULL);
         if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
-        if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
-        sno_pre_req(cx, t, nd);
+        sno_pre_req(cx, t, nd);                                    /* TT_DEFER (*var or *(arith)): sno_pre_req unwraps one * level (line 1006) → runtime integer fetch; SNO$MKEXPR route (RTX 55c045eb) wrongly built a PAT DESCR instead */
         return nd;
     }
     case TT_CAPT_COND_ASGN: {
