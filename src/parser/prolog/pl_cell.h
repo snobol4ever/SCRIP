@@ -63,6 +63,7 @@ static inline void pl_trail_push(pl_trail_t *t, pl_cell_t *addr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int plc_dead_cstack(const void *p) {
     extern char *g_plw_unwind_floor;
+    if (!g_plw_unwind_floor) return 0;   /* W1-BUG2-FIX (PL-ZFRAME-RESTORE s10): guard moved BEFORE the fgets/sscanf block. When floor is NULL (Prolog zframe JIT execution window), short-circuit immediately — Prolog trail entries are heap-resident, never C-stack locals, so this function must always return 0 for them. The original placement after the maps-read caused SEGV: on the first call stk_have=0 triggers fopen+fgets+sscanf with char ln[256] on stack, and sscanf (glibc movaps) requires 16-byte RSP alignment; the misalignment originates in dop_unwind_nothrow's -O0 frame (push rbp + push rbx + sub 0x38 = 72 bytes = 8 mod 16) propagating through pl_trail_unwind and plc_dead_cstack's own sub 0x140 frame. Moving the guard here makes the floor=NULL path zero-overhead (no fopen, no stack alloc, no SSE). Semantics preserved: the g_plw_unwind_floor check was always the correct answer for Prolog — just in the wrong position relative to the stack-map initialization. */
     static char *stk_lo, *stk_hi; static int stk_have;
     if (!stk_have || ((char *)p < stk_lo && (char *)p >= stk_lo - (64L << 20))) {
         FILE *mf = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;
@@ -70,7 +71,6 @@ static inline int plc_dead_cstack(const void *p) {
         if (!stk_have) return 0;
     }
     if ((char *)p < stk_lo || (char *)p >= stk_hi) return 0;
-    if (!g_plw_unwind_floor) return 0;
     return (char *)p < g_plw_unwind_floor + 16;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
