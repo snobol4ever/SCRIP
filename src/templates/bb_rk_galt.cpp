@@ -21,16 +21,16 @@ extern "C" {
  * these to flat_succ_p/flat_fail_p = proc_gram__..._gamma/omega exit labels. */
 std::string bb_rk_galt() {
     x86_begin();
-    if (!PLATFORM_X86 || _.op_off < 0 || !_.lbl_t0 || !_.lbl_t1)
+    if (!PLATFORM_X86 || _.op_off < 0 || !_.lbl_t0 || !_.lbl_t1 || !_.lbl_t0_p || !_.lbl_t1_p)
         return x86_alpha() + x86_bomb("bb_rk_galt: IR_GALT missing dslot or arm labels");
     std::string dptr = "dword ptr [rsp + " + std::to_string(_.op_off) + "]";
     return x86("comment", "IR_GALT (grammar alternation): save delta to [rsp+dslot] at alpha; restore+jmp-arm2 at beta")
          + x86_alpha()
-         + x86("mov", dptr, "r14d")   /* save delta (dword cursor) to rsp-relative zframe slot */
-         + x86("jmp", _.lbl_t0)       /* explicit jmp to arm-1 alpha */
+         + x86("mov", dptr, "r14d")              /* save delta (dword cursor) to rsp-relative zframe slot */
+         + x86_jmp_lblptr(_.lbl_t0_p, _.lbl_t0) /* both-media jmp to arm-1 alpha (RK-GRAM-3d-m3-fix: x86("jmp",name) is XK_SYM = text-only; binary silently emits nothing, jumping to the gamma port instead) */
          + x86_beta()
-         + x86("mov", "r14d", dptr)   /* restore delta at beta (arm-1 exhausted) */
-         + x86("jmp", _.lbl_t1)       /* enter arm-2 alpha */
-         + x86_gamma()                /* proc success (DRIVE_FILL -> flat_succ_p = proc_gamma) */
-         + x86_omega();               /* proc failure (DRIVE_FILL -> flat_fail_p = proc_omega) */
+         + x86("mov", "r14d", dptr)              /* restore delta at beta (arm-1 exhausted) */
+         + x86_jmp_lblptr(_.lbl_t1_p, _.lbl_t1) /* both-media jmp to arm-2 alpha */
+         + x86_gamma()                           /* proc success (DRIVE_FILL -> flat_succ_p = proc_gamma) */
+         + x86_omega();                          /* proc failure (DRIVE_FILL -> flat_fail_p = proc_omega) */
 }

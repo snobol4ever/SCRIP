@@ -741,6 +741,30 @@ raku "gram_seq_three_class_midfail" "N" << 'EOF'
 grammar G { rule TOP { <digit> <lower> <upper> } }
 sub main() { my $r = G.parse("3XB"); if ($r) { say("Y"); } else { say("N"); } }
 EOF
+# --- RK-GRAM-3d-m3-fix: IR_GALT (alternation) both-media regression lock.
+#     x86("jmp", lbl_t0) was XK_SYM → text-only; binary silently dropped arm jumps,
+#     fell through to x86_gamma() — arm-1 never ran, r14=0, final_delta=0 always.
+#     Fix: x86_jmp_lblptr(ptr,name) works in both media. ---
+raku "gram_alt_arm1_m3" "a" << 'EOF'
+grammar G { rule TOP { "a" | "b" } }
+sub main() { say(G.parse("a")); }
+EOF
+raku "gram_alt_arm2_m3" "b" << 'EOF'
+grammar G { rule TOP { "a" | "b" } }
+sub main() { say(G.parse("b")); }
+EOF
+raku "gram_alt_nomatch_m3" "N" << 'EOF'
+grammar G { rule TOP { "a" | "b" } }
+sub main() { my $r = G.parse("c"); if ($r) { say("Y"); } else { say("N"); } }
+EOF
+raku "gram_alt_cc_m3" "5" << 'EOF'
+grammar G { rule TOP { <digit> | <alpha> } }
+sub main() { say(G.parse("5")); }
+EOF
+raku "gram_alt_cc_arm2_m3" "x" << 'EOF'
+grammar G { rule TOP { <digit> | <alpha> } }
+sub main() { say(G.parse("x")); }
+EOF
 unset RK_GRAM_NATIVE
 
 # --- RK-OO-A1: attribute mutation (twigil-write + void method-call statement) ---
