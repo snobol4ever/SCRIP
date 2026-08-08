@@ -17,7 +17,7 @@ typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char 
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;   /* NPSPLIT (s22w): nformals = the (…) segment count alone; nnames stays the FULL save set (formals then locals, in prototype order — formals-first is load-bearing for arg index -> gk mapping in the slim install). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SNO_EXPR_MAX 4096
-static struct { const char * name; const tree_t * expr; int salt; } g_sno_exprs[SNO_EXPR_MAX];
+static struct { const char * name; const tree_t * expr; int salt; int want_name; } g_sno_exprs[SNO_EXPR_MAX];
 static int g_sno_nexpr = 0;
 static int g_sno_expr_salt = 0;
 void sno_expr_salt_next(void) { g_sno_expr_salt++; }
@@ -87,7 +87,18 @@ static const char * sno_expr_collect(const tree_t * expr) {
     g_sno_exprs[g_sno_nexpr].name = lp_strdup(buf);
     g_sno_exprs[g_sno_nexpr].expr = expr;
     g_sno_exprs[g_sno_nexpr].salt = g_sno_expr_salt;
+    g_sno_exprs[g_sno_nexpr].want_name = 0;
     return g_sno_exprs[g_sno_nexpr++].name;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* WANT-NAME VARIANT (140/141 fix): like sno_expr_collect but marks the thunk want_name=1.  Used when a deferred
+ * capture target is a NRETURN-capable FNC call with args (e.g. *inner(c1) in `.` or `$` position).  The thunk
+ * emitter prepends SNO$WANTNM so rt_g_want_name=1 is live when the inner FNC call runs its prologue, causing
+ * the epilogue's rt_nret_fix to preserve DT_N instead of dereferencing it to the current value. */
+static const char * sno_expr_collect_wn(const tree_t * expr) {
+    const char * nm = sno_expr_collect(expr);
+    for (int i = 0; i < g_sno_nexpr; i++) if (g_sno_exprs[i].name == nm) { g_sno_exprs[i].want_name = 1; break; }
+    return nm;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_binop_code(tree_e tt) {
@@ -1354,7 +1365,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_CAPT_COND_ASGN: {
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
-        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
+        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05): capture spans [start-of-inner, current) on a
          * per-box STACK — SAVE.α pushes the open cursor, SAVE.β pops it, the COND at every inner yield
@@ -1396,7 +1407,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_CAPT_IMMED_ASGN: {
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
-        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
+        if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         /* $ immediate assignment: SAME span/capture-stack shape as . (TT_CAPT_COND_ASGN) above — the only
          * difference is IR_MATCH_ASSIGN_IMM vs _COND, which bb_match_capture()'s op_phase (2 vs 1) turns into
@@ -2226,7 +2237,7 @@ void sno_expr_thunks_build(int x0) {
         IR_t * asn = lc_build(gx, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = (char *) g_sno_exprs[xi].name;
         IR_t * vr = NULL; IR_t * e = sx_lower(&ex, g_sno_exprs[xi].expr, asn, fJ, &vr);
         ir_operand_push(asn, vr);
-        gx->entry = e;
+        if (g_sno_exprs[xi].want_name) { IR_t * wn_lit = lc_build(gx, IR_LIT_STRING, NULL, fJ); IR_LIT(wn_lit).sval = (char *) ""; IR_t * wn_call = lc_build(gx, IR_CALL, NULL, fJ); IR_LIT(wn_call).sval = (char *) "SNO$WANTNM"; lc_γ_to(wn_lit, wn_call); lc_γ_to(wn_call, e); ir_operand_push(wn_call, wn_lit); gx->entry = wn_lit; } else { gx->entry = e; }
         int xpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[xpi].name = g_sno_exprs[xi].name;
         g_stage2.proc_table[xpi].proc = NULL;
