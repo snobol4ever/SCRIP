@@ -50,7 +50,7 @@
 #     State the expected band BEFORE running this.
 
 set -u
-FAM="CALL"; PRISTINE=""; RTX=""; ROUNDS=5; USE_MIN=0
+FAM="CALL"; PRISTINE=""; RTX=""; ROUNDS=5; USE_MIN=0; ASLR_OFF=0; RTCC_MODE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --fam)      FAM="$2"; shift 2 ;;
@@ -58,12 +58,18 @@ while [ $# -gt 0 ]; do
     --rtx)      RTX="$2"; shift 2 ;;
     -r)         ROUNDS="$2"; shift 2 ;;
     --min)      USE_MIN=1; shift ;;
+    --aslr-off) ASLR_OFF=1; shift ;;
+    --rtcc)     RTCC_MODE=1; shift ;;
     *)          break ;;
   esac
 done
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 GATE="SCRIP_RTX_${FAM}"
+# RC-0(a) RTCC stability mode: --rtcc collapses all three arms to the same .so with no gate.
+# --pristine and --rtx may point to the same dir; ON/OFF are not set (no SCRIP_RTX_* exists yet).
+# Reports ON/PRISTINE = 1.000 ±noise to prove the rail is stable before any code changes land.
+ASLR_PRE=""; [ "$ASLR_OFF" = "1" ] && ASLR_PRE="setarch -R"
 
 [ -x "$SCRIP" ]                        || { echo "SKIP: scrip not built"; exit 0; }
 [ -f "$PRISTINE/libscrip_rt.so" ]      || { echo "FAIL: no libscrip_rt.so in --pristine '$PRISTINE'"; exit 1; }
@@ -82,15 +88,24 @@ ratio() { awk -v a="$1" -v b="$2" 'BEGIN{ if(b+0==0){print "NA"; exit} printf "%
 run1() {
   local dir="$1" g="$2" prog="$3" out
   if [ -n "$g" ]; then
-    out=$(LD_LIBRARY_PATH="$dir" env "$GATE=$g" timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
+    out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE env "$GATE=$g" timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
   else
-    out=$(LD_LIBRARY_PATH="$dir" timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
+    out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
   fi
+  echo "$out" | awk '/^ms: /{print $2; found=1} END{if(!found) print ""}'
+}
+# In --rtcc mode there is no gate variable yet; collapse all three arms to the same .so with no env override.
+# ON=OFF=PRISTINE by construction; the harness proves its own null floor (should read 1.000 ±noise).
+run1_rtcc() {
+  local dir="$1" prog="$2" out
+  out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
   echo "$out" | awk '/^ms: /{print $2; found=1} END{if(!found) print ""}'
 }
 
 STAT_MODE=$([ "$USE_MIN" = "1" ] && echo "MIN-OF-N" || echo "MEDIAN")
-echo "=== RTX 3-ARM INTERLEAVED HARNESS — family $FAM — rounds=$ROUNDS (round 1 discarded) — stat=$STAT_MODE ==="
+ASLR_LABEL=$([ "$ASLR_OFF" = "1" ] && echo "ASLR=off(setarch -R)" || echo "ASLR=on")
+RTCC_LABEL=$([ "$RTCC_MODE" = "1" ] && echo " [--rtcc: 3 arms = same .so, no gate; proves null floor]" || echo "")
+echo "=== RTX 3-ARM INTERLEAVED HARNESS — family $FAM — rounds=$ROUNDS (round 1 discarded) — stat=$STAT_MODE — $ASLR_LABEL$RTCC_LABEL ==="
 echo "    pristine=$PRISTINE"
 echo "    rtx     =$RTX"
 echo "    RT_OPT  =${RT_OPT:--O0 (Makefile default; label every number with this)}"
@@ -100,9 +115,16 @@ for prog in "$@"; do
   P=""; F=""; N=""
   for r in $(seq 1 "$ROUNDS"); do
     # interleaved WITHIN the round: same moment, same thermal state, rotating order
-    p=$(run1 "$PRISTINE" ""  "$prog")
-    f=$(run1 "$RTX"      "0" "$prog")
-    n=$(run1 "$RTX"      "1" "$prog")
+    if [ "$RTCC_MODE" = "1" ]; then
+      # --rtcc: no gate exists; all three arms are identical runs of the same .so (null-floor probe)
+      p=$(run1_rtcc "$PRISTINE" "$prog")
+      f=$(run1_rtcc "$RTX"      "$prog")
+      n=$(run1_rtcc "$RTX"      "$prog")
+    else
+      p=$(run1 "$PRISTINE" ""  "$prog")
+      f=$(run1 "$RTX"      "0" "$prog")
+      n=$(run1 "$RTX"      "1" "$prog")
+    fi
     if [ "$r" -gt 1 ]; then P="$P $p"; F="$F $f"; N="$N $n"; fi
   done
   mp=$(stat "$P"); mf=$(stat "$F"); mn=$(stat "$N")
