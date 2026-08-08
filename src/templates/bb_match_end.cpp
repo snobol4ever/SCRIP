@@ -66,7 +66,7 @@ static std::string release_pump() {
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror; CAPGEN-ERAD: arg3 dropped, restore no longer writes g_cap_gen */
-         + IF(_.op_dval == 0.0 && _.flat_deep_arrival && !_.op_tail, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead.  M-2 BUG-6 FIX: !op_tail gate — for tail candidates MATCH_END gamma fires to ARBNO PAIR(2) before the match terminates; restoring rbp here clobbers the HEAD-PIN base that PAIR(2) RBPRAWD reads depend on.  Tail path restores rbp at ARBNO omega (bb_match_arbno.cpp L(2)). */
+         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead.  M-2 BUG-6 NOTE: !op_tail exclusion removed — PAIR(2) RBPRAWD reads (bb_match_arbno.cpp PAIR(2)) fire BEFORE MATCH_END α; by the time release_pump runs, PAIR(2) is complete and HEAD-PIN rbp is safe to restore.  Tail path does NOT restore at ARBNO omega (L(2) only runs on full exhaust, not on first-match-success). */
          /* M-2 BUG-6 FIX: PATCTX-ASCENT add rsp,80 deleted (paired with DESCENT deletion above). After PATCTX restores rsp remains at pre-32B-carve level; STATEMENT_END's add rsp,16 releases the subject var cell correctly. */
          + x86_gamma();
 }
