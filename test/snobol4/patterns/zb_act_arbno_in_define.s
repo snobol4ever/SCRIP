@@ -270,13 +270,15 @@ n10_match_end_α:
                         pop              r15
                         pop              r14
                         sub              r12, 24                                        # cas_mark
-                        mov              r13, qword ptr [rbp + 80]                      # outer_Σ
-                        mov              r14, qword ptr [rbp + 88]                      # outer_δ
-                        mov              r15, qword ptr [rbp + 96]                      # outer_Δ
+                        sub              rsp, 80
+                        mov              r13, qword ptr [rsp + 48]                      # outer_Σ
+                        mov              r14, qword ptr [rsp + 56]                      # outer_δ
+                        mov              r15, qword ptr [rsp + 64]                      # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 72]                      # old_rbp
+                        mov              rbp, qword ptr [rsp + 40]                      # old_rbp
+                        add              rsp, 80
                                                                                         jmp   n11_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_end_α:
@@ -909,13 +911,15 @@ n83_match_end_α:
                         pop              r15
                         pop              r14
                         sub              r12, 24                                        # cas_mark
-                        mov              r13, qword ptr [rbp + 80]                      # outer_Σ
-                        mov              r14, qword ptr [rbp + 88]                      # outer_δ
-                        mov              r15, qword ptr [rbp + 96]                      # outer_Δ
+                        sub              rsp, 80
+                        mov              r13, qword ptr [rsp + 48]                      # outer_Σ
+                        mov              r14, qword ptr [rsp + 56]                      # outer_δ
+                        mov              r15, qword ptr [rsp + 64]                      # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 72]                      # old_rbp
+                        mov              rbp, qword ptr [rsp + 40]                      # old_rbp
+                        add              rsp, 80
                                                                                         jmp   n84_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n84_statement_end_α:
