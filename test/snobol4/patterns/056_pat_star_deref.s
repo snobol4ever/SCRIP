@@ -114,9 +114,6 @@ n10_match_begin_α:
                         mov              qword ptr [rbp + 112], r13                     # outer_Σ
                         mov              qword ptr [rbp + 120], r14                     # outer_δ
                         mov              qword ptr [rbp + 128], r15                     # outer_Δ
-                        lea              rcx, [rip + g_cap_gen]
-                        mov              eax, dword ptr [rcx + 0]
-                        mov              qword ptr [rbp + 136], rax                     # cap_gen
                         mov              qword ptr [rbp + 104], rbp                     # old_rbp
                         call             rt_match_enter@PLT
                         mov              r13, rax
@@ -149,7 +146,6 @@ n10_match_begin_af:
                         mov              r15, qword ptr [rbp + 128]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rbp + 136]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 104]                     # old_rbp
                         add              rsp, 16
@@ -308,7 +304,6 @@ n14_match_end_α:
                         mov              r15, qword ptr [rbp + 128]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rbp + 136]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 104]                     # old_rbp
                                                                                         jmp   n15_statement_end_α

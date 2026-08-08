@@ -77,9 +77,6 @@ n6_match_begin_α:
                         mov              qword ptr [rsp + 96], r13                      # outer_Σ
                         mov              qword ptr [rsp + 104], r14                     # outer_δ
                         mov              qword ptr [rsp + 112], r15                     # outer_Δ
-                        lea              rcx, [rip + g_cap_gen]
-                        mov              eax, dword ptr [rcx + 0]
-                        mov              qword ptr [rsp + 120], rax                     # cap_gen
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -113,7 +110,6 @@ n6_match_begin_af:
                         mov              r15, qword ptr [rsp + 112]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 120]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         add              rsp, 16
                                                                                         jmp   n16_statement_begin_α
@@ -189,7 +185,6 @@ n8_match_end_α:
                         mov              r15, qword ptr [rsp + 112]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 120]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                                                                                         jmp   n9_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
