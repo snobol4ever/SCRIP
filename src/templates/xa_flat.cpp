@@ -349,7 +349,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
         } else {   /* NORMAL JMP-ENTRY PATH: pcall record was pushed by rt_proc_call_open_det; rt_jmp_frame_lexprep2 reads it */
             uint64_t _lex_fp; { void (*_f)(void *, long, long) = rt_jmp_frame_lexprep2; _lex_fp = (uint64_t)(uintptr_t)(void *)_f; }   /* rt_jmp_frame_lexprep2 declared extern "C" at file scope (line 11) */
             int seed_off = g_emit.flat_seed_off ? g_emit.flat_seed_off : 16;
-            if (g_emit.flat_gen) {   /* ICN-FR-4: save γ+ω wires to globals BEFORE lexprep2 (wires are in frame at [rbp+kt-24/-16]; any call from rsp=entry_rsp can clobber those frame slots on subsequent yields). */
+            if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {   /* ICN-FR-4 + PL-ZD-WINDOW2-FIX: save γ+ω wires to globals BEFORE lexprep2. GATED icn_zframe_gen: the global-save path is safe ONLY for Icon zframe generators (single-active-suspension guarantee). Prolog zframe predicates also set flat_gen=1 but have concurrent activations that overwrite g_gen_pending_* before the first epilogue fires (bisect: cal/nrev/qsort SEGV at e33e703b). Prolog non-icn_zframe_gen graphs use the direct RBPRAWQ frame-read epilogue below (correct, frame-resident values not stomped). */
                 uint64_t _sw_fp; { void (*_f)(void *, void *) = rt_gen_save_wires; _sw_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 s += x86("mov", "rdi", RBPRAWQ(kt - 24))   /* γ-wire */
                    + x86("mov", "rsi", RBPRAWQ(kt - 16))   /* ω-wire */
@@ -359,7 +359,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
                + x86("mov32", "esi", (long)seed_off)
                + x86("mov32", "edx", (long)(kt - 32))
                + x86("call", "rt_jmp_frame_lexprep2", _lex_fp);
-            if (g_emit.flat_gen) {   /* ICN-FR-4 LAYER 3: save caller_rbp into pcall.rname (safe for lex=1 records; rt_proc_epilogue_body never reads rname on the c->lex branch).  The generator frame [rbp..entry_rsp) is fully exposed to the caller's C-call stack after the first yield, so ANY [rbp+N] slot can be clobbered — only the heap-allocated pcall record is safe.  Called after the pin (rbp=rsp already set) so [rbp+kt-8] holds the valid caller_rbp that the prologue just wrote. */
+            if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {   /* ICN-FR-4 LAYER 3 + PL-ZD-WINDOW2-FIX: save caller_rbp into pcall.rname. GATED icn_zframe_gen: same reasoning as the wire-save above. */
                 uint64_t _sav_fp; { void (*_f)(void *) = rt_gen_save_caller_rbp; _sav_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 s += x86("mov", "rdi", RBPRAWQ(kt - 8))
                    + x86("call", "rt_gen_save_caller_rbp", _sav_fp);
@@ -413,12 +413,12 @@ static int xa_flat_class_zf(void) {
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
-    if (g_emit.flat_gen) {
-        /* ICN-FR-4 LAYER 2+1+3:
-         * L2: yield value is at FRQ(0/8) = [rbp+0/8] (stored by bb_suspend). Load into rdi:rsi for
-         *     frame0 arg to rt_proc_call_epilogue_γ. rax:rdx at jmp proc_g_γ hold the i-field only —
-         *     using them as rdi:rsi loses the v-field (DT_INT=3), yielding garbage to write().
-         * L1+L3: as before — generator_rbp in r14 for L(3); γ/ω wires and caller_rbp from globals. */
+    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
+        /* ICN-FR-4 LAYER 2+1+3 + PL-ZD-WINDOW2-FIX: GATED icn_zframe_gen (Icon zframe generators only).
+         * Prolog zframe predicates with flat_gen=1 fall through to the direct RBPRAWQ frame-read path below
+         * (same as the non-gen path); their frame-resident wire and caller_rbp values are not clobbered
+         * between γ-exit and the prologue of the NEXT activation (Prolog uses WAM-style choice points,
+         * not the single-active-generator model that makes globals safe for Icon). */
         uint64_t _ggw_fp; { void *(*_f)(void) = rt_gen_get_gamma_wire; _ggw_fp = (uint64_t)(uintptr_t)(void *)_f; }
         uint64_t _gcr_fp; { void *(*_f)(void) = rt_gen_get_caller_rbp; _gcr_fp = (uint64_t)(uintptr_t)(void *)_f; }
         return x86("comment", "ICN-FR-4 zframe epilogue-γ: L2 rdi:rsi=FRQ(0/8) yield; r14=gen_rbp; unwind; γ-wire→r15; caller_rbp→rbp; gen_rbp→rax; jmp r15")
@@ -448,7 +448,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
-    if (g_emit.flat_gen) {
+    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {   /* ICN-FR-4 + PL-ZD-WINDOW2-FIX: GATED icn_zframe_gen. Prolog zframe predicates with flat_gen=1 use the direct frame-read path below. */
         uint64_t _gow_fp; { void *(*_f)(void) = rt_gen_get_omega_wire; _gow_fp = (uint64_t)(uintptr_t)(void *)_f; }
         uint64_t _gcr_fp; { void *(*_f)(void) = rt_gen_get_caller_rbp; _gcr_fp = (uint64_t)(uintptr_t)(void *)_f; }
         return x86("comment", "ICN-FR-4 zframe epilogue-ω generator: lea unwind; get ω-wire→r15; get caller_rbp→rbp; jmp r15")
