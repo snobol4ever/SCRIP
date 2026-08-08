@@ -348,6 +348,35 @@ static int fct_defer_susp(const IR_t * nd) {   /* the licensed defer's compile-t
     if (!pn || !emit_patzeta_lookup(pn, &susp) || susp <= 0) return -1;
     return susp;
 }
+static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
+    /* M-2 BUG-5 FIX: fpl = actual rsp-push bytes of left-spine nodes (ARBNO arrival depth from MATCH_BEGIN).
+     * fct_fp_range uses fc_geom which returns 0 for flat-allocated nodes (LIT_INTEGER, etc.) that DO push rsp.
+     * Must mirror zd_k from emit.cpp (THE ONE K AUTHORITY) — K=0 for the listed kinds, K=16 for all others.
+     * This function is ONLY called for fpl (left-spine); fpb/fpr keep fct_fp_range (they drive slot offsets). */
+    int rsp = 0;
+    for (int j = k0; j < k1 && j < g->n; j++) {
+        IR_t * x = g->all[j];
+        if (!x) continue;
+        int op = (int)x->op;
+        if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_SAVE_RESTORE ||
+            op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE ||
+            op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END ||
+            op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY ||
+            op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND ||
+            op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE ||
+            op == IR_MATCH_FENCE1 || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION ||
+            op == IR_CUT || op == IR_MOVE_LABEL || op == IR_GLIT || op == IR_GCC || op == IR_GALT ||
+            op == IR_RETURN || (op == IR_DISJUNCTION && x->n_operands == 0) ||
+            (op == IR_MATCH_DEFER && x->pat_static && IR_LIT(x).sval && !strncmp(IR_LIT(x).sval, "PATV$", 5))) continue;
+        if (op == IR_MATCH_ALTERNATE) {
+            int _b = 0, _e = 0;
+            if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > j + 1) j = _e - 1; }
+            continue;
+        }
+        rsp += 16;
+    }
+    return rsp;
+}
 static int fct_fp_range(IR_graph_t * g, int k0, int k1) {
     int fp = 0; long fck = 0;
     for (int j = k0; j < k1 && j < g->n; j++) {
@@ -620,7 +649,7 @@ void zls_fct_finalize(IR_graph_t * g, int late) {
          * its arm leaves registering per-arm at pfx+16 with the same region bias.  ALT-free ranges reduce to the exact prior linear walks (same fc_geom sums, same formulas: left = 32+prefix+own flat,
          * body = prefix+own-bmn, right = fpb+prefix+own+span-rmn). */
         fct_pricing = 1;
-        int fpl = fct_fp_range(g, i0, ia);
+        int fpl = fct_rsp_range(g, i0, ia);   /* M-2 BUG-5: fpl = actual rsp-push depth (zd_k sum), not fc_geom sum -- flat-allocated left-spine nodes (LIT_INTEGER etc.) push rsp but have fc_geom=0 */
         int fpb = fct_fp_range(g, b0, b1 + 1);
         int fpr = fct_fp_range(g, b1 + 1, r1);
         (void)k1;
