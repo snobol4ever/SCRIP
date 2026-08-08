@@ -64,8 +64,7 @@ static std::string release_pump() {
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", stfh() ? HKQ(4) : FRQ(_.op_off + 72))
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror */
+         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror; CAPGEN-ERAD: arg3 dropped, restore no longer writes g_cap_gen */
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead -- see bb_match_begin's twin gate for the measured reason. */
          + x86_gamma();
 }

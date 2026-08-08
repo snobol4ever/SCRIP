@@ -45,9 +45,7 @@ std::string bb_match_begin() {
          + x86("note", HKN(1)) + x86("mov", stfh() ? HKQ(1) : FRQ(_.op_off + 48), "r13")   /* PATCTX (Lon directive 2026-07-29): save the OUTER Σ/δ/Δ before rt_match_enter sets them anew; both exits restore.  α depth == the FRQ-baked depth (the hfc 32B cell is carved below), so the plain slot spelling is valid in every port/frame arm. */
          + x86("note", HKN(2)) + x86("mov", stfh() ? HKQ(2) : FRQ(_.op_off + 56), "r14")
          + x86("note", HKN(3)) + x86("mov", stfh() ? HKQ(3) : FRQ(_.op_off + 64), "r15")
-         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
-         + x86("mov", "eax", RDD("rcx", 0))
-         + x86("note", HKN(4)) + x86("mov", stfh() ? HKQ(4) : FRQ(_.op_off + 72), "rax")   /* PATCTX-2: the capture generation id is pattern context too -- read BEFORE rt_match_enter draws a fresh id from the well; both exits hand it back via rt_match_ctx_restore arg 3 */
+         /* CAPGEN-ERAD (Lon 2026-08-08): the g_cap_gen read+save DELETED — CAS-regime graphs (the sole regime) scope captures structurally via the R12 LIFO; the stamp's only consumer is the rt_cap flat lane (COND/IMM in 6 legacy demos), which keeps its per-match bump but loses nested-restore until M-2 re-homes it to CAS.  HKQ(4)/FRQ(+72) slot retained as dead pad (CAS-SENTINEL-CLEAN precedent). */
          + IF(_.flat_deep_arrival && !rpin(), x86("note", HKN(0)) + x86("mov", stfh() ? HKQ(0) : FRQ(_.op_off + 40), "rbp"))   /* REPL-PIN: complementary to the widened pin on the SAME hpin() -- the old !(subjc&&hpin) guard let this raw flat save fire BESIDE the pin for the zres population, a stray write the pin's rsp-relative old_rbp slot made redundant; exclusive-by-predicate now, per the pin comment's own "exclusive by construction" law. */   /* BRACKET-GATE (s193): the +40 save exists to bracket the ARBNO zv() borrow (and any deep repoint); a depth-static graph has no repointer, so save AND both restores gate together on the same predicate the outer quartet reads — drift-proof by shared condition.  HEAD-PIN (s22z): under the pin the slot already holds the OLD rbp (written rsp-relatively before the pin above); this FRQ save would overwrite it with the NEW base and turn both exit restores into self-no-ops — the exact disease the pin cures — so the arms are exclusive by construction. */
          /* ZW-0 stage 2: island arm deleted -- unreachable under ZC_FRAME_RSP default */
          + IF(!_.op_zres && !subjc(), rpin()
@@ -94,8 +92,7 @@ std::string bb_match_begin() {
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", stfh() ? HKQ(4) : FRQ(_.op_off + 72))
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror (pattern_match.c / runtime_eval.c readers) */
+         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror (pattern_match.c / runtime_eval.c readers); CAPGEN-ERAD: arg3 no longer staged, restore no longer writes g_cap_gen */
          + IF(_.flat_deep_arrival, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): restore only if the save above ran.  HEAD-PIN (s22z): under the pin this restore MOVES to the statement-terminal cut (x86_asm.h) -- the sole release authority -- because the direct af/β fail edges bypass this tail entirely (the 061 m3 witness: `add rsp,K; jmp NO` with rbp left on the region); restoring here TOO would leave the cut's [rbp+off] read pointing into the restored OLD frame. */
          + x86_omega();
 }
