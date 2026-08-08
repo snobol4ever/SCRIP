@@ -9,6 +9,8 @@ extern "C" {
 #define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 extern "C" void rt_jmp_frame_lexprep(void *, long);   /* NCB-1d: det-lexical jmp-entry prologue tail — NULVCL fill + rt_frame_bind_args on the self-allocated frame (rt.c) */
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);   /* PL-REGAIN-4: lazy-seed tail — NULVCL slot0 + [suffix,region) only, box grants first-write-wins, SCRIP_ZLS_POISON=1 poison lane inside (rt.c) */
+extern "C" void rt_pl_zf_resume_clear(void);   /* PL-FR-4: clear g_pl_zf_pending_cursor after epilogue intercept */
+extern "C" void *g_pl_zf_pending_cursor;       /* PL-FR-4: pending resume cursor (0 = none) */
 extern "C" void rt_main_args_fetch(void);   /* ICNBENCH-ARGS-RSP: returns the staged main(args) DESCR in rax:rdx (true return type is DESCR_t; declared void here — the template only takes its ADDRESS, the emitted call site honors the real ABI) */
 extern "C" void rt_gen_save_caller_rbp(void *);   /* ICN-FR-4 L3: save caller_rbp to pcall.rname (heap-safe; lex epilogue never reads rname) */
 extern "C" void *rt_gen_get_caller_rbp(void);     /* ICN-FR-4 L3: retrieve caller_rbp from pcall.rname */
@@ -446,6 +448,38 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rsi", "[r14 + 8]")          /* yield i-field from generator frame via r14 */
              + x86("mov", "rax", "r14")                /* generator_rbp → rax for L(3) landing */
              + x86("jmp", "r15");
+    }
+    /* PL-FR-4 PENDING RESUME INTERCEPT (Prolog zframe gen, non-icn): when bcps_spine_gen_arm's β arm set
+     * g_pl_zf_pending_cursor (via rt_pl_zf_resume_set before re-calling rt_proc_call_open_det), the caller
+     * wants to SKIP clause 1's result and resume at the cursor (n15_suspend_β = clause 2 entry).  The intercept
+     * fires HERE — while rbp still points to the callee's live frame — before the lea rsp,[rbp+kt] unwind.
+     * Protocol: check g_pl_zf_pending_cursor; if set, write it into [rbp+resume_slot] (OVERRIDING the α_body
+     * initial cursor write) and jmp there directly with the frame still live.  The trail mark at [rbp+tm_off]
+     * was already written by rt_jmp_frame_lexprep2 (pending override) and re-set by n0_call_builtin_prolog_α
+     * ($trail_mark) to the current trail top — which is correct for the new clause attempt.
+     * Guard: only for Prolog zframe generators with a valid resume_slot (flat_gen=1, !icn_zframe_gen). */
+    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_zframe_gen && g_emit_cfg->resume_slot > 0) {
+        extern void *g_pl_zf_pending_cursor;
+        extern void rt_pl_zf_resume_clear(void);
+        uint64_t _clear_fp; { void (*_f)(void) = rt_pl_zf_resume_clear; _clear_fp = (uint64_t)(uintptr_t)(void *)_f; }
+        int rs = g_emit_cfg->resume_slot;
+        return x86("comment", "PL-FR-4 zframe epilogue-γ (Prolog gen): check pending resume cursor before unwind")
+             + x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor")
+             + x86("mov", "r11", "[r11]")           /* r11 = g_pl_zf_pending_cursor (0 = normal path) */
+             + x86("test", "r11", "r11")
+             + x86("je", L(50))                     /* 0 = no pending resume, normal γ-exit */
+             /* pending resume: write cursor into [rbp+resume_slot] (overrides α_body's clause-1 cursor) */
+             + x86("mov", "[rbp + " + std::to_string(rs) + "]", "r11")   /* cursor = pending cursor */
+             + x86("call", "rt_pl_zf_resume_clear", _clear_fp)            /* clear the pending flag */
+             + x86("jmp", "[rbp + " + std::to_string(rs) + "]")           /* jmp cursor (= n15_suspend_β) */
+             + x86("def", L(50))
+             /* normal γ-exit path */
+             + x86("mov", "rdi", "rax")
+             + x86("mov", "rsi", "rdx")
+             + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+             + x86("mov", "rcx", RBPRAWQ(kt - 24))
+             + x86("mov", "rbp", RBPRAWQ(kt - 8))
+             + x86("jmp", "rcx");
     }
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; restore caller rbp from header; jmp γ wire")
          + x86("mov", "rdi", "rax")

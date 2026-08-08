@@ -1615,6 +1615,13 @@ void rt_jmp_frame_lexprep(void *fb, long region_bytes)
  * layout is [0,16) slot0 | [16,16+np*16) params | box grants | [suffix_off, region) = resume slot (if any) + zeta-mark + named locals.  Only slot0 and the suffix need the NULVCL seed before the body:
  * params are covered by rt_frame_bind_args (staged args, NULVCL tail), and every box-grant slot is written by its producer before any consumer reads it (the four-port wiring).  Under SCRIP_ZLS_POISON=1
  * the box-grant span is filled 0xA5 instead of being left as stack garbage, so a planted use-before-init diverges loudly; params inside the poisoned span are overwritten by the bind that follows. */
+/* PL-FR-4 ZFRAME PENDING RESUME — forward declarations; definitions below after g_pl_retry block. */
+extern void   *g_pl_zf_pending_cursor;
+extern long    g_pl_zf_pending_tm_lo;
+extern long    g_pl_zf_pending_tm_hi;
+extern int     g_pl_zf_pending_tm_off;
+extern int     g_pl_zf_pending_cursor_off;   /* frame slot offset of the cursor (resume_slot); set by rt_pl_zf_resume_set alongside cursor */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
 {
     if (g_pcall_top <= 0) return;
@@ -1626,6 +1633,18 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
     { DESCR_t *zf = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) zf[zi] = NULVCL; }
     /* PL-FR-2: rt_frame_bind_args writes at [fb+(i+1)*16] (positive, inside frame). Named Prolog params live at positive offsets; anonymous vars (G0/G1) get cells via PLJ heap. */
     rt_frame_bind_args((char *)fb, c->p, c->nargs);
+    /* PL-FR-4 PENDING RESUME OVERRIDE: if bcps_spine_gen_arm's β arm set g_pl_zf_pending_cursor (via rt_pl_zf_resume_set), write cursor+trail into the fresh frame NOW, BEFORE α_body runs.
+     * The α_body re-writes the cursor slot (same value) and n0 overwrites the trail mark with current trail top.
+     * The pending cursor is NOT cleared here — it survives until bb_suspend's intercept or the epilogue-γ intercept fires. */
+    if (g_pl_zf_pending_cursor) {
+        int rs = g_pl_zf_pending_cursor_off;
+        if (rs > 0 && rs + 8 <= (int)region_bytes) *(void **)((char *)fb + rs) = g_pl_zf_pending_cursor;
+        int tm = g_pl_zf_pending_tm_off;
+        if (tm > 0 && tm + 8 <= (int)region_bytes) {
+            *(long *)((char *)fb + tm)     = g_pl_zf_pending_tm_lo;
+            *(long *)((char *)fb + tm + 8) = g_pl_zf_pending_tm_hi;
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-FR-4 RETRY CONTINUATION STACK — the WAM B register for the ζ-frame regime.  THE DEFECT: MOVE_LABEL/DISJUNCTION rendezvous via [rbp+op_off+16]; the ζ epilogue restores rbp to the caller before
@@ -1677,6 +1696,56 @@ void *rt_pl_cp_pop(void)
     if (g_pl_cp_top <= 0) return (void *)0;
     return g_pl_cp_stack[--g_pl_cp_top];
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-FR-4 ZFRAME TRIPLE PUSH — stores {trail_mark_lo, trail_mark_hi, cont_addr} as three consecutive slots.  Called by bb_suspend's zframe arm at each yield so the β-resume path in bb_call_proc_staged can restore the trail mark into a fresh callee frame and jump to the right suspend-β continuation without depending on the (dead) original frame. */
+/* PL-FR-4 ZFRAME TRIPLE STACK — separate from g_pl_cp_stack (single-word, used by IR_INDIRECT_GOTO).  Mixing would allow IR_INDIRECT_GOTO's single-word rt_pl_cp_pop to corrupt triple entries mid-way. */
+__attribute__((visibility("default"))) void **g_pl_zf3_stack;
+__attribute__((visibility("default"))) int    g_pl_zf3_top;
+__attribute__((visibility("default"))) int    g_pl_zf3_cap;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont)
+{
+    if (g_pl_zf3_top + 3 > g_pl_zf3_cap) {
+        int nc = g_pl_zf3_cap ? g_pl_zf3_cap * 2 : 1024;
+        if (nc < g_pl_zf3_top + 3) nc = g_pl_zf3_top + 3;
+        void **np = (void **)rt_ws_realloc(g_pl_zf3_stack, (size_t)nc * sizeof(void *));
+        if (!np) return;
+        g_pl_zf3_stack = np; g_pl_zf3_cap = nc;
+    }
+    g_pl_zf3_stack[g_pl_zf3_top++] = (void *)(uintptr_t)(uint64_t)tm_lo;
+    g_pl_zf3_stack[g_pl_zf3_top++] = (void *)(uintptr_t)(uint64_t)tm_hi;
+    g_pl_zf3_stack[g_pl_zf3_top++] = cont;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-FR-4 ZFRAME TRIPLE POP — reverses rt_pl_cp_push3 on its own separate g_pl_zf3_stack (never touched by rt_pl_cp_pop/push used by IR_INDIRECT_GOTO). */
+void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi)
+{
+    if (g_pl_zf3_top < 3) { if (tm_lo) *tm_lo = 0; if (tm_hi) *tm_hi = 0; return (void *)0; }
+    void *cont     = g_pl_zf3_stack[--g_pl_zf3_top];
+    if (tm_hi) *tm_hi = (long)(uintptr_t)g_pl_zf3_stack[--g_pl_zf3_top]; else --g_pl_zf3_top;
+    if (tm_lo) *tm_lo = (long)(uintptr_t)g_pl_zf3_stack[--g_pl_zf3_top]; else --g_pl_zf3_top;
+    return cont;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-FR-4 ZFRAME PENDING RESUME — globals that bridge the frame-allocation boundary.  When bcps_spine_gen_arm's β arm pops a triple and is about to re-enter the callee's α via rt_proc_call_open_det,
+ * it calls rt_pl_zf_resume_set() to register the cursor+trail state for this activation.  rt_jmp_frame_lexprep2 then detects the pending state and writes cursor+trail into the freshly allocated frame
+ * BEFORE the α_body cursor initialization runs, using a post-init override.  Cleared by rt_pl_zf_resume_clear after the override writes.  NOT concurrency-safe (single-threaded JIT assumption). */
+__attribute__((visibility("default"))) void   *g_pl_zf_pending_cursor;   /* n15_suspend_β address to write into [fb+cursor_off] */
+__attribute__((visibility("default"))) long    g_pl_zf_pending_tm_lo;    /* trail mark lo to write into [fb+tm_off] */
+__attribute__((visibility("default"))) long    g_pl_zf_pending_tm_hi;    /* trail mark hi to write into [fb+tm_off+8] */
+__attribute__((visibility("default"))) int     g_pl_zf_pending_tm_off;   /* frame slot offset for trail mark (pl_zf_trail_mark_off from IR_graph_t) */
+__attribute__((visibility("default"))) int     g_pl_zf_pending_cursor_off;   /* frame slot offset for cursor (resume_slot from IR_graph_t; baked by bcps_spine_gen_arm from zls_g_resume_by_name) */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off)
+{
+    g_pl_zf_pending_cursor = cursor;
+    g_pl_zf_pending_tm_lo = tm_lo;
+    g_pl_zf_pending_tm_hi = tm_hi;
+    g_pl_zf_pending_tm_off = tm_off;
+    g_pl_zf_pending_cursor_off = cursor_off;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_zf_resume_clear(void) { g_pl_zf_pending_cursor = (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* FRAME-PREP LEAF — the site has just made fbytes of frame available at fb (an rsp bump, once the call site is
  * emitted; an alloca while it is still C).  Fill it per the open protocol, record it, and hand back the entry

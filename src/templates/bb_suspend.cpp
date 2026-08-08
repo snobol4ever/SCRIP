@@ -7,6 +7,9 @@ extern "C" {
 }
 #include "x86_asm.h"
 extern "C" void rt_gen_save_cont(void *);   /* ICN-FR-4 L3: save continuation ptr to pcall.save_Σ (heap-safe; lex epilogue never reads save_Σ) */
+extern "C" void rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont);   /* PL-FR-4 ZFRAME: save {trail_mark_lo, trail_mark_hi, cont_addr} triple at each Prolog zframe yield */
+extern "C" void *g_pl_zf_pending_cursor;   /* PL-FR-4 ZFRAME: set by bcps β arm to signal pending resume; checked by bb_suspend to skip push3 and jmp cursor */
+extern "C" void rt_pl_zf_resume_clear(void);   /* PL-FR-4 ZFRAME: clear g_pl_zf_pending_cursor */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_suspend() {
     x86_begin();
@@ -24,9 +27,38 @@ std::string bb_suspend() {
             uint64_t _sc_fp; { void (*_f)(void *) = rt_gen_save_cont; _sc_fp = (uint64_t)(uintptr_t)(void *)_f; }
             cont_save = x86_lea_tgt("rdi", X86T_TGT1) + x86("call", "rt_gen_save_cont", _sc_fp);
         }
+        /* PL-FR-4 ZFRAME TRIPLE PUSH: for Prolog zframe generators (zframe_graph=1, NOT icn_zframe_gen), save {trail_mark_lo, trail_mark_hi, suspend_β_addr} into g_pl_cp_stack before each yield.
+         * The trail mark lives at FRQ(op_sa)/FRQ(op_sa+8) — the yield-value slot; op_sa is the descr-pair holding the trail mark descriptor (set by n0_call_builtin_prolog for $trail_mark).
+         * The continuation label (lbl_t1 = suspend_β) is a rip-relative code address — stable across frame instances, so the β-resume path in bcps_spine_gen_arm can jump there via a fresh callee frame.
+         * Byte-identical for ICN (icn_zframe_gen gate above handles that path) and SN4/non-zframe (zframe_graph=0 → this block absent).
+         * Register protocol: rdi=tm_lo, rsi=tm_hi, rdx=cont; all three are ABI args before any yield-value copy clobbers rax/rdx.  Fires at α BEFORE the yield-value copy so rax is free.
+         * PL-FR-4 RESUME GATE: if g_pl_zf_pending_cursor is set, this is a β-resume re-entry (bcps called us with rt_pl_zf_resume_set active to skip clause 1's result).  Instead of pushing clause 1's triple
+         * again (which would loop forever), skip the push3 and jump DIRECTLY to the cursor (= lbl_t1 = n15_suspend_β = clause 2 entry) WITHIN the still-live callee frame — bypassing the yield entirely.
+         * The pending cursor is cleared HERE before jumping, so inner predicates called from clause 2's body don't inherit the stale pending state. */
+        std::string pl_zf_push;
+        if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_zframe_gen && _.op_sb >= 0 && _.lbl_t1_p && _.op_sa >= 0
+            && _.op_sb == g_emit_cfg->resume_slot) {   /* PL-FR-4 CLAUSE-CURSOR GATE: only the suspend node that owns the clause-cursor slot (op_sb == resume_slot) gets the pending-resume intercept. Inner suspend nodes (from recursive sub-calls) have different op_sb values and must NOT intercept — they'd jmp to the wrong continuation if pending_cursor is set during β-resume re-entry. */
+            uint64_t _push3_fp; { void (*_f)(long, long, void *) = rt_pl_cp_push3; _push3_fp = (uint64_t)(uintptr_t)(void *)_f; }
+            uint64_t _clear_fp; { void (*_f)(void) = rt_pl_zf_resume_clear; _clear_fp = (uint64_t)(uintptr_t)(void *)_f; }
+            /* Check g_pl_zf_pending_cursor: if set, we are in a β-resume re-entry — skip push3 and jmp cursor */
+            pl_zf_push = x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor")
+                       + x86("mov", "r11", "[r11]")                  /* r11 = pending cursor (0 = normal) */
+                       + x86("test", "r11", "r11")
+                       + x86("je", L(61))                            /* 0 = normal: fall through to push3 */
+                       /* β-resume re-entry: pending cursor = n15_suspend_β; clear it then jmp in live frame */
+                       + x86("call", "rt_pl_zf_resume_clear", _clear_fp)  /* clear BEFORE jmp so inner calls don't inherit */
+                       + x86("jmp", "r11")                           /* jmp cursor = clause-2 entry (rbp still live) */
+                       + x86("def", L(61))
+                       /* normal push3 path (not a β-resume re-entry) */
+                       + x86("mov", "rdi", FRQ(_.op_sa))             /* trail_mark_lo */
+                       + x86("mov", "rsi", FRQ(_.op_sa + 8))         /* trail_mark_hi */
+                       + x86_lea_tgt("rdx", X86T_TGT1)               /* cont = suspend_β label */
+                       + x86("call", "rt_pl_cp_push3", _push3_fp);
+        }
         return x86("comment", _.op_zres ? "IR_SUSPEND yield+resume [PL-ZK-2 ZD: ZOPQ->ZRES]" : "IR_SUSPEND yield+resume")
              + x86_alpha()
              + cont_save   /* ICN-FR-4: save cont to pcall before the yield-value copy clobbers registers */
+             + pl_zf_push  /* PL-FR-4: save {trail_mark_lo, trail_mark_hi, suspend_β} triple to g_pl_cp_stack before yield */
              + (_.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
              + (_.op_zres ?
                     /* ZD arm: copy predecessor cell from ZOPQ(0) to ZRES */

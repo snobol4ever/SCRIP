@@ -118,6 +118,10 @@ void  rt_pl_retry_push(void *addr);   /* PL-FR-4: push retry continuation onto t
 void *rt_pl_retry_pop(void);          /* PL-FR-4: pop retry continuation (WAM `return ALTB(B)` read); 0 = exhausted = fail. */
 void  rt_pl_cp_push(void *addr);      /* PL-FR-4 ZFRAME: push β-resume addr onto zframe retry stack (separate from cells g_pl_retry — rt.c). */
 void *rt_pl_cp_pop(void);             /* PL-FR-4 ZFRAME: pop β-resume addr; 0 = exhausted = fail, jump to omega. */
+void  rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont);   /* PL-FR-4 ZFRAME TRIPLE: push {trail_mark_lo, trail_mark_hi, cont_addr} as one entry (3 slots); called by bb_suspend zframe arm at each yield. */
+void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi);               /* PL-FR-4 ZFRAME TRIPLE: pop triple and return cont_addr (0 = exhausted = omega); writes trail marks to *tm_lo/*tm_hi for caller to restore. */
+void  rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off);   /* PL-FR-4 ZFRAME RESUME: set pending-resume globals before re-calling rt_proc_call_open_det; xa_flat epilogue-γ picks them up while callee frame is live. */
+void  rt_pl_zf_resume_clear(void);   /* PL-FR-4 ZFRAME RESUME: clear g_pl_zf_pending_cursor after the intercept writes the cursor. */
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
 void rt_c2b_arm_trap(void);
