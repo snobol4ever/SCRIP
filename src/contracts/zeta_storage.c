@@ -1069,11 +1069,11 @@ static int zw_nid_listed_c(const char * e, int nid) { if (!e || !*e) return 0; {
 long zw_carve_k(const IR_t * nd) {
     static int _ba = -1, _all = -1; static const char * _bo; static const char * _bs;
     extern int rt_zeta_port_mode(void); extern int bb_node_id(IR_t *); long _d, _k; int _spine;
-    if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); { const char * a = getenv("SCRIP_BB_ALLOC_ALL"); _all = (a && *a == '1') ? 1 : 0; } }
+    if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); { const char * a = getenv("SCRIP_BB_ALLOC_ALL"); _all = (a && *a == '0') ? 0 : 1; }   /* UNIVERSAL CARVE default-ON (Lon s12): the five-kind exclusion list dies unless =0 opt-out */ }
     if (!_ba || !nd) return 0;
     _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC);
     if (_spine || rt_zeta_port_mode() != ZC_PORT_FORTH) return 0;
-    if (!_all && (nd->op == IR_MATCH_BEGIN || nd->op == IR_MATCH_FENCE1 || nd->op == IR_SAVE_RESTORE || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT)) return 0;   /* RK-GRAM-3d: grammar-box nodes use [rbp+N] frame slots exclusively; never participate in RSP FORTH-spine carve */
+    if (!_all && (nd->op == IR_SAVE_RESTORE || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT)) return 0;   /* RK-GRAM-3d: grammar-box nodes use [rbp+N] frame slots exclusively; never participate in RSP FORTH-spine carve */
     if (fc_geom(nd, &_d)) return 0;
     _k = zw_node_k(nd); if (_k <= 0) return 0;
     { int _nid = bb_node_id((IR_t *)nd); if (_bo && *_bo && !zw_nid_listed_c(_bo, _nid)) return 0; if (zw_nid_listed_c(_bs, _nid)) return 0; }
