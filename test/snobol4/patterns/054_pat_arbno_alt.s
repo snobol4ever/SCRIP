@@ -360,10 +360,10 @@ n10_match_arbno_β:
                         mov              qword ptr [rsp + 688], rax
                                                                                         jmp   n22_match_alternate_α
 n10_match_arbno_as:
-                        mov              eax, dword ptr [rsp + 656]
+                        mov              eax, dword ptr [rbp + -80]
                         cmp              r14d, eax
                                                                                         je    n22_match_alternate_β
-                        mov              dword ptr [rsp + 660], r14d
+                        mov              dword ptr [rbp + -76], r14d
                                                                                         jmp   n11_match_assign_cond_α
 n10_match_arbno_af:
                         mov              eax, dword ptr [rsp + 664]

@@ -320,10 +320,10 @@ n9_match_arbno_β:
                         mov              qword ptr [rsp + 584], rcx
                                                                                         jmp   n18_match_alternate_α
 n9_match_arbno_as:
-                        mov              eax, dword ptr [rsp + 560]
+                        mov              eax, dword ptr [rbp + -48]
                         cmp              r14d, eax
                                                                                         je    n18_match_alternate_β
-                        mov              dword ptr [rsp + 564], r14d
+                        mov              dword ptr [rbp + -44], r14d
                                                                                         jmp   n10_lit_integer_α
 n9_match_arbno_af:
                         mov              eax, dword ptr [rsp + 568]
