@@ -20,7 +20,7 @@ std::string bb_suspend() {
          * This call happens BEFORE the yield value copy (rax/rdx unset at alpha) and uses rdi for the arg,
          * which is ABI-legal at alpha (no live callee values yet).  Byte-identical for non-flat_gen graphs. */
         std::string cont_save;
-        if (g_emit.flat_gen && _.op_sb >= 0 && _.lbl_t1_p) {
+        if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen && _.op_sb >= 0 && _.lbl_t1_p) {   /* ICN-FR-4 + PL-ZD-WINDOW2-FIX: GATED icn_zframe_gen — Prolog flat_gen graphs skip this save. */
             uint64_t _sc_fp; { void (*_f)(void *) = rt_gen_save_cont; _sc_fp = (uint64_t)(uintptr_t)(void *)_f; }
             cont_save = x86_lea_tgt("rdi", X86T_TGT1) + x86("call", "rt_gen_save_cont", _sc_fp);
         }
