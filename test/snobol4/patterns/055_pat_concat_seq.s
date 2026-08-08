@@ -165,7 +165,6 @@ n7_match_assign_save_α:
                                                                                         jmp   n8_match_len_α
 n7_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 320
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_len_α:
@@ -204,7 +203,6 @@ n10_match_assign_save_α:
                                                                                         jmp   n11_match_len_α
 n10_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 336
                                                                                         jmp   n9_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_len_α:
@@ -243,7 +241,6 @@ n13_match_assign_save_α:
                                                                                         jmp   n14_match_len_α
 n13_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 352
                                                                                         jmp   n12_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_len_α:

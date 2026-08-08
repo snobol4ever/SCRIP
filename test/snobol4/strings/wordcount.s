@@ -77,7 +77,6 @@ n5_match_span_α:
                         cmp              eax, r15d
                                                                                         jl    .Lx15_239
                         add              rsp, 16
-                        add              rsp, 80
                                                                                         jmp   n4_match_break_β
 .Lx15_239:
                         movsxd           rcx, eax
@@ -91,7 +90,6 @@ n5_match_span_α:
                         cmp              eax, r14d
                                                                                         jne   .Lx15_240
                         add              rsp, 16
-                        add              rsp, 80
                                                                                         jmp   n4_match_break_β
 .Lx15_240:
                         mov              dword ptr [rsp + 0], r14d
@@ -101,7 +99,6 @@ n5_match_span_α:
 n5_match_span_β:
                         mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
-                        add              rsp, 80
                                                                                         jmp   n4_match_break_β
 proc_PAT$0_scanhit:
                         cmp              qword ptr [rbp + 112], 1
