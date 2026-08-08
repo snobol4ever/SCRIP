@@ -91,6 +91,8 @@ n6_match_begin_α:
                         mov              qword ptr [rsp + 120], 0
                         mov              rdi, qword ptr [rsp + 128]                     # var
                         mov              rsi, qword ptr [rsp + 136]
+                        mov              qword ptr [rsp + 88], rbp                      # old_rbp
+                        mov              rbp, rsp                                       # stmt_base
                         mov              qword ptr [rsp + 96], r13                      # outer_Σ
                         mov              qword ptr [rsp + 104], r14                     # outer_δ
                         mov              qword ptr [rsp + 112], r15                     # outer_Δ
@@ -132,6 +134,7 @@ n6_match_begin_af:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rsp + 120]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
+                        mov              rbp, qword ptr [rbp + 88]                      # old_rbp
                         add              rsp, 144
                                                                                         jmp   n8_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -151,6 +154,7 @@ n7_match_lit_α:
                         cmp              eax, 99
                                                                                         jne   n6_match_begin_β
                         add              r14d, 3
+                        mov              rbp, qword ptr [rbp + 88]                      # old_rbp
                         add              rsp, 144
                                                                                         jmp   n7_match_lit_β
 n7_match_lit_β:
