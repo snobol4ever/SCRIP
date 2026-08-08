@@ -114,14 +114,17 @@ n10_match_begin_α:
                         mov              qword ptr [rbp + 112], r13                     # outer_Σ
                         mov              qword ptr [rbp + 120], r14                     # outer_δ
                         mov              qword ptr [rbp + 128], r15                     # outer_Δ
-                        mov              qword ptr [rbp + 104], rbp                     # old_rbp
-                        call             rt_match_enter@PLT
-                        mov              r13, rax
-                        mov              r15, rdx
                         mov              qword ptr [r12 + 0], 0                         # cas_top
                         mov              qword ptr [r12 + 8], rsp                       # cas_rsp_mark
                         mov              qword ptr [r12 + 16], 0
                         add              r12, 24                                        # cas_top
+                        lea              rcx, [rip + g_cap_gen]
+                        mov              eax, dword ptr [rcx + 0]
+                        mov              qword ptr [rbp + 136], rax                     # cap_gen
+                        mov              qword ptr [rbp + 104], rbp                     # old_rbp
+                        call             rt_match_enter@PLT
+                        mov              r13, rax
+                        mov              r15, rdx
                         mov              qword ptr [rbp + 80], rsp                      # zls2_mark
                         mov              dword ptr [rbp + 64], 0                        # start_δ
 .Lx43_0:
@@ -146,6 +149,7 @@ n10_match_begin_af:
                         mov              r15, qword ptr [rbp + 128]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
+                        mov              rdx, qword ptr [rbp + 136]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + 104]                     # old_rbp
                         add              rsp, 16
@@ -309,7 +313,7 @@ n14_match_end_α:
                                                                                         jmp   n15_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n15_statement_end_α:
-                        add              rsp, 48
+                        add              rsp, 16
                                                                                         jmp   n16_statement_begin_α
 #=======================================================================================================================
 # YES     OUTPUT = V
