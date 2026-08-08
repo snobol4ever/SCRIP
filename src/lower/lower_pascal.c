@@ -124,6 +124,18 @@ static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** res) {
     return ce ? ce : n1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_mat_rv(pcx_t * cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_t ** res) {
+    if (e && is_relop(e->t)) {
+        IR_t * op = build(cx, IR_BINOP_RELOP_VAL, γ, ω); IR_LIT(op).ival = lc_binop_code(e->t);
+        IR_t * lr = NULL, * rr = NULL;
+        IR_t * ea = lower(cx, (e->n > 0) ? e->c[0] : NULL, NULL, ω, &lr);
+        IR_t * eb = lower(cx, (e->n > 1) ? e->c[1] : NULL, op, ω, &rr);
+        γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
+        *res = op; return ea;
+    }
+    IR_t * v = NULL; IR_t * e2 = pas_mat(cx, e, ω, &v); γ_to(v, γ); *res = v; return e2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_condish(const tree_t * t) { return t && (is_relop(t->t) || t->t == TT_NOT); }
 static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t ** res) {
     if (t && t->t == TT_NOT && t->n > 0) return pas_cond(cx, t->c[0], F, T, res);
@@ -148,7 +160,7 @@ static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t **
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    if (is_condish(t)) { IR_t * v = NULL; IR_t * e = pas_mat(cx, t, ω, &v); γ_to(v, γ); *res = v; return e; }
+    if (is_condish(t)) { IR_t * v = NULL; IR_t * e = pas_mat_rv(cx, t, γ, ω, &v); *res = v; return e; }
     const tree_t * lt = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * rt = (t->n > 1) ? t->c[1] : NULL;
     int lm = is_condish(lt);
@@ -156,8 +168,10 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * op = build(cx, IR_BINOP, γ, ω);
     IR_LIT(op).ival = lc_binop_code(t->t);
     IR_t * lr = NULL, * rr = NULL; IR_t * ea, * eb;
-    if (lm) ea = pas_mat(cx, lt, ω, &lr); else ea = lower(cx, lt, NULL, ω, &lr);
-    if (rm) { eb = pas_mat(cx, rt, ω, &rr); γ_to(rr, op); } else eb = lower(cx, rt, op, ω, &rr);
+    if (lm) { IR_t * lv = NULL; ea = pas_mat_rv(cx, lt, NULL, ω, &lv); lr = lv; }
+    else ea = lower(cx, lt, NULL, ω, &lr);
+    if (rm) { IR_t * rv = NULL; eb = pas_mat_rv(cx, rt, op, ω, &rv); rr = rv; }
+    else eb = lower(cx, rt, op, ω, &rr);
     γ_to(lr, eb);
     ir_operand_push(op, lr); ir_operand_push(op, rr);
     *res = op;
@@ -165,7 +179,7 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_unop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    if (t->t == TT_NOT) { IR_t * v = NULL; IR_t * e = pas_mat(cx, t, ω, &v); γ_to(v, γ); *res = v; return e; }
+    if (t->t == TT_NOT) { IR_t * v = NULL; IR_t * e = pas_mat_rv(cx, t, γ, ω, &v); *res = v; return e; }
     if (t->t == TT_PLS) return lower(cx, (t->n > 0) ? t->c[0] : NULL, γ, ω, res);
     if (t->t == TT_MNS) {
         IR_t * op = build(cx, IR_BINOP, γ, ω);
@@ -318,7 +332,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
         IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
         IR_t * vr = build(cx, IR_VAR, NULL, ω); IR_LIT(vr).sval = _rn;
         IR_t * rr = NULL; IR_t * re;
-        if (is_condish(rhs)) { re = pas_mat(cx, rhs, ω, &rr); γ_to(rr, asn); }
+        if (is_condish(rhs)) { re = pas_mat_rv(cx, rhs, asn, ω, &rr); }
         else re = lower(cx, rhs, asn, ω, &rr);
         γ_to(vr, re ? re : asn);
         ir_operand_push(asn, vr); ir_operand_push(asn, rr);
@@ -326,9 +340,8 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     }
     if (is_condish(rhs)) {
         IR_t * v = NULL;
-        IR_t * me = pas_mat(cx, rhs, ω, &v);
         IR_t * asn = lower_assign_var(cx, vname, γ, ω);
-        γ_to(v, asn);
+        IR_t * me = pas_mat_rv(cx, rhs, asn, ω, &v);
         ir_operand_push(asn, v);
         *res = asn; return me;
     }
