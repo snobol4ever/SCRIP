@@ -56,10 +56,11 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
         "mov $0x70000000, %%r12\n\t"
         "mov (%%r12), %%r12\n\t"        /* r12 = *RT_DCAP_TOP */
         "xor %%esi, %%esi\n\t"         /* rsi = 0 */
+        "xor %%r14d, %%r14d\n\t"       /* ICN-FR-5: r14=0 → &pos=1 outside any scan (bb_keyword_icon reads r14+1; uninitialized r14 gave &pos=4296041) */
         "jmp *%%rax\n\t"               /* ICN-FR-2: jmp (not call) — ζ-frame kt sized for jmp entry; exits via wire→exit() */
         :
         : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω)
-        : "memory", "rsi", "r8", "r9", "r10", "r11"
+        : "memory", "rsi", "r8", "r9", "r10", "r11", "r14"
     );
 }
 extern DESCR_t      eval_expr(const char *src);
@@ -1269,6 +1270,7 @@ int main(int argc, char **argv)
             /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
             emit_textf("  xor esi, esi\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main needs γ/ω wires in rcx/rdx on entry — the prologue saves them at [rsp+kt-24/-16] for the epilogue's direct read.  Emit two tiny exit-wire thunks (γ=exit(0), ω=exit(1)) and load their RIP-relative addresses before the jmp.  The thunks sit between main: and main_α — unreachable by fall-through (the jmp skips them), reachable only via the wire-return jmp rcx/rdx from main_γ/ω.  R-ZK-A DEFENCE: icn_cells_graph exclusion prevents double-dispatch when both CELLS and ZFRAME are armed (defence-in-depth; lower_icon.c's stamp loop is the primary enforcement site). */
+                emit_textf("  xor r14d, r14d\n");               /* ICN-FR-5: r14=0 → &pos=1 outside any scan (twin of icn_zf_main_call m3 fix) */
                 emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");
