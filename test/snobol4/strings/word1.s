@@ -16,46 +16,21 @@ proc_PAT$0_α_body:
                         mov              qword ptr [rbp + 128], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n0_match_lit_α:
-                        sub              rsp, 112
-                        mov              qword ptr [rsp + 0], 0                         # stmt_claim
-                        mov              qword ptr [rsp + 8], 0
-                        mov              qword ptr [rsp + 16], 0
-                        mov              qword ptr [rsp + 24], 0
-                        mov              qword ptr [rsp + 32], 0
-                        mov              qword ptr [rsp + 40], 0
-                        mov              qword ptr [rsp + 48], 0
-                        mov              qword ptr [rsp + 56], 0
-                        mov              qword ptr [rsp + 64], 0
-                        mov              qword ptr [rsp + 72], 0
-                        mov              qword ptr [rsp + 80], 0
-                        mov              qword ptr [rsp + 88], 0
-                        mov              qword ptr [rsp + 96], 0
-                        mov              qword ptr [rsp + 104], 0
                         mov              eax, r14d
                         add              eax, 5
                         cmp              eax, r15d
-                                                                                        jle   .Lx8_238
-                        add              rsp, 112
-                                                                                        jmp   proc_PAT$0_scanfail
-.Lx8_238:
+                                                                                        jg    proc_PAT$0_scanfail
                         movsxd           rcx, r14d
                         mov              edx, dword ptr [r13+rcx]
                         cmp              edx, 1701344288
-                                                                                        je    .Lx8_239
-                        add              rsp, 112
-                                                                                        jmp   proc_PAT$0_scanfail
-.Lx8_239:
+                                                                                        jne   proc_PAT$0_scanfail
                         movzx            eax, byte ptr [r13+rcx+4]
                         cmp              eax, 32
-                                                                                        je    .Lx8_240
-                        add              rsp, 112
-                                                                                        jmp   proc_PAT$0_scanfail
-.Lx8_240:
+                                                                                        jne   proc_PAT$0_scanfail
                         add              r14d, 5
                                                                                         jmp   n1_match_assign_save_α
 n0_match_lit_β:
                         sub              r14d, 5
-                        add              rsp, 112
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n1_match_assign_save_α:
