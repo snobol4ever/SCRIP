@@ -62,15 +62,21 @@ static inline int inl_ok() { long long o = (long long)_.op_ival; return !_.op_nu
 static inline std::string fc_tail() {
     return x86("mov", "rdi", ZTOS(16)) + x86("mov", "rsi", ZTOS(24)) + x86("mov", "rdx", ZTOS(0)) + x86("mov", "rcx", ZTOS(8))
          + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-         + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival)) + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
-         + x86_zrelease(16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx");
+         + x86("rtcc_wb")
+         + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+         + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
+         + x86_zrelease(16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx")
+         + x86("rtcc_rl");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string inl_tail() {
     return x86("mov", "rdi", FRQ(_.op_sa)) + x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "rdx", FRQ(_.op_sb)) + x86("mov", "rcx", FRQ(_.op_sb + 8))
          + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-         + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival)) + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
-         + x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx");
+         + x86("rtcc_wb")
+         + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+         + x86("cmp", "eax", (long)DT_FAIL) + x86_omega("je")
+         + x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx")
+         + x86("rtcc_rl");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
@@ -83,11 +89,13 @@ std::string bb_binop_arith() {
              + x86("note", ZOPN(1)) + x86("mov", "rdx", ZOPQ(1, 0))
              + x86("note", ZOPN(1)) + x86("mov", "rcx", ZOPQ(1, 8))
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-             + x86("call", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+             + x86("rtcc_wb")
+             + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
              + x86("cmp", "eax", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+             + x86("rtcc_rl")
              + x86_gamma()
              + x86_beta_trampoline();   /* ZD-1 (Lon s21x-v): operands are the producers' suspended cells at STAGED DIFFERENCES (mode 3; adjacency retired -- the two producers may sit at ANY depths), result is the box's own cell (mode 1), and the x86_zrelease(16) pop-shuffle is GONE: cells persist to the statement boundary where op_zgpop/op_wpop restore rsp wholesale.  The conditional omega rides the existing invert+pop synth (own K + planner wpop = statement entry). */
     return IF(_.op_off >= 0 && inl_ok(),

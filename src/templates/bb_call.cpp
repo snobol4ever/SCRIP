@@ -229,9 +229,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         std::string s;
         s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = global VAR NV_GET -> [zr+" + std::to_string(aoff) + "]");
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(lf).sval, b1);
-        s += x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn);
-        s += x86("mov", FRQ(aoff), "rax");
-        s += x86("mov", FRQ(aoff + 8), "rdx");
+        s += x86("call_rt", "NV_GET_fn", (long)aoff, (uint64_t)(uintptr_t)(void *)NV_GET_fn);
         return s;
     }
     {
@@ -358,17 +356,15 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)narg);
-        s += x86("call", "rt_call_arr", fptr);
+        s += x86("rtcc_wb");
+        s += x86("call_bare", "rt_call_arr", fptr);
     }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
-    /* ICN-SCAN-CALL-SYNC (?-less callee): reload the register-world cursor from the global the callee just advanced
-     * (scan_pos -> r14) so subsequent inline scan primitives see the new position. Preserves rax/rdx (the call
-     * result) across the sync so the fail check below is unaffected. Runs on the straight-through path; on the fail
-     * (omega) path the scan builtin left &pos unchanged, so r14 is already correct. */
     if (scansync) s += x86_scan_sync_in_rr_force();
     s += x86("cmp", "eax", (long)DT_FAIL);
     s += x86_omega("je");
+    s += x86("rtcc_rl");
     s += x86_gamma();
     s += x86_beta();
     if (curmov) s += x86("mov", "r14", FRQ(dsave));
@@ -412,16 +408,13 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     s += x86("lea", "rsi", FRQ(argbase));
     s += x86("mov32", "edx", (long)narg);
     s += x86("lea", "rcx", FRQ(genoff));
-    s += x86("call", "rt_call_arr_gen", fptr);
+    s += x86("rtcc_wb");
+    s += x86("call_bare", "rt_call_arr_gen", fptr);
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
-    /* NOTE: intentionally NO sync_in here. Scan builtins dispatched as generators (upto/find/bal/many/any/...) are
-     * read-only w.r.t. &pos — they yield positions but never move the cursor (only tab/move do, and those flow
-     * through the non-generator path). A sync_in would reload r14 from the unchanged scan_pos, rewinding the
-     * register cursor back to this generator's start on every produce and stalling the enclosing scan. The
-     * alpha-only sync_out above is sufficient to seed each fresh evaluation. */
     s += x86("cmp", "eax", (long)DT_FAIL);
     s += x86_omega("je");
+    s += x86("rtcc_rl");
     s += x86_gamma();
     s += x86_beta();
     s += x86("jmp", L(60));

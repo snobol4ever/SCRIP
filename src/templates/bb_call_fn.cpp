@@ -605,12 +605,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)nargs);
-        s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
+        s += x86("rtcc_wb");
+        s += x86("call_bare", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
     }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
     s += x86("cmp", "eax", (long)DT_FAIL);
     s += x86_omega("je");
+    s += x86("rtcc_rl");
     s += x86_gamma();
     s += x86_beta();
     s += x86_omega();

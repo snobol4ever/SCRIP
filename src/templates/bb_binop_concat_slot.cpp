@@ -24,9 +24,11 @@ std::string bb_binop_concat_slot() {
              + x86("note", ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
              + x86("note", ZOPN(1)) + x86("mov", "rdx", ZOPQ(1, 0))
              + x86("note", ZOPN(1)) + x86("mov", "rcx", ZOPQ(1, 8))
-             + x86("call", "str_concat_d", (uint64_t)(uintptr_t)(void*)str_concat_d)
+             + x86("rtcc_wb")
+             + x86("call_bare", "str_concat_d", (uint64_t)(uintptr_t)(void*)str_concat_d)
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+             + x86("rtcc_rl")
              + x86_gamma()
              + x86_beta_trampoline();   /* ZD-2a: the purest clone of bb_binop_arith's ZD arm -- operands are the two producers' suspended cells at the driver-staged differences op_zread[0]/[1] (mode 3), the result is this box's own alpha-carved cell (mode 1), and no release rides the body: cells persist to the statement boundary where op_zgpop/op_wpop restore rsp wholesale.  NO DT_FAIL test and NO omega edge, matching BOTH legacy arms below and the SPITBOL semantics they encode: concatenation propagates failure only from its OPERANDS (manual Ch.4 p.33 "if any function failed, the entire concatenation would fail" -- the LT(N,10) N + 1 idiom), which in the four-port model is the PRODUCER box taking its own omega so this box never runs; the concat operation itself has no failure mode, and a non-string non-pattern operand is an Appendix-D ERROR against &ERRLIMIT, not a statement failure.  str_concat_d stays the sole authority for the type-preserving null-string identity (manual Ch.3 p.22: (20-17) '' is the INTEGER 3, not the string) -- the DESCR pair is handed through unexamined, so the arm must never coerce or shortcut on either operand. */
     return IF(PLATFORM_X86 && bcs_ok(),
@@ -36,9 +38,7 @@ std::string bb_binop_concat_slot() {
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("mov", "rdx", FRQ(_.op_sb))
          + x86("mov", "rcx", FRQ(_.op_sb + 8))
-         + x86("call", "str_concat_d", (uint64_t)(uintptr_t)(void*)str_concat_d)
-         + x86("mov", FRQ(_.op_off),     "rax")
-         + x86("mov", FRQ(_.op_off + 8), "rdx")
+         + x86("call_rt", "str_concat_d", (long)_.op_off, (uint64_t)(uintptr_t)(void*)str_concat_d)
          + x86_gamma()
          + x86_beta_trampoline());
 }
