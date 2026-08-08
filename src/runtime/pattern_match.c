@@ -996,7 +996,7 @@ int cset_has(const char *cv, int clen, unsigned char ch) {
     return cv && clen > 0 && memchr(cv, ch, (size_t)clen) != NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_defer_get_pat_fn(const char *varname, int ival_flag)
+void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag)
 {
     if (varname && varname[0] == '*') {
         extern DESCR_t rt_call_proc_descr(const char *, int);

@@ -162,6 +162,8 @@ void rt_subject_load_nv(const char *name, void *slot);
 long rt_defer_open(const char *varname, int ival_flag);
 long rt_defer_step(DESCR_t fret);
 int  rt_defer_close(int cur_delta);
+void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
+void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag);
 int rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri);
 int rt_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_upcase_atom(int k0, long i0, const char *s0, int k1, long i1, const char *s1);

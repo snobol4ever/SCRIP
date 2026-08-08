@@ -968,5 +968,80 @@ RTX_FUNC(rt_dcap_step)
     ret
 RTX_ENDF(rt_dcap_step)
 
+/*=============================================================================
+ * RTX-8 SLICE N (this session) -- rt_defer_get_pat_fn: NV_GET HOT ARM.
+ *
+ * C OF RECORD: src/runtime/pattern_match.c (renamed c_rt_defer_get_pat_fn).
+ *
+ * SCOPE, STATED HONESTLY: ERADICATION slice (RTX-12), not a speed rung.
+ * No speed number is claimed — the s224 rail refuses every window on this
+ * machine (hugepage bimodality) and the hot window is below the +-3% null
+ * floor.  What this buys: one fewer C frame on 5,500,011 calls per N=500K
+ * run of pattern_bt (2.00x scaling confirmed at N=1K/2K, ARCH 0(d) passed).
+ *
+ * ARMS (from C body, step 0(f-pre) source read):
+ *   ARM BAIL: varname && varname[0]=='*'  -> star-var path touches static
+ *             g_spk/g_spk_n/g_spk_cap/rt_cas_carve — unreferenceable from
+ *             a sibling .S (lowercase b/t in pm_check.o, 0(c) confirmed).
+ *             Bail immediately to c_rt_defer_get_pat_fn; C repeats the test
+ *             harmlessly (idempotent; bail-before-mutate contract holds since
+ *             nothing above the bail writes any state).
+ *   ARM HOT:  else -> NV_GET_fn(varname ?: "") with ival_flag=0.
+ *             The template (bb_match_defer.cpp:77) always passes esi=0
+ *             (xor esi,esi), so the ival_flag branch is dead on the emitted
+ *             path.  If val.v==DT_P and val.p: tail-call dtp_fn_of(val.p).
+ *             Otherwise return NULL (xor eax,eax; ret).
+ *
+ * 0(c) LINKAGE (run on /tmp/pm_check.o, NOT the .so — the .so demotes hidden
+ * to local and cannot separate static from hidden):
+ *   NV_GET_fn        U  (external TU)   -> @GOTPCREL MANDATORY
+ *   dtp_fn_of        T  (exported here) -> @GOTPCREL MANDATORY
+ *   g_spk/g_spk_n/g_spk_cap  b (static) -> NOT REFERENCEABLE -> bail arm
+ *   rt_cas_carve              t (static) -> NOT REFERENCEABLE -> bail arm
+ *
+ * DESCR_t layout (16 bytes, SysV 2-register return):
+ *   rax = { .v (u32) | .slen (u32) }   eax = .v tag
+ *   rdx = .p / .s union (8 bytes)
+ *   DT_P = 0x08 (descr.h:52)
+ *
+ * BAIL-BEFORE-MUTATE: the bail test (cmp byte ptr [rdi],42 / je c_*) sits
+ * above .Ldfpf_mutate; nothing above that label writes memory.
+ *
+ * NO SPEED NUMBER CLAIMED.  The 3-arm rail refuses this machine (s224).
+ *===================================================================================================================*/
+RTX_FUNC(rt_defer_get_pat_fn)
+    RTX_GATE(match, c_rt_defer_get_pat_fn)
+    /* ARM BAIL: varname[0]=='*' -> static statics unreachable from .S */
+    test    rdi, rdi                                     /* varname == NULL?                */
+    jz      .Ldfpf_nv                                   /* NULL -> NV_GET with ""          */
+    cmp     byte ptr [rdi], 42                           /* 42 = '*'                        */
+    je      c_rt_defer_get_pat_fn                        /* star-var -> C fallback          */
+.Ldfpf_nv:
+.Ldfpf_mutate:                                           /* ---- NOTHING ABOVE WRITES MEMORY ---- */
+    /* ARM HOT: NV_GET_fn(varname ?: ""), ival_flag=0 (dead on emitted path) */
+    test    rdi, rdi
+    jnz     .Ldfpf_call
+    lea     rdi, [rip + .Ldfpf_empty]                   /* varname==NULL -> ""             */
+.Ldfpf_call:
+    sub     rsp, 8                                       /* realign: entry rsp%16==8        */
+    mov     r10, qword ptr [rip + NV_GET_fn@GOTPCREL]
+    call    r10                                          /* DESCR_t val = NV_GET_fn(varname)*/
+    add     rsp, 8
+    cmp     eax, 8                                       /* DT_P == 0x08                    */
+    jne     .Ldfpf_null
+    test    rdx, rdx                                     /* val.p == NULL?                  */
+    jz      .Ldfpf_null
+    mov     rdi, rdx                                     /* arg: val.p                      */
+    mov     r10, qword ptr [rip + dtp_fn_of@GOTPCREL]
+    jmp     r10                                          /* TAIL CALL: return dtp_fn_of(p)  */
+.Ldfpf_null:
+    xor     eax, eax                                     /* return NULL                     */
+    ret
+RTX_ENDF(rt_defer_get_pat_fn)
+
+.section .rodata
+.Ldfpf_empty: .byte 0                                   /* empty string for NULL varname   */
+.text
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
