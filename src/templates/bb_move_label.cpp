@@ -14,7 +14,7 @@ std::string bb_move_label() {
     if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_move_label: no shared-slot owner (op_off<0)");
     if (!_.lbl_t0) return x86_alpha() + x86_bomb("bb_move_label: resume-target label unresolved (lbl_t0 NULL)");
     /* PL-ZK-4: ZD arm -- push the callee α label (lbl_t1) to g_pl_retry retry stack.  lbl_t1 was staged by the emit.cpp pre-pass when wantb=1 on a pl_cells_graph.  rt_pl_retry_push(addr) is the WAM ALTB-write equivalent (frame-independent LIFO).  The value copy (op_sa -> op_off DESCR pair) is unchanged; only the continuation pointer storage moves from FRQ(op_off+16) to the retry stack so it survives ζ-frame epilogue teardown.  SN4/Icon watermarks: _.op_zres=0 for non-pl_cells graphs by ZK-3 choke suppression -- byte-identical. */
-    if (_.op_zres) {
+    if (_.op_zres && _.lbl_t1_p) {   /* PL-ZK-5A: lbl_t1_p staged only when wantb=1 (choice-point); cut-barrier nodes (wantb=0) leave lbl_t1_p=NULL -- guard prevents null deref on x86_lea_tgt(X86T_TGT1). Non-ZD arm below handles wantb=0 correctly. ONE AUTHORITY: emit.cpp pre-pass line ~2561 sets lbl_t1 only for wantb=1. */
         uint64_t push_fp; { void (*fp)(void *) = rt_pl_retry_push; push_fp = (uint64_t)(uintptr_t)(void *)fp; }
         return x86("comment", "IR_MOVE_LABEL (ZD/cells: push alpha to retry stack)")
              + x86_alpha()
