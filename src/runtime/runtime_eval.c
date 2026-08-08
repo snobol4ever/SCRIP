@@ -90,6 +90,18 @@ __asm__(
 "  movq %rdi, %rax\n"
 "  leaq 1f(%rip), %rcx\n"
 "  movq %rcx, %rdx\n"
+/* RTCC RC-2 INBOUND LOAD (RC-0(d) edge class 1): block→{r10,r11,r8,r9} before the jmp into generated code. */
+/* BLOCK-CANONICAL LAW: a C→generated crossing LOADS the cache.  Gated on g_rtcc_on; GOT-indirect (PIC-safe). */
+/* rax/rcx/rdx carry the live wires and are NOT touched; r10 is the GOT scratch and is overwritten LAST.      */
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 2f\n"
+"  movq g_rtcc_block@GOTPCREL(%rip), %r10\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"2:\n"
 "  jmp *%rax\n"
 "1:\n"
 "  popq %r15\n"
