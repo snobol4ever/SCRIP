@@ -127,9 +127,9 @@ n6_match_arbno_α:
                         mov              dword ptr [rsp + 192], r14d
                         mov              dword ptr [rsp + 196], r14d
                         mov              dword ptr [rsp + 200], 1
-                        mov              rax, qword ptr [rsp + 264]
+                        mov              rax, qword ptr [rsp + 280]
                         mov              qword ptr [rsp + 208], rax
-                        mov              rax, qword ptr [rsp + 272]
+                        mov              rax, qword ptr [rsp + 288]
                         mov              qword ptr [rsp + 216], rax
                         mov              rax, qword ptr [rsp + 240]
                         mov              qword ptr [rsp + 224], rax
@@ -768,9 +768,9 @@ n79_match_arbno_α:
                         mov              dword ptr [rsp + 192], r14d
                         mov              dword ptr [rsp + 196], r14d
                         mov              dword ptr [rsp + 200], 1
-                        mov              rax, qword ptr [rsp + 264]
+                        mov              rax, qword ptr [rsp + 280]
                         mov              qword ptr [rsp + 208], rax
-                        mov              rax, qword ptr [rsp + 272]
+                        mov              rax, qword ptr [rsp + 288]
                         mov              qword ptr [rsp + 216], rax
                         mov              rax, qword ptr [rsp + 240]
                         mov              qword ptr [rsp + 224], rax

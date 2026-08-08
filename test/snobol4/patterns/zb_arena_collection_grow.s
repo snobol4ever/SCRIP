@@ -232,9 +232,9 @@ n9_match_arbno_α:
                         mov              dword ptr [rsp + 560], r14d
                         mov              dword ptr [rsp + 564], r14d
                         mov              dword ptr [rsp + 568], 1
-                        mov              rax, qword ptr [rsp + 600]
+                        mov              rax, qword ptr [rsp + 616]
                         mov              qword ptr [rsp + 576], rax
-                        mov              rax, qword ptr [rsp + 608]
+                        mov              rax, qword ptr [rsp + 624]
                         mov              qword ptr [rsp + 584], rax
                                                                                         jmp   n10_lit_integer_α
 n9_match_arbno_β:
