@@ -210,7 +210,7 @@ n12_match_begin_af:
                                                                                         jmp   n11_coerce_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n13_match_pos_α:
-                        mov              rax, qword ptr [rsp + 72]
+                        mov              rax, qword ptr [rsp + 312]
                         cmp              r14d, eax
                                                                                         jne   n12_match_begin_β
                                                                                         jmp   n14_match_assign_save_α
@@ -223,7 +223,6 @@ n14_match_assign_save_α:
                                                                                         jmp   n15_match_lit_α
 n14_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 352
                                                                                         jmp   n12_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n15_match_lit_α:

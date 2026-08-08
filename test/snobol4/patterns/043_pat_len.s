@@ -149,7 +149,6 @@ n7_match_assign_save_α:
                                                                                         jmp   n8_match_len_α
 n7_match_assign_save_β:
                         add              rsp, 16
-                        add              rsp, 224
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_len_α:
