@@ -1308,6 +1308,30 @@ void c_rt_gen_spine_resume_enter(void) { rt_k_level++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gen_get_fb(void) { return (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].fb : (void *)0; }   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ICN-FR-4 LAYER 3: pcall-record safe-storage wrappers (rname→caller_rbp, save_Σ→cont_ptr).
+ * rt_proc_epilogue_body returns at line 1144 for c->lex=1 without reading rname/save_Σ/save_Σlen/save_base,
+ * so these four fields are free for Icon generator use across the suspend/resume lifetime.
+ * rname (offset 8)  → caller_rbp: saved in prologue, read in γ/ω epilogue before rbp-restore.
+ * save_Σ (offset 16) → cont_ptr: saved by bb_suspend before each yield, read in β-resume arm.
+ * The caller's C-call stack CAN reach into [generator_rbp..entry_rsp), so saving these in the heap-allocated
+ * pcall record (g_pcall array) is the ONLY safe storage immune to caller stack expansion.
+ * Named c_rt_gen_* — rtx_icngen.S exports the public rt_gen_* symbol and delegates here.
+ * caller_rbp: pcall.rname is set by the prologue (pcall_top>0) and read by the γ epilogue (pcall still live).
+ *   The ω epilogue fires AFTER the pcall is popped by rt_proc_call_epilogue_γ at L(3), so pcall.rname is gone.
+ *   g_gen_pending_caller_rbp caches the value; set by rt_gen_save_caller_rbp; read by both γ and ω epilogues.
+ *   For nested generators this holds the innermost active one's caller_rbp, which is always the one being exited.
+ * cont_ptr: g_gen_pending_cont global (pcall.save_Σ was popped before β-resume reads it). */
+__attribute__((visibility("hidden"))) static void *g_gen_pending_cont = (void *)0;
+__attribute__((visibility("hidden"))) static void *g_gen_pending_caller_rbp = (void *)0;
+__attribute__((visibility("hidden"))) static void *g_gen_pending_gamma_wire = (void *)0;   /* ICN-FR-4: γ-wire saved at prologue; slot [rbp+kt-24]=[entry_rsp-24] is clobbered by epilogue calls */
+__attribute__((visibility("hidden"))) static void *g_gen_pending_omega_wire = (void *)0;   /* ICN-FR-4: ω-wire saved at prologue; slot [rbp+kt-16]=[entry_rsp-16] is clobbered by epilogue calls */
+void c_rt_gen_save_caller_rbp(void *rbp) { g_gen_pending_caller_rbp = rbp; if (g_pcall_top > 0) g_pcall[g_pcall_top - 1].rname = (const char *)rbp; }
+void *c_rt_gen_get_caller_rbp(void) { return g_gen_pending_caller_rbp; }
+void c_rt_gen_save_cont(void *cont) { g_gen_pending_cont = cont; }
+void *c_rt_gen_get_cont(void) { return g_gen_pending_cont; }
+void c_rt_gen_save_wires(void *gw, void *ww) { g_gen_pending_gamma_wire = gw; g_gen_pending_omega_wire = ww; }   /* ICN-FR-4: called from prologue with rcx=γ-wire rsi=ω-wire (both already in regs before pin) */
+void *c_rt_gen_get_gamma_wire(void) { return g_gen_pending_gamma_wire; }
+void *c_rt_gen_get_omega_wire(void) { return g_gen_pending_omega_wire; }/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
 {
     if (IS_FAIL_fn(fret)) return rt_proc_call_epilogue_ω();

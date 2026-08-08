@@ -10,6 +10,11 @@ extern "C" {
 extern "C" void rt_jmp_frame_lexprep(void *, long);   /* NCB-1d: det-lexical jmp-entry prologue tail — NULVCL fill + rt_frame_bind_args on the self-allocated frame (rt.c) */
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);   /* PL-REGAIN-4: lazy-seed tail — NULVCL slot0 + [suffix,region) only, box grants first-write-wins, SCRIP_ZLS_POISON=1 poison lane inside (rt.c) */
 extern "C" void rt_main_args_fetch(void);   /* ICNBENCH-ARGS-RSP: returns the staged main(args) DESCR in rax:rdx (true return type is DESCR_t; declared void here — the template only takes its ADDRESS, the emitted call site honors the real ABI) */
+extern "C" void rt_gen_save_caller_rbp(void *);   /* ICN-FR-4 L3: save caller_rbp to pcall.rname (heap-safe; lex epilogue never reads rname) */
+extern "C" void *rt_gen_get_caller_rbp(void);     /* ICN-FR-4 L3: retrieve caller_rbp from pcall.rname */
+extern "C" void rt_gen_save_wires(void *, void *); /* ICN-FR-4: save γ/ω wires to globals (heap-safe; frame slots clobbered by epilogue calls) */
+extern "C" void *rt_gen_get_gamma_wire(void);     /* ICN-FR-4: retrieve saved γ-wire */
+extern "C" void *rt_gen_get_omega_wire(void);     /* ICN-FR-4: retrieve saved ω-wire */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (PLATFORM_X86) {
@@ -344,10 +349,21 @@ static std::string xa_flat_zframe_prologue_str(void) {
         } else {   /* NORMAL JMP-ENTRY PATH: pcall record was pushed by rt_proc_call_open_det; rt_jmp_frame_lexprep2 reads it */
             uint64_t _lex_fp; { void (*_f)(void *, long, long) = rt_jmp_frame_lexprep2; _lex_fp = (uint64_t)(uintptr_t)(void *)_f; }   /* rt_jmp_frame_lexprep2 declared extern "C" at file scope (line 11) */
             int seed_off = g_emit.flat_seed_off ? g_emit.flat_seed_off : 16;
+            if (g_emit.flat_gen) {   /* ICN-FR-4: save γ+ω wires to globals BEFORE lexprep2 (wires are in frame at [rbp+kt-24/-16]; any call from rsp=entry_rsp can clobber those frame slots on subsequent yields). */
+                uint64_t _sw_fp; { void (*_f)(void *, void *) = rt_gen_save_wires; _sw_fp = (uint64_t)(uintptr_t)(void *)_f; }
+                s += x86("mov", "rdi", RBPRAWQ(kt - 24))   /* γ-wire */
+                   + x86("mov", "rsi", RBPRAWQ(kt - 16))   /* ω-wire */
+                   + x86("call", "rt_gen_save_wires", _sw_fp);
+            }
             s += x86("mov", "rdi", "rbp")
                + x86("mov32", "esi", (long)seed_off)
                + x86("mov32", "edx", (long)(kt - 32))
                + x86("call", "rt_jmp_frame_lexprep2", _lex_fp);
+            if (g_emit.flat_gen) {   /* ICN-FR-4 LAYER 3: save caller_rbp into pcall.rname (safe for lex=1 records; rt_proc_epilogue_body never reads rname on the c->lex branch).  The generator frame [rbp..entry_rsp) is fully exposed to the caller's C-call stack after the first yield, so ANY [rbp+N] slot can be clobbered — only the heap-allocated pcall record is safe.  Called after the pin (rbp=rsp already set) so [rbp+kt-8] holds the valid caller_rbp that the prologue just wrote. */
+                uint64_t _sav_fp; { void (*_f)(void *) = rt_gen_save_caller_rbp; _sav_fp = (uint64_t)(uintptr_t)(void *)_f; }
+                s += x86("mov", "rdi", RBPRAWQ(kt - 8))
+                   + x86("call", "rt_gen_save_caller_rbp", _sav_fp);
+            }
         }
     } else {   /* PL-FR-2 FRAME_RSP ARM: non-lex graphs (Prolog main / outer graphs) have no pcall record; zero-fill the data region with rep stosb so named variables (G0, G1...) start as NULVCL (= DT_SNUL = unbound). Mirrors anchor FRAME_RSP arm (rep stosb + 65544 floor). Harmless for Icon (Icon never stamps non-lex zframe graphs except via dc-stub which has its own path in the stub code above). */
         if (kt > 48) {   /* data region = [rbp+0..rbp+kt-32); floor at 48 has 16B data region which is just slot0 — skip rep stosb for the minimum frame */
@@ -397,23 +413,56 @@ static int xa_flat_class_zf(void) {
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
-    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi (frame0 for rt_proc_call_epilogue_γ on non-dc path); unwind; restore caller rbp; jmp γ wire")
-         + x86("mov", "rdi", "rax")   /* frame0.v — rt_proc_epilogue_body reads frame0 for lex procs; dc-stub shim ignores rdi */
-         + x86("mov", "rsi", "rdx")   /* frame0.i */
+    if (g_emit.flat_gen) {
+        /* ICN-FR-4 LAYER 2+1+3:
+         * L2: yield value is at FRQ(0/8) = [rbp+0/8] (stored by bb_suspend). Load into rdi:rsi for
+         *     frame0 arg to rt_proc_call_epilogue_γ. rax:rdx at jmp proc_g_γ hold the i-field only —
+         *     using them as rdi:rsi loses the v-field (DT_INT=3), yielding garbage to write().
+         * L1+L3: as before — generator_rbp in r14 for L(3); γ/ω wires and caller_rbp from globals. */
+        uint64_t _ggw_fp; { void *(*_f)(void) = rt_gen_get_gamma_wire; _ggw_fp = (uint64_t)(uintptr_t)(void *)_f; }
+        uint64_t _gcr_fp; { void *(*_f)(void) = rt_gen_get_caller_rbp; _gcr_fp = (uint64_t)(uintptr_t)(void *)_f; }
+        return x86("comment", "ICN-FR-4 zframe epilogue-γ: L2 rdi:rsi=FRQ(0/8) yield; r14=gen_rbp; unwind; γ-wire→r15; caller_rbp→rbp; gen_rbp→rax; jmp r15")
+             + x86("mov", "rdi", RBPRAWQ(0))      /* L2: yield v-field from [rbp+0] */
+             + x86("mov", "rsi", RBPRAWQ(8))       /* L2: yield i-field from [rbp+8] */
+             + x86("mov", "r14", "rbp")            /* L1: generator_rbp in r14 */
+             + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+             + x86("call", "rt_gen_get_gamma_wire", _ggw_fp)
+             + x86("mov", "r15", "rax")
+             + x86("call", "rt_gen_get_caller_rbp", _gcr_fp)
+             + x86("mov", "rbp", "rax")
+             + x86("mov", "rax", "r14")            /* L1: generator_rbp → rax for L(3) */
+             + x86("jmp", "r15");
+    }
+    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; restore caller rbp from header; jmp γ wire")
+         + x86("mov", "rdi", "rax")
+         + x86("mov", "rsi", "rdx")
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
-         + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 24) + "]")
-         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
+         + x86("mov", "rcx", RBPRAWQ(kt - 24))
+         + x86("mov", "rbp", RBPRAWQ(kt - 8))
          + x86("jmp", "rcx");
 }
 /* ICN-FR-2: ζ-FRAME EPILOGUE ω (failure port).
- * Same absolute-unwind shape as γ but reads the ω wire from [rbp+kt-16]. */
+ * Same absolute-unwind shape as γ but reads the ω wire from [rbp+kt-16].
+ * ICN-FR-4 LAYER 3: for flat_gen, retrieve caller_rbp from pcall.rname (heap-safe). ω is terminal — no L1.
+ * CRITICAL: load ω-wire into r15 BEFORE lea rsp (see γ epilogue comment for the clobber analysis). */
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
+    if (g_emit.flat_gen) {
+        uint64_t _gow_fp; { void *(*_f)(void) = rt_gen_get_omega_wire; _gow_fp = (uint64_t)(uintptr_t)(void *)_f; }
+        uint64_t _gcr_fp; { void *(*_f)(void) = rt_gen_get_caller_rbp; _gcr_fp = (uint64_t)(uintptr_t)(void *)_f; }
+        return x86("comment", "ICN-FR-4 zframe epilogue-ω generator: lea unwind; get ω-wire→r15; get caller_rbp→rbp; jmp r15")
+             + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
+             + x86("call", "rt_gen_get_omega_wire", _gow_fp)   /* rax = ω-wire from global */
+             + x86("mov", "r15", "rax")
+             + x86("call", "rt_gen_get_caller_rbp", _gcr_fp)   /* rax = caller_rbp */
+             + x86("mov", "rbp", "rax")
+             + x86("jmp", "r15");
+    }
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller rbp; jmp")
          + x86("lea", "rsp", "[rbp + " + std::to_string(kt) + "]")
-         + x86("mov", "rcx", "[rbp + " + std::to_string(kt - 16) + "]")
-         + x86("mov", "rbp", "[rbp + " + std::to_string(kt - 8) + "]")
+         + x86("mov", "rcx", RBPRAWQ(kt - 16))
+         + x86("mov", "rbp", RBPRAWQ(kt - 8))
          + x86("jmp", "rcx");
 }
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
