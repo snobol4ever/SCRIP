@@ -363,13 +363,14 @@ n27_match_begin_α:
                         mov              qword ptr [rsp + 200], 0
                         mov              rdi, qword ptr [rsp + 224]                     # var
                         mov              rsi, qword ptr [rsp + 232]
+                        mov              qword ptr [rsp + 152], rbp                     # old_rbp
+                        mov              rbp, rsp                                       # stmt_base
                         mov              qword ptr [rbp + 160], r13                     # outer_Σ
                         mov              qword ptr [rbp + 168], r14                     # outer_δ
                         mov              qword ptr [rbp + 176], r15                     # outer_Δ
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rbp + 184], rax                     # cap_gen
-                        mov              qword ptr [rbp + 152], rbp                     # old_rbp
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -499,6 +500,7 @@ n31_match_end_α:
                         test             rax, rax
                                                                                         jne   .Lx72_9
                         mov              rsp, qword ptr [rbp + 128]
+                        sub              rsp, 16
                         push             r14
                         push             r15
                         push             r13
@@ -546,10 +548,10 @@ n31_match_end_α:
                         mov              rsi, r15                                       # len
                         mov              rdx, qword ptr [rbp + 184]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
-                        mov              rbp, qword ptr [rbp + 152]                     # old_rbp
                                                                                         jmp   n32_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n32_statement_end_α:
+                        mov              rbp, qword ptr [rbp + 152]                     # old_rbp
                         add              rsp, 256
                                                                                         jmp   n33_statement_begin_α
 #=======================================================================================================================
