@@ -9,6 +9,8 @@
 #include "zeta_choices.h"
 #include "pin_va.h"
 extern "C" {
+extern uint64_t g_rtcc_block[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
+extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 0=OFF(default), 1=ON(SCRIP_RTCC=1) */
 }
 #ifndef _
 #define _ g_emit
@@ -259,17 +261,56 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
     return x86_align_assert() + std::string(" call ") + sym + "@PLT\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* x86_rtcc_call — RC-1 RTCC veneer encoder.  KILLSWITCH LAW: when SCRIP_RTCC=0 (default) this emits the                                                                                             */
-/* IDENTICAL byte sequence as a bare x86_call_ro — the branch on g_rtcc_on is a RUNTIME test, not compile-time,                                                                                       */
-/* so the BINARY emitted is byte-identical to the pre-RTCC tree at gate OFF (md5 identity holds).                                                                                                      */
-/* When SCRIP_RTCC=1: emits WRITEBACK (push 9 GPR slots to g_rtcc_block) → call → RELOAD (pop).                                                                                                       */
-/* RC-1 emits the block address as a RIP-relative lea; the writeback/reload asm is in rtcc_veneer.h (inc).                                                                                             */
-/* RC-2 will promote the SCRATCH TIER regs; RC-4 the ARG TIER.  At RC-1 the block exists and the arm is live                                                                                           */
-/* but carries ZERO claimed registers — a poisoned block under SCRIP_RTCC=1 crashes the RC-1 witness.            */
+/* x86_rtcc_call — RC-2 RTCC veneer encoder.  KILLSWITCH LAW: when g_rtcc_on==0 (SCRIP_RTCC unset/0 at                                                                                               */
+/* scrip-run time) this emits the IDENTICAL byte sequence as a bare x86_call_ro (byte-identical gate).           */
+/* When g_rtcc_on==1 (SCRIP_RTCC=1): emits SCRATCH TIER writeback → call → reload.                              */
+/* SCRATCH TIER (RC-2): {R10 R11 R8 R9}.  ARG TIER {RAX RCX RDX RSI RDI} deferred to RC-4.                     */
+/* BINARY writeback: push r11; movabs r11,block; mov[r11+56],r10; mov[r11+40],r8; mov[r11+48],r9;               */
+/*   pop[r11+64] (saves old r11 directly into block slot — no spill to stack beyond the one push).               */
+/* BINARY reload:   movabs r11,block; mov r10,[r11+56]; mov r8,[r11+40]; mov r9,[r11+48]; mov r11,[r11+64].      */
+/* TEXT: gas .intel_syntax equivalents using GOT-indirect base via r11.                                           */
+/* SLOT OFFSETS (8B each): R8=slot5=40, R9=slot6=48, R10=slot7=56, R11=slot8=64 (matches rtcc.h).               */
+/* PER-SYMBOL STAGING EXCEPTIONS (r8/r9-arg calls per RC-0(b) registry — 5 symbols): those symbols              */
+/* receive their 5th/6th SysV args in r8/r9; the writeback clears those slots BEFORE arg staging, so             */
+/* the veneer correctly spills whatever was in r8/r9 as VM state, and the caller's arg-staging code              */
+/* (emitted AFTER this call site) overwrites r8/r9 with the actual arguments.  No per-symbol exception           */
+/* is needed at RC-2 because {R8 R9} are not used as VM globals yet — they are saved/restored but carry          */
+/* no VM-meaningful value until assigned by RC-5.  Registry marks them for RC-4 arg-tier re-plumb.               */
 inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
-    /* RC-1: gate is a RUNTIME byte, not a template branch — binary is identical in both gate states.            */
-    /* The veneer asm is NOT YET WIRED (RC-2 wires it); for RC-1 this is structurally x86_call_ro.              */
-    return x86_call_ro(sym, ptr);
+    if (!g_rtcc_on) return x86_call_ro(sym, ptr);   /* KILLSWITCH: gate OFF → byte-identical to pre-RTCC */
+    uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+    if (MEDIUM_BINARY) {
+        std::string wb, rl;
+        /* WRITEBACK: push r11; movabs r11,block; save r10/r8/r9 via r11; pop [r11+64] */
+        wb += (char)0x41; wb += (char)0x53;                              /* push r11 */
+        wb += (char)0x49; wb += (char)0xBB; wb += u64le(block);         /* movabs r11, block */
+        wb += (char)0x4D; wb += (char)0x89; wb += (char)0x53; wb += (char)56; /* mov [r11+56], r10 */
+        wb += (char)0x4D; wb += (char)0x89; wb += (char)0x43; wb += (char)40; /* mov [r11+40], r8  */
+        wb += (char)0x4D; wb += (char)0x89; wb += (char)0x4B; wb += (char)48; /* mov [r11+48], r9  */
+        wb += (char)0x41; wb += (char)0x8F; wb += (char)0x43; wb += (char)64; /* pop qword[r11+64] */
+        /* RELOAD: movabs r11,block; restore r10/r8/r9; restore r11 last */
+        rl += (char)0x49; rl += (char)0xBB; rl += u64le(block);         /* movabs r11, block */
+        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x53; rl += (char)56; /* mov r10, [r11+56] */
+        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x43; rl += (char)40; /* mov r8,  [r11+40] */
+        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x4B; rl += (char)48; /* mov r9,  [r11+48] */
+        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x5B; rl += (char)64; /* mov r11, [r11+64] */
+        std::string call_bytes; call_bytes += (char)0x48; call_bytes += (char)0xB8; call_bytes += u64le(ptr); call_bytes += (char)0xFF; call_bytes += (char)0xD0; /* movabs rax,ptr; call rax — RAX not yet claimed (ARG TIER RC-4); R11 already restored by reload */
+        return x86_align_assert() + x86_Lrec(wb) + x86_Lrec(call_bytes) + x86_Lrec(rl);
+    }
+    /* TEXT mode: gas .intel_syntax; use GOT ptr into r11, then disp-based stores/loads */
+    std::string wb_t, rl_t;
+    wb_t += " push r11\n";
+    wb_t += " mov r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
+    wb_t += " mov qword ptr [r11 + 56], r10\n";
+    wb_t += " mov qword ptr [r11 + 40], r8\n";
+    wb_t += " mov qword ptr [r11 + 48], r9\n";
+    wb_t += " pop qword ptr [r11 + 64]\n";
+    rl_t += " mov r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
+    rl_t += " mov r10, qword ptr [r11 + 56]\n";
+    rl_t += " mov r8,  qword ptr [r11 + 40]\n";
+    rl_t += " mov r9,  qword ptr [r11 + 48]\n";
+    rl_t += " mov r11, qword ptr [r11 + 64]\n";
+    return x86_align_assert() + wb_t + " call " + sym + "@PLT\n" + rl_t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {

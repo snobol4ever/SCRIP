@@ -26,5 +26,11 @@ void rtcc_gc_register(void) { rt_gc_root_pin_add((const char *)&g_rtcc_block[0])
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Coexpr block-swap (Option B): called from scrip_coswitch at save and restore sites.                                                                                                                */
 /* When g_rtcc_on==0 these are no-ops; the coswitch path is unchanged.                                                                                                                                */
+/* rtcc_load_scratch — RC-2 INBOUND LOAD at every C→generated edge (RC-0(d) edge classes 1-5).                                                                                                        */
+/* BLOCK-CANONICAL LAW: registers are a cache valid only inside generated code; a C→generated crossing LOADS.                                                                                          */
+/* The four scratch-tier registers are clobbered by this asm on purpose — that IS the load.  gcc is told so.                                                                                           */
+/* At g_rtcc_on==0 this returns without touching a register (killswitch: the caller's regs are untouched).                                                                                             */
+void rtcc_load_scratch(void) { if (!g_rtcc_on) return; __asm__ __volatile__ ("movq %0, %%r10\n\tmovq %1, %%r11\n\tmovq %2, %%r8\n\tmovq %3, %%r9\n" : : "m"(g_rtcc_block[RTCC_SLOT_R10]), "m"(g_rtcc_block[RTCC_SLOT_R11]), "m"(g_rtcc_block[RTCC_SLOT_R8]), "m"(g_rtcc_block[RTCC_SLOT_R9]) : "r8", "r9", "r10", "r11"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rtcc_coexpr_save(uint64_t *dst_256) { if (!g_rtcc_on) return; memcpy(dst_256, g_rtcc_block, RTCC_BLOCK_BYTES); }
 void rtcc_coexpr_restore(const uint64_t *src_256) { if (!g_rtcc_on) return; memcpy(g_rtcc_block, src_256, RTCC_BLOCK_BYTES); }
