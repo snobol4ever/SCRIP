@@ -391,8 +391,7 @@ RTX_FUNC(rt_match_ctx_restore)
     mov     qword ptr [r10], rdi                        /* Σ = (const char *)sig                        */
     mov     r10, qword ptr [rip + Σlen@GOTPCREL]     /* &Σlen                                     */
     mov     dword ptr [r10], esi                        /* Σlen = (int)len          -- 4-byte store   */
-    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]   /* &g_cap_gen                                    */
-    mov     dword ptr [r10], edx                        /* g_cap_gen = (uint32_t)capgen -- 4-byte store  */
+    /* CAPGEN-ERAD (Lon 2026-08-08): g_cap_gen store DELETED -- CAS-regime scoping is structural (R12 LIFO); rdx no longer staged by either caller */
     ret
 RTX_ENDF(rt_match_ctx_restore)
 
