@@ -781,17 +781,7 @@ argument:
     ;
 assignment:
     selector BECOMES expression
-        { int _fnsel = ($1 && $1->t == TT_FNC && $1->n == 1 && $1->c[0] && $1->c[0]->t == TT_VAR && $1->c[0]->v.sval);
-          if ($1 && ($1->t == TT_VAR || _fnsel) && pas_is_rel($3)) {
-              tree_t *e = ast_node_new(TT_IF);
-              ast_push(e, $3);
-              ast_push(e, mk_assign($1, ilit(1)));
-              tree_t *s2;
-              if (_fnsel) { s2 = ast_node_new(TT_FNC); ast_push(s2, leaf_s(TT_VAR, $1->c[0]->v.sval)); }
-              else s2 = leaf_s(TT_VAR, $1->v.sval);
-              ast_push(e, mk_assign(s2, ilit(0)));
-              $$ = e;
-          } else if ($1 && $1->t == TT_VAR && $1->v.sval && pas_is_chararr($1->v.sval) && $3 && $3->t == TT_QLIT && $3->v.sval) {
+        { if ($1 && $1->t == TT_VAR && $1->v.sval && pas_is_chararr($1->v.sval) && $3 && $3->t == TT_QLIT && $3->v.sval) {
               long long _cah; if (!pas_array_high_get($1->v.sval, &_cah)) _cah = (long long)strlen($3->v.sval);
               $$ = mk_assign($1, pas_str_to_alpha($3->v.sval, pas_chararr_lo($1->v.sval), _cah));
           } else if ($1 && $1->t == TT_IDX && $1->n == 2 && $1->c[0] && $1->c[0]->t == TT_VAR && $1->c[0]->v.sval && pas_is_strarr($1->c[0]->v.sval) && $3 && $3->t == TT_QLIT && $3->v.sval) {
