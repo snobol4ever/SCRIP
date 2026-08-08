@@ -1615,6 +1615,7 @@ int main(int argc, char **argv)
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
             { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
+            { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP (PL-ZFRAME-RESTORE s9): gc_static_segs_init must run from a C frame with guaranteed-aligned RSP before any JIT blob calls rt_plj_alloc; dl_iterate_phdr's movaps SEGVs when called from inside JIT code whose zframe prologue is absent (derive/divide10/log10/ops8/times10 were all killed by this). */
             if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main — supply γ/ω exit wires in rcx/rdx before entering the graph.  R-ZK-A DEFENCE: cells-arm graphs (icn_cells_graph=1) use rt_outer_call — they establish their own rbp pin via GLUE-O enter and restore via `mov rsp,rbp; pop rbp`; passing rcx/rdx wires they never read would corrupt the FORTH spine depth at entry. */
                 icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, (void *)icn_zf_exit_ω);
             } else
@@ -1711,6 +1712,7 @@ int main(int argc, char **argv)
                     if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
                     if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP */
                     { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20) */
+                    { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP twin */
                     { extern void rt_outer_call(bb_box_fn, void *, long); rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): twin of the primary mode-3 entry above */
                     { extern int g_gva_active; g_gva_active = 0; } goto run_done;
                 }
