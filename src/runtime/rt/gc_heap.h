@@ -30,6 +30,7 @@
 typedef struct rt_hblk_t { uint64_t fwd; uint32_t size; uint16_t type; uint16_t flags; } rt_hblk_t;
 struct DESCR_t;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
+void  rt_gcheap_warmup(void);   /* W1-GC-WARMUP: drive gc_static_segs_init from a C frame before JIT entry (dl_iterate_phdr movaps requires aligned RSP) */
 char *rt_str_alloc(long n);
 char *rt_str_dup(const char *s);
 void  rt_sxt_gva_count(int n);

@@ -548,6 +548,12 @@ static void gc_static_segs_init(void)
     dl_iterate_phdr(gc_phdr_cb, (void *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gcheap_warmup(void)
+{
+    /* W1-GC-WARMUP (PL-ZFRAME-RESTORE s9): drive gc_static_segs_init from a proper C frame BEFORE any JIT blob runs.  dl_iterate_phdr uses movaps internally (SSE/AVX) and requires 16-byte RSP alignment; inside JIT-emitted code whose zframe prologue was deleted, alignment at the first rt_plj_alloc call is not guaranteed — SEGV in dl_iterate_phdr was the whole-bench killer for derive/divide10/log10/ops8/times10 (all structure-building programs).  Called from scrip.c before rt_outer_call/icn_zf_main_call so the census runs with a guaranteed-aligned C stack.  The g_gc_nseg >= 0 guard in gc_static_segs_init makes this idempotent. */
+    gc_static_segs_init();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_stack_region(char **lo, char **hi)
 {
     FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;
