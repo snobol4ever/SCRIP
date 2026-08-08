@@ -5,7 +5,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 RC=0
-for T in src/runtime/rtx/rtx_unit_test.c src/runtime/rtx/rtx_alloc_test.c src/runtime/rtx/rtx_str_test.c src/runtime/rtx/rtx_varval_test.c; do
+for T in src/runtime/rtx/rtx_unit_test.c src/runtime/rtx/rtx_alloc_test.c src/runtime/rtx/rtx_str_test.c src/runtime/rtx/rtx_varval_test.c src/runtime/rtx/rtx_call_test.c; do
   [ -f "$T" ] || continue
   B="/tmp/$(basename "$T" .c)"
   gcc -O0 -g -w -Isrc -Isrc/contracts -Isrc/runtime/rt -o "$B" "$T" \

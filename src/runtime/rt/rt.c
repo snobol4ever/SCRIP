@@ -1076,6 +1076,42 @@ __attribute__((visibility("hidden"))) void rt_pcall_grow(void)
     g_pcall = np; g_pcall_wires = nw; g_pcall_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RTX-4 CALL UNIT BATTERY SUPPORT (rtx_call_test.c) — exported thin accessors so the test can reach hidden globals.  Each does exactly one thing; no test logic lives here.  rt_pcall_test_push()
+ * writes a synthetic slot (must be called after rt_pcall_grow has ensured capacity) and increments g_pcall_top; rt_pcall_test_pop() decrements it.  rt_pcall_test_wire_get() copies the wire slot at
+ * index idx into *out.  rt_pcall_test_snap_buf() returns &g_flat_ret_snapbuf.  rt_pcall_test_top() reads g_pcall_top.  rt_pcall_test_wire_set() writes all five fields of the wire slot at idx. */
+void rt_pcall_test_push(void *proc_ptr, const char *rname)
+{
+    rt_pcall_grow();
+    int top = g_pcall_top;
+    memset(&g_pcall[top], 0, sizeof(rt_pcall_t));
+    g_pcall[top].p     = (rt_proc_t *)proc_ptr;
+    g_pcall[top].rname = rname;
+    g_pcall_top = top + 1;
+}
+void rt_pcall_test_pop(void) { if (g_pcall_top > 0) g_pcall_top--; }
+int  rt_pcall_test_top(void) { return g_pcall_top; }
+void rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *rbp, void *r12)
+{
+    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) return;
+    g_pcall_wires[idx].gw = gw; g_pcall_wires[idx].ww = ww; g_pcall_wires[idx].rsp = rsp; g_pcall_wires[idx].rbp = rbp; g_pcall_wires[idx].r12 = r12;
+}
+void rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **rbp, void **r12)
+{
+    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) { *gw=*ww=*rsp=*rbp=*r12=(void*)0; return; }
+    *gw=g_pcall_wires[idx].gw; *ww=g_pcall_wires[idx].ww; *rsp=g_pcall_wires[idx].rsp; *rbp=g_pcall_wires[idx].rbp; *r12=g_pcall_wires[idx].r12;
+}
+void *rt_pcall_test_snap_buf(void) { return (void *)&g_flat_ret_snapbuf; }
+void  rt_pcall_test_snap_buf_set_all(unsigned char v) { memset(&g_flat_ret_snapbuf, v, sizeof(rt_flat_wires_t)); }
+void  rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **rbp, void **r12)
+{
+    *gw=g_flat_ret_snapbuf.gw; *ww=g_flat_ret_snapbuf.ww; *rsp=g_flat_ret_snapbuf.rsp; *rbp=g_flat_ret_snapbuf.rbp; *r12=g_flat_ret_snapbuf.r12;
+}
+void rt_pcall_test_wire_null_set(void)
+{
+    if (!g_pcall_wires || g_pcall_top <= 0) return;
+    memset(&g_pcall_wires[g_pcall_top - 1], 0, sizeof(rt_flat_wires_t));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SN4-FLAT-PROC leaves.  wire_adopt: the stub blob's WIRE-ADOPT box calls here right after the jmp-entry prologue — copy the just-saved header wires plus the restore state into the record the open
  * pushed one call boundary up (LIFO: the top record IS this activation's).  Guard top==0: a blob entered with no open activation (LBL__/CODE chain-enter) has nothing to adopt into and nothing will
  * ever peek — a silent no-op is correct there because such an entry's RETURN legitimately belongs to the ENCLOSING open call, whose own adopt already filled the top record.  ret_snap: the floaters
