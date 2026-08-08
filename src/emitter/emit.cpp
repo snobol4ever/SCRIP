@@ -2274,7 +2274,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c)->op == IR_CREATE && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
         if ((c)->op == IR_SUSPEND && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
         if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KEYWORD_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c)->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
-        if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN || (c)->op == IR_ACTIVATE) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
+        if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN || (c)->op == IR_ACTIVATE || (c)->op == IR_TO || (c)->op == IR_TO_BY) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         (void)0;
     /* THE ONE WALK, run twice.  Drains the stack in two-phase post-order: an EXPAND pop discovers the node,
@@ -2305,9 +2305,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH();
     { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
       if (g_emit_cfg && (!g_is_text || entry == g_emit_cfg->entry)) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }
-    /* pass 2: generator ω tails not reached by pass 1 (same logic as prior second BFS pass) */
-    for (int i = 0; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node && !RPO_VISITED(nodes[i]->ω.node)) RPO_PUSH(nodes[i]->ω.node);
-    RPO_DRAIN(); RPO_FLUSH();
+    /* pass 2: generator ω tails not reached by pass 1 -- iterate to convergence (the RPO refactor
+     * made this a one-shot loop over nodes[0..n-1], missing ω-tails of generators added BY pass-2
+     * itself; chained every-loops: n3/IR_TO_BY ω→n5 adds n5..n9 incl n8/IR_TO_BY, whose ω→n10
+     * was never checked because the loop already ended at the pass-1 n; BFS anchor pushed generator
+     * ω-tails mid-drain and was naturally iterative -- reproduce that by re-scanning until stable) */
+    { int _p2_base = 0; do { int _p2_added = 0; for (int i = _p2_base; i < n; i++) if (ir_is_generator_kind(nodes[i]->op) && nodes[i]->ω.node && !RPO_VISITED(nodes[i]->ω.node)) { RPO_PUSH(nodes[i]->ω.node); _p2_added = 1; } _p2_base = n; RPO_DRAIN(); RPO_FLUSH(); if (!_p2_added) break; } while (1); }
 #undef RPO_FLUSH
 #undef RPO_DRAIN
 #undef RPO_PUSH_SUCCS
