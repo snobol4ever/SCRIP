@@ -17,6 +17,7 @@ extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" long zvo_owner_dout(int cur_head);
 #include "x86_asm.h"
 #define rfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0)
+#define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)   /* M-2: mirrors bb_match_begin's hfc() -- true when MATCH_BEGIN allocated the 80B hfc sentinel+PATCTX region */
 #define stfh() (_.flat_stmt_frame)
 static const char * HKQ(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rbp + %d]", -48 + 8 * k); return b[i]; }   /* SUBJ-ARM-2: the head's statement-bracket rbp housekeeping slots (bb_match_begin.cpp twin, same k map: 0=deep-rbp 1=r13 2=r14 3=r15 4=capgen) -- RELEASE runs inside the SAME bracket, so [rbp-48+8k] is depth-free at the post-unwind read exactly as at the head's alpha write */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -59,13 +60,15 @@ static std::string release_pump() {
          + x86_anchor_leave()
          + x86_xfer_leave()
          + x86("note", "cas_mark") + x86("sub", "r12", (long)24)   /* ⭐ W-1c.3 NO-SCAN L(6): post-pump LIFO arithmetic -- pump has consumed every entry via rt_dcap_step; nested matches inside pumped assignments push balanced markers so r12 returns at top callee-saved; one sub lands on the marker, assignment IS the wholesale pop. L(5) above is the structural scan (range-locator before pump runs, count runtime-variable); it is the only real scan left in this template. */
-         + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten. */
+         + IF(hfc() && x86_zc_frame() == ZC_FRAME_RSP, x86_zclaim(80))   /* M-2 PATCTX-DESCENT (success path): cas restore landed at pre-sub VAR level; re-enter 80B hfc slot zone so FRQ(op_off+48..72) resolves to the bytes the saves wrote; add rsp,80 below undoes this before gamma */
+         + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten.  M-2: with cas_rsp_mark=pre-sub, sub rsp,80 above re-establishes the slot base. */
          + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror; CAPGEN-ERAD: arg3 dropped, restore no longer writes g_cap_gen */
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + x86("mov", "rbp", stfh() ? HKQ(0) : FRQ(_.op_off + 40)))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead -- see bb_match_begin's twin gate for the measured reason. */
+         + IF(hfc() && x86_zc_frame() == ZC_FRAME_RSP, x86_zrelease(80))   /* M-2 PATCTX-ASCENT (success path): exit hfc slot zone; rsp back at pre-sub VAR level; ZD gpop at STATEMENT_END releases VAR+spine-cells correctly */
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
