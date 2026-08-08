@@ -174,10 +174,10 @@ n6_match_arbno_β:
                         mov              qword ptr [rsp + 224], rax
                                                                                         jmp   n16_match_lit_α
 n6_match_arbno_as:
-                        mov              eax, dword ptr [rsp + 192]
+                        mov              eax, dword ptr [rbp + -80]
                         cmp              r14d, eax
                                                                                         je    n16_match_lit_β
-                        mov              dword ptr [rsp + 196], r14d
+                        mov              dword ptr [rbp + -76], r14d
                                                                                         jmp   n7_match_assign_cond_α
 n6_match_arbno_af:
                         mov              eax, dword ptr [rsp + 200]
@@ -815,10 +815,10 @@ n79_match_arbno_β:
                         mov              qword ptr [rsp + 224], rax
                                                                                         jmp   n89_match_lit_α
 n79_match_arbno_as:
-                        mov              eax, dword ptr [rsp + 192]
+                        mov              eax, dword ptr [rbp + -80]
                         cmp              r14d, eax
                                                                                         je    n89_match_lit_β
-                        mov              dword ptr [rsp + 196], r14d
+                        mov              dword ptr [rbp + -76], r14d
                                                                                         jmp   n80_match_assign_cond_α
 n79_match_arbno_af:
                         mov              eax, dword ptr [rsp + 200]
