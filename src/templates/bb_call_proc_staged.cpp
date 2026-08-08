@@ -27,6 +27,7 @@ void rt_gen_spine_resume_enter(void);
 void   *rt_gen_get_fb(void);   /* ICN-FR-4: returns generator frame base (pcall.fb) for zframe β-resume dispatch */
 void   *rt_gen_get_cont(void); /* ICN-FR-4 L3: returns saved continuation ptr from pcall.save_Σ (heap-safe) */
 int     zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee resume-slot lookup by name (zeta_storage.c; scans zg[] once per call-site; result baked as immediate) */
+int     zls_g_icn_zframe_gen_by_name(const char *name);   /* ICN-FR-5 BUG1: callee's icn_zframe_gen flag by name — 1 = Icon zframe generator; 0 = Prolog or non-generator (zeta_storage.c) */
 int  rt_proc_is_generator(const char *name);
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
@@ -562,7 +563,7 @@ static std::string bcps_spine_gen_arm() {
      * zframe_graph=0 for all SN4/Prolog/Raku/Pascal graphs by law R-ICN-D — non-zframe generators keep the
      * original push/jmp[rsp] protocol unchanged (byte-identical). */
     int  zf_cont_off = (g_emit.zframe_graph && _.op_sval) ? ([]() { extern int zls_g_resume_by_name(const char *); return zls_g_resume_by_name(_.op_sval); })() : -1;
-    bool zf_resume   = g_emit.zframe_graph && (zf_cont_off >= 0) && g_emit_cfg && g_emit_cfg->icn_zframe_gen;   /* PL-ZD-WINDOW2-FIX: GATED icn_zframe_gen — Prolog zframe generators (flat_gen=1, multi-clause predicates) use the NON-ZFRAME β-resume path (push/jmp[rsp] L(7) protocol), which reads the pcall-spine landing word written by lower_prolog's IR_CALL_PROC_STAGED emission. The ICN-FR-4 zf_resume path reads pcall.save_Σ set by rt_gen_save_cont (bb_suspend), which is also gated on icn_zframe_gen — Prolog flat_gen=1 graphs never set it, so reading it would jump to NULL. */
+    bool zf_resume   = g_emit.zframe_graph && (zf_cont_off >= 0) && zls_g_icn_zframe_gen_by_name(_.op_sval);   /* ICN-FR-5 BUG1 FIX: was g_emit_cfg->icn_zframe_gen (CALLER graph's flag), which is 0 for main() and every non-generator caller — so zf_resume was always false and the non-zframe push/jmp[rsp] path was taken even for Icon zframe generator calls, looping back to L(7) instead of advancing the generator.  The correct discriminator is the CALLEE's icn_zframe_gen, looked up by name: lower_icon.c stamps icn_zframe_gen=1 on the generator proc's own graph (ONE AUTHORITY, line 1424); Prolog graphs also reach bcps_spine_gen_arm (lower_prolog emits IR_SUSPEND, giving them a resume_off >= 0 via zls_g_resume_by_name) but lower_prolog NEVER sets icn_zframe_gen, so zls_g_icn_zframe_gen_by_name returns 0 for them → correct non-zframe Prolog path preserved.  PL-ZD-WINDOW2-FIX intent (gate Prolog flat_gen=1 out of the icn-zframe rt_gen_get_cont path) is still honored by the callee-lookup. */
     /* PL-GENIDX-1 (2026-07-25) — EMIT-TIME-RESOLVED CALLEE FOR THE *GENERATOR* SITE.  PL-REGAIN-1 slice A (s100) gave the DET arm an index-based open (no FNV hash, no strcmp, and the fused leaf returns
      * the fn pointer so the separate rt_proc_open_fn crossing dies).  THE GENERATOR ARM NEVER GOT IT — and every nondet Prolog predicate (`app/3`, `nrev/2`, every multi-clause pred) is dispatched HERE,
      * so the whole Prolog hot corpus was re-hashing its callee's NAME STRING on every one of ~10M calls.  Measured: 6/6 nrev call sites emitted the name path, 0 the index path; rt_proc_fnv +
